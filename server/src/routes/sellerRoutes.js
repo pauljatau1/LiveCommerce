@@ -67,50 +67,6 @@ router.post('/verify-otp', sellerController.verifyOTP);
 
 /**
  * @swagger
- * /api/seller/update-categories:
- *   put:
- *     summary: Update selected categories for a seller
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               categories:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     name:
- *                       type: string
- *                     id:
- *                       type: string
- *                     subCategories:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           name:
- *                             type: string
- *     responses:
- *       200:
- *         description: Categories updated successfully
- *       400:
- *         description: Invalid category IDs provided
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
- */
-router.put('/update-categories', authMiddleware.verifyToken, sellerController.updateCategories);
-
-
-/**
- * @swagger
  * /api/seller/top-products:
  *   get:
  *     summary: Get seller's top 5 selling products

@@ -512,43 +512,6 @@ exports.verifyOTP = async (req, res) => {
   }
 };
 
-exports.updateCategories = async (req, res) => {
-  const { categories } = req.body;
-
-  try {
-    const seller = await Seller.findById(req.user.id);
-    if (!seller) {
-      return res.status(404).json({ message: 'Seller not found' });
-    }
-
-    // Validate and update categories
-    const categoryIds = categories.map(cat => cat.id);
-    const validCategories = await Category.find({ _id: { $in: categoryIds } });
-
-    if (validCategories.length !== categories.length) {
-      return res.status(400).json({ message: 'Invalid category IDs provided' });
-    }
-
-    seller.categories = categories.map(category => ({
-      name: category.name,
-      subCategories: category.subCategories.map(subCategory => ({
-        name: subCategory.name,
-      })),
-    }));
-
-    await seller.save();
-
-    res.json({ message: 'Categories updated successfully', seller });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to update categories', error: error.message });
-  }
-};
-
-
-
-
-
-
 // Get seller's top 5 selling products
 exports.getTopProducts = async (req, res) => {
   try {

@@ -874,6 +874,180 @@ router.post('/select-categories', verifyToken, sellerController.selectCategories
 
 /**
  * @swagger
+ * /api/v2/sellers/update-categories:
+ *   put:
+ *     summary: Update categories for seller
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - categories
+ *             properties:
+ *               categories:
+ *                 type: array
+ *                 description: Array of categories to update
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - id
+ *                     - name
+ *                     - subCategories
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       description: Category ID
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     name:
+ *                       type: string
+ *                       description: Category name
+ *                       example: "Electronics"
+ *                     subCategories:
+ *                       type: array
+ *                       description: Array of sub-categories
+ *                       items:
+ *                         type: object
+ *                         required:
+ *                           - name
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             description: Sub-category name
+ *                             example: "Smartphones"
+ *     responses:
+ *       200:
+ *         description: Categories updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Categories updated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Categories updated successfully"
+ *                     seller:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         firstName:
+ *                           type: string
+ *                           example: "John"
+ *                         lastName:
+ *                           type: string
+ *                           example: "Doe"
+ *                         email:
+ *                           type: string
+ *                           example: "seller@example.com"
+ *                         storeName:
+ *                           type: string
+ *                           example: "John's Store"
+ *                         categories:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                                 example: "Electronics"
+ *                               subCategories:
+ *                                 type: array
+ *                                 items:
+ *                                   type: object
+ *                                   properties:
+ *                                     name:
+ *                                       type: string
+ *                                       example: "Smartphones"
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2023-01-01T00:00:00.000Z"
+ *                 pagination:
+ *                   type: null
+ *                   example: null
+ *       422:
+ *         description: Validation error - Invalid input data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "categories"
+ *                       message:
+ *                         type: string
+ *                         example: "Categories are required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized access"
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Seller not found"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
+router.put('/update-categories', verifyToken, sellerController.updateCategories);
+
+/**
+ * @swagger
  * /api/v2/sellers/profile:
  *   get:
  *     summary: Get seller profile information
