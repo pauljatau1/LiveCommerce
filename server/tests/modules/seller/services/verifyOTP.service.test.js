@@ -159,7 +159,7 @@ describe('Verify OTP Service', () => {
       const numericOTP = 1234;
       const mockSellerWithNumericOTP = {
         ...mockSeller,
-        otp: 1234
+        otp: '1234'
       };
       validateVerifyOTPData.mockResolvedValue();
       sellerRepository.findByEmail.mockResolvedValue(mockSellerWithNumericOTP);

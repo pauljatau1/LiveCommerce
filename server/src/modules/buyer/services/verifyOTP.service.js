@@ -228,7 +228,8 @@ async function verifyOTP(email, otp) {
 
   // Step 3: Verify OTP against stored value
   // This ensures the provided OTP matches the stored OTP
-  if (buyer.otp !== otp) {
+  // Convert both to string for type-safe comparison
+  if (buyer.otp !== otp.toString()) {
     throw new ValidationError([{ field: 'otp', message: 'Invalid OTP' }]);
   }
 
