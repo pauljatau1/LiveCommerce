@@ -31,8 +31,10 @@ describe('Update Categories Controller', () => {
   let mongoServer;
 
   beforeAll(async () => {
-    // Start in-memory MongoDB instance
-    mongoServer = await MongoMemoryServer.create();
+    // Start in-memory MongoDB with compatible version
+    mongoServer = await MongoMemoryServer.create({
+      binary: { version: '7.0.3' }
+    });
     const mongoUri = mongoServer.getUri();
     
     // Connect to the in-memory database
