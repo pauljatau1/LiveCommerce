@@ -17,6 +17,7 @@ const addBusinessInformationService = require('../services/addBusinessInformatio
 const addShippingWarehouseService = require('../services/addShippingWarehouse.service');
 const uploadStoreAvatarService = require('../services/uploadStoreAvatar.service');
 const uploadStoreBannerService = require('../services/uploadStoreBanner.service');
+const verifyOTPService = require('../services/verifyOTP.service');
 
 /**
  * Register a seller user.
@@ -629,11 +630,60 @@ async function uploadStoreBanner(req, res, next) {
   }
 }
 
+/**
+ * Verify OTP for seller email verification.
+ *
+ * This controller handles the OTP verification HTTP request.
+ * It delegates the verification logic to the service layer and returns the verification result.
+ *
+ * Business Logic:
+ * - Validates email and OTP input data
+ * - Finds seller by email address
+ * - Verifies OTP against stored value
+ * - Updates seller verification status
+ * - Generates JWT token for authentication
+ * - Returns user data and token for immediate access
+ *
+ * Security Features:
+ * - Comprehensive input validation
+ * - Secure OTP comparison
+ * - Account verification status management
+ * - JWT token generation for authenticated access
+ * - Error handling without information leakage
+ *
+ * Response Structure:
+ * - Maintains same structure as original API
+ * - Includes success status, message, user data, and token
+ * - Compatible with existing frontend implementations
+ *
+ * @param {Request} req - Express request object containing email and OTP in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function verifyOTP(req, res, next) {
+  try {
+    // Extract email and OTP from request body
+    const { email, otp } = req.body;
+
+    // Call the service layer to handle OTP verification logic
+    const response = await verifyOTPService.verifyOTP(email, otp);
+
+    // Send success response with exact same structure as original function
+    // Original: { success: true, message: 'Email verified successfully.', user: seller, token }
+    // New v2: { success: true, message: 'Email verified successfully.', data: { success: true, message: 'Email verified successfully.', user: seller, token }, pagination: null }
+    res.success(response, 'Email verified successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
   checkToken,
   resendOTP,
+  verifyOTP,
   getProfile,
   selectAccountType,
   addBankDetails,
