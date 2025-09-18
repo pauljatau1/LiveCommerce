@@ -90,9 +90,46 @@ async function getDistinctBuyersBySeller(sellerId) {
   });
 }
 
+/**
+ * Count orders for a seller with filters.
+ * 
+ * This function provides a simple way to count orders for a seller based on various filters.
+ * It's commonly used for pagination and statistics.
+ *
+ * @param {Object} query - MongoDB query filters for seller orders
+ * @returns {Promise<number>} Count of matching orders
+ */
+async function countOrders(query) {
+  return Order.countDocuments(query);
+}
+
+/**
+ * Find orders for a seller with pagination and filters.
+ * 
+ * This function retrieves orders with support for pagination, sorting, and population
+ * of related data. It's optimized for order listing and management for sellers.
+ *
+ * @param {Object} query - Query object with filters
+ * @param {Object} options - Pagination and sorting options
+ * @param {Object} options.sort - Sorting criteria
+ * @param {number} options.skip - Number of documents to skip
+ * @param {number} options.limit - Number of documents to return
+ * @returns {Promise<Array>} Array of orders with populated data
+ */
+async function findOrders(query, options) {
+  return Order.find(query)
+    .sort(options.sort)
+    .skip(options.skip)
+    .limit(options.limit)
+    .populate('buyer', 'firstName lastName email')
+    .populate('items.product', 'name images price');
+}
+
 module.exports = {
   countOrdersBySeller,
   getTopProductsBySeller,
   countOrdersBySellerWithDateRange,
-  getDistinctBuyersBySeller
+  getDistinctBuyersBySeller,
+  countOrders,
+  findOrders
 };

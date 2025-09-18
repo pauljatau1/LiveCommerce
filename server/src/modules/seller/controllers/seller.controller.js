@@ -22,6 +22,7 @@ const selectCategoriesService = require('../services/selectCategories.service');
 const updateCategoriesService = require('../services/updateCategories.service');
 const getTopProductsService = require('../services/getTopProducts.service');
 const getStatisticsService = require('../services/getStatistics.service');
+const getOrdersService = require('../services/getOrders.service');
 
 /**
  * Register a seller user.
@@ -833,6 +834,62 @@ async function getStatistics(req, res, next) {
   }
 }
 
+/**
+ * Get orders for a seller with filtering and pagination.
+ *
+ * This controller handles the HTTP request for retrieving a seller's orders with
+ * comprehensive filtering, sorting, and pagination capabilities. It provides functionality
+ * to filter orders by status, date range, and other criteria while supporting both
+ * paginated and non-paginated responses.
+ *
+ * The controller extracts the seller ID from the authenticated user and delegates
+ * the business logic to the getOrders service, which handles query building,
+ * filtering, and data retrieval with proper validation and error handling.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} req.user - Authenticated user object
+ * @param {string} req.user.id - Seller ID from JWT token
+ * @param {Object} req.query - Query parameters for filtering and pagination
+ * @param {string} req.query.status - Order status filter (optional)
+ * @param {string} req.query.startDate - Start date filter (optional)
+ * @param {string} req.query.endDate - End date filter (optional)
+ * @param {number} req.query.page - Page number for pagination (optional, default: 1)
+ * @param {number} req.query.limit - Items per page (optional, default: 10)
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ * @returns {Promise<void>} Sends JSON response with orders data
+ * @throws {ValidationError} When seller ID or filter validation fails
+ * @throws {NotFoundException} When seller is not found
+ * @throws {Error} When service operations fail
+ */
+async function getOrders(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+    
+    // Get pagination options from request using service method
+    const pagination = getOrdersService.getPaginationOptions(req);
+    // Get filter options from request using service method
+    const filters = getOrdersService.getFilters(req);
+    
+    let response = {};
+    if (pagination.enabled) {
+      // Use paginated retrieval with combined pagination and filter parameters
+      const params = { ...pagination, filters: filters };
+      response = await getOrdersService.getPaginatedOrders(sellerId, params);
+    } else {
+      // Use non-paginated retrieval with filter parameters only
+      response = await getOrdersService.getOrders(sellerId, filters);
+    }
+    
+    // Send success response with orders data
+    res.success(response, 'Orders retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -857,5 +914,6 @@ module.exports = {
   selectCategories,
   updateCategories,
   getTopProducts,
-  getStatistics
+  getStatistics,
+  getOrders
 };
