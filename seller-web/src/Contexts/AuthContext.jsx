@@ -445,25 +445,25 @@ function AuthProvider({ children }) {
             shutdown()
             dispatch({ type: 'SET_SUBMITTING_OTP', payload: true });
 
-            const response = await axios.post(`${BASE_URL}/seller/verify-otp`, {
+            const response = await axios.post(`${BASE_URL_V2}/sellers/verify-otp`, {
                 email,
                 otp
             });
 
             if (response.status === 200) {
-                console.log(`otp verification response:`, response.data);
+                console.log(`otp verification response:`, response.data.data);
                 dispatch({ type: 'VERIFY_OTP_SUCCESS' });
 
                 // Only after successful verification, set the user as authenticated
-                if (response.data.token) {
+                if (response.data.data.token) {
                     // Set isVerified to true in localStorage
                     localStorage.setItem('sellerToken', JSON.stringify({
-                        data: response.data.token,
+                        data: response.data.data.token,
                     }));
 
-                    if (response.data.user) {
+                    if (response.data.data.user) {
                         // Update the user in localStorage with verified status
-                        const userData = response.data.user;
+                        const userData = response.data.data.user;
                         userData.emailVerified = true; // Add emailVerified flag
                         localStorage.setItem('seller', JSON.stringify(userData));
                         dispatch({ type: 'STORE_SELLER', payload: userData });
@@ -472,7 +472,7 @@ function AuthProvider({ children }) {
                     // Now set authenticated state after verification
                     dispatch({
                         type: 'SET_TOKEN', payload: {
-                            data: response.data.token,
+                            data: response.data.data.token,
                         }
                     });
 
@@ -495,7 +495,7 @@ function AuthProvider({ children }) {
                     // Even if token wasn't in the response, still consider verification successful
                     // This handles the case where the backend returns verification success but no token
                     dispatch({ type: 'VERIFY_OTP_SUCCESS' });
-                    toast.success(response.data.message || 'Email verified successfully');
+                    toast.success(response.data.data.message || response.data.message || 'Email verified successfully');
 
                     // Update email verification status in local storage
                     const sellerData = JSON.parse(localStorage.getItem('seller') || '{}');
@@ -510,8 +510,8 @@ function AuthProvider({ children }) {
             return false;
         } catch (AxiosError) {
             console.log(AxiosError);
-            dispatch({ type: 'VERIFY_OTP_FAILED', payload: AxiosError?.response?.data?.message || 'Verification failed' });
-            toast.error(AxiosError?.response?.data?.message || 'OTP verification failed');
+            dispatch({ type: 'VERIFY_OTP_FAILED', payload: AxiosError?.response?.data?.data?.message || AxiosError?.response?.data?.message || 'Verification failed' });
+            toast.error(AxiosError?.response?.data?.data?.message || 'OTP verification failed');
             return false;
         } finally {
             dispatch({ type: 'SET_SUBMITTING_OTP', payload: false });
@@ -546,8 +546,8 @@ function AuthProvider({ children }) {
             }
         } catch (AxiosError) {
             console.log(AxiosError);
-            dispatch({ type: 'REQUEST_OTP_FAILED', payload: AxiosError?.response?.data?.message });
-            toast.error(AxiosError?.response?.data?.message);
+            dispatch({ type: 'REQUEST_OTP_FAILED', payload: AxiosError?.response?.data?.data?.message || AxiosError?.response?.data?.message });
+            toast.error(AxiosError?.response?.data?.data?.message || AxiosError?.response?.data?.message);
         } finally {
             dispatch({ type: 'SET_RESENDING_OTP', payload: false });
         }
@@ -572,7 +572,7 @@ function AuthProvider({ children }) {
                     // Store minimal data needed for the disabled dialog
                     localStorage.setItem('seller', JSON.stringify(response.data.data.user));
                     localStorage.setItem('sellerToken', JSON.stringify({
-                        data: response.data.token,
+                        data: response.data.data.token,
                         isVerified: false
                     }));
 
@@ -724,9 +724,9 @@ function AuthProvider({ children }) {
             }
         } catch (error) {
             console.log(error);
-            dispatch({ type: 'LOGIN_FAILED', payload: error.response?.data?.message || error.message });
+            dispatch({ type: 'LOGIN_FAILED', payload: error.response?.data?.data?.message || error.response?.data?.message || error.message });
             toast.error('Login failed', {
-                description: error.response?.data?.message || error.message,
+                description: error.response?.data?.data?.message || error.response?.data?.message || error.message,
                 style: {
                     background: '#fff',
                     color: '#17171B',

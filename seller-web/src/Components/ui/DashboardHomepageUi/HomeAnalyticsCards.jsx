@@ -2,7 +2,7 @@ import HomeAnalyticsCard from "./HomeAnalyticsCard";
 import { Skeleton } from "@/Components/ui/skeleton";
 import { useEffect, useState } from "react";
 import ObjectID from "bson-objectid";
-import { BASE_URL } from "@/Constants/Server";
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server";
 import { BiWallet } from "react-icons/bi";
 import { FiShoppingBag, FiBarChart2, FiUserPlus } from "react-icons/fi";
 import { FaStoreAlt } from "react-icons/fa";
@@ -86,9 +86,9 @@ export default function HomeAnalyticsCards() {
   const [isLoading, setIsLoading] = useState(true);
 
   const getSellerAnalytics = async () => {
-    const url = `${BASE_URL}/seller/statistics`;
+    const url = `${BASE_URL_V2}/sellers/statistics`;
     const response = await axios.get(url);
-    return response.data;
+    return response.data.data;
   };
 
   useEffect(() => {

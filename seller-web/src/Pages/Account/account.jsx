@@ -240,7 +240,7 @@ export default function AccountPage() {
 
     try {
       const tokenData = JSON.parse(localStorage.getItem("sellerToken"));
-      const response = await fetch(`${BASE_URL}/seller/profile/avatar`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/profile/avatar`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${tokenData.data}`,
@@ -253,7 +253,7 @@ export default function AccountPage() {
       const data = await response.json();
       setProfile(prev => ({
         ...prev,
-        storeAvatar: data.storeAvatar
+        storeAvatar: data.data.storeAvatar
       }));
 
       toast.dismiss(loadingToast);
@@ -277,7 +277,7 @@ export default function AccountPage() {
 
     try {
       const tokenData = JSON.parse(localStorage.getItem("sellerToken"));
-      const response = await fetch(`${BASE_URL}/seller/profile/banner`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/profile/banner`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${tokenData.data}`,
@@ -290,7 +290,7 @@ export default function AccountPage() {
       const data = await response.json();
       setProfile(prev => ({
         ...prev,
-        storeBanner: data.storeBanner
+        storeBanner: data.data.storeBanner
       }));
 
       toast.dismiss(loadingToast);

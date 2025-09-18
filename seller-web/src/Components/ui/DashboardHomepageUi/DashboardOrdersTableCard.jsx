@@ -13,7 +13,6 @@ import { ShoppingBag, ExternalLink } from "lucide-react";
 import { Badge } from "@/Components/ui/badge";
 import axios from "axios";
 import { BASE_URL } from "@/Constants/Server";
-import Skeleton from "react-loading-skeleton";
 
 function getStatusColor(status) {
   const statusColors = {
