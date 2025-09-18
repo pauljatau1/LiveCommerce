@@ -1,55 +1,36 @@
 /* eslint-disable max-lines-per-function */
 import CustomButton from "@/components/global/button/CustomButton";
-import CheckBox from "@/components/global/check-box";
 import Input from "@/components/global/textInput";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import { icons } from "@/constants";
 import { Link, router, useLocalSearchParams, useNavigation } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import {
-  Image,
-  Keyboard,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
-// import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useDispatch } from "react-redux";
 import { useLoginMutation } from "@/services/auth";
-import {
-  getToken,
-  setPassword,
-  setToken,
-  setUserEmail,
-} from "@/store/features/auth/utils";
+import { setPassword, setUserEmail } from "@/store/features/auth/utils";
 import { signIn, signInAsGuest } from "@/store/features/auth/authSlice";
-import { API_URL } from "@env";
 import { toast } from "@/core/toast";
 import { usePushNotifications } from "@/hooks/useExpoPushToken";
 import LoadingModal from "@/components/global/loading-modal";
-//import { trackEvent } from "@/utils/customerio";
 import { identifyUser, trackEvent } from "@/utils/analytics";
-//import { trackEvent as trackMixpanelEvent } from "@/utils/mixpanel";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // For development debugging
 import { debugAnalytics } from "@/utils/analytics";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
-import { useNavigationState, useRoute } from "@react-navigation/native";
-// import {
-//   GoogleSignin,
-//   isErrorWithCode,
-//   isSuccessResponse,
-// } from "@react-native-google-signin/google-signin";
+import AuqliSecondary from "@/components/global/svgIcons/auqliSecondary";
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  isSuccessResponse,
+} from "@react-native-google-signin/google-signin";
 
-// GoogleSignin.configure({
-//   webClientId:
-//     "95041167196-22r5o9uv5dm7a2nmc0k0hdvsouu01vln.apps.googleusercontent.com",
-//   scopes: ["https://www.googleapis.com/auth/user.phonenumbers.read"],
-// });
+GoogleSignin.configure({
+  webClientId:
+    "95041167196-22r5o9uv5dm7a2nmc0k0hdvsouu01vln.apps.googleusercontent.com",
+  scopes: ["https://www.googleapis.com/auth/user.phonenumbers.read"],
+});
 
 const statusCodes = {
   PLAY_SERVICES_NOT_AVAILABLE: "404",
@@ -231,6 +212,7 @@ const Login = () => {
 
       const result = await login({
         googleToken: googleResponse?.idToken,
+        password: googleResponse?.idToken,
         email: googleResponse?.user?.email,
         firstName:
           googleResponse?.user?.givenName ||
@@ -258,160 +240,167 @@ const Login = () => {
     }
   };
 
-  // const GoogleSignIn = async () => {
-  //   try {
-  //     await GoogleSignin.hasPlayServices();
-  //     const response = await GoogleSignin.signIn();
-  //     if (isSuccessResponse(response)) {
-  //       setState({ userInfo: response.data });
-  //       handleGoogleAuth(response.data);
-  //     } else {
-  //       console.log(response?.data || response);
-  //     }
-  //   } catch (error) {
-  //     if (isErrorWithCode(error)) {
-  //       console.log(error.cause);
+  const GoogleSignIn = async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+      if (isSuccessResponse(response)) {
+        setState({ userInfo: response.data });
+        handleGoogleAuth(response.data);
+      } else {
+        console.log(response?.data || response);
+      }
+    } catch (error) {
+      if (isErrorWithCode(error)) {
+        console.log(error.cause);
 
-  //       switch (error.code) {
-  //         case statusCodes.IN_PROGRESS:
-  //           // operation (eg. sign in) already in progress
-  //           break;
-  //         case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
-  //           // Android only, play services not available or outdated
-  //           break;
-  //         default:
-  //         // some other error happened
-  //       }
-  //     } else {
-  //       // an error that's not related to google sign in occurred
-  //     }
-  //   }
-  // };
+        switch (error.code) {
+          case statusCodes.IN_PROGRESS:
+            // operation (eg. sign in) already in progress
+            break;
+          case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+            // Android only, play services not available or outdated
+            break;
+          default:
+          // some other error happened
+        }
+      } else {
+        // an error that's not related to google sign in occurred
+      }
+    }
+  };
 
   useEffect(() => {}, []);
 
   return (
-    <>
+    <SafeAreaView className="bg-black h-full">
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
-      <SafeAreaView className="bg-black h-full">
-        <KeyboardAvoidingView
-          behavior={"padding"}
-          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+      <KeyboardAvoidingView behavior={"padding"} style={{ flex: 1 }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerClassName="py-[20px]"
         >
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <View className="container h-full w-full justify-between px-[21px]">
-              <View className="w-full">
-                <View className="my-10 items-center  mx-auto">
-                  <Image
-                    source={icons.auqliLogo}
-                    resizeMode="contain"
-                    className="mb-[18px]"
-                    style={{
-                      width: 50,
-                      height: 50,
-                    }}
-                  />
-                  <Text className="mb-2.5 text-center text-xl font-LexendDecaBold text-white">
-                    Welcome back!
-                  </Text>
-                  <Text className="text-center font-LexendDecaMedium text-base text-[#425466]">
-                    Making live shopping a daily experience
-                  </Text>
+          <View className="container h-full w-full justify-between px-[21px]">
+            <Pressable
+              onPress={() => {
+                dispatch(signInAsGuest());
+                router.push("/(root)/(tabs)/blips");
+              }}
+              style={{
+                alignItems: "flex-end",
+              }}
+            >
+              <Text
+                style={{
+                  color: "#ccc",
+                  fontSize: 14,
+                  fontFamily: "LexendDeca",
+                  fontWeight: "300",
+                  letterSpacing: -0.22,
+                }}
+              >
+                Skip
+              </Text>
+            </Pressable>
+            <View className="w-full">
+              <View className="my-10 items-center  mx-auto">
+                <View className="w-[70px] h-[70px] items-center justify-center bg-[#F1F7F3] mb-[18px] rounded-full">
+                  <AuqliSecondary width={"70%"} height={"70%"} />
                 </View>
-                <View className="gap-y-4 rounded-[8px] border border-[#C6C6C640] p-8">
-                  <FormProvider {...methods}>
-                    <Input
-                      name="email"
-                      label="Email"
-                      placeholder="Enter your email"
-                      keyboardType="email-address"
-                      className="!font-LexendDeca"
-                      rules={["required", "email"]}
-                    />
-                    <Input
-                      name="password"
-                      label="Password"
-                      placeholder="Enter your password"
-                      className="!font-LexendDeca"
-                      secureTextEntry
-                      rules={["required"]}
-                    />
-                    <View className="mt-2 w-full flex-row items-center justify-end">
-                      {/* <CheckBox name="remember" label="Remember me" /> */}
-                      <Link href="/(root)/(auth)/forgot-password">
-                        <Text
-                          className="text-sm
-                                    font-LexendDecaBold
-                                    text-primary-100"
-                        >
-                          Forgot password?
-                        </Text>
-                      </Link>
-                    </View>
-                    <CustomButton
-                      title="Log in"
-                      onPress={onSubmit}
-                      className="mb-4 mt-[18px] !rounded !text-white text-sm font-LexendDecaBold"
-                      disabled={isLoading || !isValid}
-                      // loading={isLoading}
-                    >
-                      Log in
-                    </CustomButton>
 
-                    {/* Debug button for Facebook analytics testing - Development only */}
-                    {__DEV__ && (
-                      <CustomButton
-                        title="🔍 Debug Facebook Analytics"
-                        onPress={async () => {
-                          console.log(
-                            "🧪 Starting Facebook Analytics Debug...",
-                          );
-                          await debugAnalytics();
-                        }}
-                        className="mb-4 !rounded border border-yellow-500 !bg-yellow-600 !text-white text-xs font-LexendDecaMedium"
-                      >
-                        🔍 Debug Facebook Analytics
-                      </CustomButton>
-                    )}
-                  </FormProvider>
-                </View>
-              </View>
-              <View className="mx-auto py-12 ">
-                <Text
-                  className="text-center text-lg font-normal text-[#CCCCCC]
-                        font-LexendDecaMedium
-                        "
-                >
-                  Don't have an account?
+                <Text className="mb-2 text-center text-[24px] font-LexendDecaMedium text-white tracking-[-0.22px]">
+                  Welcome back
                 </Text>
-                <Link
-                  href="/(root)/(auth)/sign-up"
-                  className="text-center text-lg font-LexendDecaMedium text-primary-100"
-                >
-                  Sign up
-                </Link>
-                {/* <Text className="text-white font-LexendDeca text-[10px] text-center">
-                  Or
-                </Text> */}
+                <Text className="text-center font-LexendDecaLight text-[#425466] tracking-[-0.22px]">
+                  Making live shopping a daily experience
+                </Text>
+              </View>
+              <View className="gap-y-[16px] w-full">
+                <FormProvider {...methods}>
+                  <Input
+                    name="email"
+                    label="Email"
+                    placeholder="Enter your email"
+                    keyboardType="email-address"
+                    className="!font-LexendDecaLight"
+                    rules={["required", "email"]}
+                  />
+                  <Input
+                    name="password"
+                    label="Password"
+                    placeholder="Enter your password"
+                    className="!font-LexendDecaLight"
+                    secureTextEntry
+                    rules={["required"]}
+                  />
+                  <View className="mt-2 w-full flex-row items-center justify-center">
+                    <Link href="/(root)/(auth)/forgot-password">
+                      <Text
+                        className="text-[14px]
+                                    font-LexendDeca
+                                    text-primary-100 tracking-[-0.22px]"
+                      >
+                        Forgot password?
+                      </Text>
+                    </Link>
+                  </View>
+                  <CustomButton
+                    title="Log in"
+                    onPress={onSubmit}
+                    className="mb-4 mt-[18px] !rounded-[10px] !text-white text-sm h-[50px]"
+                    textStyle="font-LexendDecaMedium tracking-[-0.22px]"
+                    disabled={isLoading || !isValid}
+                    // loading={isLoading}
+                  >
+                    Log in
+                  </CustomButton>
 
-                <Pressable
-                  onPress={() => {
-                    dispatch(signInAsGuest());
-                    router.push("/(root)/(tabs)/blips");
-                  }}
-                  className="self-center  mt-[12px]"
-                >
-                  <Text className="text-center text-[12px] font-LexendDecaMedium text-primary-100">
-                    Continue as Guest
-                  </Text>
-                </Pressable>
+                  {/* Debug button for Facebook analytics testing - Development only */}
+                  {/* {__DEV__ && (
+                    <CustomButton
+                      title="🔍 Debug Facebook Analytics"
+                      onPress={async () => {
+                        console.log("🧪 Starting Facebook Analytics Debug...");
+                        await debugAnalytics();
+                      }}
+                      className="mb-4 !rounded border border-yellow-500 !bg-yellow-600 !text-white text-xs font-LexendDecaMedium"
+                    >
+                      🔍 Debug Facebook Analytics
+                    </CustomButton>
+                  )} */}
+                </FormProvider>
               </View>
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-        <LoadingModal isVisible={isLoading} />
-      </SafeAreaView>
-    </>
+            <View className=" py-12 flex-row items-center justify-center gap-[4px] shrink flex-wrap">
+              <Text
+                className="text-center text-m font-normal text-[#CCCCCC]
+                        font-LexendDeca tracking-[-0.22px]
+                        "
+              >
+                Don't have an account?
+              </Text>
+              <Link
+                href="/(root)/(auth)/sign-up"
+                className="text-center text-md font-LexendDecaMedium text-primary-100 tracking-[-0.22px]"
+              >
+                Sign up
+              </Link>
+            </View>
+            {/* <Pressable
+              onPress={() => {
+                GoogleSignIn();
+              }}
+              className="self-center  mt-[12px]"
+            >
+              <Text className="text-center text-[12px] font-LexendDecaMedium text-primary-100">
+                Google Sign In
+              </Text>
+            </Pressable> */}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+      <LoadingModal isVisible={isLoading} />
+    </SafeAreaView>
   );
 };
 

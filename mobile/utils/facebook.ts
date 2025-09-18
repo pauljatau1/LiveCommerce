@@ -62,11 +62,11 @@ export const safeInitializeFacebook = (
 
   try {
     // Use the hardcoded app ID that matches what's in strings.xml/Info.plist
-    const FB_APP_ID = "1749317145848990";
+    const FB_APP_ID = "641273631998457";
 
     // Only set the app ID without any SDK initialization
     console.log("Setting Facebook App ID:", FB_APP_ID);
-    Settings.setAppID(FB_APP_ID);
+    Settings.setAppID(FB_APP_ID!);
     Settings.setAppName(appName);
     Settings.setAutoLogAppEventsEnabled(autoLogAppEvents);
 

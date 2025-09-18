@@ -554,6 +554,7 @@ const VideoItem = ({
               </Pressable>
             ) : null}
             <Pressable
+              className="w-[31px] h-[31px] rounded-[31px] bg-[#031209] items-center justify-center"
               onPress={() =>
                 router.push({
                   pathname: "/(root)/sellerProfile",
@@ -564,30 +565,36 @@ const VideoItem = ({
                 })
               }
             >
-              <GlassImage
-                source={{ uri: seller?.storeAvatar?.url }}
-                resizeMode="cover"
-                imageStyle={[
-                  {
-                    height: 31,
-                    width: 31,
+              {seller?.storeAvatar?.url ? (
+                <GlassImage
+                  source={{ uri: seller?.storeAvatar?.url }}
+                  resizeMode="cover"
+                  imageStyle={[
+                    {
+                      height: 31,
+                      width: 31,
+                      borderRadius: 31,
+                    },
+                    styles.imageShadow,
+                  ]}
+                  containerStyle={{
                     borderRadius: 31,
-                  },
-                  styles.imageShadow,
-                ]}
-                containerStyle={{
-                  borderRadius: 31,
-                }}
-                glassStyle={{
-                  width: 31,
-                  height: 31,
-                  borderRadius: 31,
-                }}
-                showActivityIndicator={false}
-                placeholderColor="rgba(255, 255, 255, 0.1)"
-                tint="dark"
-                blurIntensity={25}
-              />
+                  }}
+                  glassStyle={{
+                    width: 31,
+                    height: 31,
+                    borderRadius: 31,
+                  }}
+                  showActivityIndicator={false}
+                  placeholderColor="rgba(255, 255, 255, 0.1)"
+                  tint="dark"
+                  blurIntensity={25}
+                />
+              ) : (
+                <Text className="text-[14px] text-white font-LexendDeca capitalize leading-[14px]">
+                  {seller?.storeName?.[0]}
+                </Text>
+              )}
             </Pressable>
 
             <View className="space-between mr-2 shrink">

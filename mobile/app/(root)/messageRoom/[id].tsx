@@ -679,15 +679,24 @@ const MessageRoom = () => {
             />
           </TouchableOpacity>
           <View>
-            <Image
-              source={{ uri: avatar }}
-              contentFit="cover"
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 40,
-              }}
-            />
+            <View className="w-[40px] h-[40px] rounded-full items-center justify-center bg-[#031209] overflow-hidden">
+              {avatar ? (
+                <Image
+                  source={{ uri: avatar }}
+                  contentFit="cover"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: 40,
+                  }}
+                />
+              ) : (
+                <Text className="text-[14px] text-white font-LexendDeca capitalize leading-[14px]">
+                  {name?.[0]}
+                </Text>
+              )}
+            </View>
+
             {isOnline && (
               <View
                 className=" top-[10px] right-[10px] bg-[#16783A] w-[10px] h-[10px] rounded-[50%]"

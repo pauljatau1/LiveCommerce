@@ -1,5 +1,5 @@
-import { AppEventsLogger } from 'react-native-fbsdk-next';
-import { Platform } from 'react-native';
+import { AppEventsLogger } from "react-native-fbsdk-next";
+import { Platform } from "react-native";
 
 /**
  * Facebook App Events Analytics
@@ -12,26 +12,31 @@ import { Platform } from 'react-native';
  */
 export const debugFacebookSDK = async () => {
   try {
-    console.log('🔍 Facebook SDK Debug Info:');
-    console.log('- Platform:', Platform.OS);
-    console.log('- __DEV__:', __DEV__);
-    
+    console.log("🔍 Facebook SDK Debug Info:");
+    console.log("- Platform:", Platform.OS);
+    console.log("- __DEV__:", __DEV__);
+
     // Try to get anonymous ID to verify SDK is working
     const anonymousId = await AppEventsLogger.getAnonymousID();
-    console.log('- Anonymous ID:', anonymousId);
-    
+    console.log("- Anonymous ID:", anonymousId);
+
     // Get user ID if set
     const userId = await AppEventsLogger.getUserID();
-    console.log('- User ID:', userId);
-    
+    console.log("- User ID:", userId);
+
     // Log the Facebook App ID being used
-    console.log('🎯 IMPORTANT: Your events are being sent to Facebook App ID: 1749317145848990');
-    console.log('📍 In Facebook Events Manager, look for a data source with this App ID');
+    console.log(
+      "🎯 IMPORTANT: Your events are being sent to Facebook App ID: ",
+      process.env.FACEBOOK_APP_ID,
+    );
+    console.log(
+      "📍 In Facebook Events Manager, look for a data source with this App ID",
+    );
     console.log('📱 Check "Mobile app" data sources, not just "Pixel" sources');
-    
+
     return { anonymousId, userId };
   } catch (error) {
-    console.error('❌ Facebook SDK Debug Error:', error);
+    console.error("❌ Facebook SDK Debug Error:", error);
     return null;
   }
 };
@@ -42,30 +47,29 @@ export const debugFacebookSDK = async () => {
  * @param properties Event properties/parameters
  */
 export const trackFacebookEvent = (
-  eventName: string, 
-  properties?: Record<string, any>
+  eventName: string,
+  properties?: Record<string, any>,
 ) => {
   try {
-    console.log('🚀 Attempting Facebook event:', {
+    console.log("🚀 Attempting Facebook event:", {
       eventName,
       properties,
       platform: Platform.OS,
-      isDev: __DEV__
+      isDev: __DEV__,
     });
-
 
     AppEventsLogger.logEvent(eventName, properties || {});
 
     console.log(`✅ Facebook event sent: ${eventName}`, properties);
-    
+
     // Force flush in development to ensure events are sent immediately
     if (__DEV__) {
       AppEventsLogger.flush();
-      console.log('🔄 Facebook events flushed (dev mode)');
+      console.log("🔄 Facebook events flushed (dev mode)");
     }
   } catch (error: any) {
     console.error(`❌ Facebook event tracking failed for ${eventName}:`, error);
-    console.error('Stack trace:', error?.stack || 'No stack trace available');
+    console.error("Stack trace:", error?.stack || "No stack trace available");
   }
 };
 
@@ -78,11 +82,14 @@ export const trackFacebookEvent = (
 export const trackFacebookPurchase = (
   purchaseAmount: number,
   currency: string,
-  properties?: Record<string, any>
+  properties?: Record<string, any>,
 ) => {
   try {
     AppEventsLogger.logPurchase(purchaseAmount, currency, properties || {});
-    console.log(`✅ Facebook purchase tracked: ${purchaseAmount} ${currency}`, properties);
+    console.log(
+      `✅ Facebook purchase tracked: ${purchaseAmount} ${currency}`,
+      properties,
+    );
   } catch (error) {
     console.error(`❌ Facebook purchase tracking failed:`, error);
   }
@@ -99,16 +106,16 @@ export const trackFacebookPurchase = (
 export const trackFacebookSearch = (
   searchString: string,
   contentType?: string,
-  success?: boolean
+  success?: boolean,
 ) => {
   const params: Record<string, any> = {
     fb_search_string: searchString,
   };
-  
+
   if (contentType) params.fb_content_type = contentType;
   if (success !== undefined) params.fb_success = success ? 1 : 0;
 
-  trackFacebookEvent('fb_mobile_search', params);
+  trackFacebookEvent("fb_mobile_search", params);
 };
 
 /**
@@ -119,7 +126,7 @@ export const trackFacebookViewContent = (
   contentType: string,
   currency?: string,
   value?: number,
-  description?: string
+  description?: string,
 ) => {
   const params: Record<string, any> = {
     fb_content_id: contentId,
@@ -129,7 +136,7 @@ export const trackFacebookViewContent = (
   if (currency) params.fb_currency = currency;
   if (description) params.fb_description = description;
 
-  trackFacebookEvent('fb_mobile_content_view', params);
+  trackFacebookEvent("fb_mobile_content_view", params);
 };
 
 /**
@@ -140,7 +147,7 @@ export const trackFacebookAddToWishlist = (
   contentType: string,
   currency?: string,
   value?: number,
-  description?: string
+  description?: string,
 ) => {
   const params: Record<string, any> = {
     fb_content_id: contentId,
@@ -150,7 +157,7 @@ export const trackFacebookAddToWishlist = (
   if (currency) params.fb_currency = currency;
   if (description) params.fb_description = description;
 
-  trackFacebookEvent('fb_mobile_add_to_wishlist', params);
+  trackFacebookEvent("fb_mobile_add_to_wishlist", params);
 };
 
 /**
@@ -161,7 +168,7 @@ export const trackFacebookAddToCart = (
   contentType: string,
   currency?: string,
   value?: number,
-  description?: string
+  description?: string,
 ) => {
   const params: Record<string, any> = {
     fb_content_id: contentId,
@@ -171,7 +178,7 @@ export const trackFacebookAddToCart = (
   if (currency) params.fb_currency = currency;
   if (description) params.fb_description = description;
 
-  trackFacebookEvent('fb_mobile_add_to_cart', params);
+  trackFacebookEvent("fb_mobile_add_to_cart", params);
 };
 
 /**
@@ -181,7 +188,7 @@ export const trackFacebookAddPaymentInfo = (success?: boolean) => {
   const params: Record<string, any> = {};
   if (success !== undefined) params.fb_success = success ? 1 : 0;
 
-  trackFacebookEvent('fb_mobile_add_payment_info', params);
+  trackFacebookEvent("fb_mobile_add_payment_info", params);
 };
 
 /**
@@ -193,17 +200,18 @@ export const trackFacebookInitiateCheckout = (
   numItems?: number,
   paymentInfoAvailable?: boolean,
   currency?: string,
-  totalPrice?: number
+  totalPrice?: number,
 ) => {
   const params: Record<string, any> = {};
 
   if (contentId) params.fb_content_id = contentId;
   if (contentType) params.fb_content_type = contentType;
   if (numItems) params.fb_num_items = numItems;
-  if (paymentInfoAvailable !== undefined) params.fb_payment_info_available = paymentInfoAvailable ? 1 : 0;
+  if (paymentInfoAvailable !== undefined)
+    params.fb_payment_info_available = paymentInfoAvailable ? 1 : 0;
   if (currency) params.fb_currency = currency;
 
-  trackFacebookEvent('fb_mobile_initiated_checkout', params);
+  trackFacebookEvent("fb_mobile_initiated_checkout", params);
 };
 
 /**
@@ -211,14 +219,14 @@ export const trackFacebookInitiateCheckout = (
  */
 export const trackFacebookCompleteRegistration = (
   registrationMethod?: string,
-  success?: boolean
+  success?: boolean,
 ) => {
   const params: Record<string, any> = {};
-  
+
   if (registrationMethod) params.fb_registration_method = registrationMethod;
   if (success !== undefined) params.fb_success = success ? 1 : 0;
 
-  trackFacebookEvent('fb_mobile_complete_registration', params);
+  trackFacebookEvent("fb_mobile_complete_registration", params);
 };
 
 /**
@@ -226,11 +234,11 @@ export const trackFacebookCompleteRegistration = (
  */
 export const trackFacebookLogin = (loginMethod?: string, success?: boolean) => {
   const params: Record<string, any> = {};
-  
+
   if (loginMethod) params.fb_login_method = loginMethod;
   if (success !== undefined) params.fb_success = success ? 1 : 0;
 
-  trackFacebookEvent('fb_mobile_login', params);
+  trackFacebookEvent("fb_mobile_login", params);
 };
 
 /**
@@ -239,15 +247,15 @@ export const trackFacebookLogin = (loginMethod?: string, success?: boolean) => {
 export const trackFacebookShare = (
   contentType?: string,
   contentId?: string,
-  method?: string
+  method?: string,
 ) => {
   const params: Record<string, any> = {};
-  
+
   if (contentType) params.fb_content_type = contentType;
   if (contentId) params.fb_content_id = contentId;
   if (method) params.fb_method = method;
 
-  trackFacebookEvent('fb_mobile_share', params);
+  trackFacebookEvent("fb_mobile_share", params);
 };
 
 /**
@@ -256,7 +264,7 @@ export const trackFacebookShare = (
 export const trackFacebookAppActivation = () => {
   // Facebook automatically tracks app activations when autoLogAppEventsEnabled is true
   // But you can also manually track it
-  trackFacebookEvent('fb_mobile_activate_app');
+  trackFacebookEvent("fb_mobile_activate_app");
 };
 
 /**
@@ -303,28 +311,28 @@ export const flushFacebookEvents = () => {
  */
 export const FacebookEvents = {
   // E-commerce events
-  VIEW_CONTENT: 'fb_mobile_content_view',
-  SEARCH: 'fb_mobile_search',
-  ADD_TO_CART: 'fb_mobile_add_to_cart',
-  ADD_TO_WISHLIST: 'fb_mobile_add_to_wishlist',
-  INITIATE_CHECKOUT: 'fb_mobile_initiated_checkout',
-  ADD_PAYMENT_INFO: 'fb_mobile_add_payment_info',
-  PURCHASE: 'fb_mobile_purchase',
-  
+  VIEW_CONTENT: "fb_mobile_content_view",
+  SEARCH: "fb_mobile_search",
+  ADD_TO_CART: "fb_mobile_add_to_cart",
+  ADD_TO_WISHLIST: "fb_mobile_add_to_wishlist",
+  INITIATE_CHECKOUT: "fb_mobile_initiated_checkout",
+  ADD_PAYMENT_INFO: "fb_mobile_add_payment_info",
+  PURCHASE: "fb_mobile_purchase",
+
   // User events
-  COMPLETE_REGISTRATION: 'fb_mobile_complete_registration',
-  LOGIN: 'fb_mobile_login',
-  LOGOUT: 'fb_mobile_logout',
-  
+  COMPLETE_REGISTRATION: "fb_mobile_complete_registration",
+  LOGIN: "fb_mobile_login",
+  LOGOUT: "fb_mobile_logout",
+
   // Engagement events
-  SHARE: 'fb_mobile_share',
-  ACTIVATE_APP: 'fb_mobile_activate_app',
-  TUTORIAL_COMPLETION: 'fb_mobile_tutorial_completion',
-  LEVEL_ACHIEVED: 'fb_mobile_level_achieved',
-  ACHIEVEMENT_UNLOCKED: 'fb_mobile_achievement_unlocked',
-  
+  SHARE: "fb_mobile_share",
+  ACTIVATE_APP: "fb_mobile_activate_app",
+  TUTORIAL_COMPLETION: "fb_mobile_tutorial_completion",
+  LEVEL_ACHIEVED: "fb_mobile_level_achieved",
+  ACHIEVEMENT_UNLOCKED: "fb_mobile_achievement_unlocked",
+
   // Custom events
-  CUSTOM: 'fb_custom_event',
+  CUSTOM: "fb_custom_event",
 } as const;
 
 /**
@@ -332,17 +340,17 @@ export const FacebookEvents = {
  * Standard parameter names for Facebook events
  */
 export const FacebookEventParams = {
-  CONTENT_ID: 'fb_content_id',
-  CONTENT_TYPE: 'fb_content_type',
-  CURRENCY: 'fb_currency',
-  DESCRIPTION: 'fb_description',
-  LEVEL: 'fb_level',
-  MAX_RATING_VALUE: 'fb_max_rating_value',
-  NUM_ITEMS: 'fb_num_items',
-  PAYMENT_INFO_AVAILABLE: 'fb_payment_info_available',
-  REGISTRATION_METHOD: 'fb_registration_method',
-  SEARCH_STRING: 'fb_search_string',
-  SUCCESS: 'fb_success',
-  LOGIN_METHOD: 'fb_login_method',
-  METHOD: 'fb_method',
-} as const; 
+  CONTENT_ID: "fb_content_id",
+  CONTENT_TYPE: "fb_content_type",
+  CURRENCY: "fb_currency",
+  DESCRIPTION: "fb_description",
+  LEVEL: "fb_level",
+  MAX_RATING_VALUE: "fb_max_rating_value",
+  NUM_ITEMS: "fb_num_items",
+  PAYMENT_INFO_AVAILABLE: "fb_payment_info_available",
+  REGISTRATION_METHOD: "fb_registration_method",
+  SEARCH_STRING: "fb_search_string",
+  SUCCESS: "fb_success",
+  LOGIN_METHOD: "fb_login_method",
+  METHOD: "fb_method",
+} as const;

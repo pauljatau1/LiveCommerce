@@ -13,7 +13,7 @@ module.exports = ({ config }) => {
       name: "auqli",
       slug: "auqli-app",
       // slug: "auqli-mobile",
-      version: "1.2.3",
+      version: "1.2.4",
       orientation: "portrait",
       icon: "./assets/images/appstore.png",
       scheme: IS_STAGING ? "auqlistaging" : "auqli",
@@ -156,7 +156,7 @@ module.exports = ({ config }) => {
           {
             appID: `${process.env.FACEBOOK_APP_ID}`,
             clientToken: `${process.env.FACEBOOK_CLIENT_SECRET}`,
-            displayName: "Auqli",
+            displayName: "Auqli Nigeria",
             scheme: "fb" + process.env.FACEBOOK_APP_ID,
             advertiserIDCollectionEnabled: true,
             autoLogAppEventsEnabled: true,

@@ -260,7 +260,7 @@ const Input = ({
     // >
 
     <View>
-      <Text className="mb-[6px] font-LexendDecaMedium text-sm font-medium tracking-wider text-white">
+      <Text className="mb-[12px] font-LexendDecaLight text-[14px] tracking-[-0.22px] text-white">
         {label}
       </Text>
       <View className="relative">
@@ -274,7 +274,10 @@ const Input = ({
           placeholder={placeholder}
           disabled={disabled || readOnly}
           secureTextEntry={isPassword}
-          className={cn("px-4", className)}
+          className={cn(
+            "px-4 !font-LexendDecaLight !tracking-[-0.22px]",
+            className,
+          )}
           style={styles.input}
           outlineColor="#5E5D6F"
           placeholderTextColor="#5E5D6F"
@@ -328,7 +331,7 @@ const Input = ({
         )}
       </View>
       {error?.message && (
-        <Text className="mt-2 text-left font-SfPro text-xs tracking-wider text-red-500">
+        <Text className="mt-2 text-left font-LexendDeca text-[12px] tracking-[-0.24px] text-red-500">
           *{error?.message as string}
         </Text>
       )}
@@ -345,11 +348,12 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     fontSize: 14,
     lineHeight: Platform.OS === "ios" ? 18 : 24,
-    letterSpacing: 0.5,
+    letterSpacing: -0.22,
     height: 50,
   },
   outlineStyle: {
     borderRadius: 10,
+    borderCurve: "continuous",
     // border: 1,
   },
 });

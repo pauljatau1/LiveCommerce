@@ -1,242 +1,247 @@
-import { router } from "expo-router";
-import React, { useRef, useState } from "react";
-import {
-  Image,
-  Text,
-  TouchableOpacity,
-  View,
-  Dimensions,
-  Pressable,
-  StyleSheet,
-  Platform,
-} from "react-native";
+import { View, Image, Text, Dimensions, Pressable } from "react-native";
+import Entypo from "@expo/vector-icons/Entypo";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import React, { useCallback, useEffect, useState } from "react";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
+import Carousel, {
+  ICarouselInstance,
+  Pagination,
+} from "react-native-reanimated-carousel";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Swiper from "react-native-swiper";
-import { icons, onboarding } from "@/constants";
-import CustomButton from "@/components/global/button/CustomButton";
+import AnimatedButton from "@/components/Primitives/Buttons/animatedButton";
+import { useRouter } from "expo-router";
+import BackButton from "@/components/Primitives/Buttons/backButton";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import { AntDesign } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 
 const { width, height } = Dimensions.get("window");
 
-const Home = () => {
+const walkthroughData = [
+  {
+    id: 1,
+    title: "shop live, discover more",
+    body: "Experience shopping like never before! Connect with sellers in real-time streams.",
+    image: require("@/assets/images/onboarding-1.png"),
+  },
+  {
+    id: 2,
+    title: "Shop Your Style, Faster.",
+    body: "Browse bite-sized videos from your favorite brands and discover new products instantly.",
+    image: require("@/assets/images/onboarding-2.png"),
+  },
+  {
+    id: 3,
+    title: "Connect, Interact, Buy.",
+    body: "Chat with sellers, ask questions, and buy products directly from streams and videos.",
+    image: require("@/assets/images/onboarding-3.png"),
+  },
+];
+
+const WalkThrough = () => {
+  const router = useRouter();
+  const CAROUSEL_WIDTH = width;
+  const IMAGE_WIDTH = width * 0.75;
   const insets = useSafeAreaInsets();
-  const swiperRef = useRef<Swiper>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const progress = useSharedValue<number>(0);
+  const backBtnOpacity = useSharedValue<number>(0);
 
-  const isLastSlide = activeIndex === onboarding.length - 1;
-  const dotSize = Math.min(width, height) * 0.02; // Adjust based on smaller dimension
-  const activeDotWidth = Math.min(width, height) * 0.1; // Active dot width scales dynamically
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-  const renderDots = (index: number) => {
-    return (
-      <View
-        key={index}
-        style={
-          index !== activeIndex
-            ? {
-                marginHorizontal: 4,
-                height: dotSize,
-                width: dotSize,
-                borderRadius: dotSize / 2,
-                backgroundColor: "#E8E8E8",
-              }
-            : {
-                marginHorizontal: 4,
-                height: dotSize,
-                width: activeDotWidth,
-                borderRadius: dotSize / 2,
-                backgroundColor: "#16783A",
-              }
-        }
-      />
-    );
-  };
+  const ref = React.useRef<ICarouselInstance>(null);
+
+  const onPressPagination = () => {};
+
+  const backBtnStyle = useAnimatedStyle(() => {
+    return {
+      opacity: backBtnOpacity.value,
+    };
+  });
+
+  const renderCarouselData = useCallback(
+    ({ item, index }: any) => {
+      return (
+        <View className="items-center px-[20px]">
+          <Image
+            source={item?.image}
+            resizeMode="cover"
+            style={{
+              width: IMAGE_WIDTH,
+              height: undefined,
+              aspectRatio: 1,
+              marginBottom: 20,
+            }}
+          />
+          <Text className="text-white font-LexendDeca text-[42px] leading-[60px] capitalize tracking-[-0.22px] mb-[6px] text-center">
+            {item?.title}
+          </Text>
+          <Text className="text-[#FFFFFFB2] font-LexendDecaLight text-[16px] leading-[28px] capitalize text-center">
+            {item?.body}
+          </Text>
+        </View>
+      );
+    },
+    [IMAGE_WIDTH],
+  );
+
+  const handleCarouselBtn = useCallback(() => {
+    if (currentIndex === walkthroughData?.length - 1) {
+      return router.replace("/(root)/(tabs)/blips");
+    } else ref.current?.next();
+  }, [ref, router, currentIndex]);
+
+  useEffect(() => {
+    if (currentIndex > 0) {
+      backBtnOpacity.set(
+        withTiming(1, {
+          duration: 50,
+          easing: Easing.inOut(Easing.linear),
+        }),
+      );
+    } else {
+      backBtnOpacity.set(
+        withTiming(0, {
+          duration: 50,
+          easing: Easing.inOut(Easing.linear),
+        }),
+      );
+    }
+  }, [currentIndex, backBtnOpacity]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "black" }}>
+    <SafeAreaView className="flex-1 bg-[#090D0B]" edges={["bottom"]}>
+      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
 
-      <FocusAwareStatusBar barStyle="light-content" backgroundColor="black" />
-        <TouchableOpacity
-          onPress={() => router.replace("/(root)/(tabs)/blips")}
+      <View>
+        <Image
+          source={require("@/assets/icons/watermark.png")}
           style={{
-            alignItems: "flex-end",
-            // padding: 20,
-            opacity: isLastSlide ? 0 : 1, // Hide the button on the last slide
-            position: "absolute",
-            top: insets.top + 20,
-            right: 20,
-            zIndex: 100,
+            width: width,
+            height: height,
           }}
-          disabled={isLastSlide} // Disable the button on the last slide to prevent interaction
-        >
+          className="absolute top-0 left-0 "
+          resizeMode="contain"
+        />
+      </View>
+      <View
+        className="flex-row items-center justify-between px-[20px]"
+        style={{
+          marginTop: insets.top + 5,
+        }}
+      >
+        <Animated.View style={[backBtnStyle]}>
+          <BackButton onPress={() => ref.current?.prev()} />
+        </Animated.View>
+        <Pressable onPress={() => router.replace("/(root)/(tabs)/blips")}>
           <Text
+            className="text-white font-LexendDecaMedium text-[16px] capitalize tracking-[-0.22px]"
             style={{
-              color: "#ccc",
-              fontSize: 14,
-              fontFamily: "LexendDeca",
-              fontWeight: "300",
+              opacity: currentIndex < walkthroughData?.length - 1 ? 1 : 0,
             }}
           >
             Skip
           </Text>
-        </TouchableOpacity>
+        </Pressable>
+      </View>
 
-        <Swiper
-          ref={swiperRef}
+      <View className="flex-1 items-center justify-center mt-[20px]">
+        <Carousel
+          ref={ref}
+          enabled={false}
+          width={CAROUSEL_WIDTH}
           loop={false}
-          showsPagination={false}
-          dot={
-            <View
-              style={{
-                marginHorizontal: 4,
-                height: dotSize,
-                width: dotSize,
-                borderRadius: dotSize / 2,
-                backgroundColor: "#E8E8E8",
-              }}
-            />
-          }
-          activeDot={
-            <View
-              style={{
-                // position: "absolute",
-                // bottom: 104,
-                marginHorizontal: 4,
-                height: dotSize,
-                width: activeDotWidth,
-                borderRadius: dotSize / 2,
-                backgroundColor: "#16783A",
-              }}
-            />
-          }
-          onIndexChanged={(index) => setActiveIndex(index)}
-        >
-          {onboarding.map((item) => (
-            <View
-              key={item.id}
-              style={{
-                alignItems: "center",
-                position:'relative',
-                // padding: 20,
-                flex: 1,
-                // backgroundColor: "yellow",
-              }}
-            >
-              <Image
-                source={item.image}
-                style={{
-                  height: "100%", // Adjust based on screen height
-                  width: "100%", // Adjust based on screen width
-                  //   borderRadius: 10,
-                  opacity: 1,
-                }}
-                resizeMode="cover"
-              />
-            </View>
-          ))}
-        </Swiper>
-
-        <View
-          className="items-center"
+          onProgressChange={progress}
+          onSnapToItem={(index) => setCurrentIndex(index)}
           style={{
-            position: "absolute",
-            bottom: insets.bottom,
-            alignSelf: "center",
+            width: CAROUSEL_WIDTH,
           }}
-        >
-          {/* <View style={{ marginTop: 20, width: "100%", alignItems: "center" }}>
-            <Text
-              style={{
-                color: "#fff",
-                fontSize: 24,
-                fontFamily: "LexendDeca-Medium",
-                textAlign: "center",
-                marginHorizontal: 20,
-              }}
-            >
-              {onboarding[activeIndex].title}
-            </Text>
-          </View> */}
-          {/* <Text
-            style={{
-              fontSize: 14,
-              fontFamily: "LexendDeca",
-              color: "#fff",
-              textAlign: "center",
-              marginTop: 10,
-              paddingHorizontal: 20,
-              lineHeight: 25,
+          data={walkthroughData}
+          renderItem={renderCarouselData}
+        />
+      </View>
+      <View
+        style={{
+          // marginTop: 15,
+          marginBottom: 30,
+          paddingHorizontal: 20,
+          flexShrink: 0,
+        }}
+      >
+        <View className="items-center justify-between">
+          <Pagination.Custom
+            progress={progress}
+            data={walkthroughData}
+            size={20}
+            dotStyle={{
+              height: 7,
+              width: 7,
+              borderRadius: 7,
+              backgroundColor: "#B7D5C2",
             }}
-          >
-            {onboarding[activeIndex].description}
-          </Text> */}
-
-          {/* <View
-            style={{
-              flexDirection: "row",
+            activeDotStyle={{
+              borderRadius: 8,
+              width: 25,
+              height: 7,
+              overflow: "hidden",
+              backgroundColor: "#16783A",
+            }}
+            containerStyle={{
+              gap: 5,
+              marginBottom: 10,
               alignItems: "center",
-              justifyContent: "center",
-              marginTop: 30,
+              height: 10,
             }}
-          >
-            {onboarding?.map((_, index) => renderDots(index))}
-          </View> */}
-
-          {!isLastSlide ? (
-            <Pressable
-              onPress={() =>
-                isLastSlide
-                  ? router.replace("/(root)/(tabs)/blips")
-                  : swiperRef.current?.scrollBy(1)
+            horizontal
+            onPress={onPressPagination}
+            customReanimatedStyle={(progress, index, length) => {
+              let val = Math.abs(progress - index);
+              if (index === 0 && progress > length - 1) {
+                val = Math.abs(progress - length);
               }
-              style={{
-                width: 74,
-                height: 74,
-                borderRadius: 37,
-                marginBottom: 32,
-                marginTop: 30,
-                alignSelf: "center",
-                backgroundColor: "#16783A",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <AntDesign name="arrowright" size={30} color="#ccc" />
-            </Pressable>
-          ) : (
-            // <CustomButton
-            //   onPress={() =>
-            //     isLastSlide
-            //       ? router.replace("/(root)/(auth)/sign-up")
-            //       : swiperRef.current?.scrollBy(1)
-            //   }
-            //   IconLeft={() => (
-            //     <AntDesign name="arrowright" size={30} color="#ccc" />
-            //   )}
-            //   style={{
-            //     width: 74,
-            //     height: 74,
-            //     marginBottom: 32,
-            //     marginTop: 20,
-            //     alignSelf: "center",
-            //   }}
-            // />
-            <CustomButton
-              title="Get Started"
-              onPress={() => router.replace("/(root)/(tabs)/blips")}
-              style={{
-                width: width * 0.75, // 75% of screen width
-                marginBottom: 68,
-                marginTop: 30,
-                alignSelf: "center",
-              }}
-            />
-          )}
+
+              return {
+                transform: [
+                  {
+                    translateY: interpolate(
+                      val,
+                      [0, 1],
+                      [0, 0],
+                      Extrapolation.CLAMP,
+                    ),
+                  },
+                ],
+              };
+            }}
+          />
+          <AnimatedButton
+            btnClassname="w-full h-[50px] flex-row gap-[8px] items-center justify-center bg-[#16783A] rounded-[10px]"
+            onPress={handleCarouselBtn}
+          >
+            <Text className="text-white text-[15px] font-LexendDecaMedium tracking-[-0.22px]">
+              {currentIndex === walkthroughData?.length - 1
+                ? "Welcome"
+                : "Next"}
+            </Text>
+            {currentIndex !== walkthroughData?.length - 1 && (
+              <Feather
+                name="arrow-right"
+                size={20}
+                color="white"
+                className="mt-[2px]"
+              />
+            )}
+          </AnimatedButton>
         </View>
-      </SafeAreaView>
+      </View>
+    </SafeAreaView>
   );
 };
 
-export default Home;
+export default WalkThrough;
