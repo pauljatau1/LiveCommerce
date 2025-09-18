@@ -20,6 +20,7 @@ const uploadStoreBannerService = require('../services/uploadStoreBanner.service'
 const verifyOTPService = require('../services/verifyOTP.service');
 const selectCategoriesService = require('../services/selectCategories.service');
 const updateCategoriesService = require('../services/updateCategories.service');
+const getTopProductsService = require('../services/getTopProducts.service');
 
 /**
  * Register a seller user.
@@ -777,6 +778,32 @@ async function updateCategories(req, res, next) {
   }
 }
 
+/**
+ * Get seller's top selling products.
+ *
+ * This controller handles the request to retrieve a seller's top performing products.
+ * It delegates the business logic to the service layer and returns the top products data.
+ *
+ * @param {Request} req - Express request object containing authenticated seller information
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getTopProducts(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+
+    // Call the service layer to handle top products retrieval logic
+    const response = await getTopProductsService.getTopProducts(sellerId);
+
+    // Send success response with top products data
+    res.success(response, 'Top products retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -799,5 +826,6 @@ module.exports = {
   uploadStoreAvatar,
   uploadStoreBanner,
   selectCategories,
-  updateCategories
+  updateCategories,
+  getTopProducts
 };

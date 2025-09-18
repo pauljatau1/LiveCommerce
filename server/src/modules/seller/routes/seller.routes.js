@@ -3543,4 +3543,356 @@ router.post('/profile/avatar', verifyToken, upload.single('avatar'), sellerContr
 // Upload store banner route - using same middleware as original route
 router.post('/profile/banner', verifyToken, upload.single('banner'), sellerController.uploadStoreBanner);
 
+/**
+ * @swagger
+ * /api/v2/sellers/top-products:
+ *   get:
+ *     summary: Get seller's top performing products by sales volume
+ *     description: |
+ *       Retrieves the top 4 best-selling products for the authenticated seller, ranked by total quantity sold.
+ *       This endpoint provides valuable insights into which products are performing best in terms of sales volume and revenue.
+ *       
+ *       **Key Features:**
+ *       - Returns top 4 products sorted by quantity sold (descending)
+ *       - Includes total quantity sold and total revenue for each product
+ *       - Provides complete product details including images, category, and brand
+ *       - Uses MongoDB aggregation for efficient data processing
+ *       - Only includes products that have been sold (have order history)
+ *       
+ *       **Use Cases:**
+ *       - Dashboard analytics for sellers
+ *       - Product performance analysis
+ *       - Inventory management insights
+ *       - Marketing campaign planning
+ *       
+ *       **Data Source:**
+ *       - Analyzes completed orders from the Order collection
+ *       - Aggregates sales data across all time periods
+ *       - Excludes cancelled or pending orders
+ *     tags: [Seller V2, Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: header
+ *         name: Authorization
+ *         required: true
+ *         description: Bearer token for seller authentication
+ *         schema:
+ *           type: string
+ *           example: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *     responses:
+ *       200:
+ *         description: |
+ *           Successfully retrieved the seller's top performing products. Returns an array of up to 4 products
+ *           sorted by total quantity sold, with comprehensive sales analytics and product details.
+ *           
+ *           **Response Structure:**
+ *           - `success`: Boolean indicating request success
+ *           - `message`: Human-readable success message
+ *           - `data.data`: Array of top products with sales metrics
+ *           - `pagination`: Always null for this endpoint
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - success
+ *                 - message
+ *                 - data
+ *                 - pagination
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   description: Indicates if the request was successful
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   description: Success message describing the operation
+ *                   example: "Top products retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   description: Container object for the response data
+ *                   required:
+ *                     - data
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       description: |
+ *                         Array of top performing products, sorted by total quantity sold (descending).
+ *                         Maximum of 4 products will be returned. Empty array if no products have been sold.
+ *                       maxItems: 4
+ *                       items:
+ *                         type: object
+ *                         required:
+ *                           - _id
+ *                           - totalQuantity
+ *                           - totalRevenue
+ *                           - productDetails
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             description: Unique identifier of the product
+ *                             example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *                             pattern: "^[0-9a-fA-F]{24}$"
+ *                           totalQuantity:
+ *                             type: number
+ *                             description: |
+ *                               Total quantity of this product sold across all orders.
+ *                               This is the sum of all quantities from completed orders.
+ *                             minimum: 0
+ *                             example: 25
+ *                           totalRevenue:
+ *                             type: number
+ *                             description: |
+ *                               Total revenue generated from sales of this product.
+ *                               Calculated as sum of (price × quantity) for all sold units.
+ *                             minimum: 0
+ *                             example: 1250.00
+ *                           productDetails:
+ *                             type: object
+ *                             description: Complete product information from the Product collection
+ *                             required:
+ *                               - _id
+ *                               - name
+ *                               - price
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                                 description: Product's unique identifier
+ *                                 example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *                                 pattern: "^[0-9a-fA-F]{24}$"
+ *                               name:
+ *                                 type: string
+ *                                 description: Product name as displayed to customers
+ *                                 example: "Premium Wireless Headphones"
+ *                                 minLength: 1
+ *                                 maxLength: 200
+ *                               description:
+ *                                 type: string
+ *                                 description: Detailed product description
+ *                                 example: "High-quality wireless headphones with noise cancellation"
+ *                               price:
+ *                                 type: number
+ *                                 description: Current selling price of the product
+ *                                 minimum: 0
+ *                                 example: 50.00
+ *                               images:
+ *                                 type: array
+ *                                 description: Array of product images
+ *                                 items:
+ *                                   type: object
+ *                                   properties:
+ *                                     url:
+ *                                       type: string
+ *                                       description: URL of the product image
+ *                                       example: "https://cdn.example.com/products/headphones-main.jpg"
+ *                                       format: uri
+ *                                     alt:
+ *                                       type: string
+ *                                       description: Alternative text for the image
+ *                                       example: "Premium Wireless Headphones - Front View"
+ *                               category:
+ *                                 type: string
+ *                                 description: Product category for organization and filtering
+ *                                 example: "Electronics"
+ *                               subCategory:
+ *                                 type: string
+ *                                 description: More specific product subcategory
+ *                                 example: "Audio & Headphones"
+ *                               brand:
+ *                                 type: string
+ *                                 description: Product brand or manufacturer
+ *                                 example: "TechBrand"
+ *                               stock:
+ *                                 type: number
+ *                                 description: Current available stock quantity
+ *                                 minimum: 0
+ *                                 example: 150
+ *                               createdAt:
+ *                                 type: string
+ *                                 format: date-time
+ *                                 description: When the product was first created
+ *                                 example: "2023-01-15T10:30:00.000Z"
+ *                               updatedAt:
+ *                                 type: string
+ *                                 format: date-time
+ *                                 description: When the product was last updated
+ *                                 example: "2023-12-01T14:22:00.000Z"
+ *                 pagination:
+ *                   type: null
+ *                   description: Pagination information (always null for this endpoint)
+ *                   example: null
+ *         examples:
+ *           success_with_products:
+ *             summary: Successful response with top products
+ *             value:
+ *               success: true
+ *               message: "Top products retrieved successfully"
+ *               data:
+ *                 data:
+ *                   - _id: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *                     totalQuantity: 25
+ *                     totalRevenue: 1250.00
+ *                     productDetails:
+ *                       _id: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *                       name: "Premium Wireless Headphones"
+ *                       description: "High-quality wireless headphones with noise cancellation"
+ *                       price: 50.00
+ *                       images:
+ *                         - url: "https://cdn.example.com/products/headphones-main.jpg"
+ *                           alt: "Premium Wireless Headphones - Front View"
+ *                       category: "Electronics"
+ *                       subCategory: "Audio & Headphones"
+ *                       brand: "TechBrand"
+ *                       stock: 150
+ *                       createdAt: "2023-01-15T10:30:00.000Z"
+ *                       updatedAt: "2023-12-01T14:22:00.000Z"
+ *                   - _id: "60f7b3b3b3b3b3b3b3b3b3b4"
+ *                     totalQuantity: 18
+ *                     totalRevenue: 900.00
+ *                     productDetails:
+ *                       _id: "60f7b3b3b3b3b3b3b3b3b3b4"
+ *                       name: "Wireless Gaming Mouse"
+ *                       description: "Ergonomic wireless mouse designed for gaming"
+ *                       price: 25.00
+ *                       images:
+ *                         - url: "https://cdn.example.com/products/mouse-main.jpg"
+ *                           alt: "Wireless Gaming Mouse"
+ *                       category: "Electronics"
+ *                       subCategory: "Computer Accessories"
+ *                       brand: "GameTech"
+ *                       stock: 75
+ *                       createdAt: "2023-02-20T09:15:00.000Z"
+ *                       updatedAt: "2023-11-28T16:45:00.000Z"
+ *               pagination: null
+ *           success_empty:
+ *             summary: Successful response with no products
+ *             value:
+ *               success: true
+ *               message: "Top products retrieved successfully"
+ *               data:
+ *                 data: []
+ *               pagination: null
+ *       422:
+ *         description: |
+ *           Unprocessable Entity - The request was well-formed but contains validation errors.
+ *           This occurs when the seller ID validation fails.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - success
+ *                 - message
+ *                 - errors
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   description: Array of validation error objects
+ *                   items:
+ *                     type: object
+ *                     required:
+ *                       - field
+ *                       - message
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         description: The field that failed validation
+ *                         example: "sellerId"
+ *                       message:
+ *                         type: string
+ *                         description: Specific validation error message
+ *                         example: "Valid seller ID is required"
+ *         examples:
+ *           invalid_seller_id:
+ *             summary: Invalid seller ID format
+ *             value:
+ *               success: false
+ *               message: "Validation failed"
+ *               errors:
+ *                 - field: "sellerId"
+ *                   message: "Seller ID must be a valid ObjectId format"
+ *           missing_seller_id:
+ *             summary: Missing or empty seller ID
+ *             value:
+ *               success: false
+ *               message: "Validation failed"
+ *               errors:
+ *                 - field: "sellerId"
+ *                   message: "Valid seller ID is required"
+ *       401:
+ *         description: |
+ *           Unauthorized - Authentication failed. This occurs when:
+ *           - No authorization token is provided
+ *           - The token is invalid or expired
+ *           - The token format is incorrect
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - success
+ *                 - message
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized - Invalid or missing token"
+ *         examples:
+ *           no_token:
+ *             summary: No authorization token provided
+ *             value:
+ *               success: false
+ *               message: "Unauthorized - No token provided"
+ *           invalid_token:
+ *             summary: Invalid or expired token
+ *             value:
+ *               success: false
+ *               message: "Unauthorized - Invalid or expired token"
+ *       500:
+ *         description: |
+ *           Internal Server Error - An unexpected error occurred on the server.
+ *           This could be due to:
+ *           - Database connection issues
+ *           - Aggregation pipeline failures
+ *           - Server configuration problems
+ *           
+ *           **Note:** In case of server errors, please retry the request or contact support.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - success
+ *                 - message
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error - Unable to retrieve top products"
+ *         examples:
+ *           database_error:
+ *             summary: Database connection error
+ *             value:
+ *               success: false
+ *               message: "Internal server error - Database connection failed"
+ *           aggregation_error:
+ *             summary: Aggregation pipeline error
+ *             value:
+ *               success: false
+ *               message: "Internal server error - Unable to process product data"
+ */
+// Get top products route - using same middleware as original route
+router.get('/top-products', verifyToken, sellerController.getTopProducts);
+
 module.exports = router;
