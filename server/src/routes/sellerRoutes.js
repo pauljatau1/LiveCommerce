@@ -11,66 +11,6 @@ const Seller = require('../models/Seller');
 
 /**
  * @swagger
- * /api/seller/statistics:
- *   get:
- *     summary: Get seller's store statistics
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Statistics retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 walletBalance:
- *                   type: object
- *                   properties:
- *                     amount:
- *                       type: number
- *                     currency:
- *                       type: string
- *                     changePercentage:
- *                       type: number
- *                 storeVisits:
- *                   type: object
- *                   properties:
- *                     count:
- *                       type: number
- *                     changePercentage:
- *                       type: number
- *                 totalOrders:
- *                   type: object
- *                   properties:
- *                     count:
- *                       type: number
- *                     changePercentage:
- *                       type: number
- *                 conversionRate:
- *                   type: object
- *                   properties:
- *                     percentage:
- *                       type: number
- *                     changePercentage:
- *                       type: number
- *                 newCustomers:
- *                   type: object
- *                   properties:
- *                     count:
- *                       type: number
- *                     changePercentage:
- *                       type: number
- *       404:
- *         description: Seller not found
- *       500:
- *         description: Internal server error
- */
-router.get('/statistics', authMiddleware.verifyToken, sellerController.getStatistics);
-
-/**
- * @swagger
  * /api/seller/orders:
  *   get:
  *     summary: Get seller's orders

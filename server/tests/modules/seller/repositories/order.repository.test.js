@@ -469,4 +469,359 @@ describe('Order Repository', () => {
       expect(result.length).toBe(0); // Should return empty since product doesn't exist
     });
   });
+
+  describe('countOrdersBySellerWithDateRange', () => {
+    it('should count orders for seller with date range filter', async () => {
+      // Arrange: Create test data
+      const sellerId = new mongoose.Types.ObjectId();
+      const buyerId = new mongoose.Types.ObjectId();
+      const productId = new mongoose.Types.ObjectId();
+
+      const order1 = new Order({
+        buyer: buyerId,
+        buyerDetails: {
+          _id: buyerId,
+          firstName: 'Test',
+          lastName: 'Buyer',
+          email: 'test@example.com'
+        },
+        seller: sellerId,
+        totalAmount: 2000,
+        items: [{
+          product: productId,
+          seller: sellerId,
+          quantity: 1,
+          price: 2000,
+          status: 'delivered'
+        }],
+        isStale: false,
+        createdAt: new Date('2024-01-15')
+      });
+
+      const order2 = new Order({
+        buyer: buyerId,
+        buyerDetails: {
+          _id: buyerId,
+          firstName: 'Test',
+          lastName: 'Buyer',
+          email: 'test@example.com'
+        },
+        seller: sellerId,
+        totalAmount: 3000,
+        items: [{
+          product: productId,
+          seller: sellerId,
+          quantity: 1,
+          price: 3000,
+          status: 'delivered'
+        }],
+        isStale: false,
+        createdAt: new Date('2024-01-20')
+      });
+
+      const order3 = new Order({
+        buyer: buyerId,
+        buyerDetails: {
+          _id: buyerId,
+          firstName: 'Test',
+          lastName: 'Buyer',
+          email: 'test@example.com'
+        },
+        seller: sellerId,
+        totalAmount: 1000,
+        items: [{
+          product: productId,
+          seller: sellerId,
+          quantity: 1,
+          price: 1000,
+          status: 'delivered'
+        }],
+        isStale: false,
+        createdAt: new Date('2024-01-25')
+      });
+
+      await Order.insertMany([order1, order2, order3]);
+
+      // Act: Count orders within date range
+      const result = await orderRepository.countOrdersBySellerWithDateRange(
+        sellerId.toString(),
+        {
+          $gte: new Date('2024-01-16'),
+          $lt: new Date('2024-01-24')
+        }
+      );
+
+      // Assert: Should return 1 order (order2)
+      expect(result).toBe(1);
+    });
+
+    it('should count all orders for seller without date range filter', async () => {
+      // Arrange: Create test data
+      const sellerId = new mongoose.Types.ObjectId();
+      const buyerId = new mongoose.Types.ObjectId();
+      const productId = new mongoose.Types.ObjectId();
+
+      const order1 = new Order({
+        buyer: buyerId,
+        buyerDetails: {
+          _id: buyerId,
+          firstName: 'Test',
+          lastName: 'Buyer',
+          email: 'test@example.com'
+        },
+        seller: sellerId,
+        totalAmount: 2000,
+        items: [{
+          product: productId,
+          seller: sellerId,
+          quantity: 1,
+          price: 2000,
+          status: 'delivered'
+        }],
+        isStale: false
+      });
+
+      const order2 = new Order({
+        buyer: buyerId,
+        buyerDetails: {
+          _id: buyerId,
+          firstName: 'Test',
+          lastName: 'Buyer',
+          email: 'test@example.com'
+        },
+        seller: sellerId,
+        totalAmount: 3000,
+        items: [{
+          product: productId,
+          seller: sellerId,
+          quantity: 1,
+          price: 3000,
+          status: 'delivered'
+        }],
+        isStale: false
+      });
+
+      await Order.insertMany([order1, order2]);
+
+      // Act: Count all orders without date filter
+      const result = await orderRepository.countOrdersBySellerWithDateRange(sellerId.toString());
+
+      // Assert: Should return 2 orders
+      expect(result).toBe(2);
+    });
+
+    it('should exclude stale orders from count', async () => {
+      // Arrange: Create test data with stale orders
+      const sellerId = new mongoose.Types.ObjectId();
+      const buyerId = new mongoose.Types.ObjectId();
+      const productId = new mongoose.Types.ObjectId();
+
+      const regularOrder = new Order({
+        buyer: buyerId,
+        buyerDetails: {
+          _id: buyerId,
+          firstName: 'Test',
+          lastName: 'Buyer',
+          email: 'test@example.com'
+        },
+        seller: sellerId,
+        totalAmount: 2000,
+        items: [{
+          product: productId,
+          seller: sellerId,
+          quantity: 1,
+          price: 2000,
+          status: 'delivered'
+        }],
+        isStale: false
+      });
+
+      const staleOrder = new Order({
+        buyer: buyerId,
+        buyerDetails: {
+          _id: buyerId,
+          firstName: 'Test',
+          lastName: 'Buyer',
+          email: 'test@example.com'
+        },
+        seller: sellerId,
+        totalAmount: 3000,
+        items: [{
+          product: productId,
+          seller: sellerId,
+          quantity: 1,
+          price: 3000,
+          status: 'delivered'
+        }],
+        isStale: true
+      });
+
+      await Order.insertMany([regularOrder, staleOrder]);
+
+      // Act: Count orders
+      const result = await orderRepository.countOrdersBySellerWithDateRange(sellerId.toString());
+
+      // Assert: Should return only 1 order (excluding stale)
+      expect(result).toBe(1);
+    });
+
+    it('should return 0 for seller with no orders', async () => {
+      // Arrange: Use non-existent seller ID
+      const sellerId = new mongoose.Types.ObjectId();
+
+      // Act: Count orders
+      const result = await orderRepository.countOrdersBySellerWithDateRange(sellerId.toString());
+
+      // Assert: Should return 0
+      expect(result).toBe(0);
+    });
+  });
+
+  describe('getDistinctBuyersBySeller', () => {
+    it('should return distinct buyers for seller', async () => {
+      // Arrange: Create test data with multiple orders from same buyers
+      const sellerId = new mongoose.Types.ObjectId();
+      const buyerId1 = new mongoose.Types.ObjectId();
+      const buyerId2 = new mongoose.Types.ObjectId();
+      const productId = new mongoose.Types.ObjectId();
+
+      const order1 = new Order({
+        buyer: buyerId1,
+        buyerDetails: {
+          _id: buyerId1,
+          firstName: 'Buyer',
+          lastName: 'One',
+          email: 'buyer1@example.com'
+        },
+        seller: sellerId,
+        totalAmount: 2000,
+        items: [{
+          product: productId,
+          seller: sellerId,
+          quantity: 1,
+          price: 2000,
+          status: 'delivered'
+        }],
+        isStale: false
+      });
+
+      const order2 = new Order({
+        buyer: buyerId1, // Same buyer as order1
+        buyerDetails: {
+          _id: buyerId1,
+          firstName: 'Buyer',
+          lastName: 'One',
+          email: 'buyer1@example.com'
+        },
+        seller: sellerId,
+        totalAmount: 3000,
+        items: [{
+          product: productId,
+          seller: sellerId,
+          quantity: 1,
+          price: 3000,
+          status: 'delivered'
+        }],
+        isStale: false
+      });
+
+      const order3 = new Order({
+        buyer: buyerId2, // Different buyer
+        buyerDetails: {
+          _id: buyerId2,
+          firstName: 'Buyer',
+          lastName: 'Two',
+          email: 'buyer2@example.com'
+        },
+        seller: sellerId,
+        totalAmount: 1000,
+        items: [{
+          product: productId,
+          seller: sellerId,
+          quantity: 1,
+          price: 1000,
+          status: 'delivered'
+        }],
+        isStale: false
+      });
+
+      await Order.insertMany([order1, order2, order3]);
+
+      // Act: Get distinct buyers
+      const result = await orderRepository.getDistinctBuyersBySeller(sellerId.toString());
+
+      // Assert: Should return 2 distinct buyers
+      expect(result.length).toBe(2);
+      expect(result).toContainEqual(buyerId1);
+      expect(result).toContainEqual(buyerId2);
+    });
+
+    it('should exclude stale orders from distinct buyers', async () => {
+      // Arrange: Create test data with stale orders
+      const sellerId = new mongoose.Types.ObjectId();
+      const buyerId1 = new mongoose.Types.ObjectId();
+      const buyerId2 = new mongoose.Types.ObjectId();
+      const productId = new mongoose.Types.ObjectId();
+
+      const regularOrder = new Order({
+        buyer: buyerId1,
+        buyerDetails: {
+          _id: buyerId1,
+          firstName: 'Buyer',
+          lastName: 'One',
+          email: 'buyer1@example.com'
+        },
+        seller: sellerId,
+        totalAmount: 2000,
+        items: [{
+          product: productId,
+          seller: sellerId,
+          quantity: 1,
+          price: 2000,
+          status: 'delivered'
+        }],
+        isStale: false
+      });
+
+      const staleOrder = new Order({
+        buyer: buyerId2,
+        buyerDetails: {
+          _id: buyerId2,
+          firstName: 'Buyer',
+          lastName: 'Two',
+          email: 'buyer2@example.com'
+        },
+        seller: sellerId,
+        totalAmount: 3000,
+        items: [{
+          product: productId,
+          seller: sellerId,
+          quantity: 1,
+          price: 3000,
+          status: 'delivered'
+        }],
+        isStale: true
+      });
+
+      await Order.insertMany([regularOrder, staleOrder]);
+
+      // Act: Get distinct buyers
+      const result = await orderRepository.getDistinctBuyersBySeller(sellerId.toString());
+
+      // Assert: Should return only 1 buyer (excluding stale order buyer)
+      expect(result.length).toBe(1);
+      expect(result).toContainEqual(buyerId1);
+    });
+
+    it('should return empty array for seller with no orders', async () => {
+      // Arrange: Use non-existent seller ID
+      const sellerId = new mongoose.Types.ObjectId();
+
+      // Act: Get distinct buyers
+      const result = await orderRepository.getDistinctBuyersBySeller(sellerId.toString());
+
+      // Assert: Should return empty array
+      expect(result).toEqual([]);
+    });
+  });
 });

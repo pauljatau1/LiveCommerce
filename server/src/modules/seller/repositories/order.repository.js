@@ -57,7 +57,42 @@ async function getTopProductsBySeller(sellerId, limit = 4) {
   ]);
 }
 
+/**
+ * Count orders for a specific seller with date range filter.
+ * @param {string} sellerId - The seller's ID
+ * @param {Object} dateFilter - Date range filter object
+ * @param {Date} dateFilter.$gte - Start date (inclusive)
+ * @param {Date} dateFilter.$lt - End date (exclusive)
+ * @returns {Promise<number>} Number of orders for the seller in the date range
+ */
+async function countOrdersBySellerWithDateRange(sellerId, dateFilter = {}) {
+  const query = { 
+    'items.seller': new mongoose.Types.ObjectId(sellerId), 
+    isStale: { $ne: true } 
+  };
+  
+  if (Object.keys(dateFilter).length > 0) {
+    query.createdAt = dateFilter;
+  }
+  
+  return Order.countDocuments(query);
+}
+
+/**
+ * Get distinct buyers who have placed orders with a specific seller.
+ * @param {string} sellerId - The seller's ID
+ * @returns {Promise<Array>} Array of unique buyer IDs
+ */
+async function getDistinctBuyersBySeller(sellerId) {
+  return Order.distinct('buyer', { 
+    'items.seller': new mongoose.Types.ObjectId(sellerId), 
+    isStale: { $ne: true } 
+  });
+}
+
 module.exports = {
   countOrdersBySeller,
-  getTopProductsBySeller
+  getTopProductsBySeller,
+  countOrdersBySellerWithDateRange,
+  getDistinctBuyersBySeller
 };

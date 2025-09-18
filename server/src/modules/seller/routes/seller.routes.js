@@ -1714,8 +1714,7 @@ router.post('/verification/smileid/token', verifyToken, sellerController.generat
  * @swagger
  * /api/v2/sellers/verification/smileid/job:
  *   post:
- *     tags:
- *       - Seller Verification
+ *     tags: [Seller V2]
  *     summary: Process SmileID verification job
  *     description: |
  *       Processes a SmileID verification job for seller identity verification.
@@ -1914,8 +1913,7 @@ router.post('/verification/smileid/job', verifyToken, sellerController.processSm
  * @swagger
  * /api/v2/sellers/verification/smileid/individual:
  *   post:
- *     tags:
- *       - Seller Verification
+ *     tags: [Seller V2]
  *     summary: Save individual SmileID verification result
  *     description: |
  *       Saves the result of individual SmileID verification to the seller's record.
@@ -2087,8 +2085,7 @@ router.post('/verification/smileid/individual', verifyToken, sellerController.sa
  * @swagger
  * /api/v2/sellers/verification/smileid/business:
  *   post:
- *     tags:
- *       - Seller Verification
+ *     tags: [Seller V2]
  *     summary: Save business SmileID verification result
  *     description: |
  *       Saves the result of business SmileID verification to the seller's record.
@@ -2260,8 +2257,7 @@ router.post('/verification/smileid/business', verifyToken, sellerController.save
  * @swagger
  * /api/v2/sellers/verification/smileid/callback:
  *   post:
- *     tags:
- *       - Seller Verification
+ *     tags: [Seller V2]
  *     summary: Handle SmileID verification callback
  *     description: |
  *       Processes webhook callbacks from SmileID verification service.
@@ -2459,7 +2455,7 @@ router.post('/verification/smileid/callback', sellerController.smileIdCallback);
  *       - Requires valid authentication token
  *       - Validates seller ownership of the account
  *       - Ensures data sanitization and validation
- *     tags: [Seller]
+ *     tags: [Seller V2]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -3569,7 +3565,7 @@ router.post('/profile/banner', verifyToken, upload.single('banner'), sellerContr
  *       - Analyzes completed orders from the Order collection
  *       - Aggregates sales data across all time periods
  *       - Excludes cancelled or pending orders
- *     tags: [Seller V2, Analytics]
+ *     tags: [Seller V2]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -3894,5 +3890,320 @@ router.post('/profile/banner', verifyToken, upload.single('banner'), sellerContr
  */
 // Get top products route - using same middleware as original route
 router.get('/top-products', verifyToken, sellerController.getTopProducts);
+
+/**
+ * @swagger
+ * /api/v2/sellers/statistics:
+ *   get:
+ *     summary: Get comprehensive seller statistics and analytics
+ *     description: |
+ *       Retrieves detailed seller performance metrics including wallet balance, store visits, 
+ *       order counts, conversion rates, and customer acquisition data with week-over-week comparisons.
+ *       
+ *       This endpoint provides comprehensive analytics to help sellers understand their business performance:
+ *       - **Wallet Balance**: Current balance with week-over-week change
+ *       - **Store Visits**: Total visits with trend analysis
+ *       - **Total Orders**: Order count with growth metrics
+ *       - **Conversion Rate**: Visit-to-order conversion percentage
+ *       - **New Customers**: Customer acquisition with growth tracking
+ *       
+ *       All metrics include percentage changes compared to the previous week, providing
+ *       actionable insights for business optimization and growth tracking.
+ *       
+ *       **Data Sources:**
+ *       - Seller profile data (wallet, visits, followers)
+ *       - Order aggregation (excluding stale orders)
+ *       - Customer relationship analysis
+ *       - Week-over-week comparison calculations
+ *       
+ *       **Use Cases:**
+ *       - Dashboard analytics display
+ *       - Performance monitoring
+ *       - Business growth tracking
+ *       - Customer acquisition analysis
+ *       - Revenue trend monitoring
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Statistics retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     walletBalance:
+ *                       type: object
+ *                       properties:
+ *                         amount:
+ *                           type: number
+ *                           description: Current wallet balance in NGN
+ *                           example: 15000.50
+ *                         currency:
+ *                           type: string
+ *                           description: Currency code
+ *                           example: "NGN"
+ *                         change:
+ *                           type: object
+ *                           properties:
+ *                             value:
+ *                               type: string
+ *                               description: Change value (percentage or number)
+ *                               example: "12.50"
+ *                             type:
+ *                               type: string
+ *                               enum: [percentage, number]
+ *                               description: Type of change metric
+ *                               example: "percentage"
+ *                     storeVisits:
+ *                       type: object
+ *                       properties:
+ *                         count:
+ *                           type: number
+ *                           description: Total store visits
+ *                           example: 1250
+ *                         change:
+ *                           type: object
+ *                           properties:
+ *                             value:
+ *                               type: string
+ *                               example: "8.75"
+ *                             type:
+ *                               type: string
+ *                               example: "percentage"
+ *                     totalOrders:
+ *                       type: object
+ *                       properties:
+ *                         count:
+ *                           type: number
+ *                           description: Total orders placed
+ *                           example: 89
+ *                         change:
+ *                           type: object
+ *                           properties:
+ *                             value:
+ *                               type: string
+ *                               example: "15.25"
+ *                             type:
+ *                               type: string
+ *                               example: "percentage"
+ *                     conversionRate:
+ *                       type: object
+ *                       properties:
+ *                         percentage:
+ *                           type: string
+ *                           description: Conversion rate as percentage
+ *                           example: "7.12"
+ *                         change:
+ *                           type: object
+ *                           properties:
+ *                             value:
+ *                               type: string
+ *                               example: "2.30"
+ *                             type:
+ *                               type: string
+ *                               example: "percentage"
+ *                     newCustomers:
+ *                       type: object
+ *                       properties:
+ *                         count:
+ *                           type: number
+ *                           description: Total customers (followers with orders)
+ *                           example: 45
+ *                         change:
+ *                           type: object
+ *                           properties:
+ *                             value:
+ *                               type: string
+ *                               example: "5.80"
+ *                             type:
+ *                               type: string
+ *                               example: "percentage"
+ *             examples:
+ *               success_with_data:
+ *                 summary: Successful statistics retrieval
+ *                 value:
+ *                   success: true
+ *                   message: "Statistics retrieved successfully"
+ *                   data:
+ *                     walletBalance:
+ *                       amount: 15000.50
+ *                       currency: "NGN"
+ *                       change:
+ *                         value: "12.50"
+ *                         type: "percentage"
+ *                     storeVisits:
+ *                       count: 1250
+ *                       change:
+ *                         value: "8.75"
+ *                         type: "percentage"
+ *                     totalOrders:
+ *                       count: 89
+ *                       change:
+ *                         value: "15.25"
+ *                         type: "percentage"
+ *                     conversionRate:
+ *                       percentage: "7.12"
+ *                       change:
+ *                         value: "2.30"
+ *                         type: "percentage"
+ *                     newCustomers:
+ *                       count: 45
+ *                       change:
+ *                         value: "5.80"
+ *                         type: "percentage"
+ *               success_zero_values:
+ *                 summary: Statistics with zero values
+ *                 value:
+ *                   success: true
+ *                   message: "Statistics retrieved successfully"
+ *                   data:
+ *                     walletBalance:
+ *                       amount: 0
+ *                       currency: "NGN"
+ *                       change:
+ *                         value: "0.00"
+ *                         type: "number"
+ *                     storeVisits:
+ *                       count: 0
+ *                       change:
+ *                         value: "0.00"
+ *                         type: "number"
+ *                     totalOrders:
+ *                       count: 0
+ *                       change:
+ *                         value: "0.00"
+ *                         type: "number"
+ *                     conversionRate:
+ *                       percentage: "0.00"
+ *                       change:
+ *                         value: "0.00"
+ *                         type: "number"
+ *                     newCustomers:
+ *                       count: 0
+ *                       change:
+ *                         value: "0.00"
+ *                         type: "number"
+ *       422:
+ *         description: Validation error - Invalid seller ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "sellerId"
+ *                       message:
+ *                         type: string
+ *                         example: "Valid seller ID is required"
+ *             examples:
+ *               invalid_seller_id:
+ *                 summary: Invalid seller ID format
+ *                 value:
+ *                   success: false
+ *                   message: "Validation failed"
+ *                   errors:
+ *                     - field: "sellerId"
+ *                       message: "Valid seller ID is required"
+ *               invalid_objectid:
+ *                 summary: Invalid ObjectId format
+ *                 value:
+ *                   success: false
+ *                   message: "Validation failed"
+ *                   errors:
+ *                     - field: "sellerId"
+ *                       message: "Seller ID must be a valid ObjectId format"
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Seller not found"
+ *             examples:
+ *               seller_not_found:
+ *                 summary: Seller does not exist
+ *                 value:
+ *                   success: false
+ *                   message: "Seller not found"
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied. No token provided."
+ *             examples:
+ *               no_token:
+ *                 summary: No authentication token provided
+ *                 value:
+ *                   success: false
+ *                   message: "Access denied. No token provided."
+ *               invalid_token:
+ *                 summary: Invalid authentication token
+ *                 value:
+ *                   success: false
+ *                   message: "Access denied. Invalid token."
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ *             examples:
+ *               database_error:
+ *                 summary: Database connection error
+ *                 value:
+ *                   success: false
+ *                   message: "Internal server error"
+ *               aggregation_error:
+ *                 summary: Statistics calculation error
+ *                 value:
+ *                   success: false
+ *                   message: "Internal server error"
+ */
+// Get statistics route - using same middleware as original route
+router.get('/statistics', verifyToken, sellerController.getStatistics);
 
 module.exports = router;
