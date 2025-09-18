@@ -12,6 +12,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const orderRepository = require('@modules/seller/repositories/order.repository');
 const Order = require('@models/Order');
 const Product = require('@models/Product');
+const Buyer = require('@models/Buyer');
 const Seller = require('@models/Seller');
 
 let mongoServer;
@@ -821,6 +822,185 @@ describe('Order Repository', () => {
       const result = await orderRepository.getDistinctBuyersBySeller(sellerId.toString());
 
       // Assert: Should return empty array
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('countOrders', () => {
+    it('should count orders matching the query', async () => {
+      // Arrange: Create test orders
+      const sellerId = new mongoose.Types.ObjectId();
+      const buyerId = new mongoose.Types.ObjectId();
+
+      const order1 = new Order({
+        buyer: buyerId,
+        seller: sellerId,
+        buyerDetails: { _id: buyerId, firstName: 'Buyer', lastName: 'One', email: 'buyer@example.com' },
+        items: [{
+          seller: sellerId,
+          product: new mongoose.Types.ObjectId(),
+          quantity: 1,
+          price: 100,
+          status: 'confirmed'
+        }],
+        totalAmount: 100,
+        status: 'confirmed'
+      });
+
+      const order2 = new Order({
+        buyer: buyerId,
+        seller: sellerId,
+        buyerDetails: { _id: buyerId, firstName: 'Buyer', lastName: 'One', email: 'buyer@example.com' },
+        items: [{
+          seller: sellerId,
+          product: new mongoose.Types.ObjectId(),
+          quantity: 2,
+          price: 200,
+          status: 'shipped'
+        }],
+        totalAmount: 400,
+        status: 'shipped'
+      });
+
+      await Order.insertMany([order1, order2]);
+
+      // Act: Call the repository method
+      const query = { 'items.seller': sellerId };
+      const result = await orderRepository.countOrders(query);
+
+      // Assert: Verify count is correct
+      expect(result).toBe(2);
+    });
+
+    it('should return 0 when no orders match the query', async () => {
+      // Arrange: Use a query that matches no orders
+      const sellerId = new mongoose.Types.ObjectId();
+      const query = { 'items.seller': sellerId };
+
+      // Act: Call the repository method
+      const result = await orderRepository.countOrders(query);
+
+      // Assert: Verify count is 0
+      expect(result).toBe(0);
+    });
+  });
+
+  describe('findOrders', () => {
+    it('should find orders with pagination and population', async () => {
+      // Arrange: Create test data
+      const sellerId = new mongoose.Types.ObjectId();
+      const buyerId = new mongoose.Types.ObjectId();
+      const productId = new mongoose.Types.ObjectId();
+
+      const order = new Order({
+        buyer: buyerId,
+        seller: sellerId,
+        buyerDetails: { _id: buyerId, firstName: 'Buyer', lastName: 'One', email: 'buyer@example.com' },
+        items: [{
+          seller: sellerId,
+          product: productId,
+          quantity: 2,
+          price: 150,
+          status: 'confirmed'
+        }],
+        totalAmount: 300,
+        status: 'confirmed'
+      });
+
+      await order.save();
+
+      // Create buyer and product for population
+      const buyer = new Buyer({
+        _id: buyerId,
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'john.doe@example.com',
+        password: 'hashedPassword',
+        phoneNumber: '+2348012345678'
+      });
+
+      const product = new Product({
+        _id: productId,
+        name: 'Test Product',
+        description: 'Test product description',
+        price: 150,
+        category: 'Electronics',
+        stock: 10,
+        seller: sellerId,
+        images: [{
+          data: 'https://example.com/image.jpg',
+          contentType: 'image/jpeg',
+          key: 'test-image-key'
+        }]
+      });
+
+      await Promise.all([buyer.save(), product.save()]);
+
+      // Act: Call the repository method
+      const query = { 'items.seller': sellerId };
+      const options = {
+        sort: { createdAt: -1 },
+        skip: 0,
+        limit: 10
+      };
+      const result = await orderRepository.findOrders(query, options);
+
+      // Assert: Verify orders are found with populated data
+      expect(result).toHaveLength(1);
+      expect(result[0].buyer.firstName).toBe('John');
+      expect(result[0].buyer.lastName).toBe('Doe');
+      expect(result[0].items[0].product.name).toBe('Test Product');
+    });
+
+    it('should respect pagination limits', async () => {
+      // Arrange: Create multiple orders
+      const sellerId = new mongoose.Types.ObjectId();
+      const buyerId = new mongoose.Types.ObjectId();
+
+      const orders = Array.from({ length: 5 }, (_, index) => new Order({
+        buyer: buyerId,
+        seller: sellerId,
+        buyerDetails: { _id: buyerId, firstName: 'Buyer', lastName: 'One', email: 'buyer@example.com' },
+        items: [{
+          seller: sellerId,
+          product: new mongoose.Types.ObjectId(),
+          quantity: 1,
+          price: 100,
+          status: 'confirmed'
+        }],
+        totalAmount: 100,
+        status: 'confirmed'
+      }));
+
+      await Order.insertMany(orders);
+
+      // Act: Call the repository method with limit
+      const query = { 'items.seller': sellerId };
+      const options = {
+        sort: { createdAt: -1 },
+        skip: 0,
+        limit: 3
+      };
+      const result = await orderRepository.findOrders(query, options);
+
+      // Assert: Verify limit is respected
+      expect(result).toHaveLength(3);
+    });
+
+    it('should return empty array when no orders match query', async () => {
+      // Arrange: Use a query that matches no orders
+      const sellerId = new mongoose.Types.ObjectId();
+      const query = { 'items.seller': sellerId };
+      const options = {
+        sort: { createdAt: -1 },
+        skip: 0,
+        limit: 10
+      };
+
+      // Act: Call the repository method
+      const result = await orderRepository.findOrders(query, options);
+
+      // Assert: Verify empty array is returned
       expect(result).toEqual([]);
     });
   });

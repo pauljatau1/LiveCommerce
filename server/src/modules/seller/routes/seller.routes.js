@@ -4206,4 +4206,369 @@ router.get('/top-products', verifyToken, sellerController.getTopProducts);
 // Get statistics route - using same middleware as original route
 router.get('/statistics', verifyToken, sellerController.getStatistics);
 
+/**
+ * @swagger
+ * /api/v2/sellers/orders:
+ *   get:
+ *     summary: Get seller's orders with filtering and pagination
+ *     description: |
+ *       Retrieves a comprehensive list of orders for the authenticated seller with advanced
+ *       filtering, sorting, and pagination capabilities. This endpoint provides detailed
+ *       order information including buyer details, product information, and order status.
+ *       
+ *       **Key Features:**
+ *       - **Advanced Filtering**: Filter orders by status, date range, and other criteria
+ *       - **Pagination Support**: Efficient handling of large order datasets
+ *       - **Rich Data**: Populated buyer and product information for each order
+ *       - **Flexible Sorting**: Orders sorted by creation date (newest first)
+ *       - **Performance Optimized**: Efficient database queries with proper indexing
+ *       
+ *       **Filter Options:**
+ *       - **Status Filter**: Filter by order item status (pending, confirmed, shipped, delivered, cancelled)
+ *       - **Date Range**: Filter orders by creation date range
+ *       - **Pagination**: Control page size and navigation
+ *       
+ *       **Use Cases:**
+ *       - Order management dashboard
+ *       - Order history tracking
+ *       - Status-based order filtering
+ *       - Date range order analysis
+ *       - Bulk order operations
+ *       
+ *       **Data Sources:**
+ *       - Order collection with seller-specific filtering
+ *       - Buyer information population
+ *       - Product details population
+ *       - Order status and metadata
+ *       
+ *       **Security:**
+ *       - Requires valid authentication token
+ *       - Validates seller ownership of orders
+ *       - Ensures data privacy and access control
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: header
+ *         name: Authorization
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *         description: JWT authentication token
+ *       - in: query
+ *         name: status
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [pending, confirmed, shipped, delivered, cancelled]
+ *           example: "confirmed"
+ *         description: Filter orders by item status
+ *       - in: query
+ *         name: startDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: "2024-01-01"
+ *         description: Start date for order filtering (ISO 8601 format)
+ *       - in: query
+ *         name: endDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: "2024-12-31"
+ *         description: End date for order filtering (ISO 8601 format)
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *           example: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *           example: 10
+ *         description: Number of orders per page (max 100)
+ *     responses:
+ *       200:
+ *         description: Orders retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Orders retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     orders:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             description: Order ID
+ *                             example: "507f1f77bcf86cd799439011"
+ *                           buyer:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                                 example: "507f1f77bcf86cd799439012"
+ *                               firstName:
+ *                                 type: string
+ *                                 example: "John"
+ *                               lastName:
+ *                                 type: string
+ *                                 example: "Doe"
+ *                               email:
+ *                                 type: string
+ *                                 example: "john.doe@example.com"
+ *                           items:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 product:
+ *                                   type: object
+ *                                   properties:
+ *                                     _id:
+ *                                       type: string
+ *                                       example: "507f1f77bcf86cd799439013"
+ *                                     name:
+ *                                       type: string
+ *                                       example: "Premium Headphones"
+ *                                     images:
+ *                                       type: array
+ *                                       items:
+ *                                         type: string
+ *                                       example: ["https://example.com/image1.jpg"]
+ *                                     price:
+ *                                       type: number
+ *                                       example: 299.99
+ *                                 quantity:
+ *                                   type: integer
+ *                                   example: 2
+ *                                 price:
+ *                                   type: number
+ *                                   example: 299.99
+ *                                 status:
+ *                                   type: string
+ *                                   example: "confirmed"
+ *                           totalAmount:
+ *                             type: number
+ *                             example: 599.98
+ *                           status:
+ *                             type: string
+ *                             example: "confirmed"
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                           updatedAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                     currentPage:
+ *                       type: integer
+ *                       example: 1
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 5
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         currentPage:
+ *                           type: integer
+ *                           example: 1
+ *                         totalPages:
+ *                           type: integer
+ *                           example: 5
+ *                         totalOrders:
+ *                           type: integer
+ *                           example: 47
+ *                         hasMore:
+ *                           type: boolean
+ *                           example: true
+ *                         hasPrevious:
+ *                           type: boolean
+ *                           example: false
+ *             examples:
+ *               success_with_orders:
+ *                 summary: Orders retrieved successfully with data
+ *                 value:
+ *                   success: true
+ *                   message: "Orders retrieved successfully"
+ *                   data:
+ *                     orders:
+ *                       - _id: "507f1f77bcf86cd799439011"
+ *                         buyer:
+ *                           _id: "507f1f77bcf86cd799439012"
+ *                           firstName: "John"
+ *                           lastName: "Doe"
+ *                           email: "john.doe@example.com"
+ *                         items:
+ *                           - product:
+ *                               _id: "507f1f77bcf86cd799439013"
+ *                               name: "Premium Headphones"
+ *                               images: ["https://example.com/image1.jpg"]
+ *                               price: 299.99
+ *                             quantity: 2
+ *                             price: 299.99
+ *                             status: "confirmed"
+ *                         totalAmount: 599.98
+ *                         status: "confirmed"
+ *                         createdAt: "2024-01-15T10:30:00.000Z"
+ *                         updatedAt: "2024-01-15T10:30:00.000Z"
+ *                     currentPage: 1
+ *                     totalPages: 5
+ *                     pagination:
+ *                       currentPage: 1
+ *                       totalPages: 5
+ *                       totalOrders: 47
+ *                       hasMore: true
+ *                       hasPrevious: false
+ *               success_empty_orders:
+ *                 summary: No orders found
+ *                 value:
+ *                   success: true
+ *                   message: "Orders retrieved successfully"
+ *                   data:
+ *                     orders: []
+ *                     currentPage: 1
+ *                     totalPages: 0
+ *                     pagination:
+ *                       currentPage: 1
+ *                       totalPages: 0
+ *                       totalOrders: 0
+ *                       hasMore: false
+ *                       hasPrevious: false
+ *       422:
+ *         description: Validation error - Invalid parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "sellerId"
+ *                       message:
+ *                         type: string
+ *                         example: "Valid seller ID is required"
+ *             examples:
+ *               invalid_seller_id:
+ *                 summary: Invalid seller ID format
+ *                 value:
+ *                   success: false
+ *                   message: "Validation failed"
+ *                   errors:
+ *                     - field: "sellerId"
+ *                       message: "Valid seller ID is required"
+ *               invalid_date_format:
+ *                 summary: Invalid date format
+ *                 value:
+ *                   success: false
+ *                   message: "Validation failed"
+ *                   errors:
+ *                     - field: "startDate"
+ *                       message: "Invalid date format"
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Seller not found"
+ *             examples:
+ *               seller_not_found:
+ *                 summary: Seller does not exist
+ *                 value:
+ *                   success: false
+ *                   message: "Seller not found"
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied. No token provided."
+ *             examples:
+ *               no_token:
+ *                 summary: No authentication token provided
+ *                 value:
+ *                   success: false
+ *                   message: "Access denied. No token provided."
+ *               invalid_token:
+ *                 summary: Invalid authentication token
+ *                 value:
+ *                   success: false
+ *                   message: "Access denied. Invalid token."
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ *             examples:
+ *               database_error:
+ *                 summary: Database connection error
+ *                 value:
+ *                   success: false
+ *                   message: "Internal server error"
+ *               query_error:
+ *                 summary: Order query execution error
+ *                 value:
+ *                   success: false
+ *                   message: "Internal server error"
+ */
+// Get orders route - using same middleware as original route
+router.get('/orders', verifyToken, sellerController.getOrders);
+
 module.exports = router;
