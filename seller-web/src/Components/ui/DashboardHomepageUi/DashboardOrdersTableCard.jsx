@@ -12,7 +12,7 @@ import { Button } from "@/Components/ui/button";
 import { ShoppingBag, ExternalLink } from "lucide-react";
 import { Badge } from "@/Components/ui/badge";
 import axios from "axios";
-import { BASE_URL } from "@/Constants/Server";
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server";
 
 function getStatusColor(status) {
   const statusColors = {
@@ -38,10 +38,10 @@ export default function DashboardOrdersTableCard() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const response = await axios.get(`${BASE_URL}/seller/orders`);
+        const response = await axios.get(`${BASE_URL_V2}/sellers/orders`);
         if (response.status === 200) {
           // Only filter out abandoned orders (orders with isStale=true)
-          const filteredOrders = response.data.orders.filter((order) => !order.isStale);
+          const filteredOrders = response.data.data.orders.filter((order) => !order.isStale);
           setOrders(filteredOrders);
         }
       } catch (error) {
