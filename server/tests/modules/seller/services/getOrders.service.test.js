@@ -29,7 +29,11 @@ describe('Get Orders Service', () => {
 
   beforeAll(async () => {
     // Start in-memory MongoDB instance
-    mongoServer = await MongoMemoryServer.create();
+    mongoServer = await MongoMemoryServer.create({
+      binary: {
+        version: '7.0.3' // Use a version compatible with Debian 12
+      }
+    });
     const mongoUri = mongoServer.getUri();
     await mongoose.connect(mongoUri);
   });
