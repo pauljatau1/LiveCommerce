@@ -21,6 +21,7 @@ const verifyOTPService = require('../services/verifyOTP.service');
 const selectCategoriesService = require('../services/selectCategories.service');
 const updateCategoriesService = require('../services/updateCategories.service');
 const getTopProductsService = require('../services/getTopProducts.service');
+const getStatisticsService = require('../services/getStatistics.service');
 
 /**
  * Register a seller user.
@@ -804,6 +805,34 @@ async function getTopProducts(req, res, next) {
   }
 }
 
+/**
+ * Get comprehensive seller statistics and analytics.
+ *
+ * This controller handles the statistics retrieval HTTP request.
+ * It delegates the analytics logic to the service layer and returns comprehensive
+ * seller performance metrics including wallet balance, store visits, orders,
+ * conversion rates, and customer acquisition data with week-over-week comparisons.
+ *
+ * @param {Request} req - Express request object containing the seller's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getStatistics(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+
+    // Call the service layer to handle statistics retrieval logic
+    const response = await getStatisticsService.getStatistics(sellerId);
+
+    // Send success response with statistics data
+    res.success(response, 'Statistics retrieved successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -827,5 +856,6 @@ module.exports = {
   uploadStoreBanner,
   selectCategories,
   updateCategories,
-  getTopProducts
+  getTopProducts,
+  getStatistics
 };
