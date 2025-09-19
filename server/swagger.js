@@ -32,6 +32,10 @@ const options = {
         {
           name: 'Buyer V2',
           description: 'Buyer V2 API endpoints'
+        },
+        {
+          name: 'Seller V2',
+          description: 'Seller V2 API endpoints'
         }
       ],
       schemas: {

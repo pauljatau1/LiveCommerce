@@ -1714,8 +1714,7 @@ router.post('/verification/smileid/token', verifyToken, sellerController.generat
  * @swagger
  * /api/v2/sellers/verification/smileid/job:
  *   post:
- *     tags:
- *       - Seller Verification
+ *     tags: [Seller V2]
  *     summary: Process SmileID verification job
  *     description: |
  *       Processes a SmileID verification job for seller identity verification.
@@ -1914,8 +1913,7 @@ router.post('/verification/smileid/job', verifyToken, sellerController.processSm
  * @swagger
  * /api/v2/sellers/verification/smileid/individual:
  *   post:
- *     tags:
- *       - Seller Verification
+ *     tags: [Seller V2]
  *     summary: Save individual SmileID verification result
  *     description: |
  *       Saves the result of individual SmileID verification to the seller's record.
@@ -2087,8 +2085,7 @@ router.post('/verification/smileid/individual', verifyToken, sellerController.sa
  * @swagger
  * /api/v2/sellers/verification/smileid/business:
  *   post:
- *     tags:
- *       - Seller Verification
+ *     tags: [Seller V2]
  *     summary: Save business SmileID verification result
  *     description: |
  *       Saves the result of business SmileID verification to the seller's record.
@@ -2260,8 +2257,7 @@ router.post('/verification/smileid/business', verifyToken, sellerController.save
  * @swagger
  * /api/v2/sellers/verification/smileid/callback:
  *   post:
- *     tags:
- *       - Seller Verification
+ *     tags: [Seller V2]
  *     summary: Handle SmileID verification callback
  *     description: |
  *       Processes webhook callbacks from SmileID verification service.
@@ -2459,7 +2455,7 @@ router.post('/verification/smileid/callback', sellerController.smileIdCallback);
  *       - Requires valid authentication token
  *       - Validates seller ownership of the account
  *       - Ensures data sanitization and validation
- *     tags: [Seller]
+ *     tags: [Seller V2]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -3542,5 +3538,1037 @@ router.post('/profile/avatar', verifyToken, upload.single('avatar'), sellerContr
  */
 // Upload store banner route - using same middleware as original route
 router.post('/profile/banner', verifyToken, upload.single('banner'), sellerController.uploadStoreBanner);
+
+/**
+ * @swagger
+ * /api/v2/sellers/top-products:
+ *   get:
+ *     summary: Get seller's top performing products by sales volume
+ *     description: |
+ *       Retrieves the top 4 best-selling products for the authenticated seller, ranked by total quantity sold.
+ *       This endpoint provides valuable insights into which products are performing best in terms of sales volume and revenue.
+ *       
+ *       **Key Features:**
+ *       - Returns top 4 products sorted by quantity sold (descending)
+ *       - Includes total quantity sold and total revenue for each product
+ *       - Provides complete product details including images, category, and brand
+ *       - Uses MongoDB aggregation for efficient data processing
+ *       - Only includes products that have been sold (have order history)
+ *       
+ *       **Use Cases:**
+ *       - Dashboard analytics for sellers
+ *       - Product performance analysis
+ *       - Inventory management insights
+ *       - Marketing campaign planning
+ *       
+ *       **Data Source:**
+ *       - Analyzes completed orders from the Order collection
+ *       - Aggregates sales data across all time periods
+ *       - Excludes cancelled or pending orders
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: header
+ *         name: Authorization
+ *         required: true
+ *         description: Bearer token for seller authentication
+ *         schema:
+ *           type: string
+ *           example: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *     responses:
+ *       200:
+ *         description: |
+ *           Successfully retrieved the seller's top performing products. Returns an array of up to 4 products
+ *           sorted by total quantity sold, with comprehensive sales analytics and product details.
+ *           
+ *           **Response Structure:**
+ *           - `success`: Boolean indicating request success
+ *           - `message`: Human-readable success message
+ *           - `data.data`: Array of top products with sales metrics
+ *           - `pagination`: Always null for this endpoint
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - success
+ *                 - message
+ *                 - data
+ *                 - pagination
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   description: Indicates if the request was successful
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   description: Success message describing the operation
+ *                   example: "Top products retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   description: Container object for the response data
+ *                   required:
+ *                     - data
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       description: |
+ *                         Array of top performing products, sorted by total quantity sold (descending).
+ *                         Maximum of 4 products will be returned. Empty array if no products have been sold.
+ *                       maxItems: 4
+ *                       items:
+ *                         type: object
+ *                         required:
+ *                           - _id
+ *                           - totalQuantity
+ *                           - totalRevenue
+ *                           - productDetails
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             description: Unique identifier of the product
+ *                             example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *                             pattern: "^[0-9a-fA-F]{24}$"
+ *                           totalQuantity:
+ *                             type: number
+ *                             description: |
+ *                               Total quantity of this product sold across all orders.
+ *                               This is the sum of all quantities from completed orders.
+ *                             minimum: 0
+ *                             example: 25
+ *                           totalRevenue:
+ *                             type: number
+ *                             description: |
+ *                               Total revenue generated from sales of this product.
+ *                               Calculated as sum of (price × quantity) for all sold units.
+ *                             minimum: 0
+ *                             example: 1250.00
+ *                           productDetails:
+ *                             type: object
+ *                             description: Complete product information from the Product collection
+ *                             required:
+ *                               - _id
+ *                               - name
+ *                               - price
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                                 description: Product's unique identifier
+ *                                 example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *                                 pattern: "^[0-9a-fA-F]{24}$"
+ *                               name:
+ *                                 type: string
+ *                                 description: Product name as displayed to customers
+ *                                 example: "Premium Wireless Headphones"
+ *                                 minLength: 1
+ *                                 maxLength: 200
+ *                               description:
+ *                                 type: string
+ *                                 description: Detailed product description
+ *                                 example: "High-quality wireless headphones with noise cancellation"
+ *                               price:
+ *                                 type: number
+ *                                 description: Current selling price of the product
+ *                                 minimum: 0
+ *                                 example: 50.00
+ *                               images:
+ *                                 type: array
+ *                                 description: Array of product images
+ *                                 items:
+ *                                   type: object
+ *                                   properties:
+ *                                     url:
+ *                                       type: string
+ *                                       description: URL of the product image
+ *                                       example: "https://cdn.example.com/products/headphones-main.jpg"
+ *                                       format: uri
+ *                                     alt:
+ *                                       type: string
+ *                                       description: Alternative text for the image
+ *                                       example: "Premium Wireless Headphones - Front View"
+ *                               category:
+ *                                 type: string
+ *                                 description: Product category for organization and filtering
+ *                                 example: "Electronics"
+ *                               subCategory:
+ *                                 type: string
+ *                                 description: More specific product subcategory
+ *                                 example: "Audio & Headphones"
+ *                               brand:
+ *                                 type: string
+ *                                 description: Product brand or manufacturer
+ *                                 example: "TechBrand"
+ *                               stock:
+ *                                 type: number
+ *                                 description: Current available stock quantity
+ *                                 minimum: 0
+ *                                 example: 150
+ *                               createdAt:
+ *                                 type: string
+ *                                 format: date-time
+ *                                 description: When the product was first created
+ *                                 example: "2023-01-15T10:30:00.000Z"
+ *                               updatedAt:
+ *                                 type: string
+ *                                 format: date-time
+ *                                 description: When the product was last updated
+ *                                 example: "2023-12-01T14:22:00.000Z"
+ *                 pagination:
+ *                   type: null
+ *                   description: Pagination information (always null for this endpoint)
+ *                   example: null
+ *         examples:
+ *           success_with_products:
+ *             summary: Successful response with top products
+ *             value:
+ *               success: true
+ *               message: "Top products retrieved successfully"
+ *               data:
+ *                 data:
+ *                   - _id: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *                     totalQuantity: 25
+ *                     totalRevenue: 1250.00
+ *                     productDetails:
+ *                       _id: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *                       name: "Premium Wireless Headphones"
+ *                       description: "High-quality wireless headphones with noise cancellation"
+ *                       price: 50.00
+ *                       images:
+ *                         - url: "https://cdn.example.com/products/headphones-main.jpg"
+ *                           alt: "Premium Wireless Headphones - Front View"
+ *                       category: "Electronics"
+ *                       subCategory: "Audio & Headphones"
+ *                       brand: "TechBrand"
+ *                       stock: 150
+ *                       createdAt: "2023-01-15T10:30:00.000Z"
+ *                       updatedAt: "2023-12-01T14:22:00.000Z"
+ *                   - _id: "60f7b3b3b3b3b3b3b3b3b3b4"
+ *                     totalQuantity: 18
+ *                     totalRevenue: 900.00
+ *                     productDetails:
+ *                       _id: "60f7b3b3b3b3b3b3b3b3b3b4"
+ *                       name: "Wireless Gaming Mouse"
+ *                       description: "Ergonomic wireless mouse designed for gaming"
+ *                       price: 25.00
+ *                       images:
+ *                         - url: "https://cdn.example.com/products/mouse-main.jpg"
+ *                           alt: "Wireless Gaming Mouse"
+ *                       category: "Electronics"
+ *                       subCategory: "Computer Accessories"
+ *                       brand: "GameTech"
+ *                       stock: 75
+ *                       createdAt: "2023-02-20T09:15:00.000Z"
+ *                       updatedAt: "2023-11-28T16:45:00.000Z"
+ *               pagination: null
+ *           success_empty:
+ *             summary: Successful response with no products
+ *             value:
+ *               success: true
+ *               message: "Top products retrieved successfully"
+ *               data:
+ *                 data: []
+ *               pagination: null
+ *       422:
+ *         description: |
+ *           Unprocessable Entity - The request was well-formed but contains validation errors.
+ *           This occurs when the seller ID validation fails.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - success
+ *                 - message
+ *                 - errors
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   description: Array of validation error objects
+ *                   items:
+ *                     type: object
+ *                     required:
+ *                       - field
+ *                       - message
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         description: The field that failed validation
+ *                         example: "sellerId"
+ *                       message:
+ *                         type: string
+ *                         description: Specific validation error message
+ *                         example: "Valid seller ID is required"
+ *         examples:
+ *           invalid_seller_id:
+ *             summary: Invalid seller ID format
+ *             value:
+ *               success: false
+ *               message: "Validation failed"
+ *               errors:
+ *                 - field: "sellerId"
+ *                   message: "Seller ID must be a valid ObjectId format"
+ *           missing_seller_id:
+ *             summary: Missing or empty seller ID
+ *             value:
+ *               success: false
+ *               message: "Validation failed"
+ *               errors:
+ *                 - field: "sellerId"
+ *                   message: "Valid seller ID is required"
+ *       401:
+ *         description: |
+ *           Unauthorized - Authentication failed. This occurs when:
+ *           - No authorization token is provided
+ *           - The token is invalid or expired
+ *           - The token format is incorrect
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - success
+ *                 - message
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized - Invalid or missing token"
+ *         examples:
+ *           no_token:
+ *             summary: No authorization token provided
+ *             value:
+ *               success: false
+ *               message: "Unauthorized - No token provided"
+ *           invalid_token:
+ *             summary: Invalid or expired token
+ *             value:
+ *               success: false
+ *               message: "Unauthorized - Invalid or expired token"
+ *       500:
+ *         description: |
+ *           Internal Server Error - An unexpected error occurred on the server.
+ *           This could be due to:
+ *           - Database connection issues
+ *           - Aggregation pipeline failures
+ *           - Server configuration problems
+ *           
+ *           **Note:** In case of server errors, please retry the request or contact support.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required:
+ *                 - success
+ *                 - message
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error - Unable to retrieve top products"
+ *         examples:
+ *           database_error:
+ *             summary: Database connection error
+ *             value:
+ *               success: false
+ *               message: "Internal server error - Database connection failed"
+ *           aggregation_error:
+ *             summary: Aggregation pipeline error
+ *             value:
+ *               success: false
+ *               message: "Internal server error - Unable to process product data"
+ */
+// Get top products route - using same middleware as original route
+router.get('/top-products', verifyToken, sellerController.getTopProducts);
+
+/**
+ * @swagger
+ * /api/v2/sellers/statistics:
+ *   get:
+ *     summary: Get comprehensive seller statistics and analytics
+ *     description: |
+ *       Retrieves detailed seller performance metrics including wallet balance, store visits, 
+ *       order counts, conversion rates, and customer acquisition data with week-over-week comparisons.
+ *       
+ *       This endpoint provides comprehensive analytics to help sellers understand their business performance:
+ *       - **Wallet Balance**: Current balance with week-over-week change
+ *       - **Store Visits**: Total visits with trend analysis
+ *       - **Total Orders**: Order count with growth metrics
+ *       - **Conversion Rate**: Visit-to-order conversion percentage
+ *       - **New Customers**: Customer acquisition with growth tracking
+ *       
+ *       All metrics include percentage changes compared to the previous week, providing
+ *       actionable insights for business optimization and growth tracking.
+ *       
+ *       **Data Sources:**
+ *       - Seller profile data (wallet, visits, followers)
+ *       - Order aggregation (excluding stale orders)
+ *       - Customer relationship analysis
+ *       - Week-over-week comparison calculations
+ *       
+ *       **Use Cases:**
+ *       - Dashboard analytics display
+ *       - Performance monitoring
+ *       - Business growth tracking
+ *       - Customer acquisition analysis
+ *       - Revenue trend monitoring
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Statistics retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     walletBalance:
+ *                       type: object
+ *                       properties:
+ *                         amount:
+ *                           type: number
+ *                           description: Current wallet balance in NGN
+ *                           example: 15000.50
+ *                         currency:
+ *                           type: string
+ *                           description: Currency code
+ *                           example: "NGN"
+ *                         change:
+ *                           type: object
+ *                           properties:
+ *                             value:
+ *                               type: string
+ *                               description: Change value (percentage or number)
+ *                               example: "12.50"
+ *                             type:
+ *                               type: string
+ *                               enum: [percentage, number]
+ *                               description: Type of change metric
+ *                               example: "percentage"
+ *                     storeVisits:
+ *                       type: object
+ *                       properties:
+ *                         count:
+ *                           type: number
+ *                           description: Total store visits
+ *                           example: 1250
+ *                         change:
+ *                           type: object
+ *                           properties:
+ *                             value:
+ *                               type: string
+ *                               example: "8.75"
+ *                             type:
+ *                               type: string
+ *                               example: "percentage"
+ *                     totalOrders:
+ *                       type: object
+ *                       properties:
+ *                         count:
+ *                           type: number
+ *                           description: Total orders placed
+ *                           example: 89
+ *                         change:
+ *                           type: object
+ *                           properties:
+ *                             value:
+ *                               type: string
+ *                               example: "15.25"
+ *                             type:
+ *                               type: string
+ *                               example: "percentage"
+ *                     conversionRate:
+ *                       type: object
+ *                       properties:
+ *                         percentage:
+ *                           type: string
+ *                           description: Conversion rate as percentage
+ *                           example: "7.12"
+ *                         change:
+ *                           type: object
+ *                           properties:
+ *                             value:
+ *                               type: string
+ *                               example: "2.30"
+ *                             type:
+ *                               type: string
+ *                               example: "percentage"
+ *                     newCustomers:
+ *                       type: object
+ *                       properties:
+ *                         count:
+ *                           type: number
+ *                           description: Total customers (followers with orders)
+ *                           example: 45
+ *                         change:
+ *                           type: object
+ *                           properties:
+ *                             value:
+ *                               type: string
+ *                               example: "5.80"
+ *                             type:
+ *                               type: string
+ *                               example: "percentage"
+ *             examples:
+ *               success_with_data:
+ *                 summary: Successful statistics retrieval
+ *                 value:
+ *                   success: true
+ *                   message: "Statistics retrieved successfully"
+ *                   data:
+ *                     walletBalance:
+ *                       amount: 15000.50
+ *                       currency: "NGN"
+ *                       change:
+ *                         value: "12.50"
+ *                         type: "percentage"
+ *                     storeVisits:
+ *                       count: 1250
+ *                       change:
+ *                         value: "8.75"
+ *                         type: "percentage"
+ *                     totalOrders:
+ *                       count: 89
+ *                       change:
+ *                         value: "15.25"
+ *                         type: "percentage"
+ *                     conversionRate:
+ *                       percentage: "7.12"
+ *                       change:
+ *                         value: "2.30"
+ *                         type: "percentage"
+ *                     newCustomers:
+ *                       count: 45
+ *                       change:
+ *                         value: "5.80"
+ *                         type: "percentage"
+ *               success_zero_values:
+ *                 summary: Statistics with zero values
+ *                 value:
+ *                   success: true
+ *                   message: "Statistics retrieved successfully"
+ *                   data:
+ *                     walletBalance:
+ *                       amount: 0
+ *                       currency: "NGN"
+ *                       change:
+ *                         value: "0.00"
+ *                         type: "number"
+ *                     storeVisits:
+ *                       count: 0
+ *                       change:
+ *                         value: "0.00"
+ *                         type: "number"
+ *                     totalOrders:
+ *                       count: 0
+ *                       change:
+ *                         value: "0.00"
+ *                         type: "number"
+ *                     conversionRate:
+ *                       percentage: "0.00"
+ *                       change:
+ *                         value: "0.00"
+ *                         type: "number"
+ *                     newCustomers:
+ *                       count: 0
+ *                       change:
+ *                         value: "0.00"
+ *                         type: "number"
+ *       422:
+ *         description: Validation error - Invalid seller ID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "sellerId"
+ *                       message:
+ *                         type: string
+ *                         example: "Valid seller ID is required"
+ *             examples:
+ *               invalid_seller_id:
+ *                 summary: Invalid seller ID format
+ *                 value:
+ *                   success: false
+ *                   message: "Validation failed"
+ *                   errors:
+ *                     - field: "sellerId"
+ *                       message: "Valid seller ID is required"
+ *               invalid_objectid:
+ *                 summary: Invalid ObjectId format
+ *                 value:
+ *                   success: false
+ *                   message: "Validation failed"
+ *                   errors:
+ *                     - field: "sellerId"
+ *                       message: "Seller ID must be a valid ObjectId format"
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Seller not found"
+ *             examples:
+ *               seller_not_found:
+ *                 summary: Seller does not exist
+ *                 value:
+ *                   success: false
+ *                   message: "Seller not found"
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied. No token provided."
+ *             examples:
+ *               no_token:
+ *                 summary: No authentication token provided
+ *                 value:
+ *                   success: false
+ *                   message: "Access denied. No token provided."
+ *               invalid_token:
+ *                 summary: Invalid authentication token
+ *                 value:
+ *                   success: false
+ *                   message: "Access denied. Invalid token."
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ *             examples:
+ *               database_error:
+ *                 summary: Database connection error
+ *                 value:
+ *                   success: false
+ *                   message: "Internal server error"
+ *               aggregation_error:
+ *                 summary: Statistics calculation error
+ *                 value:
+ *                   success: false
+ *                   message: "Internal server error"
+ */
+// Get statistics route - using same middleware as original route
+router.get('/statistics', verifyToken, sellerController.getStatistics);
+
+/**
+ * @swagger
+ * /api/v2/sellers/orders:
+ *   get:
+ *     summary: Get seller's orders with filtering and pagination
+ *     description: |
+ *       Retrieves a comprehensive list of orders for the authenticated seller with advanced
+ *       filtering, sorting, and pagination capabilities. This endpoint provides detailed
+ *       order information including buyer details, product information, and order status.
+ *       
+ *       **Key Features:**
+ *       - **Advanced Filtering**: Filter orders by status, date range, and other criteria
+ *       - **Pagination Support**: Efficient handling of large order datasets
+ *       - **Rich Data**: Populated buyer and product information for each order
+ *       - **Flexible Sorting**: Orders sorted by creation date (newest first)
+ *       - **Performance Optimized**: Efficient database queries with proper indexing
+ *       
+ *       **Filter Options:**
+ *       - **Status Filter**: Filter by order item status (pending, confirmed, shipped, delivered, cancelled)
+ *       - **Date Range**: Filter orders by creation date range
+ *       - **Pagination**: Control page size and navigation
+ *       
+ *       **Use Cases:**
+ *       - Order management dashboard
+ *       - Order history tracking
+ *       - Status-based order filtering
+ *       - Date range order analysis
+ *       - Bulk order operations
+ *       
+ *       **Data Sources:**
+ *       - Order collection with seller-specific filtering
+ *       - Buyer information population
+ *       - Product details population
+ *       - Order status and metadata
+ *       
+ *       **Security:**
+ *       - Requires valid authentication token
+ *       - Validates seller ownership of orders
+ *       - Ensures data privacy and access control
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: header
+ *         name: Authorization
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *         description: JWT authentication token
+ *       - in: query
+ *         name: status
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [pending, confirmed, shipped, delivered, cancelled]
+ *           example: "confirmed"
+ *         description: Filter orders by item status
+ *       - in: query
+ *         name: startDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: "2024-01-01"
+ *         description: Start date for order filtering (ISO 8601 format)
+ *       - in: query
+ *         name: endDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: "2024-12-31"
+ *         description: End date for order filtering (ISO 8601 format)
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *           example: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *           example: 10
+ *         description: Number of orders per page (max 100)
+ *     responses:
+ *       200:
+ *         description: Orders retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Orders retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     orders:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             description: Order ID
+ *                             example: "507f1f77bcf86cd799439011"
+ *                           buyer:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                                 example: "507f1f77bcf86cd799439012"
+ *                               firstName:
+ *                                 type: string
+ *                                 example: "John"
+ *                               lastName:
+ *                                 type: string
+ *                                 example: "Doe"
+ *                               email:
+ *                                 type: string
+ *                                 example: "john.doe@example.com"
+ *                           items:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 product:
+ *                                   type: object
+ *                                   properties:
+ *                                     _id:
+ *                                       type: string
+ *                                       example: "507f1f77bcf86cd799439013"
+ *                                     name:
+ *                                       type: string
+ *                                       example: "Premium Headphones"
+ *                                     images:
+ *                                       type: array
+ *                                       items:
+ *                                         type: string
+ *                                       example: ["https://example.com/image1.jpg"]
+ *                                     price:
+ *                                       type: number
+ *                                       example: 299.99
+ *                                 quantity:
+ *                                   type: integer
+ *                                   example: 2
+ *                                 price:
+ *                                   type: number
+ *                                   example: 299.99
+ *                                 status:
+ *                                   type: string
+ *                                   example: "confirmed"
+ *                           totalAmount:
+ *                             type: number
+ *                             example: 599.98
+ *                           status:
+ *                             type: string
+ *                             example: "confirmed"
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                           updatedAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:30:00.000Z"
+ *                     currentPage:
+ *                       type: integer
+ *                       example: 1
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 5
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         currentPage:
+ *                           type: integer
+ *                           example: 1
+ *                         totalPages:
+ *                           type: integer
+ *                           example: 5
+ *                         totalOrders:
+ *                           type: integer
+ *                           example: 47
+ *                         hasMore:
+ *                           type: boolean
+ *                           example: true
+ *                         hasPrevious:
+ *                           type: boolean
+ *                           example: false
+ *             examples:
+ *               success_with_orders:
+ *                 summary: Orders retrieved successfully with data
+ *                 value:
+ *                   success: true
+ *                   message: "Orders retrieved successfully"
+ *                   data:
+ *                     orders:
+ *                       - _id: "507f1f77bcf86cd799439011"
+ *                         buyer:
+ *                           _id: "507f1f77bcf86cd799439012"
+ *                           firstName: "John"
+ *                           lastName: "Doe"
+ *                           email: "john.doe@example.com"
+ *                         items:
+ *                           - product:
+ *                               _id: "507f1f77bcf86cd799439013"
+ *                               name: "Premium Headphones"
+ *                               images: ["https://example.com/image1.jpg"]
+ *                               price: 299.99
+ *                             quantity: 2
+ *                             price: 299.99
+ *                             status: "confirmed"
+ *                         totalAmount: 599.98
+ *                         status: "confirmed"
+ *                         createdAt: "2024-01-15T10:30:00.000Z"
+ *                         updatedAt: "2024-01-15T10:30:00.000Z"
+ *                     currentPage: 1
+ *                     totalPages: 5
+ *                     pagination:
+ *                       currentPage: 1
+ *                       totalPages: 5
+ *                       totalOrders: 47
+ *                       hasMore: true
+ *                       hasPrevious: false
+ *               success_empty_orders:
+ *                 summary: No orders found
+ *                 value:
+ *                   success: true
+ *                   message: "Orders retrieved successfully"
+ *                   data:
+ *                     orders: []
+ *                     currentPage: 1
+ *                     totalPages: 0
+ *                     pagination:
+ *                       currentPage: 1
+ *                       totalPages: 0
+ *                       totalOrders: 0
+ *                       hasMore: false
+ *                       hasPrevious: false
+ *       422:
+ *         description: Validation error - Invalid parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "sellerId"
+ *                       message:
+ *                         type: string
+ *                         example: "Valid seller ID is required"
+ *             examples:
+ *               invalid_seller_id:
+ *                 summary: Invalid seller ID format
+ *                 value:
+ *                   success: false
+ *                   message: "Validation failed"
+ *                   errors:
+ *                     - field: "sellerId"
+ *                       message: "Valid seller ID is required"
+ *               invalid_date_format:
+ *                 summary: Invalid date format
+ *                 value:
+ *                   success: false
+ *                   message: "Validation failed"
+ *                   errors:
+ *                     - field: "startDate"
+ *                       message: "Invalid date format"
+ *       404:
+ *         description: Seller not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Seller not found"
+ *             examples:
+ *               seller_not_found:
+ *                 summary: Seller does not exist
+ *                 value:
+ *                   success: false
+ *                   message: "Seller not found"
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied. No token provided."
+ *             examples:
+ *               no_token:
+ *                 summary: No authentication token provided
+ *                 value:
+ *                   success: false
+ *                   message: "Access denied. No token provided."
+ *               invalid_token:
+ *                 summary: Invalid authentication token
+ *                 value:
+ *                   success: false
+ *                   message: "Access denied. Invalid token."
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ *             examples:
+ *               database_error:
+ *                 summary: Database connection error
+ *                 value:
+ *                   success: false
+ *                   message: "Internal server error"
+ *               query_error:
+ *                 summary: Order query execution error
+ *                 value:
+ *                   success: false
+ *                   message: "Internal server error"
+ */
+// Get orders route - using same middleware as original route
+router.get('/orders', verifyToken, sellerController.getOrders);
 
 module.exports = router;
