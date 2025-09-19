@@ -163,6 +163,48 @@ router.get('/blips/suggested', optionalAuthMiddleware, blipsController.getSugges
 
 /**
  * @swagger
+ * /api/products/{productId}/blips/{blipId}/download:
+ *   get:
+ *     summary: Get a pre-signed URL to download the original blip (MP4)
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip
+ *     responses:
+ *       200:
+ *         description: Pre-signed URL generated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 downloadUrl:
+ *                   type: string
+ *                 expiresInSeconds:
+ *                   type: integer
+ *       400:
+ *         description: Invalid parameters
+ *       404:
+ *         description: Product, blip, or original file not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:productId/blips/:blipId/download', blipsController.getOriginalBlipDownloadUrl);
+
+/**
+ * @swagger
  * /api/products/blips/suggested:
  *   get:
  *     summary: Get suggested blips based on user preferences
