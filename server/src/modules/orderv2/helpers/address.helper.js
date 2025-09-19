@@ -56,6 +56,8 @@ const ogunCityMapping = {
     "Abeokuta North": "Abeokuta",
     "Abeokuta South": "Abeokuta",
     "Ado-Odo/Ota": "Sango Otta",
+    "Ado Odo/Ota": "Ado Odo Ota",
+    "Ado Odo Ota": "Ado Odo/Ota",
     "Ifo": "Ifo",
     "Ijebu Ode": "Ijebu-Ode",
     "Ijebu North": "Ijebu-Igbo",

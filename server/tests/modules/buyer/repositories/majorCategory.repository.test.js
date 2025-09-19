@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const majorCategoryRepository = require('@modules/buyer/repositories/majorCategory.repository');
 const MajorCategory = require('@models/MajorCategory');
+const Category = require('@models/Category');
 
 describe('Major Category Repository', () => {
   let mongoServer;
@@ -23,6 +24,7 @@ describe('Major Category Repository', () => {
 
   beforeEach(async () => {
     await MajorCategory.deleteMany({});
+    await Category.deleteMany({});
   });
 
   describe('findActiveMajorCategories', () => {
@@ -232,20 +234,21 @@ describe('Major Category Repository', () => {
     });
 
     it('should handle major categories with category references', async () => {
-      const categoryId1 = new mongoose.Types.ObjectId();
-      const categoryId2 = new mongoose.Types.ObjectId();
+      // Create actual Category documents first
+      const category1 = await Category.create({ name: 'Category 1' });
+      const category2 = await Category.create({ name: 'Category 2' });
       
       const majorCategory = await MajorCategory.create({
         name: 'Major Category with categories',
-        categories: [categoryId1, categoryId2]
+        categories: [category1._id, category2._id]
       });
       
       const categories = await majorCategoryRepository.findActiveMajorCategories([majorCategory._id.toString()]);
       
       expect(categories).toHaveLength(1);
       expect(categories[0].categories).toHaveLength(2);
-      expect(categories[0].categories[0].toString()).toBe(categoryId1.toString());
-      expect(categories[0].categories[1].toString()).toBe(categoryId2.toString());
+      expect(categories[0].categories[0].name).toBe('Category 1');
+      expect(categories[0].categories[1].name).toBe('Category 2');
     });
 
     it('should handle major categories with empty categories array', async () => {
@@ -446,20 +449,21 @@ describe('Major Category Repository', () => {
     });
 
     it('should handle major categories with category references', async () => {
-      const categoryId1 = new mongoose.Types.ObjectId();
-      const categoryId2 = new mongoose.Types.ObjectId();
+      // Create actual Category documents first
+      const category1 = await Category.create({ name: 'Category 1' });
+      const category2 = await Category.create({ name: 'Category 2' });
       
       await MajorCategory.create({
         name: 'Major Category with categories',
-        categories: [categoryId1, categoryId2]
+        categories: [category1._id, category2._id]
       });
       
       const categories = await majorCategoryRepository.findAllActiveMajorCategories();
       
       expect(categories).toHaveLength(1);
       expect(categories[0].categories).toHaveLength(2);
-      expect(categories[0].categories[0].toString()).toBe(categoryId1.toString());
-      expect(categories[0].categories[1].toString()).toBe(categoryId2.toString());
+      expect(categories[0].categories[0].name).toBe('Category 1');
+      expect(categories[0].categories[1].name).toBe('Category 2');
     });
 
     it('should handle major categories with empty categories array', async () => {
