@@ -1422,51 +1422,79 @@ exports.deepSearchProducts = async (req, res) => {
       filter.condition = new RegExp(`^${condition}$`, 'i');
     }
 
-    // Basic match stage for full-text or regex query
     let searchResults = [];
     let total = 0;
 
     if (query.trim()) {
-      // Memory-safe search approach
-      const searchTerms = query.trim().split(/\s+/).filter(term => term.length > 0);
-      
-      // Handle common word variations (singular/plural) - but only for longer terms
-      const expandedTerms = [...searchTerms];
-      searchTerms.forEach(term => {
-        if (term.length > 2) { // Only expand terms longer than 2 characters
+      const rawTerms = query.trim().split(/\s+/).filter(term => term.length > 0);
+
+      // Helper: generate general spacing variations
+      function generateSpacingVariants(term) {
+        const variants = [term];
+        if (term.length > 3) {
+          for (let i = 1; i < term.length; i++) {
+            const left = term.slice(0, i);
+            const right = term.slice(i);
+            // Only insert space between alphabetic characters
+            if (/^[a-zA-Z]+$/.test(left) && /^[a-zA-Z]+$/.test(right)) {
+              variants.push(left + ' ' + right);
+            }
+          }
+        }
+        return variants;
+      }
+
+      // Helper: generate reverse spacing (remove spaces from multi-word terms)
+      function generateReverseSpacing(term) {
+        const variants = [term];
+        // If term contains spaces, create version without spaces
+        if (term.includes(' ')) {
+          variants.push(term.replace(/\s+/g, ''));
+        }
+        return variants;
+      }
+
+      // Expand search terms: plural/singular + spacing variations + reverse spacing
+      let expandedTerms = [...rawTerms];
+      rawTerms.forEach(term => {
+        if (term.length > 2) {
+          // plural/singular
           if (term.endsWith('s') && term.length > 3) {
             expandedTerms.push(term.slice(0, -1));
           } else if (!term.endsWith('s')) {
             expandedTerms.push(`${term}s`);
           }
         }
+        // add spacing variations
+        expandedTerms.push(...generateSpacingVariants(term));
+        // add reverse spacing variations
+        expandedTerms.push(...generateReverseSpacing(term));
       });
-      
-      // Build MongoDB query with better field coverage
+
+      // Deduplicate
+      const uniqueTerms = [...new Set(expandedTerms)];
+
       const orConditions = [];
-      
-      // For single character searches, use a simpler approach
+
       if (query.trim().length === 1) {
         const singleChar = query.trim();
         orConditions.push(
-          // Simple contains search - most likely to find matches
           { name: { $regex: singleChar, $options: 'i' } },
           { category: { $regex: singleChar, $options: 'i' } },
           { subCategory: { $regex: singleChar, $options: 'i' } },
           { brand: { $regex: singleChar, $options: 'i' } }
         );
       } else {
-        // For longer queries, use the full search
+        // Exact matches
         orConditions.push(
-          // Exact matches (higher priority)
           { name: { $regex: query, $options: 'i' } },
           { category: { $regex: `^${query}$`, $options: 'i' } },
           { subCategory: { $regex: `^${query}$`, $options: 'i' } },
           { subSubCategory: { $regex: `^${query}$`, $options: 'i' } }
         );
-        
-        // Add partial term matches for each search term
-        expandedTerms.forEach(term => {
+
+        // Partial matches for all expanded terms
+        uniqueTerms.forEach(term => {
           orConditions.push(
             { name: { $regex: term, $options: 'i' } },
             { description: { $regex: term, $options: 'i' } },
@@ -1479,34 +1507,21 @@ exports.deepSearchProducts = async (req, res) => {
           );
         });
       }
-      
+
       const mongoSearchQuery = {
         ...filter,
         $or: orConditions,
       };
 
-      // DEBUG: Log the query for single character searches
-      if (query.trim().length === 1) {
-        console.log('Single char search query:', JSON.stringify(mongoSearchQuery, null, 2));
-      }
-
-      // MEMORY OPTIMIZATION: Limit initial DB query to prevent loading too many products
-      const MAX_SEARCH_RESULTS = 200; // Conservative limit to prevent memory issues
-      
-      // First, get count for pagination
+      const MAX_SEARCH_RESULTS = 200;
       total = await Product.countDocuments(mongoSearchQuery);
-      console.log(`Query "${query}" found ${total} total matches`);
-      
-      // Get limited results for fuzzy search - prioritize by relevance
+
       const dbResults = await Product.find(mongoSearchQuery)
         .populate('seller', 'name avatarUrl about')
         .populate('reviews.buyer', 'firstName lastName')
-        .sort({ createdAt: -1 }) // Sort by newest first for relevance
-        .limit(MAX_SEARCH_RESULTS); // CRITICAL: Limit memory usage
-      
-      console.log(`Retrieved ${dbResults.length} products from DB`);
+        .sort({ createdAt: -1 })
+        .limit(MAX_SEARCH_RESULTS);
 
-      // Only use Fuse.js if we have a reasonable number of results
       if (dbResults.length > 0) {
         const fuse = new Fuse(dbResults, {
           keys: [
@@ -1524,92 +1539,44 @@ exports.deepSearchProducts = async (req, res) => {
           includeScore: true,
           findAllMatches: true,
           ignoreLocation: true,
-          minMatchCharLength: query.trim().length === 1 ? 1 : 2, // Allow single character matching
-          location: 0,
-          shouldSort: true
+          minMatchCharLength: query.trim().length === 1 ? 1 : 2,
         });
 
         const fuzzyResults = fuse.search(query);
-        
-        // Boost matches based on multiple criteria
+
         const boostedResults = fuzzyResults.map(result => {
           const item = result.item;
           let score = result.score;
           let boostFactor = 1.0;
-          
-          // Boost exact category matches
-          if (item.category) {
-            const categoryLower = item.category.toLowerCase();
-            const queryLower = query.toLowerCase();
-            
-            if (categoryLower === queryLower) {
-              boostFactor *= 0.3;
-            } else if (new RegExp(`\\b${queryLower}\\b`).test(categoryLower)) {
-              boostFactor *= 0.4;
-            }
-          }
-          
-          // Boost subcategory matches
-          if (item.subCategory) {
-            const subCategoryLower = item.subCategory.toLowerCase();
-            const queryLower = query.toLowerCase();
-            
-            if (subCategoryLower === queryLower) {
-              boostFactor *= 0.5;
-            } else if (new RegExp(`\\b${queryLower}\\b`).test(subCategoryLower)) {
-              boostFactor *= 0.6;
-            }
-          }
-          
-          // Boost name matches
+
           if (item.name && item.name.toLowerCase().includes(query.toLowerCase())) {
             boostFactor *= 0.7;
           }
-          
-          // Boost multiple term matches
-          if (item.name) {
-            const nameLower = item.name.toLowerCase();
-            const matchCount = expandedTerms.filter(term => 
-              nameLower.includes(term.toLowerCase())
-            ).length;
-            
-            if (matchCount > 1) {
-              boostFactor *= (0.8 - (matchCount * 0.05));
-            }
-          }
-          
+
           return { ...result, score: score * boostFactor };
         });
-        
-        // Sort by boosted score
+
         boostedResults.sort((a, b) => a.score - b.score);
-        
-        const mappedResults = boostedResults.map((result) => result.item);
-        
-        // Apply additional sorting
+        const mappedResults = boostedResults.map(r => r.item);
+
         const sortOptions = getSortOptions(sortBy, order);
         mappedResults.sort((a, b) => {
           const sortKey = Object.keys(sortOptions)[0];
           const sortDirection = sortOptions[sortKey];
-          
-          const getValue = (obj, path) => {
-            return path.split('.').reduce((o, key) => (o && o[key] !== undefined ? o[key] : null), obj);
-          };
-          
+          const getValue = (obj, path) =>
+            path.split('.').reduce((o, key) => (o && o[key] !== undefined ? o[key] : null), obj);
+
           const aValue = getValue(a, sortKey);
           const bValue = getValue(b, sortKey);
-          
+
           if (aValue === null && bValue === null) return 0;
           if (aValue === null) return sortDirection > 0 ? -1 : 1;
           if (bValue === null) return sortDirection > 0 ? 1 : -1;
-          
+
           return sortDirection * (aValue > bValue ? 1 : aValue < bValue ? -1 : 0);
         });
-        
-        // Apply pagination to fuzzy results
+
         searchResults = mappedResults.slice(skip, skip + limit);
-        
-        // Update total to reflect actual fuzzy search results if less than DB total
         if (fuzzyResults.length < total) {
           total = fuzzyResults.length;
         }
@@ -1617,9 +1584,7 @@ exports.deepSearchProducts = async (req, res) => {
         searchResults = [];
         total = 0;
       }
-
     } else {
-      // No search query — regular listing with filters only
       total = await Product.countDocuments(filter);
       searchResults = await Product.find(filter)
         .sort(getSortOptions(sortBy, order))
