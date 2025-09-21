@@ -3504,6 +3504,94 @@ exports.getRelatedBlips = async (req, res) => {
   }
 };
 
+// Get a pre-signed download URL for the original blip file (MP4)
+exports.getOriginalBlipDownloadUrl = async (req, res) => {
+  try {
+    const { productId, blipId } = req.params;
+
+    // Validate IDs
+    if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(blipId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid product or blip ID format' 
+      });
+    }
+
+    // Fetch product with minimal fields
+    const product = await Product.findById(productId).select('seller blips name');
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
+    }
+
+    const blip = product.blips.id(blipId);
+    if (!blip) {
+      return res.status(404).json({ success: false, message: 'Blip not found' });
+    }
+
+    // Ensure we have the raw bucket
+    const bucket = process.env.RAW_BLIPS_S3_BUCKET;
+    if (!bucket) {
+      return res.status(500).json({ success: false, message: 'RAW blips bucket not configured' });
+    }
+
+    // Resolve seller id safely (works whether populated or not)
+    const sellerId = (product.seller && product.seller._id)
+      ? product.seller._id.toString()
+      : product.seller.toString();
+
+    // Build the original raw MP4 object key
+    // Folder structure: sellers/{sellerId}/products/{productId}/blips/{uuid}.mp4
+    const folderPath = productBlips.GetFolderPath(sellerId, productId);
+    const keyHasExt = typeof blip.key === 'string' && /\.mp4$/i.test(blip.key);
+    let objectKey = `${folderPath}${keyHasExt ? blip.key : blip.key + '.mp4'}`;
+
+    // Optional: verify object exists
+    try {
+      await s3.headObject({ Bucket: bucket, Key: objectKey }).promise();
+    } catch (err) {
+      // Fallback: some historical layouts may have nested UUID folder
+      const nestedKey = `${folderPath}${blip.key}/${blip.key}.mp4`;
+      try {
+        await s3.headObject({ Bucket: bucket, Key: nestedKey }).promise();
+        objectKey = nestedKey;
+      } catch (err2) {
+        return res.status(404).json({ success: false, message: 'Original blip file not found' });
+      }
+    }
+
+    // Generate a filename for download
+    const safeProductName = (product.name || 'blip')
+      .toString()
+      .replace(/[^\w\d\-_. ]+/g, '')
+      .trim()
+      .substring(0, 80) || 'blip';
+    const downloadFileName = `${safeProductName}_${blip.key}.mp4`;
+
+    const expiresIn = parseInt(process.env.BLIP_DOWNLOAD_URL_TTL || '300');
+    const signedUrl = s3.getSignedUrl('getObject', {
+      Bucket: bucket,
+      Key: objectKey,
+      Expires: expiresIn,
+      ResponseContentDisposition: `attachment; filename="${downloadFileName}"`,
+      ResponseContentType: blip.contentType || 'video/mp4'
+    });
+
+    return res.status(200).json({
+      success: true,
+      downloadUrl: signedUrl,
+      expiresInSeconds: expiresIn,
+      file: {
+        bucket,
+        key: objectKey,
+        contentType: blip.contentType || 'video/mp4'
+      }
+    });
+  } catch (error) {
+    console.error('Error generating original blip download URL:', error);
+    return res.status(500).json({ success: false, message: 'Failed to generate download URL', error: error.message });
+  }
+};
+
 // Delete a blip from a product
 exports.deleteBlipFromProduct = async (req, res) => {
   try {
