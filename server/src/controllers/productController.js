@@ -13,8 +13,8 @@ const { ExtractAllImageUrlsFromVariants } = require('../services/products/varian
 const { ProductVariantDeleteS3ObjectsByUrls } = require('../services/products/variants/images');
 const productBlips = require('../services/products/blips');
 const Fuse = require('fuse.js');
-const baseUrl = process.env.DEEPLINK_URL;
-
+const { uploadResizedImages } = require('../utils/imageProcessor');
+const baseUrl = process.env.STORE_URL;
 
 // Create a new product
 exports.createProduct = async (req, res) => {
@@ -74,143 +74,17 @@ exports.createProduct = async (req, res) => {
       }
     }
 
-    // Handle main product images
+    // Handle main product images - will be processed after product is saved
     let imagesLinks = [];
+    let imagesToProcess = [];
     if (req.body.images && Array.isArray(req.body.images)) {
-      for (let image of req.body.images) {
-        const buffer = Buffer.from(image.data, 'base64');
-        const params = {
-          Bucket: process.env.CDN_S3_BUCKET,
-          Key: `${uuidv4()}.jpg`,
-          Body: buffer,
-          ContentType: image.contentType,
-        };
-        const data = await s3.upload(params).promise();
-        imagesLinks.push({ url: 'https://' + process.env.CDN_URL + `/${data.Key}` });
-      }
+      imagesToProcess = req.body.images;
     }
 
-    // Process variant images
+        // Process variant images - will be processed after product is saved
+    let variantsToProcess = [];
     if (req.body.variants && Array.isArray(req.body.variants)) {
-      parsedBody.variants = await Promise.all(req.body.variants.map(async (variant) => {
-        // Process main variant images
-        let variantImages = [];
-        if (variant?.images?.length > 0 && Array.isArray(variant.images)) {
-          for (let image of variant.images) {
-            if (!image?.data) {
-              console.log('Skipping variant image processing - no image data');
-              continue;
-            }
-
-            // Handle base64 data with optional prefix
-            const base64Data = image.data.split(',')[1] || image.data;
-            if (!base64Data) {
-              console.error('Invalid base64 data for variant image:', image);
-              continue;
-            }
-
-            const buffer = Buffer.from(base64Data, 'base64');
-            const params = {
-              Bucket: process.env.CDN_S3_BUCKET,
-              Key: `variants/colors/${uuidv4()}-${variant.value}.jpg`,
-              Body: buffer,
-              ContentType: image.contentType,
-            };
-            
-            const data = await s3.upload(params).promise();
-            variantImages.push({
-              data: `https://` + process.env.CDN_URL + `/${data.Key}`,
-              contentType: image.contentType,
-              isDefault: image.isDefault || false
-            });
-          }
-        }
-
-        // Process subvariants
-        const processedSubVariants = await Promise.all((variant.subVariants || []).map(async (subVariant) => {
-          const subVariantImages = [];
-          if (subVariant?.images?.length > 0 && Array.isArray(subVariant.images)) {
-            for (let image of subVariant.images) {
-              if (!image?.data) {
-                console.log('Skipping subvariant image processing - no image data');
-                continue;
-              }
-
-              const base64Data = image.data.split(',')[1] || image.data;
-              if (!base64Data) {
-                console.error('Invalid base64 data for subvariant image:', image);
-                continue;
-              }
-
-              const buffer = Buffer.from(base64Data, 'base64');
-              const params = {
-                Bucket: process.env.CDN_S3_BUCKET,
-                Key: `variants/sizes/${uuidv4()}-${variant.value}_${subVariant.value}.jpg`,
-                Body: buffer,
-                ContentType: image.contentType,
-              };
-              
-              const data = await s3.upload(params).promise();
-              subVariantImages.push({
-                data: `https://` + process.env.CDN_URL + `/${data.Key}`,
-                contentType: image.contentType,
-                isDefault: image.isDefault || false
-              });
-            }
-          }
-
-          // Process subsubvariants
-          const processedSubSubVariants = await Promise.all((subVariant.subSubVariants || []).map(async (subSubVariant) => {
-            const subSubVariantImages = [];
-            if (subSubVariant?.images?.length > 0 && Array.isArray(subSubVariant.images)) {
-              for (let image of subSubVariant.images) {
-                if (!image?.data) {
-                  console.log('Skipping subsubvariant image processing - no image data');
-                  continue;
-                }
-
-                const base64Data = image.data.split(',')[1] || image.data;
-                if (!base64Data) {
-                  console.error('Invalid base64 data for subsubvariant image:', image);
-                  continue;
-                }
-
-                const buffer = Buffer.from(base64Data, 'base64');
-                const params = {
-                  Bucket: process.env.CDN_S3_BUCKET,
-                  Key: `variants/materials/${uuidv4()}-${variant.value}_${subVariant.value}_${subSubVariant.value}.jpg`,
-                  Body: buffer,
-                  ContentType: image.contentType,
-                };
-                
-                const data = await s3.upload(params).promise();
-                subSubVariantImages.push({
-                  data: `https://` + process.env.CDN_URL + `/${data.Key}`,
-                  contentType: image.contentType,
-                  isDefault: image.isDefault || false
-                });
-              }
-            }
-
-            return {
-              ...subSubVariant,
-              images: subSubVariantImages
-            };
-          }));
-
-          return {
-            ...subVariant,
-            images: subVariantImages,
-            subSubVariants: processedSubSubVariants
-          };
-        }));
-
-        return {
-          ...variant,
-          images: variantImages,
-          subVariants: processedSubVariants
-        };
-      }));
+      variantsToProcess = req.body.variants;
     }
 
     // Create new product
@@ -221,6 +95,173 @@ exports.createProduct = async (req, res) => {
     });
 
     await newProduct.save();    
+
+    // Process main product images with resizing after product is saved
+    if (imagesToProcess.length > 0) {
+      const imageProcessingPromises = imagesToProcess.map(async (image) => {
+        // Handle base64 data with optional prefix (like variant images)
+        const base64Data = image.data.split(',')[1] || image.data;
+        if (!base64Data) {
+          console.error('Invalid base64 data for main product image:', image);
+          throw new Error('Invalid base64 data');
+        }
+        
+        const buffer = Buffer.from(base64Data, 'base64');
+        const fileName = uuidv4();
+        const basePath = `sellers/${sellerId}/products/${newProduct._id}/images`;
+        
+        // Upload original and resized versions using the utility function
+        const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
+        
+        return {
+          url: uploadResults.original.url,
+          resizedImages: uploadResults.resizedImages
+        };
+      });
+      
+      imagesLinks = await Promise.all(imageProcessingPromises);
+      
+      // Update product with processed image URLs
+      newProduct.images = imagesLinks;
+      await newProduct.save();
+    }
+
+            // Process variant images with resizing after product is saved
+        if (variantsToProcess.length > 0) {
+          // Save variants to get their auto-generated IDs
+          newProduct.variants = variantsToProcess;
+          await newProduct.save();
+          
+          // Now process images with the auto-generated variant IDs
+          const processedVariants = await Promise.all(newProduct.variants.map(async (variant) => {
+            // Process main variant images
+            let variantImages = [];
+            if (variant?.images?.length > 0 && Array.isArray(variant.images)) {
+              const variantImagePromises = variant.images.map(async (image) => {
+                if (!image?.data) {
+                  console.log('Skipping variant image processing - no image data');
+                  return null;
+                }
+    
+                // Handle base64 data with optional prefix
+                const base64Data = image.data.split(',')[1] || image.data;
+                if (!base64Data) {
+                  console.error('Invalid base64 data for variant image:', image);
+                  return null;
+                }
+    
+                const buffer = Buffer.from(base64Data, 'base64');
+                const fileName = uuidv4();
+                const basePath = `sellers/${sellerId}/products/${newProduct._id}/variants/${variant._id}/images`;
+                
+                // Upload original and resized versions using the utility function
+                const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
+                
+                return {
+                  data: uploadResults.original.url,
+                  contentType: image.contentType,
+                  isDefault: image.isDefault || false,
+                  resizedImages: uploadResults.resizedImages
+                };
+              });
+              
+              variantImages = (await Promise.all(variantImagePromises)).filter(img => img !== null);
+            }
+      
+                                    // Process subvariants
+              const processedSubVariants = await Promise.all((variant.subVariants || []).map(async (subVariant) => {
+                
+                let subVariantImages = [];
+              if (subVariant?.images?.length > 0 && Array.isArray(subVariant.images)) {
+                const subVariantImagePromises = subVariant.images.map(async (image) => {
+                  if (!image?.data) {
+                    console.log('Skipping subvariant image processing - no image data');
+                    return null;
+                  }
+    
+                  const base64Data = image.data.split(',')[1] || image.data;
+                  if (!base64Data) {
+                    console.error('Invalid base64 data for subvariant image:', image);
+                    return null;
+                  }
+    
+                  const buffer = Buffer.from(base64Data, 'base64');
+                  const fileName = uuidv4();
+                  const basePath = `sellers/${sellerId}/products/${newProduct._id}/variants/${subVariant._id}/images`;
+                  
+                  // Upload original and resized versions using the utility function
+                  const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
+                  
+                  return {
+                    data: uploadResults.original.url,
+                    contentType: image.contentType,
+                    isDefault: image.isDefault || false,
+                    resizedImages: uploadResults.resizedImages
+                  };
+                });
+                
+                subVariantImages = (await Promise.all(subVariantImagePromises)).filter(img => img !== null);
+              }
+      
+              // Process subsubvariants
+              const processedSubSubVariants = await Promise.all((subVariant.subSubVariants || []).map(async (subSubVariant) => {
+                
+                let subSubVariantImages = [];
+                if (subSubVariant?.images?.length > 0 && Array.isArray(subSubVariant.images)) {
+                  const subSubVariantImagePromises = subSubVariant.images.map(async (image) => {
+                    if (!image?.data) {
+                      console.log('Skipping subsubvariant image processing - no image data');
+                      return null;
+                    }
+    
+                    const base64Data = image.data.split(',')[1] || image.data;
+                    if (!base64Data) {
+                      console.error('Invalid base64 data for subsubvariant image:', image);
+                      return null;
+                    }
+    
+                    const buffer = Buffer.from(base64Data, 'base64');
+                    const fileName = uuidv4();
+                    const basePath = `sellers/${sellerId}/products/${newProduct._id}/variants/${subSubVariant._id}/images`;
+                    
+                    // Upload original and resized versions using the utility function
+                    const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
+                    
+                    return {
+                      data: uploadResults.original.url,
+                      contentType: image.contentType,
+                      isDefault: image.isDefault || false,
+                      resizedImages: uploadResults.resizedImages
+                    };
+                  });
+                  
+                  subSubVariantImages = (await Promise.all(subSubVariantImagePromises)).filter(img => img !== null);
+                }
+      
+                return {
+                  ...subSubVariant,
+                  images: subSubVariantImages
+                };
+              }));
+      
+              return {
+                ...subVariant,
+                images: subVariantImages,
+                subSubVariants: processedSubSubVariants
+              };
+            }));
+      
+            return {
+              ...variant,
+              images: variantImages,
+              subVariants: processedSubVariants
+            };
+          }));
+      
+          // Update product with processed variants
+          newProduct.variants = processedVariants;
+          await newProduct.save();
+        }
 
     // Populate seller details
     const populatedProduct = await Product.findById(newProduct._id)
@@ -276,37 +317,7 @@ exports.createProduct = async (req, res) => {
   }
 };
 
-// Helper function to process images and upload to S3
-async function processImages(images) {
-  if (!images || !Array.isArray(images)) {
-    return [];
-  }
 
-  return Promise.all(images.map(async (image) => {
-    try {
-      // Generate unique filename
-      const key = `products/${Date.now()}-${Math.random().toString(36).substring(7)}`;
-      
-      // Upload to S3
-      await s3.upload({
-        Bucket: process.env.CDN_S3_BUCKET,
-        Key: key,
-        Body: Buffer.from(image.data, 'base64'),
-        ContentType: image.contentType,
-        ACL: 'public-read' // Make the image publicly accessible
-      }).promise();
-
-      return {
-        data: `https://`+ process.env.CDN_URL +`/${key}`,
-        contentType: image.contentType,
-        isDefault: image.isDefault || false
-      };
-    } catch (error) {
-      console.error('Error uploading image to S3:', error);
-      throw error;
-    }
-  }));
-}
 
 // Helper function to generate SKU for variants
 function generateVariantSKU(...parts) {
@@ -449,6 +460,128 @@ exports.getAllProducts = async (req, res) => {
   }
 };
 
+
+// Get discounted products (only products with currently active discounts)
+exports.getDiscountedProducts = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      category = '',
+      minPrice = 0,
+      maxPrice = Number.MAX_SAFE_INTEGER,
+      sortBy = 'newest',
+      visibility = 'visible'
+    } = req.query;
+
+    const now = new Date();
+
+    // Base query: active, visible, in stock, not offline auction, and discount active in current time window
+    let query = {
+      status: 'active',
+      visibility: visibility || 'visible',
+      stock: { $gt: 0 },
+      $and: [
+        { 'discount.isActive': true },
+        { $or: [ { 'discount.startDate': { $exists: false } }, { 'discount.startDate': { $lte: now } } ] },
+        { $or: [ { 'discount.endDate': { $exists: false } }, { 'discount.endDate': { $gte: now } } ] }
+      ],
+      status: { $ne: 'offline_auction' }
+    };
+
+    if (category) {
+      query.category = category;
+    }
+
+    // Optional price filter (based on base price, consistent with other endpoints)
+    if (req.query.minPrice || req.query.maxPrice) {
+      query.price = {
+        $gte: Number(minPrice),
+        $lte: Number(maxPrice)
+      };
+    }
+
+    // Sorting options (consistent with getAllProducts)
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'oldest':
+        sortOptions = { createdAt: 1 };
+        break;
+      case 'popular':
+        sortOptions = { 'analytics.views': -1 };
+        break;
+      case 'best_selling':
+        sortOptions = { soldCount: -1 };
+        break;
+      case 'newest':
+      default:
+        sortOptions = { createdAt: -1 };
+    }
+
+    // Execute query
+    let products = await Product.find(query)
+      .sort(sortOptions)
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .populate('seller', sellerPopulationFields)
+      .select('-__v');
+
+    // Apply de-clustering to avoid consecutive products from the same seller
+    products = reorderToAvoidSellerClusters(products);
+
+    const totalProducts = await Product.countDocuments(query);
+    const totalPages = Math.ceil(totalProducts / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    // Attach stats fields for convenience
+    const productsWithStats = products.map(product => {
+      const productObj = product.toObject();
+      return {
+        ...productObj,
+        averageRating: productObj.stats?.averageRating || null,
+        reviewCount: productObj.stats?.totalReviews || 0
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        products: productsWithStats,
+        pagination: {
+          currentPage: Number(page),
+          totalPages,
+          totalProducts,
+          hasNextPage,
+          hasPrevPage,
+          limit: Number(limit)
+        },
+        filters: {
+          category,
+          priceRange: {
+            min: minPrice,
+            max: maxPrice !== Number.MAX_SAFE_INTEGER ? maxPrice : 'no limit'
+          },
+          sortBy,
+          visibility,
+          discountedOnly: true
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving discounted products',
+      error: error.message
+    });
+  }
+};
 
 // Get a single product
 exports.getProduct = async (req, res) => {
@@ -830,6 +963,8 @@ exports.updateProduct = async (req, res) => {
     const cdnPrefix = 'https://' + process.env.CDN_URL;
     // this array will contain product images to be deleted
     let deletedProductImageUrls = [];
+    // this array will contain product variant images to be deleted
+    let deletedProductVariantImageUrls = [];
     // Handle main product images
     if (updates.images && Array.isArray(updates.images)) {
       // Get existing image URLs
@@ -847,16 +982,18 @@ exports.updateProduct = async (req, res) => {
         if (image.data.startsWith(cdnPrefix)) {
           imagesLinks.push({ url: image.data }); // Keep existing S3 image
         } else {
-          // Process new base64 image
+          // Process new base64 image with resizing
           const buffer = Buffer.from(image.data, 'base64');
-          const params = {
-            Bucket: process.env.CDN_S3_BUCKET,
-            Key: `${uuidv4()}.jpg`,
-            Body: buffer,
-            ContentType: image.contentType,
-          };
-          const data = await s3.upload(params).promise();
-          imagesLinks.push({ url: cdnPrefix + `/${data.Key}`});
+          const fileName = uuidv4();
+          const basePath = `sellers/${sellerId}/products/${id}/images`;
+          
+          // Upload original and resized versions using the utility function
+          const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
+          
+          imagesLinks.push({ 
+            url: uploadResults.original.url,
+            resizedImages: uploadResults.resizedImages
+          });
         }
       }
       updates.images = imagesLinks;
@@ -872,7 +1009,44 @@ exports.updateProduct = async (req, res) => {
         .filter(url => url.startsWith(cdnPrefix)) // only keep images from your CDN
         .filter(url => !updatedImageUrls.includes(url));
 
-      updates.variants = await Promise.all(updates.variants.map(async (variant) => {
+      // Preserve existing variant IDs and generate new ones only for new variants
+      const variantsWithIds = updates.variants.map(variant => {
+        // If variant has an id, keep it (existing variant) - frontend sends 'id' not '_id'
+        // If no id, generate a new one (new variant)
+        const variantWithId = {
+          ...variant,
+          _id: variant.id || new mongoose.Types.ObjectId()
+        };
+
+        // Preserve existing subvariant IDs and generate new ones only for new subvariants
+        if (variantWithId.subVariants && Array.isArray(variantWithId.subVariants)) {
+          variantWithId.subVariants = variantWithId.subVariants.map(subVariant => {
+            const subVariantWithId = {
+              ...subVariant,
+              _id: subVariant.id || new mongoose.Types.ObjectId()
+            };
+
+            // Preserve existing subsubvariant IDs and generate new ones only for new subsubvariants
+            if (subVariantWithId.subSubVariants && Array.isArray(subVariantWithId.subSubVariants)) {
+              subVariantWithId.subSubVariants = subVariantWithId.subSubVariants.map(subSubVariant => ({
+                ...subSubVariant,
+                _id: subSubVariant.id || new mongoose.Types.ObjectId()
+              }));
+            }
+
+            return subVariantWithId;
+          });
+        }
+
+        return variantWithId;
+      });
+
+      // Save the product with variants that have proper IDs
+      product.variants = variantsWithIds;
+      await product.save();
+
+      // Now process images with the proper variant IDs
+      updates.variants = await Promise.all(variantsWithIds.map(async (variant) => {
         // Process main variant images
         let variantImages = [];
         if (variant?.images?.length > 0 && Array.isArray(variant.images)) {
@@ -893,18 +1067,17 @@ exports.updateProduct = async (req, res) => {
               }
 
               const buffer = Buffer.from(base64Data, 'base64');
-              const params = {
-                Bucket: process.env.CDN_S3_BUCKET,
-                Key: `variants/colors/${uuidv4()}-${variant.value}.jpg`,
-                Body: buffer,
-                ContentType: image.contentType,
-              };
+              const fileName = uuidv4();
+              const basePath = `sellers/${sellerId}/products/${id}/variants/${variant._id}/images`;
               
-              const data = await s3.upload(params).promise();
+              // Upload original and resized versions using the utility function
+              const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
+              
               variantImages.push({
-                data: cdnPrefix + `/${data.Key}`,
+                data: uploadResults.original.url,
                 contentType: image.contentType,
-                isDefault: image.isDefault || false
+                isDefault: image.isDefault || false,
+                resizedImages: uploadResults.resizedImages
               });
             }
           }
@@ -930,18 +1103,17 @@ exports.updateProduct = async (req, res) => {
                 }
 
                 const buffer = Buffer.from(base64Data, 'base64');
-                const params = {
-                  Bucket: process.env.CDN_S3_BUCKET,
-                  Key: `variants/sizes/${uuidv4()}-${variant.value}_${subVariant.value}.jpg`,
-                  Body: buffer,
-                  ContentType: image.contentType,
-                };
+                const fileName = uuidv4();
+                                    const basePath = `sellers/${sellerId}/products/${id}/variants/${subVariant._id}/images`;
                 
-                const data = await s3.upload(params).promise();
+                // Upload original and resized versions using the utility function
+                const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
+                
                 subVariantImages.push({
-                  data: cdnPrefix + `/${data.Key}`,
+                  data: uploadResults.original.url,
                   contentType: image.contentType,
-                  isDefault: image.isDefault || false
+                  isDefault: image.isDefault || false,
+                  resizedImages: uploadResults.resizedImages
                 });
               }
             }
@@ -967,18 +1139,17 @@ exports.updateProduct = async (req, res) => {
                   }
 
                   const buffer = Buffer.from(base64Data, 'base64');
-                  const params = {
-                    Bucket: process.env.CDN_S3_BUCKET,
-                    Key: `variants/materials/${uuidv4()}-${variant.value}_${subVariant.value}_${subSubVariant.value}.jpg`,
-                    Body: buffer,
-                    ContentType: image.contentType,
-                  };
+                  const fileName = uuidv4();
+                                        const basePath = `sellers/${sellerId}/products/${id}/variants/${subSubVariant._id}/images`;
                   
-                  const data = await s3.upload(params).promise();
+                  // Upload original and resized versions using the utility function
+                  const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
+                  
                   subSubVariantImages.push({
-                    data: cdnPrefix + `/${data.Key}`,
+                    data: uploadResults.original.url,
                     contentType: image.contentType,
-                    isDefault: image.isDefault || false
+                    isDefault: image.isDefault || false,
+                    resizedImages: uploadResults.resizedImages
                   });
                 }
               }
@@ -1251,51 +1422,79 @@ exports.deepSearchProducts = async (req, res) => {
       filter.condition = new RegExp(`^${condition}$`, 'i');
     }
 
-    // Basic match stage for full-text or regex query
     let searchResults = [];
     let total = 0;
 
     if (query.trim()) {
-      // Memory-safe search approach
-      const searchTerms = query.trim().split(/\s+/).filter(term => term.length > 0);
-      
-      // Handle common word variations (singular/plural) - but only for longer terms
-      const expandedTerms = [...searchTerms];
-      searchTerms.forEach(term => {
-        if (term.length > 2) { // Only expand terms longer than 2 characters
+      const rawTerms = query.trim().split(/\s+/).filter(term => term.length > 0);
+
+      // Helper: generate general spacing variations
+      function generateSpacingVariants(term) {
+        const variants = [term];
+        if (term.length > 3) {
+          for (let i = 1; i < term.length; i++) {
+            const left = term.slice(0, i);
+            const right = term.slice(i);
+            // Only insert space between alphabetic characters
+            if (/^[a-zA-Z]+$/.test(left) && /^[a-zA-Z]+$/.test(right)) {
+              variants.push(left + ' ' + right);
+            }
+          }
+        }
+        return variants;
+      }
+
+      // Helper: generate reverse spacing (remove spaces from multi-word terms)
+      function generateReverseSpacing(term) {
+        const variants = [term];
+        // If term contains spaces, create version without spaces
+        if (term.includes(' ')) {
+          variants.push(term.replace(/\s+/g, ''));
+        }
+        return variants;
+      }
+
+      // Expand search terms: plural/singular + spacing variations + reverse spacing
+      let expandedTerms = [...rawTerms];
+      rawTerms.forEach(term => {
+        if (term.length > 2) {
+          // plural/singular
           if (term.endsWith('s') && term.length > 3) {
             expandedTerms.push(term.slice(0, -1));
           } else if (!term.endsWith('s')) {
             expandedTerms.push(`${term}s`);
           }
         }
+        // add spacing variations
+        expandedTerms.push(...generateSpacingVariants(term));
+        // add reverse spacing variations
+        expandedTerms.push(...generateReverseSpacing(term));
       });
-      
-      // Build MongoDB query with better field coverage
+
+      // Deduplicate
+      const uniqueTerms = [...new Set(expandedTerms)];
+
       const orConditions = [];
-      
-      // For single character searches, use a simpler approach
+
       if (query.trim().length === 1) {
         const singleChar = query.trim();
         orConditions.push(
-          // Simple contains search - most likely to find matches
           { name: { $regex: singleChar, $options: 'i' } },
           { category: { $regex: singleChar, $options: 'i' } },
           { subCategory: { $regex: singleChar, $options: 'i' } },
           { brand: { $regex: singleChar, $options: 'i' } }
         );
       } else {
-        // For longer queries, use the full search
+        // Exact matches
         orConditions.push(
-          // Exact matches (higher priority)
           { name: { $regex: query, $options: 'i' } },
           { category: { $regex: `^${query}$`, $options: 'i' } },
           { subCategory: { $regex: `^${query}$`, $options: 'i' } },
           { subSubCategory: { $regex: `^${query}$`, $options: 'i' } }
         );
-        
-        // Add partial term matches for each search term
-        expandedTerms.forEach(term => {
+
+        // Partial matches for all expanded terms
+        uniqueTerms.forEach(term => {
           orConditions.push(
             { name: { $regex: term, $options: 'i' } },
             { description: { $regex: term, $options: 'i' } },
@@ -1308,34 +1507,21 @@ exports.deepSearchProducts = async (req, res) => {
           );
         });
       }
-      
+
       const mongoSearchQuery = {
         ...filter,
         $or: orConditions,
       };
 
-      // DEBUG: Log the query for single character searches
-      if (query.trim().length === 1) {
-        console.log('Single char search query:', JSON.stringify(mongoSearchQuery, null, 2));
-      }
-
-      // MEMORY OPTIMIZATION: Limit initial DB query to prevent loading too many products
-      const MAX_SEARCH_RESULTS = 200; // Conservative limit to prevent memory issues
-      
-      // First, get count for pagination
+      const MAX_SEARCH_RESULTS = 200;
       total = await Product.countDocuments(mongoSearchQuery);
-      console.log(`Query "${query}" found ${total} total matches`);
-      
-      // Get limited results for fuzzy search - prioritize by relevance
+
       const dbResults = await Product.find(mongoSearchQuery)
         .populate('seller', 'name avatarUrl about')
         .populate('reviews.buyer', 'firstName lastName')
-        .sort({ createdAt: -1 }) // Sort by newest first for relevance
-        .limit(MAX_SEARCH_RESULTS); // CRITICAL: Limit memory usage
-      
-      console.log(`Retrieved ${dbResults.length} products from DB`);
+        .sort({ createdAt: -1 })
+        .limit(MAX_SEARCH_RESULTS);
 
-      // Only use Fuse.js if we have a reasonable number of results
       if (dbResults.length > 0) {
         const fuse = new Fuse(dbResults, {
           keys: [
@@ -1353,92 +1539,44 @@ exports.deepSearchProducts = async (req, res) => {
           includeScore: true,
           findAllMatches: true,
           ignoreLocation: true,
-          minMatchCharLength: query.trim().length === 1 ? 1 : 2, // Allow single character matching
-          location: 0,
-          shouldSort: true
+          minMatchCharLength: query.trim().length === 1 ? 1 : 2,
         });
 
         const fuzzyResults = fuse.search(query);
-        
-        // Boost matches based on multiple criteria
+
         const boostedResults = fuzzyResults.map(result => {
           const item = result.item;
           let score = result.score;
           let boostFactor = 1.0;
-          
-          // Boost exact category matches
-          if (item.category) {
-            const categoryLower = item.category.toLowerCase();
-            const queryLower = query.toLowerCase();
-            
-            if (categoryLower === queryLower) {
-              boostFactor *= 0.3;
-            } else if (new RegExp(`\\b${queryLower}\\b`).test(categoryLower)) {
-              boostFactor *= 0.4;
-            }
-          }
-          
-          // Boost subcategory matches
-          if (item.subCategory) {
-            const subCategoryLower = item.subCategory.toLowerCase();
-            const queryLower = query.toLowerCase();
-            
-            if (subCategoryLower === queryLower) {
-              boostFactor *= 0.5;
-            } else if (new RegExp(`\\b${queryLower}\\b`).test(subCategoryLower)) {
-              boostFactor *= 0.6;
-            }
-          }
-          
-          // Boost name matches
+
           if (item.name && item.name.toLowerCase().includes(query.toLowerCase())) {
             boostFactor *= 0.7;
           }
-          
-          // Boost multiple term matches
-          if (item.name) {
-            const nameLower = item.name.toLowerCase();
-            const matchCount = expandedTerms.filter(term => 
-              nameLower.includes(term.toLowerCase())
-            ).length;
-            
-            if (matchCount > 1) {
-              boostFactor *= (0.8 - (matchCount * 0.05));
-            }
-          }
-          
+
           return { ...result, score: score * boostFactor };
         });
-        
-        // Sort by boosted score
+
         boostedResults.sort((a, b) => a.score - b.score);
-        
-        const mappedResults = boostedResults.map((result) => result.item);
-        
-        // Apply additional sorting
+        const mappedResults = boostedResults.map(r => r.item);
+
         const sortOptions = getSortOptions(sortBy, order);
         mappedResults.sort((a, b) => {
           const sortKey = Object.keys(sortOptions)[0];
           const sortDirection = sortOptions[sortKey];
-          
-          const getValue = (obj, path) => {
-            return path.split('.').reduce((o, key) => (o && o[key] !== undefined ? o[key] : null), obj);
-          };
-          
+          const getValue = (obj, path) =>
+            path.split('.').reduce((o, key) => (o && o[key] !== undefined ? o[key] : null), obj);
+
           const aValue = getValue(a, sortKey);
           const bValue = getValue(b, sortKey);
-          
+
           if (aValue === null && bValue === null) return 0;
           if (aValue === null) return sortDirection > 0 ? -1 : 1;
           if (bValue === null) return sortDirection > 0 ? 1 : -1;
-          
+
           return sortDirection * (aValue > bValue ? 1 : aValue < bValue ? -1 : 0);
         });
-        
-        // Apply pagination to fuzzy results
+
         searchResults = mappedResults.slice(skip, skip + limit);
-        
-        // Update total to reflect actual fuzzy search results if less than DB total
         if (fuzzyResults.length < total) {
           total = fuzzyResults.length;
         }
@@ -1446,9 +1584,7 @@ exports.deepSearchProducts = async (req, res) => {
         searchResults = [];
         total = 0;
       }
-
     } else {
-      // No search query — regular listing with filters only
       total = await Product.countDocuments(filter);
       searchResults = await Product.find(filter)
         .sort(getSortOptions(sortBy, order))

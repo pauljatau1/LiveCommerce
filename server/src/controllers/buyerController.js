@@ -529,7 +529,7 @@ exports.verifyOTP = async (req, res) => {
     const buyer = await Buyer.findOne({ email });
     if (!buyer) return res.status(404).json({ message: 'Buyer not found.' });
 
-    if (buyer.otp === otp) {
+    if (buyer.otp === otp.toString()) {
       buyer.emailVerified = true;
       buyer.otp = undefined; 
       await buyer.save();
@@ -1457,7 +1457,7 @@ exports.verifyPhoneOTP = async (req, res) => {
     }
 
     // Verify OTP
-    if (buyer.phoneVerification.otp !== otp) {
+    if (buyer.phoneVerification.otp !== otp.toString()) {
       buyer.phoneVerification.attempts += 1;
       await buyer.save();
       return res.status(400).json({
@@ -2451,7 +2451,7 @@ exports.confirmAccountDeletion = async (req, res) => {
       });
     }
 
-    if (buyer.accountDeletion.otp !== otp) {
+    if (buyer.accountDeletion.otp !== otp.toString()) {
       buyer.accountDeletion.attempts += 1;
       await buyer.save();
       return res.status(400).json({

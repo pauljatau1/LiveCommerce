@@ -2727,6 +2727,59 @@ exports.getOrderDetails = async (req, res) => {
       },
       // ... existing timeline events ...
     ];
+    
+    // Build augmented shipping tracking history with payment steps after delivery
+    // Only include for sellers/admins; hide for buyers
+    const baseHistory = Array.isArray(order.shipping?.tracking?.history)
+      ? order.shipping.tracking.history
+      : [];
+    let augmentedTrackingHistory = baseHistory;
+    try {
+      const requesterRole = (req.user?.role || '').toString().toLowerCase();
+      const canSeePaymentTimeline = requesterRole === 'seller' || requesterRole === 'admin';
+
+      if (canSeePaymentTimeline) {
+        const working = [...baseHistory];
+
+        // Determine delivered timestamp
+        const deliveredEvent = [...baseHistory].reverse().find(evt =>
+          (evt?.status || '').toLowerCase() === 'delivered'
+        );
+
+        const deliveredAt = deliveredEvent?.timestamp || (
+          (order.shipping?.tracking?.status || '').toLowerCase() === 'delivered'
+            ? (order.shipping?.tracking?.lastUpdate || order.shipping?.delivery?.actualDate || order.updatedAt || order.createdAt)
+            : null
+        );
+
+        if (deliveredAt) {
+          const deliveredDate = new Date(deliveredAt);
+          const releaseAt = new Date(deliveredDate.getTime() + 24 * 60 * 60 * 1000);
+
+          // Show processing_payment after delivered
+          working.push({
+            status: 'processing_payment',
+            timestamp: deliveredDate,
+            description: 'Awaiting payment release to seller (up to 24 hours after delivery)',
+            releaseAt
+          });
+
+          // If order has been closed, show payment_sent at closedAt
+          if (!order.isOpen && order.closedAt) {
+            working.push({
+              status: 'payment_sent',
+              timestamp: order.closedAt,
+              description: 'Payment released to seller wallet'
+            });
+          }
+        }
+
+        augmentedTrackingHistory = working;
+      }
+    } catch (e) {
+      // Fall back to base history silently
+      augmentedTrackingHistory = baseHistory;
+    }
        // Get associated return request if it exists
        const Return = mongoose.model('Return');
        const returnRequest = await Return.findOne({ order: order._id })
@@ -2827,7 +2880,7 @@ exports.getOrderDetails = async (req, res) => {
              carrier: order.shipping.tracking.carrier,
              status: order.shipping.tracking.status,
              lastUpdate: order.shipping.tracking.lastUpdate,
-             history: order.shipping.tracking.history || []
+             history: augmentedTrackingHistory
            } : {
              number: null,
              carrier: null,

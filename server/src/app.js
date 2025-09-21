@@ -47,6 +47,7 @@ const buyerRoutesV2 = require('./modules/buyer/routes/buyer.routes');
 const orderRoutesV2 = require('./modules/orderv2/routes/order.routes');
 const adminRoutesV2 = require('./modules/adminv2/routes/admin.routes');
 const blipsRoutesV2 = require('./modules/blipsv2/routes/blips.routes');
+const productRoutesV2 = require('./modules/productv2/routes/product.routes');
 const NotFoundException = require('./utils/errors/NotFoundException');
 
 const app = express();
@@ -174,6 +175,7 @@ app.use('/api/v2/orders', orderRoutesV2);
 app.use('/api/v2/admin', adminRoutesV2);
 app.use('/api/v2/sellers', sellerRoutesV2);
 app.use('/api/v2/blips', blipsRoutesV2);
+app.use('/api/v2/products', productRoutesV2);
 
 // Swagger documentation route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));

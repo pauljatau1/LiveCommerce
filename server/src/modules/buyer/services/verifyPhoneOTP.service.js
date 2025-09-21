@@ -121,7 +121,7 @@ function hasExceededMaxAttempts(buyer) {
  * @returns {boolean} True if OTP is valid
  */
 function isValidOTP(buyer, otp) {
-  return buyer.phoneVerification.otp === otp;
+  return buyer.phoneVerification.otp === otp.toString();
 }
 
 /**

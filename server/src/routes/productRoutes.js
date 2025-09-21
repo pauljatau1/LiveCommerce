@@ -163,6 +163,48 @@ router.get('/blips/suggested', optionalAuthMiddleware, blipsController.getSugges
 
 /**
  * @swagger
+ * /api/products/{productId}/blips/{blipId}/download:
+ *   get:
+ *     summary: Get a pre-signed URL to download the original blip (MP4)
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip
+ *     responses:
+ *       200:
+ *         description: Pre-signed URL generated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 downloadUrl:
+ *                   type: string
+ *                 expiresInSeconds:
+ *                   type: integer
+ *       400:
+ *         description: Invalid parameters
+ *       404:
+ *         description: Product, blip, or original file not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:productId/blips/:blipId/download', blipsController.getOriginalBlipDownloadUrl);
+
+/**
+ * @swagger
  * /api/products/blips/suggested:
  *   get:
  *     summary: Get suggested blips based on user preferences
@@ -881,6 +923,58 @@ router.get('/personalized',
  *         description: Server error
  */
 router.get('/trending', productController.getTrendingProducts);
+
+/**
+ * @swagger
+ * /api/products/discounted:
+ *   get:
+ *     summary: Get products with active discounts
+ *     description: Returns only products that currently have active discounts, with pagination and anti-clustering by seller.
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         default: 10
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Minimum base price filter
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Maximum base price filter
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [price_asc, price_desc, newest, oldest, popular, best_selling]
+ *         default: newest
+ *       - in: query
+ *         name: visibility
+ *         schema:
+ *           type: string
+ *           enum: [visible, hidden, featured]
+ *         default: visible
+ *     responses:
+ *       200:
+ *         description: Discounted products retrieved successfully
+ *       500:
+ *         description: Server error
+ */
+router.get('/discounted', productController.getDiscountedProducts);
 
 /**
  * @swagger

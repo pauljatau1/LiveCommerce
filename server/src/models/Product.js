@@ -45,7 +45,11 @@ const subSubVariantSchema = new mongoose.Schema({
   images: [{
     data: { type: String, required: true },
     contentType: { type: String },
-    isDefault: { type: Boolean, default: false }
+    isDefault: { type: Boolean, default: false },
+    resizedImages: [{
+      width: { type: Number },
+      url: { type: String }
+    }]
   }]
 });
 
@@ -58,6 +62,10 @@ const subVariantSchema = new mongoose.Schema({
   images: [{
     data: { type: String, required: true },
     contentType: { type: String },
+    resizedImages: [{
+      width: { type: Number },
+      url: { type: String }
+    }]
   }],
   subSubVariants: [subSubVariantSchema]          // Array of material options
 });
@@ -70,7 +78,13 @@ const variantSchema = new mongoose.Schema({
   discount: {
     isActive: { type: Boolean, default: false },
     type: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
-    value: { type: Number, default: 0 },
+    value: { 
+      type: Number, 
+      default: 0,
+      set: function(v) {
+        return typeof v === 'number' ? Math.ceil(v) : v;
+      }
+    },
     startDate: { type: Date },
     endDate: { type: Date },
     couponName: { type: String },
@@ -80,6 +94,10 @@ const variantSchema = new mongoose.Schema({
   images: [{
     data: { type: String, required: true },
     contentType: { type: String },
+    resizedImages: [{
+      width: { type: Number },
+      url: { type: String }
+    }]
   }],
   subVariants: [subVariantSchema],
 });
@@ -149,7 +167,13 @@ const productSchema = new mongoose.Schema({
   discount: {
     isActive: { type: Boolean, default: false },
     type: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
-    value: { type: Number, default: 0 },
+    value: { 
+      type: Number, 
+      default: 0,
+      set: function(v) {
+        return typeof v === 'number' ? Math.ceil(v) : v;
+      }
+    },
     startDate: { type: Date },
     endDate: { type: Date },
     couponName: { type: String },
@@ -174,6 +198,10 @@ const productSchema = new mongoose.Schema({
   },
   images: [{
     url: { type: String },
+    resizedImages: [{
+      width: { type: Number },
+      url: { type: String }
+    }]
   }],
   blips: [blipSchema],
   stock: {
