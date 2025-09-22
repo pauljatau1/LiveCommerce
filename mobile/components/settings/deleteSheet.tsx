@@ -69,7 +69,7 @@ const DeleteSheet = memo(({ closeSheet }: { closeSheet: any }) => {
           backgroundColor: "#F16063",
           justifyContent: "center",
           alignItems: "center",
-          marginTop: 20,
+          marginVertical: 20,
         }}
         onPress={handleDelete}
       >
