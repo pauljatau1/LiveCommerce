@@ -1057,7 +1057,7 @@ RerunAuctionDialog.propTypes = {
 };
 
 // Update the BlipUploadModal to include product information
-export const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPopUp, openShareLinkPopUp, changeLinkType, changeDeepLink }) => {
+export const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPopUp, changeLinkType, changeDeepLink }) => {
     const [blipVideos, setBlipVideos] = useState([]);
     const [previewUrls, setPreviewUrls] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -1067,6 +1067,12 @@ export const BlipUploadModal = ({ open, onClose, productId, product, setOpenShar
     const [isDeleting, setIsDeleting] = useState(false);
     const [deletingBlipId, setDeletingBlipId] = useState(null);
     const [isLoadingProduct, setIsLoadingProduct] = useState(false);
+
+    // Determine if share-related handlers are available
+    const canShareBlip =
+        typeof setOpenShareLinkPopUp === 'function' &&
+        typeof changeLinkType === 'function' &&
+        typeof changeDeepLink === 'function';
 
     // Fetch complete product data with blips when modal opens
     const fetchProductWithBlips = useCallback(async () => {
@@ -1410,14 +1416,17 @@ export const BlipUploadModal = ({ open, onClose, productId, product, setOpenShar
                                                 )}
                                             </button>
                                         </div>
-                                        <button onClick={() => {
-                                            setOpenShareLinkPopUp(true);
-                                            changeLinkType("Blip");
-                                            changeDeepLink(product?.blipLink)
-                                        }} className="py-2 px-3 border-2 border-solid border-gray-500 text-gray-500 hover:bg-gray-300 hover:text-gray-700 hover:border-gray-700 transition-all duration-300 rounded-md mt-5 flex items-center gap-2 justify-center" >
-                                            <p className="text-sm lg:text-base font-semibold ">Share</p>
-                                            <Icon icon="fluent:share-20-filled" width="18" height="18" />
-                                        </button>
+                                        {canShareBlip && (
+                                            <button onClick={() => {
+                                                // Safely invoke handlers only if provided
+                                                setOpenShareLinkPopUp?.(true);
+                                                changeLinkType?.("Blip");
+                                                changeDeepLink?.(product?.blipLink);
+                                            }} className="py-2 px-3 border-2 border-solid border-gray-500 text-gray-500 hover:bg-gray-300 hover:text-gray-700 hover:border-gray-700 transition-all duration-300 rounded-md mt-5 flex items-center gap-2 justify-center" >
+                                                <p className="text-sm lg:text-base font-semibold ">Share</p>
+                                                <Icon icon="fluent:share-20-filled" width="18" height="18" />
+                                            </button>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -1562,7 +1571,11 @@ BlipUploadModal.propTypes = {
     open: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
     productId: PropTypes.string.isRequired,
-    product: PropTypes.object.isRequired
+    product: PropTypes.object.isRequired,
+    // Optional handlers for sharing blip links; present when used within ProductCard
+    setOpenShareLinkPopUp: PropTypes.func,
+    changeLinkType: PropTypes.func,
+    changeDeepLink: PropTypes.func,
 };
 
 const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
@@ -2088,7 +2101,6 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 productId={item._id}
                 product={item}
                 setOpenShareLinkPopUp={setOpenShareLinkPopUp}
-                openShareLinkPopUp={openShareLinkPopUp}
                 changeLinkType={setLinkType}
                 changeDeepLink={setDeepLink}
             />
