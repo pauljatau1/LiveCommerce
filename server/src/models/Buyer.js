@@ -55,12 +55,12 @@ const transactionSchema = new mongoose.Schema({
 });
 
 const buyerSchema = new mongoose.Schema({
-  firstName: { type: String, required: true },
-  lastName: { type: String, required: true },
-  username: { type: String, unique: true },
+  firstName: { type: String, required: false },
+  lastName: { type: String, required: false },
+  username: { type: String, unique: true, required: true },
   email: { type: String, required: true, unique: true },
   country: { type: String, default: 'NG' },
-  phoneNumber: { type: String},
+  phoneNumber: { type: String, required: true },
   password: {
     type: String,
     required: function() {

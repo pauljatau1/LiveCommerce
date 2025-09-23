@@ -16,8 +16,6 @@ const buyerController = require('../controllers/buyer.controller');
  *           schema:
  *             type: object
  *             required:
- *               - firstName
- *               - lastName
  *               - username
  *               - email
  *               - phoneNumber
@@ -26,9 +24,11 @@ const buyerController = require('../controllers/buyer.controller');
  *               firstName:
  *                 type: string
  *                 example: "John"
+ *                 description: "Optional first name (generated from username if not provided)"
  *               lastName:
  *                 type: string
  *                 example: "Doe"
+ *                 description: "Optional last name (generated from username if not provided)"
  *               username:
  *                 type: string
  *                 example: "johndoe"

@@ -105,17 +105,17 @@ async function validateUsername(username, errors) {
 /**
  * Validate the phoneNumber field.
  *
- * This function validates the phone number field to ensure it is provided
- * and unique across all buyers.
+ * This function validates the phone number field to ensure it is provided.
+ * Phone number uniqueness constraint has been removed.
  *
  * Business Logic:
  * - Checks if phone number is provided (required field)
- * - Validates phone number uniqueness in database
+ * - No longer validates phone number uniqueness
  * - Collects validation errors for reporting
  *
  * Security Considerations:
  * - Required field validation prevents null phone numbers
- * - Uniqueness validation prevents duplicate accounts
+ * - Uniqueness validation removed to allow multiple accounts with same phone
  * - Database query validation maintains data integrity
  *
  * @param {string} phoneNumber - The phone number to validate
@@ -131,14 +131,9 @@ async function validatePhoneNumber(phoneNumber, errors) {
   // This ensures the phone number field is not empty or null
   if (!phoneNumber) {
     errors.push({ field: 'phoneNumber', message: 'Phone number is required' });
-  } else {
-    // Step 2: Check phone number uniqueness in database
-    // This ensures no duplicate phone numbers exist across all buyers
-    const results = await buyerRepository.findAll({ "phoneNumber": phoneNumber });
-    if (results.length > 0) {
-      errors.push({ field: 'phoneNumber', message: 'Phone number is already registered' });
-    }
   }
+  // Note: Phone number uniqueness validation has been removed
+  // Multiple buyers can now have the same phone number
 }
 
 /**
@@ -193,34 +188,32 @@ async function validateEmail(email, errors) {
  * Validate the lastName field.
  *
  * This function validates the last name field to ensure it meets security
- * and format requirements for buyer registration.
+ * and format requirements for buyer registration. Last name is now optional.
  *
  * Business Logic:
- * - Checks if last name is provided (required field)
- * - Validates against XSS vulnerabilities
- * - Checks maximum length constraints
+ * - Last name is optional (no longer required)
+ * - If provided, validates against XSS vulnerabilities
+ * - Checks maximum length constraints when provided
  * - Collects validation errors for reporting
  *
  * Security Considerations:
- * - Required field validation prevents null last names
- * - XSS validation prevents malicious script injection
+ * - Optional field validation allows null/empty last names
+ * - XSS validation prevents malicious script injection when provided
  * - Length validation prevents oversized data
  * - Error collection provides clear feedback
  *
- * @param {string} lastName - The last name to validate
+ * @param {string} lastName - The last name to validate (optional)
  * @param {Array} errors - Array to collect validation errors
  * @example
  * const errors = [];
  * await validateLastName("Smith", errors); // Valid
+ * await validateLastName("", errors); // Valid (optional field)
  * await validateLastName("<script>alert('xss')</script>", errors); // Invalid, adds XSS error
- * await validateLastName("", errors); // Invalid, adds error
  */
 async function validateLastName(lastName, errors) {
-  // Step 1: Check if last name is provided (required field validation)
-  // This ensures the last name field is not empty or null
-  if (!lastName) {
-    errors.push({ field: 'lastName', message: 'lastName is required' });
-  } else {
+  // Step 1: Last name is now optional, so only validate if provided
+  // This allows users to register without providing a last name
+  if (lastName && lastName.trim() !== '') {
     // Step 2: Validate against XSS vulnerabilities
     // This prevents malicious script injection in the last name field
     const xssError = validateXSS(lastName, 'lastName');
@@ -240,34 +233,32 @@ async function validateLastName(lastName, errors) {
  * Validate the firstName field.
  *
  * This function validates the first name field to ensure it meets security
- * and format requirements for buyer registration.
+ * and format requirements for buyer registration. First name is now optional.
  *
  * Business Logic:
- * - Checks if first name is provided (required field)
- * - Validates against XSS vulnerabilities
- * - Checks maximum length constraints
+ * - First name is optional (no longer required)
+ * - If provided, validates against XSS vulnerabilities
+ * - Checks maximum length constraints when provided
  * - Collects validation errors for reporting
  *
  * Security Considerations:
- * - Required field validation prevents null first names
- * - XSS validation prevents malicious script injection
+ * - Optional field validation allows null/empty first names
+ * - XSS validation prevents malicious script injection when provided
  * - Length validation prevents oversized data
  * - Error collection provides clear feedback
  *
- * @param {string} firstName - The first name to validate
+ * @param {string} firstName - The first name to validate (optional)
  * @param {Array} errors - Array to collect validation errors
  * @example
  * const errors = [];
  * await validateFirstName("John", errors); // Valid
+ * await validateFirstName("", errors); // Valid (optional field)
  * await validateFirstName("<script>alert('xss')</script>", errors); // Invalid, adds XSS error
- * await validateFirstName("", errors); // Invalid, adds error
  */
 async function validateFirstName(firstName, errors) {
-  // Step 1: Check if first name is provided (required field validation)
-  // This ensures the first name field is not empty or null
-  if (!firstName) {
-    errors.push({ field: 'firstName', message: 'firstName is required' });
-  } else {
+  // Step 1: First name is now optional, so only validate if provided
+  // This allows users to register without providing a first name
+  if (firstName && firstName.trim() !== '') {
     // Step 2: Validate against XSS vulnerabilities
     // This prevents malicious script injection in the first name field
     const xssError = validateXSS(firstName, 'firstName');
@@ -288,13 +279,14 @@ async function validateFirstName(firstName, errors) {
  *
  * This function orchestrates the complete validation process for buyer
  * registration, ensuring all required fields meet validation requirements.
+ * First name and last name are now optional fields.
  *
  * Business Logic Flow:
  * 1. Initialize error collection array
- * 2. Validate first name (required, XSS, length)
- * 3. Validate last name (required, XSS, length)
+ * 2. Validate first name (optional, XSS, length if provided)
+ * 3. Validate last name (optional, XSS, length if provided)
  * 4. Validate email (required, format, uniqueness)
- * 5. Validate phone number (required, uniqueness)
+ * 5. Validate phone number (required, no uniqueness check)
  * 6. Validate username (required, format, uniqueness)
  * 7. Validate password (required)
  * 8. Throw ValidationError if any validation fails
@@ -302,37 +294,35 @@ async function validateFirstName(firstName, errors) {
  * Security Considerations:
  * - Comprehensive field validation prevents data corruption
  * - XSS validation prevents malicious script injection
- * - Uniqueness validation prevents duplicate accounts
+ * - Uniqueness validation prevents duplicate accounts (email, username)
  * - Format validation ensures data consistency
  * - Error collection provides comprehensive feedback
  *
  * @param {Object} data - User input data to validate
- * @param {string} data.firstName - The first name to validate
- * @param {string} data.lastName - The last name to validate
+ * @param {string} [data.firstName] - The first name to validate (optional)
+ * @param {string} [data.lastName] - The last name to validate (optional)
  * @param {string} data.email - The email to validate
  * @param {string} data.phoneNumber - The phone number to validate
  * @param {string} data.username - The username to validate
  * @param {string} data.password - The password to validate
  * @throws {ValidationError} If validation fails
  * @example
- * // Valid registration data
+ * // Valid registration data with optional names
  * await validateRegisterData({
- *   firstName: "John",
- *   lastName: "Smith",
+ *   firstName: "John", // Optional
+ *   lastName: "Smith", // Optional
  *   email: "john@example.com",
  *   phoneNumber: "+1234567890",
  *   username: "john_smith",
  *   password: "securepassword123"
  * });
  *
- * // Invalid registration data - will throw ValidationError
+ * // Valid registration data without names
  * await validateRegisterData({
- *   firstName: "",
- *   lastName: "",
- *   email: "invalid-email",
- *   phoneNumber: "",
- *   username: "",
- *   password: ""
+ *   email: "user@example.com",
+ *   phoneNumber: "+1234567890",
+ *   username: "user123",
+ *   password: "securepassword123"
  * });
  */
 async function validateRegisterData(data) {
