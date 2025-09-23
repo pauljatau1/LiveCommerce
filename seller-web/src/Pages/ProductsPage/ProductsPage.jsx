@@ -19,7 +19,8 @@ import { NavLink, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from "react-redux";
 import { fetchSellerProducts, fetchSellerAuctionProducts, searchSellerProducts, deleteProduct, toggleVacationMode } from "../../Redux/Slices/ProductSlice";
 import ProductCard from "../../Components/ui/ProductPageUi/ProductCard";
-import { BlipUploadModal } from "../../Components/ui/ProductPageUi/ProductCard";
+import BlipUploadModal from "../../Components/ui/ProductPageUi/BlipUploadModal";
+import ShareLinkPopUp from "../../Components/ui/ShareLinkPopUp";
 import NotFound from "../../assets/not-found-icon2.png";
 import LinearProgress from "@mui/material/LinearProgress";
 import {
@@ -117,9 +118,16 @@ const ProductsPage = () => {
     const [showBlipsDrawer, setShowBlipsDrawer] = useState(false);
     const [showStockDrawer, setShowStockDrawer] = useState(false);
 
+    // Share link popup state
+    const [openShareLinkPopUp, setOpenShareLinkPopUp] = useState(false);
+    const [linkType, setLinkType] = useState("Product");
+    const [deepLink, setDeepLink] = useState(null);
+
     // Hide the Intercom launcher for this component - high priority
     // This should run before any other effects
     useIntercomVisibility(true);
+
+   
 
     useEffect(() => {
         setHeaderName('Products')
@@ -1389,6 +1397,8 @@ const ProductsPage = () => {
                                                                     </button>
                                                                     <button
                                                                         onClick={() => {
+                                                                            setDeepLink(item?.blipLink)
+                                                                        
                                                                             const event = document.createEvent('MouseEvents');
                                                                             event.initEvent('click', true, true);
                                                                             document.getElementById(`upload-blip-${item._id}`)?.dispatchEvent(event);
@@ -1398,7 +1408,7 @@ const ProductsPage = () => {
                                                                         <BiPlayCircle className="w-3.5 h-3.5" />
                                                                         <span>Blip</span>
                                                                         {item.blips?.length > 0 && (
-                                                                            <span className="ml-1 bg-indigo-700 text-white text-xs px-1.5 py-0.5 rounded-full">
+                                                                            <span className=" bg-indigo-700 text-white text-xs w-[20px] h-[20px] flex items-center justify-center rounded-full">
                                                                                 {item.blips.length}
                                                                             </span>
                                                                         )}
@@ -1910,8 +1920,19 @@ const ProductsPage = () => {
                     onClose={() => setOpenBlipUploadModal(false)}
                     productId={selectedProduct._id}
                     product={selectedProduct}
+                    setOpenShareLinkPopUp={setOpenShareLinkPopUp}
+                    changeLinkType={setLinkType}
+                    changeDeepLink={setDeepLink}
                 />
             )}
+
+            {/* Share Link Popup */}
+            <ShareLinkPopUp
+                open={openShareLinkPopUp}
+                onOpenChange={setOpenShareLinkPopUp}
+                link={deepLink}
+                linkType={linkType}
+            />
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
