@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { BASE_URL } from '@/Constants/Server';
+import { BASE_URL, BASE_URL_V2 } from '@/Constants/Server';
 
 const getAuthHeader = () => {
   const token = localStorage.getItem('sellerToken');
@@ -53,7 +53,7 @@ export const settingsService = {
     const formData = new FormData();
     formData.append('avatar', file);
     const response = await axios.post(
-      `${BASE_URL}/seller/profile/avatar`,
+      `${BASE_URL_V2}/sellers/profile/avatar`,
       formData,
       { 
         headers: {
@@ -62,16 +62,16 @@ export const settingsService = {
         }
       }
     );
-    return response.data;
+    return response.data.data;
   },
 
   // Get seller statistics
   getStatistics: async () => {
     const response = await axios.get(
-      `${BASE_URL}/seller/statistics`,
+      `${BASE_URL_V2}/sellers/statistics`,
       { headers: getAuthHeader() }
     );
-    return response.data;
+    return response.data.data;
   },
 
   // Update business details
