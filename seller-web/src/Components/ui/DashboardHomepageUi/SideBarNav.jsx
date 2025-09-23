@@ -1,17 +1,16 @@
 import { sideBarNavData } from "../../../Utilities/data";
-import { useState, useRef } from "react";
+import { useRef } from "react";
 import { NavLink } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAuthContext } from "../../../Hooks/useAuthContext";
 import Logo from '../../../assets/auqli-official-logo.png'
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import PropTypes from 'prop-types';
 import { MdClose } from 'react-icons/md';
 
 
 const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, hideSidebar }) => {
   const { logout } = useAuthContext();
-  const navigate = useNavigate();
   const activeSideBarRef = useRef(null);
   const location = useLocation();
 
@@ -51,44 +50,84 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, hideSidebar }) => {
               <div className="flex flex-col gap-4">
                 {sideBarNavData.map((item) => (
                   <div key={item.id}>
-                    <NavLink
-                      to={item.path}
-                      key={item.id}
-                      onClick={() => {
-                        setIsSidebarOpen(false);
-                        handleSubNavOpen(item.id);
-                      }}
-                      className={`
-                        flex items-center justify-between p-2 px-9 py-4 
-                        ${location.pathname === item.path ? 'bg-[#FFFFFF] text-[#0BB248] hover:bg-[#ffffff]' : 'text-white hover:bg-white/10 hover:backdrop-blur-sm'}
-                        transition-all duration-300 ease-in-out
-                       
-                        active:bg-white/20 active:scale-[0.98] active:backdrop-blur-md
-                      `}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Icon
-                          icon={item.icon}
-                          className={
-                            location.pathname === item.path ? 'text-[#0BB248] w-[20px] h-[20px]' : 'text-white w-[20px] h-[20px]'
-                          }
-                        />
-                        <span className="text-sm font-inter ">{item.name}</span>
-                      </div>
-                      {
-                        item?.subNav?.length > 0 && (
-                          <>
-                            {
-                              activeSideBarRef.current === item.id ? (
-                                <Icon icon="iconamoon:arrow-down-2-light" width="24" height="24" />
-                              ) : (
-                                <Icon icon="iconamoon:arrow-right-2-light" width="24" height="24" />
-                              )
+                    {/* Check if the path is an external URL */}
+                    {item.path.startsWith('http') ? (
+                      <a
+                        href={item.path}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => {
+                          setIsSidebarOpen(false);
+                          handleSubNavOpen(item.id);
+                        }}
+                        className={`
+                          flex items-center justify-between p-2 px-9 py-4 
+                          text-white hover:bg-white/10 hover:backdrop-blur-sm
+                          transition-all duration-300 ease-in-out
+                          active:bg-white/20 active:scale-[0.98] active:backdrop-blur-md
+                        `}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Icon
+                            icon={item.icon}
+                            className="text-white w-[20px] h-[20px]"
+                          />
+                          <span className="text-sm font-inter ">{item.name}</span>
+                        </div>
+                        {
+                          item?.subNav?.length > 0 && (
+                            <>
+                              {
+                                activeSideBarRef.current === item.id ? (
+                                  <Icon icon="iconamoon:arrow-down-2-light" width="24" height="24" />
+                                ) : (
+                                  <Icon icon="iconamoon:arrow-right-2-light" width="24" height="24" />
+                                )
+                              }
+                            </>
+                          )
+                        }
+                      </a>
+                    ) : (
+                      <NavLink
+                        to={item.path}
+                        key={item.id}
+                        onClick={() => {
+                          setIsSidebarOpen(false);
+                          handleSubNavOpen(item.id);
+                        }}
+                        className={`
+                          flex items-center justify-between p-2 px-9 py-4 
+                          ${location.pathname === item.path ? 'bg-[#FFFFFF] text-[#0BB248] hover:bg-[#ffffff]' : 'text-white hover:bg-white/10 hover:backdrop-blur-sm'}
+                          transition-all duration-300 ease-in-out
+                         
+                          active:bg-white/20 active:scale-[0.98] active:backdrop-blur-md
+                        `}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Icon
+                            icon={item.icon}
+                            className={
+                              location.pathname === item.path ? 'text-[#0BB248] w-[20px] h-[20px]' : 'text-white w-[20px] h-[20px]'
                             }
-                          </>
-                        )
-                      }
-                    </NavLink>
+                          />
+                          <span className="text-sm font-inter ">{item.name}</span>
+                        </div>
+                        {
+                          item?.subNav?.length > 0 && (
+                            <>
+                              {
+                                activeSideBarRef.current === item.id ? (
+                                  <Icon icon="iconamoon:arrow-down-2-light" width="24" height="24" />
+                                ) : (
+                                  <Icon icon="iconamoon:arrow-right-2-light" width="24" height="24" />
+                                )
+                              }
+                            </>
+                          )
+                        }
+                      </NavLink>
+                    )}
                     {
                       item?.subNav?.length > 0 && (
                         <div className={`flex flex-col gap-2 xl:px-4 py-2 bg-[#5B5B5B] rounded-md mx-auto ${activeSideBarRef.current === item.id ? 'block' : 'hidden'}`}>
@@ -166,30 +205,57 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, hideSidebar }) => {
                 <div className="flex flex-col gap-4 py-4">
                   {sideBarNavData.map((item) => (
                     <div key={item.id}>
-                      <NavLink
-                        to={item.path}
-                        key={item.id}
-                        onClick={() => {
-                          setIsSidebarOpen(false);
-                          handleSubNavOpen(item.id);
-                        }}
-                        className={`
-                          flex items-center gap-2 p-2 px-9 py-4 
-                          ${location.pathname === item.path ? 'bg-[#FFFFFF] text-[#0BB248] hover:bg-[#ffffff] hover:backdrop-blur-none' : 'text-white'}
-                          transition-all duration-300 ease-in-out
-                          hover:bg-white/10 hover:backdrop-blur-sm
-                          active:bg-white/20 active:scale-[0.98] active:backdrop-blur-md
-                        `}
-                      >
-                        <Icon
-                          icon={item.icon}
-                          size={24}
-                          className={
-                            location.pathname === item.path ? 'text-[#0BB248]' : 'text-white'
-                          }
-                        />
-                        <span className="text-sm">{item.name}</span>
-                      </NavLink>
+                      {/* Check if the path is an external URL */}
+                      {item.path.startsWith('http') ? (
+                        <a
+                          href={item.path}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => {
+                            setIsSidebarOpen(false);
+                            handleSubNavOpen(item.id);
+                          }}
+                          className={`
+                            flex items-center gap-2 p-2 px-9 py-4 
+                            text-white
+                            transition-all duration-300 ease-in-out
+                            hover:bg-white/10 hover:backdrop-blur-sm
+                            active:bg-white/20 active:scale-[0.98] active:backdrop-blur-md
+                          `}
+                        >
+                          <Icon
+                            icon={item.icon}
+                            size={24}
+                            className="text-white"
+                          />
+                          <span className="text-sm">{item.name}</span>
+                        </a>
+                      ) : (
+                        <NavLink
+                          to={item.path}
+                          key={item.id}
+                          onClick={() => {
+                            setIsSidebarOpen(false);
+                            handleSubNavOpen(item.id);
+                          }}
+                          className={`
+                            flex items-center gap-2 p-2 px-9 py-4 
+                            ${location.pathname === item.path ? 'bg-[#FFFFFF] text-[#0BB248] hover:bg-[#ffffff] hover:backdrop-blur-none' : 'text-white'}
+                            transition-all duration-300 ease-in-out
+                            hover:bg-white/10 hover:backdrop-blur-sm
+                            active:bg-white/20 active:scale-[0.98] active:backdrop-blur-md
+                          `}
+                        >
+                          <Icon
+                            icon={item.icon}
+                            size={24}
+                            className={
+                              location.pathname === item.path ? 'text-[#0BB248]' : 'text-white'
+                            }
+                          />
+                          <span className="text-sm">{item.name}</span>
+                        </NavLink>
+                      )}
                       {
                         item?.subNav?.length > 0 && (
                           <div className={`flex flex-col gap-2 px-4 py-2 bg-[#5B5B5B] rounded-md mx-auto ${activeSideBarRef.current === item.id ? 'block' : 'hidden'}`}>
