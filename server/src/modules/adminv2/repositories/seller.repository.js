@@ -18,4 +18,16 @@ async function updateVacationMode(sellerId, isOn) {
 
 module.exports = {
   updateVacationMode,
+  /**
+   * Remove a buyer from all sellers' followers and customers where referenced.
+   * @param {string} buyerId
+   * @returns {Promise<{followers: any, customers: any}>}
+   */
+  async purgeBuyerReferences(buyerId) {
+    const followers = await Seller.updateMany(
+      {},
+      { $pull: { followers: { buyerId }, customers: { buyerId } } }
+    );
+    return { followers };
+  },
 }; 
