@@ -57,7 +57,7 @@ const transactionSchema = new mongoose.Schema({
 const buyerSchema = new mongoose.Schema({
   firstName: { type: String, required: false },
   lastName: { type: String, required: false },
-  username: { type: String, unique: true, required: true },
+  username: { type: String, unique: true },
   email: { type: String, required: true, unique: true },
   country: { type: String, default: 'NG', required: false },
   phoneNumber: { type: String, required: false },
