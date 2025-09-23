@@ -167,6 +167,7 @@ describe('Get Addresses Controller', () => {
         ...mockBuyerData,
         email: 'null@example.com',
         username: 'nulluser',
+      phoneNumber: '+2348012345678',
         shippingAddresses: null
       });
       await buyer.save();

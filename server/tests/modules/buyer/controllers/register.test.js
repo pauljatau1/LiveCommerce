@@ -49,13 +49,13 @@ describe('Buyer Controller - Register', () => {
 
   describe('register', () => {
     const validRegistrationData = {
-      firstName: 'John',
-      lastName: 'Doe',
       username: 'johndoe',
       email: 'john.doe@example.com',
+      password: 'password123',
+      firstName: 'John',
+      lastName: 'Doe',
       country: 'NG',
       phoneNumber: '+2348012345678',
-      password: 'password123',
       expoPushToken: 'test-expo-token'
     };
 
@@ -153,13 +153,13 @@ describe('Buyer Controller - Register', () => {
       registerService.register.mockResolvedValue(mockServiceResponse);
 
       const validRegistrationData = {
-        firstName: 'John',
-        lastName: 'Doe',
         username: 'johndoe',
         email: 'john.doe@example.com',
+        password: 'password123',
+        firstName: 'John',
+        lastName: 'Doe',
         country: 'NG',
         phoneNumber: '+2348012345678',
-        password: 'password123',
         expoPushToken: 'test-expo-token'
       };
 
@@ -185,13 +185,13 @@ describe('Buyer Controller - Register', () => {
       registerService.register.mockRejectedValue(mockError);
 
       const validRegistrationData = {
-        firstName: 'John',
-        lastName: 'Doe',
         username: 'johndoe',
         email: 'john.doe@example.com',
+        password: 'password123',
+        firstName: 'John',
+        lastName: 'Doe',
         country: 'NG',
-        phoneNumber: '+2348012345678',
-        password: 'password123'
+        phoneNumber: '+2348012345678'
       };
 
       // Act & Assert

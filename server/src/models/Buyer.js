@@ -59,8 +59,8 @@ const buyerSchema = new mongoose.Schema({
   lastName: { type: String, required: false },
   username: { type: String, unique: true, required: true },
   email: { type: String, required: true, unique: true },
-  country: { type: String, default: 'NG' },
-  phoneNumber: { type: String, required: true },
+  country: { type: String, default: 'NG', required: false },
+  phoneNumber: { type: String, required: false },
   password: {
     type: String,
     required: function() {
@@ -83,7 +83,7 @@ const buyerSchema = new mongoose.Schema({
   }],
   bio: { type: String },
   createdAt: { type: Date, default: Date.now },
-  emailVerified: { type: Boolean, default: false },
+  emailVerified: { type: Boolean, default: true },
   phoneVerified: { type: Boolean, default: false },
   phoneVerification: {
     otp: String,

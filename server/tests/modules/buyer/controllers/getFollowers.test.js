@@ -167,6 +167,7 @@ describe('Get Followers Controller', () => {
         lastName: 'Smith',
         email: 'jane.smith@example.com',
         username: 'janesmith',
+      phoneNumber: '+2348012345678',
         password: 'password123',
         followers: []
       });

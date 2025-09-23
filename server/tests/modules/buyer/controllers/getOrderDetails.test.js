@@ -57,6 +57,7 @@ describe('Buyer Controller - getOrderDetails', () => {
         lastName: 'User',
         email: 'test@example.com',
         username: 'testuser',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
 
@@ -147,6 +148,7 @@ describe('Buyer Controller - getOrderDetails', () => {
         lastName: 'User',
         email: 'another@example.com',
         username: 'anotheruser',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
 

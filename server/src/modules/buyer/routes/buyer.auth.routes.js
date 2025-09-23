@@ -18,34 +18,38 @@ const buyerController = require('../controllers/buyer.controller');
  *             required:
  *               - username
  *               - email
- *               - phoneNumber
  *               - password
  *             properties:
- *               firstName:
- *                 type: string
- *                 example: "John"
- *                 description: "Optional first name (generated from username if not provided)"
- *               lastName:
- *                 type: string
- *                 example: "Doe"
- *                 description: "Optional last name (generated from username if not provided)"
  *               username:
  *                 type: string
+ *                 description: Unique username (required)
  *                 example: "johndoe"
  *               email:
  *                 type: string
  *                 format: email
+ *                 description: Email address (required, auto-verified)
  *                 example: "john.doe@example.com"
- *               country:
- *                 type: string
- *                 example: "Nigeria"
- *               phoneNumber:
- *                 type: string
- *                 example: "+2348012345678"
  *               password:
  *                 type: string
  *                 format: password
+ *                 description: Password (required)
  *                 example: "password123"
+ *               firstName:
+ *                 type: string
+ *                 description: First name (optional, auto-generated from username if not provided)
+ *                 example: "John"
+ *               lastName:
+ *                 type: string
+ *                 description: Last name (optional, auto-generated from username if not provided)
+ *                 example: "Doe"
+ *               country:
+ *                 type: string
+ *                 description: Country code (optional)
+ *                 example: "Nigeria"
+ *               phoneNumber:
+ *                 type: string
+ *                 description: Phone number (optional, not unique)
+ *                 example: "+2348012345678"
  *               expoPushToken:
  *                 type: string
  *                 description: Expo push token for mobile notifications

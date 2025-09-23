@@ -35,12 +35,12 @@ describe('Register Validator', () => {
   });
 
   const validRegistrationData = {
-    firstName: 'John',
-    lastName: 'Doe',
     username: 'johndoe',
     email: 'john.doe@example.com',
-    phoneNumber: '+2348012345678',
-    password: 'password123'
+    password: 'password123',
+    firstName: 'John',
+    lastName: 'Doe',
+    phoneNumber: '+2348012345678'
   };
 
   describe('validateRegisterData', () => {
@@ -56,7 +56,7 @@ describe('Register Validator', () => {
         .resolves.toBeUndefined();
 
       // Verify all validation functions were called
-      expect(buyerRepository.findAll).toHaveBeenCalledTimes(3); // email, username, phoneNumber
+      expect(buyerRepository.findAll).toHaveBeenCalledTimes(2); // email, username (phoneNumber no longer checked for uniqueness)
     });
 
     it('should throw ValidationError when any validation fails', async () => {
@@ -84,64 +84,50 @@ describe('Register Validator', () => {
       })).resolves.toBeUndefined();
     });
 
-    it('should throw error when firstName is missing', async () => {
+    it('should pass validation when firstName is missing (optional field)', async () => {
       const dataWithoutFirstName = { ...validRegistrationData };
       delete dataWithoutFirstName.firstName;
 
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
+
       await expect(registerValidator.validateRegisterData(dataWithoutFirstName))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'firstName',
-              message: 'firstName is required'
-            }
-          ]
-        });
+        .resolves.toBeUndefined();
     });
 
-    it('should throw error when firstName is empty string', async () => {
+    it('should pass validation when firstName is empty string (optional field)', async () => {
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
+
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         firstName: ''
-      })).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'firstName',
-            message: 'firstName is required'
-          }
-        ]
-      });
+      })).resolves.toBeUndefined();
     });
 
-    it('should throw error when firstName is null', async () => {
+    it('should pass validation when firstName is null (optional field)', async () => {
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
+
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         firstName: null
-      })).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'firstName',
-            message: 'firstName is required'
-          }
-        ]
-      });
+      })).resolves.toBeUndefined();
     });
 
-    it('should throw error when firstName is undefined', async () => {
+    it('should pass validation when firstName is undefined (optional field)', async () => {
       const dataWithoutFirstName = { ...validRegistrationData };
       dataWithoutFirstName.firstName = undefined;
 
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
+
       await expect(registerValidator.validateRegisterData(dataWithoutFirstName))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'firstName',
-              message: 'firstName is required'
-            }
-          ]
-        });
+        .resolves.toBeUndefined();
     });
 
     it('should throw error when firstName contains XSS patterns', async () => {
@@ -217,64 +203,50 @@ describe('Register Validator', () => {
       })).resolves.toBeUndefined();
     });
 
-    it('should throw error when lastName is missing', async () => {
+    it('should pass validation when lastName is missing (optional field)', async () => {
       const dataWithoutLastName = { ...validRegistrationData };
       delete dataWithoutLastName.lastName;
 
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
+
       await expect(registerValidator.validateRegisterData(dataWithoutLastName))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'lastName',
-              message: 'lastName is required'
-            }
-          ]
-        });
+        .resolves.toBeUndefined();
     });
 
-    it('should throw error when lastName is empty string', async () => {
+    it('should pass validation when lastName is empty string (optional field)', async () => {
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
+
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         lastName: ''
-      })).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'lastName',
-            message: 'lastName is required'
-          }
-        ]
-      });
+      })).resolves.toBeUndefined();
     });
 
-    it('should throw error when lastName is null', async () => {
+    it('should pass validation when lastName is null (optional field)', async () => {
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
+
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         lastName: null
-      })).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'lastName',
-            message: 'lastName is required'
-          }
-        ]
-      });
+      })).resolves.toBeUndefined();
     });
 
-    it('should throw error when lastName is undefined', async () => {
+    it('should pass validation when lastName is undefined (optional field)', async () => {
       const dataWithoutLastName = { ...validRegistrationData };
       dataWithoutLastName.lastName = undefined;
 
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
+
       await expect(registerValidator.validateRegisterData(dataWithoutLastName))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'lastName',
-              message: 'lastName is required'
-            }
-          ]
-        });
+        .resolves.toBeUndefined();
     });
 
     it('should throw error when lastName contains XSS patterns', async () => {
@@ -424,9 +396,8 @@ describe('Register Validator', () => {
     it('should throw error when email already exists', async () => {
       // Mock repository to return existing email
       buyerRepository.findAll
-        .mockResolvedValueOnce([{ email: 'john.doe@example.com' }]) // email check
-        .mockResolvedValueOnce([]) // phoneNumber check
-        .mockResolvedValueOnce([]); // username check
+        .mockResolvedValueOnce([]) // username check (first) - no existing username
+        .mockResolvedValueOnce([{ email: 'john.doe@example.com' }]); // email check (second) - existing email
       
       // Mock validator functions
       validateXSS.mockReturnValue(null);
@@ -476,87 +447,64 @@ describe('Register Validator', () => {
       })).resolves.toBeUndefined();
     });
 
-    it('should throw error when phoneNumber is missing', async () => {
+    it('should pass validation when phoneNumber is missing (optional field)', async () => {
       const dataWithoutPhone = { ...validRegistrationData };
       delete dataWithoutPhone.phoneNumber;
 
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
+
       await expect(registerValidator.validateRegisterData(dataWithoutPhone))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'phoneNumber',
-              message: 'Phone number is required'
-            }
-          ]
-        });
+        .resolves.toBeUndefined();
     });
 
-    it('should throw error when phoneNumber is empty string', async () => {
+    it('should pass validation when phoneNumber is empty string (optional field)', async () => {
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
+
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         phoneNumber: ''
-      })).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'phoneNumber',
-            message: 'Phone number is required'
-          }
-        ]
-      });
+      })).resolves.toBeUndefined();
     });
 
-    it('should throw error when phoneNumber is null', async () => {
+    it('should pass validation when phoneNumber is null (optional field)', async () => {
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
+
       await expect(registerValidator.validateRegisterData({
         ...validRegistrationData,
         phoneNumber: null
-      })).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'phoneNumber',
-            message: 'Phone number is required'
-          }
-        ]
-      });
+      })).resolves.toBeUndefined();
     });
 
-    it('should throw error when phoneNumber is undefined', async () => {
+    it('should pass validation when phoneNumber is undefined (optional field)', async () => {
       const dataWithoutPhone = { ...validRegistrationData };
       dataWithoutPhone.phoneNumber = undefined;
 
+      // Mock repository to return empty results for other validations
+      buyerRepository.findAll.mockResolvedValue([]);
+      validateEmailFormat.mockReturnValue(null);
+
       await expect(registerValidator.validateRegisterData(dataWithoutPhone))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'phoneNumber',
-              message: 'Phone number is required'
-            }
-          ]
-        });
+        .resolves.toBeUndefined();
     });
 
-    it('should throw error when phoneNumber already exists', async () => {
-      // Mock repository to return existing phoneNumber
+    it('should pass validation when phoneNumber already exists (no uniqueness check)', async () => {
+      // Mock repository to return existing phoneNumber but validation should still pass
       buyerRepository.findAll
         .mockResolvedValueOnce([]) // email check
-        .mockResolvedValueOnce([{ phoneNumber: '+2348012345678' }]) // phoneNumber check
-        .mockResolvedValueOnce([]); // username check
+        .mockResolvedValueOnce([]); // username check (phoneNumber no longer checked for uniqueness)
       
       // Mock validator functions
       validateXSS.mockReturnValue(null);
       validateEmailFormat.mockReturnValue(null);
 
       await expect(registerValidator.validateRegisterData(validRegistrationData))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'phoneNumber',
-              message: 'Phone number is already registered'
-            }
-          ]
-        });
+        .resolves.toBeUndefined();
     });
 
     it('should pass validation for various phone number formats', async () => {
@@ -666,9 +614,8 @@ describe('Register Validator', () => {
     it('should throw error when username already exists', async () => {
       // Mock repository to return existing username
       buyerRepository.findAll
-        .mockResolvedValueOnce([]) // email check
-        .mockResolvedValueOnce([]) // phoneNumber check
-        .mockResolvedValueOnce([{ username: 'johndoe' }]); // username check
+        .mockResolvedValueOnce([{ username: 'johndoe' }]) // username check (first)
+        .mockResolvedValueOnce([]); // email check (second)
       
       // Mock validator functions
       validateXSS.mockReturnValue(null);
@@ -847,7 +794,7 @@ describe('Register Validator', () => {
 
       expect(buyerRepository.findAll).toHaveBeenCalledWith({ email: 'john.doe@example.com' });
       expect(buyerRepository.findAll).toHaveBeenCalledWith({ username: 'johndoe' });
-      expect(buyerRepository.findAll).toHaveBeenCalledWith({ phoneNumber: '+2348012345678' });
+      // phoneNumber no longer checked for uniqueness
     });
 
     it('should handle repository errors gracefully', async () => {
@@ -872,36 +819,20 @@ describe('Register Validator', () => {
       buyerRepository.findAll.mockResolvedValue([]);
     });
 
-    it('should include specific error message for missing firstName', async () => {
+    it('should pass validation when firstName is missing (optional field)', async () => {
       const dataWithoutFirstName = { ...validRegistrationData };
       delete dataWithoutFirstName.firstName;
 
       await expect(registerValidator.validateRegisterData(dataWithoutFirstName))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'firstName',
-              message: 'firstName is required'
-            }
-          ]
-        });
+        .resolves.toBeUndefined();
     });
 
-    it('should include specific error message for missing lastName', async () => {
+    it('should pass validation when lastName is missing (optional field)', async () => {
       const dataWithoutLastName = { ...validRegistrationData };
       delete dataWithoutLastName.lastName;
 
       await expect(registerValidator.validateRegisterData(dataWithoutLastName))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'lastName',
-              message: 'lastName is required'
-            }
-          ]
-        });
+        .resolves.toBeUndefined();
     });
 
     it('should include specific error message for missing email', async () => {
@@ -920,20 +851,12 @@ describe('Register Validator', () => {
         });
     });
 
-    it('should include specific error message for missing phoneNumber', async () => {
+    it('should pass validation when phoneNumber is missing (optional field)', async () => {
       const dataWithoutPhone = { ...validRegistrationData };
       delete dataWithoutPhone.phoneNumber;
 
       await expect(registerValidator.validateRegisterData(dataWithoutPhone))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'phoneNumber',
-              message: 'Phone number is required'
-            }
-          ]
-        });
+        .resolves.toBeUndefined();
     });
 
     it('should include specific error message for missing username', async () => {
@@ -987,9 +910,8 @@ describe('Register Validator', () => {
     it('should include specific error message for existing username', async () => {
       // Mock repository to return existing username
       buyerRepository.findAll
-        .mockResolvedValueOnce([]) // email check
-        .mockResolvedValueOnce([]) // phoneNumber check
-        .mockResolvedValueOnce([{ username: 'johndoe' }]); // username check
+        .mockResolvedValueOnce([{ username: 'johndoe' }]) // username check (first)
+        .mockResolvedValueOnce([]); // email check (second)
       
       // Mock validator functions
       validateXSS.mockReturnValue(null);
@@ -1010,9 +932,8 @@ describe('Register Validator', () => {
     it('should include specific error message for existing email', async () => {
       // Mock repository to return existing email
       buyerRepository.findAll
-        .mockResolvedValueOnce([{ email: 'john.doe@example.com' }]) // email check
-        .mockResolvedValueOnce([]) // phoneNumber check
-        .mockResolvedValueOnce([]); // username check
+        .mockResolvedValueOnce([]) // username check (first)
+        .mockResolvedValueOnce([{ email: 'john.doe@example.com' }]); // email check (second)
       
       // Mock validator functions
       validateXSS.mockReturnValue(null);
@@ -1030,27 +951,18 @@ describe('Register Validator', () => {
         });
     });
 
-    it('should include specific error message for existing phone number', async () => {
-      // Mock repository to return existing phoneNumber
+    it('should pass validation when phone number already exists (no uniqueness check)', async () => {
+      // Mock repository to return existing phoneNumber but validation should still pass
       buyerRepository.findAll
         .mockResolvedValueOnce([]) // email check
-        .mockResolvedValueOnce([{ phoneNumber: '+2348012345678' }]) // phoneNumber check
-        .mockResolvedValueOnce([]); // username check
+        .mockResolvedValueOnce([]); // username check (phoneNumber no longer checked for uniqueness)
       
       // Mock validator functions
       validateXSS.mockReturnValue(null);
       validateEmailFormat.mockReturnValue(null);
 
       await expect(registerValidator.validateRegisterData(validRegistrationData))
-        .rejects
-        .toMatchObject({
-          errors: [
-            {
-              field: 'phoneNumber',
-              message: 'Phone number is already registered'
-            }
-          ]
-        });
+        .resolves.toBeUndefined();
     });
 
     it('should include specific error message for firstName with XSS', async () => {
@@ -1184,20 +1096,8 @@ describe('Register Validator', () => {
         .toMatchObject({
           errors: expect.arrayContaining([
             {
-              field: 'firstName',
-              message: 'firstName is required'
-            },
-            {
-              field: 'lastName',
-              message: 'lastName is required'
-            },
-            {
               field: 'email',
               message: 'Invalid email format for email'
-            },
-            {
-              field: 'phoneNumber',
-              message: 'Phone number is required'
             },
             {
               field: 'username',

@@ -36,6 +36,7 @@ describe('resetPassword.service', () => {
       firstName: 'John',
       lastName: 'Doe',
       email: 'john.doe@example.com',
+      phoneNumber: '+2348012345678',
       password: 'hashedPassword123',
       resetPasswordOTP: '1234',
       resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now

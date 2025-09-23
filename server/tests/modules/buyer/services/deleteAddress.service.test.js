@@ -137,6 +137,7 @@ describe('deleteAddress.service', () => {
         firstName: 'Jane',
         lastName: 'Smith',
         username: 'janesmith',
+      phoneNumber: '+2348012345678',
         email: 'jane.smith@example.com',
         password: 'password123',
         shippingAddresses: []
@@ -156,6 +157,7 @@ describe('deleteAddress.service', () => {
         firstName: 'Bob',
         lastName: 'Johnson',
         username: 'bobjohnson',
+      phoneNumber: '+2348012345678',
         email: 'bob.johnson@example.com',
         password: 'password123',
         shippingAddresses: null
@@ -173,6 +175,7 @@ describe('deleteAddress.service', () => {
         firstName: 'Alice',
         lastName: 'Brown',
         username: 'alicebrown',
+      phoneNumber: '+2348012345678',
         email: 'alice.brown@example.com',
         password: 'password123'
       });
