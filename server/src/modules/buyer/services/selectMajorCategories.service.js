@@ -65,10 +65,14 @@ function extractCategoryIds(majorCategories) {
   // Step 2: Iterate through each major category
   // This processes each major category to extract its child categories
   majorCategories.forEach(majorCategory => {
-    // Step 3: Extract category IDs from populated categories array
+    // Step 3: Extract category IDs from populated categories array or raw ObjectIds
     // This flattens the nested category structure into a simple ID array
     majorCategory.categories.forEach(category => {
-      categoryIds.push(category._id); // Add each category ID to the flat array
+      // Support both populated docs (with _id) and ObjectId values
+      const id = category && category._id ? category._id : category;
+      if (id) {
+        categoryIds.push(id);
+      }
     });
   });
   
