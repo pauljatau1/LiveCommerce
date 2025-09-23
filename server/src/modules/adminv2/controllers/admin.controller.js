@@ -1,6 +1,7 @@
 const terminalService = require('../services/adminterminal.service');
 const Product = require('../../../models/Product');
 const Seller = require('../../../models/Seller');
+const adminBuyerService = require('../services/adminBuyer.service');
 const emailService = require('../../../utils/emailService');
 const { toggleSellerVacationMode } = require('../services/adminVacation.service');
 const ErrorLog = require('../../../models/ErrorLog');
@@ -232,6 +233,25 @@ const getErrors = async (req, res) => {
   }
 };
 
+/**
+ * Soft delete a buyer account and anonymize PII so the email/username can be reused.
+ * DELETE /admin/buyers/:buyerId
+ */
+const deleteBuyerAccount = async (req, res, next) => {
+  try {
+    const { buyerId } = req.params;
+    const hard = String(req.query.hard || '').toLowerCase() === 'true';
+    const result = await adminBuyerService.deleteBuyerAccount(buyerId, { hard });
+    return res.status(200).json(result);
+  } catch (error) {
+    // Translate service errors with status to HTTP response codes
+    if (error && error.status) {
+      return res.status(error.status).json({ status: false, message: error.message });
+    }
+    next(error);
+  }
+};
+
 module.exports = {
   getShipments,
   getShipmentById,
@@ -249,4 +269,5 @@ module.exports = {
   setSellerVacationMode,
   updateProductSoldCount,
   getErrors,
+  deleteBuyerAccount,
 };
