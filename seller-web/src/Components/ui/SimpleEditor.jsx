@@ -497,7 +497,7 @@ const SimpleEditor = memo(({ value, onChange, placeholder, className, onLinkDete
       </div>
 
       {/* Editor Content */}
-      <div className="relative">
+      <div className="relative max-h-[226px] overflow-y-auto">
         <EditorContent editor={editor} />
         
         {/* Custom CSS for TipTap editor content */}
