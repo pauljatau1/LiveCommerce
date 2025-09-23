@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Loader2, User, ShoppingBag, CreditCard, MessageSquare, Heart, AlertTriangle, Plus, Minus } from "lucide-react";
+import { ArrowLeft, Loader2, CreditCard, MessageSquare, Heart, AlertTriangle, Plus, Minus, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+// import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -29,6 +29,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
+// import { Checkbox } from "@/components/ui/checkbox";
 
 interface BuyerDetails {
   buyer: {
@@ -111,6 +113,10 @@ function BuyerDetail() {
   const [buyerDetails, setBuyerDetails] = useState<BuyerDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Delete account states
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [hardDelete, setHardDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   
   // Wallet operation states
   const [showWalletDialog, setShowWalletDialog] = useState(false);
@@ -149,6 +155,23 @@ function BuyerDetail() {
       style: "currency",
       currency: "NGN",
     }).format(amount);
+  };
+
+  // Handle buyer deletion (soft by default, hard if toggled)
+  const handleDeleteBuyer = async () => {
+    if (!id) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/api/admin/buyers/${id}`, { params: { hard: hardDelete } });
+      toast({ description: hardDelete ? "Buyer hard-deleted successfully" : "Buyer deleted successfully" });
+      setShowDeleteDialog(false);
+      navigate(-1);
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || "Failed to delete buyer";
+      toast({ variant: "destructive", description: errorMessage });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleWalletOperation = (operation: 'add' | 'deduct') => {
@@ -238,6 +261,14 @@ function BuyerDetail() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h2 className="text-2xl text-white font-medium">Buyer Profile</h2>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="destructive"
+            onClick={() => setShowDeleteDialog(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-2" /> Delete Buyer
+          </Button>
+        </div>
       </div>
 
       {/* Buyer Overview Card */}
@@ -605,6 +636,40 @@ function BuyerDetail() {
             >
               {processingWallet && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {walletOperation === 'add' ? 'Add Funds' : 'Deduct Funds'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Buyer Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Buyer Account</DialogTitle>
+            <DialogDescription>
+              This action will {hardDelete ? "permanently remove the buyer from the database" : "disable the buyer and anonymize their data"}. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="flex items-center gap-3">
+              <Switch id="hard-delete" checked={hardDelete} onCheckedChange={setHardDelete} />
+              <Label htmlFor="hard-delete">Hard delete (permanent)</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {hardDelete
+                ? "Hard delete will remove the buyer record and purge basic references from sellers. Orders/messages remain for historical integrity."
+                : "Soft delete will disable the account and anonymize PII. You can reuse their email/username."}
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteBuyer} disabled={deleting}>
+              {deleting && <Loader2 className="h-4 w-4 animate-spin mr-2" />} 
+              {hardDelete ? "Hard Delete" : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { Pencil, Trash2, Plus, Loader2, Upload, X, Eye, Tag, Star, BarChart2, Package2, Store, Play, Pause, Volume2, VolumeX, Info, ArrowUpDown, Calendar, Grid3X3, List, MessageCircle, User } from "lucide-react"
+import { Trash2, Loader2, Eye, Tag, Play, Volume2, VolumeX, Info, Grid3X3, List, MessageCircle, User, Download } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,10 +14,8 @@ import { api } from "@/api/axios"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { format } from "date-fns"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import Hls from 'hls.js'
@@ -98,7 +96,6 @@ function ProductBlips() {
   const [stats, setStats] = useState<BlipStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [searchInput, setSearchInput] = useState('')
   const [activeVideo, setActiveVideo] = useState<string | null>(null)
   const [muted, setMuted] = useState(true)
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
@@ -106,6 +103,7 @@ function ProductBlips() {
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({})
   const hlsRefs = useRef<{ [key: string]: Hls | null }>({})
   const [deletingBlip, setDeletingBlip] = useState<string | null>(null)
+  const [downloadingBlip, setDownloadingBlip] = useState<string | null>(null)
   
   // Comments state
   const [comments, setComments] = useState<Comment[]>([])
@@ -122,7 +120,7 @@ function ProductBlips() {
     blipsPerPage: 16
   })
   
-  const [filters, setFilters] = useState({
+  const [filters] = useState({
     sellerId: '',
     category: '',
     sortBy: 'createdAt',
@@ -217,35 +215,6 @@ function ProductBlips() {
     }
   }
 
-  const handleSearch = () => {
-    // For now, we're not implementing search by text as the API doesn't support it
-    // This could be extended later when the API adds this feature
-    toast.info("Search functionality will be implemented in a future update")
-  }
-
-  const handleFilterChange = (key: string, value: any) => {
-    setFilters(prev => ({ ...prev, [key]: value }))
-  }
-
-  const applyFilters = () => {
-    setPagination(prev => ({ ...prev, currentPage: 1 }))
-    fetchBlips(true)
-  }
-
-  const resetFilters = () => {
-    setFilters({
-      sellerId: '',
-      category: '',
-      sortBy: 'createdAt',
-      sortOrder: 'desc',
-      minLikes: 0,
-      minViews: 0,
-      minComments: 0,
-      dateRange: {}
-    })
-    setPagination(prev => ({ ...prev, currentPage: 1 }))
-    fetchBlips(true)
-  }
 
   const initializeHLS = (videoElement: HTMLVideoElement, blipUrl: string, blipId: string) => {
     if (blipUrl.endsWith('.m3u8')) {
@@ -268,7 +237,7 @@ function ProductBlips() {
           videoElement.muted = muted
         })
 
-        hls.on(Hls.Events.ERROR, (event, data) => {
+        hls.on(Hls.Events.ERROR, (_, data) => {
           console.error('HLS Error:', data)
           if (data.fatal) {
             switch (data.type) {
@@ -492,6 +461,46 @@ function ProductBlips() {
     }
   }
 
+  const handleDownloadBlip = async (blip: ProductBlip) => {
+    try {
+      setDownloadingBlip(blip.blipId)
+      
+      // Request a pre-signed URL for the original MP4 from the server
+      const response = await api.get(`/api/products/${blip.productId}/blips/${blip.blipId}/download`)
+      const downloadUrl = response?.data?.downloadUrl
+
+      if (!downloadUrl) {
+        throw new Error('Download URL not available')
+      }
+
+      // Create a temporary link element to trigger download
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = `${blip.productName}_blip.mp4` 
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+    
+    } catch (error: any) {
+      console.error('Error downloading blip:', error)
+      
+      // Handle different error scenarios
+      if (error.response?.status === 404) {
+        toast.error('Blip file not found. The original video may have been deleted.')
+      } else if (error.response?.status === 403) {
+        toast.error('Access denied. You may not have permission to download this blip.')
+      } else if (error.response?.status >= 500) {
+        toast.error('Server error. Please try again later.')
+      } else {
+        const errorMessage = error.response?.data?.message || error.message || "Failed to download blip"
+        toast.error(errorMessage)
+      }
+    } finally {
+      setDownloadingBlip(null)
+    }
+  }
+
   // Initial loading state
   if (loading && pagination.currentPage === 1 && blips.length === 0) {
     return (
@@ -645,6 +654,22 @@ function ProductBlips() {
                               }}
                             >
                               <Info className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded-full hover:bg-blue-900/30"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDownloadBlip(blip)
+                              }}
+                              disabled={downloadingBlip === blip.blipId}
+                            >
+                              {downloadingBlip === blip.blipId ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Download className="h-3 w-3 text-blue-400" />
+                              )}
                             </Button>
                             <Button
                               variant="ghost"
@@ -838,6 +863,30 @@ function ProductBlips() {
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
+                          
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={() => handleDownloadBlip(blip)}
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 bg-blue-900/30 border-blue-800 hover:bg-blue-900/50"
+                                  disabled={downloadingBlip === blip.blipId}
+                                >
+                                  {downloadingBlip === blip.blipId ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Download className="h-4 w-4 text-blue-400" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Download blip</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
