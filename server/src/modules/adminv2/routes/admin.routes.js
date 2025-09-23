@@ -26,4 +26,7 @@ router.patch('/products/:productId/sold-count', adminAuth, adminController.updat
 // Error logging routes
 router.get('/errors', adminAuth, adminController.getErrors);
 
+// Buyer management routes
+router.delete('/buyers/:buyerId', adminAuth, adminController.deleteBuyerAccount);
+
 module.exports = router;
