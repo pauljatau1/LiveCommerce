@@ -2,16 +2,11 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
 const addressSchema = new mongoose.Schema({
-  // Address type is optional and can be any string value
   addressType: { 
-    type: String
+    type: String, 
+    required: true,
+    enum: ['home', 'work', 'other']
   },
-  // Optional recipient/contact details to associate with this address
-  firstName: { type: String },
-  lastName: { type: String },
-  email: { type: String },
-  phoneNumber: { type: String },
-  // Location fields
   country: { type: String, required: true },
   state: { type: String, required: true },
   city: { type: String, required: true },
@@ -60,12 +55,12 @@ const transactionSchema = new mongoose.Schema({
 });
 
 const buyerSchema = new mongoose.Schema({
-  firstName: { type: String, required: false },
-  lastName: { type: String, required: false },
+  firstName: { type: String, required: true },
+  lastName: { type: String, required: true },
   username: { type: String, unique: true },
   email: { type: String, required: true, unique: true },
-  country: { type: String, default: 'NG', required: false },
-  phoneNumber: { type: String, required: false },
+  country: { type: String, default: 'NG' },
+  phoneNumber: { type: String},
   password: {
     type: String,
     required: function() {
@@ -88,7 +83,7 @@ const buyerSchema = new mongoose.Schema({
   }],
   bio: { type: String },
   createdAt: { type: Date, default: Date.now },
-  emailVerified: { type: Boolean, default: true },
+  emailVerified: { type: Boolean, default: false },
   phoneVerified: { type: Boolean, default: false },
   phoneVerification: {
     otp: String,
