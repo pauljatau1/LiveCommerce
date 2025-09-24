@@ -41,7 +41,6 @@ describe('Seller Registration Service', () => {
     sgMail.send.mockResolvedValue([{ statusCode: 202 }]);
     
     // Mock helper functions
-    generateOTP.mockReturnValue('1234');
     generateToken.mockReturnValue('mock-jwt-token');
   });
 
@@ -66,9 +65,8 @@ describe('Seller Registration Service', () => {
       expect(result.user.email).toBe('john.doe@example.com');
       expect(result.user.phoneNumber).toBe('1234567890');
       expect(result.user.storeName).toBe('John Store');
-      expect(result.user.otp).toBeDefined();
       expect(result.user.agoraUid).toBeDefined();
-      expect(result.user.emailVerified).toBe(false);
+      expect(result.user.emailVerified).toBe(true);
     });
 
          it('should validate registration data before processing', async () => {
@@ -108,13 +106,10 @@ describe('Seller Registration Service', () => {
       expect(result.user.agoraUid).toBeLessThanOrEqual(4294967295);
     });
 
-    it('should generate OTP for email verification', async () => {
+    it('should automatically verify email on registration', async () => {
       const result = await registerService.register(validRegistrationData);
 
-      expect(result.user.otp).toBeDefined();
-      expect(typeof result.user.otp).toBe('string');
-      expect(result.user.otp.length).toBe(4);
-      expect(/^\d{4}$/.test(result.user.otp)).toBe(true);
+      expect(result.user.emailVerified).toBe(true);
     });
 
     it('should generate JWT token for authentication', async () => {
@@ -172,8 +167,8 @@ describe('Seller Registration Service', () => {
       expect(savedSeller.email).toBe('john.doe@example.com');
       expect(savedSeller.phoneNumber).toBe('1234567890');
       expect(savedSeller.storeName).toBe('John Store');
-      expect(savedSeller.otp).toBeDefined();
       expect(savedSeller.agoraUid).toBeDefined();
+      expect(savedSeller.emailVerified).toBe(true);
     });
 
     it('should handle whitespace in input fields', async () => {

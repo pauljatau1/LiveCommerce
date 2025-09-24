@@ -94,7 +94,7 @@ const router = express.Router();
  *                           example: 123456789
  *                         emailVerified:
  *                           type: boolean
- *                           example: false
+ *                           example: true
  *                         createdAt:
  *                           type: string
  *                           format: date-time

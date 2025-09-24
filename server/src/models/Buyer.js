@@ -18,7 +18,7 @@ const addressSchema = new mongoose.Schema({
   addressLine1: { type: String, required: true },
   addressLine2: { type: String },
   zipCode: { type: String, required: true }
-}, { _id: true });
+}, { _id: true });  
 
 const subCategorySchema = new mongoose.Schema({
   name: { type: String, required: true },

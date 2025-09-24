@@ -3,29 +3,27 @@
  *
  * This service handles the business logic for seller registration functionality.
  * It provides comprehensive registration capabilities including validation,
- * OTP generation, email verification, and account creation.
+ * automatic email verification, and account creation.
  *
  * The service ensures that:
  * - Registration data is properly validated
- * - Secure OTP codes are generated for email verification
+ * - Email addresses are automatically verified on registration
  * - New seller accounts are created with proper initialization
- * - Email verification is sent to new users
+ * - Welcome emails are sent to new users
  * - JWT tokens are generated for immediate authentication
  * - Agora UID is generated for live streaming capabilities
  *
  * Registration Flow:
  * - Input validation and data verification
- * - OTP generation for email verification
- * - Seller object creation with Agora UID
+ * - Seller object creation with Agora UID and verified email
  * - Database storage with atomic operations
- * - Email verification sending
+ * - Welcome email sending
  * - JWT token generation
  * - Success response with user data and token
  *
  * Security Features:
  * - Comprehensive input validation
- * - Secure OTP generation
- * - Email verification requirement
+ * - Automatic email verification on registration
  * - Proper password hashing
  * - JWT token generation
  * - Unique Agora UID generation
@@ -33,7 +31,7 @@
  * Email System:
  * - HTML email templates with dynamic content
  * - SendGrid integration for reliable delivery
- * - Professional formatting for verification
+ * - Professional formatting for welcome emails
  * - Template variable replacement
  *
  * @module registerService
@@ -227,25 +225,23 @@ function getAdminNotificationEmailContent(firstName, lastName, email, phoneNumbe
  * Business Logic Flow:
  * 1. Validates the registration input data
  * 2. Checks if email already exists in the system
- * 3. Generates a secure one-time password (OTP) for email verification
- * 4. Generates a unique Agora UID for live streaming
- * 5. Creates a new Seller object with proper initialization
- * 6. Saves the seller to the database
- * 7. Sends welcome email to the new seller
- * 8. Sends admin notification about the new registration
- * 9. Generates a JWT token for immediate authentication
- * 10. Returns the created user data and authentication token
+ * 3. Generates a unique Agora UID for live streaming
+ * 4. Creates a new Seller object with email automatically verified
+ * 5. Saves the seller to the database
+ * 6. Sends welcome email to the new seller
+ * 7. Sends admin notification about the new registration
+ * 8. Generates a JWT token for immediate authentication
+ * 9. Returns the created user data and authentication token
  *
  * Account Initialization:
  * - Creates seller with all required fields
  * - Sets up default notification preferences
- * - Establishes account verification status
- * - Prepares for email verification process
+ * - Automatically verifies email address
  * - Initializes Agora UID for live streaming
  *
  * Security Features:
  * - Comprehensive input validation before processing
- * - Secure OTP generation for email verification
+ * - Automatic email verification on registration
  * - Proper password hashing in the model
  * - JWT token generation for authentication
  * - Unique Agora UID generation
@@ -278,10 +274,7 @@ async function register(data) {
   // Generate unique Agora UID for live streaming
   const agoraUid = await generateUniqueAgoraUid();
 
-  // Generate OTP for email verification
-  const otp = generateOTP();
-
-  // Create new seller object
+  // Create new seller object with email automatically verified
   const newSeller = new Seller({
     firstName: data.firstName,
     lastName: data.lastName,
@@ -289,7 +282,7 @@ async function register(data) {
     password: data.password,
     phoneNumber: data.phoneNumber,
     storeName: data.storeName,
-    otp: otp,
+    emailVerified: true, // Automatically verify email on registration
     agoraUid: agoraUid
   });
 
