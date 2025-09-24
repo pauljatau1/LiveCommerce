@@ -60,6 +60,7 @@ describe('Add Address Service', () => {
         lastName: 'Doe',
         email: 'john.doe@example.com',
         username: 'johndoe',
+      phoneNumber: '+2348012345678',
         password: 'password123',
         shippingAddresses: []
       });
@@ -128,10 +129,10 @@ describe('Add Address Service', () => {
       ).rejects.toThrow('Buyer not found');
     });
 
-    it('should throw ValidationError when validation fails', async () => {
+    it('should propagate ValidationError when validator fails', async () => {
       // Arrange
       const validationError = new ValidationError([
-        { field: 'addressType', message: 'Address type is required' }
+        { field: 'country', message: 'Country is required' }
       ]);
       addAddressValidator.validateAddAddressData.mockRejectedValue(validationError);
 

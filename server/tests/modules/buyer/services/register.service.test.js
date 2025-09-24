@@ -80,13 +80,8 @@ describe('Register Service', () => {
       const Firebase = require('@firebase');
       Firebase.saveToken.mockResolvedValue();
 
-      // Mock email sending
-      const sgMail = require('@sendgrid/mail');
-      sgMail.send.mockResolvedValue();
-
-      // Mock helpers
-      const { generateOTP, generateToken } = require('@utils/helpers');
-      generateOTP.mockReturnValue('1234');
+      // Mock helpers (no OTP now)
+      const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue('mock-jwt-token');
 
       const result = await registerService.register(validRegistrationData);
@@ -99,9 +94,6 @@ describe('Register Service', () => {
 
       // Verify Firebase token was saved
       expect(Firebase.saveToken).toHaveBeenCalledWith(mockBuyer._id, validRegistrationData.expoPushToken);
-
-      // Verify email was sent
-      expect(sgMail.send).toHaveBeenCalled();
 
       // Verify token was generated
       expect(generateToken).toHaveBeenCalledWith(mockBuyer._id);
@@ -141,13 +133,8 @@ describe('Register Service', () => {
       const Firebase = require('@firebase');
       Firebase.saveToken.mockResolvedValue();
 
-      // Mock email sending
-      const sgMail = require('@sendgrid/mail');
-      sgMail.send.mockResolvedValue();
-
-      // Mock helpers
-      const { generateOTP, generateToken } = require('@utils/helpers');
-      generateOTP.mockReturnValue('1234');
+      // Mock helpers (no OTP now)
+      const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue('mock-jwt-token');
 
       const result = await registerService.register(dataWithoutToken);
@@ -158,7 +145,6 @@ describe('Register Service', () => {
       // Verify other operations were performed
       expect(buyerValidator.validateRegisterData).toHaveBeenCalledWith(dataWithoutToken);
       expect(buyerRepository.save).toHaveBeenCalled();
-      expect(sgMail.send).toHaveBeenCalled();
       expect(generateToken).toHaveBeenCalled();
 
       expect(result).toHaveProperty('user');
@@ -191,32 +177,7 @@ describe('Register Service', () => {
       expect(buyerRepository.save).toHaveBeenCalled();
     });
 
-    it('should throw error when email sending fails', async () => {
-      buyerValidator.validateRegisterData.mockResolvedValue();
-
-      const mockBuyer = {
-        _id: new mongoose.Types.ObjectId(),
-        save: jest.fn().mockResolvedValue({
-          _id: new mongoose.Types.ObjectId()
-        })
-      };
-
-      buyerRepository.save.mockResolvedValue(mockBuyer);
-
-      const { saveToken } = require('@firebase');
-      saveToken.mockResolvedValue();
-
-      const sgMail = require('@sendgrid/mail');
-      sgMail.send.mockRejectedValue(new Error('Email sending failed'));
-
-      const { generateOTP, generateToken } = require('@utils/helpers');
-      generateOTP.mockReturnValue('1234');
-      generateToken.mockReturnValue('mock-jwt-token');
-
-      await expect(registerService.register(validRegistrationData))
-        .rejects
-        .toThrow('Email sending failed');
-    });
+    // Email sending removed from flow; error path no longer applicable
 
     it('should throw error when Firebase token save fails', async () => {
       buyerValidator.validateRegisterData.mockResolvedValue();
@@ -234,11 +195,7 @@ describe('Register Service', () => {
       const Firebase = require('@firebase');
       Firebase.saveToken.mockRejectedValue(new Error('Firebase save failed'));
 
-      const sgMail = require('@sendgrid/mail');
-      sgMail.send.mockResolvedValue();
-
-      const { generateOTP, generateToken } = require('@utils/helpers');
-      generateOTP.mockReturnValue('1234');
+      const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue('mock-jwt-token');
 
       // Should throw error when Firebase fails
@@ -280,13 +237,8 @@ describe('Register Service', () => {
       const { saveToken } = require('@firebase');
       saveToken.mockResolvedValue();
 
-      // Mock email sending
-      const sgMail = require('@sendgrid/mail');
-      sgMail.send.mockResolvedValue();
-
       // Mock helpers
-      const { generateOTP, generateToken } = require('@utils/helpers');
-      generateOTP.mockReturnValue('1234');
+      const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue('mock-jwt-token');
 
       const result = await registerService.register(dataWithUndefinedToken);
@@ -328,13 +280,8 @@ describe('Register Service', () => {
       const { saveToken } = require('@firebase');
       saveToken.mockResolvedValue();
 
-      // Mock email sending
-      const sgMail = require('@sendgrid/mail');
-      sgMail.send.mockResolvedValue();
-
       // Mock helpers
-      const { generateOTP, generateToken } = require('@utils/helpers');
-      generateOTP.mockReturnValue('1234');
+      const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue('mock-jwt-token');
 
       const result = await registerService.register(dataWithNullToken);
@@ -376,13 +323,8 @@ describe('Register Service', () => {
       const { saveToken } = require('@firebase');
       saveToken.mockResolvedValue();
 
-      // Mock email sending
-      const sgMail = require('@sendgrid/mail');
-      sgMail.send.mockResolvedValue();
-
       // Mock helpers
-      const { generateOTP, generateToken } = require('@utils/helpers');
-      generateOTP.mockReturnValue('1234');
+      const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue('mock-jwt-token');
 
       const result = await registerService.register(dataWithEmptyToken);
@@ -464,28 +406,22 @@ describe('Register Service', () => {
         .toThrow('Database connection failed');
     });
 
-    it('should propagate email service errors', async () => {
+    it('should not fail if email service is unavailable (email not used)', async () => {
       const mockBuyer = {
         _id: new mongoose.Types.ObjectId()
       };
 
       buyerValidator.validateRegisterData.mockResolvedValue();
       buyerRepository.save.mockResolvedValue(mockBuyer);
-      
+
       const { saveToken } = require('@firebase');
       saveToken.mockResolvedValue();
-      
-      const sgMail = require('@sendgrid/mail');
-      const emailError = new Error('SendGrid service unavailable');
-      sgMail.send.mockRejectedValue(emailError);
-      
-      const { generateOTP, generateToken } = require('@utils/helpers');
-      generateOTP.mockReturnValue('1234');
+
+      const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue('mock-jwt-token');
 
-      await expect(registerService.register(validRegistrationData))
-        .rejects
-        .toThrow('SendGrid service unavailable');
+      const result = await registerService.register(validRegistrationData);
+      expect(result).toEqual({ user: mockBuyer, token: 'mock-jwt-token' });
     });
   });
 
@@ -505,11 +441,7 @@ describe('Register Service', () => {
       const { saveToken } = require('@firebase');
       saveToken.mockResolvedValue();
       
-      const sgMail = require('@sendgrid/mail');
-      sgMail.send.mockResolvedValue();
-      
-      const { generateOTP, generateToken } = require('@utils/helpers');
-      generateOTP.mockReturnValue('1234');
+      const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue('mock-jwt-token');
 
       const result = await registerService.register(validRegistrationData);
@@ -541,11 +473,7 @@ describe('Register Service', () => {
       const { saveToken } = require('@firebase');
       saveToken.mockResolvedValue();
       
-      const sgMail = require('@sendgrid/mail');
-      sgMail.send.mockResolvedValue();
-      
-      const { generateOTP, generateToken } = require('@utils/helpers');
-      generateOTP.mockReturnValue('1234');
+      const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue('mock-jwt-token');
 
       await registerService.register(validRegistrationData);

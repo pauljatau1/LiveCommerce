@@ -137,7 +137,7 @@ const sellerSchema = new mongoose.Schema({
     disabledAt: { type: Date }
   },
   createdAt: { type: Date, default: Date.now },
-  emailVerified: { type: Boolean, default: false },
+  emailVerified: { type: Boolean, default: true },
   otp: { type: String },
   isFeatured: { type: Boolean, default: false },
   isDisabled: { type: Boolean, default: false },

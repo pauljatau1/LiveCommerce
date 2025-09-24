@@ -58,6 +58,7 @@ describe('Buyer Controller - getOrders', () => {
         lastName: 'User',
         email: 'test@example.com',
         username: 'testuser',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
 

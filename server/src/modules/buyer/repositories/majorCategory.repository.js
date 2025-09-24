@@ -22,7 +22,7 @@ async function findActiveMajorCategories(majorCategoryIds) {
   return MajorCategory.find({
     _id: { $in: majorCategoryIds },
     isActive: true
-  });
+  }).populate('categories', 'name');
 }
 
 /**
@@ -34,7 +34,7 @@ async function findActiveMajorCategories(majorCategoryIds) {
  * @returns {Promise<Array>} Array of all active major categories
  */
 async function findAllActiveMajorCategories() {
-  return MajorCategory.find({ isActive: true });
+  return MajorCategory.find({ isActive: true }).populate('categories', 'name');
 }
 
 module.exports = {

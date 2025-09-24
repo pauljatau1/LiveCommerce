@@ -45,7 +45,8 @@ describe('GET /api/v2/buyers/following', () => {
       lastName: 'Buyer',
       email: 'test@example.com',
       password: 'password123',
-      username: 'testbuyer'
+      username: 'testbuyer',
+      phoneNumber: '+2348012345678'
     });
     await testBuyer.save();
     testBuyerId = testBuyer._id;

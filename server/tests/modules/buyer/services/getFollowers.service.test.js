@@ -228,6 +228,7 @@ describe('getFollowers.service', () => {
         lastName: 'Smith',
         email: 'jane.smith@example.com',
         username: 'janesmith',
+      phoneNumber: '+2348012345678',
         password: 'password123',
         followers: []
       });

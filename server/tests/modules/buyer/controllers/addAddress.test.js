@@ -64,6 +64,7 @@ describe('Add Address Controller', () => {
         lastName: 'Doe',
         email: 'john.doe@example.com',
         username: 'johndoe',
+      phoneNumber: '+2348012345678',
         password: 'password123',
         shippingAddresses: []
       });
@@ -145,24 +146,27 @@ describe('Add Address Controller', () => {
       expect(response.body.errors.length).toBeGreaterThan(0);
     });
 
-    it('should return 422 when address type is invalid', async () => {
-      // Arrange - Invalid address type
-      const invalidAddressData = {
-        ...validAddressData,
-        addressType: 'invalid'
-      };
-
-      // Act
-      const response = await request(app)
+    it('should accept arbitrary address type labels and also when omitted', async () => {
+      // Arbitrary type
+      const arbitraryData = { ...validAddressData, addressType: 'holiday-home' };
+      const res1 = await request(app)
         .post('/api/v2/buyers/addresses')
         .set('Authorization', `Bearer ${token}`)
-        .send(invalidAddressData)
-        .expect(422);
+        .send(arbitraryData)
+        .expect(201);
+      expect(res1.body.success).toBe(true);
+      expect(res1.body.data.address.addressType).toBe('holiday-home');
 
-      // Assert
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Validation failed');
-      expect(response.body.errors).toBeDefined();
+      // Omitted type
+      const withoutType = { ...validAddressData };
+      delete withoutType.addressType;
+      const res2 = await request(app)
+        .post('/api/v2/buyers/addresses')
+        .set('Authorization', `Bearer ${token}`)
+        .send(withoutType)
+        .expect(201);
+      expect(res2.body.success).toBe(true);
+      expect(res2.body.data.address.addressType).toBeUndefined();
     });
 
     it('should return 401 when no token provided', async () => {

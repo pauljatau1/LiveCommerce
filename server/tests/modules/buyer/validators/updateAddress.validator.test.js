@@ -137,30 +137,33 @@ describe('Update Address Validator', () => {
       });
     });
 
-    it('should throw ValidationError when address type is invalid', async () => {
-      // Arrange
-      const invalidData = {
-        addressType: 'invalid',
+    it('should accept arbitrary address type values and allow omission', async () => {
+      const arbitrary = {
+        addressType: 'holiday-home',
         country: 'Nigeria',
         state: 'Lagos',
         city: 'Victoria Island',
         addressLine1: '456 Business Avenue',
         zipCode: '100002'
       };
-
-      // Act & Assert
       await expect(updateAddressValidator.validateUpdateAddressData(
-        invalidData, 
-        testBuyer._id.toString(), 
+        arbitrary,
+        testBuyer._id.toString(),
         testAddressId
-      )).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'addressType',
-            message: 'Invalid address type'
-          }
-        ]
-      });
+      )).resolves.not.toThrow();
+
+      const noType = {
+        country: 'Nigeria',
+        state: 'Lagos',
+        city: 'Victoria Island',
+        addressLine1: '456 Business Avenue',
+        zipCode: '100002'
+      };
+      await expect(updateAddressValidator.validateUpdateAddressData(
+        noType,
+        testBuyer._id.toString(),
+        testAddressId
+      )).resolves.not.toThrow();
     });
 
     it('should throw ValidationError when address type conflicts with existing address', async () => {
@@ -413,26 +416,7 @@ describe('Update Address Validator', () => {
          });
        });
 
-             it('should include specific error message for invalid address type', async () => {
-         // Ensure the mock returns the testBuyer with the correct structure
-         buyerRepository.findByIdWithShippingAddresses.mockResolvedValue(testBuyer);
-         
-         await expect(updateAddressValidator.validateUpdateAddressData({
-           addressType: 'invalid',
-           country: 'Nigeria',
-           state: 'Lagos',
-           city: 'Victoria Island',
-           addressLine1: '456 Business Avenue',
-           zipCode: '100002'
-         }, testBuyer._id.toString(), testAddressId)).rejects.toMatchObject({
-           errors: [
-             {
-               field: 'addressType',
-               message: 'Invalid address type'
-             }
-           ]
-         });
-       });
+      // Removed test for invalid address type since any string is accepted
 
              it('should include specific error message for duplicate address type', async () => {
          const buyerWithDuplicateAddress = {
@@ -564,34 +548,30 @@ describe('Update Address Validator', () => {
            zipCode: ''
          };
 
-         await expect(updateAddressValidator.validateUpdateAddressData(dataWithMultipleErrors, testBuyer._id.toString(), testAddressId)).rejects.toMatchObject({
-           errors: [
-             {
-               field: 'addressType',
-               message: 'Invalid address type'
-             },
-             {
-               field: 'country',
-               message: 'Country must be a valid string'
-             },
-             {
-               field: 'state',
-               message: 'State must be a valid string'
-             },
-             {
-               field: 'city',
-               message: 'City must be a valid string'
-             },
-             {
-               field: 'addressLine1',
-               message: 'Address line 1 must be a valid string'
-             },
-             {
-               field: 'zipCode',
-               message: 'Zip code must be a valid string'
-             }
-           ]
-         });
+        await expect(updateAddressValidator.validateUpdateAddressData(dataWithMultipleErrors, testBuyer._id.toString(), testAddressId)).rejects.toMatchObject({
+          errors: [
+            {
+              field: 'country',
+              message: 'Country must be a valid string'
+            },
+            {
+              field: 'state',
+              message: 'State must be a valid string'
+            },
+            {
+              field: 'city',
+              message: 'City must be a valid string'
+            },
+            {
+              field: 'addressLine1',
+              message: 'Address line 1 must be a valid string'
+            },
+            {
+              field: 'zipCode',
+              message: 'Zip code must be a valid string'
+            }
+          ]
+        });
        });
     });
   });

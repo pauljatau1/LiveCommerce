@@ -441,6 +441,7 @@ describe('getWalletTransactions Service', () => {
         lastName: 'Wallet',
         email: 'nowallet@example.com',
         username: 'nowallet',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
       await buyerWithoutWallet.save();
@@ -662,6 +663,7 @@ describe('getWalletTransactions Service', () => {
         lastName: 'Wallet',
         email: 'nowallet@example.com',
         username: 'nowallet',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
       await buyerWithoutWallet.save();

@@ -201,6 +201,7 @@ describe('Update Address Service', () => {
         lastName: 'Doe',
         email: 'john.doe@example.com',
         username: 'johndoe',
+      phoneNumber: '+2348012345678',
         password: 'password123',
         shippingAddresses: []
       });
@@ -214,9 +215,9 @@ describe('Update Address Service', () => {
       )).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ValidationError when validation fails', async () => {
+    it('should propagate ValidationError from validator', async () => {
       // Arrange
-      const validationError = new ValidationError([{ field: 'addressType', message: 'Invalid address type' }]);
+      const validationError = new ValidationError([{ field: 'city', message: 'City must be a valid string' }]);
       updateAddressValidator.validateUpdateAddressData.mockRejectedValue(validationError);
 
       // Act & Assert

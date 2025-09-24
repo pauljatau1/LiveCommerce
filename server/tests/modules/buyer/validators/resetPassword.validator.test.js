@@ -33,7 +33,8 @@ describe('resetPassword.validator', () => {
       firstName: 'John',
       lastName: 'Doe',
       email: 'john.doe@example.com',
-      username: 'johndoe', // Add username
+      username: 'johndoe',
+      phoneNumber: '+2348012345678', // Add username
       password: 'hashedPassword123',
       resetPasswordOTP: '1234',
       resetPasswordOTPExpires: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now
@@ -309,6 +310,7 @@ describe('resetPassword.validator', () => {
         lastName: 'Smith',
         email: 'jane.smith@example.com',
         username: 'janesmith',
+      phoneNumber: '+2348012345678',
         password: 'hashedPassword123',
         resetPasswordOTP: '5678',
         resetPasswordOTPExpires: new Date(Date.now() - 10 * 60 * 1000) // 10 minutes ago
@@ -342,6 +344,7 @@ describe('resetPassword.validator', () => {
         lastName: 'Johnson',
         email: 'bob.johnson@example.com',
         username: 'bobjohnson',
+      phoneNumber: '+2348012345678',
         password: 'hashedPassword123',
         resetPasswordOTP: '9999'
         // No resetPasswordOTPExpires
@@ -476,6 +479,7 @@ describe('resetPassword.validator', () => {
           lastName: 'Smith',
           email: 'jane.smith@example.com',
           username: 'janesmith',
+      phoneNumber: '+2348012345678',
           password: 'hashedPassword123',
           resetPasswordOTP: '5678',
           resetPasswordOTPExpires: new Date(Date.now() - 10 * 60 * 1000) // 10 minutes ago
