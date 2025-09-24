@@ -37,7 +37,9 @@ const buyerRepository = require('../repositories/buyer.repository');
 const buyerValidator = require('../validators/register.validator');
 const { generateToken } = require('../../../utils/helpers');
 const Buyer = require('../../../models/Buyer');
-const { saveToken } = require('../../../../Firebase');
+// Use alias so tests can mock without executing Firebase admin init
+// Defer requiring Firebase to runtime to play nicely with Jest mocks
+// const { saveToken } = require('@firebase');
 
 /**
  * Registers a new buyer user account - Main business logic function.
@@ -125,6 +127,7 @@ async function register(data) {
   // Step 4: Save Expo push token if provided for notifications
   // This enables push notifications for the new user
   if (data.expoPushToken && data.expoPushToken != undefined) {
+    const { saveToken } = require('@firebase');
     await saveToken(newBuyer._id, data.expoPushToken);
   }
   

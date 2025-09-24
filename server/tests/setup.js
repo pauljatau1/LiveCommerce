@@ -52,6 +52,13 @@ jest.mock('@/config/agenda', () => {
   };
 }); 
 
+// Provide a global mock for Firebase module used by services
+// Ensures tests don't need to mock @firebase individually and prevents admin init
+jest.mock('@firebase', () => ({
+  saveToken: jest.fn().mockResolvedValue(undefined),
+  getToken: jest.fn().mockResolvedValue(undefined),
+}));
+
 // Enforce short-lived HTTP connections during tests across all Supertest requests
 // without importing the Express app (preserves jest.mock ordering in tests)
 try {
