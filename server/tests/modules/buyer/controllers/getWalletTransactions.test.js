@@ -385,6 +385,7 @@ describe('Buyer Controller - getWalletTransactions', () => {
         lastName: 'Wallet',
         email: 'nowallet@example.com',
         username: 'nowallet',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
 

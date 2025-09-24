@@ -52,6 +52,7 @@ describe('Buyer Repository', () => {
         ...mockBuyerData,
         email: 'jane.doe@example.com',
         username: 'janedoe',
+      phoneNumber: '+2348012345678',
         firstName: 'Jane',
         lastName: 'Doe'
       });
@@ -74,6 +75,7 @@ describe('Buyer Repository', () => {
         ...mockBuyerData,
         email: 'jane.doe@example.com',
         username: 'janedoe',
+      phoneNumber: '+2348012345678',
         firstName: 'Jane',
         lastName: 'Doe'
       });
@@ -112,6 +114,7 @@ describe('Buyer Repository', () => {
         ...mockBuyerData,
         email: 'jane.doe@example.com',
         username: 'janedoe',
+      phoneNumber: '+2348012345678',
         firstName: 'Jane',
         lastName: 'Doe',
         isActive: false,
@@ -488,7 +491,8 @@ describe('Buyer Repository', () => {
     it('should handle special characters in username', async () => {
       const buyer = new Buyer({
         ...mockBuyerData,
-        username: 'john_doe123'
+        username: 'john_doe123',
+      phoneNumber: '+2348012345678'
       });
       await buyer.save();
 

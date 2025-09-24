@@ -38,6 +38,7 @@ describe('requestAccountDeletion.service', () => {
       firstName: 'John',
       lastName: 'Doe',
       email: 'john.doe@example.com',
+      phoneNumber: '+2348012345678',
       password: 'hashedPassword123'
     });
     await testBuyer.save();

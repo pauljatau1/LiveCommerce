@@ -270,6 +270,7 @@ describe('Order Repository', () => {
         lastName: 'Doe',
         email: 'john.doe@example.com',
         username: 'johndoe',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
       await testBuyer.save();
@@ -483,6 +484,7 @@ describe('Order Repository', () => {
         lastName: 'Doe',
         email: 'john.doe@example.com',
         username: 'johndoe',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
       await testBuyer.save();
@@ -749,6 +751,7 @@ describe('Order Repository', () => {
         lastName: 'Doe',
         email: 'john.doe@example.com',
         username: 'johndoe',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
       await testBuyer.save();

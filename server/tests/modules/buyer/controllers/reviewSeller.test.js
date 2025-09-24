@@ -47,7 +47,8 @@ describe('POST /api/v2/buyers/seller/:sellerId/review', () => {
       lastName: 'Buyer',
       email: 'test@example.com',
       password: 'password123',
-      username: 'testbuyer'
+      username: 'testbuyer',
+      phoneNumber: '+2348012345678'
     });
     await testBuyer.save();
     testBuyerId = testBuyer._id;

@@ -54,6 +54,7 @@ describe('Get Orders Service', () => {
         lastName: 'User',
         email: 'test@example.com',
         username: 'testuser',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
 
@@ -203,6 +204,7 @@ describe('Get Orders Service', () => {
         lastName: 'User',
         email: 'empty@example.com',
         username: 'emptyuser',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
 
@@ -287,6 +289,7 @@ describe('Get Orders Service', () => {
         lastName: 'User',
         email: 'test@example.com',
         username: 'testuser',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
 

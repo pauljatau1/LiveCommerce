@@ -201,6 +201,7 @@ describe('Update Address Service', () => {
         lastName: 'Doe',
         email: 'john.doe@example.com',
         username: 'johndoe',
+      phoneNumber: '+2348012345678',
         password: 'password123',
         shippingAddresses: []
       });

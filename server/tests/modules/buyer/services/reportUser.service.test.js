@@ -154,7 +154,8 @@ describe('reportUser.service', () => {
       const anotherBuyer = new Buyer({
         ...mockBuyerData,
         email: 'another@example.com',
-        username: 'anotherdoe'
+        username: 'anotherdoe',
+      phoneNumber: '+2348012345678'
       });
       const savedAnotherBuyer = await anotherBuyer.save();
 

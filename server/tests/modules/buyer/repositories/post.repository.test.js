@@ -39,6 +39,7 @@ describe('Post Repository', () => {
         lastName: 'Doe',
         email: 'john.doe@example.com',
         username: 'johndoe',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
       await testBuyer.save();
@@ -66,6 +67,7 @@ describe('Post Repository', () => {
         lastName: 'Buyer',
         email: 'other.buyer@example.com',
         username: 'otherbuyer',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
       await otherBuyer.save();
@@ -128,6 +130,7 @@ describe('Post Repository', () => {
         lastName: 'Buyer',
         email: 'other.buyer@example.com',
         username: 'otherbuyer',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
       await otherBuyer.save();
@@ -435,6 +438,7 @@ describe('Post Repository', () => {
         lastName: 'Doe',
         email: 'john.doe@example.com',
         username: 'johndoe',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
       await testBuyer.save();
@@ -487,6 +491,7 @@ describe('Post Repository', () => {
         lastName: 'Buyer',
         email: 'other.buyer@example.com',
         username: 'otherbuyer',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
       await otherBuyer.save();
@@ -560,6 +565,7 @@ describe('Post Repository', () => {
         lastName: 'Buyer',
         email: 'other.buyer@example.com',
         username: 'otherbuyer',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
       await otherBuyer.save();
@@ -922,6 +928,7 @@ describe('Post Repository', () => {
         lastName: 'Doe',
         email: 'john.doe@example.com',
         username: 'johndoe',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
       await testBuyer.save();

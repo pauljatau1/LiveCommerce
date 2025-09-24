@@ -108,6 +108,7 @@ describe('Get Selected Categories Service', () => {
         lastName: 'User',
         email: 'empty@example.com',
         username: 'emptyuser',
+      phoneNumber: '+2348012345678',
         password: 'password123',
         selectedCategories: []
       });
@@ -128,6 +129,7 @@ describe('Get Selected Categories Service', () => {
         lastName: 'User',
         email: 'null@example.com',
         username: 'nulluser',
+      phoneNumber: '+2348012345678',
         password: 'password123',
         selectedCategories: null
       });

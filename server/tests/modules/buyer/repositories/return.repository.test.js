@@ -39,6 +39,7 @@ describe('Return Repository', () => {
       lastName: 'Doe',
       email: 'john.doe@example.com',
       username: 'johndoe',
+      phoneNumber: '+2348012345678',
       password: 'password123'
     });
     await testBuyer.save();
@@ -858,6 +859,7 @@ describe('Return Repository', () => {
         lastName: 'Johnson',
         email: 'alice.johnson@example.com',
         username: 'alicej',
+      phoneNumber: '+2348012345678',
         password: 'password123'
       });
       await otherBuyer.save();
