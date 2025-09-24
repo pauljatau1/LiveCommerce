@@ -13,7 +13,7 @@ const addressSchema = new mongoose.Schema({
   addressLine1: { type: String, required: true },
   addressLine2: { type: String },
   zipCode: { type: String, required: true }
-}, { _id: true });
+}, { _id: true });  
 
 const subCategorySchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -55,12 +55,12 @@ const transactionSchema = new mongoose.Schema({
 });
 
 const buyerSchema = new mongoose.Schema({
-  firstName: { type: String, required: true },
-  lastName: { type: String, required: true },
+  firstName: { type: String, required: false },
+  lastName: { type: String, required: false },
   username: { type: String, unique: true },
   email: { type: String, required: true, unique: true },
-  country: { type: String, default: 'NG' },
-  phoneNumber: { type: String},
+  country: { type: String, default: 'NG', required: false },
+  phoneNumber: { type: String, required: false },
   password: {
     type: String,
     required: function() {
@@ -83,7 +83,7 @@ const buyerSchema = new mongoose.Schema({
   }],
   bio: { type: String },
   createdAt: { type: Date, default: Date.now },
-  emailVerified: { type: Boolean, default: false },
+  emailVerified: { type: Boolean, default: true },
   phoneVerified: { type: Boolean, default: false },
   phoneVerification: {
     otp: String,
