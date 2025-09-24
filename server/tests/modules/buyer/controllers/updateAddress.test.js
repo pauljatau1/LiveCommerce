@@ -125,7 +125,7 @@ describe('Update Address Controller', () => {
 
     it('should handle ValidationError', async () => {
       // Arrange
-      const validationError = new ValidationError([{ field: 'addressType', message: 'Invalid address type' }]);
+      const validationError = new ValidationError([{ field: 'city', message: 'City must be a valid string' }]);
       updateAddressService.updateAddress.mockRejectedValue(validationError);
 
       // Act
