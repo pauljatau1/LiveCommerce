@@ -4,7 +4,7 @@
  * This validator handles input validation for updating addresses in a buyer's profile.
  * It provides functionality to:
  * - Validate address existence and ownership
- * - Validate address type uniqueness and format
+ * - Validate address type uniqueness (format is free-form when provided)
  * - Validate address field formats and content
  * - Ensure data integrity and security standards
  * - Maintain consistent validation patterns
@@ -28,7 +28,7 @@ const buyerRepository = require('../repositories/buyer.repository');
  * 1. Initialize error collection array
  * 2. Validate address existence and ownership
  * 3. Validate address type update for uniqueness
- * 4. Validate address type value format
+ * 4. (Removed) Enum validation for address type; accept any string when provided
  * 5. Validate all address field formats and content
  * 6. Throw ValidationError if any validation fails
  *
@@ -41,7 +41,7 @@ const buyerRepository = require('../repositories/buyer.repository');
  * @param {Object} data - Address update data
  * @param {string} buyerId - The buyer's ID
  * @param {string} addressId - The address ID to update
- * @param {string} [data.addressType] - The address type (home, work, other)
+ * @param {string} [data.addressType] - Optional address type label
  * @param {string} [data.country] - The country
  * @param {string} [data.state] - The state
  * @param {string} [data.city] - The city
@@ -54,6 +54,7 @@ async function validateUpdateAddressData(data, buyerId, addressId) {
 
   await validateAddressExists(buyerId, addressId, errors);
   await validateAddressTypeUpdate(data.addressType, buyerId, addressId, errors);
+  // Accept any address type label; only type-check when provided
   await validateAddressTypeValue(data.addressType, errors);
   await validateCountry(data.country, errors);
   await validateState(data.state, errors);
@@ -155,21 +156,22 @@ function validateAddressTypeUniqueness(shippingAddresses, addressType, addressId
 }
 
 /**
- * Validate that address type has a valid value.
+ * Validate address type format (free-form).
+ * 
+ * We only ensure that when provided, it is a non-empty string after trimming.
+ * No enum validation is enforced.
  * 
  * @param {string} addressType - The address type
  * @param {Array} errors - Array to collect validation errors
  */
 async function validateAddressTypeValue(addressType, errors) {
-  if (!addressType) return;
-
-  const validAddressTypes = ['home', 'work', 'other'];
-  if (!validAddressTypes.includes(addressType)) {
-    errors.push({ 
-      field: 'addressType', 
-      message: 'Invalid address type',
-      validTypes: validAddressTypes
-    });
+  if (addressType === undefined || addressType === null) return;
+  if (typeof addressType !== 'string') {
+    errors.push({ field: 'addressType', message: 'Address type must be a string' });
+    return;
+  }
+  if (addressType.trim().length === 0) {
+    errors.push({ field: 'addressType', message: 'Address type cannot be empty' });
   }
 }
 

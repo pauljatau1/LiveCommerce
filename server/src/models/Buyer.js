@@ -2,11 +2,16 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
 const addressSchema = new mongoose.Schema({
+  // Address type is optional and can be any string value
   addressType: { 
-    type: String, 
-    required: true,
-    enum: ['home', 'work', 'other']
+    type: String
   },
+  // Optional recipient/contact details to associate with this address
+  firstName: { type: String },
+  lastName: { type: String },
+  email: { type: String },
+  phoneNumber: { type: String },
+  // Location fields
   country: { type: String, required: true },
   state: { type: String, required: true },
   city: { type: String, required: true },

@@ -129,10 +129,10 @@ describe('Add Address Service', () => {
       ).rejects.toThrow('Buyer not found');
     });
 
-    it('should throw ValidationError when validation fails', async () => {
+    it('should propagate ValidationError when validator fails', async () => {
       // Arrange
       const validationError = new ValidationError([
-        { field: 'addressType', message: 'Address type is required' }
+        { field: 'country', message: 'Country is required' }
       ]);
       addAddressValidator.validateAddAddressData.mockRejectedValue(validationError);
 

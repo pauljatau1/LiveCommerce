@@ -3,7 +3,7 @@
  *
  * This validator handles input validation for adding addresses to a buyer's profile.
  * It provides functionality to:
- * - Validate address type format and value
+ * - (Optional) Accept any address type label
  * - Validate country, state, city, and address line fields
  * - Validate zip code format and structure
  * - Ensure data integrity and security standards
@@ -18,84 +18,17 @@
 const ValidationError = require('../../../utils/errors/ValidationError');
 
 /**
- * Validate that address type is provided.
+ * Address type handling
  *
- * This function checks if the address type is provided as a required parameter
- * for address addition operations.
- *
- * Business Logic:
- * - Checks if address type is provided (required parameter)
- * - Prevents missing address type errors
- * - Collects validation errors for reporting
- *
- * @param {string} addressType - The address type to validate
- * @param {Array} errors - Array to collect validation errors
- * @example
- * const errors = [];
- * validateAddressTypeRequired("home", errors); // Valid
- * validateAddressTypeRequired("", errors); // Invalid, adds error
- * validateAddressTypeRequired(null, errors); // Invalid, adds error
- */
-async function validateAddressTypeRequired(addressType, errors) {
-  if (!addressType) {
-    errors.push({ field: 'addressType', message: 'Address type is required' });
-  }
-}
-
-/**
- * Validate that address type has a valid value.
- *
- * This function checks if the provided address type is one of the allowed
- * values for address types.
- *
- * Business Logic:
- * - Defines valid address types (home, work, other)
- * - Validates address type against allowed values
- * - Prevents invalid address type assignments
- * - Collects validation errors for reporting
- *
- * @param {string} addressType - The address type to validate
- * @param {Array} errors - Array to collect validation errors
- * @example
- * const errors = [];
- * validateAddressTypeValue("home", errors); // Valid
- * validateAddressTypeValue("work", errors); // Valid
- * validateAddressTypeValue("invalid", errors); // Invalid, adds error
- */
-async function validateAddressTypeValue(addressType, errors) {
-  if (!addressType) return;
-
-  const validAddressTypes = ['home', 'work', 'other'];
-  if (!validAddressTypes.includes(addressType)) {
-    errors.push({ 
-      field: 'addressType', 
-      message: 'Invalid address type',
-      validTypes: validAddressTypes
-    });
-  }
-}
-
-/**
- * Validate address type.
- *
- * This function orchestrates the complete address type validation process,
- * checking both presence and value validity.
- *
- * Business Logic Flow:
- * 1. Validate address type presence (required)
- * 2. Validate address type value (if provided)
- *
- * @param {string} addressType - The address type to validate
- * @param {string} buyerId - The buyer's ID (for future extensibility)
- * @param {Array} errors - Array to collect validation errors
- * @example
- * const errors = [];
- * await validateAddressType("home", "buyer123", errors); // Valid
- * await validateAddressType("", "buyer123", errors); // Invalid, adds error
+ * Address type is now optional and free-form. We accept any string value when provided
+ * and do not require it to be present. No enum validation is enforced.
  */
 async function validateAddressType(addressType, buyerId, errors) {
-  await validateAddressTypeRequired(addressType, errors);
-  await validateAddressTypeValue(addressType, errors);
+  // No-op: keep function for backwards compatibility with service calls
+  // If provided, ensure it is a string when present
+  if (addressType !== undefined && addressType !== null && typeof addressType !== 'string') {
+    errors.push({ field: 'addressType', message: 'Address type must be a string' });
+  }
 }
 
 /**
@@ -231,7 +164,7 @@ async function validateZipCode(zipCode, errors) {
  *
  * Business Logic Flow:
  * 1. Initialize error collection array
- * 2. Validate address type (required)
+ * 2. Validate address type (optional, free-form)
  * 3. Validate country field (required)
  * 4. Validate state field (required)
  * 5. Validate city field (required)
@@ -246,7 +179,7 @@ async function validateZipCode(zipCode, errors) {
  * - Error collection provides comprehensive feedback
  *
  * @param {Object} data - The address data to validate
- * @param {string} data.addressType - The address type (home, work, other)
+ * @param {string} [data.addressType] - Optional address type label
  * @param {string} data.country - The country
  * @param {string} data.state - The state
  * @param {string} data.city - The city
@@ -305,8 +238,6 @@ async function validateAddAddressData(data, buyerId) {
 module.exports = {
   validateAddAddressData,
   validateAddressType,
-  validateAddressTypeRequired,
-  validateAddressTypeValue,
   validateCountry,
   validateState,
   validateCity,
