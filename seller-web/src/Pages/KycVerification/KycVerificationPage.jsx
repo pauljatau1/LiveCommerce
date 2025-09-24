@@ -29,7 +29,7 @@ import { RadioGroup, RadioGroupItem } from "@/Components/ui/radio-group";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/Components/ui/dialog";
 import { useAuthContext } from '@/Hooks/useAuthContext';
-import EmailVerificationModal from '@/Components/EmailVerificationModal';
+//import EmailVerificationModal from '@/Components/EmailVerificationModal';
 import VerificationService from '@/services/VerificationService';
 
 // Import SmileID components
@@ -119,9 +119,9 @@ const NIGERIAN_BANKS = [
 const KycVerificationPage = () => {
     const { setHeaderName, setNavName } = useOutletContext();
     const { emailVerified } = useAuthContext();
-    const [activeTab, setActiveTab] = useState('email');
+    const [activeTab, setActiveTab] = useState('address');
     const [sellerDetails, setSellerDetails] = useState(null);
-    const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+    //const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [smileIdLoading, setSmileIdLoading] = useState(false);
     const [isSmileIdModalOpen, setIsSmileIdModalOpen] = useState(false);
@@ -587,12 +587,13 @@ const KycVerificationPage = () => {
     };
 
     const tabs = [
-        {
-            id: 'email',
-            label: 'E-mail Verification',
-            icon: Mail,
-            isVerified: isEmailVerified
-        },
+      //  {
+      //      id: 'email',
+      //      label: 'E-mail Verification',
+      //      icon: Mail,
+      //      isVerified: isEmailVerified
+      //  },
+     //},
         {
             id: 'address',
             label: getAddressTabName(),
@@ -685,7 +686,7 @@ const KycVerificationPage = () => {
                 {/* Tab Content */}
                 <div className="p-6">
                     {/* Email Verification Tab */}
-                    {activeTab === 'email' && (
+                    {/*activeTab === 'email' && (
                         <div className="space-y-6">
                             <div className="flex items-center space-x-3">
                                 <Mail className="h-6 w-6 text-gray-400" />
@@ -734,7 +735,7 @@ const KycVerificationPage = () => {
                                 </div>
                             )}
                         </div>
-                    )}
+                    ) */}
 
                     {/* Address Verification Tab */}
                     {activeTab === 'address' && (
@@ -1483,11 +1484,12 @@ const KycVerificationPage = () => {
             </Dialog> */}
 
             {/* Email Verification Modal */}
+            {/*This feature has been paused till further notice
             <EmailVerificationModal
                 isOpen={isEmailModalOpen}
                 userEmail={sellerDetails?.email || ''}
                 onClose={() => setIsEmailModalOpen(false)}
-            />
+            />*/}
         </div>
     );
 };

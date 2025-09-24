@@ -16,7 +16,7 @@ import ReviewsTab from "./components/ReviewsTab";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/Components/ui/dialog";
-import EmailVerificationModal from "../../Components/EmailVerificationModal";
+//import EmailVerificationModal from "../../Components/EmailVerificationModal";
 import PickupAddressVerificationModal from "../../Components/PickupAddressVerificationModal";
 import { Icon } from "@iconify/react";
 import { trackEvent } from "@/util/analytics";
@@ -43,7 +43,7 @@ export default function AccountPage() {
   });
   const [followersLoading, setFollowersLoading] = useState(false);
   const [followingLoading, setFollowingLoading] = useState(false);
-  const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
+  //const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
   const [showPickupAddressModal, setShowPickupAddressModal] = useState(false);
 
   const fetchProfile = async () => {
@@ -87,13 +87,14 @@ export default function AccountPage() {
     const queryParams = new URLSearchParams(window.location.search);
     
     // Check for verification parameter
+    {/*This feature has been paused till further notice
     if (queryParams.get('openVerification') === 'true') {
       if (profile?.emailVerified === false) {
         setShowEmailVerificationModal(true);
       } else if (isPickupAddressRequired) {
         setShowPickupAddressModal(true);
       }
-    }
+    }*/}
     
     // Check for followers parameter
     if (queryParams.get('openFollowers') === 'true') {
@@ -353,6 +354,8 @@ export default function AccountPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Verification Modal */}
+
+      {/*This feature has been paused till further notice
       <EmailVerificationModal 
         isOpen={showEmailVerificationModal} 
         onClose={() => {
@@ -366,10 +369,10 @@ export default function AccountPage() {
             "seller phone number": profile.phoneNumber,
             "Signup Date": profile.createdAt,
             "Verification Status": profile.isVerified ? "Verified" : "Not Verified",
-          }); */}
+          }); 
         }}
         userEmail={profile?.businessEmail || profile?.email || ''}
-      />
+      />*/}
       
       {/* Pickup Address Verification Modal */}
       {profile && (
@@ -395,26 +398,7 @@ export default function AccountPage() {
       {/* Verification Banners - Show based on account status */}
       {profile && (
         <>
-          {!profile.emailVerified ? (
-            // Email verification banner
-            <div className="bg-red-50 mt-6 sm:mt-10 border-l-4 border-red-500 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm">
-              <div className="flex items-start flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
-                <div className="flex items-center gap-2">
-                  <Icon icon="fluent:mail-unread-24-filled" className="h-5 w-5 sm:h-6 sm:w-6 text-red-500 flex-shrink-0" />
-                  <h3 className="text-base sm:text-lg font-semibold text-red-800">Email verification required</h3>
-                </div>
-                <div className="flex-1 text-red-700 text-xs sm:text-sm lg:ml-2">
-                  Please verify your email address to continue using your seller account and access all features.
-                </div>
-                <Button 
-                  className="bg-red-600 hover:bg-red-700 font-medium py-1 sm:py-2 px-4 sm:px-5 text-white rounded-md shadow whitespace-nowrap text-xs sm:text-sm"
-                  onClick={() => setShowEmailVerificationModal(true)}
-                >
-                  Verify Email
-                </Button>
-              </div>
-            </div>
-          ) : isPickupAddressRequired ? (
+          { isPickupAddressRequired && (
             // Address verification banner
             <div className="bg-orange-50 mt-6 sm:mt-10 border-l-4 border-orange-500 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm">
               <div className="flex items-start flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
@@ -433,7 +417,7 @@ export default function AccountPage() {
                 </Button>
               </div>
             </div>
-          ) : null
+          ) 
           /* : !profile.isVerified && (
             <>
               {profile.accountPending ? (
@@ -865,7 +849,7 @@ export default function AccountPage() {
               </div>
             ) : following.length === 0 ? (
               <div className="text-center py-6 sm:py-8 text-muted-foreground text-sm">
-                You're not following anyone yet
+                You&apos;re not following anyone yet
               </div>
             ) : (
               <div className="space-y-3 sm:space-y-4">
