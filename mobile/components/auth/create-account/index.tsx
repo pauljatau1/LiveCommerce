@@ -179,12 +179,13 @@ const CreateAccount = () => {
       }
 
       toast.success("Successfully created");
-      router.replace({
-        pathname: "/(root)/(auth)/verify-code",
-        params: {
-          email,
-        },
-      });
+      router.replace("/category");
+      // router.replace({
+      //   pathname: "/(root)/(auth)/verify-code",
+      //   params: {
+      //     email,
+      //   },
+      // });
     } catch (error: any) {
       console.log(error.data);
       toast.error(
