@@ -8,14 +8,13 @@ import {
   TooltipContent,
 } from "@/Components/ui/tooltip";
 
-import EmailVerificationModal from "@/Components/EmailVerificationModal";
+//import EmailVerificationModal from "@/Components/EmailVerificationModal";
 import PickupAddressVerificationModal from "@/Components/PickupAddressVerificationModal";
 import PropTypes from "prop-types";
 import { useAuthContext } from "@/Hooks/useAuthContext";
 
 export default function DashboardTopBanner({ sellerDetails }) {
-  const [showEmailVerificationModal, setShowEmailVerificationModal] =
-    useState(false);
+  //const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
   const [showPickupAddressModal, setShowPickupAddressModal] = useState(false);
 
   const isPickupAddressRequired =
@@ -33,16 +32,6 @@ export default function DashboardTopBanner({ sellerDetails }) {
     }
   }, [searchParams]);
 
-  // Check for email verification status
-  useEffect(() => {
-    const storedSeller = JSON.parse(localStorage.getItem("seller") || "{}");
-    if (storedSeller && storedSeller._id) {
-      const isEmailVerified = storedSeller.emailVerified === true;
-      if (!isEmailVerified) {
-        setShowEmailVerificationModal(true);
-      }
-    }
-  }, []);
 
   const navigate = useNavigate();
 
@@ -96,8 +85,10 @@ export default function DashboardTopBanner({ sellerDetails }) {
 
             <div className="flex items-center gap-3">
               {/* Email Verification */}
+              {/*This feature has been paused till further notice
               {sellerDetails?.emailVerified === false && (
                 <Tooltip>
+                  
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center cursor-help gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-gray-200">
@@ -131,7 +122,7 @@ export default function DashboardTopBanner({ sellerDetails }) {
                     </div>
                   </TooltipContent>
                 </Tooltip>
-              )}
+              )*/}
 
               {/* KYC Verification 
                     {sellerDetails?.isVerified === false && (
@@ -264,12 +255,13 @@ export default function DashboardTopBanner({ sellerDetails }) {
         </div>
       </div>
 
-      {/* Email Verification Modal */}
+      {/* Email Verification Modal; This feature has been paused till further notice
       <EmailVerificationModal
         isOpen={showEmailVerificationModal}
         onClose={() => setShowEmailVerificationModal(false)}
         userEmail={sellerDetails?.email || ""}
       />
+      */}
 
       {/* Pickup Address Verification Modal */}
       <PickupAddressVerificationModal
