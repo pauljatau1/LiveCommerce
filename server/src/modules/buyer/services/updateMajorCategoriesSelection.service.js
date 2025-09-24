@@ -49,7 +49,10 @@ function extractCategoryIds(majorCategories) {
   const categoryIds = [];
   majorCategories.forEach(majorCategory => {
     majorCategory.categories.forEach(category => {
-      categoryIds.push(category._id);
+      const id = category && category._id ? category._id : category;
+      if (id) {
+        categoryIds.push(id);
+      }
     });
   });
   return categoryIds;
