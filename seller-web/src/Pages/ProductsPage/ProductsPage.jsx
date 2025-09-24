@@ -36,7 +36,7 @@ import StockUpdateModal from "../../Components/ui/ProductPageUi/StockUpdateModal
 import { BASE_URL } from "../../Constants/Server";
 import axios from 'axios';
 import { toast } from "sonner";
-import EmailVerificationModal from "../../Components/EmailVerificationModal";
+//import EmailVerificationModal from "../../Components/EmailVerificationModal";
 import { Switch } from "../../Components/ui/switch";
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
 
@@ -109,7 +109,7 @@ const ProductsPage = () => {
     const seller = JSON.parse(localStorage.getItem('seller'));
 
     // Email Verification Modal state
-    const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
+    //const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
 
     // Pickup Address Verification Modal state
     const [showPickupAddressModal, setShowPickupAddressModal] = useState(false);
@@ -637,11 +637,12 @@ const ProductsPage = () => {
             />
 
             {/* Email Verification Modal */}
+            {/*This feature has been paused till further notice
             <EmailVerificationModal
                 isOpen={showEmailVerificationModal}
                 onClose={() => setShowEmailVerificationModal(false)}
                 userEmail={seller?.email || ''}
-            />
+            />*/}
 
             {/*isLoading && <Loader />*/}
             {
@@ -692,10 +693,7 @@ const ProductsPage = () => {
                                     className="flex items-center gap-1 text-xs sm:text-sm font-cabin font-normal cursor-pointer text-[#FFFFFF] bg-[#0BB248] rounded-[7.8px] py-1.5 sm:py-2 px-2.5 sm:px-4 hover:bg-[#0BB248]/90 transition-all duration-500 ease-in-out"
                                     onClick={(e) => {
                                         // Strictly compare with boolean false to avoid undefined comparison issues
-                                        if (seller && seller?.emailVerified === false) {
-                                            e.preventDefault();
-                                            setShowEmailVerificationModal(true);
-                                        } else if (seller && isPickupAddressRequired) {
+                                        if (seller && isPickupAddressRequired) {
                                             e.preventDefault();
                                             setShowPickupAddressModal(true);
                                         }
