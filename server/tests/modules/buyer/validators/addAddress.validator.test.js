@@ -75,22 +75,19 @@ describe('Add Address Validator', () => {
       ).rejects.toThrow(TypeError);
     });
 
-    it('should throw ValidationError for invalid address type', async () => {
-      const invalidAddressData = {
-        ...validAddressData,
-        addressType: 'invalid'
-      };
-
+    it('should allow any addressType label and also when omitted', async () => {
+      // Accept free-form address type
+      const freeFormData = { ...validAddressData, addressType: 'holiday-home' };
       await expect(
-        addAddressValidator.validateAddAddressData(invalidAddressData, testBuyer._id.toString())
-      ).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'addressType',
-            message: 'Invalid address type'
-          }
-        ]
-      });
+        addAddressValidator.validateAddAddressData(freeFormData, testBuyer._id.toString())
+      ).resolves.toBeUndefined();
+
+      // Accept when addressType is omitted
+      const withoutType = { ...validAddressData };
+      delete withoutType.addressType;
+      await expect(
+        addAddressValidator.validateAddAddressData(withoutType, testBuyer._id.toString())
+      ).resolves.toBeUndefined();
     });
 
     it('should throw ValidationError for missing country', async () => {
@@ -173,77 +170,20 @@ describe('Add Address Validator', () => {
       });
     });
 
-    it('should throw ValidationError when addressType is invalid', async () => {
-      const invalidData = {
-        ...validAddressData,
-        addressType: 'invalid'
-      };
-
+    it('should accept missing or arbitrary addressType values', async () => {
+      const noType = { ...validAddressData };
+      delete noType.addressType;
       await expect(
-        addAddressValidator.validateAddAddressData(invalidData, testBuyer._id.toString())
-      ).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'addressType',
-            message: 'Invalid address type'
-          }
-        ]
-      });
+        addAddressValidator.validateAddAddressData(noType, testBuyer._id.toString())
+      ).resolves.toBeUndefined();
+
+      const arbitraryType = { ...validAddressData, addressType: 'any-string' };
+      await expect(
+        addAddressValidator.validateAddAddressData(arbitraryType, testBuyer._id.toString())
+      ).resolves.toBeUndefined();
     });
   });
 
-  describe('validateAddressTypeRequired', () => {
-    it('should not add error when addressType is provided', async () => {
-      const errors = [];
-      await addAddressValidator.validateAddressTypeRequired('home', errors);
-      expect(errors).toHaveLength(0);
-    });
-
-    it('should add error when addressType is missing', async () => {
-      const errors = [];
-      await addAddressValidator.validateAddressTypeRequired(null, errors);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toEqual({
-        field: 'addressType',
-        message: 'Address type is required'
-      });
-    });
-
-    it('should add error when addressType is empty string', async () => {
-      const errors = [];
-      await addAddressValidator.validateAddressTypeRequired('', errors);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toEqual({
-        field: 'addressType',
-        message: 'Address type is required'
-      });
-    });
-  });
-
-  describe('validateAddressTypeValue', () => {
-    it('should not add error when addressType is valid', async () => {
-      const errors = [];
-      await addAddressValidator.validateAddressTypeValue('home', errors);
-      expect(errors).toHaveLength(0);
-    });
-
-    it('should not add error when addressType is null', async () => {
-      const errors = [];
-      await addAddressValidator.validateAddressTypeValue(null, errors);
-      expect(errors).toHaveLength(0);
-    });
-
-    it('should add error when addressType is invalid', async () => {
-      const errors = [];
-      await addAddressValidator.validateAddressTypeValue('invalid', errors);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toEqual({
-        field: 'addressType',
-        message: 'Invalid address type',
-        validTypes: ['home', 'work', 'other']
-      });
-    });
-  });
 
   describe('validateCountry', () => {
     it('should not add error when country is provided', async () => {
@@ -386,37 +326,20 @@ describe('Add Address Validator', () => {
   });
 
   describe('Specific Error Messages', () => {
-    it('should include specific error message for missing address type', async () => {
+    it('should not error when addressType is missing or arbitrary', async () => {
       const dataWithoutAddressType = { ...validAddressData };
       delete dataWithoutAddressType.addressType;
 
       await expect(addAddressValidator.validateAddAddressData(dataWithoutAddressType, testBuyer._id.toString()))
-        .rejects
-        .toMatchObject({
-          errors: expect.arrayContaining([
-            {
-              field: 'addressType',
-              message: 'Address type is required'
-            }
-          ])
-        });
-    });
+        .resolves
+        .toBeUndefined();
 
-    it('should include specific error message for invalid address type', async () => {
       await expect(addAddressValidator.validateAddAddressData({
         ...validAddressData,
         addressType: 'invalid'
       }, testBuyer._id.toString()))
-        .rejects
-        .toMatchObject({
-          errors: expect.arrayContaining([
-            {
-              field: 'addressType',
-              message: 'Invalid address type',
-              validTypes: ['home', 'work', 'other']
-            }
-          ])
-        });
+        .resolves
+        .toBeUndefined();
     });
 
     it('should include specific error message for missing country', async () => {
@@ -513,11 +436,6 @@ describe('Add Address Validator', () => {
         .rejects
         .toMatchObject({
           errors: expect.arrayContaining([
-            {
-              field: 'addressType',
-              message: 'Invalid address type',
-              validTypes: ['home', 'work', 'other']
-            },
             {
               field: 'country',
               message: 'Country is required'
