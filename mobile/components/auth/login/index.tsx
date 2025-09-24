@@ -99,19 +99,19 @@ const Login = () => {
         password,
         expoPushToken: expoPushToken?.data!,
       }).unwrap();
-      if (!result?.data?.user?.emailVerified) {
-        await AsyncStorage.setItem(
-          "registerPayload",
-          JSON.stringify(result?.data),
-        );
-        return router.push({
-          pathname: "/(root)/(auth)/verify-code",
-          params: {
-            email,
-            fromLogin: "true",
-          },
-        });
-      }
+      // if (!result?.data?.user?.emailVerified) {
+      //   await AsyncStorage.setItem(
+      //     "registerPayload",
+      //     JSON.stringify(result?.data),
+      //   );
+      //   return router.push({
+      //     pathname: "/(root)/(auth)/verify-code",
+      //     params: {
+      //       email,
+      //       fromLogin: "true",
+      //     },
+      //   });
+      // }
       dispatch(signIn(result?.data));
       setPassword(password);
       setUserEmail(email);
