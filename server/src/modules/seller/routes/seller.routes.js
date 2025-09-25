@@ -4571,4 +4571,149 @@ router.get('/statistics', verifyToken, sellerController.getStatistics);
 // Get orders route - using same middleware as original route
 router.get('/orders', verifyToken, sellerController.getOrders);
 
+/**
+ * @swagger
+ * /api/v2/sellers/orders/{orderId}/shipping-label:
+ *   get:
+ *     summary: Generate shipping label for order item
+ *     description: Generates a shipping label for a specific order item. This endpoint allows sellers to create shipping labels for their order items with tracking information.
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the order
+ *         example: "507f1f77bcf86cd799439011"
+ *       - in: query
+ *         name: itemId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the order item
+ *         example: "507f1f77bcf86cd799439012"
+ *     responses:
+ *       200:
+ *         description: Shipping label generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Shipping label generated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     orderId:
+ *                       type: string
+ *                       description: The order ID
+ *                       example: "507f1f77bcf86cd799439011"
+ *                     trackingNumber:
+ *                       type: string
+ *                       description: Generated tracking number
+ *                       example: "TN1234567890"
+ *                     labelUrl:
+ *                       type: string
+ *                       description: URL to access the shipping label
+ *                       example: "https://shipping-label-url.com"
+ *       400:
+ *         description: Bad request - Invalid input data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid shipping label request data"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["Order ID is required", "Item ID is required"]
+ *       422:
+ *         description: Unprocessable Entity - Validation failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["Order ID must be a valid ObjectId", "Item ID is required"]
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized access"
+ *       403:
+ *         description: Forbidden - Seller not authorized to access this order item
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized to access this order item"
+ *       404:
+ *         description: Not found - Order or order item not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Order not found"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Error generating shipping label"
+ */
+// Get shipping label route - using same middleware as original route
+router.get('/orders/:orderId/shipping-label', verifyToken, sellerController.getShippingLabel);
+
 module.exports = router;

@@ -329,38 +329,6 @@ const checkProfileCompletion = (seller) => {
   );
 };
 
-// Get shipping label
-exports.getShippingLabel = async (req, res) => {
-  try {
-    const { orderId, itemId } = req.params;
-    const order = await Order.findById(orderId)
-      .populate('buyer', 'firstName lastName')
-      .populate('items.product', 'name weight dimensions');
-
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
-    const orderItem = order.items.id(itemId);
-    if (!orderItem || orderItem.seller.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Unauthorized to access this order item' });
-    }
-
-    // Generate shipping label (integrate with shipping provider's API)
-    // This is a placeholder - implement actual shipping label generation
-    const shippingLabel = {
-      orderId,
-      trackingNumber: `TN${Date.now()}`,
-      labelUrl: 'https://shipping-label-url.com',
-      // Add more shipping label details
-    };
-
-    res.json(shippingLabel);
-  } catch (error) {
-    res.status(500).json({ message: 'Error generating shipping label', error: error.message });
-  }
-};
-
 exports.updateIndividualInformation = async (req, res) => {
   try {
     const { firstName, lastName, sellerAddress } = req.body;

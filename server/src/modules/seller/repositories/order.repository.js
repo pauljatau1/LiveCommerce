@@ -125,11 +125,33 @@ async function findOrders(query, options) {
     .populate('items.product', 'name images price');
 }
 
+/**
+ * Find order by ID with populated buyer and product data.
+ * 
+ * This function retrieves a specific order with all necessary related data
+ * populated for shipping label generation and order management.
+ *
+ * Data Population:
+ * - Populates buyer information (firstName, lastName)
+ * - Populates product details (name, weight, dimensions)
+ * - Includes all order items with complete details
+ * - Ensures all necessary data is available for operations
+ *
+ * @param {string} orderId - The order ID to retrieve
+ * @returns {Promise<Object|null>} The order object with populated data or null if not found
+ */
+async function findByIdWithPopulatedData(orderId) {
+  return Order.findById(orderId)
+    .populate('buyer', 'firstName lastName')
+    .populate('items.product', 'name weight dimensions');
+}
+
 module.exports = {
   countOrdersBySeller,
   getTopProductsBySeller,
   countOrdersBySellerWithDateRange,
   getDistinctBuyersBySeller,
   countOrders,
-  findOrders
+  findOrders,
+  findByIdWithPopulatedData
 };
