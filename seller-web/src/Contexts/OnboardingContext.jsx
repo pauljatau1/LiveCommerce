@@ -411,13 +411,13 @@ const OnboardingProvider = ({ children }) => {
             dispatch({ type: 'SET_LOADING', payload: true });
             const token = localStorage.getItem('sellerToken');
             const { data } = JSON.parse(token);
-            const response = await axios.put(`${BASE_URL}/seller/individual-information`, individualData, {
+            const response = await axios.put(`${BASE_URL_V2}/sellers/individual-information`, individualData, {
                 headers: {
                     Authorization: `Bearer ${data}`
                 }
             });
             if (response.status === 200) {
-                dispatch({ type: 'SET_TOKEN', payload: response.data.token });
+                dispatch({ type: 'SET_TOKEN', payload: response.data.data.token });
                 toast.success('Individual information submitted', {
                     description: 'We will use this information to create your individual profile',
                     style: {
@@ -433,7 +433,7 @@ const OnboardingProvider = ({ children }) => {
         } catch (error) {
             console.log(error);
             toast.error('Error submitting individual information', {
-                description: error.response?.data?.message || error.message,
+                description: error.response?.data?.data?.message || error.response?.data?.message || error.message,
                 style: {
                     background: '#2D3748',
                     color: '#fff',

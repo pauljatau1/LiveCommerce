@@ -59,7 +59,7 @@ export const VerificationService = {
       const { data: authToken } = JSON.parse(token);
       
       const response = await axios.put(
-        `${BASE_URL}/seller/individual-information`,
+        `${BASE_URL_V2}/sellers/individual-information`,
         individualInfo,
         {
           headers: { Authorization: `Bearer ${authToken}` }

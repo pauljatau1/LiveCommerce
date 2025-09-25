@@ -87,11 +87,11 @@ export const settingsService = {
   // Update individual information
   updateIndividualInformation: async (data) => {
     const response = await axios.put(
-      `${BASE_URL}/seller/individual-information`,
+      `${BASE_URL_V2}/sellers/individual-information`,
       data,
       { headers: getAuthHeader() }
     );
-    return response.data;
+    return response.data.data;
   },
 
   // Get followers
