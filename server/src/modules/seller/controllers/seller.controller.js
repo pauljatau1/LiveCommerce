@@ -23,6 +23,7 @@ const updateCategoriesService = require('../services/updateCategories.service');
 const getTopProductsService = require('../services/getTopProducts.service');
 const getStatisticsService = require('../services/getStatistics.service');
 const getOrdersService = require('../services/getOrders.service');
+const getShippingLabelService = require('../services/getShippingLabel.service');
 
 /**
  * Register a seller user.
@@ -890,6 +891,43 @@ async function getOrders(req, res, next) {
   }
 }
 
+/**
+ * Generate shipping label for a specific order item.
+ *
+ * This controller handles the shipping label generation HTTP request.
+ * It delegates the shipping label generation logic to the service layer,
+ * and sends a success response with the shipping label details.
+ *
+ * @param {Request} req - Express request object containing orderId in `req.params` and itemId in `req.query`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getShippingLabel(req, res, next) {
+  try {
+    // Extract order ID from request parameters and item ID from query parameters
+    const { orderId } = req.params;
+    const { itemId } = req.query;
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+
+    // Prepare data for service layer
+    const shippingLabelData = {
+      orderId,
+      itemId,
+      sellerId
+    };
+
+    // Call the service layer to handle shipping label generation logic
+    const response = await getShippingLabelService.getShippingLabel(shippingLabelData);
+
+    // Send a 200 OK response with success message and shipping label data
+    res.success(response, 'Shipping label generated successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -915,5 +953,6 @@ module.exports = {
   updateCategories,
   getTopProducts,
   getStatistics,
-  getOrders
+  getOrders,
+  getShippingLabel
 };

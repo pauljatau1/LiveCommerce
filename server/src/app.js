@@ -49,6 +49,7 @@ const adminRoutesV2 = require('./modules/adminv2/routes/admin.routes');
 const blipsRoutesV2 = require('./modules/blipsv2/routes/blips.routes');
 const productRoutesV2 = require('./modules/productv2/routes/product.routes');
 const NotFoundException = require('./utils/errors/NotFoundException');
+const ForbiddenException = require('./utils/errors/ForbiddenException');
 
 const app = express();
 const server = http.createServer(app);
@@ -203,6 +204,13 @@ app.use((err, req, res, next) => {
   }
 
   if (err instanceof NotFoundException) {
+    return res.status(err.status).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
+  if (err instanceof ForbiddenException) {
     return res.status(err.status).json({
       success: false,
       message: err.message,

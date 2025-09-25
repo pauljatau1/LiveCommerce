@@ -11,30 +11,6 @@ const Seller = require('../models/Seller');
 
 /**
  * @swagger
- * /api/seller/orders/{orderId}/shipping-label:
- *   get:
- *     summary: Generate shipping label for order
- *     tags: [Seller]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: orderId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Shipping label generated successfully
- */
-router.get('/orders/:orderId/shipping-label', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isSeller, 
-  sellerController.getShippingLabel
-);
-
-/**
- * @swagger
  * /api/seller/individual-information:
  *   put:
  *     summary: Update individual seller information

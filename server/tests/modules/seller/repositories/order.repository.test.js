@@ -1004,4 +1004,259 @@ describe('Order Repository', () => {
       expect(result).toEqual([]);
     });
   });
+
+  describe('findByIdWithPopulatedData', () => {
+    it('should find order by ID with populated buyer and product data', async () => {
+      // Arrange: Create test data
+      const sellerId = new mongoose.Types.ObjectId();
+      const buyerId = new mongoose.Types.ObjectId();
+      const productId = new mongoose.Types.ObjectId();
+
+      // Create buyer
+      const buyer = new Buyer({
+        _id: buyerId,
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'john.doe.unique@example.com',
+        password: 'hashedPassword',
+        username: 'john_doe_unique'
+      });
+      await buyer.save();
+
+      // Create product
+      const product = new Product({
+        _id: productId,
+        name: 'Test Product',
+        description: 'Test product description',
+        price: 150,
+        weight: 1.5,
+        dimensions: '10x15x5cm',
+        category: 'Electronics',
+        stock: 10,
+        seller: sellerId
+      });
+      await product.save();
+
+      // Create order
+      const order = new Order({
+        buyer: buyerId,
+        seller: sellerId,
+        buyerDetails: {
+          _id: buyerId,
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com'
+        },
+        items: [{
+          product: productId,
+          seller: sellerId,
+          quantity: 2,
+          price: 150,
+          status: 'confirmed'
+        }],
+        totalAmount: 300,
+        status: 'confirmed'
+      });
+      await order.save();
+
+      // Act: Call the repository method
+      const result = await orderRepository.findByIdWithPopulatedData(order._id);
+
+      // Assert: Verify order is found with populated data
+      expect(result).toBeTruthy();
+      expect(result._id.toString()).toBe(order._id.toString());
+      expect(result.buyer).toBeTruthy();
+      expect(result.buyer.firstName).toBe('John');
+      expect(result.buyer.lastName).toBe('Doe');
+      expect(result.items[0].product).toBeTruthy();
+      expect(result.items[0].product.name).toBe('Test Product');
+      expect(result.items[0].product.weight).toBe(1.5);
+      expect(result.items[0].product.dimensions).toBe('10x15x5cm');
+    });
+
+    it('should return null when order is not found', async () => {
+      // Arrange: Use a non-existent order ID
+      const nonExistentId = new mongoose.Types.ObjectId();
+
+      // Act: Call the repository method
+      const result = await orderRepository.findByIdWithPopulatedData(nonExistentId);
+
+      // Assert: Verify null is returned
+      expect(result).toBeNull();
+    });
+
+    it('should handle order with multiple items correctly', async () => {
+      // Arrange: Create test data with multiple items
+      const sellerId = new mongoose.Types.ObjectId();
+      const buyerId = new mongoose.Types.ObjectId();
+      const productId1 = new mongoose.Types.ObjectId();
+      const productId2 = new mongoose.Types.ObjectId();
+
+      // Create buyer
+      const buyer = new Buyer({
+        _id: buyerId,
+        firstName: 'Jane',
+        lastName: 'Smith',
+        email: 'jane.smith.unique@example.com',
+        password: 'hashedPassword',
+        username: 'jane_smith_unique'
+      });
+      await buyer.save();
+
+      // Create products
+      const product1 = new Product({
+        _id: productId1,
+        name: 'Product 1',
+        description: 'Product 1 description',
+        price: 100,
+        weight: 1,
+        dimensions: '10x10x5cm',
+        category: 'Electronics',
+        stock: 10,
+        seller: sellerId
+      });
+
+      const product2 = new Product({
+        _id: productId2,
+        name: 'Product 2',
+        description: 'Product 2 description',
+        price: 200,
+        weight: 2,
+        dimensions: '20x20x10cm',
+        category: 'Electronics',
+        stock: 5,
+        seller: sellerId
+      });
+
+      await Promise.all([product1.save(), product2.save()]);
+
+      // Create order with multiple items
+      const order = new Order({
+        buyer: buyerId,
+        seller: sellerId,
+        buyerDetails: {
+          _id: buyerId,
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith.unique@example.com'
+        },
+        items: [
+          {
+            product: productId1,
+            seller: sellerId,
+            quantity: 1,
+            price: 100,
+            status: 'confirmed'
+          },
+          {
+            product: productId2,
+            seller: sellerId,
+            quantity: 2,
+            price: 200,
+            status: 'confirmed'
+          }
+        ],
+        totalAmount: 500,
+        status: 'confirmed'
+      });
+      await order.save();
+
+      // Act: Call the repository method
+      const result = await orderRepository.findByIdWithPopulatedData(order._id);
+
+      // Assert: Verify order is found with all items populated
+      expect(result).toBeTruthy();
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0].product.name).toBe('Product 1');
+      expect(result.items[0].product.weight).toBe(1);
+      expect(result.items[1].product.name).toBe('Product 2');
+      expect(result.items[1].product.weight).toBe(2);
+    });
+
+    it('should only populate specified fields for buyer and product', async () => {
+      // Arrange: Create test data
+      const sellerId = new mongoose.Types.ObjectId();
+      const buyerId = new mongoose.Types.ObjectId();
+      const productId = new mongoose.Types.ObjectId();
+
+      // Create buyer with additional fields
+      const buyer = new Buyer({
+        _id: buyerId,
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'john.doe.additional@example.com',
+        password: 'hashedPassword',
+        username: 'john_doe_additional',
+        phoneNumber: '+2348012345678',
+        country: 'Nigeria'
+      });
+      await buyer.save();
+
+      // Create product with additional fields
+      const product = new Product({
+        _id: productId,
+        name: 'Test Product',
+        description: 'Test product description',
+        price: 150,
+        weight: 1.5,
+        dimensions: '10x15x5cm',
+        category: 'Electronics',
+        stock: 10,
+        seller: sellerId,
+        images: [{ url: 'test-image.jpg' }]
+      });
+      await product.save();
+
+      // Create order
+      const order = new Order({
+        buyer: buyerId,
+        seller: sellerId,
+        buyerDetails: {
+          _id: buyerId,
+          firstName: 'Test',
+          lastName: 'User',
+          email: 'test.user.unique@example.com'
+        },
+        items: [{
+          product: productId,
+          seller: sellerId,
+          quantity: 1,
+          price: 150,
+          status: 'confirmed'
+        }],
+        totalAmount: 150,
+        status: 'confirmed'
+      });
+      await order.save();
+
+      // Act: Call the repository method
+      const result = await orderRepository.findByIdWithPopulatedData(order._id);
+
+      // Assert: Verify only specified fields are populated
+      expect(result.buyer.firstName).toBe('John');
+      expect(result.buyer.lastName).toBe('Doe');
+      expect(result.buyer.email).toBeUndefined(); // Should not be populated
+      expect(result.buyer.password).toBeUndefined(); // Should not be populated
+      expect(result.buyer.phoneNumber).toBeUndefined(); // Should not be populated
+
+      expect(result.items[0].product.name).toBe('Test Product');
+      expect(result.items[0].product.weight).toBe(1.5);
+      expect(result.items[0].product.dimensions).toBe('10x15x5cm');
+      expect(result.items[0].product.description).toBeUndefined(); // Should not be populated
+      expect(result.items[0].product.category).toBeUndefined(); // Should not be populated
+      expect(result.items[0].product.images).toBeUndefined(); // Should not be populated
+    });
+
+    it('should handle invalid ObjectId gracefully', async () => {
+      // Act: Call the repository method with invalid ObjectId
+      try {
+        const result = await orderRepository.findByIdWithPopulatedData('invalid-id');
+        // If no error is thrown, result should be null
+        expect(result).toBeNull();
+      } catch (error) {
+        // If error is thrown, it should be a CastError
+        expect(error.name).toBe('CastError');
+      }
+    });
+  });
 });
