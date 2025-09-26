@@ -11,7 +11,7 @@ const Buyer = require('@models/Buyer');
 jest.mock('@modules/buyer/repositories/buyer.repository');
 jest.mock('@modules/buyer/validators/register.validator');
 jest.mock('@utils/helpers');
-jest.mock('@firebase');
+jest.mock('../../../../Firebase');
 jest.mock('@sendgrid/mail');
 
 let mongoServer;
@@ -77,7 +77,7 @@ describe('Register Service', () => {
       buyerRepository.save.mockResolvedValue(mockBuyer);
 
       // Mock Firebase
-      const Firebase = require('@firebase');
+      const Firebase = require('../../../../Firebase');
       Firebase.saveToken.mockResolvedValue();
 
       // Mock helpers (no OTP now)
@@ -130,7 +130,7 @@ describe('Register Service', () => {
       buyerRepository.save.mockResolvedValue(mockBuyer);
 
       // Mock Firebase
-      const Firebase = require('@firebase');
+      const Firebase = require('../../../../Firebase');
       Firebase.saveToken.mockResolvedValue();
 
       // Mock helpers (no OTP now)
@@ -192,7 +192,7 @@ describe('Register Service', () => {
       buyerRepository.save.mockResolvedValue(mockBuyer);
 
       // Mock Firebase saveToken to fail
-      const Firebase = require('@firebase');
+      const Firebase = require('../../../../Firebase');
       Firebase.saveToken.mockRejectedValue(new Error('Firebase save failed'));
 
       const { generateToken } = require('@utils/helpers');
@@ -234,7 +234,7 @@ describe('Register Service', () => {
       buyerRepository.save.mockResolvedValue(mockBuyer);
 
       // Mock Firebase
-      const { saveToken } = require('@firebase');
+      const { saveToken } = require('../../../../Firebase');
       saveToken.mockResolvedValue();
 
       // Mock helpers
@@ -277,7 +277,7 @@ describe('Register Service', () => {
       buyerRepository.save.mockResolvedValue(mockBuyer);
 
       // Mock Firebase
-      const { saveToken } = require('@firebase');
+      const { saveToken } = require('../../../../Firebase');
       saveToken.mockResolvedValue();
 
       // Mock helpers
@@ -320,7 +320,7 @@ describe('Register Service', () => {
       buyerRepository.save.mockResolvedValue(mockBuyer);
 
       // Mock Firebase
-      const { saveToken } = require('@firebase');
+      const { saveToken } = require('../../../../Firebase');
       saveToken.mockResolvedValue();
 
       // Mock helpers
@@ -414,7 +414,7 @@ describe('Register Service', () => {
       buyerValidator.validateRegisterData.mockResolvedValue();
       buyerRepository.save.mockResolvedValue(mockBuyer);
 
-      const { saveToken } = require('@firebase');
+      const { saveToken } = require('../../../../Firebase');
       saveToken.mockResolvedValue();
 
       const { generateToken } = require('@utils/helpers');
@@ -438,7 +438,7 @@ describe('Register Service', () => {
       buyerValidator.validateRegisterData.mockResolvedValue();
       buyerRepository.save.mockResolvedValue(mockBuyer);
       
-      const { saveToken } = require('@firebase');
+      const { saveToken } = require('../../../../Firebase');
       saveToken.mockResolvedValue();
       
       const { generateToken } = require('@utils/helpers');
@@ -470,7 +470,7 @@ describe('Register Service', () => {
 
       buyerValidator.validateRegisterData.mockResolvedValue();
       
-      const { saveToken } = require('@firebase');
+      const { saveToken } = require('../../../../Firebase');
       saveToken.mockResolvedValue();
       
       const { generateToken } = require('@utils/helpers');
@@ -534,7 +534,7 @@ describe('Register Service', () => {
 
       buyerValidator.validateRegisterData.mockResolvedValue();
       
-      const { saveToken } = require('@firebase');
+      const { saveToken } = require('../../../../Firebase');
       saveToken.mockResolvedValue();
       
       const sgMail = require('@sendgrid/mail');
