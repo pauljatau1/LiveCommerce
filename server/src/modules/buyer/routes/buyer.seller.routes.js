@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const { verifyToken, isBuyer } = require('../../../middlewares/authMiddleware');
+const optionalAuthMiddleware = require('../../../middlewares/optionalAuthMiddleware');
 const buyerController = require('../controllers/buyer.controller');
 
 /**
@@ -62,10 +63,14 @@ router.get('/sellers', verifyToken, isBuyer, buyerController.getSellersToFollow)
  * @swagger
  * /api/v2/buyers/seller/{sellerId}:
  *   get:
- *     summary: Get detailed seller profile and store information
+ *     summary: Get detailed seller profile and store information (Public endpoint)
+ *     description: |
+ *       Retrieves comprehensive seller profile information including store details, 
+ *       business information, statistics, and reviews. This endpoint works with or 
+ *       without authentication. When authenticated, it provides additional context 
+ *       like following status.
  *     tags: [Buyer V2]
- *     security:
- *       - bearerAuth: []
+ *     security: []  # No authentication required
  *     parameters:
  *       - in: path
  *         name: sellerId
@@ -73,6 +78,12 @@ router.get('/sellers', verifyToken, isBuyer, buyerController.getSellersToFollow)
  *         schema:
  *           type: string
  *         description: ID of the seller to fetch
+ *       - in: header
+ *         name: Authorization
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Optional Bearer token for authenticated requests (provides following status)
  *     responses:
  *       200:
  *         description: Seller profile retrieved successfully
@@ -127,6 +138,7 @@ router.get('/sellers', verifyToken, isBuyer, buyerController.getSellersToFollow)
  *                           type: string
  *                         isFollowing:
  *                           type: boolean
+ *                           description: Only present when authenticated
  *                         socialMedia:
  *                           type: object
  *                           properties:
@@ -246,8 +258,6 @@ router.get('/sellers', verifyToken, isBuyer, buyerController.getSellersToFollow)
  *                               type: number
  *                             "5":
  *                               type: number
- *       401:
- *         description: Unauthorized - Invalid or missing token
  *       404:
  *         description: Seller not found
  *       422:
@@ -255,7 +265,7 @@ router.get('/sellers', verifyToken, isBuyer, buyerController.getSellersToFollow)
  *       500:
  *         description: Internal server error
  */
-router.get('/seller/:sellerId', verifyToken, isBuyer, buyerController.getSellerProfile);
+router.get('/seller/:sellerId', optionalAuthMiddleware, buyerController.getSellerProfile);
 
 /**
  * @swagger

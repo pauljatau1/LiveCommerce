@@ -139,11 +139,11 @@ function buildSocialMedia(socialMedia) {
  * - Store avatar and banner images
  * - Verification and featured status
  * - Account status (pending, etc.)
- * - Following relationship with current buyer
+ * - Following relationship with current buyer (if authenticated)
  * - Social media links
  *
  * @param {Object} seller - Seller object with store information
- * @param {string} buyerId - Current buyer's ID to check following status
+ * @param {string|null} buyerId - Current buyer's ID to check following status (null if not authenticated)
  * @returns {Object} Store information object
  */
 function buildStoreInfo(seller, buyerId) {
@@ -157,9 +157,9 @@ function buildStoreInfo(seller, buyerId) {
     accountPending: seller.accountPending || false,
     joinedDate: seller.createdAt,
     bio: seller.aboutStore, // Duplicate of aboutStore for compatibility
-    isFollowing: seller.followers?.some(
+    isFollowing: buyerId ? (seller.followers?.some(
       follower => follower.buyerId?.toString() === buyerId
-    ) || false, // Check if current buyer is following this seller
+    ) || false) : false, // Only check following status if buyer is authenticated
     socialMedia: buildSocialMedia(seller.socialMedia)
   };
 }
@@ -406,7 +406,7 @@ function buildReviewsInfo(reviewStats) {
  * - Reviews: Rating statistics and distribution
  *
  * @param {string} sellerId - The seller's ID to retrieve profile for
- * @param {string} buyerId - The buyer's ID (for determining following status)
+ * @param {string|null} buyerId - The buyer's ID (for determining following status, null if not authenticated)
  * @returns {Promise<Object>} Complete seller profile object
  *   - personalInfo: {Object} - Seller's personal information
  *   - storeInfo: {Object} - Store details and following status
@@ -420,9 +420,14 @@ function buildReviewsInfo(reviewStats) {
  * @throws {Error} If database operations fail
  *
  * @example
- * // Get seller profile
+ * // Get seller profile with authentication
  * const profile = await getSellerProfile('507f1f77bcf86cd799439011', '507f1f77bcf86cd799439012');
- * // Returns comprehensive seller profile with all sections
+ * // Returns comprehensive seller profile with following status
+ * 
+ * @example
+ * // Get seller profile without authentication
+ * const profile = await getSellerProfile('507f1f77bcf86cd799439011', null);
+ * // Returns comprehensive seller profile without following status
  */
 async function getSellerProfile(sellerId, buyerId) {
   // Step 1: Validate input data

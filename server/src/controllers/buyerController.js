@@ -1691,9 +1691,9 @@ exports.getSellerProfile = async (req, res) => {
         accountPending: seller.accountPending || false,
         joinedDate: seller.createdAt,
         bio: seller.aboutStore,
-        isFollowing: seller.followers?.some(
+        isFollowing: (req.user?.id && req.user?.role === 'Buyer') ? (seller.followers?.some(
           follower => follower.buyerId?.toString() === req.user.id
-        ) || false,
+        ) || false) : false,
         socialMedia: {
           instagram: seller.socialMedia?.instagram || null,
           facebook: seller.socialMedia?.facebook || null,
