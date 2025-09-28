@@ -94,7 +94,7 @@ describe('Get Seller Profile Controller', () => {
   });
 
   describe('GET /api/v2/buyers/seller/:sellerId', () => {
-    it('should return 200 when seller profile is retrieved successfully', async () => {
+    it('should return 200 when seller profile is retrieved successfully with authentication', async () => {
       // Mock the service to return seller profile
       getSellerProfileService.getSellerProfile.mockResolvedValue(mockSellerProfile);
 
@@ -132,23 +132,59 @@ describe('Get Seller Profile Controller', () => {
       expect(response.body.data.reviews.averageRating).toBe(4.5);
     });
 
-    it('should return 401 when no token provided', async () => {
+    it('should return 200 when no token provided (public access)', async () => {
+      // Mock the service to return seller profile with null buyerId
+      const mockSellerProfileWithoutAuth = {
+        ...mockSellerProfile,
+        storeInfo: {
+          ...mockSellerProfile.storeInfo,
+          isFollowing: false // Should be false when not authenticated
+        }
+      };
+      getSellerProfileService.getSellerProfile.mockResolvedValue(mockSellerProfileWithoutAuth);
+
       const response = await request(app)
         .get(`/api/v2/buyers/seller/${mockSellerId}`)
-        .expect(401);
+        .expect(200);
 
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toContain('token');
+      // Verify service was called with null buyerId
+      expect(getSellerProfileService.getSellerProfile).toHaveBeenCalledWith(mockSellerId, null);
+
+      // Verify response structure
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('message', 'Seller profile retrieved successfully');
+      expect(response.body).toHaveProperty('data');
+
+      // Verify isFollowing is false when not authenticated
+      expect(response.body.data.storeInfo.isFollowing).toBe(false);
     });
 
-    it('should return 401 when invalid token provided', async () => {
+    it('should return 200 when invalid token provided (treats as public access)', async () => {
+      // Mock the service to return seller profile with null buyerId
+      const mockSellerProfileWithoutAuth = {
+        ...mockSellerProfile,
+        storeInfo: {
+          ...mockSellerProfile.storeInfo,
+          isFollowing: false // Should be false when not authenticated
+        }
+      };
+      getSellerProfileService.getSellerProfile.mockResolvedValue(mockSellerProfileWithoutAuth);
+
       const response = await request(app)
         .get(`/api/v2/buyers/seller/${mockSellerId}`)
         .set('Authorization', 'Bearer invalid-token')
-        .expect(401);
+        .expect(200);
 
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toBe('Invalid token');
+      // Verify service was called with null buyerId (invalid token treated as no auth)
+      expect(getSellerProfileService.getSellerProfile).toHaveBeenCalledWith(mockSellerId, null);
+
+      // Verify response structure
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('message', 'Seller profile retrieved successfully');
+      expect(response.body).toHaveProperty('data');
+
+      // Verify isFollowing is false when not authenticated
+      expect(response.body.data.storeInfo.isFollowing).toBe(false);
     });
 
     it('should return 404 when service throws NotFoundException', async () => {
@@ -197,20 +233,38 @@ describe('Get Seller Profile Controller', () => {
       expect(response.body.error).toBe('Something went wrong!');
     });
 
-    it('should return 403 when token is for non-buyer user', async () => {
+    it('should return 200 when token is for non-buyer user (public endpoint)', async () => {
       // Generate token for a seller instead of buyer
       const sellerToken = require('jsonwebtoken').sign(
         { id: mockSellerId, role: 'Seller' }, 
         process.env.JWT_SECRET || 'test-secret'
       );
 
+      // Mock the service to return seller profile with null buyerId (since seller is not a buyer)
+      const mockSellerProfileWithoutAuth = {
+        ...mockSellerProfile,
+        storeInfo: {
+          ...mockSellerProfile.storeInfo,
+          isFollowing: false // Should be false when not a buyer
+        }
+      };
+      getSellerProfileService.getSellerProfile.mockResolvedValue(mockSellerProfileWithoutAuth);
+
       const response = await request(app)
         .get(`/api/v2/buyers/seller/${mockSellerId}`)
         .set('Authorization', `Bearer ${sellerToken}`)
-        .expect(403);
+        .expect(200);
 
-      expect(response.body).toHaveProperty('message');
-      expect(response.body.message).toBe('Access denied. Buyers only.');
+      // Verify service was called with null buyerId (seller is not a buyer)
+      expect(getSellerProfileService.getSellerProfile).toHaveBeenCalledWith(mockSellerId, null);
+
+      // Verify response structure
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('message', 'Seller profile retrieved successfully');
+      expect(response.body).toHaveProperty('data');
+
+      // Verify isFollowing is false when not a buyer
+      expect(response.body.data.storeInfo.isFollowing).toBe(false);
     });
 
     it('should handle seller with minimal data', async () => {

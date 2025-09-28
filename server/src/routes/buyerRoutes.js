@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const buyerController = require('../controllers/buyerController');
+const buyerControllerV2 = require('../modules/buyer/controllers/buyer.controller');
 const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
@@ -1016,10 +1017,14 @@ router.post('/verify-phone', authMiddleware.verifyToken, buyerController.verifyP
  * @swagger
  * /api/buyer/seller/{sellerId}:
  *   get:
- *     summary: Get detailed seller profile and store information
+ *     summary: Get detailed seller profile and store information (Public endpoint)
+ *     description: |
+ *       Retrieves comprehensive seller profile information including store details, 
+ *       business information, statistics, and reviews. This endpoint works with or 
+ *       without authentication. When authenticated, it provides additional context 
+ *       like following status.
  *     tags: [Buyer]
- *     security:
- *       - bearerAuth: []
+ *     security: []  # No authentication required
  *     parameters:
  *       - in: path
  *         name: sellerId
@@ -1027,6 +1032,12 @@ router.post('/verify-phone', authMiddleware.verifyToken, buyerController.verifyP
  *         schema:
  *           type: string
  *         description: ID of the seller to fetch
+ *       - in: header
+ *         name: Authorization
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Optional Bearer token for authenticated requests (provides following status)
  *     responses:
  *       200:
  *         description: Seller profile retrieved successfully
@@ -1035,6 +1046,13 @@ router.post('/verify-phone', authMiddleware.verifyToken, buyerController.verifyP
  *             schema:
  *               type: object
  *               properties:
+ *                 personalInfo:
+ *                   type: object
+ *                   properties:
+ *                     firstName:
+ *                       type: string
+ *                     lastName:
+ *                       type: string
  *                 storeInfo:
  *                   type: object
  *                   properties:
@@ -1056,9 +1074,21 @@ router.post('/verify-phone', authMiddleware.verifyToken, buyerController.verifyP
  *                       type: boolean
  *                     isFeatured:
  *                       type: boolean
+ *                     isFollowing:
+ *                       type: boolean
+ *                       description: Only present when authenticated
  *                     joinedDate:
  *                       type: string
  *                       format: date-time
+ *                     socialMedia:
+ *                       type: object
+ *                       properties:
+ *                         instagram:
+ *                           type: string
+ *                         facebook:
+ *                           type: string
+ *                         tiktok:
+ *                           type: string
  *                 businessInfo:
  *                   type: object
  *                   properties:
@@ -1089,46 +1119,74 @@ router.post('/verify-phone', authMiddleware.verifyToken, buyerController.verifyP
  *                     city:
  *                       type: string
  *                       example: "Amuwo-Odofin"
- *                 metrics:
+ *                 storePolicies:
  *                   type: object
  *                   properties:
- *                     totalProducts:
+ *                     delivery:
+ *                       type: object
+ *                       properties:
+ *                         processingTime:
+ *                           type: string
+ *                         deliveryTimes:
+ *                           type: string
+ *                         freeShippingPolicy:
+ *                           type: string
+ *                         allowsCod:
+ *                           type: boolean
+ *                     returns:
+ *                       type: object
+ *                       properties:
+ *                         returnWindow:
+ *                           type: number
+ *                         returnCondition:
+ *                           type: string
+ *                         returnShipping:
+ *                           type: string
+ *                         nonRefundableItems:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     followersCount:
  *                       type: number
+ *                     followingCount:
+ *                       type: number
+ *                     totalOrders:
+ *                       type: number
+ *                     totalStreams:
+ *                       type: number
+ *                     soldItems:
+ *                       type: number
+ *                 reviews:
+ *                   type: object
+ *                   properties:
  *                     averageRating:
  *                       type: number
- *                     totalFollowers:
+ *                     totalReviews:
  *                       type: number
- *                     responseRate:
- *                       type: number
- *                     orderCompletion:
- *                       type: number
- *                 recentProducts:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       _id:
- *                         type: string
- *                       name:
- *                         type: string
- *                       price:
- *                         type: number
- *                       images:
- *                         type: array
- *                         items:
- *                           type: string
- *                       createdAt:
- *                         type: string
- *                         format: date-time
+ *                     ratingDistribution:
+ *                       type: object
+ *                       properties:
+ *                         "1":
+ *                           type: number
+ *                         "2":
+ *                           type: number
+ *                         "3":
+ *                           type: number
+ *                         "4":
+ *                           type: number
+ *                         "5":
+ *                           type: number
  *       404:
  *         description: Seller not found
  *       500:
  *         description: Server error
  */
 router.get('/seller/:sellerId', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isBuyer, 
-  buyerController.getSellerProfile
+  optionalAuthMiddleware, 
+  buyerControllerV2.getSellerProfile
 );
 
 
