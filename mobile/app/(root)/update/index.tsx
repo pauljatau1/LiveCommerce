@@ -3,7 +3,7 @@ import React, { useEffect } from "react";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import { useLocalSearchParams, useNavigation } from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
 
 const UpdatePage = () => {
   const insets = useSafeAreaInsets();
@@ -65,6 +65,12 @@ const UpdatePage = () => {
           className="h-[50px] w-full items-center justify-center rounded-[10px] bg-white"
           style={{ borderCurve: "continuous" }}
           onPress={() => {
+            if (
+              process.env.EXPO_PUBLIC_API_URL ===
+              "https://api.staging.auqli.live/"
+            ) {
+              return router.back();
+            }
             Linking.openURL(decodeURIComponent(url?.toString()));
           }}
         >

@@ -12,7 +12,7 @@ type Props = {
   btnStyle?: ViewStyle;
   btnClassname?: string;
   children: ReactNode;
-  onPress?: () => void;
+  onPress?: () => void | null;
   disabled?: boolean;
   hapticsStrength?: HapticsStrength;
 };

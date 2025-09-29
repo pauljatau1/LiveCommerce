@@ -1,13 +1,11 @@
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
-  Platform,
-  Dimensions,
   StyleSheet,
   TouchableWithoutFeedback,
   Keyboard,
+  ActivityIndicator,
 } from "react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
@@ -20,18 +18,18 @@ import { TextInput } from "react-native-gesture-handler";
 import { toast } from "@/core/toast";
 import axios from "axios";
 import { getToken } from "@/store/features/auth/utils";
-import LoadingModal from "@/components/global/loading-modal";
 import {
   validatePhoneNumber,
   validateZipCode,
   validateEmail,
+  normalizeNGNNumber,
 } from "../../../helpers/helpers";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
-import { ActivityIndicator } from "react-native-paper";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import FormInput from "@/components/Primitives/Inputs/formInput";
+import SubmitButton from "@/components/Primitives/Buttons/submitButton";
 
-const { width, height } = Dimensions.get("window");
 const addressTypes = [{ name: "home" }, { name: "work" }, { name: "other" }];
 const AddAddress = () => {
   const { prevRoute, address } = useLocalSearchParams();
@@ -47,8 +45,12 @@ const AddAddress = () => {
   const [states, setStates] = useState<any[] | null>(null);
   const [state, setState] = useState<string>(parsedAddress?.state ?? "");
   const [city, setCity] = useState<string>(parsedAddress?.city ?? "");
-  const [firstname, setFirstname] = useState<string>("");
-  const [lastname, setLastname] = useState<string>("");
+  const [firstname, setFirstname] = useState<string>(
+    parsedAddress?.firstName ?? "",
+  );
+  const [lastname, setLastname] = useState<string>(
+    parsedAddress?.lastName ?? "",
+  );
   const [address1, setAddress1] = useState<string>(
     parsedAddress?.addressLine1 ?? "",
   );
@@ -58,7 +60,9 @@ const AddAddress = () => {
   const [zipCode, setzipCode] = useState<string>(parsedAddress?.zipCode ?? "");
   const [zipCodeError, setzipCodeError] = useState<string>("");
 
-  const [phone, setPhone] = useState<string>("");
+  const [phone, setPhone] = useState<string>(
+    normalizeNGNNumber(parsedAddress?.phoneNumber) ?? "",
+  );
   const [phoneError, setPhoneError] = useState<string>("");
 
   const [email, setEmail] = useState<string>("");
@@ -111,13 +115,15 @@ const AddAddress = () => {
     if (value?.length > 0) {
       if (validatePhoneNumber(value)) {
         setPhoneError("");
-        setPhone(value);
       } else {
-        setPhoneError("invalid phone number");
-
-        setPhone(value);
+        if (value?.length < 11) {
+          setPhoneError("Phone number must be 11 digits long e.g 08000000000");
+        } else setPhoneError("invalid phone number");
       }
-    } else setPhoneError("");
+    } else {
+      setPhoneError("");
+    }
+    setPhone(value);
   };
   const handleEmailChange = (value: string) => {
     if (value?.length > 0) {
@@ -135,19 +141,20 @@ const AddAddress = () => {
     if (value?.length > 0) {
       if (validateZipCode(value)) {
         setzipCodeError("");
-        setzipCode(value);
       } else {
         setzipCodeError("invalid zipcode");
-        setzipCode(value);
       }
-    } else {setzipCodeError(""); setzipCode(value)}
+    } else {
+      setzipCodeError("");
+    }
+    setzipCode(value);
   };
 
   const handleAddAddress = async () => {
     if (loading) {
       return;
     }
-    if (!addressType || !city || !address1 || !zipCode || !state) {
+    if (!city || !address1 || !zipCode || !state) {
       return toast.info("enter empty fields");
     }
     if (phoneError || emailError || zipCodeError) {
@@ -157,19 +164,22 @@ const AddAddress = () => {
     try {
       const token = await getToken();
       const payload = {
-        addressType,
         country: "NG",
         city,
         addressLine1: address1,
         addressLine2: address2,
         zipCode,
         state: state?.includes("_") ? state.split("_")[1] : state,
+        firstName: firstname,
+        lastName: lastname,
+        phoneNumber: phone,
+        addressType: "home",
       };
       const config = {
         method: address ? "PUT" : "POST",
         url:
           process.env.EXPO_PUBLIC_API_URL +
-          `api/buyer/addresses${address ? "/" + parsedAddress._id : ""}`,
+          `api/v2/buyers/addresses${address ? "/" + parsedAddress._id : ""}`,
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + token,
@@ -182,22 +192,45 @@ const AddAddress = () => {
       if (response.status == 201 || response.status == 200) {
         setLoading(false);
 
-        toast.success("Address added successfully");
+        toast.customSuccess({
+          message: "Address added successfully",
+          statusBarHeight: insets.top,
+        });
         setTimeout(() => {
           if (prevRoute && prevRoute == "checkout") {
             return router.replace("/checkout/checkout");
           }
           router.back();
-        }, 2000);
+        }, 1000);
       }
-    } catch (e:any) {
+    } catch (e: any) {
       console.log("cant create address", e?.response?.data);
-            toast.error(e?.response?.data?.errors?.[0]?.message || e?.response?.data?.message ||  "Unable to Add Address. Please try Again!")
-      
+      toast.error(
+        e?.response?.data?.errors?.[0]?.message ||
+          e?.response?.data?.message ||
+          "Unable to Add Address. Please try Again!",
+      );
     } finally {
       setLoading(false);
     }
   };
+
+  const canSubmit = useMemo(() => {
+    if (
+      state &&
+      city &&
+      address1 &&
+      zipCode &&
+      firstname &&
+      lastname &&
+      phone &&
+      !phoneError &&
+      !zipCodeError
+    ) {
+      return true;
+    }
+    return false;
+  }, [state, city, address1, zipCode, firstname, lastname, phone]);
 
   useEffect(() => {
     getTerminalStates();
@@ -215,369 +248,249 @@ const AddAddress = () => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#121212" }}>
-      <KeyboardAvoidingView
-        behavior={"padding"}
-        // keyboardVerticalOffset={Platform.select({ ios: 0, android: 60 })}
-        style={{ flex: 1, backgroundColor: "#121212" }}
-      >
-        <FocusAwareStatusBar
-          barStyle="light-content"
-          backgroundColor="#121212"
-        />
+      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
 
-        {/* Header */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            paddingHorizontal: 12,
-            paddingVertical: 20,
-            marginBottom: 8,
-            marginTop: 4,
-            position: "relative",
+      {/* Header */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 10,
+          paddingHorizontal: 12,
+          paddingVertical: 20,
+          marginBottom: 8,
+          marginTop: 4,
+          position: "relative",
+        }}
+      >
+        <TouchableOpacity
+          style={{ position: "absolute", left: 12 }}
+          onPress={() => {
+            router.back();
           }}
         >
-          <TouchableOpacity
-            style={{ position: "absolute", left: 12 }}
-            onPress={() => {
-              router.back();
-            }}
-          >
-            <Entypo
-              name="chevron-left"
-              size={24}
-              color="rgba(204, 204, 204, 0.8)"
-            />
-          </TouchableOpacity>
-          <Text
+          <Entypo name="chevron-left" size={24} color="white" />
+        </TouchableOpacity>
+        <Text
+          style={{
+            color: "white",
+            fontFamily: "LexendDeca",
+            fontSize: 20,
+            letterSpacing: -0.22,
+          }}
+        >
+          Add Address
+        </Text>
+      </View>
+
+      {pageLoading ? (
+        <ActivityIndicator
+          size={"small"}
+          color="#ffffff"
+          style={{ marginVertical: 10 }}
+        />
+      ) : (
+        <>
+          {/* Form */}
+          <KeyboardAwareScrollView
+            bottomOffset={20}
             style={{
-              color: "white",
-              fontFamily: "LexendDeca-Medium",
-              fontSize: 20,
+              flex: 1,
             }}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingBottom: 20,
+            }}
+            showsVerticalScrollIndicator={false}
           >
-            Add Address
-          </Text>
-        </View>
-
-        {pageLoading ? (
-          <ActivityIndicator
-            size={"small"}
-            color="#ffffff"
-            style={{ marginVertical: 10 }}
-          />
-        ) : (
-          <>
-            {/* Form */}
-            <ScrollView
-              contentContainerStyle={{
-                paddingHorizontal: 16,
-                paddingBottom: 100,
-              }}
-              showsVerticalScrollIndicator={false}
-            >
-              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <View style={{ gap: 20 }}>
-                  {/* Name Fields */}
-                  {/* <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: 12,
-                  }}
-                >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={{ gap: 20 }}>
+                {/* State Dropdown */}
+                {states && states?.length > 0 && (
                   <View style={styles.inputSection}>
-                    <Text style={styles.textLabel}>First Name</Text>
-                    <View style={[{ flexShrink: 1 }, styles.inputContainer]}>
-                      <TextInput
-                        placeholder="First Name"
-                        placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
-                        style={styles.textInput}
-                        onChangeText={setFirstname}
-                      />
-                    </View>
-                  </View>
-
-                  <View style={styles.inputSection}>
-                    <Text style={styles.textLabel}>Last Name</Text>
-                    <View style={[{ flexShrink: 1 }, styles.inputContainer]}>
-                      <TextInput
-                        placeholder="Last Name"
-                        style={styles.textInput}
-                        onChangeText={setLastname}
-                      />
-                    </View>
-                  </View>
-                </View> */}
-
-                  {/* State Dropdown */}
-                  {states && states?.length > 0 && (
-                    <View style={styles.inputSection}>
-                      <Text style={styles.textLabel}>State</Text>
-                      <Dropdown
-                        style={styles.dropdown}
-                        placeholderStyle={styles.placeholderStyle}
-                        selectedTextStyle={styles.selectedTextStyle}
-                        inputSearchStyle={styles.inputSearchStyle}
-                        itemTextStyle={styles.itemTextStyle}
-                        data={states}
-                        search
-                        labelField="name"
-                        valueField="name"
-                        placeholder="Select State"
-                        searchPlaceholder="Search..."
-                        onChange={(item) => {
-                          console.log(item);
-
-                          setState(item.name);
-                          getTerminalCities(item?.isoCode);
-                          // setCities(getCities("nigeria_lagos"));
-                        }}
-                        value={state}
-                      />
-                    </View>
-                  )}
-
-                  {/* City Dropdown */}
-                  {cities && cities?.length > 0 && (
-                    <View style={styles.inputSection}>
-                      <Text style={styles.textLabel}>City</Text>
-                      <Dropdown
-                        style={styles.dropdown}
-                        placeholderStyle={styles.placeholderStyle}
-                        selectedTextStyle={styles.selectedTextStyle}
-                        inputSearchStyle={styles.inputSearchStyle}
-                        itemTextStyle={styles.itemTextStyle}
-                        data={cities}
-                        search
-                        labelField="name"
-                        valueField="name"
-                        placeholder="Select City"
-                        searchPlaceholder="Search..."
-                        onChange={(item) => setCity(item.name)}
-                        value={city}
-                      />
-                    </View>
-                  )}
-
-                  {/* Address Fields */}
-                  <View style={styles.inputSection}>
-                    <Text style={styles.textLabel}>Street Address</Text>
-                    <View style={styles.inputContainer}>
-                      <TextInput
-                        placeholder="Street Address"
-                        placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
-                        style={styles.textInput}
-                        onChangeText={setAddress1}
-                        maxLength={45}
-                        value={address1}
-                      />
-                    </View>
-                  </View>
-
-                  <View style={styles.inputSection}>
-                    <Text style={styles.textLabel}>
-                      Address Line 2{" "}
-                      <Text className="opacity-50"> (Optional)</Text>
-                    </Text>
-                    <View style={styles.inputContainer}>
-                      <TextInput
-                        placeholder="Address 2"
-                        placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
-                        style={styles.textInput}
-                        onChangeText={setAddress2}
-                        maxLength={45}
-                        value={address2}
-                      />
-                    </View>
-                  </View>
-
-                  <View style={styles.inputSection}>
-                    <Text style={styles.textLabel}>Zip Code</Text>
-                    <View
-                      style={[
-                        styles.inputContainer,
-                        {
-                          borderWidth: 1,
-                          borderColor: zipCodeError ? "#ff0a0a" : "#2e2e2e",
-                        },
-                      ]}
-                    >
-                      <TextInput
-                        placeholder="Zip Code"
-                        placeholderTextColor={"rgba(130, 130, 130, 0.8)"}
-                        style={styles.textInput}
-                        maxLength={6}
-                        inputMode="numeric"
-                        onChangeText={handleZipCodeChange}
-                        value={zipCode}
-                      />
-                      {zipCodeError && (
-                        <Text
-                          className="text-[10px] font-LexendDecaLight "
-                          style={{
-                            color: "#ff0a0a",
-                            position: "absolute",
-                            bottom: -14,
-                            left: 8,
-                          }}
-                        >
-                          *{zipCodeError}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-
-                  {/* <View style={styles.inputSection}>
-                  <Text style={styles.textLabel}>Phone Number</Text>
-
-                  <View
-                    style={[
-                      styles.inputContainer,
-                      {
-                        borderWidth: 1,
-                        borderColor: phoneError ? "#ff0a0a" : "#2e2e2e",
-                      },
-                    ]}
-                  >
-                    <TextInput
-                      placeholder="Phone"
-                      style={styles.textInput}
-                      inputMode="numeric"
-                      maxLength={11}
-                      onChangeText={handlePhoneChange}
-                    />
-                    {phoneError && (
-                      <Text
-                        className="text-[10px] font-LexendDecaLight"
-                        style={{
-                          color: "#ff0a0a",
-                          position: "absolute",
-                          bottom: -14,
-                          left: 8,
-                        }}
-                      >
-                        *{phoneError}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-
-                <View style={styles.inputSection}>
-                  <Text style={styles.textLabel}>Email</Text>
-
-                  <View
-                    style={[
-                      styles.inputContainer,
-                      {
-                        borderWidth: 1,
-                        borderColor: emailError ? "#ff0a0a" : "#2e2e2e",
-                      },
-                    ]}
-                  >
-                    <TextInput
-                      placeholder="Email"
-                      style={styles.textInput}
-                      inputMode="email"
-                      onChangeText={handleEmailChange}
-                    />
-                    {emailError && (
-                      <Text
-                        className="text-[10px] font-LexendDecaLight"
-                        style={{
-                          color: "#ff0a0a",
-                          position: "absolute",
-                          bottom: -14,
-                          left: 8,
-                        }}
-                      >
-                        *{emailError}
-                      </Text>
-                    )}
-                  </View>
-                </View> */}
-
-                  <View style={styles.inputSection}>
-                    <Text style={styles.textLabel}>Address Type</Text>
+                    <Text style={styles.textLabel}>State</Text>
                     <Dropdown
-                      search={false}
                       style={styles.dropdown}
                       placeholderStyle={styles.placeholderStyle}
                       selectedTextStyle={styles.selectedTextStyle}
                       inputSearchStyle={styles.inputSearchStyle}
+                      containerStyle={styles.dropdownContainer}
                       itemTextStyle={styles.itemTextStyle}
-                      data={addressTypes}
+                      data={states}
+                      search
                       labelField="name"
                       valueField="name"
-                      placeholder="Select Type"
+                      placeholder="Select State"
                       searchPlaceholder="Search..."
-                      onChange={(item) => setAddressType(item.name)}
-                      value={addressType}
+                      fontFamily="LexendDeca-Light"
+                      onChange={(item) => {
+                        console.log(item);
+
+                        setState(item.name);
+                        getTerminalCities(item?.isoCode);
+                        // setCities(getCities("nigeria_lagos"));
+                      }}
+                      value={state}
                     />
                   </View>
+                )}
+
+                {/* City Dropdown */}
+                {cities && cities?.length > 0 && (
+                  <View style={styles.inputSection}>
+                    <Text style={styles.textLabel}>City</Text>
+                    <Dropdown
+                      style={styles.dropdown}
+                      placeholderStyle={styles.placeholderStyle}
+                      selectedTextStyle={styles.selectedTextStyle}
+                      inputSearchStyle={styles.inputSearchStyle}
+                      containerStyle={styles.dropdownContainer}
+                      itemTextStyle={styles.itemTextStyle}
+                      data={cities}
+                      search
+                      labelField="name"
+                      valueField="name"
+                      placeholder="Select City"
+                      searchPlaceholder="Search..."
+                      fontFamily="LexendDeca-Light"
+                      onChange={(item) => setCity(item.name)}
+                      value={city}
+                    />
+                  </View>
+                )}
+
+                {/* Address Fields */}
+                <View style={styles.inputSection}>
+                  <FormInput
+                    name="Street Address"
+                    placeholder="Street Address"
+                    showLabel={true}
+                    onChangeText={setAddress1}
+                    maxLength={45}
+                    hasError={false}
+                    value={address1}
+                  />
                 </View>
-              </TouchableWithoutFeedback>
-            </ScrollView>
 
-            <View
-              style={{
-                position: "absolute",
-                bottom: 0,
-                left: 0,
-                padding: 16,
-                paddingBottom: 24,
-                width: "100%",
-                backgroundColor: "#121212",
-              }}
-            >
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={handleAddAddress}
-              >
-                <Text style={styles.addButtonText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
+                <View style={styles.inputSection}>
+                  <FormInput
+                    name="Address Line 2 (Optional)"
+                    placeholder="Address Line 2"
+                    showLabel={true}
+                    onChangeText={setAddress2}
+                    maxLength={45}
+                    hasError={false}
+                    value={address2}
+                  />
+                </View>
 
-        <LoadingModal isVisible={loading} />
+                <View style={styles.inputSection}>
+                  <FormInput
+                    name="Zip Code"
+                    placeholder="Zip Code"
+                    showLabel={true}
+                    onChangeText={handleZipCodeChange}
+                    inputMode="numeric"
+                    maxLength={6}
+                    hasError={!!zipCodeError}
+                    error={zipCodeError}
+                    value={zipCode}
+                  />
+                </View>
 
-        {/* Add Address Button */}
-      </KeyboardAvoidingView>
+                <View style={[styles.inputSection, styles.flexInputSection]}>
+                  <FormInput
+                    name="First Name"
+                    placeholder="First Name"
+                    showLabel={true}
+                    onChangeText={setFirstname}
+                    hasError={false}
+                    value={firstname}
+                  />
+                  <FormInput
+                    name="Last Name"
+                    placeholder="Last Name"
+                    showLabel={true}
+                    onChangeText={setLastname}
+                    hasError={false}
+                    value={lastname}
+                  />
+                </View>
+
+                <View style={styles.inputSection}>
+                  <FormInput
+                    name="Phone Number"
+                    placeholder="Enter Phone Number"
+                    showLabel={true}
+                    onChangeText={handlePhoneChange}
+                    inputMode="numeric"
+                    maxLength={11}
+                    hasError={!!phoneError}
+                    error={phoneError}
+                    leftText="+234"
+                    value={phone}
+                  />
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAwareScrollView>
+
+          <View
+            style={{
+              padding: 16,
+              width: "100%",
+              backgroundColor: "#121212",
+            }}
+          >
+            <SubmitButton
+              text="Save address"
+              isLoading={loading}
+              canSubmit={canSubmit}
+              onPress={handleAddAddress}
+            />
+          </View>
+        </>
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  dropdownContainer: {
+    height: 400,
+    borderRadius: 10,
+    borderCurve: "continuous",
+  },
   dropdown: {
     height: 50,
-    borderColor: "gray",
-    borderWidth: 0.5,
-    borderRadius: 8,
-    paddingHorizontal: 20,
-    backgroundColor: "#2e2e2e",
+    borderColor: "#FFFFFF33",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    backgroundColor: "#FFFFFF05",
+    borderCurve: "continuous",
   },
   inputSection: {
     flexBasis: "100%",
     flexShrink: 1,
-    gap: 6,
+    gap: 8,
+  },
+  flexInputSection: {
+    flexDirection: "row",
   },
   inputContainer: {
     padding: 16,
     backgroundColor: "#2e2e2e",
     borderRadius: 8,
     position: "relative",
-    // marginBottom: 20,
     flexBasis: "100%",
   },
   textLabel: {
     color: "#fff",
-    fontSize: 12,
-    fontFamily: "LexendDeca-Medium",
-    opacity: 0.8,
+    fontSize: 14,
+    fontFamily: "LexendDeca-Light",
+    letterSpacing: -0.22,
   },
   textInput: {
     fontSize: 13,
@@ -586,29 +499,31 @@ const styles = StyleSheet.create({
     fontFamily: "LexendDeca",
   },
   placeholderStyle: {
-    fontSize: 13,
-    color: "rgba(130, 130, 130, 0.8)",
-    marginVertical: 10,
-    height: 20,
-    fontFamily: "LexendDeca",
+    fontSize: 16,
+    color: "#FFFFFF99",
+    fontFamily: "LexendDeca-Light",
+    letterSpacing: -0.22,
   },
   selectedTextStyle: {
-    fontSize: 12,
+    fontSize: 16,
     color: "#fff",
-    paddingVertical: 5,
-    height: 30,
-    top: 1.5,
-    fontFamily: "LexendDeca",
+    fontFamily: "LexendDeca-light",
+    letterSpacing: -0.22,
   },
   inputSearchStyle: {
     height: 40,
-    fontSize: 12,
-    color: "#00000090",
+    fontSize: 14,
+    fontFamily: "LexendDeca-light",
+    borderRadius: 8,
+    borderCurve: "continuous",
+    color: "#000000",
+    letterSpacing: -0.22,
   },
   itemTextStyle: {
-    color: "#00000070",
-    fontSize: 12,
-    fontFamily: "LexendDeca",
+    color: "#000000",
+    fontSize: 14,
+    fontFamily: "LexendDeca-Light",
+    letterSpacing: -0.22,
   },
   addButton: {
     backgroundColor: "#16783A",

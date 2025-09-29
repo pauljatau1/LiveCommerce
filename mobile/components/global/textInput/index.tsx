@@ -69,12 +69,14 @@ export type InputProps = {
   | "onPressIn"
   | "inputMode"
   | "pointerEvents"
+  | "contextMenuHidden"
 >;
 
 type ValidationResult = boolean | string;
 
 export type ValidationRules = {
   email: (value: string, label?: string) => ValidationResult;
+  confirmEmail: (value: string, label?: string) => ValidationResult;
   required: (value: string, label?: string) => ValidationResult;
   phone: (value: string, label?: string) => ValidationResult;
   altPhone: (value: string, label?: string) => ValidationResult;
@@ -115,6 +117,7 @@ const Input = ({
   inputMode,
   multiline,
   validRange,
+  contextMenuHidden = false,
 }: InputProps) => {
   const [isPassword, setIsPassword] = useState(secureTextEntry);
 
@@ -152,6 +155,11 @@ const Input = ({
       return match
         ? true
         : `The ${errorLabel || label} field has to be a valid email`;
+    },
+    confirmEmail: (value) => {
+      return value === watch("email") || value === watch("newEmail")
+        ? true
+        : `The ${errorLabel || label} field must be equal to the Email field`;
     },
     password: (value) => {
       const messages: string[] = [];
@@ -300,6 +308,7 @@ const Input = ({
           left={leftIcon}
           right={secureTextEntry ? <></> : rightIcon}
           multiline={multiline}
+          contextMenuHidden={contextMenuHidden}
         />
 
         <View className="absolute right-0 top-1/2 z-50 -translate-y-1/2">
@@ -311,6 +320,7 @@ const Input = ({
             borderless: true,
             radius: 20,
           }}
+          hitSlop={10}
           onPress={togglePasswordVisibility}
           className="absolute right-4 top-1/2 -translate-y-1/2"
         >
@@ -318,9 +328,9 @@ const Input = ({
             {secureTextEntry && (
               <>
                 {isPassword ? (
-                  <Ionicons name="eye-off" size={20} color="#16783a" />
+                  <Ionicons name="eye-off-outline" size={18} color="white" />
                 ) : (
-                  <AntDesign name="eye" size={20} color="#16783a" />
+                  <Ionicons name="eye-outline" size={18} color="white" />
                 )}
               </>
             )}

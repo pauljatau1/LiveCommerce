@@ -38,6 +38,7 @@ module.exports = {
           100: "#F2F2F2",
           200: "#CCCCCC",
         },
+        errorRed: "#F01F1F",
       },
     },
   },

@@ -33,7 +33,7 @@ const Addresses = () => {
     try {
       const token = await getToken();
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/addresses",
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/addresses",
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -41,7 +41,7 @@ const Addresses = () => {
         },
       );
 
-      setAddresses(response.data);
+      setAddresses(response.data?.data);
     } catch (e) {
       console.log("error fetching buyer addresses ", e);
     } finally {
@@ -54,7 +54,7 @@ const Addresses = () => {
     try {
       const token = await getToken();
       const response = await axios.delete(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/addresses/" + id,
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/addresses/" + id,
         {
           headers: {
             Authorization: `Bearer ${token}`,
