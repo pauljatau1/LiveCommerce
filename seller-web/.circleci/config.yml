@@ -170,13 +170,15 @@ commands:
     steps:
       - run: 
           name: Install dependencies
-          command: npm install eslint prettier
+          command: npm install eslint prettier eslint-html-reporter
       - run:
          name: Run eslint
-         command: npx eslint || true
+         command: npx eslint . -o report.html || true
+      - store_artifacts:
+          path: report.html
       - run:
          name: Run prettier
-         command: npx prettier . --write || true
+         command: npx prettier . --check || true
 
 jobs:
   build:
