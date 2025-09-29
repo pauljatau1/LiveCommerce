@@ -133,7 +133,8 @@ async function findByIdWithSelectedCategories(buyerId) {
  * @returns {Promise<Buyer|null>} Buyer with shipping addresses or null if not found
  */
 async function findByIdWithShippingAddresses(buyerId) {
-  return Buyer.findById(buyerId).select('shippingAddresses');
+  // Include buyer contact fields so callers can default missing address contact info
+  return Buyer.findById(buyerId).select('shippingAddresses firstName lastName email phoneNumber');
 }
 
 /**
