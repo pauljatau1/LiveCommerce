@@ -3,6 +3,7 @@ const loginService = require('../services/login.service');
 const profileService = require('../services/profile.service');
 const updateProfileService = require('../services/updateProfile.service');
 const uploadProfileImageService = require('../services/uploadProfileImage.service');
+const deleteProfileImageService = require('../services/deleteProfileImage.service');
 const verifyOTPService = require('../services/verifyOTP.service');
 const resendOTPService = require('../services/resendOTP.service');
 const checkTokenService = require('../services/checkToken.service');
@@ -204,6 +205,26 @@ async function uploadProfileImage(req, res, next) {
     res.success(response, 'Profile image uploaded successfully');
   } catch (err) {
     // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Delete buyer profile image.
+ *
+ * Removes the current profile image for the authenticated buyer. The service
+ * best-effort deletes the S3 object (if tracked) and clears `profileImage`.
+ *
+ * @param {Request} req - Express request object with user in `req.user`
+ * @param {Response} res - Express response object
+ * @param {Function} next - Express next middleware
+ */
+async function deleteProfileImage(req, res, next) {
+  try {
+    const buyerId = req.user.id;
+    const response = await deleteProfileImageService.deleteProfileImage(buyerId);
+    res.success(response, 'Profile image deleted successfully');
+  } catch (err) {
     next(err);
   }
 }
@@ -1449,6 +1470,7 @@ module.exports = {
   checkToken,
   updateProfile,
   uploadProfileImage,
+  deleteProfileImage,
   verifyOTP,
   resendOTP,
   updateSelectedCategories,

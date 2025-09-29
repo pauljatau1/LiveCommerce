@@ -3299,6 +3299,55 @@ router.post('/profile/avatar', verifyToken, upload.single('avatar'), sellerContr
 
 /**
  * @swagger
+ * /api/v2/sellers/profile/avatar:
+ *   delete:
+ *     summary: Delete current store avatar
+ *     description: |
+ *       Removes the seller's current store avatar image. This clears the avatar metadata
+ *       on the seller profile and attempts to delete the image from S3 storage.
+ *
+ *       Business Logic:
+ *       - Deletes S3 object by stored key when available (best-effort)
+ *       - Clears `storeAvatar` on seller to an empty value
+ *       - Returns the updated seller object
+ *
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Store avatar deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Store avatar deleted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Store avatar deleted successfully"
+ *                     seller:
+ *                       type: object
+ *                       description: Updated seller object with cleared avatar
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/profile/avatar', verifyToken, sellerController.deleteStoreAvatar);
+
+/**
+ * @swagger
  * /api/v2/sellers/profile/banner:
  *   post:
  *     summary: Upload store banner to seller profile

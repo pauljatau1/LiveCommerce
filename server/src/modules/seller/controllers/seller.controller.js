@@ -17,6 +17,7 @@ const addBusinessInformationService = require('../services/addBusinessInformatio
 const addShippingWarehouseService = require('../services/addShippingWarehouse.service');
 const uploadStoreAvatarService = require('../services/uploadStoreAvatar.service');
 const uploadStoreBannerService = require('../services/uploadStoreBanner.service');
+const deleteStoreAvatarService = require('../services/deleteStoreAvatar.service');
 const verifyOTPService = require('../services/verifyOTP.service');
 const selectCategoriesService = require('../services/selectCategories.service');
 const updateCategoriesService = require('../services/updateCategories.service');
@@ -637,6 +638,31 @@ async function uploadStoreBanner(req, res, next) {
 }
 
 /**
+ * Delete store avatar for a seller.
+ *
+ * This controller removes the seller's current store avatar by delegating to the
+ * service layer, which deletes the object from S3 (best-effort) and clears the
+ * `storeAvatar` field on the seller document.
+ *
+ * Why:
+ * - Allows sellers to intentionally remove their avatar image
+ * - Keeps profile state accurate and storage usage efficient
+ *
+ * @param {Request} req - Express request object with authenticated seller in `req.user`
+ * @param {Response} res - Express response utility (augmented with `success`)
+ * @param {Function} next - Express next middleware for centralized error handling
+ */
+async function deleteStoreAvatar(req, res, next) {
+  try {
+    const sellerId = req.user.id;
+    const response = await deleteStoreAvatarService.deleteStoreAvatar(sellerId);
+    res.success(response, 'Store avatar deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * Verify OTP for seller email verification.
  *
  * This controller handles the OTP verification HTTP request.
@@ -949,6 +975,7 @@ module.exports = {
   addShippingWarehouse,
   uploadStoreAvatar,
   uploadStoreBanner,
+  deleteStoreAvatar,
   selectCategories,
   updateCategories,
   getTopProducts,
