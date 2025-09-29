@@ -300,6 +300,50 @@ router.put('/profile', verifyToken, buyerController.updateProfile);
  */
 router.put('/profile/avatar', verifyToken, upload.single('avatar'), buyerController.uploadProfileImage);
 
+/**
+ * @swagger
+ * /api/v2/buyers/profile/avatar:
+ *   delete:
+ *     summary: Delete buyer profile image
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile image deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile image deleted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     firstName:
+ *                       type: string
+ *                     lastName:
+ *                       type: string
+ *                     username:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     profileImage:
+ *                       type: object
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/profile/avatar', verifyToken, buyerController.deleteProfileImage);
+
 module.exports = router;
 
 
