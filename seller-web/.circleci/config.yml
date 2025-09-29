@@ -84,11 +84,12 @@ commands:
           path: package-lock.json
       - when:
           condition: << parameters.save_cache >>
-          save_cache:
-            name: Save vendor cache
-            key: v1-seller-{{ .Environment.CIRCLE_WORKFLOW_ID }}
-            paths:
-              - << pipeline.parameters.build_path >>
+          steps:
+            save_cache:
+              name: Save vendor cache
+              key: v1-seller-{{ .Environment.CIRCLE_WORKFLOW_ID }}
+              paths:
+                - << pipeline.parameters.build_path >>
   vendor_restore_cache:
     description: Restore vendor cache
     steps:
