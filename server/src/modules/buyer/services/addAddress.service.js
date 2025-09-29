@@ -151,17 +151,27 @@ async function addAddress(buyerId, addressData) {
   // This ensures all address fields meet validation requirements
   await addAddressValidator.validateAddAddressData(addressData, buyerId);
 
-  // Step 2: Add new address to buyer using repository
-  // This adds the validated address to the buyer's shipping addresses array
-  const updatedBuyer = await buyerRepository.addShippingAddress(buyerId, addressData);
-
-  // Step 3: Check if buyer exists
-  // This prevents processing for non-existent buyers
-  if (!updatedBuyer) {
+  // Step 2: Fetch buyer to allow defaulting missing contact fields
+  // We default firstName, lastName, email, and phoneNumber from the buyer profile
+  const buyer = await buyerRepository.findById(buyerId);
+  if (!buyer) {
     throw new NotFoundException('Buyer not found');
   }
 
-  // Step 4: Return the newly added address
+  // Step 3: Merge provided address data with buyer defaults for contact fields
+  const mergedAddressData = {
+    ...addressData,
+    firstName: addressData.firstName ?? buyer.firstName ?? undefined,
+    lastName: addressData.lastName ?? buyer.lastName ?? undefined,
+    email: addressData.email ?? buyer.email ?? undefined,
+    phoneNumber: addressData.phoneNumber ?? buyer.phoneNumber ?? undefined
+  };
+
+  // Step 4: Add new address to buyer using repository
+  // This adds the (potentially defaulted) address to the buyer's shipping addresses array
+  const updatedBuyer = await buyerRepository.addShippingAddress(buyerId, mergedAddressData);
+
+  // Step 5: Return the newly added address
   // Extract the last address from the array (the newly added one)
   const addedAddress = updatedBuyer.shippingAddresses[updatedBuyer.shippingAddresses.length - 1];
 
