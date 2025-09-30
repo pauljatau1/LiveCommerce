@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils"
 import PropTypes from "prop-types";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/Components/ui/command"
 import { Check } from "lucide-react"
+import { RotateCcw } from "lucide-react"
 
 export default function Coupons() {
   // Add coupon type state
@@ -73,6 +74,10 @@ export default function Coupons() {
   const [priceWarnings, setPriceWarnings] = useState({})
   const [showWarningDialog, setShowWarningDialog] = useState(false)
   const [warningProducts, setWarningProducts] = useState([])
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetError, setResetError] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     const fetchSellerProducts = async () => {
@@ -120,7 +125,7 @@ export default function Coupons() {
     }
 
     fetchSellerProducts()
-  }, [currentPage, itemsPerPage]) // Add dependencies to re-fetch when page changes
+  }, [currentPage, itemsPerPage, refreshKey]) // Add dependencies to re-fetch when page changes
 
   // Update form data when start time option changes
   useEffect(() => {
@@ -357,6 +362,31 @@ export default function Coupons() {
   const handleItemsPerPageChange = (newLimit) => {
     setItemsPerPage(newLimit)
     setCurrentPage(1) // Reset to first page when changing items per page
+  }
+
+  // Handle reset all discounts for this seller
+  const handleResetAllDiscounts = async () => {
+    setResetError(null)
+    setResetLoading(true)
+    try {
+      const sellerToken = localStorage.getItem('sellerToken')
+      if (!sellerToken) throw new Error('Not authenticated')
+      const tokenData = JSON.parse(sellerToken)
+      const token = tokenData.data
+
+      await axios.post(`${BASE_URL}/coupons/reset`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      setResetConfirmOpen(false)
+      setSelectedProducts([])
+      setPriceWarnings({})
+      setRefreshKey((k) => k + 1)
+    } catch (err) {
+      setResetError(err.response?.data?.message || err.message)
+    } finally {
+      setResetLoading(false)
+    }
   }
 
   return (
@@ -671,22 +701,38 @@ export default function Coupons() {
             {couponType === 'special' ? 'Select Applicable Products' : 'Select Products to Discount'}
           </h2>
           
-          {/* Improved search bar */}
-          <div className="max-w-md mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
-              <Input
-                placeholder="Search products by name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+          {/* Toolbar: search + reset */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+            <div className="max-w-md w-full">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                <Input
+                  placeholder="Search products by name..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setResetConfirmOpen(true)}
+                className="flex items-center gap-2 text-red-700 border-red-200 hover:bg-red-50"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset All Discounts
+              </Button>
             </div>
           </div>
 
           {error && (
             <div className="text-red-500 text-sm">{error}</div>
           )}
+        {resetError && (
+          <div className="text-red-600 text-sm mb-3">{resetError}</div>
+        )}
 
           <div className="border rounded-md">
             <Table>
@@ -1052,6 +1098,44 @@ export default function Coupons() {
               className="bg-green-600 hover:bg-green-700"
             >
               View All Coupons
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Confirmation Dialog */}
+      <Dialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <RotateCcw className="h-5 w-5" />
+              Reset All Discounts
+            </DialogTitle>
+            <DialogDescription>
+              This will expire all your active coupons and clear discounted prices from your products. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setResetConfirmOpen(false)}
+              disabled={resetLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleResetAllDiscounts}
+              disabled={resetLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {resetLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Resetting...</span>
+                </div>
+              ) : (
+                'Reset Now'
+              )}
             </Button>
           </div>
         </DialogContent>
