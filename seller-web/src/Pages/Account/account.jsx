@@ -230,36 +230,59 @@ export default function AccountPage() {
   };
 
   const handleAvatarUpload = async (event) => {
+    // Get the selected file; if none, do nothing
     const file = event.target.files[0];
     if (!file) return;
 
-    // Show loading toast
+    // Preserve the current avatar to allow reverting on failure
+    const previousAvatar = profile?.storeAvatar ? { ...profile.storeAvatar } : null;
+
+    // Create a temporary local preview URL for instant UI feedback
+    const localPreviewUrl = URL.createObjectURL(file);
+
+    // Optimistically show the new image immediately in the UI by updating profile state
+    // We only set the url field so existing consumers continue to work unchanged
+    setProfile((prev) => ({
+      ...prev,
+      storeAvatar: {
+        ...(prev?.storeAvatar || {}),
+        url: localPreviewUrl,
+      },
+    }));
+
+    // Show loading toast for background upload
     const loadingToast = toast.loading('Uploading profile picture...');
 
+    // Prepare form payload
     const formData = new FormData();
     formData.append('avatar', file);
 
     try {
+      // Execute upload request
       const tokenData = JSON.parse(localStorage.getItem("sellerToken"));
       const response = await fetch(`${BASE_URL_V2}/sellers/profile/avatar`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${tokenData.data}`,
+          Authorization: `Bearer ${tokenData?.data}`,
         },
         body: formData,
       });
 
+      // Handle non-2xx responses as failures
       if (!response.ok) throw new Error('Failed to upload avatar');
-
-      const data = await response.json();
-      setProfile(prev => ({
-        ...prev,
-        storeAvatar: data.data.storeAvatar
-      }));
 
       toast.dismiss(loadingToast);
       toast.success('Profile picture updated successfully!');
     } catch (error) {
+      // On failure, revert profile avatar back to the previous value
+      setProfile((prev) => ({
+        ...prev,
+        storeAvatar: previousAvatar || null,
+      }));
+
+      // Clean up the temporary object URL since it's no longer needed
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+
       toast.dismiss(loadingToast);
       toast.error('Failed to update profile picture');
       console.error('Error uploading avatar:', error);
@@ -269,6 +292,21 @@ export default function AccountPage() {
   const handleBannerUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
+
+    const previousBanner = profile?.storeBanner ? { ...profile.storeBanner } : null;
+
+    // Create a temporary local preview URL for instant UI feedback
+    const localPreviewUrl = URL.createObjectURL(file);
+
+    // Optimistically show the new image immediately in the UI by updating profile state
+    // We only set the url field so existing consumers continue to work unchanged
+    setProfile((prev) => ({
+      ...prev,
+      storeBanner: {
+        ...(prev?.storeBanner || {}),
+        url: localPreviewUrl,
+      },
+    }));
 
     // Show loading toast
     const loadingToast = toast.loading('Uploading cover image...');
@@ -288,15 +326,18 @@ export default function AccountPage() {
 
       if (!response.ok) throw new Error('Failed to upload banner');
 
-      const data = await response.json();
-      setProfile(prev => ({
-        ...prev,
-        storeBanner: data.data.storeBanner
-      }));
-
       toast.dismiss(loadingToast);
       toast.success('Cover image updated successfully!');
     } catch (error) {
+      // On failure, revert profile banner back to the previous value
+      setProfile((prev) => ({
+        ...prev,
+        storeBanner: previousBanner || null,
+      }));
+
+      // Clean up the temporary object URL since it's no longer needed
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+
       toast.dismiss(loadingToast);
       toast.error('Failed to update cover image');
       console.error('Error uploading banner:', error);
@@ -478,7 +519,7 @@ export default function AccountPage() {
           onChange={handleBannerUpload}
           className="hidden"
         />
-        <label htmlFor="banner-upload" className="absolute inset-0 z-10 cursor-pointer group">
+        <label htmlFor="banner-upload" className="absolute bg-gray-500 inset-0 z-10 cursor-pointer group">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" />
           <img
             src={profile?.storeBanner?.url || "https://a.storyblok.com/f/191576/768x432/ba499c40d2/nice-backgrounds-cover.webp"}
@@ -494,7 +535,7 @@ export default function AccountPage() {
       {/* Profile Content */}
       <div className="mx-auto px-3 sm:px-6 lg:px-8">
         <div className="relative -mt-10 sm:-mt-16 mb-4 sm:mb-8">
-          <div className="relative mb-4 sm:mb-8 z-20">
+          <div className="relative mb-4 sm:mb-8 w-fit z-20">
             <input
               type="file"
               id="avatar-upload"
