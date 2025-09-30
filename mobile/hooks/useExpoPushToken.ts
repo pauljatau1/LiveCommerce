@@ -42,12 +42,12 @@ export const usePushNotifications = (): PushNotificationState => {
         finalStatus = status;
       }
 
-      if (finalStatus !== "granted") {
-        Alert.alert(
-          "Notification failed",
-          "Permission for notification was denied",
-        );
-      }
+      // if (finalStatus !== "granted") {
+      //   Alert.alert(
+      //     "Notification failed",
+      //     "Permission for notification was denied",
+      //   );
+      // }
 
       token = await Notifications.getExpoPushTokenAsync({
         projectId: Constants.expoConfig?.extra?.eas?.projectId,

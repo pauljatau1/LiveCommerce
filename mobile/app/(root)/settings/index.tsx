@@ -278,12 +278,12 @@ const Settings = () => {
         title=""
         show={showDeleteSheet}
         titleColor="!text-white"
-        snapPoints={["27%"]}
-        enableDynamicSizing={false}
         onRequestClose={() => {
           setShowDeleteSheet(false);
         }}
         keyboardBehavior="interactive"
+        enableContentPanningGesture
+        enablePanDownToClose
       >
         <DeleteSheet
           closeSheet={() => {

@@ -13,13 +13,13 @@ import Colors from "@/constants/Colors";
 
 interface TextInputType
   extends Omit<TextInputProps, "onBlur" | "onChangeText"> {
-  isFocused: boolean;
   hasError: boolean;
   name: string;
   showLabel?: boolean;
   error?: string | null;
   onBlur?: Noop;
   onChangeText?: any;
+  leftText?: string;
 }
 
 const FormInput = ({
@@ -28,24 +28,26 @@ const FormInput = ({
   onChangeText,
   placeholder,
   value,
-  isFocused,
   hasError,
   error = null,
   showLabel = false,
+  leftText,
   ...rest
 }: TextInputType) => {
   const [showSecureEntry, setShowSecureEntry] = useState<boolean>(
     rest?.secureTextEntry ? true : false,
   );
+  const [isFocused, setIsFocused] = useState<boolean>(false);
   return (
     <View className="w-full shrink">
       {showLabel && (
         <View className="flex-row items-center justify-between">
           <Text
             className={clsx(
-              " text-[14px] font-LexendDecaLight tracking-[-0.22px] leading-[24px] mb-[8px] capitalize",
+              " text-[14px] font-LexendDecaLight tracking-[-0.22px] leading-[24px] mb-[8px] capitalize shrink",
               hasError ? "text-errorRed" : "text-[#FFFFFF]",
             )}
+            numberOfLines={1}
           >
             {rest?.name}
           </Text>
@@ -61,18 +63,29 @@ const FormInput = ({
 
       <View
         className={clsx(
-          "flex-row items-center gap-[6px] bg-[#FFFFFF05] px-[16px] py-[16px] rounded-[10px] border-[1px] border-[#FFFFFF33]",
+          "flex-row items-center gap-[6px] bg-[#FFFFFF05] px-[16px] h-[50px] rounded-[10px] border-[1px]",
           isFocused
-            ? "border-primary"
+            ? "border-[#16783A]"
             : hasError
-              ? "border-errorRed"
+              ? "!border-errorRed"
               : "border-[#FFFFFF33]",
         )}
       >
+        {leftText && (
+          <Text className="text-[16px] text-[#FFFFFF99] font-LexendDecaLight tracking-[-0.22px]">
+            {leftText}
+          </Text>
+        )}
         <TextInput
           placeholder={placeholder}
-          onBlur={onBlur}
-          onFocus={onFocus}
+          onBlur={(e) => {
+            setIsFocused(false);
+            onBlur ? onBlur() : null;
+          }}
+          onFocus={(e) => {
+            setIsFocused(true);
+            onFocus ? onFocus(e) : null;
+          }}
           onChangeText={onChangeText}
           value={value}
           placeholderTextColor={"#FFFFFF99"}
@@ -83,6 +96,8 @@ const FormInput = ({
           autoCapitalize={rest.autoCapitalize}
           autoCorrect={rest.autoCorrect}
           secureTextEntry={showSecureEntry}
+          maxLength={rest?.maxLength}
+          inputMode={rest?.inputMode}
         />
         {rest?.secureTextEntry && (
           <TouchableOpacity

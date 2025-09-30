@@ -4,6 +4,11 @@ export function validatePhoneNumber(phoneNumber) {
   return phonePattern.test(phoneNumber);
 }
 
+export function normalizeNGNNumber(phoneNumber) {
+  if (!phoneNumber) return "";
+  return `0${phoneNumber?.replaceAll("-", "")?.slice(-10)}`;
+}
+
 export function validateZipCode(zipCode) {
   const zipCodePattern = /^\d{6}$/;
   return zipCodePattern.test(zipCode);

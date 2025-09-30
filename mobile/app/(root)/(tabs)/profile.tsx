@@ -148,7 +148,15 @@ const CollapsibleHeader = memo(
                 <Pressable
                   className="w-[100px] items-center justify-center rounded-[6px] border-[#16783A] border-[1px]"
                   style={{ paddingVertical: 7.5, width: 100 }}
-                  // onPress={() => router.push(`/welcome`)}
+                  onPress={() => {
+                    if (
+                      process.env.EXPO_PUBLIC_API_URL ===
+                      "https://api.staging.auqli.live/"
+                    ) {
+                      return router.push("/update");
+                    }
+                    // router.push(`/welcome`)
+                  }}
                 >
                   <Text className="text-white font-LexendDeca text-[10px]">
                     Share Profile

@@ -32,6 +32,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useIsFocused } from "@react-navigation/native";
 import BottomSheet from "@/components/global/bottom-sheet";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { router } from "expo-router";
 
 const { height } = Dimensions.get("screen");
 const Blips = () => {
@@ -55,6 +56,12 @@ const Blips = () => {
 
     if (version.needsUpdate) {
       setVersion(version);
+      return router.push({
+        pathname: "/update",
+        params: {
+          url: version.url,
+        },
+      });
       setShowUpdateSheet(true);
       // Alert.alert(
       //   "New Update Available",

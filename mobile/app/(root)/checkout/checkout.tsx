@@ -55,6 +55,7 @@ import CartItem from "@/components/orders/cartItem";
 import AddressSheet from "@/components/orders/addressSheet";
 // import CallPaystack from "./callPaystack";
 import SelectRatesSheet from "@/components/orders/selectRatesSheet";
+import { normalizeNGNNumber } from "@/helpers/helpers";
 
 const { width, height } = Dimensions.get("window");
 
@@ -234,16 +235,10 @@ const Checkout = () => {
   const handleSelectAddress = (address: any) => {
     const delivery_address = {
       _id: address?._id,
-      first_name: user?.firstName,
-      last_name: user?.lastName,
+      first_name: address?.firstName || user?.firstName,
+      last_name: address?.lastName || user?.lastName,
       email: user?.email,
-      phone:
-        user?.phoneNumber.replaceAll("-", "")?.length > 14
-          ? user?.phoneNumber
-              .replaceAll("-", "")
-              ?.replace("+234", "")
-              ?.replace("0", "")
-          : user?.phoneNumber.replaceAll("-", ""),
+      phone: normalizeNGNNumber(address?.phoneNumber || user?.phoneNumber),
       line1: address?.addressLine1,
       state: address?.state,
       city: address?.city,
@@ -291,7 +286,7 @@ const Checkout = () => {
   const getAddresses = async () => {
     try {
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL + "api/buyer/addresses",
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/addresses",
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -299,25 +294,22 @@ const Checkout = () => {
         },
       );
 
-      setAddresses(response.data);
-      if (response.data.length > 0) {
+      setAddresses(response.data?.data);
+      const responseAddress = response?.data?.data?.[0];
+      if (responseAddress) {
         const delivery_address = {
-          _id: response.data[0]?._id,
-          first_name: user?.firstName,
-          last_name: user?.lastName,
+          _id: responseAddress?._id,
+          first_name: responseAddress?.firstName || user?.firstName,
+          last_name: responseAddress?.lastName || user?.lastName,
           email: user?.email,
-          phone:
-            user?.phoneNumber.replaceAll("-", "")?.length > 14
-              ? user.phoneNumber
-                  .replaceAll("-", "")
-                  ?.replace("+234", "")
-                  ?.replace("0", "")
-              : user?.phoneNumber.replaceAll("-", ""),
-          line1: response.data[0]?.addressLine1,
-          state: response.data[0]?.state,
-          city: response.data[0]?.city,
-          zip: response.data[0]?.zipCode,
-          country: response.data[0]?.country,
+          phone: normalizeNGNNumber(
+            responseAddress?.phoneNumber || user?.phoneNumber,
+          ),
+          line1: responseAddress?.addressLine1,
+          state: responseAddress?.state,
+          city: responseAddress?.city,
+          zip: responseAddress?.zipCode,
+          country: responseAddress?.country,
         };
 
         setSelectedAddress(delivery_address);

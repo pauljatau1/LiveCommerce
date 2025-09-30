@@ -393,6 +393,16 @@ const Layout = () => {
           headerShown: false,
         }}
       />
+
+      <Stack.Screen
+        name="update/index"
+        options={{
+          presentation: "fullScreenModal",
+          headerTitle: "",
+          headerShadowVisible: false,
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 };

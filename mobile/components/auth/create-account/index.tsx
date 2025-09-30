@@ -1,7 +1,4 @@
-/* eslint-disable max-lines-per-function */
-
 // import 'react-phone-number-input/style.css';
-
 import { format } from "date-fns";
 import { Link, router } from "expo-router";
 import React, { useEffect, useRef } from "react";
@@ -12,8 +9,6 @@ import Input from "@/components/global/textInput";
 import PhoneNumberInput from "@/components/global/custom-input";
 import CustomButton from "@/components/global/button/CustomButton";
 import CheckBox from "@/components/global/check-box";
-// import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-// import Select, { OptionComponent, Trigger } from "@/components/global/select";
 import { useSignUpMutation } from "@/services/auth";
 import { toast } from "@/core/toast";
 import PhoneInput, { isValidNumber } from "react-native-phone-number-input";
@@ -27,10 +22,7 @@ import { trackEvent as trackMixpanelEvent } from "@/utils/mixpanel";
 import { trackFacebookEvent } from "@/utils/facebook-analytics";
 import { trackEvent as trackCustomerioEvent } from "@/utils/customerio";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
-import {
-  KeyboardAvoidingView,
-  KeyboardAwareScrollView,
-} from "react-native-keyboard-controller";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 const service = [
   {
@@ -63,6 +55,7 @@ const CreateAccount = () => {
       lastName: "",
       userName: "",
       email: "",
+      confirmEmail: "",
       phone: "",
       country: {
         label: "",
@@ -218,7 +211,7 @@ const CreateAccount = () => {
           <View>
             <View className="my-[48px] mb-10">
               <Text className="mb-2 text-center text-[24px] font-LexendDecaMedium text-white tracking-[-0.22px]">
-                Signup
+                Sign up
               </Text>
               <Text className="text-center font-LexendDecaLight text-[#425466] tracking-[-0.22px]">
                 To get max benefits at Auqli, please take a few minutes to
@@ -227,7 +220,7 @@ const CreateAccount = () => {
             </View>
             <View className="gap-y-[16px]">
               <FormProvider {...methods}>
-                <View className="w-full flex-row gap-x-2">
+                {/* <View className="w-full flex-row gap-x-2">
                   <View className="flex-1">
                     <Input
                       name="firstName"
@@ -246,7 +239,7 @@ const CreateAccount = () => {
                       autoCapitalize="words"
                     />
                   </View>
-                </View>
+                </View> */}
                 <Input
                   name="userName"
                   label="Username"
@@ -261,26 +254,15 @@ const CreateAccount = () => {
                   keyboardType="email-address"
                   rules={["required", "email"]}
                 />
-                {/* <Input
-                  name="Country"
-                  label="Country"
-                  placeholder="Nigeria"
-                  readOnly
-                /> */}
-                {/* <Select
-                    name="country"
-                    required
-                    label="Country"
-                    enableDynamicSizing={false}
-                    options={service}
-                    trigger={(selected) => Trigger(selected, "Select Country")}
-                    // eslint-disable-next-line max-params
-                    optionComponent={(option, selected, length, index) =>
-                      OptionComponent(option, selected, length, index)
-                    }
-                    estimatedItemSize={4}
-                  /> */}
-                <View>
+                <Input
+                  name="confirmEmail"
+                  label="Confirm email"
+                  placeholder="Enter your email"
+                  keyboardType="email-address"
+                  rules={["required", "confirmEmail"]}
+                  contextMenuHidden={true}
+                />
+                {/* <View>
                   <Text className="mb-[12px] font-LexendDecaLight text-[14px] tracking-[-0.22px] text-white">
                     Mobile Number
                   </Text>
@@ -336,7 +318,6 @@ const CreateAccount = () => {
                             paddingRight: 10,
                             borderTopRightRadius: 6,
                             borderBottomRightRadius: 6,
-                            // paddingTop: 15,
                             minWidth: "200%",
                           }}
                           textInputStyle={{
@@ -353,28 +334,27 @@ const CreateAccount = () => {
                         {errors.phone && (
                           <Text className="mt-2 text-left font-LexendDeca text-[12px] tracking-[-0.24px] text-red-500">
                             *{errors?.phone.message as string}
-                            {/* {value} */}
                           </Text>
                         )}
                       </View>
                     )}
                   />
-                </View>
+                </View> */}
 
                 <Input
                   name="password"
-                  label="Create Password"
+                  label="Password"
                   placeholder="Enter your password"
                   secureTextEntry
                   rules={["required", "password"]}
                 />
-                <Input
+                {/* <Input
                   name="confirmPassword"
                   label="Confirm Password"
                   placeholder="Confirm Password"
                   secureTextEntry
                   rules={["required", "confirmPassword"]}
-                />
+                /> */}
 
                 <View className="mt-2 w-full flex-row items-center justify-between">
                   <Controller
