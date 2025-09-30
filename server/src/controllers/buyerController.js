@@ -826,14 +826,23 @@ exports.getPurchaseAnalytics = async (req, res) => {
 exports.getAddresses = async (req, res) => {
   try {
     const buyer = await Buyer.findById(req.user.id)
-      .select('shippingAddresses');
+      .select('shippingAddresses firstName lastName email phoneNumber');
 
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
-    // Return complete address objects
-    res.json(buyer.shippingAddresses);
+    // Return address objects defaulting missing contact fields from buyer profile
+    const { firstName, lastName, email, phoneNumber } = buyer;
+    const addresses = buyer.shippingAddresses.map(addr => ({
+      ...addr.toObject?.() ? addr.toObject() : addr,
+      firstName: addr.firstName ?? firstName,
+      lastName: addr.lastName ?? lastName,
+      email: addr.email ?? email,
+      phoneNumber: addr.phoneNumber ?? phoneNumber
+    }));
+
+    res.json(addresses);
   } catch (error) {
     res.status(500).json({
       message: 'Failed to retrieve addresses',
@@ -852,7 +861,11 @@ exports.addAddress = async (req, res) => {
       city,
       addressLine1,
       addressLine2,
-      zipCode
+      zipCode,
+      firstName,
+      lastName,
+      email,
+      phoneNumber
     } = req.body;
 
     // Validate required fields
@@ -882,6 +895,7 @@ exports.addAddress = async (req, res) => {
       addr => addr.addressType === addressType
     );
 
+    // Default missing contact fields from buyer profile
     const newAddress = {
       addressType,
       country,
@@ -889,7 +903,11 @@ exports.addAddress = async (req, res) => {
       city,
       addressLine1,
       addressLine2,
-      zipCode
+      zipCode,
+      firstName: firstName ?? buyer.firstName,
+      lastName: lastName ?? buyer.lastName,
+      email: email ?? buyer.email,
+      phoneNumber: phoneNumber ?? buyer.phoneNumber
     };
 
     // Add new address to the array
@@ -1691,9 +1709,9 @@ exports.getSellerProfile = async (req, res) => {
         accountPending: seller.accountPending || false,
         joinedDate: seller.createdAt,
         bio: seller.aboutStore,
-        isFollowing: seller.followers?.some(
+        isFollowing: (req.user?.id && req.user?.role === 'Buyer') ? (seller.followers?.some(
           follower => follower.buyerId?.toString() === req.user.id
-        ) || false,
+        ) || false) : false,
         socialMedia: {
           instagram: seller.socialMedia?.instagram || null,
           facebook: seller.socialMedia?.facebook || null,

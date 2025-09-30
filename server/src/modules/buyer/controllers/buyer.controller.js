@@ -3,6 +3,7 @@ const loginService = require('../services/login.service');
 const profileService = require('../services/profile.service');
 const updateProfileService = require('../services/updateProfile.service');
 const uploadProfileImageService = require('../services/uploadProfileImage.service');
+const deleteProfileImageService = require('../services/deleteProfileImage.service');
 const verifyOTPService = require('../services/verifyOTP.service');
 const resendOTPService = require('../services/resendOTP.service');
 const checkTokenService = require('../services/checkToken.service');
@@ -204,6 +205,26 @@ async function uploadProfileImage(req, res, next) {
     res.success(response, 'Profile image uploaded successfully');
   } catch (err) {
     // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Delete buyer profile image.
+ *
+ * Removes the current profile image for the authenticated buyer. The service
+ * best-effort deletes the S3 object (if tracked) and clears `profileImage`.
+ *
+ * @param {Request} req - Express request object with user in `req.user`
+ * @param {Response} res - Express response object
+ * @param {Function} next - Express next middleware
+ */
+async function deleteProfileImage(req, res, next) {
+  try {
+    const buyerId = req.user.id;
+    const response = await deleteProfileImageService.deleteProfileImage(buyerId);
+    res.success(response, 'Profile image deleted successfully');
+  } catch (err) {
     next(err);
   }
 }
@@ -727,20 +748,24 @@ async function verifyPhoneOTP(req, res, next) {
  *
  * This controller handles the seller profile retrieval HTTP request.
  * It delegates the profile logic to the service layer and returns the complete seller profile.
+ * This endpoint works with or without authentication - if authenticated, it provides
+ * additional context like following status, otherwise it returns public profile data.
  *
- * @param {Request} req - Express request object containing the seller ID in `req.params.sellerId` and buyer's ID in `req.user.id`
+ * @param {Request} req - Express request object containing the seller ID in `req.params.sellerId` and optionally buyer's ID in `req.user.id`
  * @param {Response} res - Express response object used to return the response
  * @param {Function} next - Express next middleware function for error handling
  */
 async function getSellerProfile(req, res, next) {
   try {
-    // Extract buyer ID from authenticated user
-    const buyerId = req.user.id;
+    // Extract buyer ID from authenticated user (if available and is a buyer)
+    // This will be null if no authentication token is provided or if user is not a buyer
+    const buyerId = (req.user?.id && req.user?.role === 'Buyer') ? req.user.id : null;
 
     // Extract seller ID from request parameters
     const sellerId = req.params.sellerId;
 
     // Call the service layer to handle seller profile retrieval logic
+    // Service will handle null buyerId gracefully
     const response = await getSellerProfileService.getSellerProfile(sellerId, buyerId);
 
     // Send success response with seller profile data
@@ -1445,6 +1470,7 @@ module.exports = {
   checkToken,
   updateProfile,
   uploadProfileImage,
+  deleteProfileImage,
   verifyOTP,
   resendOTP,
   updateSelectedCategories,

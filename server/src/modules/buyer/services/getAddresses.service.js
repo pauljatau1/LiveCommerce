@@ -132,9 +132,22 @@ async function getAddresses(buyerId) {
     throw new NotFoundException('Buyer not found');
   }
 
-  // Step 3: Return complete address objects or empty array if null
-  // This ensures consistent response format even when no addresses exist
-  return buyer.shippingAddresses || [];
+  // Step 3: Default missing contact fields on each address from buyer profile
+  // This ensures older addresses created before contact fields were added still expose contact info
+  const firstName = buyer.firstName;
+  const lastName = buyer.lastName;
+  const email = buyer.email;
+  const phoneNumber = buyer.phoneNumber;
+
+  const addressesWithDefaults = (buyer.shippingAddresses || []).map(addr => ({
+    ...addr.toObject?.() ? addr.toObject() : addr,
+    firstName: addr.firstName ?? firstName,
+    lastName: addr.lastName ?? lastName,
+    email: addr.email ?? email,
+    phoneNumber: addr.phoneNumber ?? phoneNumber
+  }));
+
+  return addressesWithDefaults;
 }
 
 module.exports = {

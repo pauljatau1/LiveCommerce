@@ -17,12 +17,14 @@ const addBusinessInformationService = require('../services/addBusinessInformatio
 const addShippingWarehouseService = require('../services/addShippingWarehouse.service');
 const uploadStoreAvatarService = require('../services/uploadStoreAvatar.service');
 const uploadStoreBannerService = require('../services/uploadStoreBanner.service');
+const deleteStoreAvatarService = require('../services/deleteStoreAvatar.service');
 const verifyOTPService = require('../services/verifyOTP.service');
 const selectCategoriesService = require('../services/selectCategories.service');
 const updateCategoriesService = require('../services/updateCategories.service');
 const getTopProductsService = require('../services/getTopProducts.service');
 const getStatisticsService = require('../services/getStatistics.service');
 const getOrdersService = require('../services/getOrders.service');
+const getShippingLabelService = require('../services/getShippingLabel.service');
 
 /**
  * Register a seller user.
@@ -636,6 +638,31 @@ async function uploadStoreBanner(req, res, next) {
 }
 
 /**
+ * Delete store avatar for a seller.
+ *
+ * This controller removes the seller's current store avatar by delegating to the
+ * service layer, which deletes the object from S3 (best-effort) and clears the
+ * `storeAvatar` field on the seller document.
+ *
+ * Why:
+ * - Allows sellers to intentionally remove their avatar image
+ * - Keeps profile state accurate and storage usage efficient
+ *
+ * @param {Request} req - Express request object with authenticated seller in `req.user`
+ * @param {Response} res - Express response utility (augmented with `success`)
+ * @param {Function} next - Express next middleware for centralized error handling
+ */
+async function deleteStoreAvatar(req, res, next) {
+  try {
+    const sellerId = req.user.id;
+    const response = await deleteStoreAvatarService.deleteStoreAvatar(sellerId);
+    res.success(response, 'Store avatar deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * Verify OTP for seller email verification.
  *
  * This controller handles the OTP verification HTTP request.
@@ -890,6 +917,43 @@ async function getOrders(req, res, next) {
   }
 }
 
+/**
+ * Generate shipping label for a specific order item.
+ *
+ * This controller handles the shipping label generation HTTP request.
+ * It delegates the shipping label generation logic to the service layer,
+ * and sends a success response with the shipping label details.
+ *
+ * @param {Request} req - Express request object containing orderId in `req.params` and itemId in `req.query`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getShippingLabel(req, res, next) {
+  try {
+    // Extract order ID from request parameters and item ID from query parameters
+    const { orderId } = req.params;
+    const { itemId } = req.query;
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+
+    // Prepare data for service layer
+    const shippingLabelData = {
+      orderId,
+      itemId,
+      sellerId
+    };
+
+    // Call the service layer to handle shipping label generation logic
+    const response = await getShippingLabelService.getShippingLabel(shippingLabelData);
+
+    // Send a 200 OK response with success message and shipping label data
+    res.success(response, 'Shipping label generated successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -911,9 +975,11 @@ module.exports = {
   addShippingWarehouse,
   uploadStoreAvatar,
   uploadStoreBanner,
+  deleteStoreAvatar,
   selectCategories,
   updateCategories,
   getTopProducts,
   getStatistics,
-  getOrders
+  getOrders,
+  getShippingLabel
 };
