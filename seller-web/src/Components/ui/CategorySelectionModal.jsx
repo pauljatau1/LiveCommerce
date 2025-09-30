@@ -172,7 +172,7 @@ const CategorySelectionModal = memo(({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[800px] w-[90vw] p-0 max-h-[85vh] flex flex-col bg-[#FAFAFA]">
+      <DialogContent className="max-w-[800px] w-[90vw] p-0 max-h-[95vh] flex flex-col bg-[#FAFAFA]">
         <DialogHeader className="px-6 pt-6 pb-2 border-b bg-white">
           <DialogTitle className="text-xl font-semibold text-[#17171B]">
             {activeTab === 'categories' ? 'Select Category' : 
@@ -212,7 +212,7 @@ const CategorySelectionModal = memo(({
 
         {/* Selection Breadcrumb */}
         <div className="px-6 py-3 border-b bg-[#F3F4F6] flex flex-wrap items-center justify-between">
-          <div className="flex items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap">
+          <div className="flex items-center gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] overflow-y-hidden whitespace-nowrap">
             <Button 
               variant="ghost" 
               className={`h-8 px-3 rounded-full text-sm ${activeTab === 'categories' ? 'bg-[#0BB248]/10 text-[#0BB248] hover:bg-[#0BB248]/20' : 'text-[#4B5563] hover:bg-gray-100'}`}
@@ -343,7 +343,7 @@ const CategorySelectionModal = memo(({
                 </div>
                 
                 {subCategoriesList.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-[50px] ">
                     {subCategoriesList.map((subCategory) => (
                       <SubCategoryItem
                         key={subCategory._id}
