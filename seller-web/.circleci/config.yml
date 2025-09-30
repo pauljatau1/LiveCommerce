@@ -65,6 +65,10 @@ commands:
             source "$BASH_ENV"
   vendor_install_with_cache:
     description: Install npm vendor dependencies
+    parameters:
+      save_cache:
+        type: boolean
+        default: true
     steps:
       - restore_cache:
           name: Restore existing vendor cache
@@ -78,11 +82,14 @@ commands:
             VITE_RELEASE_HASH: $CIRCLE_SHA1
       - store_artifacts:
           path: package-lock.json
-      - save_cache:
-          name: Save vendor cache
-          key: v1-seller-{{ .Environment.CIRCLE_WORKFLOW_ID }}
-          paths:
-            - << pipeline.parameters.build_path >>
+      - when:
+          condition: << parameters.save_cache >>
+          steps:
+            save_cache:
+              name: Save vendor cache
+              key: v1-seller-{{ .Environment.CIRCLE_WORKFLOW_ID }}
+              paths:
+                - << pipeline.parameters.build_path >>
   vendor_restore_cache:
     description: Restore vendor cache
     steps:
@@ -158,6 +165,20 @@ commands:
          command: |
            aws s3 sync dist/ s3://seller-whcwxwprdjwgbhuswvmzvtdfgakeriuj --delete
            aws s3 sync public/ s3://seller-whcwxwprdjwgbhuswvmzvtdfgakeriuj
+  quality_gate_command:
+    description: Quality gate
+    steps:
+      - run: 
+          name: Install dependencies
+          command: npm install eslint prettier 
+      - run:
+         name: Run eslint
+         command: npx eslint -f html . -o report.html || true
+      - store_artifacts:
+          path: report.html
+      - run:
+         name: Run prettier
+         command: npx prettier . --check || true
 
 jobs:
   build:
@@ -211,11 +232,29 @@ jobs:
       - vendor_restore_cache
       - deploy_to_s3_production
 
+  quality_gate:
+    executor: build
+    steps:
+      - checkout
+      - vendor_install_with_cache:
+          save_cache: false
+      - quality_gate_command
+
+
 workflows:
   build-test-and-approval-deploy:
     jobs:
       - build:
           name: build_staging
+          context:
+            - auqli_seller_staging_context
+          filters:
+            branches:
+              ignore:
+                - main
+
+      - quality_gate:
+          name: quality_gate
           context:
             - auqli_seller_staging_context
           filters:
