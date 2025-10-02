@@ -2263,6 +2263,76 @@ agenda.define('monthly_livestream_analytics', async (job) => {
   }
 });
 
+// Define job for daily cleanup of expired coupons and their product discounts
+agenda.define('daily_coupon_cleanup', async (job) => {
+  try {
+    console.log('Starting daily coupon cleanup job');
+    
+    const Coupon = mongoose.model('Coupon');
+    const Product = mongoose.model('Product');
+    
+    const now = new Date();
+    
+    // Find all coupons that have expired but are still marked as active
+    const expiredCoupons = await Coupon.find({
+      $or: [
+        { endDate: { $lte: now }, status: 'active' },
+        { endDate: { $lte: now }, status: 'inactive' }
+      ]
+    });
+    
+    console.log(`Found ${expiredCoupons.length} expired coupons to clean up`);
+    
+    let cleanedCoupons = 0;
+    let cleanedProducts = 0;
+    
+    for (const coupon of expiredCoupons) {
+      try {
+        // Get all product IDs from the coupon's applicable products
+        const productIds = coupon.applicableProducts.map(ap => ap.product);
+        
+        // Update all products to deactivate the discount and clear expired coupon data
+        if (productIds.length > 0) {
+          const productUpdateResult = await Product.updateMany(
+            {
+              _id: { $in: productIds },
+              'discount.couponName': coupon.name,
+              'discount.isActive': true // Only update products with active discounts
+            },
+            {
+              $set: {
+                'discount.isActive': false,
+                'pricing.discountInfo.isActive': false,
+                'variants.$[].discount.isActive': false
+              }
+            }
+          );
+          
+          cleanedProducts += productUpdateResult.modifiedCount || 0;
+        }
+        
+        // Update the coupon status to expired
+        if (coupon.status !== 'expired') {
+          coupon.status = 'expired';
+          coupon.applicableProducts.forEach(product => {
+            product.status = 'expired';
+            product.lastUpdated = now;
+          });
+          await coupon.save();
+          cleanedCoupons++;
+        }
+      } catch (err) {
+        console.error(`Error cleaning up coupon ${coupon._id}:`, err.message);
+        continue;
+      }
+    }
+    
+    console.log(`Daily coupon cleanup completed: ${cleanedCoupons} coupons expired, ${cleanedProducts} products updated`);
+  } catch (error) {
+    console.error('Error in daily_coupon_cleanup job:', error);
+  }
+});
+
 // Define job for crediting welcome bonus to newly verified buyers
 agenda.define('credit_welcome_bonus', async (job) => {
   try {
@@ -2693,6 +2763,12 @@ const startAgenda = async () => {
     // Note: WAT is UTC+1, so 1:00 AM UTC on the 1st
     await agenda.every('0 1 1 * *', 'monthly_livestream_analytics');
     console.log('Scheduled monthly livestream analytics job to run at 2:00 AM WAT on the 1st day of each month');
+    
+    // Schedule daily coupon cleanup job to run at 3:00 AM WAT every day
+    // Note: WAT is UTC+1, so 2:00 AM UTC
+    // This ensures expired coupons are cleaned up and product discounts are deactivated
+    await agenda.every('0 2 * * *', 'daily_coupon_cleanup');
+    console.log('Scheduled daily coupon cleanup job to run at 3:00 AM WAT every day');
 
     console.log('All agenda jobs scheduled successfully');
     return true;
