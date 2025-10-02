@@ -392,4 +392,22 @@ router.get('/product/:productId',
   couponController.getProductCoupons
 );
 
+/**
+ * @swagger
+ * /api/coupons/reset:
+ *   post:
+ *     summary: Reset all coupons and discounts for the authenticated seller
+ *     tags: [Coupons]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: All coupons expired and discounts cleared
+ */
+router.post('/reset',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  couponController.resetAllSellerDiscounts
+);
+
 module.exports = router; 

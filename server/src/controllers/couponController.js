@@ -3,6 +3,72 @@ const Product = require('../models/Product');
 const Seller = require('../models/Seller');
 const notificationController = require('../controllers/notificationController');
 
+// Reset all coupons and discounts for the authenticated seller
+exports.resetAllSellerDiscounts = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+
+    // 1) Clear all discounts on all products owned by the seller (including variants and pricing)
+    await Product.updateMany(
+      { seller: sellerId },
+      {
+        $set: {
+          discount: {
+            isActive: false,
+            type: 'percentage',
+            value: 0,
+            startDate: null,
+            endDate: null,
+            couponName: null,
+            discountedPrice: null
+          },
+          'pricing.discountInfo': {
+            isActive: false,
+            type: 'percentage',
+            value: 0,
+            startDate: null,
+            endDate: null,
+            couponName: null,
+            discountedPrice: null
+          },
+          'variants.$[].discount': {
+            isActive: false,
+            type: 'percentage',
+            value: 0,
+            startDate: null,
+            endDate: null,
+            couponName: null,
+            discountedPrice: null
+          }
+        }
+      }
+    );
+
+    // 2) Expire all coupons created by the seller and mark all embedded product discounts as expired
+    const now = new Date();
+    await Coupon.updateMany(
+      { seller: sellerId, status: { $ne: 'expired' } },
+      {
+        $set: {
+          status: 'expired',
+          endDate: now,
+          'applicableProducts.$[].status': 'expired',
+          'applicableProducts.$[].lastUpdated': now
+        }
+      }
+    );
+
+    return res.json({
+      message: 'All coupons expired and all discounts cleared for this seller.'
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Failed to reset coupons and discounts',
+      error: error.message
+    });
+  }
+};
+
 // Create a new coupon
 exports.createCoupon = async (req, res) => {
   try {
