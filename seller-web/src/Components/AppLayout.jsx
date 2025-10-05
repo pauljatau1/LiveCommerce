@@ -8,7 +8,7 @@ const AppLayout = () => {
 
     return (
         <>
-            <ScrollToTop />
+           
             <main>
                 <Outlet />
             </main>
