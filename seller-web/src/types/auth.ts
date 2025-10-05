@@ -3,41 +3,8 @@
  * This file provides comprehensive typing for the AuthContext migration
  */
 
-// Seller user interface based on the API response structure
-export interface Seller {
-  _id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phoneNumber: string;
-  storeName: string;
-  accountType: 'individual' | 'business';
-  emailVerified: boolean;
-  isVerified: boolean;
-  isDisabled: boolean;
-  hasFilledAddress: boolean;
-  hasFilledBusinessAddress: boolean;
-  createdAt: string;
-  walletBalance: number;
-  bankDetails?: {
-    accountNumber: string;
-    accountName: string;
-    bankName: string;
-    accountCurrency: string;
-  };
-  businessAddress?: {
-    country: string;
-    city: string;
-    state: string;
-    addressLine1: string;
-  };
-  sellerAddress?: {
-    country: string;
-    city: string;
-    state: string;
-    addressLine1: string;
-  };
-}
+import type { Seller } from "./seller";
+
 
 // Token interface for authentication tokens
 export interface AuthToken {
@@ -110,29 +77,6 @@ export interface AuthState {
 // Auth context methods interface
 export interface AuthContextMethods {
   dispatch: React.Dispatch<AuthAction>;
-  createSeller: (
-    firstName: string,
-    lastName: string,
-    email: string,
-    password: string,
-    phoneNumber: string,
-    storeName: string
-  ) => Promise<boolean>;
-  verifyOtp: (email: string, otp: string) => Promise<boolean>;
-  requestNewOtp: (email: string) => Promise<boolean>;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  fetchSellerDetails: () => Promise<Seller | null>;
-  checkTokenValidity: () => Promise<boolean>;
-  getTop3SellingProducts: () => Promise<void>;
-  getSellerNotifications: () => Promise<void>;
-  getOnboardingProcess: () => Promise<void>;
-  resetPasswordWithOtp: (resetData: {
-    email: string;
-    code: string;
-    newPassword: string;
-  }) => Promise<boolean>;
 }
 
 // Complete AuthContext type
@@ -159,9 +103,69 @@ export interface SignupFormData {
   storeName: string;
 }
 
+// Verify OTP form data interface
+export interface VerifyOtpFormData {
+  email: string;
+  otp: string;
+}
+
 // Password reset data interface
 export interface PasswordResetData {
   email: string;
   code: string;
   newPassword: string;
 }
+
+// Login response interface
+export interface LoginResponse {
+  data: {
+    token: string;
+    user: Seller;
+  };
+}
+
+// Signup response interface
+export interface SignupResponse {
+  data: {
+    token: string;
+    user: Seller;
+  };
+}
+
+// Verify OTP response interface
+export interface VerifyOtpResponse {
+  data: {
+    token: string;
+    user: Seller;
+  };
+}
+
+// Request OTP response interface
+export interface RequestOtpResponse {
+  data: {
+    message: string;
+  };
+}
+
+// Reset password response interface
+export interface ResetPasswordResponse {
+  data: {
+    message: string;
+  };
+}
+
+// Reset password with OTP response interface
+export interface ResetPasswordWithOtpResponse {
+  data: {
+    message: string;
+  };
+}
+
+// Check token validity response interface
+export interface CheckTokenValidityResponse {
+  data: {
+    token: string;
+    user: Seller;
+  };
+}
+

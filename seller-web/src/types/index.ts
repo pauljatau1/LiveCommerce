@@ -3,11 +3,23 @@ export type {
     AuthState,
     AuthAction,
     AuthProviderProps,
-    Seller,
     AuthToken,
     LoginFormData,
     SignupFormData,
     PasswordResetData,
     OtpStatus,
-    AuthContextMethods
+    AuthContextMethods,
+    LoginResponse,
+    SignupResponse,
+    VerifyOtpResponse,
+    VerifyOtpFormData,
+    RequestOtpResponse,
+    ResetPasswordResponse,
+    CheckTokenValidityResponse
 } from "./auth";
+
+export type {
+    Seller,
+    TopSoldProducts,
+    SellerNotifications
+} from "./seller";
