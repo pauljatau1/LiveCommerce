@@ -52,6 +52,8 @@
     "@reduxjs/toolkit": "^2.5.0",
     "@sentry/react": "^9.19.0",
     "@smileid/web-components": "^2.0.2",
+    "@tanstack/react-query": "^5.90.2",
+    "@tanstack/react-query-devtools": "^5.90.2",
     "@tiptap/extension-bullet-list": "^2.13.0",
     "@tiptap/extension-color": "^2.13.0",
     "@tiptap/extension-highlight": "^2.13.0",
