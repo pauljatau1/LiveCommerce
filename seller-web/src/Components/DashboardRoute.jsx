@@ -122,18 +122,7 @@ const DashboardRoute = ({ children }) => {
         const currentPath = location.pathname;
         const isRestrictedPath = restrictedPaths.some(path => currentPath.startsWith(path));
 
-        if (isRestrictedPath && sellerData && sellerData.emailVerified === false) {
-          toast.error('Email Verification Required', {
-            description: 'Verify your email to access this feature',
-            style: {
-              background: '#17171B',
-              color: '#fff',
-            }
-          });
-
-          // Redirect to dashboard home where verification dialog will appear
-          navigate('/dashboard/home', { replace: true });
-        } else if (isRestrictedPath && sellerData && isPickupAddressRequired) {
+        if (isRestrictedPath && sellerData && isPickupAddressRequired) {
           toast.error('Pickup Address Required', {
             description: 'Register your pickup address to access this feature',
             style: {

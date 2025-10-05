@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
 import { Mail, MapPin, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera, Edit, ExternalLink, Link2 } from "lucide-react";
 import { UserSquareIcon } from "lucide-react";
 import LinearProgress from "@mui/material/LinearProgress";
-import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server";
+import { BASE_URL, BASE_URL_V2, AUQLI_STORE_BASE_URL } from "@/Constants/Server";
 import { format } from "date-fns";
 import ShopTab from "./components/ShopTab";
 import BlipsTab from "./components/BlipsTab";
@@ -16,7 +16,7 @@ import ReviewsTab from "./components/ReviewsTab";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/Components/ui/dialog";
-import EmailVerificationModal from "../../Components/EmailVerificationModal";
+//import EmailVerificationModal from "../../Components/EmailVerificationModal";
 import PickupAddressVerificationModal from "../../Components/PickupAddressVerificationModal";
 import { Icon } from "@iconify/react";
 import { trackEvent } from "@/util/analytics";
@@ -43,7 +43,7 @@ export default function AccountPage() {
   });
   const [followersLoading, setFollowersLoading] = useState(false);
   const [followingLoading, setFollowingLoading] = useState(false);
-  const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
+  //const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
   const [showPickupAddressModal, setShowPickupAddressModal] = useState(false);
 
   const fetchProfile = async () => {
@@ -87,13 +87,14 @@ export default function AccountPage() {
     const queryParams = new URLSearchParams(window.location.search);
     
     // Check for verification parameter
+    {/*This feature has been paused till further notice
     if (queryParams.get('openVerification') === 'true') {
       if (profile?.emailVerified === false) {
         setShowEmailVerificationModal(true);
       } else if (isPickupAddressRequired) {
         setShowPickupAddressModal(true);
       }
-    }
+    }*/}
     
     // Check for followers parameter
     if (queryParams.get('openFollowers') === 'true') {
@@ -229,36 +230,59 @@ export default function AccountPage() {
   };
 
   const handleAvatarUpload = async (event) => {
+    // Get the selected file; if none, do nothing
     const file = event.target.files[0];
     if (!file) return;
 
-    // Show loading toast
+    // Preserve the current avatar to allow reverting on failure
+    const previousAvatar = profile?.storeAvatar ? { ...profile.storeAvatar } : null;
+
+    // Create a temporary local preview URL for instant UI feedback
+    const localPreviewUrl = URL.createObjectURL(file);
+
+    // Optimistically show the new image immediately in the UI by updating profile state
+    // We only set the url field so existing consumers continue to work unchanged
+    setProfile((prev) => ({
+      ...prev,
+      storeAvatar: {
+        ...(prev?.storeAvatar || {}),
+        url: localPreviewUrl,
+      },
+    }));
+
+    // Show loading toast for background upload
     const loadingToast = toast.loading('Uploading profile picture...');
 
+    // Prepare form payload
     const formData = new FormData();
     formData.append('avatar', file);
 
     try {
+      // Execute upload request
       const tokenData = JSON.parse(localStorage.getItem("sellerToken"));
-      const response = await fetch(`${BASE_URL}/seller/profile/avatar`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/profile/avatar`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${tokenData.data}`,
+          Authorization: `Bearer ${tokenData?.data}`,
         },
         body: formData,
       });
 
+      // Handle non-2xx responses as failures
       if (!response.ok) throw new Error('Failed to upload avatar');
-
-      const data = await response.json();
-      setProfile(prev => ({
-        ...prev,
-        storeAvatar: data.storeAvatar
-      }));
 
       toast.dismiss(loadingToast);
       toast.success('Profile picture updated successfully!');
     } catch (error) {
+      // On failure, revert profile avatar back to the previous value
+      setProfile((prev) => ({
+        ...prev,
+        storeAvatar: previousAvatar || null,
+      }));
+
+      // Clean up the temporary object URL since it's no longer needed
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+
       toast.dismiss(loadingToast);
       toast.error('Failed to update profile picture');
       console.error('Error uploading avatar:', error);
@@ -269,6 +293,21 @@ export default function AccountPage() {
     const file = event.target.files[0];
     if (!file) return;
 
+    const previousBanner = profile?.storeBanner ? { ...profile.storeBanner } : null;
+
+    // Create a temporary local preview URL for instant UI feedback
+    const localPreviewUrl = URL.createObjectURL(file);
+
+    // Optimistically show the new image immediately in the UI by updating profile state
+    // We only set the url field so existing consumers continue to work unchanged
+    setProfile((prev) => ({
+      ...prev,
+      storeBanner: {
+        ...(prev?.storeBanner || {}),
+        url: localPreviewUrl,
+      },
+    }));
+
     // Show loading toast
     const loadingToast = toast.loading('Uploading cover image...');
 
@@ -277,7 +316,7 @@ export default function AccountPage() {
 
     try {
       const tokenData = JSON.parse(localStorage.getItem("sellerToken"));
-      const response = await fetch(`${BASE_URL}/seller/profile/banner`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/profile/banner`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${tokenData.data}`,
@@ -287,15 +326,18 @@ export default function AccountPage() {
 
       if (!response.ok) throw new Error('Failed to upload banner');
 
-      const data = await response.json();
-      setProfile(prev => ({
-        ...prev,
-        storeBanner: data.storeBanner
-      }));
-
       toast.dismiss(loadingToast);
       toast.success('Cover image updated successfully!');
     } catch (error) {
+      // On failure, revert profile banner back to the previous value
+      setProfile((prev) => ({
+        ...prev,
+        storeBanner: previousBanner || null,
+      }));
+
+      // Clean up the temporary object URL since it's no longer needed
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+
       toast.dismiss(loadingToast);
       toast.error('Failed to update cover image');
       console.error('Error uploading banner:', error);
@@ -308,7 +350,7 @@ export default function AccountPage() {
 
   const handleCopyProfileLink = () => {
     if (profile?._id) {
-      const profileUrl = `https://app.auqli.live/s/${profile._id}B`;
+      const profileUrl = `${AUQLI_STORE_BASE_URL}/seller/${profile._id}`;
       navigator.clipboard.writeText(profileUrl)
         .then(() => {
           toast.success("Profile link copied to clipboard");
@@ -353,6 +395,8 @@ export default function AccountPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Verification Modal */}
+
+      {/*This feature has been paused till further notice
       <EmailVerificationModal 
         isOpen={showEmailVerificationModal} 
         onClose={() => {
@@ -366,10 +410,10 @@ export default function AccountPage() {
             "seller phone number": profile.phoneNumber,
             "Signup Date": profile.createdAt,
             "Verification Status": profile.isVerified ? "Verified" : "Not Verified",
-          }); */}
+          }); 
         }}
         userEmail={profile?.businessEmail || profile?.email || ''}
-      />
+      />*/}
       
       {/* Pickup Address Verification Modal */}
       {profile && (
@@ -395,26 +439,7 @@ export default function AccountPage() {
       {/* Verification Banners - Show based on account status */}
       {profile && (
         <>
-          {!profile.emailVerified ? (
-            // Email verification banner
-            <div className="bg-red-50 mt-6 sm:mt-10 border-l-4 border-red-500 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm">
-              <div className="flex items-start flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
-                <div className="flex items-center gap-2">
-                  <Icon icon="fluent:mail-unread-24-filled" className="h-5 w-5 sm:h-6 sm:w-6 text-red-500 flex-shrink-0" />
-                  <h3 className="text-base sm:text-lg font-semibold text-red-800">Email verification required</h3>
-                </div>
-                <div className="flex-1 text-red-700 text-xs sm:text-sm lg:ml-2">
-                  Please verify your email address to continue using your seller account and access all features.
-                </div>
-                <Button 
-                  className="bg-red-600 hover:bg-red-700 font-medium py-1 sm:py-2 px-4 sm:px-5 text-white rounded-md shadow whitespace-nowrap text-xs sm:text-sm"
-                  onClick={() => setShowEmailVerificationModal(true)}
-                >
-                  Verify Email
-                </Button>
-              </div>
-            </div>
-          ) : isPickupAddressRequired ? (
+          { isPickupAddressRequired && (
             // Address verification banner
             <div className="bg-orange-50 mt-6 sm:mt-10 border-l-4 border-orange-500 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm">
               <div className="flex items-start flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
@@ -433,7 +458,7 @@ export default function AccountPage() {
                 </Button>
               </div>
             </div>
-          ) : null
+          ) 
           /* : !profile.isVerified && (
             <>
               {profile.accountPending ? (
@@ -494,7 +519,7 @@ export default function AccountPage() {
           onChange={handleBannerUpload}
           className="hidden"
         />
-        <label htmlFor="banner-upload" className="absolute inset-0 z-10 cursor-pointer group">
+        <label htmlFor="banner-upload" className="absolute bg-gray-500 inset-0 z-10 cursor-pointer group">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" />
           <img
             src={profile?.storeBanner?.url || "https://a.storyblok.com/f/191576/768x432/ba499c40d2/nice-backgrounds-cover.webp"}
@@ -510,7 +535,7 @@ export default function AccountPage() {
       {/* Profile Content */}
       <div className="mx-auto px-3 sm:px-6 lg:px-8">
         <div className="relative -mt-10 sm:-mt-16 mb-4 sm:mb-8">
-          <div className="relative mb-4 sm:mb-8 z-20">
+          <div className="relative mb-4 sm:mb-8 w-fit z-20">
             <input
               type="file"
               id="avatar-upload"
@@ -865,7 +890,7 @@ export default function AccountPage() {
               </div>
             ) : following.length === 0 ? (
               <div className="text-center py-6 sm:py-8 text-muted-foreground text-sm">
-                You're not following anyone yet
+                You&apos;re not following anyone yet
               </div>
             ) : (
               <div className="space-y-3 sm:space-y-4">

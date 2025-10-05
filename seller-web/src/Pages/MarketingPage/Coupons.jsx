@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils"
 import PropTypes from "prop-types";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/Components/ui/command"
 import { Check } from "lucide-react"
+import { RotateCcw } from "lucide-react"
 
 export default function Coupons() {
   // Add coupon type state
@@ -41,6 +42,8 @@ export default function Coupons() {
     name: '',
     code: '',
     discountPercentage: '',
+    discountType: 'percentage',
+    fixedAmount: '',
     hasMinimumRequirement: false,
     minimumAmount: 0,
     startDate: new Date(),
@@ -68,6 +71,13 @@ export default function Coupons() {
     totalPages: 1,
     totalProducts: 0
   })
+  const [priceWarnings, setPriceWarnings] = useState({})
+  const [showWarningDialog, setShowWarningDialog] = useState(false)
+  const [warningProducts, setWarningProducts] = useState([])
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetError, setResetError] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     const fetchSellerProducts = async () => {
@@ -115,7 +125,7 @@ export default function Coupons() {
     }
 
     fetchSellerProducts()
-  }, [currentPage, itemsPerPage]) // Add dependencies to re-fetch when page changes
+  }, [currentPage, itemsPerPage, refreshKey]) // Add dependencies to re-fetch when page changes
 
   // Update form data when start time option changes
   useEffect(() => {
@@ -134,6 +144,50 @@ export default function Coupons() {
     return true;
   }
 
+  // Check for price warnings when fixed amount is used
+  const checkPriceWarnings = () => {
+    if (formData.discountType !== 'fixed' || !formData.fixedAmount) {
+      setPriceWarnings({})
+      return []
+    }
+
+    const warnings = {}
+    const warningProductsList = []
+
+    selectedProducts.forEach(productId => {
+      const product = sellerProducts.find(p => p._id === productId)
+      if (product) {
+        const discountedPrice = Math.max(0, product.price - Number(formData.fixedAmount))
+        const percentageOfOriginal = (discountedPrice / product.price) * 100
+
+        if (percentageOfOriginal < 50) {
+          warnings[productId] = {
+            originalPrice: product.price,
+            discountedPrice: discountedPrice,
+            percentage: percentageOfOriginal,
+            fixedAmount: Number(formData.fixedAmount)
+          }
+          warningProductsList.push({
+            ...product,
+            warning: warnings[productId]
+          })
+        }
+      }
+    })
+
+    setPriceWarnings(warnings)
+    return warningProductsList
+  }
+
+  // Update warnings when form data changes
+  useEffect(() => {
+    if (formData.discountType === 'fixed' && formData.fixedAmount && selectedProducts.length > 0) {
+      checkPriceWarnings()
+    } else {
+      setPriceWarnings({})
+    }
+  }, [formData.discountType, formData.fixedAmount, selectedProducts, sellerProducts])
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -141,6 +195,20 @@ export default function Coupons() {
       setError("Please set valid start and end dates");
       return;
     }
+
+    // Check for price warnings before submission
+    const warningProductsList = checkPriceWarnings()
+    if (warningProductsList.length > 0) {
+      setWarningProducts(warningProductsList)
+      setShowWarningDialog(true)
+      return
+    }
+
+    await submitCoupon()
+  }
+
+  // Separate function for actual submission
+  const submitCoupon = async () => {
     setIsSubmitting(true)
     try {
       const sellerToken = localStorage.getItem('sellerToken')
@@ -163,7 +231,9 @@ export default function Coupons() {
         const couponData = {
           name: formData.name,
           code: formData.code.toUpperCase(),
-          discountPercentage: Number(formData.discountPercentage),
+          discountType: formData.discountType,
+          discountPercentage: formData.discountType === 'percentage' ? Number(formData.discountPercentage) : undefined,
+          fixedAmount: formData.discountType === 'fixed' ? Number(formData.fixedAmount) : undefined,
           startDate: startDateTime,
           endDate: endDateTime,
           usageLimit: formData.usageLimit ? Number(formData.usageLimit) : null,
@@ -177,7 +247,9 @@ export default function Coupons() {
         // Regular product discount data
         const productDiscounts = selectedProducts.map(productId => {
           const product = sellerProducts.find(p => p._id === productId)
-          const discountedPrice = product.price * (1 - (formData.discountPercentage / 100))
+          const discountedPrice = formData.discountType === 'percentage'
+            ? product.price * (1 - (formData.discountPercentage / 100))
+            : Math.max(0, product.price - Number(formData.fixedAmount || 0))
           return {
             productId,
             discountedPrice: Math.round(discountedPrice)
@@ -186,7 +258,9 @@ export default function Coupons() {
 
         const couponData = {
           name: formData.name,
-          discountPercentage: Number(formData.discountPercentage),
+          discountType: formData.discountType,
+          discountPercentage: formData.discountType === 'percentage' ? Number(formData.discountPercentage) : undefined,
+          fixedAmount: formData.discountType === 'fixed' ? Number(formData.fixedAmount) : undefined,
           hasMinimumRequirement: formData.hasMinimumRequirement,
           minimumAmount: formData.hasMinimumRequirement ? Number(formData.minimumAmount) : 0,
           startDate: startDateTime,
@@ -208,6 +282,8 @@ export default function Coupons() {
         name: "",
         code: "",
         discountPercentage: 0,
+        discountType: 'percentage',
+        fixedAmount: '',
         hasMinimumRequirement: false,
         minimumAmount: 0,
         startDate: new Date(),
@@ -286,6 +362,31 @@ export default function Coupons() {
   const handleItemsPerPageChange = (newLimit) => {
     setItemsPerPage(newLimit)
     setCurrentPage(1) // Reset to first page when changing items per page
+  }
+
+  // Handle reset all discounts for this seller
+  const handleResetAllDiscounts = async () => {
+    setResetError(null)
+    setResetLoading(true)
+    try {
+      const sellerToken = localStorage.getItem('sellerToken')
+      if (!sellerToken) throw new Error('Not authenticated')
+      const tokenData = JSON.parse(sellerToken)
+      const token = tokenData.data
+
+      await axios.post(`${BASE_URL}/coupons/reset`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      setResetConfirmOpen(false)
+      setSelectedProducts([])
+      setPriceWarnings({})
+      setRefreshKey((k) => k + 1)
+    } catch (err) {
+      setResetError(err.response?.data?.message || err.message)
+    } finally {
+      setResetLoading(false)
+    }
   }
 
   return (
@@ -370,20 +471,59 @@ export default function Coupons() {
                 )}
 
                 <div className="grid gap-3">
-                  <Label htmlFor="discountPercentage">Discount Percentage</Label>
-                  <div className="relative max-w-[200px]">
-                    <Input
-                      id="discountPercentage"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={formData.discountPercentage}
-                      onChange={(e) => setFormData({...formData, discountPercentage: e.target.value})}
-                      className="pr-8"
-                    />
-                    <span className="absolute right-3 top-2.5 text-gray-500">%</span>
-                  </div>
+                  <Label>Discount Type</Label>
+                  <RadioGroup
+                    value={formData.discountType}
+                    onValueChange={(value) => setFormData({ ...formData, discountType: value })}
+                    className="flex flex-wrap gap-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="percentage" id="type-percentage" />
+                      <Label htmlFor="type-percentage">Percentage</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="fixed" id="type-fixed" />
+                      <Label htmlFor="type-fixed">Fixed Amount</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
+
+                {formData.discountType === 'percentage' ? (
+                  <div className="grid gap-3">
+                    <Label htmlFor="discountPercentage">Discount Percentage</Label>
+                    <div className="relative max-w-[200px]">
+                      <Input
+                        id="discountPercentage"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={formData.discountPercentage}
+                        onChange={(e) => setFormData({...formData, discountPercentage: e.target.value})}
+                        className="pr-8"
+                        placeholder="e.g., 15"
+                      />
+                      <span className="absolute right-3 top-2.5 text-gray-500">%</span>
+                    </div>
+                    {/* <span className="text-sm text-gray-500">
+                      Enter decimal values like 15.5 for 15.5% discount
+                    </span> */}
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    <Label htmlFor="fixedAmount">Fixed Amount (₦)</Label>
+                    <div className="relative max-w-[200px]">
+                      <Input
+                        id="fixedAmount"
+                        type="number"
+                        min="0"
+                        value={formData.fixedAmount}
+                        onChange={(e) => setFormData({...formData, fixedAmount: e.target.value})}
+                        className="pr-8"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -561,22 +701,38 @@ export default function Coupons() {
             {couponType === 'special' ? 'Select Applicable Products' : 'Select Products to Discount'}
           </h2>
           
-          {/* Improved search bar */}
-          <div className="max-w-md mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
-              <Input
-                placeholder="Search products by name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+          {/* Toolbar: search + reset */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+            <div className="max-w-md w-full">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                <Input
+                  placeholder="Search products by name..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setResetConfirmOpen(true)}
+                className="flex items-center gap-2 text-red-700 border-red-200 hover:bg-red-50"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset All Discounts
+              </Button>
             </div>
           </div>
 
           {error && (
             <div className="text-red-500 text-sm">{error}</div>
           )}
+        {resetError && (
+          <div className="text-red-600 text-sm mb-3">{resetError}</div>
+        )}
 
           <div className="border rounded-md">
             <Table>
@@ -616,7 +772,7 @@ export default function Coupons() {
                     return (
                       <TableRow
                         key={product._id}
-                        className={isDiscounted ? "bg-gray-50" : ""}
+                        className={`${isDiscounted ? "bg-gray-50" : ""} ${priceWarnings[product._id] ? "bg-red-50 border-l-4 border-l-red-400" : ""}`}
                       >
                         <TableCell>
                           <Checkbox
@@ -651,8 +807,18 @@ export default function Coupons() {
                           {isDiscounted ? (
                             <span className="text-gray-400">N/A</span>
                           ) : (
-                            <div>
-                              ₦ {(product.price * (1 - (formData.discountPercentage / 100))).toLocaleString()}
+                            <div className="space-y-1">
+                              <div className={priceWarnings[product._id] ? "text-red-600 font-medium" : ""}>
+                                ₦ {(formData.discountType === 'percentage'
+                                  ? product.price * (1 - (formData.discountPercentage / 100))
+                                  : Math.max(0, product.price - Number(formData.fixedAmount || 0))
+                                ).toLocaleString()}
+                              </div>
+                              {priceWarnings[product._id] && (
+                                <div className="text-xs text-red-500 bg-red-50 px-2 py-1 rounded">
+                                  ⚠️ {priceWarnings[product._id].percentage.toFixed(1)}% of original price
+                                </div>
+                              )}
                             </div>
                           )}
                         </TableCell>
@@ -825,6 +991,88 @@ export default function Coupons() {
         </div>
       </form>
 
+      {/* Warning Dialog */}
+      <Dialog open={showWarningDialog} onOpenChange={setShowWarningDialog}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-6 w-6 text-amber-600" />
+              Price Warning
+            </DialogTitle>
+            <DialogDescription>
+              The following products will have their prices reduced to less than 50% of their original value:
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+                <div>
+                  <h4 className="font-medium text-amber-800">Warning</h4>
+                  <p className="text-sm text-amber-700 mt-1">
+                    This coupon reduces the product price to less than 50% of its original value. 
+                    Are you sure you want to proceed?
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border rounded-lg">
+              <div className="bg-gray-50 px-4 py-2 border-b">
+                <h4 className="font-medium text-sm">Affected Products</h4>
+              </div>
+              <div className="max-h-60 overflow-y-auto">
+                {warningProducts.map((product) => (
+                  <div key={product._id} className="flex items-center justify-between p-4 border-b last:border-b-0">
+                    <div className="flex items-center space-x-3">
+                      <img
+                        src={product.images[0]?.url || "/placeholder.svg"}
+                        alt={product.name}
+                        className="h-10 w-10 rounded-md object-cover"
+                      />
+                      <div>
+                        <div className="font-medium">{product.name}</div>
+                        <div className="text-sm text-gray-500">Stock: {product.stock}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-gray-500 line-through">
+                        ₦ {product.warning.originalPrice.toLocaleString()}
+                      </div>
+                      <div className="font-medium text-red-600">
+                        ₦ {product.warning.discountedPrice.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-red-500">
+                        {product.warning.percentage.toFixed(1)}% of original
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowWarningDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowWarningDialog(false)
+                submitCoupon()
+              }}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              Proceed Anyway
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -850,6 +1098,44 @@ export default function Coupons() {
               className="bg-green-600 hover:bg-green-700"
             >
               View All Coupons
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Confirmation Dialog */}
+      <Dialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <RotateCcw className="h-5 w-5" />
+              Reset All Discounts
+            </DialogTitle>
+            <DialogDescription>
+              This will expire all your active coupons and clear discounted prices from your products. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setResetConfirmOpen(false)}
+              disabled={resetLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleResetAllDiscounts}
+              disabled={resetLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {resetLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Resetting...</span>
+                </div>
+              ) : (
+                'Reset Now'
+              )}
             </Button>
           </div>
         </DialogContent>

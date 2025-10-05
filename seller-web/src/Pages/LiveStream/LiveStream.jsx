@@ -5,7 +5,7 @@ import LiveStreamCard from "../../Components/LiveStreamCard";
 import AuqliUniversity from "../../Components/AuqliUniversity";
 import { LivestreamContext } from "../../Contexts/LivestreamContext";
 import { NavLink } from 'react-router-dom';
-import EmailVerificationModal from "../../Components/EmailVerificationModal";
+//import EmailVerificationModal from "../../Components/EmailVerificationModal";
 import PickupAddressVerificationModal from "../../Components/PickupAddressVerificationModal";
 import { useAuthContext } from "../../Hooks/useAuthContext";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../Components/ui/tooltip';
@@ -19,7 +19,7 @@ const LiveStream = () => {
     const { seller: sellerData, authToken, fetchSellerDetails } = useAuthContext();
     const [scheduledShows, setScheduledShows] = useState([]);
     const [currentTime, setCurrentTime] = useState(new Date());
-    const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
+    //const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
     const [showPickupAddressModal, setShowPickupAddressModal] = useState(false);
 
     const sellerLocalData = JSON.parse(localStorage.getItem('seller'))
@@ -42,9 +42,7 @@ const LiveStream = () => {
 
     // Check if seller is verified
     useEffect(() => {
-        if (seller && seller.emailVerified === false) {
-            setShowEmailVerificationModal(true);
-        } else if (seller && isPickupAddressRequired) {
+        if (seller && isPickupAddressRequired) {
             setShowPickupAddressModal(true);
         }
     }, []);
@@ -60,10 +58,7 @@ const LiveStream = () => {
     
     // Handle stream action clicks for unverified users
     const handleStreamActionClick = (e) => {
-        if (seller && !seller.emailVerified) {
-            e.preventDefault();
-            setShowEmailVerificationModal(true);
-        } else if (seller && isPickupAddressRequired) {
+        if (seller && isPickupAddressRequired) {
             e.preventDefault();
             setShowPickupAddressModal(true);
         }
@@ -134,11 +129,12 @@ const LiveStream = () => {
     return (
         <div className="flex flex-col mt-10 gap-8 ">
             {/* Email Verification Modal */}
+            {/*This feature has been paused till further notice
             <EmailVerificationModal 
                 isOpen={showEmailVerificationModal} 
                 onClose={() => setShowEmailVerificationModal(false)} 
                 userEmail={seller?.email}
-            />
+            />*/}
 
             {/* Pickup Address Verification Modal */}
             <PickupAddressVerificationModal 

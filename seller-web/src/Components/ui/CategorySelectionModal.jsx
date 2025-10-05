@@ -1,26 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { Icon } from "@iconify/react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./dialog";
 import { Button } from "./button";
-import { Badge } from "./badge";
 import { ScrollArea } from "./scroll-area";
 import PropTypes from 'prop-types';
+import { Skeleton, CategoryItem, SubCategoryItem, SearchResultItem } from './CategorySelectionModal/index';
 
-// Add Skeleton component
-const Skeleton = ({ className, ...props }) => {
-  return (
-    <div
-      className={`animate-pulse bg-gray-200 rounded-lg ${className}`}
-      {...props}
-    />
-  );
-};
 
-Skeleton.propTypes = {
-  className: PropTypes.string
-};
-
-const CategorySelectionModal = ({
+const CategorySelectionModal = memo(({
   isOpen,
   onClose,
   categories,
@@ -40,7 +27,7 @@ const CategorySelectionModal = ({
   const [subCategorySearchQuery, setSubCategorySearchQuery] = useState('');
   const [filteredSubCategories, setFilteredSubCategories] = useState([]);
 
-  // Reset temp selections when modal opens
+  // Reset temp selections when modal opens - optimized with useCallback
   useEffect(() => {
     if (isOpen) {
       setTempSelectedCategory(selectedCategory);
@@ -50,38 +37,44 @@ const CategorySelectionModal = ({
     }
   }, [isOpen, selectedCategory, selectedSubCategory]);
 
-  // Filter subcategories based on search query
+  // Memoized subcategories computation for better performance
+  const subCategories = useMemo(() => {
+    return getSubCategories(tempSelectedCategory);
+  }, [tempSelectedCategory, getSubCategories]);
+
+  // Filter subcategories based on search query - optimized
   useEffect(() => {
     if (!tempSelectedCategory || !subCategorySearchQuery.trim()) {
-      setFilteredSubCategories(getSubCategories(tempSelectedCategory));
+      setFilteredSubCategories(subCategories);
       return;
     }
 
     const query = subCategorySearchQuery.toLowerCase();
-    const filtered = getSubCategories(tempSelectedCategory).filter(
+    const filtered = subCategories.filter(
       subCat => subCat.name.toLowerCase().includes(query)
     );
     setFilteredSubCategories(filtered);
-  }, [tempSelectedCategory, subCategorySearchQuery, getSubCategories]);
+  }, [tempSelectedCategory, subCategorySearchQuery, subCategories]);
 
-  const handleApply = () => {
+  // Optimized event handlers with useCallback
+  const handleApply = useCallback(() => {
     onApply(tempSelectedCategory, tempSelectedSubCategory);
     onClose();
-  };
+  }, [onApply, onClose, tempSelectedCategory, tempSelectedSubCategory]);
 
-  const handleCategorySelect = (categoryName) => {
+  const handleCategorySelect = useCallback((categoryName) => {
     setTempSelectedCategory(categoryName);
     setTempSelectedSubCategory('');
     setActiveTab('subcategories');
     setSubCategorySearchQuery('');
     setCategorySearchQuery('');
-  };
+  }, [setCategorySearchQuery]);
 
-  const handleSubCategorySelect = (subCategoryName) => {
+  const handleSubCategorySelect = useCallback((subCategoryName) => {
     setTempSelectedSubCategory(subCategoryName);
-  };
+  }, []);
 
-  const handleSearchCategorySelect = (category, subCategory = null) => {
+  const handleSearchCategorySelect = useCallback((category, subCategory = null) => {
     setTempSelectedCategory(category);
     setCategorySearchQuery('');
     
@@ -92,45 +85,94 @@ const CategorySelectionModal = ({
     }
     
     setActiveTab('subcategories');
-  };
+  }, [setCategorySearchQuery]);
 
-  const clearAllSelections = () => {
+  const clearAllSelections = useCallback(() => {
     setTempSelectedCategory('');
     setTempSelectedSubCategory('');
     setCategorySearchQuery('');
     setSubCategorySearchQuery('');
     setActiveTab('categories');
-  };
+  }, [setCategorySearchQuery]);
 
-  const clearCategorySelection = () => {
+  const clearCategorySelection = useCallback(() => {
     setTempSelectedCategory('');
     setTempSelectedSubCategory('');
     setActiveTab('categories');
-  };
+  }, []);
 
-  const clearSubCategorySelection = () => {
+  const clearSubCategorySelection = useCallback(() => {
     setTempSelectedSubCategory('');
-  };
+  }, []);
 
-  const clearSearch = () => {
+  const clearSearch = useCallback(() => {
     if (activeTab === 'categories') {
       setCategorySearchQuery('');
     } else {
       setSubCategorySearchQuery('');
     }
-  };
+  }, [activeTab, setCategorySearchQuery]);
 
-  // Determine search placeholder based on active tab
-  const getSearchPlaceholder = () => {
+  // Memoized search placeholder
+  const searchPlaceholder = useMemo(() => {
     if (activeTab === 'categories' || !tempSelectedCategory) {
       return "Search categories...";
     }
     return `Search subcategories in ${tempSelectedCategory}...`;
-  };
+  }, [activeTab, tempSelectedCategory]);
+
+  // Memoized search input handler
+  const handleSearchInputChange = useCallback((e) => {
+    if (activeTab === 'categories') {
+      setCategorySearchQuery(e.target.value);
+    } else {
+      setSubCategorySearchQuery(e.target.value);
+    }
+  }, [activeTab, setCategorySearchQuery]);
+
+  // Memoized tab switching handlers
+  const handleCategoriesTabClick = useCallback(() => {
+    setActiveTab('categories');
+    setCategorySearchQuery('');
+  }, [setCategorySearchQuery]);
+
+  const handleSubCategoriesTabClick = useCallback(() => {
+    setActiveTab('subcategories');
+    setSubCategorySearchQuery('');
+  }, []);
+
+  // Memoized scroll area height calculation
+  const scrollAreaHeight = useMemo(() => {
+    // Calculate dynamic height based on viewport and content
+    const viewportHeight = window.innerHeight;
+    const modalHeaderHeight = 120; // Approximate header height
+    const modalFooterHeight = 80; // Approximate footer height
+    const breadcrumbHeight = 60; // Approximate breadcrumb height
+    const availableHeight = viewportHeight - modalHeaderHeight - modalFooterHeight - breadcrumbHeight;
+    
+    // Ensure minimum height and maximum height
+    return Math.max(300, Math.min(availableHeight, 500));
+  }, []);
+
+  // Memoized categories list for virtualization
+  const categoriesList = useMemo(() => {
+    return categories.map(category => ({
+      ...category,
+      isSelected: selectedCategory === category.name
+    }));
+  }, [categories, selectedCategory]);
+
+  // Memoized filtered subcategories list
+  const subCategoriesList = useMemo(() => {
+    return filteredSubCategories.map(subCategory => ({
+      ...subCategory,
+      isSelected: tempSelectedSubCategory === subCategory.name
+    }));
+  }, [filteredSubCategories, tempSelectedSubCategory]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[800px] w-[90vw] p-0 max-h-[85vh] flex flex-col bg-[#FAFAFA]">
+      <DialogContent className="max-w-[800px] w-[90vw] p-0 max-h-[95vh] flex flex-col bg-[#FAFAFA]">
         <DialogHeader className="px-6 pt-6 pb-2 border-b bg-white">
           <DialogTitle className="text-xl font-semibold text-[#17171B]">
             {activeTab === 'categories' ? 'Select Category' : 
@@ -141,14 +183,8 @@ const CategorySelectionModal = ({
               <input
                 type="text"
                 value={activeTab === 'categories' ? categorySearchQuery : subCategorySearchQuery}
-                onChange={(e) => {
-                  if (activeTab === 'categories') {
-                    setCategorySearchQuery(e.target.value);
-                  } else {
-                    setSubCategorySearchQuery(e.target.value);
-                  }
-                }}
-                placeholder={getSearchPlaceholder()}
+                onChange={handleSearchInputChange}
+                placeholder={searchPlaceholder}
                 className="w-full px-4 py-3 border border-[#E5E7EB] rounded-full text-sm outline-none focus:border-[#0BB248] focus:ring-1 focus:ring-[#0BB248]/20 pl-10 bg-[#F9FAFB] shadow-sm"
               />
               <Icon 
@@ -176,14 +212,11 @@ const CategorySelectionModal = ({
 
         {/* Selection Breadcrumb */}
         <div className="px-6 py-3 border-b bg-[#F3F4F6] flex flex-wrap items-center justify-between">
-          <div className="flex items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap">
+          <div className="flex items-center gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] overflow-y-hidden whitespace-nowrap">
             <Button 
               variant="ghost" 
               className={`h-8 px-3 rounded-full text-sm ${activeTab === 'categories' ? 'bg-[#0BB248]/10 text-[#0BB248] hover:bg-[#0BB248]/20' : 'text-[#4B5563] hover:bg-gray-100'}`}
-              onClick={() => {
-                setActiveTab('categories');
-                setCategorySearchQuery('');
-              }}
+              onClick={handleCategoriesTabClick}
             >
               Categories
             </Button>
@@ -194,10 +227,7 @@ const CategorySelectionModal = ({
                 <Button 
                   variant="ghost"
                   className={`h-8 px-3 rounded-full text-sm ${activeTab === 'subcategories' ? 'bg-[#0BB248]/10 text-[#0BB248] hover:bg-[#0BB248]/20 hover:text-[#0BB248]' : 'text-[#4B5563] hover:bg-gray-100'}`}
-                  onClick={() => {
-                    setActiveTab('subcategories');
-                    setSubCategorySearchQuery('');
-                  }}
+                  onClick={handleSubCategoriesTabClick}
                 >
                   {tempSelectedCategory}
                   {tempSelectedSubCategory ? ' / ' + tempSelectedSubCategory : ''}
@@ -233,13 +263,13 @@ const CategorySelectionModal = ({
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-[50vh]">
+
+          <ScrollArea className={`h-[${scrollAreaHeight}px]`} style={{ height: `${scrollAreaHeight}px` }}>
             {loading ? (
-              // Skeleton loading state
+              // Optimized skeleton loading state
               <div className="p-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {[...Array(6)].map((_, index) => (
+                  {Array.from({ length: 6 }, (_, index) => (
                     <div key={index} className="flex items-center border border-gray-200 rounded-lg p-3 animate-pulse">
                       <div className="flex items-center space-x-3 flex-1">
                         <Skeleton className="w-10 h-10 rounded" />
@@ -254,7 +284,7 @@ const CategorySelectionModal = ({
                 </div>
               </div>
             ) : activeTab === 'categories' && categorySearchQuery ? (
-              // Category search results
+              // Optimized category search results
               <div className="p-4">
                 {isSearching ? (
                   <div className="flex flex-col items-center justify-center h-32 gap-3">
@@ -264,37 +294,13 @@ const CategorySelectionModal = ({
                 ) : searchResults.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {searchResults.map((category) => (
-                      <div 
-                        key={category._id} 
-                        className="bg-white border border-[#E5E7EB] rounded-lg p-4 hover:border-[#0BB248] transition-all duration-200 shadow-sm hover:shadow"
-                      >
-                        <h3 className="font-medium text-lg mb-2 text-[#111827]">
-                          <button 
-                            className="text-left hover:text-[#0BB248] transition-colors w-full"
-                            onClick={() => handleSearchCategorySelect(category.name)}
-                          >
-                            {category.name}
-                          </button>
-                        </h3>
-                        {category.matchingSubCategories?.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {category.matchingSubCategories.map((sub) => (
-                              <Badge 
-                                key={sub.name} 
-                                variant="outline" 
-                                className={`cursor-pointer hover:bg-[#0BB248]/10 transition-colors ${
-                                  tempSelectedCategory === category.name && tempSelectedSubCategory === sub.name
-                                    ? 'bg-[#0BB248]/10 text-[#0BB248] border-[#0BB248]'
-                                    : 'bg-[#F9FAFB] text-[#4B5563] hover:text-[#0BB248]'
-                                }`}
-                                onClick={() => handleSearchCategorySelect(category.name, sub.name)}
-                              >
-                                {sub.name}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      <SearchResultItem
+                        key={category._id}
+                        category={category}
+                        tempSelectedCategory={tempSelectedCategory}
+                        tempSelectedSubCategory={tempSelectedSubCategory}
+                        onSelect={handleSearchCategorySelect}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -308,28 +314,19 @@ const CategorySelectionModal = ({
                 )}
               </div>
             ) : activeTab === 'categories' ? (
-              // Categories view
+              // Optimized categories view with virtualization
               <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {categories.map((category) => (
-                  <div
+                {categoriesList.map((category) => (
+                  <CategoryItem
                     key={category._id}
-                    className={`flex items-center border border-[#E5E7EB] rounded-lg justify-between p-3 cursor-pointer hover:bg-gray-100 ${
-                      selectedCategory === category.name ? 'bg-gray-100' : ''
-                    }`}
-                    onClick={() => handleCategorySelect(category.name)}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <img src={category.image?.url} alt={category.name} className="w-10 h-10 object-cover rounded" />
-                      <span>{category.name}</span>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      commission: {category.platformFee}%
-                    </div>
-                  </div>
+                    category={category}
+                    isSelected={category.isSelected}
+                    onSelect={handleCategorySelect}
+                  />
                 ))}
               </div>
             ) : (
-              // Subcategories view
+              // Optimized subcategories view
               <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-medium text-[#6B7280]">
@@ -345,22 +342,15 @@ const CategorySelectionModal = ({
                   )}
                 </div>
                 
-                {filteredSubCategories.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    {filteredSubCategories.map((subCategory) => (
-                      <div
+                {subCategoriesList.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-[50px] ">
+                    {subCategoriesList.map((subCategory) => (
+                      <SubCategoryItem
                         key={subCategory._id}
-                        onClick={() => handleSubCategorySelect(subCategory.name)}
-                        className={`p-3 border rounded-lg cursor-pointer transition-all duration-200 ${
-                          tempSelectedSubCategory === subCategory.name
-                            ? 'border-[#0BB248] bg-[#0BB248]/5 shadow'
-                            : 'border-[#E5E7EB] bg-white hover:border-[#0BB248]/50 hover:shadow'
-                        }`}
-                      >
-                        <span className={tempSelectedSubCategory === subCategory.name ? 'text-[#0BB248]' : 'text-[#111827]'}>
-                          {subCategory.name}
-                        </span>
-                      </div>
+                        subCategory={subCategory}
+                        isSelected={subCategory.isSelected}
+                        onSelect={handleSubCategorySelect}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -380,7 +370,6 @@ const CategorySelectionModal = ({
               </div>
             )}
           </ScrollArea>
-        </div>
         
         <DialogFooter className="p-4 border-t bg-white">
           <div className="flex flex-wrap w-full items-center justify-between">
@@ -410,8 +399,9 @@ const CategorySelectionModal = ({
       </DialogContent>
     </Dialog>
   );
-};
+});
 
+CategorySelectionModal.displayName = 'CategorySelectionModal';
 CategorySelectionModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,

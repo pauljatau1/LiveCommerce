@@ -261,7 +261,7 @@ export default function StoreSettings() {
 
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/seller/profile/avatar`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/profile/avatar`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${sellerToken}`,
@@ -286,7 +286,7 @@ export default function StoreSettings() {
 
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/seller/profile/banner`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/profile/banner`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${sellerToken}`,
@@ -427,7 +427,7 @@ export default function StoreSettings() {
     setUpdatingSection(prev => ({ ...prev, businessDetails: true }));
     try {
       const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
-      const response = await fetch(`${BASE_URL}/seller/business-details`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/business-details`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -466,7 +466,7 @@ export default function StoreSettings() {
 
       if (Object.keys(updateData).length === 0) return true; // Skip if no changes
 
-      const response = await fetch(`${BASE_URL}/seller/business-information`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/business-information`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -506,7 +506,7 @@ export default function StoreSettings() {
 
       if (Object.keys(updateData).length === 0) return true; // Skip if no changes
 
-      const response = await fetch(`${BASE_URL}/seller/individual-information`, {
+      const response = await fetch(`${BASE_URL_V2}/sellers/individual-information`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
