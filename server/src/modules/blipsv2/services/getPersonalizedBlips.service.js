@@ -13,31 +13,73 @@ class GetPersonalizedBlipsService {
     const sessionId = sessionHelper.generateSessionId(req);
     console.log(`🔍 [BLIPS DEBUG] Session ID: ${sessionId}, Page: ${page}, Limit: ${limit}`);
 
-    // Get or create session
-    const { sessionData, seenBlipIds } = sessionHelper.getOrCreateSession(sessionId, page);
+    // Get or create session with smart rotation window
+    const { sessionData, seenBlipIds, allSeenBlipIds } = sessionHelper.getOrCreateSession(sessionId, page);
     
     console.log(`📝 [BLIPS DEBUG] Current seen blips count: ${seenBlipIds.length}`);
+    console.log(`📊 [BLIPS DEBUG] Total blips seen in session: ${allSeenBlipIds.length}`);
     console.log(`📄 [BLIPS DEBUG] Last page visited: ${sessionData.lastPage}, Current page: ${page}`);
     if (seenBlipIds.length > 0) {
       console.log(`📝 [BLIPS DEBUG] First 5 seen blip IDs: ${seenBlipIds.slice(0, 5).join(', ')}`);
     }
 
-    // Build match stages
-    const primaryMatchStage = pipelineHelper.buildPrimaryMatchStage();
-    const fallbackMatchStage = pipelineHelper.buildFallbackMatchStage();
-
-    // Get buyer information
+    // Get buyer information (authentication check)
     const buyerId = req.user?.id;
     const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
     let followedSellers = [];
+    let categoryNames = [];
+    let subCategoryNames = [];
 
+    // Fetch buyer's selected categories if authenticated
     if (isAuthenticated) {
-      const buyer = await productRepository.findBuyerById(buyerId);
+      // Use the repository method that includes selectedCategories
+      const buyer = await productRepository.findBuyerByIdWithCategories(buyerId);
 
       if (buyer?.followers?.length > 0) {
         followedSellers = buyer.followers.map(f => f.sellerId.toString());
       }
+
+      // Extract category names and subcategory names from buyer's selections
+      // This personalizes the blips based on buyer's interests
+      if (buyer?.selectedCategories?.length > 0) {
+        buyer.selectedCategories.forEach(category => {
+          // Add the main category name
+          if (category.name) {
+            categoryNames.push(category.name);
+          }
+          
+          // Add all subcategory names from this category
+          if (category.subCategories && category.subCategories.length > 0) {
+            category.subCategories.forEach(subCat => {
+              if (subCat.name) {
+                subCategoryNames.push(subCat.name);
+              }
+            });
+          }
+        });
+
+        console.log(`🎯 [BLIPS DEBUG] Buyer ${buyerId} has selected categories: ${categoryNames.join(', ')}`);
+        if (subCategoryNames.length > 0) {
+          console.log(`🎯 [BLIPS DEBUG] Subcategories: ${subCategoryNames.join(', ')}`);
+        }
+      } else {
+        console.log(`ℹ️ [BLIPS DEBUG] Buyer ${buyerId} has no selected categories - showing random blips`);
+      }
+    } else {
+      console.log(`👤 [BLIPS DEBUG] Non-authenticated user - showing random blips`);
     }
+
+    // Build match stages with category filtering for authenticated users with selected categories
+    // For non-authenticated users or users without selected categories, categoryNames will be empty
+    // which makes the pipeline return random blips (existing behavior)
+    const primaryMatchStage = pipelineHelper.buildPrimaryMatchStage(
+      categoryNames.length > 0 ? categoryNames : null, 
+      subCategoryNames.length > 0 ? subCategoryNames : null
+    );
+    const fallbackMatchStage = pipelineHelper.buildFallbackMatchStage(
+      categoryNames.length > 0 ? categoryNames : null, 
+      subCategoryNames.length > 0 ? subCategoryNames : null
+    );
 
     // Count total products
     let total = await productRepository.countProductsWithBlips({ 'blips.0': { $exists: true }, status: { $ne: 'draft' } });
@@ -97,9 +139,57 @@ class GetPersonalizedBlipsService {
       }
     }
 
-    // Fallback if no products found
+    // INTELLIGENT HYBRID FALLBACK SYSTEM
+    // If we have personalized categories but insufficient content (< poolSize threshold),
+    // supplement with diverse content from other categories to ensure a full feed
+    const MIN_PERSONALIZED_THRESHOLD = poolSize * 0.3; // 30% of pool size minimum
+    const hasPersonalizedCategories = categoryNames.length > 0;
+    const needsSupplementation = hasPersonalizedCategories && products.length < MIN_PERSONALIZED_THRESHOLD;
+
+    if (needsSupplementation) {
+      console.log(`🔄 [BLIPS DEBUG] Insufficient personalized content (${products.length}/${MIN_PERSONALIZED_THRESHOLD} threshold)`);
+      console.log(`🌐 [BLIPS DEBUG] Supplementing with diverse content from other categories...`);
+
+      // Build a supplementary match stage that EXCLUDES the buyer's selected categories
+      // This ensures we're adding diverse content, not just more of the same limited category
+      const supplementaryMatchStage = pipelineHelper.buildSupplementaryMatchStage(
+        categoryNames, 
+        subCategoryNames
+      );
+
+      // Calculate how many additional blips we need
+      const additionalNeeded = Math.max(poolSize - products.length, limit);
+      const supplementaryPoolSize = Math.min(additionalNeeded * 2, poolSize);
+
+      // Build supplementary pipeline with smaller pool size
+      const supplementaryCommonPipeline = pipelineHelper.buildCommonPipeline(supplementaryPoolSize);
+      const { pipeline: supplementaryPipeline } = pipelineHelper.buildPrimaryPipeline(
+        supplementaryMatchStage,
+        seenBlipObjectIds,
+        supplementaryCommonPipeline
+      );
+
+      console.log(`🔎 [BLIPS DEBUG] Executing supplementary pipeline for ${supplementaryPoolSize} diverse blips...`);
+      
+      try {
+        const supplementaryProducts = await productRepository.aggregateProducts(supplementaryPipeline);
+        console.log(`📊 [BLIPS DEBUG] Supplementary pipeline returned: ${supplementaryProducts.length} products`);
+        
+        // Merge personalized products first, then supplementary (priority to personalized)
+        const originalCount = products.length;
+        products = [...products, ...supplementaryProducts];
+        
+        console.log(`✅ [BLIPS DEBUG] Hybrid feed created: ${originalCount} personalized + ${supplementaryProducts.length} diverse = ${products.length} total`);
+      } catch (dbError) {
+        console.error(`⚠️ [BLIPS DEBUG] Error fetching supplementary blips:`, dbError.message);
+        // Continue with just the personalized products if supplementary fetch fails
+        console.log(`📌 [BLIPS DEBUG] Continuing with ${products.length} personalized blips only`);
+      }
+    }
+
+    // Final fallback if absolutely no products found (not even personalized)
     if (products.length === 0) {
-      console.log('❌ [BLIPS DEBUG] No primary blips, falling back to general pool');
+      console.log('❌ [BLIPS DEBUG] No primary blips found, falling back to general pool');
 
       const { pipeline: fallbackPipeline } = pipelineHelper.buildFallbackPipeline(
         fallbackMatchStage, 
@@ -127,6 +217,27 @@ class GetPersonalizedBlipsService {
         const duplicates = blipIds.filter(id => seenBlipIds.includes(id));
         if (duplicates.length > 0) {
           console.log(`🚨 [BLIPS DEBUG] ERROR: Found duplicate blips in fallback results: ${duplicates.join(', ')}`);
+        }
+      }
+      
+      // INFINITE SCROLL FAILSAFE: If still no products after all attempts,
+      // it means we've exhausted even the rotation window. Reset exclusions entirely.
+      if (products.length === 0 && seenBlipObjectIds.length > 0) {
+        console.log('🔄 [BLIPS DEBUG] Content exhausted even with rotation window!');
+        console.log('♻️ [BLIPS DEBUG] RESETTING exclusions for infinite scroll - allowing ALL blips to rotate back');
+        
+        // Query without ANY exclusions to allow full rotation
+        const resetPipeline = pipelineHelper.buildSimpleFallbackPipeline(fallbackMatchStage, commonPipeline);
+        
+        try {
+          products = await productRepository.aggregateProducts(resetPipeline);
+          console.log(`✅ [BLIPS DEBUG] Reset successful: ${products.length} blips available for rotation`);
+          
+          if (products.length > 0) {
+            console.log(`♻️ [BLIPS DEBUG] Infinite scroll active - user will see content from beginning`);
+          }
+        } catch (resetError) {
+          console.error(`❌ [BLIPS DEBUG] Error in reset pipeline:`, resetError.message);
         }
       }
     }

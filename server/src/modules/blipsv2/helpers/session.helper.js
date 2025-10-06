@@ -3,7 +3,12 @@ const sessionBlipStore = new Map();
 
 // Maximum number of sessions to prevent memory issues
 const MAX_SESSIONS = 1000;
-const MAX_SEEN_BLIPS_PER_SESSION = 100;
+
+// SMART ROTATION WINDOW CONFIGURATION
+// This creates an infinite scroll experience with minimal repetition
+// Only the MOST RECENT blips are excluded, older ones rotate back into the feed
+const ROTATION_WINDOW_SIZE = 30; // Only exclude last 30 seen blips (adjust based on your needs)
+const MAX_SEEN_BLIPS_PER_SESSION = 200; // Keep history for analytics, but only use recent for exclusion
 
 // Cleanup interval reference for proper cleanup
 let cleanupInterval = null;
@@ -72,16 +77,27 @@ class SessionHelper {
       sessionData.lastPage = Math.max(sessionData.lastPage || 0, page);
     }
 
-    let seenBlipIds = sessionData.seenBlipIds;
+    // Get all seen blips for this session
+    let allSeenBlipIds = sessionData.seenBlipIds;
     
-    // Limit seen blips per session to prevent performance issues
-    if (seenBlipIds.length > MAX_SEEN_BLIPS_PER_SESSION) {
-      seenBlipIds = seenBlipIds.slice(-MAX_SEEN_BLIPS_PER_SESSION);
-      sessionData.seenBlipIds = seenBlipIds;
+    // Limit total history per session to prevent memory issues
+    if (allSeenBlipIds.length > MAX_SEEN_BLIPS_PER_SESSION) {
+      allSeenBlipIds = allSeenBlipIds.slice(-MAX_SEEN_BLIPS_PER_SESSION);
+      sessionData.seenBlipIds = allSeenBlipIds;
       console.log(`✂️ [BLIPS DEBUG] Trimmed session to last ${MAX_SEEN_BLIPS_PER_SESSION} seen blips`);
     }
 
-    return { sessionData, seenBlipIds };
+    // SMART ROTATION WINDOW: Only exclude the MOST RECENT blips
+    // This creates infinite scroll - older blips rotate back into the feed
+    const recentlySeenBlipIds = allSeenBlipIds.slice(-ROTATION_WINDOW_SIZE);
+    
+    if (allSeenBlipIds.length > ROTATION_WINDOW_SIZE) {
+      console.log(`🔄 [BLIPS DEBUG] Rotation Window: Excluding only last ${ROTATION_WINDOW_SIZE} of ${allSeenBlipIds.length} total seen blips`);
+      console.log(`♻️ [BLIPS DEBUG] ${allSeenBlipIds.length - ROTATION_WINDOW_SIZE} older blips can now rotate back into feed`);
+    }
+
+    // Return recently seen IDs for exclusion (creates rotation)
+    return { sessionData, seenBlipIds: recentlySeenBlipIds, allSeenBlipIds };
   }
 
   updateSessionWithNewBlips(sessionData, newlySeenBlipIds, page) {
