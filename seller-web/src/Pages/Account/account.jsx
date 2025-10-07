@@ -4,7 +4,7 @@ import { Badge } from "@/Components/ui/badge";
 import { Button } from "@/Components/ui/button";
 import { Card, CardContent } from "@/Components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
-import { Mail, MapPin, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera, Edit, ExternalLink, Link2 } from "lucide-react";
+import { Mail, MapPin, Calendar, Phone, ShoppingBag, Users, Heart, Zap, Tv, MessageSquare, CheckCircle2, Radio, Camera, Edit, ExternalLink, Link2, Pencil, Trash2 } from "lucide-react";
 import { UserSquareIcon } from "lucide-react";
 import LinearProgress from "@mui/material/LinearProgress";
 import { BASE_URL, BASE_URL_V2, AUQLI_STORE_BASE_URL } from "@/Constants/Server";
@@ -45,6 +45,8 @@ export default function AccountPage() {
   const [followingLoading, setFollowingLoading] = useState(false);
   //const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
   const [showPickupAddressModal, setShowPickupAddressModal] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [isDeletingAvatar, setIsDeletingAvatar] = useState(false);
 
   const fetchProfile = async () => {
     try {
@@ -344,6 +346,48 @@ export default function AccountPage() {
     }
   };
 
+  /**
+   * Handles the deletion of the seller's profile avatar
+   * Makes a DELETE request to the profile avatar endpoint and updates the UI accordingly
+   */
+  const handleDeleteAvatar = async () => {
+    setIsDeletingAvatar(true);
+    
+    try {
+      const tokenData = JSON.parse(localStorage.getItem("sellerToken"));
+      if (!tokenData) {
+        throw new Error("No authentication token found");
+      }
+
+      const response = await fetch(`${BASE_URL_V2}/sellers/profile/avatar`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${tokenData.data}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete profile avatar');
+      }
+
+      // Update the profile state to remove the avatar
+      setProfile((prev) => ({
+        ...prev,
+        storeAvatar: null,
+      }));
+
+      // Close the modal
+      setShowAvatarModal(false);
+      
+      toast.success('Profile picture deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting avatar:', error);
+      toast.error('Failed to delete profile picture');
+    } finally {
+      setIsDeletingAvatar(false);
+    }
+  };
+
 
 
 
@@ -543,15 +587,20 @@ export default function AccountPage() {
               onChange={handleAvatarUpload}
               className="hidden"
             />
-            <label htmlFor="avatar-upload" className="cursor-pointer block relative group">
+            <div 
+              className="cursor-pointer block relative group"
+              onClick={() => setShowAvatarModal(true)}
+            >
               <Avatar className="h-16 w-16 sm:h-24 sm:w-24 md:h-28 md:w-28 border-4 border-background rounded-full ring-2 sm:ring-4 ring-green-600/20">
                 <AvatarImage src={profile?.storeAvatar?.url || "/placeholder.svg"} />
-                <AvatarFallback>{`${profile?.firstName?.[0] || ''}${profile?.lastName?.[0] || ''}`}</AvatarFallback>
+                <AvatarFallback className="font-bold text-gray-500 text-lg sm:text-xl md:text-2xl">
+                  {`${profile?.firstName?.[0] || ''}${profile?.lastName?.[0] || ''}`}
+                </AvatarFallback>
               </Avatar>
               <div className="absolute right-0 bottom-0 p-1 sm:p-1.5 md:p-2 bg-black/50 rounded-full opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                <Camera className="h-2 w-2 sm:h-2.5 sm:w-2.5 md:h-4 md:w-4 text-white" />
+                <Pencil className="h-2 w-2 sm:h-2.5 sm:w-2.5 md:h-4 md:w-4 text-white" />
               </div>
-            </label>
+            </div>
           </div>
 
           {/* Rest of the content */}
@@ -933,6 +982,70 @@ export default function AccountPage() {
                 ))}
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Avatar Management Modal */}
+      <Dialog open={showAvatarModal} onOpenChange={setShowAvatarModal}>
+        <DialogContent className="max-w-[92vw] sm:max-w-md p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle className="text-lg sm:text-xl flex items-center gap-2">
+              <Pencil className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+              Profile Picture
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              Manage your profile picture
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="mt-4 sm:mt-6">
+            {/* Profile Image Display */}
+            <div className="flex justify-center mb-6">
+              <Avatar className="h-24 w-24 sm:h-32 sm:w-32 md:h-36 md:w-36 border-4 border-background rounded-full ring-2 sm:ring-4 ring-green-600/20">
+                <AvatarImage src={profile?.storeAvatar?.url || "/placeholder.svg"} />
+                <AvatarFallback className="font-bold text-2xl sm:text-3xl md:text-4xl">
+                  {`${profile?.firstName?.[0] || ''}${profile?.lastName?.[0] || ''}`}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <Button
+                variant="outline"
+                className="flex-1 flex items-center justify-center gap-2 h-10 sm:h-11"
+                onClick={() => {
+                  // Trigger the file input for editing
+                  document.getElementById('avatar-upload').click();
+                  setShowAvatarModal(false);
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+                {profile?.storeAvatar?.url ? "change Picture" : "Add Picture"}
+              </Button>
+              
+              {profile?.storeAvatar?.url && (
+                <Button
+                  variant="destructive"
+                  className="flex-1 flex items-center justify-center gap-2 h-10 sm:h-11"
+                  onClick={handleDeleteAvatar}
+                  disabled={isDeletingAvatar}
+                >
+                  {isDeletingAvatar ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4" />
+                      Delete Picture
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
