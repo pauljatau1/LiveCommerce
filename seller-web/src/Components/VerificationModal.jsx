@@ -37,7 +37,7 @@ import {
 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/Components/ui/radio-group";
 import { Label } from "@/Components/ui/label";
-import { Input } from "@/Components/ui/input";
+import { Input } from "@/Components/ui/form/input";
 import { Textarea } from "@/Components/ui/textarea";
 import { Checkbox } from "@/Components/ui/checkbox";
 import { toast } from "sonner";

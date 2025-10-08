@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Input } from "@/Components/ui/input"
+import { Input } from "@/Components/ui/form/input"
 import { Label } from "@/Components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/Components/ui/radio-group"
 import { Checkbox } from "@/Components/ui/checkbox"

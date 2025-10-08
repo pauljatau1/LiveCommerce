@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/Components/ui/dialog"
-import { Input } from "@/Components/ui/input"
+import { Input } from "@/Components/ui/form/input"
 import { Label } from "@/Components/ui/label"
 import { Loader2 } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/Components/ui/radio-group"

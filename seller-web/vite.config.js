@@ -14,8 +14,10 @@ const APP_STATE = process.env.VITE_APP_STATE || 'development';
 export default defineConfig({
   server: {
     host: "0.0.0.0",
+    port: 5174, // Start from 5174 to avoid conflicts
+    strictPort: false, // Automatically try next available port if 5174 is in use
     allowedHosts: ["seller.staging.auqli.live", "seller.production.auqli.live", "seller.auqli.live"],
-      watch: {
+    watch: {
       usePolling: true,
     },
   },

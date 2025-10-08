@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Smartphone, Laptop, MoreVertical, Lock } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/Components/ui/card"
 import { Button } from "@/Components/ui/button"
-import { Input } from "@/Components/ui/input"
+import { Input } from "@/Components/ui/form/input"
 import { Label } from "@/Components/ui/label"
 import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import { toast } from "sonner"

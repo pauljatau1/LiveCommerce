@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Search, Mail, Phone, MessageSquare, FileText, Users, HelpCircle } from "lucide-react"
 import { Button } from "@/Components/ui/button"
-import { Input } from "@/Components/ui/input"
+import { Input } from "@/Components/ui/form/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/Components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/Components/ui/accordion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs"

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
-import { Input } from "@/Components/ui/input";
+import { Input } from "@/Components/ui/form/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
 import { ScrollArea } from "@/Components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar";
