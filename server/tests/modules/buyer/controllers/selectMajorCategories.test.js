@@ -49,9 +49,11 @@ describe('selectMajorCategories.controller', () => {
         .expect(200);
 
       // Verify service was called with correct parameters
+      // replaceMode defaults to true now
       expect(selectMajorCategoriesService.selectMajorCategories).toHaveBeenCalledWith(
         '507f1f77bcf86cd799439011',
-        majorCategoryIds
+        majorCategoryIds,
+        true // replaceMode is true by default
       );
 
       // Verify response structure

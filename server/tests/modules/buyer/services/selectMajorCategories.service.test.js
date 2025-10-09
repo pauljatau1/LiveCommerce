@@ -90,10 +90,11 @@ describe('selectMajorCategories.service', () => {
       // Mock repository responses
       buyerRepository.findById.mockResolvedValue(mockBuyer);
       majorCategoryRepository.findActiveMajorCategories.mockResolvedValue(mockMajorCategories);
+      majorCategoryRepository.findAllActiveMajorCategories.mockResolvedValue(mockMajorCategories); // Mock for replace mode
       categoryRepository.findCategoriesByIds.mockResolvedValue(mockCategories);
       buyerRepository.updateBuyerSelectedCategories.mockResolvedValue(mockUpdatedBuyer);
 
-      // Call the service
+      // Call the service (replaceMode defaults to true now)
       const result = await selectMajorCategoriesService.selectMajorCategories(buyerId, majorCategoryIds);
 
       // Verify repository functions were called with correct parameters
