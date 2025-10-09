@@ -177,10 +177,16 @@ function filterNewCategories(formattedCategories, existingCategories) {
  * 4. Extract all child category IDs from major categories
  * 5. Retrieve detailed category information with subcategories
  * 6. Format categories for buyer profile storage
- * 7. Filter out duplicate categories from existing selections
- * 8. Merge new categories with existing selections
+ * 7. Filter out duplicate categories from existing selections (if not replacing)
+ * 8. Merge new categories with existing selections (or replace if replaceMode is true)
  * 9. Update buyer's selected categories in database
  * 10. Return updated buyer data with selection information
+ *
+ * Replace Mode (NEW):
+ * - When replaceMode is true, clears ALL previous major category selections
+ * - Preserves only manually selected categories (those not from any major category)
+ * - Ensures immediate algorithm update when buyer reselects categories
+ * - Prevents accumulation of old category selections
  *
  * Security Considerations:
  * - Input validation prevents malicious data processing
@@ -198,6 +204,7 @@ function filterNewCategories(formattedCategories, existingCategories) {
  *
  * @param {string} buyerId - The buyer's unique identifier
  * @param {Array} majorCategoryIds - Array of major category IDs to select
+ * @param {boolean} replaceMode - If true, replaces all previous major category selections (default: true)
  * @returns {Promise<Object>} Object containing selected categories and added categories info
  *   - selectedCategories: {Array} - Complete updated list of buyer's selected categories
  *   - addedCategories: {Array} - New categories that were added (non-duplicates)
@@ -205,13 +212,17 @@ function filterNewCategories(formattedCategories, existingCategories) {
  * @throws {NotFoundException} If buyer is not found or no active major categories found
  * @throws {Error} If database operations fail
  * @example
+ * // Replace mode (default - recommended for category reselection)
  * const result = await selectMajorCategories('buyer123', ['majorCat1', 'majorCat2']);
+ * 
+ * // Append mode (if you want to ADD to existing categories)
+ * const result = await selectMajorCategories('buyer123', ['majorCat1'], false);
  * // Returns: {
  * //   selectedCategories: [...], // All buyer's selected categories
  * //   addedCategories: [...] // Only newly added categories
  * // }
  */
-async function selectMajorCategories(buyerId, majorCategoryIds) {
+async function selectMajorCategories(buyerId, majorCategoryIds, replaceMode = true) {
   // Step 1: Validate input data (buyer ID and major category IDs)
   // This ensures all input parameters meet validation requirements
   await validateSelectMajorCategoriesData({ buyerId, majorCategoryIds });
@@ -242,13 +253,44 @@ async function selectMajorCategories(buyerId, majorCategoryIds) {
   // This transforms raw category data into storage-optimized format
   const formattedCategories = formatCategories(categories);
   
-  // Step 7: Filter out duplicate categories from existing selections
-  // This prevents duplicate entries and maintains data integrity
-  const newCategories = filterNewCategories(formattedCategories, buyer.selectedCategories);
+  let updatedSelectedCategories;
+  let newCategories;
   
-  // Step 8: Merge new categories with existing selections
-  // This combines existing and new categories for the complete selection
-  const updatedSelectedCategories = [...buyer.selectedCategories, ...newCategories];
+  if (replaceMode) {
+    // REPLACE MODE: Clear old major category selections, keep only manual selections
+    console.log(`🔄 [CATEGORIES DEBUG] Replace mode enabled - clearing old major category selections`);
+    
+    // Get all major categories to identify which categories come from major categories
+    const allMajorCategories = await majorCategoryRepository.findAllActiveMajorCategories();
+    const allMajorCategoryNames = new Set();
+    
+    allMajorCategories.forEach(majorCategory => {
+      majorCategory.categories.forEach(category => {
+        allMajorCategoryNames.add(category.name);
+      });
+    });
+    
+    // Preserve only manually selected categories (those not from any major category)
+    const manuallySelectedCategories = buyer.selectedCategories.filter(
+      cat => !allMajorCategoryNames.has(cat.name)
+    );
+    
+    console.log(`📌 [CATEGORIES DEBUG] Preserved ${manuallySelectedCategories.length} manually selected categories`);
+    console.log(`✨ [CATEGORIES DEBUG] Adding ${formattedCategories.length} new categories from selected major categories`);
+    
+    // Replace with manually selected + new major category selections
+    updatedSelectedCategories = [...manuallySelectedCategories, ...formattedCategories];
+    newCategories = formattedCategories;
+  } else {
+    // APPEND MODE: Add new categories to existing ones (original behavior)
+    // Step 7: Filter out duplicate categories from existing selections
+    // This prevents duplicate entries and maintains data integrity
+    newCategories = filterNewCategories(formattedCategories, buyer.selectedCategories);
+    
+    // Step 8: Merge new categories with existing selections
+    // This combines existing and new categories for the complete selection
+    updatedSelectedCategories = [...buyer.selectedCategories, ...newCategories];
+  }
   
   // Step 9: Update buyer's selected categories in database
   // This persists the updated category selections to the buyer's profile
