@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/Components/ui/radio-group";
 import { Label } from "@/Components/ui/label";
-import { Input } from "@/Components/ui/input";
+import { Input } from "@/Components/ui/form/input";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 import VerificationService from '@/services/VerificationService';

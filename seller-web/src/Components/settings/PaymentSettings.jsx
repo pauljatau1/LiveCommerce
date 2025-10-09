@@ -3,7 +3,7 @@ import { Building2, CreditCard, User, Briefcase, Calculator, Globe, DollarSign, 
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card"
 import { Button } from "@/Components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/Components/ui/dialog"
-import { Input } from "@/Components/ui/input"
+import { Input } from "@/Components/ui/form/input"
 import { Label } from "@/Components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
 import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"

@@ -33,7 +33,7 @@ import {
     DialogDescription
 } from "../../ui/dialog";
 import { Calendar } from "../calendar";
-import { Input } from "../input";
+import { Input } from "../form/input";
 import { Progress } from "../progress";
 import VideoPlayer from "@shared/VideoPlayer";
 import ShareLinkPopUp from '../ShareLinkPopUp';

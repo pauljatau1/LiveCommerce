@@ -6,7 +6,7 @@ import { MessageCircle, Phone, Printer, Plus, ShoppingBag, ArrowLeft, Clock, Hel
 import { useState, useEffect } from "react"
 import { BASE_URL } from "@/Constants/Server"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/Components/ui/dialog"
-import { Input } from "@/Components/ui/input"
+import { Input } from "@/Components/ui/form/input"
 import { Alert, AlertTitle, AlertDescription } from "@/Components/ui/alert"
 import { toast } from "sonner"
 import { Label } from "@/Components/ui/label"

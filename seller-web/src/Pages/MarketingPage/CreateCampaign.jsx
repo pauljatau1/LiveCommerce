@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/Components/ui/card"
-import { Input } from "@/Components/ui/input"
+import { Input } from "@/Components/ui/form/input"
 import { Label } from "@/Components/ui/label"
 import { Button } from "@/Components/ui/button"
 import { Textarea } from "@/Components/ui/textarea"

@@ -10,6 +10,9 @@ export default {
         extend: {
             fontFamily: {
                 sans: ['Poppins'],
+                lexend: ['Lexend'],
+                lexendDeca: ['Lexend Deca'],
+                cabin: ['Cabin'],
                
             },
             height: {
