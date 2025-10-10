@@ -24,6 +24,7 @@ import ProductEmptyState from "@/components/global/empty-states/productEmptyStat
 import LottieView from "lottie-react-native";
 import ProductSkeleton from "@/components/skeleton/productSkeleton";
 import { debounce } from "lodash";
+import SortSheet from "@/components/global/sheets/sortSheet";
 
 const sortMap = {
   None: "",
@@ -88,6 +89,7 @@ const FlashSalesCatalog = () => {
     setPage(1);
     setHasReachedEnd(false);
   };
+  console.log(insets);
 
   const renderProducts = ({ item }: any) => {
     return (
@@ -217,7 +219,7 @@ const FlashSalesCatalog = () => {
   }, [data]);
 
   return (
-    <SafeAreaView className="h-full flex-1 bg-[#121212]" edges={["bottom"]}>
+    <SafeAreaView className="h-full flex-1 bg-[#121212]" edges={[""]}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
 
       <View className="flex-1">
@@ -227,7 +229,7 @@ const FlashSalesCatalog = () => {
             <ActivityIndicator size={"small"} color="#fff" />
           </View>
         ) : (
-          <View className="flex-1 pt-[12px]">
+          <View className="flex-1">
             <View
               className="absolute z-[10000]"
               style={{
@@ -271,7 +273,7 @@ const FlashSalesCatalog = () => {
           showCloseIcon={false}
           show={showSortSheet}
           titleColor="!text-white"
-          snapPoints={["60%"]}
+          // snapPoints={["60%"]}
           onRequestClose={() => setShowSortSheet(false)}
           keyboardBehavior="interactive"
         >
@@ -299,88 +301,5 @@ const FlashSalesCatalog = () => {
     </SafeAreaView>
   );
 };
-
-const SortSheet = memo(
-  ({
-    selectSortType,
-    currentSelection,
-  }: {
-    selectSortType: any;
-    currentSelection: any;
-  }) => {
-    const options = [
-      "None",
-      "Price: High to Low",
-      "Price: Low to High",
-      "Newest to Oldest",
-      "Oldest to Newest",
-    ];
-    const [selectedType, setSelectedType] = useState<string>(currentSelection);
-    return (
-      <View className="my-[10px]" style={{ paddingBottom: 60 }}>
-        <Text className="self-center font-LexendDeca text-[18px] text-[#fff]">
-          Sort
-        </Text>
-        <View style={{ paddingBottom: 20 }}>
-          {options.map((option, index) => (
-            <Pressable
-              key={index}
-              style={{
-                paddingVertical: 15,
-                paddingHorizontal: 10,
-                borderBottomColor: "#888787",
-                borderBottomWidth: StyleSheet.hairlineWidth,
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-              onPress={() => setSelectedType(option)}
-            >
-              <Text className="text-[14px] text-[#fff] font-LexendDeca">
-                {option}
-              </Text>
-              <View
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 22,
-                  borderColor: "#fff",
-                  borderWidth: 1,
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <View
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 12,
-                    backgroundColor:
-                      selectedType == option ||
-                      sortMap[options[index]] == selectedType
-                        ? "#fff"
-                        : "",
-                  }}
-                ></View>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-
-        <View className="absolute bottom-0 left-0 right-0 px-[20px] py-[2px]">
-          <Pressable
-            className="w-full py-[12px] items-center justify-center bg-[#16783A]"
-            style={{ borderRadius: 25 }}
-            onPress={() => selectSortType(selectedType)}
-          >
-            <Text className="text-[14px] text-[#fff] font-LexendDeca">
-              Show Results
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  },
-);
 
 export default FlashSalesCatalog;

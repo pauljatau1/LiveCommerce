@@ -1,7 +1,7 @@
 import { AntDesign } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import React from "react";
+import React, { memo } from "react";
 import {
   Dimensions,
   Platform,
@@ -15,7 +15,7 @@ import { TouchableWithoutFeedback } from "react-native-gesture-handler";
 import { ActivityIndicator } from "react-native-paper";
 import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
 
-const PromotionModal = ({ isVisible, closeModal,promotionAmount }: any) => {
+const PromotionModal = ({ isVisible, closeModal, promotionAmount }: any) => {
   const deviceWidth = Dimensions.get("window").width;
   const deviceHeight =
     // Platform.OS === 'ios'
@@ -103,7 +103,8 @@ const PromotionModal = ({ isVisible, closeModal,promotionAmount }: any) => {
             ₦{promotionAmount?.toLocaleString()} FREE GIFT!
           </Text>
           <Text className="font-LexendDeca text-[14px] text-[#111] mb-[30px] text-center leading-[18px]">
-            You’ve just received a ₦{promotionAmount?.toLocaleString()} Wallet Credit as a welcome gift 🎁
+            You’ve just received a ₦{promotionAmount?.toLocaleString()} Wallet
+            Credit as a welcome gift 🎁
             {"\n\n"}
             Use it on your first livestream purchase or auction bid!
           </Text>
@@ -146,4 +147,4 @@ const styles = StyleSheet.create({
     width: "100%",
   },
 });
-export default PromotionModal;
+export default memo(PromotionModal);

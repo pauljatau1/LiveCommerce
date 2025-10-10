@@ -277,7 +277,7 @@ const OrderItem = ({
         childrenStyle="!px-[0px]"
         showCloseIcon={false}
         show={showCancelSheet}
-        snapPoints={["80%"]}
+        // snapPoints={["80%"]}
         enableDynamicSizing={true}
         onRequestClose={() => setShowCancelSheet(false)}
         keyboardBehavior="interactive"

@@ -67,13 +67,16 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
     );
   }, []);
 
-  const renderCategoryData = ({ item }: any) => {
+  const renderCategoryData = ({ item, index }: any) => {
     return (
       <View
         className="w-[100%]"
         style={{
           flexShrink: 1,
           margin: 4,
+          paddingLeft: (index + 1) % 2 === 0 ? 4 : 0,
+          paddingRight: (index + 1) % 2 === 0 ? 0 : 4,
+          marginBottom: 14,
         }}
       >
         <CatalogCard
@@ -178,7 +181,7 @@ const GeneralCategory = ({ name, category }: GeneralCategoryProps) => {
             contentContainerStyle={{
               paddingBottom: 60,
             }}
-            estimatedItemSize={300}
+            // estimatedItemSize={300}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={renderEmptyPlaceholder}
             ListFooterComponent={renderListFooter}

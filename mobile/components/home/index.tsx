@@ -137,7 +137,7 @@ const Home = () => {
           title="Live & Videos"
           className="!w-[130px] !bg-primary-200 rounded-tr-none rounded-br-none"
           onPress={() => {
-            router.push("/(root)/(tabs)/home/home");
+            router.replace("/(root)/(tabs)/home/home");
           }}
         />
         <CustomButton
@@ -145,7 +145,7 @@ const Home = () => {
           textStyle="!text-[#141B34]"
           className="!w-[130px] !rounded-tl-none !rounded-bl-none !rounded-[40px]  !bg-[#F2F2F2]"
           onPress={() => {
-            router.push("/(root)/(tabs)/home/marketplace");
+            router.replace("/(root)/(tabs)/home/marketplace");
           }}
         />
       </View>

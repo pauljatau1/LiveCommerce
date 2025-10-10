@@ -657,7 +657,7 @@ const ProductDescription = () => {
               onPress={() => {
                 router?.canGoBack()
                   ? router.back()
-                  : router.push("/(root)/(tabs)/home/home");
+                  : router.push("/(root)/(tabs)/home/marketplace");
               }}
             >
               <Entypo name="chevron-left" size={24} color="#fff" />

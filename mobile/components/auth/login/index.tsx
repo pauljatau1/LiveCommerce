@@ -174,12 +174,20 @@ const Login = () => {
         if (prevRouteLocal) {
           // return console.log("referrer object", prevRouteLocal);
 
-          router.replace(prevRouteLocal);
+          router.canDismiss()
+            ? router.dismissTo(prevRouteLocal)
+            : router.replace(prevRouteLocal);
           await AsyncStorage.removeItem("authReferrer");
           return;
         }
-        router.replace(`/blips`);
-      } else router.replace("/(root)/(categories)/category");
+        router.back();
+      } else {
+        await AsyncStorage.setItem(
+          "registerPayload",
+          JSON.stringify(result?.data),
+        );
+        router.replace("/(root)/(categories)/category");
+      }
     } catch (error: any) {
       console.log(error?.data?.message);
       toast.error(
@@ -284,7 +292,8 @@ const Login = () => {
             <Pressable
               onPress={() => {
                 dispatch(signInAsGuest());
-                router.push("/(root)/(tabs)/blips");
+                return router.back();
+                // router.push("/(root)/(tabs)/blips");
               }}
               style={{
                 alignItems: "flex-end",
@@ -334,7 +343,11 @@ const Login = () => {
                     rules={["required"]}
                   />
                   <View className="mt-2 w-full flex-row items-center justify-center">
-                    <Link href="/(root)/(auth)/forgot-password">
+                    <Pressable
+                      onPress={() => {
+                        router.replace("/forgot-password");
+                      }}
+                    >
                       <Text
                         className="text-[14px]
                                     font-LexendDeca
@@ -342,7 +355,7 @@ const Login = () => {
                       >
                         Forgot password?
                       </Text>
-                    </Link>
+                    </Pressable>
                   </View>
                   <CustomButton
                     title="Log in"

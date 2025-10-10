@@ -94,14 +94,16 @@ const EditProfile = () => {
         );
       }
     }
+    console.log("launching image picker (profile)");
 
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       quality: 1,
       allowsMultipleSelection: false,
       allowsEditing: false,
       base64: false,
     });
+    console.log("finished launching image picker (profile)");
 
     if (!result.canceled && result.assets.length > 0) {
       const newImages = result.assets.map((asset) => ({
@@ -150,9 +152,13 @@ const EditProfile = () => {
         }),
       );
       updateProfile();
-    } catch (e:any) {
+    } catch (e: any) {
       console.log("error updating avatar", e);
-      toast.error(e?.data?.errors?.[0]?.message || e?.data?.message ||  "error updating avatar")
+      toast.error(
+        e?.data?.errors?.[0]?.message ||
+          e?.data?.message ||
+          "error updating avatar",
+      );
       setLoading(false);
     }
   };
@@ -193,10 +199,13 @@ const EditProfile = () => {
         }),
       );
       router.back();
-    } catch (e:any) {
+    } catch (e: any) {
       console.log(e?.response?.data);
-      toast.error(e?.response?.data?.errors?.[0]?.message || e?.response?.data?.message ||  "Error Updating Profile")
-
+      toast.error(
+        e?.response?.data?.errors?.[0]?.message ||
+          e?.response?.data?.message ||
+          "Error Updating Profile",
+      );
     } finally {
       setLoading(false);
     }
@@ -215,9 +224,7 @@ const EditProfile = () => {
 
   return (
     <SafeAreaView className="flex-1 bg-[#121212]">
-
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-
 
       <View
         style={{
@@ -336,7 +343,6 @@ const EditProfile = () => {
           <Text style={styles.updateBtnText}>Update</Text>
         </Pressable>
       </KeyboardAwareScrollView>
-
 
       <BottomSheet
         bgColor="#121212"

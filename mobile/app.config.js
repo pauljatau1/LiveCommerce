@@ -13,7 +13,7 @@ module.exports = ({ config }) => {
       name: "auqli",
       slug: "auqli-app",
       // slug: "auqli-mobile",
-      version: "1.2.6",
+      version: "1.2.7",
       orientation: "portrait",
       icon: "./assets/images/appstore.png",
       scheme: IS_STAGING ? "auqlistaging" : "auqli",
@@ -75,6 +75,7 @@ module.exports = ({ config }) => {
         googleServicesFile:
           process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
         permissions: ["INTERNET", "RECORD_AUDIO"],
+        edgeToEdgeEnabled: true,
       },
       web: {
         bundler: "metro",
@@ -103,7 +104,7 @@ module.exports = ({ config }) => {
         "@react-native-google-signin/google-signin",
         "expo-video",
         // "./plugins/withWindowSoftInputMode",
-        "./plugins/withExpoPluginNinjaFix",
+        // "./plugins/withExpoPluginNinjaFix",
         [
           "customerio-expo-plugin",
           {

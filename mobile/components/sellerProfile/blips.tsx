@@ -2,30 +2,19 @@ import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
   Pressable,
   StyleSheet,
   Animated,
   Platform,
-  Modal,
-  Alert,
 } from "react-native";
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
-import { useGetSellerProductsQuery } from "@/services/products";
 import { ActivityIndicator } from "react-native-paper";
-import CatalogCard from "../catalog/catalogCard";
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import BottomSheet from "../global/bottom-sheet";
-import { catalogSort, formatNumber } from "@/helpers/helpers";
-import VideoItem from "../blips/videoItem";
+import { formatNumber } from "@/helpers/helpers";
 import axios from "axios";
 import { getToken } from "@/store/features/auth/utils";
 import { router } from "expo-router";
-import { Video } from "expo-av";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import BlipItem from "./blipItem";
 import { Entypo } from "@expo/vector-icons";
 
 const Blips = ({
@@ -40,12 +29,8 @@ const Blips = ({
   index: any;
 }) => {
   const [page, setPage] = useState<number>(1);
-  const [filter, setFilter] = useState<string>("None");
   const [videos, setVideos] = useState<any[]>([]);
-  const [images, setImages] = useState<any[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
-  const [showSortSheet, setShowSortSheet] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const flatListRef = useRef<FlatList>(null);
 
@@ -82,8 +67,6 @@ const Blips = ({
       const newVideos = response.data.blips;
 
       if (newVideos.length > 0) {
-        console.log("generating");
-
         // generateThumbnail(newVideos);
         setPage((prevPage) => prevPage + 1);
         setVideos((prevVideos) => {
@@ -122,33 +105,6 @@ const Blips = ({
       </View>
     );
   }, [videos, hasReachedEnd, isLoading]);
-
-  // const generateThumbnail = async (newVideos: any[]) => {
-  //   try {
-  //     const newImages = [] as any;
-  //     console.log("generating thumbnail");
-
-  //     for (const video of newVideos) {
-  //       const { uri } = await VideoThumbnails.getThumbnailAsync(
-  //         video?.blipUrl,
-  //         {
-  //           time: 1000,
-  //         },
-  //       );
-  //       newImages.push({
-  //         uri,
-  //         views: video.blipEngagement.viewCount || 0,
-  //         ...video,
-  //       });
-  //       console.log("new images uri", uri);
-  //     }
-  //     setImages((prevImages) => {
-  //       return [...prevImages, ...newImages];
-  //     });
-  //   } catch (e) {
-  //     console.warn(e);
-  //   }
-  // };
 
   useEffect(() => {
     fetchMoreVideos();
@@ -197,9 +153,6 @@ const Blips = ({
 };
 
 const VideoCard = memo(({ item }: { item: any }) => {
-  const [modalVisible, setModalVisible] = useState<boolean>(false);
-  console.log(item);
-
   return (
     <Pressable
       className=" bg-black rounded-[8px] w-[100%] h-[250px]"
@@ -227,35 +180,6 @@ const VideoCard = memo(({ item }: { item: any }) => {
           {formatNumber(item?.blipEngagement?.viewCount)}
         </Text>
       </View>
-
-      <Modal
-        animationType="fade"
-        transparent={false}
-        visible={modalVisible}
-        onRequestClose={() => {
-          Alert.alert("Modal has been closed.");
-          setModalVisible(!modalVisible);
-        }}
-        presentationStyle="fullScreen"
-      >
-        <BlipItem
-          id={item.blipId}
-          videoUrl={item.blipUrl}
-          isVisible={true}
-          seller={item.seller}
-          engagement={{
-            likes: item?.blipEngagement?.likesCount,
-            comments: item?.blipEngagement?.commentsCount,
-          }}
-          product={{
-            id: item._id,
-            name: item.productName,
-            price: item.price,
-            image: item.images,
-          }}
-          closeModal={() => setModalVisible(false)}
-        />
-      </Modal>
     </Pressable>
   );
 });

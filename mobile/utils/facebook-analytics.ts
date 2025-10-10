@@ -51,21 +51,23 @@ export const trackFacebookEvent = (
   properties?: Record<string, any>,
 ) => {
   try {
-    console.log("🚀 Attempting Facebook event:", {
-      eventName,
-      properties,
-      platform: Platform.OS,
-      isDev: __DEV__,
-    });
+    //disable events logging for now
+    // console.log("🚀 Attempting Facebook event:", {
+    //   eventName,
+    //   properties,
+    //   platform: Platform.OS,
+    //   isDev: __DEV__,
+    // });
 
     AppEventsLogger.logEvent(eventName, properties || {});
-
-    console.log(`✅ Facebook event sent: ${eventName}`, properties);
+    //disable events logging for now
+    // console.log(`✅ Facebook event sent: ${eventName}`, properties);
 
     // Force flush in development to ensure events are sent immediately
     if (__DEV__) {
       AppEventsLogger.flush();
-      console.log("🔄 Facebook events flushed (dev mode)");
+      //disable events logging for now
+      // console.log("🔄 Facebook events flushed (dev mode)");
     }
   } catch (error: any) {
     console.error(`❌ Facebook event tracking failed for ${eventName}:`, error);

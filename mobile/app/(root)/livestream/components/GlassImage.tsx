@@ -1,32 +1,44 @@
-import React, { useState, useEffect } from 'react';
-import { View, Image, ImageProps, StyleSheet, ActivityIndicator, StyleProp, ViewStyle, ImageStyle, NativeSyntheticEvent, ImageErrorEventData, ImageLoadEventData } from 'react-native';
-import { BlurView } from 'expo-blur';
+import React, { useState, useEffect, memo } from "react";
+import {
+  View,
+  Image,
+  ImageProps,
+  StyleSheet,
+  ActivityIndicator,
+  StyleProp,
+  ViewStyle,
+  ImageStyle,
+  NativeSyntheticEvent,
+  ImageErrorEventData,
+  ImageLoadEventData,
+} from "react-native";
+import { BlurView } from "expo-blur";
 
-interface GlassImageProps extends Omit<ImageProps, 'style'> {
+interface GlassImageProps extends Omit<ImageProps, "style"> {
   // Container styling
   containerStyle?: StyleProp<ViewStyle>;
   containerClassName?: string;
-  
+
   // Glass/blur view styling
   glassStyle?: StyleProp<ViewStyle>;
   glassClassName?: string;
-  
+
   // Image styling
   imageStyle?: StyleProp<ImageStyle>;
   imageClassName?: string;
-  
+
   // Other props
   placeholderColor?: string;
   showActivityIndicator?: boolean;
   indicatorColor?: string;
   blurIntensity?: number;
-  tint?: 'light' | 'dark' | 'default';
+  tint?: "light" | "dark" | "default";
 }
 
 /**
  * A custom image component with a glass-like background placeholder
  * Shows a blurred background until the image loads
- * 
+ *
  * Usage with Tailwind:
  *   <GlassImage
  *     source={{ uri: imageUrl }}
@@ -43,16 +55,16 @@ const GlassImage: React.FC<GlassImageProps> = ({
   glassClassName,
   imageStyle,
   imageClassName,
-  placeholderColor = 'rgba(200, 200, 200, 0.3)',
+  placeholderColor = "rgba(200, 200, 200, 0.3)",
   showActivityIndicator = true,
-  indicatorColor = '#FFFFFF',
+  indicatorColor = "#FFFFFF",
   blurIntensity = 20,
-  tint = 'dark',
+  tint = "dark",
   onLoad,
   onLoadStart,
   onLoadEnd,
   onError,
-  resizeMode = 'cover',
+  resizeMode = "cover",
   ...rest
 }) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -95,22 +107,19 @@ const GlassImage: React.FC<GlassImageProps> = ({
   };
 
   return (
-    <View 
-      style={[
-        styles.container,
-        containerStyle
-      ]} 
+    <View
+      style={[styles.container, containerStyle]}
       className={containerClassName}
     >
       {/* Glass-like background that shows when image is loading or has error */}
-      <BlurView 
-        intensity={blurIntensity} 
+      <BlurView
+        intensity={blurIntensity}
         tint={tint}
         style={[
           styles.glassBackground,
           { backgroundColor: placeholderColor },
           glassStyle,
-          (!isLoading && !hasError) && styles.hiddenGlass
+          !isLoading && !hasError && styles.hiddenGlass,
         ]}
         className={glassClassName}
       >
@@ -122,10 +131,7 @@ const GlassImage: React.FC<GlassImageProps> = ({
       {/* Actual image */}
       <Image
         source={source}
-        style={[
-          styles.image,
-          imageStyle
-        ]}
+        style={[styles.image, imageStyle]}
         className={imageClassName}
         onLoadStart={handleLoadStart}
         onLoad={handleLoad}
@@ -140,17 +146,17 @@ const GlassImage: React.FC<GlassImageProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
-    overflow: 'hidden',
+    position: "relative",
+    overflow: "hidden",
   },
   glassBackground: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 1,
   },
   hiddenGlass: {
@@ -161,4 +167,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GlassImage; 
+export default memo(GlassImage);

@@ -37,7 +37,8 @@ import { RootState } from "@/store";
 import MyBids from "@/components/profile/myBids";
 import PostsComingSoon from "@/components/profile/postsComingSoon";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
-import { ScrollView } from "react-native-virtualized-view";
+import { ScrollView } from "@/components/global/virtualized-view";
+import FollowingUnAuth from "@/components/global/auth/followingUnAuth";
 
 const HEADER_HEIGHT = 0;
 const AnimatedScrollView = Animated.createAnimatedComponent(
@@ -287,42 +288,6 @@ const Profile = () => {
     );
   }, []);
 
-  // const renderTabBar = (props: any) => (
-  //   <Animated.View
-  //     style={{
-  //       zIndex: 1,
-  //       transform: [
-  //         {
-  //           translateY: scrollY.interpolate({
-  //             inputRange: [0, HEADER_HEIGHT],
-  //             outputRange: [HEADER_HEIGHT, 0],
-  //             extrapolate: "clamp",
-  //           }),
-  //         },
-  //       ],
-  //     }}
-  //   >
-  //     <TabBar
-  //       {...props}
-  //       key={props.key}
-  //       style={{ backgroundColor: "#121212" }}
-  //       indicatorStyle={{ backgroundColor: "#16783A" }}
-  //       activeColor="#16783A"
-  //       inactiveColor="gray"
-  //       renderTabBarItem={(props) => (
-  //         <TabBarItem
-  //           {...props}
-  //           key={props.key}
-  //           labelStyle={{
-  //             fontSize: 12,
-  //             fontFamily: "LexendDeca-Medium",
-  //           }}
-  //         />
-  //       )}
-  //     />
-  //   </Animated.View>
-  // );
-
   const getUserProfile = useCallback(async () => {
     const token = await getToken();
     if (!token) {
@@ -360,25 +325,10 @@ const Profile = () => {
       edges={["top"]}
     >
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      {user?._id && (
+      {user?._id ? (
         <>
-          {/* <View
-            style={{
-              height: statusBarHeight,
-              padding: 20,
-              backgroundColor: "#121212",
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              zIndex: 2,
-              justifyContent: "center",
-            }}
-          ></View> */}
-
           <View
             style={{
-              // height: 0,
               paddingVertical: 20,
               paddingHorizontal: 16,
               backgroundColor: "#121212",
@@ -482,38 +432,10 @@ const Profile = () => {
 
             <View>{renderScene({ route: routes[index] })}</View>
           </ScrollView>
-
-          {/* <TabView
-              lazy
-              navigationState={{ index, routes }}
-              renderScene={renderScene}
-              onIndexChange={handleIndexChange}
-              initialLayout={{ width: Dimensions.get("window").width }}
-              renderTabBar={renderTabBar}
-            /> */}
         </>
+      ) : (
+        <FollowingUnAuth message="Sign in to gain access to your profile" />
       )}
-
-      <BottomSheet
-        bgColor="#121212"
-        childrenStyle="!px-[11px]"
-        showCloseIcon={false}
-        title=""
-        show={showAuthSheet}
-        titleColor="!text-white"
-        snapPoints={["20%"]}
-        enableDynamicSizing={false}
-        onRequestClose={() => {
-          setShowAuthSheet(false);
-        }}
-        keyboardBehavior="interactive"
-      >
-        <AuthSheet
-          closeSheet={() => {
-            setShowAuthSheet(false);
-          }}
-        />
-      </BottomSheet>
     </SafeAreaView>
   );
 };

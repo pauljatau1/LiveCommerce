@@ -21,7 +21,8 @@ const Layout = () => {
         }}
       />
       <Stack.Screen
-        getId={({ params }) => Math.random().toString(36).substring(7)}
+        dangerouslySingular={() => Math.random().toString(36).substring(7)}
+        // getId={({ params }) => Math.random().toString(36).substring(7)}
         name="product/[id]"
         options={{
           headerTitle: "",
@@ -125,14 +126,14 @@ const Layout = () => {
         }}
       />
 
-      <Stack.Screen
+      {/* <Stack.Screen
         name="createPosts/createPost"
         options={{
           headerTitle: "",
           headerShadowVisible: false,
           headerShown: false,
         }}
-      />
+      /> */}
 
       <Stack.Screen
         name="(modals)/search"
@@ -211,14 +212,14 @@ const Layout = () => {
         }}
       />
 
-      <Stack.Screen
+      {/* <Stack.Screen
         name="connectMore/MorePostInfo"
         options={{
           headerTitle: "",
           headerShadowVisible: false,
           headerShown: false,
         }}
-      />
+      /> */}
       <Stack.Screen
         name="editProfile/index"
         options={{

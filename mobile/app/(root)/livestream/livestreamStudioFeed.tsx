@@ -2244,17 +2244,18 @@ const LivestreamStudioFeed = ({
       </BottomSheet>
 
       <BottomSheet
-        bgColor="#121212"
+        bgColor="#fff"
         childrenStyle="!px-[11px]"
         showCloseIcon={false}
         title=""
         show={showProductPreview}
-        snapPoints={["70%"]}
+        // snapPoints={["70%"]}
         titleColor="!text-white"
         onRequestClose={() => setShowProductPreview(false)}
         keyboardBehavior="interactive"
         enablePanDownToClose={true}
         enableContentPanningGesture={true}
+        detached
       >
         {selectedProduct && (
           <ProductPreview
@@ -2324,7 +2325,7 @@ const LivestreamStudioFeed = ({
         showCloseIcon={false}
         title=""
         show={showStreamInfo}
-        snapPoints={["100%"]}
+        // snapPoints={["70%"]}
         titleColor="!text-white"
         onRequestClose={() => setShowStreamInfo(false)}
         keyboardBehavior="interactive"

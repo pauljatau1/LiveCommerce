@@ -159,8 +159,9 @@ const ForgotPassword = () => {
         title=""
         show={showOtpSheet}
         titleColor="!text-white"
-        snapPoints={["32%"]}
-        enableDynamicSizing={false}
+        enableDynamicSizing={true}
+        enableContentPanningGesture
+        enablePanDownToClose
         onRequestClose={() => {
           setshowOtpSheet(false);
         }}

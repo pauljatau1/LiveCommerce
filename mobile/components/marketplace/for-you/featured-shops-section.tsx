@@ -10,7 +10,7 @@ import { Entypo } from "@expo/vector-icons";
 
 const ForYouFeaturedShopsSection = () => {
   const [shops, setShops] = useState<any[]>([]);
-  const handleGetShops = async () => {
+  const handleGetShops = useCallback(async () => {
     try {
       const token = await getToken();
       const response = await axios.get(
@@ -36,7 +36,7 @@ const ForYouFeaturedShopsSection = () => {
     } catch (e) {
       console.log(e);
     }
-  };
+  }, []);
 
   const renderContent = useCallback(({ item: row }: any) => {
     return (
@@ -70,6 +70,8 @@ const ForYouFeaturedShopsSection = () => {
   }, [shops]);
 
   useEffect(() => {
+    console.log("rendering get shops");
+
     handleGetShops();
   }, []);
 

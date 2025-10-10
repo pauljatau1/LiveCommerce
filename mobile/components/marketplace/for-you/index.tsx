@@ -1,6 +1,6 @@
 import { View, Text, RefreshControl } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import React, { memo, useEffect, useState } from "react";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import Carousel from "./carousel";
 import ForYouSection from "./forYou";
 import ForYouCatetorySection from "./category-section";
@@ -11,7 +11,8 @@ import ForYouAuctionSection from "./auction-section";
 import KeepShowingSection from "../keep-showing-section";
 import axios from "axios";
 import BannerSkeleton from "@/components/skeleton/bannerSkeleton";
-import { ScrollView } from "react-native-virtualized-view";
+// import { ScrollView } from "react-native-virtualized-view";
+import { ScrollView } from "@/components/global/virtualized-view";
 import MarketsSuggestedBlips from "./markets-suggested-blips";
 import { useDispatch, useSelector } from "react-redux";
 import { products } from "@/services/products";
@@ -23,7 +24,7 @@ const ForYou = () => {
   const [banners, setBanners] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const token = useSelector((state: RootState) => state.authState.token);
-  const handleGetBanners = async () => {
+  const handleGetBanners = useCallback(async () => {
     try {
       const response = await axios.get(
         process.env.EXPO_PUBLIC_API_URL + "api/public/banners",
@@ -36,10 +37,10 @@ const ForYou = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const [refreshing, setRefreshing] = useState(false);
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
 
     dispatch(
@@ -53,11 +54,9 @@ const ForYou = () => {
     );
 
     setRefreshing(false);
-  };
+  }, [dispatch]);
 
   useEffect(() => {
-    console.log("rendering");
-
     handleGetBanners();
   }, []);
   return (
