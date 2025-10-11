@@ -1393,16 +1393,10 @@ async function selectMajorCategories(req, res, next) {
   try {
     // Extract buyer ID from authenticated user and major category IDs from request body
     const buyerId = req.user.id;
-    const { majorCategoryIds, replaceMode } = req.body;
+    const { majorCategoryIds } = req.body;
 
     // Call the service layer to handle major categories selection logic
-    // replaceMode defaults to TRUE (replaces old selections)
-    // Pass false explicitly to append instead of replace
-    const response = await selectMajorCategoriesService.selectMajorCategories(
-      buyerId, 
-      majorCategoryIds,
-      replaceMode !== false // Use replace mode unless explicitly set to false
-    );
+    const response = await selectMajorCategoriesService.selectMajorCategories(buyerId, majorCategoryIds);
 
     // Send success response with updated categories
     res.success(response, 'Major categories selected successfully');
