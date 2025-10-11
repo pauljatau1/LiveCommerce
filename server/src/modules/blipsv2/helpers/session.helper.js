@@ -15,7 +15,7 @@ if (process.env.NODE_ENV !== 'test') {
     const now = Date.now();
     let cleanedCount = 0;
     for (const [sessionId, data] of sessionBlipStore.entries()) {
-      if (now - data.lastAccess > 1 * 60 * 1000) { // 1 minute
+      if (now - data.lastAccess > 30 * 60 * 1000) { // 30 minutes
         sessionBlipStore.delete(sessionId);
         cleanedCount++;
       }
