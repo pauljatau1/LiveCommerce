@@ -11,7 +11,6 @@ import {
 //import EmailVerificationModal from "@/Components/EmailVerificationModal";
 import PickupAddressVerificationModal from "@/Components/PickupAddressVerificationModal";
 import PropTypes from "prop-types";
-import { useAuthContext } from "@/Hooks/useAuthContext";
 
 export default function DashboardTopBanner({ sellerDetails }) {
   //const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
@@ -23,7 +22,6 @@ export default function DashboardTopBanner({ sellerDetails }) {
       : sellerDetails?.hasFilledBusinessAddress === false;
 
   const [searchParams] = useSearchParams();
-  const { fetchSellerDetails } = useAuthContext();
 
   useEffect(() => {
     const pickupAddressRequired = searchParams.get("pickupAddressRequired");
@@ -34,28 +32,6 @@ export default function DashboardTopBanner({ sellerDetails }) {
 
 
   const navigate = useNavigate();
-
-  // Listen for verification completed event
-  useEffect(() => {
-    const handleVerificationCompleted = () => {
-      console.log(
-        "Verification completed event received, refreshing seller data..."
-      );
-      fetchSellerDetails();
-    };
-
-    window.addEventListener(
-      "seller-verification-completed",
-      handleVerificationCompleted
-    );
-
-    return () => {
-      window.removeEventListener(
-        "seller-verification-completed",
-        handleVerificationCompleted
-      );
-    };
-  }, []);
 
   // Do not render the banner if all conditions are met
   if (

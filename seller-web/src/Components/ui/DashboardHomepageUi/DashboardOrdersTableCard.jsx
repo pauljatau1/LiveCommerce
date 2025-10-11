@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -8,11 +6,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/Components/ui/table";
-import { Button } from "@/Components/ui/button";
-import { ShoppingBag, ExternalLink } from "lucide-react";
 import { Badge } from "@/Components/ui/badge";
-import axios from "axios";
-import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server";
+import { Button } from "@/Components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { orderService } from "@/services/orderService";
+import { Link, useNavigate } from "react-router-dom";
+import { ShoppingBag, ExternalLink } from "lucide-react";
 
 function getStatusColor(status) {
   const statusColors = {
@@ -31,29 +30,12 @@ function getStatusColor(status) {
 }
 
 export default function DashboardOrdersTableCard() {
-  const [orders, setOrders] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const response = await axios.get(`${BASE_URL_V2}/sellers/orders`);
-        if (response.status === 200) {
-          // Only filter out abandoned orders (orders with isStale=true)
-          const filteredOrders = response.data.data.orders.filter((order) => !order.isStale);
-          setOrders(filteredOrders);
-        }
-      } catch (error) {
-        console.error("Error fetching orders:", error);
-        setOrders([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchOrders();
-  }, []);
+  const { data: orders, isPending } = useQuery({
+    queryKey: ["orders"],
+    queryFn: () => orderService.fetchSellerOrders()
+  });
 
   return (
     <div className="w-full rounded-xl overflow-hidden border border-gray-200 shadow-sm">
@@ -76,7 +58,7 @@ export default function DashboardOrdersTableCard() {
         </div>
       </div>
 
-      {!isLoading ? (
+      {!isPending ? (
         <>
           <div className="hidden md:block overflow-x-auto">
             <Table>
@@ -150,9 +132,9 @@ export default function DashboardOrdersTableCard() {
                             {order.isStale
                               ? "abandoned"
                               : order.shipping.tracking.status.replace(
-                                  "_",
-                                  " "
-                                )}
+                                "_",
+                                " "
+                              )}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -161,19 +143,19 @@ export default function DashboardOrdersTableCard() {
                               order.isStale
                                 ? "bg-orange-100 hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-800"
                                 : order.paymentInfo.status === "paid"
-                                ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700"
-                                : order.paymentInfo.status === "pending"
-                                ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-yellow-700"
-                                : order.paymentInfo.status === "awaiting_cod"
-                                ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-purple-700"
-                                : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-red-700"
+                                  ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700"
+                                  : order.paymentInfo.status === "pending"
+                                    ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-yellow-700"
+                                    : order.paymentInfo.status === "awaiting_cod"
+                                      ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-purple-700"
+                                      : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-red-700"
                             }
                           >
                             {order.isStale
                               ? "abandoned"
                               : order.paymentInfo.status === "awaiting_cod"
-                              ? "Cash on Delivery"
-                              : order.paymentInfo.status}
+                                ? "Cash on Delivery"
+                                : order.paymentInfo.status}
                           </Badge>
                         </TableCell>
                         <TableCell className="font-medium">
@@ -190,15 +172,15 @@ export default function DashboardOrdersTableCard() {
                                 order.isStale
                                   ? "bg-orange-100 hover:bg-orange-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-orange-800"
                                   : order.isOpen
-                                  ? "bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-blue-700"
-                                  : "bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-gray-700"
+                                    ? "bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-blue-700"
+                                    : "bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-gray-700"
                               }
                             >
                               {order.isStale
                                 ? "abandoned"
                                 : order.isOpen
-                                ? "Open"
-                                : "Closed"}
+                                  ? "Open"
+                                  : "Closed"}
                             </Badge>
                             {!order.orderStatus?.hasReturn ? (
                               <Badge className="bg-green-100 ml-2 flex-nowrap whitespace-nowrap hover:bg-green-200 capitalize transition-all duration-300 px-3 rounded-md py-1 text-green-700">
@@ -285,15 +267,15 @@ export default function DashboardOrdersTableCard() {
                           order.isStale
                             ? "text-xs bg-orange-100 hover:bg-orange-200 capitalize transition-all duration-300 px-2 rounded-md py-0.5 text-orange-800"
                             : order.isOpen
-                            ? "text-xs bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-2 rounded-md py-0.5 text-blue-700"
-                            : "text-xs bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-2 rounded-md py-0.5 text-gray-700"
+                              ? "text-xs bg-blue-100 hover:bg-blue-200 capitalize transition-all duration-300 px-2 rounded-md py-0.5 text-blue-700"
+                              : "text-xs bg-gray-100 hover:bg-gray-200 capitalize transition-all duration-300 px-2 rounded-md py-0.5 text-gray-700"
                         }
                       >
                         {order.isStale
                           ? "abandoned"
                           : order.isOpen
-                          ? "Open"
-                          : "Closed"}
+                            ? "Open"
+                            : "Closed"}
                       </Badge>
                     </div>
 
@@ -311,14 +293,13 @@ export default function DashboardOrdersTableCard() {
                       <div>
                         <p className="text-xs text-gray-500">Shipping</p>
                         <Badge
-                          className={`text-xs px-2 py-0.5 ${
-                            getStatusColor(
-                              order.isStale
-                                ? "abandoned"
-                                : order.shipping.tracking.status
-                            ) +
+                          className={`text-xs px-2 py-0.5 ${getStatusColor(
+                            order.isStale
+                              ? "abandoned"
+                              : order.shipping.tracking.status
+                          ) +
                             " capitalize transition-all duration-300 rounded-md"
-                          }`}
+                            }`}
                         >
                           {order.isStale
                             ? "abandoned"
@@ -328,23 +309,22 @@ export default function DashboardOrdersTableCard() {
                       <div>
                         <p className="text-xs text-gray-500">Payment</p>
                         <Badge
-                          className={`text-xs px-2 py-0.5 ${
-                            order.isStale
+                          className={`text-xs px-2 py-0.5 ${order.isStale
                               ? "bg-orange-100 hover:bg-orange-200 capitalize transition-all duration-300 rounded-md text-orange-800"
                               : order.paymentInfo.status === "paid"
-                              ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 rounded-md text-green-700"
-                              : order.paymentInfo.status === "pending"
-                              ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 rounded-md text-yellow-700"
-                              : order.paymentInfo.status === "awaiting_cod"
-                              ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md text-purple-700"
-                              : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 rounded-md text-red-700"
-                          }`}
+                                ? "bg-green-100 hover:bg-green-200 capitalize transition-all duration-300 rounded-md text-green-700"
+                                : order.paymentInfo.status === "pending"
+                                  ? "bg-yellow-100 hover:bg-yellow-200 capitalize transition-all duration-300 rounded-md text-yellow-700"
+                                  : order.paymentInfo.status === "awaiting_cod"
+                                    ? "bg-purple-100 hover:bg-purple-200 capitalize transition-all duration-300 rounded-md text-purple-700"
+                                    : "bg-red-100 hover:bg-red-200 capitalize transition-all duration-300 rounded-md text-red-700"
+                            }`}
                         >
                           {order.isStale
                             ? "abandoned"
                             : order.paymentInfo.status === "awaiting_cod"
-                            ? "COD"
-                            : order.paymentInfo.status}
+                              ? "COD"
+                              : order.paymentInfo.status}
                         </Badge>
                       </div>
                     </div>

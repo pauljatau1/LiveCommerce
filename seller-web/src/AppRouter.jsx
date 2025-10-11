@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import { rootRoutes } from './Routes/rootRoutes.jsx';
+import { rootRoutes } from '@/Routes/rootRoutes';
 import Loader from './Components/Loader';
 
 export default function AppRouter() {

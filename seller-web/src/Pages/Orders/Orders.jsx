@@ -109,14 +109,14 @@ export default function OrdersDashboard() {
       <div className="relative">
         <div className="sm:hidden flex justify-between items-center sm:px-4 py-3">
           <h2 className="text-lg font-semibold font-inter">Orders</h2>
-          <Link to="/dashboard/returns">
+          {/*<Link to="/dashboard/returns">
             <Button
               variant="outline"
               className="border-green-600 text-green-600 font-inter px-2 text-xs hover:bg-green-600 hover:text-white"
             >
               Returns Center
             </Button>
-          </Link>
+          </Link>*/}
         </div>
 
 
@@ -128,14 +128,14 @@ export default function OrdersDashboard() {
 
             {/* Desktop Tabs */}
             <OrdersDesktopTabs value={activeTab} onChange={setActiveTab} />
-            <Link to="/dashboard/returns" className="hidden sm:block">
+            {/*<Link to="/dashboard/returns" className="hidden sm:block">
               <Button
                 variant="outline"
                 className="border-green-600 text-green-600 font-inter px-2 lg:px-3 hover:bg-green-600 hover:text-white"
               >
                 Returns Center
               </Button>
-            </Link>
+            </Link>*/}
           </div>
 
           <div className="bg-[#F8FAF9] rounded-lg sm:p-6 shadow-sm">

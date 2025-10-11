@@ -20,6 +20,38 @@ export type {
 
 export type {
     Seller,
+    SellerResponse,
+    SellerAnalytics,
     TopSoldProducts,
-    SellerNotifications
+    SellerNotifications,
+    Notification,
+    BlipCommentData,
+    BuyerMessageData,
+    AnalyticsData,
+    SellerConversations,
+    SellerConversationsResponse,
 } from "./seller";
+
+export type {
+    SellerOrders,
+    OrdersData,
+    Order,
+    OrderItem,
+    OrderProduct,
+    OrderAddress,
+    OrderBuyer,
+    OrderBuyerDetails,
+    OrderProductImage,
+    OrderShipping,
+    OrderPaymentInfo,
+    OrderStatus,
+    RefundRequest,
+    StorePickupStatus,
+    ShippingTracking,
+    ShippingTrackingHistory,
+    ShippingDocuments,
+    ShippingDelivery,
+    ShippingCarrier,
+    ShippingFee,
+    OrdersPagination
+} from "./orders";

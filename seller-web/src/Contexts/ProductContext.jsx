@@ -2,11 +2,13 @@ import { createContext, useReducer } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { BASE_URL } from "../Constants/Server";
-
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
+import PropTypes from 'prop-types';
 
 const ProductContext = createContext();
 
 export const ProductProvider = ({ children }) => {
+    const { token } = useAuthContext();
     const initialState = {
         product: {},
         isLoading: false,
@@ -31,12 +33,11 @@ export const ProductProvider = ({ children }) => {
     const createProduct = async (product) => {
         dispatch({ type: 'SET_LOADING', payload: true });
         try {
-            const storedToken = localStorage.getItem('sellerToken');
-            const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
-            console.log("Token Data:", tokenData.data);
+            const sellerToken = token?.data;    
+            console.log("Token Data:", sellerToken);
             const response = await axios.post(`${BASE_URL}/products`, product, {
                 headers: {
-                    Authorization: `Bearer ${tokenData.data}`
+                    Authorization: `Bearer ${sellerToken}`
                 },
             });
             dispatch({ type: 'CREATE_PRODUCT_SUCCESS', payload: response.data });
@@ -73,6 +74,10 @@ export const ProductProvider = ({ children }) => {
             {children}
         </ProductContext.Provider>
     );
+};
+
+ProductProvider.propTypes = {
+    children: PropTypes.node.isRequired
 };
 
 export { ProductContext };

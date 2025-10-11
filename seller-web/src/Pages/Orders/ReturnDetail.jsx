@@ -11,6 +11,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/Components/ui/alert"
 import { toast } from "sonner"
 import { Label } from "@/Components/ui/label"
 import { Textarea } from "@/Components/ui/textarea"
+import { tokenUtils } from "@/util/auth"
 // import { toast } from "@/Components/ui/use-toast"
 
 const getStatusConfig = (status) => {
@@ -107,7 +108,7 @@ export default function ReturnDetail() {
 
   const fetchReturnDetails = async () => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const sellerToken = tokenUtils.getBearerToken()
       const response = await fetch(`${BASE_URL}/returns/${id}`, {
         headers: {
           Authorization: `Bearer ${sellerToken}`
@@ -130,7 +131,7 @@ export default function ReturnDetail() {
 
     try {
       setIsProcessing(true)
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const sellerToken = tokenUtils.getBearerToken()
       const response = await fetch(`${BASE_URL}/returns/${id}/respond`, {
         method: 'POST',
         headers: {
@@ -165,7 +166,7 @@ export default function ReturnDetail() {
   const handleCreateShippingLabel = async () => {
     try {
       setIsCreatingLabel(true)
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const sellerToken = tokenUtils.getBearerToken()
       const response = await fetch(`${BASE_URL}/returns/${id}/create-label`, {
         method: 'POST',
         headers: {
@@ -213,7 +214,7 @@ export default function ReturnDetail() {
         formData.append("evidence", file)
       })
 
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const sellerToken = tokenUtils.getBearerToken()
       const response = await fetch(`${BASE_URL}/returns/${id}/reject`, {
         method: "POST",
         headers: {
@@ -250,7 +251,7 @@ export default function ReturnDetail() {
   const handleRefundRequest = async () => {
     try {
       setIsRequestingRefund(true)
-      const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+      const sellerToken = tokenUtils.getBearerToken()
       const response = await fetch(`${BASE_URL}/returns/${id}/seller/request-refund`, {
         method: 'POST',
         headers: {

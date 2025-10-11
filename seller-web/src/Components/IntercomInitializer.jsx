@@ -1,23 +1,19 @@
 import { useEffect } from 'react';
 import { useIntercomChat } from '../Hooks/useIntercom';
-import { useAuthContext } from '../Hooks/useAuthContext';
+import { useAuthContext } from '../Hooks/useAuthContextV2';
 import { useLocation } from 'react-router-dom';
 
 const IntercomInitializer = () => {
-    const { seller, isDataReady } = useAuthContext();
+    const { seller, token } = useAuthContext();
     const { initUser, initVisitor } = useIntercomChat();
     const location = useLocation();
 
     useEffect(() => {
         const validateSession = async () => {
             try {
-                // Remove the artificial delay
-                const token = localStorage.getItem('sellerToken');
-                const userToken = token ? JSON.parse(token) : { data: null };
-                const storedSeller = JSON.parse(localStorage.getItem('seller')) || seller;
 
-                if (userToken?.data || location.pathname !== '/login') {
-                    initUser(seller || storedSeller);
+                if (token?.data || location.pathname !== '/login') {
+                    initUser(seller);
                 } else {
                     initVisitor();
                 }
@@ -28,11 +24,7 @@ const IntercomInitializer = () => {
         };
 
         validateSession();
-
-        // Add event listener for login completion
-        window.addEventListener('appLoginComplete', validateSession);
-        return () => window.removeEventListener('appLoginComplete', validateSession);
-    }, [seller, initUser, initVisitor, location.pathname, isDataReady]);
+    }, [initUser, initVisitor, location.pathname]);
 
     return null;
 };

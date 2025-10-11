@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { BASE_URL } from '@/Constants/Server';
+import { tokenUtils, sellerUtils } from '@/util/auth';
 import PropTypes from 'prop-types';
 
 const SocketContext = createContext();
@@ -9,7 +10,7 @@ export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    const token = JSON.parse(localStorage.getItem('sellerToken'))?.data;
+    const token = tokenUtils.getBearerToken();
     if (!token) return;
 
     try {
@@ -38,7 +39,7 @@ export function SocketProvider({ children }) {
       socketInstance.on('connect', () => {
         console.log('Socket connected -----');
         // Join personal room using seller ID
-        const seller = JSON.parse(localStorage.getItem('seller'));
+        const seller = sellerUtils.getSeller();
         if (seller) {
           const sellerId = seller._id;
           console.log('socket sellerId', sellerId);

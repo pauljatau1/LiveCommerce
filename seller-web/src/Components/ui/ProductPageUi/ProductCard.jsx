@@ -1,30 +1,8 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { Icon } from '@iconify/react';
-import { useDispatch, useSelector } from 'react-redux';
-import { deleteProduct, fetchSellerProducts } from '../../../Redux/Slices/ProductSlice';
-import PropTypes from 'prop-types';
-import CircularProgress from '@mui/material/CircularProgress';
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandItem,
-    CommandList,
-} from "../../ui/command";
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from "../../ui/popover";
-import { BASE_URL } from '../../../Constants/Server';
-import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
-import Modal from '@mui/material/Modal';
-import Box from '@mui/material/Box';
-import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
-import axios from 'axios';
-import React from 'react';
 import {
     Dialog,
     DialogContent,
@@ -32,22 +10,29 @@ import {
     DialogTitle,
     DialogDescription
 } from "../../ui/dialog";
-import { Calendar } from "../calendar";
-import { Input } from "../form/input";
-import { Progress } from "../progress";
-import VideoPlayer from "@shared/VideoPlayer";
+import { Icon } from '@iconify/react';
+import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
+import { BASE_URL } from '../../../Constants/Server';
+import { BiPlayCircle } from 'react-icons/bi';
+import { useAuthContext } from '@/Hooks/useAuthContextV2';
+import { useDispatch, useSelector } from 'react-redux';
+import { useState, useCallback, useEffect } from 'react';
+import { deleteProduct, fetchSellerProducts } from '../../../Redux/Slices/ProductSlice';
+import PropTypes from 'prop-types';
+import CircularProgress from '@mui/material/CircularProgress';
+import Modal from '@mui/material/Modal';
+import Box from '@mui/material/Box';
+import TextField from '@mui/material/TextField';
+import axios from 'axios';
+import React from 'react';
 import ShareLinkPopUp from '../ShareLinkPopUp';
-// Import all icons directly
-import plusIcon from '@iconify-icons/tabler/plus';
-import magnifyingGlassIcon from '@iconify-icons/heroicons/magnifying-glass';
-import checkIcon from '@iconify-icons/lucide/check';
-import { trackEvent } from '@/util/analytics'
 import BlipUploadModal from './BlipUploadModal';
 
-import { BiPlayCircle } from 'react-icons/bi';
 
 // Auction Performance Modal component
 const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog }) => {
+    const { token } = useAuthContext();
     const [auctionData, setAuctionData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -57,12 +42,9 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
         setLoading(true);
         setError(null);
         try {
-            const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
-
             const response = await axios.get(`${BASE_URL}/products/${id}`, {
                 headers: {
-                    Authorization: `Bearer ${tokenData.data}`
+                    Authorization: `Bearer ${token}`
                 }
             });
 
@@ -82,13 +64,10 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
 
         setIsRerunLoading(true);
         try {
-            const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
-
             // Rerun with default values from the API (will use previous settings)
             const response = await axios.post(`${BASE_URL}/products/${auctionData._id}/rerun-auction`, {}, {
                 headers: {
-                    Authorization: `Bearer ${tokenData.data}`,
+                    Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 }
             });
@@ -597,6 +576,7 @@ StockUpdateModal.propTypes = {
 
 // Product Details Modal component
 const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
+    const { token } = useAuthContext();
     const [productData, setProductData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -605,12 +585,10 @@ const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
         setLoading(true);
         setError(null);
         try {
-            const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
 
             const response = await axios.get(`${BASE_URL}/products/${id}`, {
                 headers: {
-                    Authorization: `Bearer ${tokenData.data}`
+                    Authorization: `Bearer ${token}`
                 }
             });
 
@@ -1060,6 +1038,7 @@ RerunAuctionDialog.propTypes = {
 
 
 const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
+    const { token, seller } = useAuthContext();
     // Separate states for mobile and desktop popovers
     const [isMobilePopoverOpen, setIsMobilePopoverOpen] = useState(false);
     const [isDesktopPopoverOpen, setIsDesktopPopoverOpen] = useState(false);
@@ -1154,14 +1133,12 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     const handleStockUpdate = async (stockChange, operation) => {
         try {
             setIsSubmitting(true);
-            const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
             const response = await axios.put(`${BASE_URL}/products/${item._id}/inventory`, {
                 quantity: stockChange,
                 operation: operation // "add" or "subtract"
             }, {
                 headers: {
-                    Authorization: `Bearer ${tokenData.data}`
+                    Authorization: `Bearer ${token}`
                 }
             });
             if (response.status === 200) {
@@ -1189,12 +1166,9 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
     const handleRerunAuction = async (formData) => {
         setIsRerunLoading(true);
         try {
-            const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
-
             const response = await axios.post(`${BASE_URL}/products/${item._id}/rerun-auction`, formData, {
                 headers: {
-                    Authorization: `Bearer ${tokenData.data}`,
+                    Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 }
             });

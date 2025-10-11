@@ -1,35 +1,22 @@
-import { useEffect, useState } from "react";
-import NotificationsDialog from "@/Components/NotificationsDialog";
-import { Dialog, DialogTrigger } from "@/Components/ui/dialog";
-import CircularProgress from "@mui/material/CircularProgress";
 import { Icon } from "@iconify/react";
-import { useNavigate } from "react-router-dom";
 import { BASE_URL } from "@/Constants/Server";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { sellerService } from "@/services/sellerService";
+import { Dialog, DialogTrigger } from "@/Components/ui/dialog";
+import NotificationsDialog from "@/Components/NotificationsDialog";
 import axios from "axios";
 
 export default function DashboardNotificationsCard() {
-  const [notifications, setNotifications] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      setIsLoading(true);
-      try {
-        const response = await axios.get(`${BASE_URL}/notifications`);
-        if (response.status === 200) {
-          setNotifications(response.data.notifications);
-        }
-      } catch (error) {
-        console.error("Error fetching notifications:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const { data: notifications, isPending } = useQuery({
+    queryKey: ["sellerNotifications"],
+    queryFn: () => sellerService.fetchSellerNotifications()
+  });
 
-    fetchNotifications();
-  }, []);
+  console.log("dashboard notifications", notifications);
 
   const handleNotificationClick = (notification) => {
     // Mark notification as read if it isn't already
@@ -127,7 +114,7 @@ export default function DashboardNotificationsCard() {
               </button>
             </DialogTrigger>
             <NotificationsDialog
-              notifications={notifications.filter(
+              notifications={notifications?.filter(
                 (notification) => notification.type !== "buyer_message"
               )}
             />
@@ -136,16 +123,13 @@ export default function DashboardNotificationsCard() {
       </div>
 
       <div className="overflow-hidden flex-1">
-        {isLoading ? (
+        {isPending ? (
           <div className="flex justify-center items-center py-8">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#16783A]"></div>
           </div>
-        ) : notifications?.length > 0 ? (
+        ) : notifications?.length && notifications?.length > 0 ? (
           <div className="space-y-3 h-full">
-            {notifications
-              .filter((notification) => notification.type !== "buyer_message")
-              .slice(0, 3)
-              .map((notification) => (
+            {notifications?.filter((notification) => notification.type !== "buyer_message")?.slice(0, 3)?.map((notification) => (
                 <div
                   key={notification._id}
                   className="p-4 border gap-2 flex-wrap flex items-center justify-between rounded-lg cursor-pointer border-gray-200 hover:bg-gray-50 hover:shadow-md transition-colors"

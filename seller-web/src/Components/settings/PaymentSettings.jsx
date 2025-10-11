@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react'
-import { Building2, CreditCard, User, Briefcase, Calculator, Globe, DollarSign, Hash, Upload, AlertCircle } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card"
-import { Button } from "@/Components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/Components/ui/dialog"
 import { Input } from "@/Components/ui/form/input"
 import { Label } from "@/Components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
-import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import { toast } from "sonner"
+import { Button } from "@/Components/ui/button"
+import { useAuthContext } from "@/Hooks/useAuthContextV2"
+import { useState, useEffect } from 'react'
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle} from "@/Components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
+import { Building2, CreditCard, User, Briefcase, Calculator, Globe, Upload, AlertCircle } from 'lucide-react'
 
 const NIGERIAN_BANKS = [
   { name: 'Access Bank Nigeria Plc', code: '044' },
@@ -42,6 +43,7 @@ const NIGERIAN_BANKS = [
 ];
 
 export default function PaymentSettings() {
+  const { token } = useAuthContext();
   const [bankDetails, setBankDetails] = useState({
     bankCountry: "",
     bankName: "",
@@ -65,7 +67,7 @@ export default function PaymentSettings() {
 
   const fetchProfileData = async () => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
         headers: {
           Authorization: `Bearer ${sellerToken}`,
@@ -77,13 +79,14 @@ export default function PaymentSettings() {
         setBankDetails(data.data.bankDetails || {});
       }
     } catch (error) {
+      console.error("Failed to fetch bank details", error);
       toast.error("Failed to fetch bank details");
     }
   };
 
   const fetchPendingRequest = async () => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL}/seller/bank-change-request/status`, {
         headers: {
           Authorization: `Bearer ${sellerToken}`,
@@ -97,7 +100,7 @@ export default function PaymentSettings() {
         }
       }
     } catch (error) {
-      console.error("Failed to fetch pending request status");
+      console.error("Failed to fetch pending request status", error);
     }
   };
 
@@ -115,7 +118,7 @@ export default function PaymentSettings() {
   const handleUpdateBankDetails = async () => {
     setIsLoading(true);
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
 
       if (!bankDetails.accountNumber) {
         // Direct update for first-time bank details
@@ -250,7 +253,7 @@ export default function PaymentSettings() {
                 value="NGN"
                 disabled
                 className="bg-gray-100"
-                onChange={(e) => setEditForm({...editForm, accountCurrency: "NGN"})}
+                onChange={() => setEditForm({...editForm, accountCurrency: "NGN"})}
               />
               <p className="text-xs text-muted-foreground">Nigerian Naira (NGN) is the only supported currency</p>
             </div>

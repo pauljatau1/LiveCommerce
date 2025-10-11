@@ -1,73 +1,44 @@
 import { Icon } from "@iconify/react"
-import { useEffect, useState } from "react"
-import { Command, CommandGroup, CommandItem, CommandList } from "../../ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover"
-import PropTypes from "prop-types"
-import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
+import { BASE_URL } from "@/Constants/Server"
+import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
+import { sellerService } from "@/services/sellerService"
+import { useAuthContext } from "@/Hooks/useAuthContextV2"
+import { useEffect, useState } from "react"
 import { Dialog, DialogTrigger } from "../../ui/dialog"
+import PropTypes from "prop-types"
 import NotificationsDialog from "../../NotificationsDialog"
-import { useAuthContext } from "../../../Hooks/useAuthContext"
 
 const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, showBackButton, fullScreenMode }) => {
-  const [open, setOpen] = useState(false)
-  const [isChatVisible, setIsChatVisible] = useState(true)
-  const [seller, setSeller] = useState(null)
-  const { stuffToDo, getSellerNotifications } = useAuthContext()
+  const { token, seller } = useAuthContext()
   const [unreadMessages, setUnreadMessages] = useState(0)
   const navigate = useNavigate()
   const [notificationDialogOpen, setNotificationDialogOpen] = useState(false)
 
-  useEffect(() => {
-    const fetchSellerProfile = async () => {
-      try {
-        const sellerToken = localStorage.getItem('sellerToken')
-        if (sellerToken) {
-          const tokenData = JSON.parse(sellerToken)
-          const token = tokenData.data
 
-          const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-          const data = await response.json()
-          setSeller(data.data)
-        }
-      } catch (error) {
-        console.error('Error fetching seller profile:', error)
-      }
+  const { data: stuffToDo } = useQuery({
+    queryKey: ["sellerNotifications"],
+    queryFn: () => sellerService.fetchSellerNotifications()
+  });
+
+  const { data: conversations } = useQuery({
+    queryKey: ["sellerConversations"],
+    queryFn: () => sellerService.fetchSellerConversations()
+  });
+
+  const calculateUnreadMessages = () => {
+    try {
+
+      const totalUnread = conversations?.reduce((total, conv) =>
+        total + (conv.unreadCount || 0), 0) || 0
+
+      setUnreadMessages(totalUnread)
+    } catch (error) {
+      console.error('Error fetching unread messages:', error)
     }
-
-    fetchSellerProfile()
-  }, [])
+  }
 
   useEffect(() => {
-    getSellerNotifications()
-  }, [])
-
-  useEffect(() => {
-    const calculateUnreadMessages = async () => {
-      try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data
-        if (!sellerToken) return
-
-        const response = await fetch(`${BASE_URL}/conversations`, {
-          headers: {
-            'Authorization': `Bearer ${sellerToken}`
-          }
-        })
-        const data = await response.json()
-        
-        const totalUnread = data.conversations?.reduce((total, conv) => 
-          total + (conv.unreadCount || 0), 0) || 0
-        
-        setUnreadMessages(totalUnread)
-      } catch (error) {
-        console.error('Error fetching unread messages:', error)
-      }
-    }
-
     calculateUnreadMessages()
   }, [])
 
@@ -81,40 +52,15 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
     ).length
   }
 
-  const handleChatOpen = () => {
-    console.log("Chat open")
-  }
 
   const getInitials = (firstName, lastName) => {
     return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
   }
 
-  const mobileNotificationsItem = (
-    <Dialog open={notificationDialogOpen} onOpenChange={setNotificationDialogOpen}>
-      <DialogTrigger asChild>
-        <CommandItem
-          onSelect={() => setOpen(false)}
-          className="px-2 py-2 hover:bg-gray-100 rounded-md cursor-pointer"
-        >
-          <Icon icon="mingcute:notification-fill" className="mr-2 h-5 w-5 text-gray-400" />
-          <span>Notifications</span>
-          {calculateNewNotifications() > 0 && (
-            <span className="ml-2 bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-xs">
-              {calculateNewNotifications()}
-            </span>
-          )}
-        </CommandItem>
-      </DialogTrigger>
-      <NotificationsDialog 
-        notifications={stuffToDo?.notifications || []} 
-        onClose={() => setNotificationDialogOpen(false)}
-      />
-    </Dialog>
-  )
 
   const desktopGoLiveButton = (
     <>
-      <div 
+      <div
         onClick={() => navigate('/dashboard/live-streams/live-stream')}
         className="items-center hidden lg:flex px-6 py-2 gap-2 mr-2 rounded-md bg-red-600 cursor-pointer hover:bg-red-700 transition-all duration-300 ease-in-out"
       >
@@ -136,7 +82,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
       setNotificationDialogOpen(isOpen);
       if (isOpen && calculateNewNotifications() > 0) {
         try {
-          const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
+          const sellerToken = token?.data;
           if (!sellerToken) return;
 
           // Update local state immediately
@@ -169,8 +115,8 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
           )}
         </button>
       </DialogTrigger>
-      <NotificationsDialog 
-        notifications={stuffToDo?.notifications || []} 
+      <NotificationsDialog
+        notifications={stuffToDo || []}
         onClose={() => setNotificationDialogOpen(false)}
       />
     </Dialog>
@@ -196,7 +142,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
 
   const handleMessagesClick = async () => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
+      const sellerToken = token?.data;
       if (!sellerToken) return;
 
       // Clear unread count locally first for immediate UI update
@@ -235,7 +181,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
         )}
       </button>
       {desktopNotificationsButton}
-      <div 
+      <div
         onClick={() => navigate('/dashboard/account')}
         className="flex items-center cursor-pointer hover:opacity-80 transition-all duration-300"
       >
@@ -256,24 +202,6 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
     </div>
   )
 
-  const mobileMessagesItem = (
-    <CommandItem
-      onSelect={() => {
-        handleMessagesClick();
-        setOpen(false);
-      }}
-      className="px-2 py-2 hover:bg-gray-100 rounded-md cursor-pointer"
-    >
-      <Icon icon="solar:chat-line-bold" className="mr-2 h-5 w-5 text-gray-400" />
-      <span>Messages</span>
-      {unreadMessages > 0 && (
-        <span className="ml-2 bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs">
-          {unreadMessages}
-        </span>
-      )}
-    </CommandItem>
-  )
-
   // Mobile inline header actions
   const mobileHeaderActions = (
     <div className="flex items-center gap-1 md:hidden">
@@ -283,7 +211,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
       >
         <Icon icon="material-symbols:screen-record" className="h-5 w-5 animate-pulse" />
       </button>
-      
+
       <button
         onClick={handleMessagesClick}
         className="relative p-2 rounded-full text-[#757575] hover:bg-gray-100"
@@ -295,12 +223,12 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
           </span>
         )}
       </button>
-      
+
       <Dialog open={notificationDialogOpen} onOpenChange={async (isOpen) => {
         setNotificationDialogOpen(isOpen);
         if (isOpen && calculateNewNotifications() > 0) {
           try {
-            const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
+            const sellerToken = token?.data;
             if (!sellerToken) return;
 
             // Update local state immediately
@@ -333,13 +261,13 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
             )}
           </button>
         </DialogTrigger>
-        <NotificationsDialog 
-          notifications={stuffToDo?.notifications || []} 
+        <NotificationsDialog
+          notifications={stuffToDo || []}
           onClose={() => setNotificationDialogOpen(false)}
         />
       </Dialog>
 
-      <div 
+      <div
         onClick={() => navigate('/dashboard/account')}
         className="ml-1 cursor-pointer hover:opacity-80 transition-all duration-300"
       >
@@ -349,14 +277,13 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
   )
 
   return (
-    <header className={`${
-      fullScreenMode 
-        ? 'hidden' 
-        : `block bg-white border-b border-[#EDF2F7] fixed top-0 z-50 
+    <header className={`${fullScreenMode
+      ? 'hidden'
+      : `block bg-white border-b border-[#EDF2F7] fixed top-0 z-50 
            ${isSidebarOpen ? 'left-[257px]' : 'left-0'} right-0 
            md:left-[257px] xl:left-[307px] 
            w-full md:w-[calc(100%-257px)] xl:w-[calc(100%-307px)]`
-    }`}>
+      }`}>
       <div className="py-3 px-5 md:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
@@ -402,7 +329,8 @@ Header.propTypes = {
   setIsSidebarOpen: PropTypes.func.isRequired,
   name: PropTypes.string,
   navName: PropTypes.string,
-  showBackButton: PropTypes.bool
+  showBackButton: PropTypes.bool,
+  fullScreenMode: PropTypes.bool
 }
 
 export default Header

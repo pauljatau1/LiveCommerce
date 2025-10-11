@@ -95,9 +95,9 @@ export const sideBarNavData = [
         icon: 'heroicons:shopping-bag',
         path: '/dashboard/orders'
     },
-    {
-        id: ObjectID().toHexString(),
-        name: 'Returns Center',
+    /*{
+        //id: ObjectID().toHexString(),
+        //name: 'Returns Center',
         icon: 'heroicons:arrow-path',
         path: '/dashboard/returns',
         // subNav: [
@@ -117,7 +117,7 @@ export const sideBarNavData = [
         //         path: 'rejected'
         //     }
         // ]
-    },
+    },*/
     {
         id: ObjectID().toHexString(),
         name: 'Products',

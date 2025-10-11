@@ -1,15 +1,15 @@
-"use client"
-
-import { useState, useEffect } from 'react'
-import { Smartphone, Laptop, MoreVertical, Lock } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/Components/ui/card"
-import { Button } from "@/Components/ui/button"
-import { Input } from "@/Components/ui/form/input"
-import { Label } from "@/Components/ui/label"
-import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import { toast } from "sonner"
+import { Label } from "@/Components/ui/label"
+import { Input } from "@/Components/ui/form/input"
+import { Button } from "@/Components/ui/button"
+import { useAuthContext } from "@/Hooks/useAuthContextV2"
+import { Smartphone, Lock } from 'lucide-react'
+import { Card, CardContent } from "@/Components/ui/card"
+import { useState, useEffect } from 'react'
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 
 export default function SecuritySettings() {
+  const { token } = useAuthContext();
   const [isLoading, setIsLoading] = useState(false);
   const [showResetCode, setShowResetCode] = useState(false);
   const [sellerEmail, setSellerEmail] = useState('');
@@ -26,7 +26,7 @@ export default function SecuritySettings() {
 
   const fetchSellerProfile = async () => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
         headers: {
           Authorization: `Bearer ${sellerToken}`,
@@ -38,6 +38,7 @@ export default function SecuritySettings() {
         setSellerEmail(data.data.email);
       }
     } catch (error) {
+      console.error("Failed to fetch profile", error);
       toast.error("Failed to fetch profile");
     }
   };
@@ -60,6 +61,7 @@ export default function SecuritySettings() {
         throw new Error("Failed to send reset code");
       }
     } catch (error) {
+      console.error("Error requesting password reset", error);
       toast.error("Error requesting password reset");
     } finally {
       setIsLoading(false);
@@ -99,6 +101,7 @@ export default function SecuritySettings() {
         throw new Error("Failed to reset password");
       }
     } catch (error) {
+      console.error("Error resetting password", error);
       toast.error("Error resetting password");
     } finally {
       setIsLoading(false);
@@ -171,7 +174,7 @@ export default function SecuritySettings() {
                   <li>• Minimum 8 characters</li>
                   <li>• At least one special character</li>
                   <li>• At least one number</li>
-                  <li>• Can't be the same as a previous password</li>
+                  <li>• Can&apos;t be the same as a previous password</li>
                 </ul>
               </div>
 

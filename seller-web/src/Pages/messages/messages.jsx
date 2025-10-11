@@ -55,6 +55,7 @@ import {
 } from "@/Components/ui/select";
 import { EmojiPicker } from "@/Components/ui/emoji-picker";
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
 
 
 // Helper function to format message timestamps
@@ -266,6 +267,7 @@ const CampaignMessage = ({ campaign }) => {
 
 export default function ChatInterface() {
   const { setHeaderName, setNavName } = useOutletContext()
+  const { token } = useAuthContext();
   const [conversations, setConversations] = useState([]);
   const [currentConversation, setCurrentConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -334,7 +336,7 @@ export default function ChatInterface() {
   useEffect(() => {
     const fetchSellerProfile = async () => {
       try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+        const sellerToken = token?.data;
         const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
           headers: {
             'Authorization': `Bearer ${sellerToken}`
@@ -575,7 +577,7 @@ export default function ChatInterface() {
     const fetchConversations = async () => {
       setIsLoadingConversations(true);
       try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+        const sellerToken = token?.data;
         const response = await fetch(`${BASE_URL}/conversations`, {
           headers: {
             'Authorization': `Bearer ${sellerToken}`
@@ -737,7 +739,7 @@ export default function ChatInterface() {
     console.log('Fetching messages for conversation:', conversationId, 'page:', page);
 
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(
         `${BASE_URL}/messages/${conversationId}?page=${page}&limit=20`,
         {
@@ -852,7 +854,7 @@ export default function ChatInterface() {
       if (!currentConversation) return;
 
       try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+        const sellerToken = token?.data;
         await fetch(`${BASE_URL}/conversations/${currentConversation._id}/read`, {
           method: 'PUT',
           headers: {
@@ -1040,7 +1042,7 @@ export default function ChatInterface() {
     scrollToBottom(true);
 
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
+      const sellerToken = token?.data;
       if (!sellerToken) {
         throw new Error('Authentication token not found');
       }
@@ -1106,7 +1108,7 @@ export default function ChatInterface() {
         // Refetch conversations list to get the proper conversation data from server
         const refetchConversations = async () => {
           try {
-            const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+            const sellerToken = token?.data;
             const response = await fetch(`${BASE_URL}/conversations`, {
               headers: {
                 'Authorization': `Bearer ${sellerToken}`
@@ -1262,7 +1264,7 @@ export default function ChatInterface() {
     formData.append('media', file);
 
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL}/messages/media`, {
         method: 'POST',
         headers: {
@@ -1380,7 +1382,7 @@ export default function ChatInterface() {
     scrollToBottom(true);
 
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL}/messages/product`, {
         method: 'POST',
         headers: {
@@ -1967,14 +1969,11 @@ export default function ChatInterface() {
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
-        const sellerToken = localStorage.getItem('sellerToken');
+        const sellerToken = token?.data;
         if (sellerToken) {
-          const tokenData = JSON.parse(sellerToken);
-          const token = tokenData.data;
-          
           const response = await fetch(`${BASE_URL}/seller/followers?page=1&limit=20`, {
             headers: {
-              'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${sellerToken}`
             }
           });
           
@@ -2068,7 +2067,7 @@ export default function ChatInterface() {
     }
 
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL}/messages`, {
         method: 'POST',
         headers: {
@@ -2134,7 +2133,7 @@ export default function ChatInterface() {
       if (!currentConversation?.participant?.id) return;
       
       try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+        const sellerToken = token?.data;
         const response = await fetch(`${BASE_URL}/seller/buyer/${currentConversation.participant.id}`, {
           headers: {
             'Authorization': `Bearer ${sellerToken}`
