@@ -1,18 +1,19 @@
-import { useState, useEffect } from "react"
-import { Loader2 } from "lucide-react"
-import { useSelector, useDispatch } from "react-redux"
-import { toggleVacationMode } from "@/Redux/Slices/ProductSlice"
-import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card"
+import { toast } from "sonner"
 import { Input } from "@/Components/ui/form/input"
 import { Label } from "@/Components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
 import { Button } from "@/Components/ui/button"
-import { Textarea } from "@/Components/ui/textarea"
-import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
-import { toast } from "sonner"
 import { Switch } from "@/Components/ui/switch"
+import { Loader2 } from "lucide-react"
+import { Textarea } from "@/Components/ui/textarea"
 import { useIntercom } from 'react-use-intercom';
+import { useAuthContext } from "@/Hooks/useAuthContextV2"
+import { toggleVacationMode } from "@/Redux/Slices/ProductSlice"
+import { useState, useEffect } from "react"
 import { fetchSellerProducts } from "@/Redux/Slices/ProductSlice"
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
+import { useSelector, useDispatch } from "react-redux"
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
 
 
 // Add these constants at the top of the file, after the imports
@@ -55,6 +56,7 @@ const DELIVERY_POLICIES = {
 
 export default function StoreSettings() {
   const { show } = useIntercom();
+  const { token } = useAuthContext();
   const dispatch = useDispatch();
   const { vacationMode, vacationRequestPending } = useSelector((state) => state.product);
   const [formData, setFormData] = useState({
@@ -137,7 +139,7 @@ export default function StoreSettings() {
 
   const fetchStoreData = async () => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
         headers: {
           Authorization: `Bearer ${sellerToken}`,
@@ -260,7 +262,7 @@ export default function StoreSettings() {
     formData.append("avatar", file);
 
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL_V2}/sellers/profile/avatar`, {
         method: "POST",
         headers: {
@@ -285,7 +287,7 @@ export default function StoreSettings() {
     formData.append("banner", file);
 
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL_V2}/sellers/profile/banner`, {
         method: "POST",
         headers: {
@@ -390,7 +392,7 @@ export default function StoreSettings() {
   const updateAccountType = async () => {
     setUpdatingSection(prev => ({ ...prev, accountType: true }));
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL_V2}/sellers/profile/account-type`, {
         method: "PUT",
         headers: {
@@ -426,7 +428,7 @@ export default function StoreSettings() {
     
     setUpdatingSection(prev => ({ ...prev, businessDetails: true }));
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL_V2}/sellers/business-details`, {
         method: "PUT",
         headers: {
@@ -449,7 +451,7 @@ export default function StoreSettings() {
   const updateBusinessInformation = async () => {
     setUpdatingSection(prev => ({ ...prev, businessInfo: true }));
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       
       // Validate phone number before updating
       if (formData.phoneNumber && !isValidNigerianNumber(formData.phoneNumber)) {
@@ -488,7 +490,7 @@ export default function StoreSettings() {
   const updateIndividualInformation = async () => {
     setUpdatingSection(prev => ({ ...prev, individualInfo: true }));
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       
       // Validate phone number before updating
       if (formData.phoneNumber && !isValidNigerianNumber(formData.phoneNumber)) {
@@ -528,7 +530,7 @@ export default function StoreSettings() {
   const updateStoreProfile = async () => {
     setUpdatingSection(prev => ({ ...prev, storeProfile: true }));
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL}/seller/store-profile`, {
         method: "PUT",
         headers: {
@@ -555,7 +557,7 @@ export default function StoreSettings() {
 
   const updateSpecialDates = async () => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL}/seller/special-dates`, {
         method: "POST",
         headers: {
@@ -578,7 +580,7 @@ export default function StoreSettings() {
   const updateStorePolicy = async () => {
     setUpdatingSection(prev => ({ ...prev, storePolicy: true }));
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       
       // First update store policy
       const policyResponse = await fetch(`${BASE_URL}/seller/store-policy`, {
@@ -618,7 +620,7 @@ export default function StoreSettings() {
   const updateSocialMedia = async () => {
     setUpdatingSection(prev => ({ ...prev, socialMedia: true }));
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL}/seller/social-media`, {
         method: "PUT",
         headers: {

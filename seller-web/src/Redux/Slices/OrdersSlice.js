@@ -1,16 +1,12 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { BASE_URL, BASE_URL_V2 } from "../../Constants/Server";
+import { tokenUtils } from "@/util/auth";
 
 // Helpers
 const getAuthToken = () => {
-    const sellerToken = localStorage.getItem("sellerToken");
+    const sellerToken = tokenUtils.getBearerToken();
     if (!sellerToken) return null;
-    try {
-        const tokenData = JSON.parse(sellerToken);
-        return tokenData?.data || null;
-    } catch (_) {
-        return null;
-    }
+    return sellerToken;
 };
 
 const authHeaders = (extra = {}) => {

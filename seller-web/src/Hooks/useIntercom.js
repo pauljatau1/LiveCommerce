@@ -54,10 +54,10 @@ export const useIntercomChat = () => {
             // Step 2: Boot with minimal user identification
             window.Intercom('boot', {
                 app_id: import.meta.env.VITE_INTERCOM_APP_ID,
-                user_id: userData._id,
-                email: userData.email,
-                name: `${userData.firstName.toUpperCase()} ${userData.lastName.toUpperCase()}`,
-                created_at: Math.floor(new Date(userData.createdAt).getTime() / 1000)
+                user_id: userData?._id,
+                email: userData?.email,
+                name: `${userData?.firstName?.toUpperCase()} ${userData?.lastName?.toUpperCase()}`,
+                created_at: Math.floor(new Date(userData?.createdAt).getTime() / 1000)
             });
             console.log('Booted Intercom with basic user data');
 
@@ -65,9 +65,9 @@ export const useIntercomChat = () => {
             setTimeout(() => {
                 window.Intercom('update', {
                     companies: [{
-                        company_id: userData._id,
-                        name: userData.storeName || 'Seller Store',
-                        created_at: Math.floor(new Date(userData.createdAt).getTime() / 1000)
+                        company_id: userData?._id,
+                        name: userData?.storeName || 'Seller Store',
+                        created_at: Math.floor(new Date(userData?.createdAt).getTime() / 1000)
                     }]
                 });
                 console.log('Added company data to Intercom');
@@ -76,23 +76,23 @@ export const useIntercomChat = () => {
                 setTimeout(() => {
                     // Direct attribute setting using Intercom's 'update' call
                     window.Intercom('update', {
-                        phone: userData.phoneNumber || ''
+                        phone: userData?.phoneNumber || ''
                     });
 
                     // Set all the custom attributes individually
                     const attributes = {
                         "type": 'seller',
-                        "store_name": userData.storeName || '',
+                        "store_name": userData?.storeName || '',
                         "user_type": "Seller",
-                        "seller_account_type": userData.accountType || '',
-                        "signup_date": userData.createdAt ? new Date(userData.createdAt).toISOString().split('T')[0] : '',
+                        "seller_account_type": userData?.accountType || '',
+                        "signup_date": userData?.createdAt ? new Date(userData?.createdAt).toISOString().split('T')[0] : '',
                         "verification_status": isUserVerified ? "Verified" : "Not Verified",
-                        "primary_payment_account_number": userData.bankDetails?.accountNumber || "None",
-                        "primary_payment_account_name": userData.bankDetails?.accountName || "None",
-                        "primary_payment_account_bank": userData.bankDetails?.bankName || "None",
-                        "primary_payment_account_currency": userData.bankDetails?.accountCurrency || "None",
-                        "location": `${userData.sellerAddress?.country || ''}, ${userData.sellerAddress?.city || ''}, ${userData.sellerAddress?.state || ''}, ${userData.sellerAddress?.addressLine1 || ''}`,
-                        "total_wallet_balance": userData.walletBalance ? `₦${userData.walletBalance.toLocaleString('en-NG')}` : '₦0',
+                        "primary_payment_account_number": userData?.bankDetails?.accountNumber || "None",
+                        "primary_payment_account_name": userData?.bankDetails?.accountName || "None",
+                        "primary_payment_account_bank": userData?.bankDetails?.bankName || "None",
+                        "primary_payment_account_currency": userData?.bankDetails?.accountCurrency || "None",
+                        "location": `${userData?.sellerAddress?.country || ''}, ${userData?.sellerAddress?.city || ''}, ${userData?.sellerAddress?.state || ''}, ${userData?.sellerAddress?.addressLine1 || ''}`,
+                        "total_wallet_balance": userData?.walletBalance ? `₦${userData?.walletBalance.toLocaleString('en-NG')}` : '₦0',
                         "device_type": typeof window !== 'undefined' && window.getDeviceType ? window.getDeviceType() : 'Unknown'
                     };
 
@@ -126,24 +126,24 @@ export const useIntercomChat = () => {
             const isUserVerified = userData?.emailVerified && !isPickupAddressRequired;
 
             boot({
-                user_id: userData._id,
-                email: userData.email,
-                name: `${userData.firstName.toUpperCase()} ${userData.lastName.toUpperCase()}`,
-                created_at: Math.floor(new Date(userData.createdAt).getTime() / 1000),
+                user_id: userData?._id,
+                email: userData?.email,
+                name: `${userData?.firstName?.toUpperCase()} ${userData?.lastName?.toUpperCase()}`,
+                created_at: Math.floor(new Date(userData?.createdAt).getTime() / 1000),
                 customAttributes: {
-                    phone_number: userData.phoneNumber || '',
+                    phone_number: userData?.phoneNumber || '',
                     type: 'seller',
-                    store_name: userData.storeName || '',
+                    store_name: userData?.storeName || '',
                     user_type: "Seller",
-                    seller_account_type: userData.accountType || '',
-                    signup_date: userData.createdAt ? new Date(userData.createdAt).toISOString().split('T')[0] : '',
+                    seller_account_type: userData?.accountType || '',
+                    signup_date: userData?.createdAt ? new Date(userData?.createdAt).toISOString().split('T')[0] : '',
                     verification_status: isUserVerified ? "Verified" : "Not Verified",
-                    primary_payment_account_number: userData.bankDetails?.accountNumber || "None",
-                    primary_payment_account_name: userData.bankDetails?.accountName || "None",
-                    primary_payment_account_bank: userData.bankDetails?.bankName || "None",
-                    primary_payment_account_currency: userData.bankDetails?.accountCurrency || "None",
-                    location: `${userData.businessAddress?.country || ''}, ${userData.businessAddress?.city || ''}, ${userData.businessAddress?.state || ''}, ${userData.businessAddress?.addressLine1 || ''}`,
-                    total_wallet_balance: userData.walletBalance ? `₦${userData.walletBalance.toLocaleString('en-NG')}` : '₦0',
+                    primary_payment_account_number: userData?.bankDetails?.accountNumber || "None",
+                    primary_payment_account_name: userData?.bankDetails?.accountName || "None",
+                    primary_payment_account_bank: userData?.bankDetails?.bankName || "None",
+                    primary_payment_account_currency: userData?.bankDetails?.accountCurrency || "None",
+                    location: `${userData?.businessAddress?.country || ''}, ${userData?.businessAddress?.city || ''}, ${userData?.businessAddress?.state || ''}, ${userData?.businessAddress?.addressLine1 || ''}`,
+                    total_wallet_balance: userData?.walletBalance ? `₦${userData?.walletBalance.toLocaleString('en-NG')}` : '₦0',
                     device_type: typeof window !== 'undefined' && window.getDeviceType ? window.getDeviceType() : 'Unknown'
                 }
             });

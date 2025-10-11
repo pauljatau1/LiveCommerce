@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card"
-import { Checkbox } from "@/Components/ui/checkbox"
-import { Switch } from "@/Components/ui/switch"
-import { Input } from "@/Components/ui/form/input"
-import { Label } from "@/Components/ui/label"
-import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import { toast } from "sonner"
+import { Switch } from "@/Components/ui/switch"
+import { Checkbox } from "@/Components/ui/checkbox"
+import { useAuthContext } from "@/Hooks/useAuthContextV2"
+import { useState, useEffect } from "react"
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card"
 
 export default function NotificationsSettings() {
-  const [isLoading, setIsLoading] = useState(false);
+  const { token } = useAuthContext();
+  const [ setIsLoading ] = useState(false);
   const [preferences, setPreferences] = useState({
     emailNotifications: true,
     pushNotifications: true,
@@ -26,7 +26,7 @@ export default function NotificationsSettings() {
 
   const fetchNotificationPreferences = async () => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
         headers: {
           Authorization: `Bearer ${sellerToken}`,
@@ -38,6 +38,7 @@ export default function NotificationsSettings() {
         setPreferences(data.data.notificationPreferences || {});
       }
     } catch (error) {
+      console.log('error fetching notification preferences', error);
       toast.error("Failed to fetch notification preferences");
     }
   };
@@ -45,7 +46,7 @@ export default function NotificationsSettings() {
   const updatePreferences = async (updates) => {
     setIsLoading(true);
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL}/seller/notification-preferences`, {
         method: 'PUT',
         headers: {
@@ -62,6 +63,7 @@ export default function NotificationsSettings() {
         throw new Error("Failed to update preferences");
       }
     } catch (error) {
+      console.log('error updating notification preferences', error);
       toast.error("Error updating notification preferences");
     } finally {
       setIsLoading(false);

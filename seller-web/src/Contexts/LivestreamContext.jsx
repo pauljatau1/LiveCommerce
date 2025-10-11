@@ -1,13 +1,15 @@
-import { createContext, useReducer } from "react";
-import { BASE_URL } from "../Constants/Server";
 import { toast } from 'sonner';
+import { BASE_URL } from "../Constants/Server";
+import { trackEvent } from "../util/analytics";
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
+import { createContext, useReducer } from "react";
 import PropTypes from 'prop-types';
 import axios from "axios";
-import { trackEvent } from "../util/analytics";
 
 const LivestreamContext = createContext();
 
 export const LivestreamProvider = ({ children }) => {
+    const { token, seller } = useAuthContext();
     const initialState = {
         livestream: {
             title: '',
@@ -149,13 +151,12 @@ export const LivestreamProvider = ({ children }) => {
         try {
             dispatch({ type: 'RESET_API_STATE' });
             dispatch({ type: 'SET_LOADING', payload: true });
-            const sellerToken = localStorage.getItem('sellerToken');
-            const sellerData = JSON.parse(localStorage.getItem('seller'));
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
+            const sellerToken = token?.data;
+            const sellerData = seller;
 
             const response = await axios.post(`${BASE_URL}/streams/open-live-show`, streamData, {
                 headers: {
-                    Authorization: `Bearer ${tokenData.data}`,
+                    Authorization: `Bearer ${sellerToken}`,
                     // Let browser set Content-Type with boundary automatically
                     'Content-Type': 'application/json'
                 }
@@ -200,12 +201,11 @@ export const LivestreamProvider = ({ children }) => {
         try {
             dispatch({ type: 'RESET_API_STATE' });
             dispatch({ type: 'SET_LOADING', payload: true });
-            const sellerToken = localStorage.getItem('sellerToken');
-            const sellerData = JSON.parse(localStorage.getItem('seller'));
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
+            const sellerToken = token?.data;
+            const sellerData = seller;
             const response = await axios.post(`${BASE_URL}/streams/create`, streamData, {
                 headers: {
-                    Authorization: `Bearer ${tokenData.data}`,
+                    Authorization: `Bearer ${sellerToken}`,
                     'Content-Type': 'application/json'
                 }
             });
@@ -251,13 +251,10 @@ export const LivestreamProvider = ({ children }) => {
         try {
             dispatch({ type: 'RESET_API_STATE' });
             dispatch({ type: 'SET_LOADING', payload: true });
-            const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
-            const sellerData = localStorage.getItem('seller');
-            const seller = sellerData ? JSON.parse(sellerData) : {};
+            const sellerToken = token?.data;
             const response = await axios.get(`${BASE_URL}/streams/seller/${seller?._id}`, {
                 headers: {
-                    Authorization: `Bearer ${tokenData.data}`,
+                    Authorization: `Bearer ${sellerToken}`,
                     'Content-Type': 'application/json'
                 }
             });
@@ -274,11 +271,10 @@ export const LivestreamProvider = ({ children }) => {
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
 
-            const sellerToken = localStorage.getItem('sellerToken');
-            const sellerData = JSON.parse(localStorage.getItem('seller'));
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
+            const sellerToken = token?.data;
+            const sellerData = seller;
 
-            if (!tokenData?.data) {
+            if (!sellerToken) {
                 throw new Error('No authentication token found');
             }
 
@@ -287,7 +283,7 @@ export const LivestreamProvider = ({ children }) => {
                 {},
                 {
                     headers: {
-                        Authorization: `Bearer ${tokenData.data}`,
+                        Authorization: `Bearer ${sellerToken}`,
                         'Content-Type': 'application/json'
                     }
                 }
@@ -377,11 +373,10 @@ export const LivestreamProvider = ({ children }) => {
 
     const endLiveStream = async (streamId, streamData) => {
         try {
-            const sellerToken = localStorage.getItem('sellerToken');
-            const sellerData = JSON.parse(localStorage.getItem('seller'));
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
+            const sellerToken = token?.data;
+            const sellerData = seller;
 
-            if (!tokenData?.data) {
+            if (!sellerToken) {
                 throw new Error('No authentication token found');
             }
 
@@ -390,7 +385,7 @@ export const LivestreamProvider = ({ children }) => {
                 {},
                 {
                     headers: {
-                        Authorization: `Bearer ${tokenData.data}`,
+                        Authorization: `Bearer ${sellerToken}`,
                         'Content-Type': 'application/json'
                     }
                 }
@@ -485,11 +480,10 @@ export const LivestreamProvider = ({ children }) => {
     const joinLiveStreamAsHost = async (streamId) => {
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
-            const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
+            const sellerToken = token?.data;
             const response = await axios.post(`${BASE_URL}/streams/${streamId}/join-seller`, {}, {
                 headers: {
-                    Authorization: `Bearer ${tokenData.data}`,
+                    Authorization: `Bearer ${sellerToken}`,
                     'Content-Type': 'application/json'
                 }
             });
@@ -508,10 +502,9 @@ export const LivestreamProvider = ({ children }) => {
     const activateProductBidding = async (streamId, productId) => {
         try {
             dispatch({ type: 'SET_ACTIVATING_BID', payload: true });
-            const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
+            const sellerToken = token?.data;
 
-            if (!tokenData?.data) {
+            if (!sellerToken) {
                 throw new Error('No authentication token found');
             }
 
@@ -520,7 +513,7 @@ export const LivestreamProvider = ({ children }) => {
                 { productId },
                 {
                     headers: {
-                        Authorization: `Bearer ${tokenData.data}`,
+                        Authorization: `Bearer ${sellerToken}`,
                         'Content-Type': 'application/json'
                     }
                 }
@@ -587,11 +580,10 @@ export const LivestreamProvider = ({ children }) => {
     const rescheduleExpiredStream = async (streamId, newScheduledStartTime) => {
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
-            const sellerToken = localStorage.getItem('sellerToken');
-            const sellerData = JSON.parse(localStorage.getItem('seller'));
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
+            const sellerToken = token?.data;
+            const sellerData = seller;
 
-            if (!tokenData?.data) {
+            if (!sellerToken) {
                 throw new Error('No authentication token found');
             }
 
@@ -603,7 +595,7 @@ export const LivestreamProvider = ({ children }) => {
                 },
                 {
                     headers: {
-                        Authorization: `Bearer ${tokenData.data}`,
+                        Authorization: `Bearer ${sellerToken}`,
                         'Content-Type': 'application/json'
                     }
                 }
@@ -667,10 +659,9 @@ export const LivestreamProvider = ({ children }) => {
     // Function to renew Agora token for a livestream
     const renewAgoraToken = async (streamId) => {
         try {
-            const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : null;
+            const sellerToken = token?.data;
 
-            if (!tokenData?.data) {
+            if (!sellerToken) {
                 throw new Error('No authentication token found');
             }
 
@@ -679,7 +670,7 @@ export const LivestreamProvider = ({ children }) => {
                 `${BASE_URL}/streams/${streamId}/renew-token`,
                 {
                     headers: {
-                        Authorization: `Bearer ${tokenData.data}`,
+                        Authorization: `Bearer ${sellerToken}`,
                         'Content-Type': 'application/json'
                     }
                 }

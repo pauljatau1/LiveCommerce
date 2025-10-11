@@ -24,7 +24,6 @@ const InboxCampaigns = lazy(() => import('../Pages/MarketingPage/InboxCampaigns'
 const CreateCampaign = lazy(() => import('../Pages/MarketingPage/CreateCampaign'));
 const Payout = lazy(() => import('../Pages/payout/Payout'));
 const Messages = lazy(() => import('../Pages/messages/messages'));
-const AuqliConnect = lazy(() => import('../Pages/AuqliConnect/AuqliConnect'));
 const SettingsDashboard = lazy(() => import('../Pages/Settings/SettingsDashboard'));
 const AnalyticsDashboard = lazy(() => import('../Pages/Analytics/anayltics'));
 const Help = lazy(() => import('../Pages/help/help'));
@@ -90,7 +89,6 @@ export const dashboardRoutes = [
             },
             { path: 'earnings-payouts', element: <Payout /> },
             { path: 'messages', element: <Messages /> },
-            { path: 'auqli-connect', element: <AuqliConnect /> },
             {
                 path: 'live-streams',
                 element: (

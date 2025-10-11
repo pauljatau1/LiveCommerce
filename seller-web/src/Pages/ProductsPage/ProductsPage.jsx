@@ -1,8 +1,8 @@
-import React from 'react';
-import { useState, useEffect } from "react";
-import { Icon } from "@iconify/react";
-import { useOutletContext } from "react-router-dom";
-//import Loader from '../../Components/Loader';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "../../Components/ui/popover";
 import {
     Command,
     CommandGroup,
@@ -10,35 +10,35 @@ import {
     CommandList,
 } from "../../Components/ui/command";
 import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "../../Components/ui/popover";
-//import { productPageCardData } from "../../Utilities/data";
-import { NavLink, Link } from 'react-router-dom';
-import { useSelector, useDispatch } from "react-redux";
-import { fetchSellerProducts, fetchSellerAuctionProducts, searchSellerProducts, deleteProduct, toggleVacationMode } from "../../Redux/Slices/ProductSlice";
-import ProductCard from "../../Components/ui/ProductPageUi/ProductCard";
-import BlipUploadModal from "../../Components/ui/ProductPageUi/BlipUploadModal";
-import ShareLinkPopUp from "../../Components/ui/ShareLinkPopUp";
-import NotFound from "../../assets/not-found-icon2.png";
-import LinearProgress from "@mui/material/LinearProgress";
-import {
     Dialog,
     DialogContent,
     DialogDescription,
     DialogHeader,
     DialogTitle,
 } from "../../Components/ui/dialog";
-import PickupAddressVerificationModal from "../../Components/PickupAddressVerificationModal";
-import { useAuthContext } from "../../Hooks/useAuthContext";
-import StockUpdateModal from "../../Components/ui/ProductPageUi/StockUpdateModal";
-import { BASE_URL } from "../../Constants/Server";
-import axios from 'axios';
+import { Icon } from "@iconify/react";
 import { toast } from "sonner";
-//import EmailVerificationModal from "../../Components/EmailVerificationModal";
 import { Switch } from "../../Components/ui/switch";
+import { BASE_URL } from "../../Constants/Server";
+import { NavLink, Link } from 'react-router-dom';
+import { useAuthContext } from '@/Hooks/useAuthContextV2';
+import { useOutletContext } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
+//import { productPageCardData } from "../../Utilities/data";
+import { useSelector, useDispatch } from "react-redux";
+import { fetchSellerProducts, fetchSellerAuctionProducts, searchSellerProducts, deleteProduct, toggleVacationMode } from "../../Redux/Slices/ProductSlice";
+import React from 'react';
+//import Loader from '../../Components/Loader';
+import ProductCard from "../../Components/ui/ProductPageUi/ProductCard";
+import BlipUploadModal from "../../Components/ui/ProductPageUi/BlipUploadModal";
+import ShareLinkPopUp from "../../Components/ui/ShareLinkPopUp";
+import NotFound from "../../assets/not-found-icon2.png";
+import LinearProgress from "@mui/material/LinearProgress";
+import PickupAddressVerificationModal from "../../Components/PickupAddressVerificationModal";
+import StockUpdateModal from "../../Components/ui/ProductPageUi/StockUpdateModal";
+import axios from 'axios';
+//import EmailVerificationModal from "../../Components/EmailVerificationModal";
 
 
 // Import all icons directly
@@ -67,13 +67,13 @@ import { Loader2 } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "../../Components/ui/drawer";
 
 const ProductsPage = () => {
+    const { seller, token } = useAuthContext();
     const { setHeaderName, setNavName } = useOutletContext()
     const dispatch = useDispatch();
     const { products, auctionProducts, isLoading, isLoadingAuctions, productStatistics, vacationMode, vacationRequestPending } = useSelector((state) => state.product);
     const [isStockUpdated, setIsStockUpdated] = useState(false);
     const [activeTab, setActiveTab] = useState('products');
     const [sortType, setSortType] = useState('newest-to-oldest');
-    const { fetchSellerDetails } = useAuthContext();
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [searchQuery, setSearchQuery] = useState('');
@@ -106,7 +106,6 @@ const ProductsPage = () => {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [productToDelete, setProductToDelete] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const seller = JSON.parse(localStorage.getItem('seller'));
 
     // Email Verification Modal state
     //const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
@@ -127,23 +126,11 @@ const ProductsPage = () => {
     // This should run before any other effects
     useIntercomVisibility(true);
 
-   
+
 
     useEffect(() => {
         setHeaderName('Products')
         setNavName('')
-
-        // If seller is null, fetch seller details
-        if (!seller) {
-            fetchSellerDetails();
-        }
-
-        console.log("Full authentication context:", { seller })
-        console.log("Verification states:", {
-            isVerified: seller?.isVerified,
-            accountPending: seller?.accountPending,
-            shouldShowVerificationDialog: seller !== null && seller.isVerified === false
-        })
     }, [])
 
     // Reset page when sort type, tab, or filters change
@@ -573,8 +560,7 @@ const ProductsPage = () => {
 
         setIsSubmitting(true);
         try {
-            const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null, isVerified: null };
+            const sellerToken = token?.data;    
 
             // Using the same endpoint pattern as in ProductCard.jsx
             const response = await axios.put(`${BASE_URL}/products/${selectedProduct._id}/inventory`, {
@@ -582,7 +568,7 @@ const ProductsPage = () => {
                 operation: operation // "add" or "subtract"
             }, {
                 headers: {
-                    Authorization: `Bearer ${tokenData.data}`
+                    Authorization: `Bearer ${sellerToken}`
                 }
             });
 
@@ -610,20 +596,6 @@ const ProductsPage = () => {
             console.error('Error toggling vacation mode:', error);
         }
     };
-
-    // Listen for verification completed event
-    useEffect(() => {
-        const handleVerificationCompleted = () => {
-            console.log("Verification completed event received, refreshing seller data...");
-            fetchSellerDetails();
-        };
-
-        window.addEventListener('seller-verification-completed', handleVerificationCompleted);
-
-        return () => {
-            window.removeEventListener('seller-verification-completed', handleVerificationCompleted);
-        };
-    }, []);
 
     const isPickupAddressRequired = seller?.accountType === 'individual' ? seller?.hasFilledAddress === false : seller?.hasFilledBusinessAddress === false;
 
@@ -1101,7 +1073,7 @@ const ProductsPage = () => {
                                                     <span className="font-medium text-[#17171B]">{productStatistics.productsWithoutBlips || 0}</span>
                                                 </div>
                                             </div>
-                                            
+
                                             {/* Vacation Mode Switch */}
                                             <div className="mt-3 pt-3 border-t border-gray-100">
                                                 <div className="flex justify-between items-center">
@@ -1122,7 +1094,7 @@ const ProductsPage = () => {
                                                     )}
                                                 </div>
                                             </div>
-                                            
+
                                         </div>
                                     </div>
                                 )}
@@ -1396,7 +1368,7 @@ const ProductsPage = () => {
                                                                     <button
                                                                         onClick={() => {
                                                                             setDeepLink(item?.blipLink)
-                                                                        
+
                                                                             const event = document.createEvent('MouseEvents');
                                                                             event.initEvent('click', true, true);
                                                                             document.getElementById(`upload-blip-${item._id}`)?.dispatchEvent(event);

@@ -33,8 +33,10 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable'; // Updated import
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/Components/ui/drawer";
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
 
 function Customers() {
+  const { token } = useAuthContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [followers, setFollowers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -59,14 +61,13 @@ function Customers() {
   useEffect(() => {
     const fetchFollowers = async () => {
       try {
-        const sellerToken = localStorage.getItem('sellerToken');
+        const sellerToken = token?.data;
         if (sellerToken) {
-          const tokenData = JSON.parse(sellerToken);
-          const token = tokenData.data;
+          const token = sellerToken;
           console.log('Token:', token);
           const response = await fetch(`${BASE_URL}/seller/followers?page=1&limit=100`, {
             headers: {
-              'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${sellerToken}`
             }
           });
           const data = await response.json();

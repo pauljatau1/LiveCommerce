@@ -1,19 +1,12 @@
 import {useCallback} from 'react';
 import CookieConsent from './CookieConsent';
 import {initAllAnalytics} from "@/util/analytics.js";
+import { sellerUtils } from '@/util/auth';
 
-function getSellerFromStorage() {
-    try {
-        const raw = localStorage.getItem('seller');
-        const parsed = JSON.parse(raw);
-        return parsed && parsed._id ? parsed : null;
-    } catch {
-        return null;
-    }
-}
+
 
 export default function CookieConsentWithAnalytics() {
-    const seller = getSellerFromStorage();
+    const seller = sellerUtils.getSeller();
 
     const handleAccept = useCallback(async () => {
         if (seller) {

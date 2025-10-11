@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useIntercomChat } from "@/Hooks/useIntercom";
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import { useOutletContext } from "react-router-dom";
-import { useAuthContext } from "@/Hooks/useAuthContext";
+import { useEffect, useState } from "react";
 import AlertNotification from "@/Components/ui/AlertNotification";
 import HomeAnalyticsCards from "@/Components/ui/DashboardHomepageUi/HomeAnalyticsCards";
 import DisabledAccountDialog from "@/Components/DisabledAccountDialog";
-import { useIntercomChat } from "@/Hooks/useIntercom";
 import AuqliUniversity from "@/Components/AuqliUniversity";
 import DashboardNotificationsCard from "@/Components/ui/DashboardHomepageUi/DashboardNotificationsCard";
 import DashboardTopSellingProductsCard from "@/Components/ui/DashboardHomepageUi/DashboardTopSellingProductsCard";
@@ -15,12 +15,12 @@ import DashboardTopBanner from "@/Components/ui/DashboardHomepageUi/DashboardTop
 const HomePage = () => {
   const { initUser } = useIntercomChat();
   const { setHeaderName, setNavName, setShowBackButton } = useOutletContext();
-  const { seller, fetchSellerDetails, logout, isAccountDisabled } =
-    useAuthContext();
+  const { seller, logout, isAccountDisabled } = useAuthContext();
 
   const [notification] = useState(false);
   const [showDisabledDialog, setShowDisabledDialog] = useState(false);
 
+  // useEffect to set the header name, nav name, and show back button
   useEffect(() => {
     setHeaderName("Dashboard");
     setNavName("");
@@ -31,25 +31,13 @@ const HomePage = () => {
     };
   }, []);
 
+  // useEffect to initialize the user for intercom chat boot up
   useEffect(() => {
-    const storedSeller = JSON.parse(localStorage.getItem("seller"));
-    if (storedSeller) {
-      initUser(storedSeller);
+    if (seller) {
+      initUser(seller);
     }
   }, []);
 
-  // Fetch seller details and wallet balance
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        await fetchSellerDetails();
-      } catch (error) {
-        console.error("Error fetching initial data:", error);
-      }
-    };
-
-    fetchInitialData();
-  }, []);
 
   // Check for disabled account
   useEffect(() => {

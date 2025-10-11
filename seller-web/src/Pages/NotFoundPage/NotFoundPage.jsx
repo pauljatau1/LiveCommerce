@@ -1,47 +1,40 @@
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
+import { motion } from 'framer-motion';
+import { authUtils } from '@/util/auth';
+import { useNavigate } from 'react-router-dom';
 
 const NotFoundPage = () => {
     const navigate = useNavigate();
 
-
-    const storedToken = localStorage.getItem('sellerToken');
-    const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
-    console.log("Token Data:", tokenData);
-
     const isDashboardRoute = location.pathname.startsWith('/dashboard');
 
     const handleGoHome = () => {
-      if (isDashboardRoute) {
-        navigate('/dashboard/home', { replace: true });
-      } else {
-         // Clear app-specific storage
-         localStorage.removeItem('sellerToken');
-         localStorage.removeItem('seller');
-         localStorage.removeItem('onboardingProcess');
-         localStorage.removeItem('visitorId')
-        navigate('/login', { replace: true });
-      }
+        if (isDashboardRoute) {
+            navigate('/dashboard/home', { replace: true });
+        } else {
+            // Clear app-specific storage
+            authUtils.clearAllAuthData();
+            navigate('/login', { replace: true });
+        }
     };
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-[#17171B] to-[#17171B]/90 flex items-center justify-center p-4">
             <div className="max-w-4xl w-full">
-                <motion.div 
+                <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
                     className="text-center"
                 >
                     {/* 404 Number */}
-                    <motion.h1 
+                    <motion.h1
                         initial={{ scale: 0.5 }}
                         animate={{ scale: 1 }}
-                        transition={{ 
+                        transition={{
                             type: "spring",
                             stiffness: 260,
-                            damping: 20 
+                            damping: 20
                         }}
                         className="text-[120px] sm:text-[200px] animate-bounce font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#0BB248] to-[#34d671] leading-none"
                     >
@@ -59,12 +52,12 @@ const NotFoundPage = () => {
                             Oops! Page Not Found
                         </h2>
                         <p className="text-gray-400 max-w-md mx-auto">
-                            The page you're looking for seems to have wandered off. Let's get you back on track!
+                            The page you&apos;re looking for seems to have wandered off. Let&apos;s get you back on track!
                         </p>
                     </motion.div>
 
                     {/* Action Buttons */}
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.4 }}
@@ -82,14 +75,14 @@ const NotFoundPage = () => {
                     {/* Animated Background Elements */}
                     <div className="absolute inset-0 -z-10 overflow-hidden">
                         <motion.div
-                            animate={{ 
+                            animate={{
                                 rotate: 360,
                                 transition: { duration: 20, repeat: Infinity, ease: "linear" }
                             }}
                             className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#0BB248]/10 rounded-full blur-3xl"
                         />
                         <motion.div
-                            animate={{ 
+                            animate={{
                                 rotate: -360,
                                 transition: { duration: 25, repeat: Infinity, ease: "linear" }
                             }}

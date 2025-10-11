@@ -27,8 +27,8 @@ export type AuthAction =
   | { type: 'RESET' }
   | { type: 'REQUEST_OTP_SUCCESS'; payload: string }
   | { type: 'REQUEST_OTP_FAILED'; payload: string }
-  | { type: 'LOGIN_SUCCESS'; payload: { seller: Seller; token: string } }
-  | { type: 'LOGIN_FAILED'; payload: string }
+  | { type: 'AUTH_SUCCESS'; payload: { seller: Seller; token: string } }
+  | { type: 'AUTH_FAILED'; payload: string }
   | { type: 'LOGOUT' }
   | { type: 'SIGNUP_USER_EXISTS' }
   | { type: 'FETCH_SELLER_DETAILS'; payload: Seller }
@@ -61,7 +61,6 @@ export interface AuthState {
   otpStatus: OtpStatus;
   isTokenValid: boolean;
   top3SellingProducts: any | null;
-  stuffToDo: any | null;
   unverifiedUser: boolean | null;
   onboardingStep: any | null;
   blockedUser: boolean;
@@ -79,8 +78,18 @@ export interface AuthContextMethods {
   dispatch: React.Dispatch<AuthAction>;
 }
 
+// Auth login activity interface
+export interface AuthLoginActivity {
+  handleLoginActivity: (seller: Seller, token: string) => void;
+}
+
+// Auth logout activity interface
+export interface AuthLogoutActivity {
+  logout: () => void;
+}
+
 // Complete AuthContext type
-export type AuthContextType = AuthState & AuthContextMethods;
+export type AuthContextType = AuthState & AuthContextMethods & AuthLoginActivity & AuthLogoutActivity;
 
 // Props for AuthProvider component
 export interface AuthProviderProps {

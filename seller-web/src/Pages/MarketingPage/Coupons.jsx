@@ -32,8 +32,10 @@ import PropTypes from "prop-types";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/Components/ui/command"
 import { Check } from "lucide-react"
 import { RotateCcw } from "lucide-react"
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
 
 export default function Coupons() {
+  const { token } = useAuthContext();
   // Add coupon type state
   const [couponType, setCouponType] = useState('product') // 'product' or 'special'
   
@@ -82,13 +84,10 @@ export default function Coupons() {
   useEffect(() => {
     const fetchSellerProducts = async () => {
       try {
-        const sellerToken = localStorage.getItem('sellerToken')
+        const sellerToken = token?.data;
         if (sellerToken) {
-          const tokenData = JSON.parse(sellerToken)
-          const token = tokenData.data
-
           const profileResponse = await axios.get(`${BASE_URL_V2}/sellers/profile`, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${sellerToken}` }
           })
 
           const sellerId = profileResponse.data.data._id
@@ -211,13 +210,10 @@ export default function Coupons() {
   const submitCoupon = async () => {
     setIsSubmitting(true)
     try {
-      const sellerToken = localStorage.getItem('sellerToken')
+      const sellerToken = token?.data;
       if (!sellerToken) {
         throw new Error("Not authenticated")
       }
-
-      const tokenData = JSON.parse(sellerToken)
-      const token = tokenData.data
 
       // Format dates properly
       const startDateTime = startTimeOption === 'immediately' 
@@ -241,7 +237,7 @@ export default function Coupons() {
         }
 
         await axios.post(`${BASE_URL}/coupons/special`, couponData, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${sellerToken}` }
         })
       } else {
         // Regular product discount data
@@ -271,7 +267,7 @@ export default function Coupons() {
         }
 
         await axios.post(`${BASE_URL}/coupons`, couponData, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${sellerToken}` }
         })
       }
 
@@ -369,13 +365,10 @@ export default function Coupons() {
     setResetError(null)
     setResetLoading(true)
     try {
-      const sellerToken = localStorage.getItem('sellerToken')
+      const sellerToken = token?.data;
       if (!sellerToken) throw new Error('Not authenticated')
-      const tokenData = JSON.parse(sellerToken)
-      const token = tokenData.data
-
       await axios.post(`${BASE_URL}/coupons/reset`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${sellerToken}` }
       })
 
       setResetConfirmOpen(false)

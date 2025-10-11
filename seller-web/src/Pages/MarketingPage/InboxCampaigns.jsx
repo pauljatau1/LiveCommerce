@@ -17,6 +17,7 @@ import { useNavigate } from "react-router-dom"
 import { BASE_URL } from "@/Constants/Server"
 import { toast } from "sonner"
 import PropTypes from "prop-types";
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
 
 function StatsCard({ title, value, change, prefix = "", suffix = "", icon: Icon }) {
   const isPositive = parseFloat(change) >= 0
@@ -220,6 +221,7 @@ CampaignsTable.propTypes = {
 
 function InboxCampaigns() {
   const navigate = useNavigate()
+  const { token } = useAuthContext();
   const [summary, setSummary] = useState({
     totalRecipients: 0,
     totalSales: 0,
@@ -236,7 +238,7 @@ function InboxCampaigns() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data
+        const sellerToken = token?.data;
         const headers = { Authorization: `Bearer ${sellerToken}` }
 
         // Use the new performance endpoint for better metrics

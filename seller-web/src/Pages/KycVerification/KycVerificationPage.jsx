@@ -28,7 +28,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/Components/ui/radio-group";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/Components/ui/dialog";
-import { useAuthContext } from '@/Hooks/useAuthContext';
+import { useAuthContext } from '@/Hooks/useAuthContextV2';
+import { sellerUtils } from '@/util/auth';
 //import EmailVerificationModal from '@/Components/EmailVerificationModal';
 import VerificationService from '@/services/VerificationService';
 
@@ -118,7 +119,7 @@ const NIGERIAN_BANKS = [
 
 const KycVerificationPage = () => {
     const { setHeaderName, setNavName } = useOutletContext();
-    const { emailVerified } = useAuthContext();
+    const { emailVerified, seller, dispatch } = useAuthContext();
     const [activeTab, setActiveTab] = useState('address');
     const [sellerDetails, setSellerDetails] = useState(null);
     //const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
@@ -163,17 +164,17 @@ const KycVerificationPage = () => {
     useEffect(() => {
         setHeaderName('KYC Verification');
         setNavName('');
-
-        // Get seller details from localStorage
-        const seller = JSON.parse(localStorage.getItem('seller') || '{}');
-        setSellerDetails(seller);
         
         // Set account type if already known and skip to address step
         if (seller?.accountType) {
             setSelectedAccountType(seller.accountType);
             setAddressVerificationStep(1); // Skip account type selection
         }
-    }, [setHeaderName, emailVerified]);
+    }, [setHeaderName]);
+
+    useEffect(() => {
+        setSellerDetails(seller);
+    }, [seller]);
 
     // Helper functions to check verification status
     const isEmailVerified = sellerDetails?.emailVerified || false;
@@ -261,7 +262,8 @@ const KycVerificationPage = () => {
                 updatedSeller.hasFilledBusinessAddress = true;
             }
             
-            localStorage.setItem('seller', JSON.stringify(updatedSeller));
+            dispatch({ type: 'STORE_SELLER', payload: updatedSeller });
+            sellerUtils.storeSeller(updatedSeller);
             setSellerDetails(updatedSeller);
 
             // Reset address verification step
@@ -304,7 +306,8 @@ const KycVerificationPage = () => {
 
             // Update local storage
             const updatedSeller = { ...sellerDetails, hasFilledBankDetails: true };
-            localStorage.setItem('seller', JSON.stringify(updatedSeller));
+            dispatch({ type: 'STORE_SELLER', payload: updatedSeller });
+            sellerUtils.storeSeller(updatedSeller);
             setSellerDetails(updatedSeller);
 
         } catch (error) {

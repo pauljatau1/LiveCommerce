@@ -1,16 +1,17 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Icon } from "@iconify/react";
 import {
-  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
+import { Icon } from "@iconify/react";
 import { BASE_URL } from '@/Constants/Server';
+import { useNavigate } from 'react-router-dom';
+import { useAuthContext } from '@/Hooks/useAuthContextV2';
+import PropTypes from 'prop-types';
 
 function NotificationsDialog({ notifications, onClose }) {
   const navigate = useNavigate();
+  const { token } = useAuthContext();
 
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -50,7 +51,7 @@ function NotificationsDialog({ notifications, onClose }) {
 
   const markNotificationAsRead = async (notificationId) => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data;
+      const sellerToken = token?.data;
       if (!sellerToken) return;
 
       const response = await fetch(`${BASE_URL}/notifications/${notificationId}/mark-read`, {
@@ -209,5 +210,10 @@ function NotificationsDialog({ notifications, onClose }) {
     </DialogContent>
   );
 }
+
+NotificationsDialog.propTypes = {
+  notifications: PropTypes.array,
+  onClose: PropTypes.func,
+};
 
 export default NotificationsDialog; 

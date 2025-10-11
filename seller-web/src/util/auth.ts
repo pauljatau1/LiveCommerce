@@ -15,8 +15,9 @@ export const tokenUtils = {
    * Store auth bearer token in local storage
    */
 
-  storeBearerToken: (token: string) => {
+  storeBearerToken: (token: { data: string, isVerified: boolean }) => {
     if (token) {
+      console.log("storing bearer token", token);
       localStorage.setItem(
         LOCAL_STORAGE_KEYS.AUTH_TOKEN,
         JSON.stringify(token)
@@ -28,11 +29,11 @@ export const tokenUtils = {
    * Get auth token object from local storage
    */
 
-  getBearerToken: (): string | null => {
+  getBearerToken: (): { data: string, isVerified: boolean } | null => {
     const token = localStorage.getItem(LOCAL_STORAGE_KEYS.AUTH_TOKEN);
 
     if (token) {
-      return JSON.parse(token);
+      return JSON.parse(token)?.data;
     } else {
       return null;
     }
@@ -67,6 +68,7 @@ export const sellerUtils = {
 
   storeSeller: (user: Seller) => {
     if (user) {
+      console.log("storing seller", user);
       localStorage.setItem(LOCAL_STORAGE_KEYS.USER, JSON.stringify(user));
     }
   },

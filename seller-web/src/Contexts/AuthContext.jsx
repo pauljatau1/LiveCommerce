@@ -895,7 +895,7 @@ function AuthProvider({ children }) {
         }
     };
 
-    //function to log user out
+    // Function to log user out
     const logout = async () => {
         try {
             shutdown();

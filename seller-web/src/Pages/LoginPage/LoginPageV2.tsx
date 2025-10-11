@@ -1,24 +1,27 @@
+import { toast } from "sonner";
+import { AxiosError } from "axios";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { authService } from "@/services/authService";
+import { LoginFormData } from "@/schemas/loginSchema";
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import AuqliLogo from "@/assets/icons/AuqliLogo";
 import LoginForm from "@/Components/loginPage/LoginForm";
 import PrimaryButton from "@/Components/shared/PrimaryButton";
 import MarketingSection from "@/Components/loginPage/MarketingSection";
-import { LoginFormData } from "@/schemas/loginSchema";
-import { toast } from "sonner";
 
 
 export default function LoginPageV2() {
     const navigate = useNavigate();
+    const { login } = authService
+    const { isLoading, dispatch, handleLoginActivity } = useAuthContext();
 
-    const testLogin = async(data: LoginFormData) => {
-        console.log("Test login");
-    }
-    const { mutate, isPending } = useMutation({ mutationFn: testLogin });
+
+    const { mutate, isPending } = useMutation({ mutationFn: (data: LoginFormData) => login(data) });
     // Mock handlers for demonstration
     const handleSignupClick = () => {
-        console.log("Navigate to signup page");
-        // In a real app, you would navigate to the signup page
+        // navigate to signup page
+        navigate("/signup");
     };
 
     const handleGoogleLogin = () => {
@@ -35,10 +38,50 @@ export default function LoginPageV2() {
         mutate(data, {
             onSuccess: (res) => {
                 console.log(res);
-                toast.success("Login successful")
+
+                // store seller data in global auth context
+                const data = {
+                    seller: res?.data?.user,
+                    token: res?.data?.token
+                }
+
+                console.log("login data from login page v2", data);
+                handleLoginActivity(data.seller, data.token);
+
+                // wait for 2 seconds after showing toast and then navigate to dashboard
+                setTimeout(() => {
+                    navigate("/dashboard/home", { replace: true });
+                }, 2000);
             },
             onError: (error) => {
-                toast.error(error.message)
+                console.log(error instanceof AxiosError);
+                if (error instanceof AxiosError) {
+                    if (error.status === 404) {
+                        toast.error("Login failed", {
+                            description: "Incorrect email or password",
+                            style: {
+                                background: "#17171B",
+                                color: "#fff",
+                            }
+                        })
+                    } else {
+                        toast.error("Login Failed", {
+                            description: error.response?.data?.message || error.message,
+                            style: {
+                                background: "#17171B",
+                                color: "#fff",
+                            }
+                        })
+                    }
+                } else {
+                    toast.error("Login Failed", {
+                        description: "Something went wrong please try again later",
+                        style: {
+                            background: "#17171B",
+                            color: "#fff",
+                        }
+                    })
+                }
             }
         });
     };
@@ -52,18 +95,18 @@ export default function LoginPageV2() {
                     Register a Seller
                 </PrimaryButton>
             </div>
-            
+
             {/* Main Content */}
             <div className="relative flex flex-col lg:flex-row min-h-[calc(100vh-80px)]">
                 <MarketingSection />
                 <div className="absolute inset-0 lg:relative flex-1 flex justify-center items-center p-4 lg:p-8">
-                    <LoginForm 
+                    <LoginForm
                         onSubmit={handleSubmit}
-                        isPending={isPending}
+                        isPending={isPending || isLoading}
                         onSignupClick={handleSignupClick}
                         onGoogleLogin={handleGoogleLogin}
                         onResetPasswordClick={handleResetPasswordClick}
-                    />   
+                    />
                 </div>
             </div>
         </div>
