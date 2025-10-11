@@ -35,7 +35,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   // handle auth success and check if seller is disabled
   useEffect(() => {
     if (data) {
-      dispatch({ type: "AUTH_SUCCESS", payload: { seller: data as Seller, token: tokenUtils.getBearerToken()?.data || "" } })
+      dispatch({ type: "AUTH_SUCCESS", payload: { seller: data as Seller, token: tokenUtils.getBearerToken() || "" } })
       if (data?.isDisabled) {
         dispatch({ type: "ACCOUNT_DISABLED" });
       }

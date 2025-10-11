@@ -29,7 +29,7 @@ export const tokenUtils = {
    * Get auth token object from local storage
    */
 
-  getBearerToken: (): { data: string, isVerified: boolean } | null => {
+  getBearerToken: (): string | null => {
     const token = localStorage.getItem(LOCAL_STORAGE_KEYS.AUTH_TOKEN);
 
     if (token) {
