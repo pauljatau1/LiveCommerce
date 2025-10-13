@@ -1,5 +1,5 @@
 import { View, Text, Pressable, StyleSheet, Platform } from "react-native";
-import React from "react";
+import React, { memo } from "react";
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import { formatNumber } from "@/helpers/helpers";
@@ -81,4 +81,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default BlipCard;
+export default memo(BlipCard);

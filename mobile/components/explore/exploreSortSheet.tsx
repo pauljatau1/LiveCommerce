@@ -1,5 +1,12 @@
 import { View, Text, Pressable, StyleSheet } from "react-native";
-import React, { useState } from "react";
+import React, { memo, useState } from "react";
+import Animated from "react-native-reanimated";
+import RadioButton from "../Primitives/Buttons/radioButton";
+
+const options = [
+  { label: "Views: Highest to Lowest", value: "desc" },
+  { label: "Views: Lowest to Highest", value: "asc" },
+];
 
 const SortSheet = ({
   selectSortType,
@@ -8,10 +15,6 @@ const SortSheet = ({
   selectSortType: any;
   currentSelection: any;
 }) => {
-  const options = [
-    { label: "Views: Highest to Lowest", value: "desc" },
-    { label: "Views: Lowest to Highest", value: "asc" },
-  ];
   const [selectedType, setSelectedType] = useState<string>(currentSelection);
   return (
     <View className="my-[10px] h-full">
@@ -36,26 +39,12 @@ const SortSheet = ({
             <Text className="text-[14px] text-[#fff] font-LexendDeca">
               {option.label}
             </Text>
-            <View
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: 22,
-                borderColor: "#fff",
-                borderWidth: 1,
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <View
-                style={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: 12,
-                  backgroundColor: selectedType == option.value ? "#fff" : "",
-                }}
-              ></View>
-            </View>
+            <RadioButton
+              active={selectedType === option.value}
+              size={22}
+              color="#fff"
+              onPress={() => setSelectedType(option.value)}
+            />
           </Pressable>
         ))}
       </View>
@@ -87,4 +76,4 @@ const SortSheet = ({
   );
 };
 
-export default SortSheet;
+export default memo(SortSheet);

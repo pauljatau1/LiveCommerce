@@ -56,6 +56,7 @@ import AddressSheet from "@/components/orders/addressSheet";
 // import CallPaystack from "./callPaystack";
 import SelectRatesSheet from "@/components/orders/selectRatesSheet";
 import { normalizeNGNNumber } from "@/helpers/helpers";
+import RadioButton from "@/components/Primitives/Buttons/radioButton";
 
 const { width, height } = Dimensions.get("window");
 
@@ -1101,20 +1102,11 @@ const Checkout = () => {
             </View>
           </View>
 
-          <View
-            className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
-            style={{
-              borderColor: selectedPayment == index ? "#16783A" : "#f2f2f2",
-              borderWidth: 2,
-            }}
-          >
-            <View
-              className="w-[12px] h-[12px] rounded-[12px]"
-              style={{
-                backgroundColor: selectedPayment == index ? "#16783A" : "",
-              }}
-            ></View>
-          </View>
+          <RadioButton
+            active={selectedPayment === index}
+            color="#16783A"
+            size={22}
+          />
         </Pressable>
       );
     },
@@ -1318,24 +1310,11 @@ const Checkout = () => {
                             </View>
                           </View>
                         </View>
-                        <View
-                          className="w-[22px] h-[22px] rounded-[22px] justify-center items-center"
-                          style={{
-                            borderColor:
-                              selectedDeliveryOpt == index
-                                ? "#16783A"
-                                : "#f2f2f2",
-                            borderWidth: 2,
-                          }}
-                        >
-                          <View
-                            className="w-[12px] h-[12px] rounded-[12px]"
-                            style={{
-                              backgroundColor:
-                                selectedDeliveryOpt == index ? "#16783A" : "",
-                            }}
-                          ></View>
-                        </View>
+                        <RadioButton
+                          active={selectedDeliveryOpt === index}
+                          color="#fff"
+                          size={22}
+                        />
                       </Pressable>
                       {!eligibleForPickup && index == 1 && (
                         <Text className="text-[12px] font-LexendDecaMedium text-[#fefefe] ml-[4px] mt-[6px] opacity-50">

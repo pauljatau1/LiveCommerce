@@ -35,6 +35,7 @@ type Props = {
   keyboardBehavior?: "interactive" | "extend" | "fillParent";
   enableContentPanningGesture?: boolean;
   handleIndicatorStyle?: any;
+  detached?: boolean;
 };
 
 const BottomSheetComponent = ({
@@ -53,6 +54,7 @@ const BottomSheetComponent = ({
   childrenStyle,
   enableContentPanningGesture = false,
   keyboardBehavior = "interactive",
+  detached = false,
   ...rest
 }: Props) => {
   // Use a persistent ref to avoid unnecessary re-creation of the ref
@@ -93,9 +95,9 @@ const BottomSheetComponent = ({
   // Memoize styles for content container to reduce recalculation
   const contentContainerStyle = useMemo(
     () => ({
-      marginBottom: safeAreaBottom,
+      marginBottom: detached ? 0 : safeAreaBottom,
     }),
-    [safeAreaBottom],
+    [safeAreaBottom, detached],
   );
 
   // Optimize child container style with className
@@ -201,8 +203,10 @@ const BottomSheetComponent = ({
       animateOnMount
       overDragResistanceFactor={8}
       stackBehavior="push"
+      detached={detached}
+      bottomInset={detached ? safeAreaBottom + 20 : 0}
       // android_keyboardInputMode="adjustResize"
-      style={styles.modal}
+      style={[styles.modal, detached && { marginHorizontal: 20 }]}
       {...rest}
     >
       <BottomSheetView style={styles.contentView}>
@@ -225,10 +229,13 @@ const BottomSheet = memo(BottomSheetComponent);
 const styles = StyleSheet.create({
   bottomSheet: {
     borderTopEndRadius: 20,
-    padding: 24,
+    borderBottomEndRadius: 20,
+    borderTopStartRadius: 20,
+    borderBottomStartRadius: 20,
     backgroundColor: "#FDFFFC",
     flex: 1,
     height: "100%",
+    borderCurve: "continuous",
   },
   backdrop: {
     backgroundColor: "#121212",
@@ -238,7 +245,7 @@ const styles = StyleSheet.create({
     zIndex: 10000000,
   },
   contentView: {
-    // flex: 1,
+    flex: 1,
   },
 });
 

@@ -7,7 +7,7 @@ import {
   Pressable,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
-import { useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import SectionHeader from "@/components/global/section-header";
 import LiveProductCard from "@/components/global/live-product-card";
 import { useLivestream } from "../../../contexts/livestreamContext";
@@ -27,12 +27,11 @@ const { width } = Dimensions.get("window");
 const SuggestedBlips = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [blips, setBlips] = useState<any[]>([]);
-  const fetchSpotlightLiveStreams = async () => {
+  const fetchSpotlightLiveStreams = useCallback(async () => {
     const token = await getToken();
     try {
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL +
-          `api/products/blips/suggested?limit=10`,
+        process.env.EXPO_PUBLIC_API_URL + `api/v2/blips/suggested?limit=10`,
         {
           headers: {
             Authorization: "Bearer " + token,
@@ -46,11 +45,20 @@ const SuggestedBlips = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchSpotlightLiveStreams();
   }, []);
+
+  const renderBlips = useCallback(
+    ({ item }: any) => (
+      <View className="w-1/2 py-2 shrink">
+        <BlipCard item={item} />
+      </View>
+    ),
+    [],
+  );
 
   const renderEmptyStreams = useCallback(() => {
     return (
@@ -71,8 +79,10 @@ const SuggestedBlips = () => {
   }, [blips]);
 
   const redirectToBlips = useCallback(() => {
-    router.push("/(root)/(tabs)/blips");
-  }, []);
+    router.canDismiss()
+      ? router.dismissTo("/(root)/(tabs)/blips")
+      : router.push("/(root)/(tabs)/blips");
+  }, [router]);
 
   return (
     <View className="pt-[16px] mb-5 w-full">
@@ -87,11 +97,7 @@ const SuggestedBlips = () => {
         <View style={{ paddingHorizontal: 16 }}>
           <FlatList
             data={blips}
-            renderItem={({ item }) => (
-              <View className="w-1/2 py-2 shrink">
-                <BlipCard item={item} />
-              </View>
-            )}
+            renderItem={renderBlips}
             keyExtractor={(item, index) => item._id || index?.toString()}
             numColumns={2}
             columnWrapperStyle={{ justifyContent: "space-between", gap: 12 }}
@@ -111,4 +117,4 @@ const SuggestedBlips = () => {
   );
 };
 
-export default SuggestedBlips;
+export default memo(SuggestedBlips);

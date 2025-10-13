@@ -11,7 +11,7 @@ import CustomButton from "@/components/global/button/CustomButton";
 import CheckBox from "@/components/global/check-box";
 import { useSignUpMutation } from "@/services/auth";
 import { toast } from "@/core/toast";
-import PhoneInput, { isValidNumber } from "react-native-phone-number-input";
+// import PhoneInput, { isValidNumber } from "react-native-phone-number-input";
 import { signIn } from "@/store/features/auth/authSlice";
 import { useDispatch } from "react-redux";
 import { usePushNotifications } from "@/hooks/useExpoPushToken";
@@ -46,7 +46,7 @@ const CreateAccount = () => {
   // const router = useRouter();
   const dispatch = useDispatch();
   const { expoPushToken } = usePushNotifications();
-  const phoneInput = useRef<PhoneInput>(null);
+  // const phoneInput = useRef<PhoneInput>(null);
 
   const methods = useForm({
     mode: "onChange",

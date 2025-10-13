@@ -1,8 +1,8 @@
-import { Mixpanel } from 'mixpanel-react-native';
+import { Mixpanel } from "mixpanel-react-native";
 
 // Replace with your actual Mixpanel project token
 // In production, this should be stored in an environment variable
-const MIXPANEL_TOKEN = process.env.EXPO_PUBLIC_MIXPANEL_TOKEN || '';
+const MIXPANEL_TOKEN = process.env.EXPO_PUBLIC_MIXPANEL_TOKEN || "";
 
 // Initialize with tracking automatic events disabled by default
 let mixpanelInstance: Mixpanel | null = null;
@@ -15,18 +15,18 @@ export const initializeMixpanel = (trackAutomaticEvents = false) => {
   try {
     // Create a new instance of Mixpanel
     mixpanelInstance = new Mixpanel(MIXPANEL_TOKEN, trackAutomaticEvents);
-    
+
     // Initialize Mixpanel
     mixpanelInstance.init();
-    
+
     // Enable debug logging in development
     if (__DEV__) {
       mixpanelInstance.setLoggingEnabled(true);
     }
-    
-    console.log('Mixpanel initialized');
+
+    console.log("Mixpanel initialized");
   } catch (error) {
-    console.error('Failed to initialize Mixpanel:', error);
+    console.error("Failed to initialize Mixpanel:", error);
   }
 };
 
@@ -35,7 +35,7 @@ export const initializeMixpanel = (trackAutomaticEvents = false) => {
  */
 export const getMixpanel = () => {
   if (!mixpanelInstance) {
-    console.warn('Mixpanel not initialized. Call initializeMixpanel first.');
+    console.warn("Mixpanel not initialized. Call initializeMixpanel first.");
   }
   return mixpanelInstance;
 };
@@ -45,29 +45,32 @@ export const getMixpanel = () => {
  * @param userId User ID to identify
  * @param properties Optional properties to associate with the user
  */
-export const identifyUser = (userId: string, properties?: Record<string, any>) => {
+export const identifyUser = (
+  userId: string,
+  properties?: Record<string, any>,
+) => {
   try {
     if (!mixpanelInstance) {
-      console.warn('Mixpanel not initialized when trying to identify user');
+      console.warn("Mixpanel not initialized when trying to identify user");
       return;
     }
-    
+
     console.log(`Attempting to identify user in Mixpanel: ${userId}`);
-    
+
     // Identify the user
     mixpanelInstance.identify(userId);
-    
+
     // Set user profile properties if provided
     if (properties && Object.keys(properties).length > 0) {
       mixpanelInstance.getPeople().set(properties);
     }
-    
+
     // Force flush to ensure the identify event is sent immediately
     mixpanelInstance.flush();
-    
+
     console.log(`User identified in Mixpanel: ${userId}`);
   } catch (error) {
-    console.error('Failed to identify user in Mixpanel:', error);
+    console.error("Failed to identify user in Mixpanel:", error);
   }
 };
 
@@ -76,31 +79,41 @@ export const identifyUser = (userId: string, properties?: Record<string, any>) =
  * @param eventName Name of the event to track
  * @param properties Optional properties to associate with the event
  */
-export const trackEvent = (eventName: string, properties?: Record<string, any>) => {
+export const trackEvent = (
+  eventName: string,
+  properties?: Record<string, any>,
+) => {
   try {
     if (!mixpanelInstance) {
-      console.warn(`Mixpanel not initialized when trying to track event: ${eventName}`);
+      console.warn(
+        `Mixpanel not initialized when trying to track event: ${eventName}`,
+      );
       return;
     }
-    
-    console.log(`Attempting to track event in Mixpanel: ${eventName}`, properties);
-    
+    //disable events logging for now
+    // console.log(
+    //   `Attempting to track event in Mixpanel: ${eventName}`,
+    //   properties,
+    // );
+
     // Make sure distinct_id is set before tracking events
     if (!mixpanelInstance.getDistinctId()) {
-      console.warn('No distinct ID set for Mixpanel. Events may not be attributed correctly.');
+      console.warn(
+        "No distinct ID set for Mixpanel. Events may not be attributed correctly.",
+      );
     }
-    
+
     // Ensure properties is an object
     const eventProperties = properties || {};
-    
+
     // Track the event
     mixpanelInstance.track(eventName, eventProperties);
-    
+
     // Force flush to ensure the event is sent immediately
     // This is especially important for critical events
     mixpanelInstance.flush();
-    
-    console.log(`Event tracked in Mixpanel: ${eventName}`);
+    //disable events logging for now
+    // console.log(`Event tracked in Mixpanel: ${eventName}`);
   } catch (error) {
     console.error(`Failed to track event ${eventName} in Mixpanel:`, error);
   }
@@ -111,20 +124,25 @@ export const trackEvent = (eventName: string, properties?: Record<string, any>) 
  * @param screenName Name of the screen to track
  * @param properties Optional properties to include with the screen view
  */
-export const trackScreen = (screenName: string, properties?: Record<string, any>) => {
+export const trackScreen = (
+  screenName: string,
+  properties?: Record<string, any>,
+) => {
   try {
     if (!mixpanelInstance) {
-      console.warn(`Mixpanel not initialized when trying to track screen: ${screenName}`);
+      console.warn(
+        `Mixpanel not initialized when trying to track screen: ${screenName}`,
+      );
       return;
     }
-    
+
     // Track screen view as an event with screen name
     const screenProps = { screen: screenName, ...(properties || {}) };
-    mixpanelInstance.track('Screen View', screenProps);
-    
+    mixpanelInstance.track("Screen View", screenProps);
+
     // Force flush to ensure the screen view is sent immediately
     mixpanelInstance.flush();
-    
+
     console.log(`Screen tracked in Mixpanel: ${screenName}`);
   } catch (error) {
     console.error(`Failed to track screen in Mixpanel: ${screenName}`, error);
@@ -138,11 +156,11 @@ export const trackScreen = (screenName: string, properties?: Record<string, any>
 export const setSuperProperties = (properties: Record<string, any>) => {
   try {
     if (!mixpanelInstance) return;
-    
+
     mixpanelInstance.registerSuperProperties(properties);
-    console.log('Super properties set in Mixpanel');
+    console.log("Super properties set in Mixpanel");
   } catch (error) {
-    console.error('Failed to set super properties in Mixpanel:', error);
+    console.error("Failed to set super properties in Mixpanel:", error);
   }
 };
 
@@ -152,11 +170,11 @@ export const setSuperProperties = (properties: Record<string, any>) => {
 export const optOutTracking = () => {
   try {
     if (!mixpanelInstance) return;
-    
+
     mixpanelInstance.optOutTracking();
-    console.log('Opted out of Mixpanel tracking');
+    console.log("Opted out of Mixpanel tracking");
   } catch (error) {
-    console.error('Failed to opt out of Mixpanel tracking:', error);
+    console.error("Failed to opt out of Mixpanel tracking:", error);
   }
 };
 
@@ -166,11 +184,11 @@ export const optOutTracking = () => {
 export const optInTracking = () => {
   try {
     if (!mixpanelInstance) return;
-    
+
     mixpanelInstance.optInTracking();
-    console.log('Opted in to Mixpanel tracking');
+    console.log("Opted in to Mixpanel tracking");
   } catch (error) {
-    console.error('Failed to opt in to Mixpanel tracking:', error);
+    console.error("Failed to opt in to Mixpanel tracking:", error);
   }
 };
 
@@ -181,11 +199,11 @@ export const optInTracking = () => {
 export const resetUser = () => {
   try {
     if (!mixpanelInstance) return;
-    
+
     mixpanelInstance.reset();
-    console.log('Mixpanel user reset');
+    console.log("Mixpanel user reset");
   } catch (error) {
-    console.error('Failed to reset Mixpanel user:', error);
+    console.error("Failed to reset Mixpanel user:", error);
   }
 };
 
@@ -195,10 +213,10 @@ export const resetUser = () => {
 export const setEUResidency = () => {
   try {
     if (!mixpanelInstance) return;
-    
-    mixpanelInstance.setServerURL('https://api-eu.mixpanel.com');
-    console.log('Mixpanel set to EU server');
+
+    mixpanelInstance.setServerURL("https://api-eu.mixpanel.com");
+    console.log("Mixpanel set to EU server");
   } catch (error) {
-    console.error('Failed to set Mixpanel EU residency:', error);
+    console.error("Failed to set Mixpanel EU residency:", error);
   }
-}; 
+};

@@ -24,76 +24,76 @@ import AuthSheet from "@/components/auth/authSheet";
 import MessageListSkeleton from "@/components/skeleton/messageListSkeleton";
 import LottieView from "lottie-react-native";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import FollowingUnAuth from "@/components/global/auth/followingUnAuth";
 
 const Message = () => {
   const isFocused = useIsFocused();
   const [conversations, setConversations] = useState<any[]>([]);
   const [unreadConvos, setUnreadConvos] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [user, setUser] = useState<any>({});
   const [filter, setFilter] = useState<string>("all");
-  const [token, setToken] = useState<string>("");
+  const { token, user } = useSelector((state: RootState) => state.authState);
   const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
   const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
   const [isFetching, setIsFetching] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  const getUserInfo = async () => {
-    try {
-      const user = await getUser();
-      setUser(user);
-    } catch (e) {
-      console.log("error getting user info");
-    }
-  };
+  // const getUserInfo = async () => {
+  //   try {
+  //     const user = await getUser();
+  //     setUser(user);
+  //   } catch (e) {
+  //     console.log("error getting user info");
+  //   }
+  // };
 
-  const handleGetConversations = useCallback(async () => {
-    if (isFetching || hasReachedEnd) {
-      return;
-    }
+  const handleGetConversations = useCallback(
+    async (withForce = false) => {
+      console.log({ page, token, isFetching, hasReachedEnd });
 
-    if (page == 1) {
-      // setLoading(true);
-    } else {
-      setIsFetching(true);
-    }
-    try {
-      const token = await getToken();
-      if (!token) {
-        setShowAuthSheet(true);
+      if (isFetching || (hasReachedEnd && !withForce)) {
+        return;
       }
-      const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL +
-          `api/conversations?page=${page}&limit=20`,
-        {
-          headers: {
-            Authorization: "Bearer " + token,
-          },
-        },
-      );
 
       if (page == 1) {
-        setConversations(response.data.conversations);
-        sortUnreadMessages(response.data.conversations);
+        // setLoading(true);
       } else {
-        setConversations((prevData) => {
-          return [...prevData, ...response.data.conversations];
-        });
+        setIsFetching(true);
       }
+      try {
+        const response = await axios.get(
+          process.env.EXPO_PUBLIC_API_URL +
+            `api/conversations?page=${page}&limit=20`,
+          {
+            headers: {
+              Authorization: "Bearer " + token,
+            },
+          },
+        );
 
-      if (!response.data?.pagination?.hasMore) {
-        setHasReachedEnd(true);
+        if (page == 1) {
+          setConversations(response.data.conversations);
+          sortUnreadMessages(response.data.conversations);
+        } else {
+          setConversations((prevData) => {
+            return [...prevData, ...response.data.conversations];
+          });
+        }
+
+        if (!response.data?.pagination?.hasMore) {
+          setHasReachedEnd(true);
+        }
+      } catch (e) {
+        console.log("unable to get conversations ", e);
+      } finally {
+        setLoading(false);
+        setIsFetching(false);
+        setRefreshing(false);
       }
-      setToken(token);
-    } catch (e) {
-      console.log("unable to get conversations ", e);
-    } finally {
-      setLoading(false);
-      setIsFetching(false);
-      setRefreshing(false);
-    }
-  }, [page]);
+    },
+    [page, token, isFetching, hasReachedEnd],
+  );
 
   const fetchMoreConversations = useCallback(() => {
     if (!isFetching && !hasReachedEnd) {
@@ -106,7 +106,7 @@ const Message = () => {
     setUnreadConvos(unread);
   };
 
-  const renderConversations = (item: any) => {
+  const renderConversations = useCallback(({ item, index }: any) => {
     return (
       <TouchableOpacity
         activeOpacity={0.7}
@@ -118,7 +118,7 @@ const Message = () => {
               name: item.participant.name,
               avatar: item.participant.avatar,
               conversationId: item._id,
-              userId: user._id,
+              userId: user?._id,
               token: token,
               model: item.participant.model,
               isOnline: item.participant.isOnline ? "online" : "",
@@ -187,12 +187,12 @@ const Message = () => {
         </Text>
       </TouchableOpacity>
     );
-  };
+  }, []);
 
   const refreshMessages = () => {
     setRefreshing(true);
     if (page == 1) {
-      return handleGetConversations();
+      return handleGetConversations(true);
     }
     setPage(1);
     setHasReachedEnd(false);
@@ -202,7 +202,7 @@ const Message = () => {
     if (isFocused) {
       if (page == 1) {
         setHasReachedEnd(false);
-        handleGetConversations();
+        handleGetConversations(true);
       } else {
         setPage(1);
         setHasReachedEnd(false);
@@ -210,9 +210,9 @@ const Message = () => {
     }
   }, [isFocused]);
 
-  useEffect(() => {
-    getUserInfo();
-  }, []);
+  // useEffect(() => {
+  //   getUserInfo();
+  // }, []);
 
   useEffect(() => {
     handleGetConversations();
@@ -246,114 +246,106 @@ const Message = () => {
   return (
     <SafeAreaView className="h-full flex-1 bg-[#121212]" edges={["top"]}>
       <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
-      <View className="flex-row items-center gap-[12px] px-[16px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#f2f2f2] mb-[12px]">
-        <View>
-          <Image
-            source={
-              user?.profileImage?.url
-                ? { uri: user?.profileImage?.url }
-                : require("../../../assets/icons/profile.jpg")
-            }
-            contentFit="cover"
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 40,
-            }}
-          />
-          <View
-            className=" top-[10px] right-[10px] bg-[#16783A] w-[10px] h-[10px] rounded-[50%]"
-            style={{
-              width: 12,
-              height: 12,
-              borderRadius: 6,
-              backgroundColor: "#16783A",
-              position: "absolute",
-              top: 0,
-              right: -2,
-            }}
-          ></View>
-        </View>
 
-        <View className="gap-[2px]">
-          <Text className="text-[18px] text-[#ccc] font-LexendDecaMedium">
-            {user?.username ||
-              (user?.firstName && user?.firstName + " " + user?.lastName) ||
-              ""}
-          </Text>
-          {user?._id && (
-            <Text className="text-[12px] text-[#ccc] font-LexendDecaLight">
-              Online
-            </Text>
+      {!token ? (
+        <FollowingUnAuth message="Sign in to access your messages and chats" />
+      ) : (
+        <View className="flex-1">
+          <View className="flex-row items-center gap-[12px] px-[16px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#f2f2f2] mb-[12px]">
+            <View>
+              <Image
+                source={
+                  user?.profileImage?.url
+                    ? { uri: user?.profileImage?.url }
+                    : require("../../../assets/icons/profile.jpg")
+                }
+                contentFit="cover"
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 40,
+                }}
+              />
+              <View
+                className=" top-[10px] right-[10px] bg-[#16783A] w-[10px] h-[10px] rounded-[50%]"
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: 6,
+                  backgroundColor: "#16783A",
+                  position: "absolute",
+                  top: 0,
+                  right: -2,
+                }}
+              ></View>
+            </View>
+
+            <View className="gap-[2px]">
+              <Text className="text-[18px] text-[#ccc] font-LexendDecaMedium">
+                {user?.username ||
+                  (user?.firstName && user?.firstName + " " + user?.lastName) ||
+                  ""}
+              </Text>
+              {user?._id && (
+                <Text className="text-[12px] text-[#ccc] font-LexendDecaLight">
+                  Online
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {loading ? (
+            <MessageListSkeleton numOfLoaders={10} height={50} padding={16} />
+          ) : conversations?.length > 0 ? (
+            <View style={{ flex: 1 }}>
+              <View className="flex-row items-center gap-[8px] mb-[16px] px-[16px]">
+                <TouchableOpacity
+                  className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
+                  style={{
+                    backgroundColor:
+                      filter == "all" ? "#fff" : "rgba(204, 204, 204, 0.25)",
+                  }}
+                  onPress={() => setFilter("all")}
+                >
+                  <Text
+                    className={`${filter == "all" ? "text-[#2F2E41]" : "text-[#f2f2f2]"}  text-[12px] font-LexendDecaMedium`}
+                  >
+                    All
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
+                  style={{
+                    backgroundColor:
+                      filter == "unread" ? "#fff" : "rgba(204, 204, 204, 0.25)",
+                  }}
+                  onPress={() => setFilter("unread")}
+                >
+                  <Text
+                    className={`${filter == "unread" ? "text-[#2F2E41]" : "text-[#f2f2f2]"}  text-[12px] font-LexendDecaMedium`}
+                  >
+                    Unread Messages ({unreadConvos?.length || 0})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <View style={{ flex: 1 }}>
+                <FlatList
+                  data={filter == "all" ? conversations : unreadConvos}
+                  renderItem={renderConversations}
+                  keyExtractor={(item) => item._id}
+                  showsVerticalScrollIndicator={false}
+                  onEndReached={fetchMoreConversations}
+                  ListFooterComponent={renderListFooter}
+                  refreshing={refreshing}
+                  onRefresh={refreshMessages}
+                />
+              </View>
+            </View>
+          ) : (
+            <EmptyMessages />
           )}
         </View>
-      </View>
-
-      {loading ? (
-        <MessageListSkeleton numOfLoaders={10} height={50} padding={16} />
-      ) : conversations?.length > 0 ? (
-        <View style={{ flex: 1 }}>
-          <View className="flex-row items-center gap-[8px] mb-[16px] px-[16px]">
-            <TouchableOpacity
-              className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
-              style={{
-                backgroundColor:
-                  filter == "all" ? "#fff" : "rgba(204, 204, 204, 0.25)",
-              }}
-              onPress={() => setFilter("all")}
-            >
-              <Text
-                className={`${filter == "all" ? "text-[#2F2E41]" : "text-[#f2f2f2]"}  text-[12px] font-LexendDecaMedium`}
-              >
-                All
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
-              style={{
-                backgroundColor:
-                  filter == "unread" ? "#fff" : "rgba(204, 204, 204, 0.25)",
-              }}
-              onPress={() => setFilter("unread")}
-            >
-              <Text
-                className={`${filter == "unread" ? "text-[#2F2E41]" : "text-[#f2f2f2]"}  text-[12px] font-LexendDecaMedium`}
-              >
-                Unread Messages ({unreadConvos?.length || 0})
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <View style={{ flex: 1 }}>
-            <FlatList
-              data={filter == "all" ? conversations : unreadConvos}
-              renderItem={({ item }) => renderConversations(item)}
-              keyExtractor={(item) => item._id}
-              showsVerticalScrollIndicator={false}
-              onEndReached={fetchMoreConversations}
-              ListFooterComponent={renderListFooter}
-              refreshing={refreshing}
-              onRefresh={refreshMessages}
-            />
-          </View>
-        </View>
-      ) : null}
-
-      {!loading && conversations?.length < 1 ? <EmptyMessages /> : null}
-
-      <BottomSheet
-        bgColor="#121212"
-        childrenStyle="!px-[11px]"
-        showCloseIcon={false}
-        title=""
-        show={showAuthSheet}
-        titleColor="!text-white"
-        snapPoints={["20%"]}
-        enableDynamicSizing={false}
-        onRequestClose={() => setShowAuthSheet(false)}
-        keyboardBehavior="interactive"
-      >
-        <AuthSheet closeSheet={() => setShowAuthSheet(false)} />
-      </BottomSheet>
+      )}
     </SafeAreaView>
   );
 };

@@ -1,39 +1,22 @@
-import React, {
-  useRef,
-  useEffect,
-  useState,
-  useCallback,
-  memo,
-  useMemo,
-} from "react";
+import React, { useRef, useEffect, useState, useCallback, memo } from "react";
 import {
   View,
   Dimensions,
   StyleSheet,
   Text,
   Platform,
-  Image,
   TouchableOpacity,
   Pressable,
-  TouchableWithoutFeedbackComponent,
   TouchableWithoutFeedback,
-  FlatList,
-  KeyboardAvoidingView,
   Share,
   Alert,
+  ActivityIndicator,
 } from "react-native";
-import { ResizeMode, Video } from "expo-av";
-import { ActivityIndicator } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AntDesign from "@expo/vector-icons/AntDesign";
-import Octicons from "@expo/vector-icons/Octicons";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import SimpleLineIcons from "@expo/vector-icons/SimpleLineIcons";
-import {
-  useIsFocused,
-  useNavigationState,
-  useRoute,
-} from "@react-navigation/native";
+import { useIsFocused, useRoute } from "@react-navigation/native";
 import Entypo from "@expo/vector-icons/Entypo";
 import { router, useLocalSearchParams } from "expo-router";
 import axios from "axios";
@@ -41,39 +24,32 @@ import { getToken, getUser } from "@/store/features/auth/utils";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Shadow, ShadowProps } from "react-native-shadow-2";
 import BottomSheet from "../global/bottom-sheet";
-import {
-  formatNumber,
-  formatTimeFromNow,
-  timeFromNow,
-} from "@/helpers/helpers";
-import {
-  Gesture,
-  GestureDetector,
-  GestureHandlerRootView,
-  TapGestureHandler,
-  TextInput,
-} from "react-native-gesture-handler";
-import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
-import moment from "moment";
+import { formatNumber, formatTimeFromNow } from "@/helpers/helpers";
 import CheckoutNow from "./checkoutNow";
 import ProductPreview from "./productPreview";
 import BlipsShop from "./blipsShop";
 import AuthSheet from "../auth/authSheet";
-import { data } from "@/constants";
-import Comment from "./comment";
 import CommentsSheet from "./commentsSheet";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { EvilIcons, Fontisto } from "@expo/vector-icons";
 import { GlassImage } from "@/app/(root)/livestream/components";
 import { LinearGradient } from "expo-linear-gradient";
-import { useVideoPlayer, VideoView } from "expo-video";
-import { useEvent, useEventListener } from "expo";
+import {
+  useVideoPlayer,
+  VideoPlayer,
+  VideoSource,
+  VideoView,
+} from "expo-video";
+import { useEvent } from "expo";
 import { trackEvent } from "@/utils/analytics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { generateDeepLinkUrl } from "@/core";
+import { toast } from "@/core/toast";
+import { useMappingHelper, useRecyclingState } from "@shopify/flash-list";
+import { Image } from "expo-image";
 
-const { height, width } = Dimensions.get("screen");
+const { height, width } = Dimensions.get("window");
 const VideoItem = ({
   id,
   videoUrl,
@@ -84,6 +60,11 @@ const VideoItem = ({
   item,
   singularBlip = false,
   shared = false,
+  viewHeight,
+  index,
+  player,
+  adjacent,
+  thumbnail,
 }: {
   id: string;
   videoUrl: string;
@@ -94,49 +75,89 @@ const VideoItem = ({
   item: any;
   singularBlip: boolean;
   shared?: boolean;
+  viewHeight?: number;
+  index?: number;
+  player: VideoPlayer;
+  adjacent?: boolean;
+  thumbnail?: string;
 }) => {
   const token = useSelector((state: RootState) => state.authState?.token);
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const currentRoute = useRoute();
 
-  const statusBarHeight = Platform.OS == "ios" ? insets.top : 0;
+  const statusBarHeight = insets.top;
   const videoRef = useRef<any>(null);
-  const [cachedUrl, setCachedUrl] = useState(videoUrl);
-  const [loading, setLoading] = useState(true);
-  const [paused, setPaused] = useState<boolean>(false);
-  const [pausedTriggered, setPauseTriggered] = useState<boolean>(false);
-  const [isBuffering, setIsBuffering] = useState(false);
-  const [likes, setLikes] = useState<number>(engagement.likes);
-  const [liked, setLiked] = useState<boolean>(engagement?.isLiked);
-  const [comments, setComments] = useState<number>(engagement.comments);
-  const [showComments, setShowComments] = useState<boolean>(false);
-  const [showCheckout, setShowCheckout] = useState<boolean>(false);
-  const [showProduct, setShowProduct] = useState<boolean>(false);
-  const [showShop, setShowShop] = useState<boolean>(false);
-  const [showAuthSheet, setShowAuthSheet] = useState<boolean>(false);
-  const [following, setFollowing] = useState<boolean>(
+  const [loading, setLoading] = useRecyclingState(true, [index]);
+  const [paused, setPaused] = useRecyclingState<boolean>(false, [index]);
+  const [likes, setLikes] = useRecyclingState<number>(engagement.likes, [
+    index,
+  ]);
+  const [liked, setLiked] = useRecyclingState<boolean>(engagement?.isLiked, [
+    index,
+  ]);
+  const [comments, setComments] = useRecyclingState<number>(
+    engagement.comments,
+    [index],
+  );
+  const [showComments, setShowComments] = useRecyclingState<boolean>(false, [
+    index,
+  ]);
+  const [showCheckout, setShowCheckout] = useRecyclingState<boolean>(false, [
+    index,
+  ]);
+  const [showProduct, setShowProduct] = useRecyclingState<boolean>(false, [
+    index,
+  ]);
+  const [showShop, setShowShop] = useRecyclingState<boolean>(false, [index]);
+  const [showAuthSheet, setShowAuthSheet] = useRecyclingState<boolean>(false, [
+    index,
+  ]);
+  const [following, setFollowing] = useRecyclingState<boolean>(
     item?.seller?.isFollowing || false,
+    [index],
   );
-  const [blipType, setBlipType] = useState<string>(item?.status);
-  const [offlineAuctionData, setOfflineAuctionData] = useState<any>(
+  const [blipType, setBlipType] = useRecyclingState<string>(item?.status, [
+    index,
+  ]);
+  const [offlineAuctionData, setOfflineAuctionData] = useRecyclingState<any>(
     item?.status == "offline_auction" ? item?.auctionInfo : null,
+    [index],
   );
-  const [liveStreamData, setLiveStreamData] = useState<any>();
-  const [liveAuctionData, setLiveAuctionData] = useState<any>();
-  const [bidTime, setBidTime] = useState<any>();
+  const [bidTime, setBidTime] = useRecyclingState<any>(null, [index]);
+  const [mounted, setMounted] = useRecyclingState(true, [index]);
+  const [canMountVideo, setCanMountVideo] = useRecyclingState<boolean>(false, [
+    index,
+  ]);
 
-  const player = useVideoPlayer({ uri: videoUrl }, (player) => {
-    player.loop = true;
-    player.play();
-    // player.replay();
-  });
+  // const player = useVideoPlayer(
+  //   {
+  //     uri: videoUrl,
+  //     useCaching: Platform.select({
+  //       android: true,
+  //       ios: false,
+  //     }),
+  //   },
+  //   (player) => {
+  //     player.bufferOptions = {
+  //       preferredForwardBufferDuration: Platform.select({ android: 5, ios: 0 }),
+  //     };
+  //     player.timeUpdateEventInterval = Platform.select({
+  //       ios: 0.2,
+  //       android: 0.5,
+  //       default: 0,
+  //     });
+  //     player.loop = true;
+  //     player.pause();
+  //   },
+  // );
+
   const { isPlaying } = useEvent(player, "playingChange", {
-    isPlaying: player.playing,
+    isPlaying: player?.playing,
   });
 
   const { status, error } = useEvent(player, "statusChange", {
-    status: player.status,
+    status: player?.status,
   });
 
   const handleActionBtn = () => {
@@ -195,30 +216,27 @@ const VideoItem = ({
     }
   };
 
-  // const handlePlaybackStatusUpdate = (status: any) => {
-  //   if (!status.isLoaded) return;
-
-  //   setTimeout(
-  //     () =>
-  //       setLoading(
-  //         (!status.isPlaying && status.shouldPlay) || status.isBuffering,
-  //       ),
-  //     1000,
-  //   );
-  // };
-
   const handleCloseCheckout = useCallback(() => {
     setShowCheckout(false);
   }, []);
+  const handleCloseProduct = useCallback(() => {
+    setShowProduct(false);
+  }, []);
+  const handleCloseShop = useCallback(() => {
+    setShowShop(false);
+  }, []);
+  const handleCloseAuth = useCallback(() => {
+    setShowAuthSheet(false);
+  }, []);
 
-  const handleLike = async () => {
+  const handleLike = useCallback(async () => {
     const token = await getToken();
     if (!token) {
       return setShowAuthSheet(true);
     }
     if (liked) {
       setLiked(false);
-      setLikes(likes - 1);
+      setLikes((prev) => prev - 1);
       try {
         const userData = await AsyncStorage.getItem("user");
         const user = JSON.parse(userData || "{}");
@@ -236,7 +254,7 @@ const VideoItem = ({
       }
     } else {
       setLiked(true);
-      setLikes(likes + 1);
+      setLikes((prev) => prev + 1);
       try {
         const userData = await AsyncStorage.getItem("user");
         const user = JSON.parse(userData || "{}");
@@ -268,7 +286,7 @@ const VideoItem = ({
     } catch (e: any) {
       console.log("error liking blip ", e.response.data);
     }
-  };
+  }, [product, id]);
 
   const handleView = useCallback(async () => {
     const token = await getToken();
@@ -285,9 +303,9 @@ const VideoItem = ({
       };
       const response = await axios(config);
     } catch (e: any) {
-      console.log("error viewing blip ", e.response.data);
+      console.log("error viewing blip ", e.response.data?.message);
     }
-  }, []);
+  }, [product, id]);
 
   const handleCantComment = useCallback(() => {
     setShowComments(false);
@@ -295,54 +313,16 @@ const VideoItem = ({
   }, []);
 
   const handleIncreaseCommentCount = useCallback(() => {
-    setComments(comments + 1);
+    setComments((prev) => prev + 1);
   }, []);
 
   const closeCommentsSheet = useCallback(() => {
     setShowComments(false);
   }, []);
 
-  // const PauseVideo = useCallback(() => {
-  //   if (paused && videoRef.current) {
-  //     videoRef.current.playAsync?.();
-  //   } else {
-  //     videoRef.current.pauseAsync?.();
-  //   }
-  //   setPaused(!paused);
-  // }, [paused]);
-
-  // useEffect(() => {
-  //   if (isFocused && videoRef.current) {
-  //     if (isVisible) {
-  //       videoRef.current.playAsync?.();
-  //     } else {
-  //       if (paused) setPaused(false);
-  //       videoRef.current.pauseAsync?.();
-  //       videoRef.current?.setPositionAsync(0);
-  //     }
-  //     handleView();
-  //   }
-  // }, [isFocused, isVisible]);
-
-  // useEffect(() => {
-  //   if (!isFocused || !isVisible) {
-  //     setPaused(false);
-  //     videoRef.current.pauseAsync?.();
-  //   }
-  // }, [isFocused]);
-
-  // useEffect(() => {
-  //   return () => {
-  //     if (videoRef.current) {
-  //       videoRef.current.unloadAsync();
-  //     }
-  //   };
-  // }, []);
-
   const PauseVideo = useCallback(() => {
-    if (status == "loading" || status !== "readyToPlay") {
-      return;
-    }
+    // toast.info("current player status for index " + index + "is " + status);
+
     setPaused(isPlaying);
     if (!isPlaying && videoRef.current) {
       console.log("playing video ", {
@@ -351,41 +331,65 @@ const VideoItem = ({
 
       player.play();
     } else {
-      console.log("pausing video ", {
-        isPlaying,
-      });
       player.pause();
     }
-  }, [paused, isPlaying]);
+  }, [paused, isPlaying, status]);
+
+  // useEffect(() => {
+  //   if (isFocused && videoRef.current && player) {
+  //     if (isVisible) {
+  //       player?.play();
+  //     } else {
+  //       if (paused) setPaused(false);
+  //       // if (status === "readyToPlay") player.replay();
+  //       // player.pause();
+  //     }
+  //     handleView();
+  //   }
+  // }, [isFocused, isVisible, player, status]);
+
+  // useEffect(() => {
+  //   if (!isFocused || (!isVisible && player)) {
+  //     setPaused(false);
+  //     player?.pause?.();
+  //   }
+  // }, [isFocused, isVisible, player]);
 
   useEffect(() => {
-    if (isFocused && videoRef.current) {
-      if (isVisible) {
-        player.play();
-      } else {
-        if (paused) setPaused(false);
-        player.replay();
-        player.pause();
-      }
-      handleView();
-    }
-  }, [isFocused, isVisible]);
-
-  useEffect(() => {
-    if (!isFocused || !isVisible) {
-      setPaused(false);
-      player.pause();
-    }
-  }, [isFocused]);
-
-  useEffect(() => {
-    const statusTimeout = setTimeout(
-      () => setLoading(status == "loading"),
-      1000,
-    );
-
-    return () => clearTimeout(statusTimeout);
+    if (mounted) setLoading(status == "loading");
   }, [status]);
+
+  const { getMappingKey } = useMappingHelper();
+
+  const replacePlayerSource = useCallback(
+    (source: VideoSource) => {
+      player.replace(source);
+    },
+    [player],
+  );
+
+  // useEffect(() => {
+  //   if (player && videoUrl) {
+  //     replacePlayerSource({
+  //       uri: videoUrl,
+  //       useCaching: Platform.select({
+  //         android: true,
+  //         ios: false,
+  //       }),
+  //     });
+  //   }
+
+  //   return () => {
+  //     console.log(`🤬🤬🤬 unmounting player ${index}`);
+  //     setMounted(false);
+
+  //     player?.removeAllListeners("playingChange");
+  //     player?.removeAllListeners("statusChange");
+  //     player?.stopObserving?.("playingChange");
+  //     player?.stopObserving?.("statusChange");
+  //     player?.release();
+  //   };
+  // }, [videoUrl, player, id]);
 
   const tabBarHeight = !singularBlip ? useBottomTabBarHeight() : 10;
   // console.log({ tabBarHeight });
@@ -473,6 +477,7 @@ const VideoItem = ({
   useEffect(() => {
     const trackBlipViewed = async () => {
       if (isVisible) {
+        handleView();
         try {
           const userData = await AsyncStorage.getItem("user");
           const user = JSON.parse(userData || "{}");
@@ -490,12 +495,32 @@ const VideoItem = ({
         }
       }
     };
-
     trackBlipViewed();
   }, [isVisible]);
 
+  useEffect(() => {
+    // console.log({
+    //   isVisible,
+    //   player: "just mounted this player",
+    //   adjacent,
+    //   index,
+    // });
+    if (
+      (isVisible && player) ||
+      (adjacent && player && Platform.OS === "ios")
+    ) {
+      setCanMountVideo(true);
+    } else if (player) {
+      // player?.pause();
+    }
+
+    return () => {
+      setCanMountVideo(false);
+    };
+  }, [isVisible, player, adjacent, index]);
+
   return (
-    <TouchableWithoutFeedback
+    <Pressable
       onPress={() => {
         PauseVideo();
       }}
@@ -508,31 +533,44 @@ const VideoItem = ({
         style={[
           styles.container,
           {
-            height:
-              Platform.OS == "ios"
-                ? height - insets.bottom
-                : height - insets.bottom - insets.top,
-            // backgroundColor: "red",
+            height: viewHeight,
             paddingTop: Platform.OS == "ios" ? 0 : 0,
-            paddingBottom: singularBlip ? 0 : tabBarHeight - insets.bottom,
+            paddingBottom: singularBlip ? 0 : 0,
           },
         ]}
       >
-        <VideoView
-          ref={videoRef}
-          style={[
-            styles.video,
-            {
-              height: "100%",
-              position: "absolute",
-              top: Platform.OS == "ios" ? 0 : 0,
-              left: 0,
-            },
-          ]}
-          player={player}
-          nativeControls={false}
-          contentFit="cover"
-        />
+        {canMountVideo ? (
+          <View style={styles.video}>
+            <VideoView
+              ref={videoRef}
+              style={{
+                width: "100%",
+                height: "100%",
+              }}
+              player={player}
+              nativeControls={false}
+              contentFit="cover"
+              key={getMappingKey(id, index!)}
+            />
+          </View>
+        ) : (
+          <Image
+            source={{ uri: thumbnail }}
+            style={[
+              styles.video,
+              {
+                height: "100%",
+                position: "absolute",
+                top: Platform.OS == "ios" ? 0 : 0,
+                left: 0,
+                // backgroundColor: "red",
+              },
+            ]}
+            contentFit="cover"
+            recyclingKey={thumbnail}
+          />
+        )}
+
         <View
           className="px-[10px] py-[16px] gap-[30px] flex-row items-center justify-between"
           style={{
@@ -895,8 +933,8 @@ const VideoItem = ({
             </TouchableOpacity>
           </View>
         </View>
-        {loading && Platform.OS == "ios" && (
-          <View style={[styles.loaderContainer, { bottom: tabBarHeight }]}>
+        {loading && Platform.OS == "ios" && false && (
+          <View style={[styles.loaderContainer]}>
             <View
               style={{
                 width: 50,
@@ -912,7 +950,7 @@ const VideoItem = ({
           </View>
         )}
         {paused && (
-          <View style={[styles.loaderContainer, { bottom: tabBarHeight }]}>
+          <View style={[styles.loaderContainer]}>
             <Entypo
               name="controller-play"
               size={90}
@@ -933,7 +971,7 @@ const VideoItem = ({
           titleColor="!text-white"
           snapPoints={["70%"]}
           enableDynamicSizing={false}
-          onRequestClose={() => setShowComments(false)}
+          onRequestClose={closeCommentsSheet}
           keyboardBehavior="extend"
           handleIndicatorStyle={{
             backgroundColor: "white",
@@ -959,7 +997,7 @@ const VideoItem = ({
           show={showCheckout}
           snapPoints={["85%"]}
           titleColor="!text-white"
-          onRequestClose={() => setShowCheckout(false)}
+          onRequestClose={handleCloseCheckout}
           keyboardBehavior={"interactive"}
           enablePanDownToClose={true}
           enableDynamicSizing={false}
@@ -974,20 +1012,19 @@ const VideoItem = ({
         </BottomSheet>
 
         <BottomSheet
-          bgColor="#121212"
+          bgColor="#fff"
           childrenStyle="!px-[11px]"
           showCloseIcon={false}
           title=""
           show={showProduct}
-          snapPoints={["70%"]}
+          // snapPoints={["70%"]}
+          detached={true}
           titleColor="!text-white"
-          onRequestClose={() => setShowProduct(false)}
-          keyboardBehavior={"interactive"}
+          onRequestClose={handleCloseProduct}
+          enableContentPanningGesture
+          enablePanDownToClose
         >
-          <ProductPreview
-            product={product}
-            closeSheet={() => setShowProduct(false)}
-          />
+          <ProductPreview product={product} closeSheet={handleCloseProduct} />
         </BottomSheet>
 
         <BottomSheet
@@ -998,14 +1035,14 @@ const VideoItem = ({
           show={showShop}
           snapPoints={["70%"]}
           titleColor="!text-white"
-          onRequestClose={() => setShowShop(false)}
+          onRequestClose={handleCloseShop}
           keyboardBehavior={"interactive"}
           enableDynamicSizing={false}
           handleIndicatorStyle={{
             backgroundColor: "white",
           }}
         >
-          <BlipsShop id={seller._id} closeSheet={() => setShowShop(false)} />
+          <BlipsShop id={seller._id} closeSheet={handleCloseShop} />
         </BottomSheet>
 
         <BottomSheet
@@ -1017,17 +1054,17 @@ const VideoItem = ({
           titleColor="!text-white"
           snapPoints={["20%"]}
           enableDynamicSizing={false}
-          onRequestClose={() => setShowAuthSheet(false)}
+          onRequestClose={handleCloseAuth}
           keyboardBehavior="interactive"
         >
           <AuthSheet
-            closeSheet={() => setShowAuthSheet(false)}
+            closeSheet={handleCloseAuth}
             currentRoute={currentRoute.name}
             routeParams={currentRoute.params}
           />
         </BottomSheet>
       </View>
-    </TouchableWithoutFeedback>
+    </Pressable>
   );
 };
 
@@ -1042,6 +1079,12 @@ const styles = StyleSheet.create({
   },
   video: {
     width: "100%",
+    height: "100%",
+    position: "absolute",
+    top: Platform.OS == "ios" ? 0 : 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     // aspectRatio: 16 / 9,
   },
   loaderContainer: {

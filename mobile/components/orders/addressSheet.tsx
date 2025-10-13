@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, Pressable } from "react-native";
 import React, { memo, useEffect, useState } from "react";
 import { router } from "expo-router";
 import AntDesign from "@expo/vector-icons/AntDesign";
+import RadioButton from "../Primitives/Buttons/radioButton";
 
 const AddressSheet = ({
   addresses,
@@ -93,13 +94,14 @@ const AddressSheet = ({
                   </View>
                 </View>
               </View>
-              <View
-                className={`border-[1px] ${checked == index || (checked === -1 && activeAddress === address?._id) ? "border-[#16783A]" : "border-[#ccc]"} rounded-[20px] w-[20px] h-[20px] justify-center items-center`}
-              >
-                <View
-                  className={` ${checked == index || (checked === -1 && activeAddress === address?._id) ? "bg-[#16783A]" : ""} rounded-[12px] w-[12px] h-[12px] justify-center items-center`}
-                ></View>
-              </View>
+              <RadioButton
+                active={
+                  checked == index ||
+                  (checked === -1 && activeAddress === address?._id)
+                }
+                color="white"
+                size={20}
+              />
             </TouchableOpacity>
           ))
         ) : (

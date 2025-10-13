@@ -13,12 +13,11 @@ const { width } = Dimensions.get("window");
 const MarketsSuggestedBlips = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [blips, setBlips] = useState<any[]>([]);
-  const fetchSpotlightLiveStreams = async () => {
+  const fetchSpotlightLiveStreams = useCallback(async () => {
     const token = await getToken();
     try {
       const response = await axios.get(
-        process.env.EXPO_PUBLIC_API_URL +
-          `api/products/blips/suggested?limit=10`,
+        process.env.EXPO_PUBLIC_API_URL + `api/v2/blips/suggested?limit=10`,
         {
           headers: {
             Authorization: "Bearer " + token,
@@ -32,7 +31,7 @@ const MarketsSuggestedBlips = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchSpotlightLiveStreams();
@@ -56,6 +55,18 @@ const MarketsSuggestedBlips = () => {
     );
   }, [blips]);
 
+  const renderBlips = useCallback(({ item, index }: any) => {
+    return (
+      <View
+        style={{
+          width: (width - 32) / 2 - 24,
+        }}
+      >
+        <BlipCard item={item} />
+      </View>
+    );
+  }, []);
+
   return (
     <View className="pt-[16px] mb-5 w-full">
       <SectionHeader title="Suggested Blips" btnText="" />
@@ -65,16 +76,8 @@ const MarketsSuggestedBlips = () => {
         <View style={{}}>
           <FlatList
             data={blips}
-            renderItem={({ item }) => (
-              <View
-                style={{
-                  width: (width - 32) / 2 - 24,
-                }}
-              >
-                <BlipCard item={item} />
-              </View>
-            )}
-            keyExtractor={(item, index) => item._id || index?.toString()}
+            renderItem={renderBlips}
+            keyExtractor={(item, index) => item.blipId || index?.toString()}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{

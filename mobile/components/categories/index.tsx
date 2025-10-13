@@ -17,6 +17,7 @@ import AnimatedButton from "../global/button/AnimatedButton";
 import { cn } from "@/core";
 import { ActivityIndicator } from "react-native-paper";
 import CategoriesPageSkeleton from "../skeleton/categoriesPageSkeleton";
+import RadioButton from "../Primitives/Buttons/radioButton";
 
 const categoryEmojis: Record<string, string> = {
   "Womens Fashion & Accessories": "💄",
@@ -214,22 +215,11 @@ const Categories = () => {
             {categoryEmojis[item?.name?.replaceAll("'", "")] || ""} {item?.name}
           </Text>
 
-          <View className="w-[17px] h-[17px] rounded-full p-[2.5px] border-[1px] border-[#16783A]">
-            {selectedCategories?.includes(item?._id) && (
-              <Animated.View
-                entering={FadeIn}
-                exiting={FadeOut}
-                style={{
-                  width: 12,
-                  height: 12,
-                  aspectRatio: 1,
-                  borderRadius: "100%",
-                  backgroundColor: "#16783ACC",
-                  flexShrink: 1,
-                }}
-              ></Animated.View>
-            )}
-          </View>
+          <RadioButton
+            active={selectedCategories?.includes(item?._id)}
+            size={18}
+            color="#16783A"
+          />
         </AnimatedButton>
       );
     },

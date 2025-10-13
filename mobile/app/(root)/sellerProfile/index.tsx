@@ -35,7 +35,7 @@ import { RootState } from "@/store";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useShareAppLinks } from "@/hooks/useShareAppLinks";
-import { ScrollView } from "react-native-virtualized-view";
+import { ScrollView } from "@/components/global/virtualized-view";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
 import { generateDeepLinkUrl } from "@/core";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";

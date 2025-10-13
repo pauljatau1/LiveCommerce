@@ -6,12 +6,22 @@ type Props = {
   active: boolean;
   onPress?: () => void;
   size?: number;
+  color?: string;
 };
 
-const RadioButton = ({ active, onPress, size = 17 }: Props) => {
+const RadioButton = ({
+  active,
+  onPress,
+  size = 17,
+  color = "#16783ACC",
+}: Props) => {
   return (
     <Pressable
-      className="w-[17px] h-[17px] rounded-full p-[2.5px] border-[1px] border-[#16783A]"
+      className={`w-[${size}px] h-[${size}px] rounded-full border-[1px] items-center justify-center relative`}
+      style={{
+        borderColor: color,
+        flexShrink: 0,
+      }}
       onPress={onPress}
       hitSlop={6}
     >
@@ -20,11 +30,10 @@ const RadioButton = ({ active, onPress, size = 17 }: Props) => {
           entering={FadeIn}
           exiting={FadeOut}
           style={{
-            width: 12,
-            height: 12,
-            aspectRatio: 1,
+            width: "60%",
+            height: "60%",
             borderRadius: "100%",
-            backgroundColor: "#16783ACC",
+            backgroundColor: color,
             flexShrink: 1,
           }}
         ></Animated.View>

@@ -6,7 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
 } from "react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import { ActivityIndicator } from "react-native-paper";
 import { useGetSellerProductsQuery } from "@/services/products";
 import AntDesign from "@expo/vector-icons/AntDesign";
@@ -246,4 +246,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default BlipsShop;
+export default memo(BlipsShop);

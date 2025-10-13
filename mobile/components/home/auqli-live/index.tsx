@@ -10,7 +10,7 @@ import { useLivestream } from "../../../contexts/livestreamContext";
 import { useEffect, useState } from "react";
 import SuggestedBlips from "./suggested-blips";
 import ForYou from "./for-you";
-import { ScrollView } from "react-native-virtualized-view";
+import { ScrollView } from "@/components/global/virtualized-view";
 import UpComing from "./upcoming-shows";
 import { trackScreen } from "@/utils/customerio";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -44,7 +44,8 @@ const AuqliLive = ({ setActiveTab }: any) => {
         timestamp: new Date().toISOString(),
       });
     };
-    triggerAppLaunchAnalytics();
+    // disable for now
+    // triggerAppLaunchAnalytics();
   }, []);
 
   return (

@@ -21,7 +21,7 @@ const OtpSheet = memo(
       handleSubmitNewPassword(otp, password);
     };
     return (
-      <View>
+      <View className="py-[16px]">
         <Text className="font-LexendDeca text-[14px] text-[#ccc] text-center mb-[20px]">
           Enter OTP and new Password
         </Text>

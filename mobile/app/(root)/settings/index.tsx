@@ -8,10 +8,10 @@ import {
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
 import Entypo from "@expo/vector-icons/Entypo";
-import { Link, router } from "expo-router";
+import { Link, router, useFocusEffect } from "expo-router";
 import { ScrollView } from "react-native-gesture-handler";
 import { signOut } from "@/store/features/auth/authSlice";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import BottomSheet from "@/components/global/bottom-sheet";
 import DeleteSheet from "@/components/settings/deleteSheet";
 import LoadingModal from "@/components/global/loading-modal";
@@ -19,6 +19,8 @@ import { useRequestDeleteMutation } from "@/services/auth";
 import { toast } from "@/core/toast";
 import DeviceInfo from "react-native-device-info";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import { RootState } from "@/store";
+import { getToken } from "@/store/features/auth/utils";
 // import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
 const { width, height } = Dimensions.get("window");
@@ -50,6 +52,18 @@ const Settings = () => {
   useEffect(() => {
     getApiLevel();
   }, []);
+
+  const verifyAuth = useCallback(async () => {
+    const token = await getToken();
+    if (!token) {
+      return router.canGoBack() ? router.back() : router.replace("/blips");
+    }
+  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      verifyAuth();
+    }, []),
+  );
 
   const handleDelete = () => {
     setShowDeleteSheet(false);

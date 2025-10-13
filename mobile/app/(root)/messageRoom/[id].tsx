@@ -1060,8 +1060,8 @@ const MessageRoom = () => {
         show={showReportUser}
         titleColor="!text-white"
         onRequestClose={() => setShowReportUser(false)}
-        keyboardBehavior={"extend"}
-        snapPoints={["80%"]}
+        keyboardBehavior={"interactive"}
+        // snapPoints={["80%"]}
       >
         <ReportUserSheet
           userId={id?.toString()}
