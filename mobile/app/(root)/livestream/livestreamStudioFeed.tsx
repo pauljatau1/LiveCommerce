@@ -1393,9 +1393,26 @@ const LivestreamStudioFeed = ({
     }
   }, [isVisible, streamConfig, onRegisterCleanup, handleAutoLeaveStream, id]);
 
+  // Debug effect to track when isStreamScheduled changes
+  useEffect(() => {
+    if (isStreamScheduled) {
+      console.log("🔄 [Studio] Stream scheduled state changed to true", {
+        isStreamScheduled,
+        hasScheduledDetails: !!scheduledStreamDetails,
+        streamId: (scheduledStreamDetails as any)?._id
+      });
+    }
+  }, [isStreamScheduled, scheduledStreamDetails]);
+
   const handleCloseCheckout = useCallback(() => {
     setShowCheckout(false);
   }, []);
+
+  // Memoize the closeSheet function for RsvpSheet to prevent unnecessary re-renders
+  const handleCloseRsvpSheet = useCallback(() => {
+    dispatch({type: 'SET_IS_STREAM_SCHEDULED', isStreamScheduled: false, scheduledStreamDetails: null});
+    router?.push('/(root)/(tabs)/home/home');
+  }, [dispatch, router]);
 
   // Add follow/unfollow handler functions
   const handleFollowSeller = async (isStreamInfo: boolean) => {
@@ -1492,8 +1509,8 @@ const LivestreamStudioFeed = ({
   const lastTapTime = useRef(0);
   const isAnimating = useRef(false);
   const TAP_THRESHOLD = 150;
-  const heartPressTimeout = useRef<NodeJS.Timeout | null>(null);
-  const socketThrottleTimeout = useRef<NodeJS.Timeout | null>(null);
+  const heartPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const socketThrottleTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
   // Debounced socket event emitter
@@ -2233,28 +2250,26 @@ const LivestreamStudioFeed = ({
       </View>
 
       {/* Bottom Sheets */}
-      <BottomSheet
-        bgColor="#121212"
-        childrenStyle="!px-[11px]"
-        showCloseIcon={false}
-        show={isStreamScheduled}
-        onRequestClose={() => {}}
-        snapPoints={["45%"]}
-        enableDynamicSizing={false}
-        keyboardBehavior={"interactive"}
-        enablePanDownToClose={false}
-        enableContentPanningGesture={false}
-      >
-        {scheduledStreamDetails && (
+      {isStreamScheduled && scheduledStreamDetails && (
+        <BottomSheet
+          key={`rsvp-sheet-${(scheduledStreamDetails as any)?._id || 'scheduled'}`}
+          bgColor="#121212"
+          childrenStyle="!px-[11px]"
+          showCloseIcon={false}
+          show={isStreamScheduled}
+          onRequestClose={() => {}}
+          snapPoints={["45%"]}
+          enableDynamicSizing={false}
+          keyboardBehavior={"interactive"}
+          enablePanDownToClose={true}
+          enableContentPanningGesture={true}
+        >
           <RsvpSheet
             streamDetails={scheduledStreamDetails}
-            closeSheet={() => {
-              dispatch({type: 'SET_IS_STREAM_SCHEDULED', isStreamScheduled: false, scheduledStreamDetails: null})
-              router?.push('/(root)/(tabs)/home/home')
-            }}
+            closeSheet={handleCloseRsvpSheet}
           />
-        )}
-      </BottomSheet>
+        </BottomSheet>
+      )}
 
       <BottomSheet
         bgColor="#fff"
