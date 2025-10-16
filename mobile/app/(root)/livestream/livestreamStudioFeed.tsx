@@ -142,14 +142,14 @@ const LivestreamStudioFeed = ({
     Array<{
       id: string;
       type:
-        | "comment"
-        | "join"
-        | "purchase"
-        | "hostLeft"
-        | "hostRejoin"
-        | "leave"
-        | "liveshow_order"
-        | "announcement";
+      | "comment"
+      | "join"
+      | "purchase"
+      | "hostLeft"
+      | "hostRejoin"
+      | "leave"
+      | "liveshow_order"
+      | "announcement";
       user: string;
       avatar?: any;
       content: string;
@@ -190,8 +190,14 @@ const LivestreamStudioFeed = ({
     type: "regular",
     sellerFollowers: 0,
   });
-  const [rsvpSheet, showRsvpSheet] = useState<boolean>(isStreamScheduled);
-
+  const [rsvpSheet, setRsvpSheet] = useState<boolean>(false);
+  
+  useEffect(() => {
+    console.log("isStreamScheduled", isStreamScheduled);
+    setRsvpSheet(isStreamScheduled);
+  }, [isStreamScheduled]);
+  
+  console.log("rsvpSheet", rsvpSheet);
   // Add state for leave stream loading
   const [isLeavingStream, setIsLeavingStream] = useState(false);
 
@@ -335,222 +341,227 @@ const LivestreamStudioFeed = ({
       setStatus("Joining stream...");
 
       // Join the stream using the stream ID from route parameters
-      const streamDetails = await joinStream(id as string);
+      const streamDetails = await joinStream(id as string) as any;
       console.log("Stream details:", streamDetails);
-      console.log("stream viewers", streamDetails?.stream?.viewers);
+      //console.log("stream viewers", streamDetails?.stream?.viewers);
 
-      // Set stream metadata if available from API
-      if (streamDetails) {
-        // Update likes and comments if available from API
-        if (streamDetails.likes) setLikes(streamDetails.likes);
-        if (streamDetails.comments) setComments(streamDetails.comments);
+      if (streamDetails?.success === true && streamDetails?.message !== "Stream has not started yet") {
+        // Set stream metadata if available from API
+        if (streamDetails) {
+          // Update likes and comments if available from API
+          if (streamDetails.likes) setLikes(streamDetails.likes);
+          if (streamDetails.comments) setComments(streamDetails.comments);
 
-        // Set products from stream data
-        if (streamDetails.products && streamDetails.products.length > 0) {
-          setStreamProducts(streamDetails.products);
-        } else if (
-          streamDetails.stream?.products &&
-          streamDetails.stream.products.length > 0
-        ) {
-          console.log(
-            "New Stream products:",
-            JSON.stringify(streamDetails.stream.products),
-          );
-          setStreamProducts(streamDetails.stream.products);
-        }
+          // Set products from stream data
+          if (streamDetails.products && streamDetails.products.length > 0) {
+            setStreamProducts(streamDetails.products);
+          } else if (
+            streamDetails.stream?.products &&
+            streamDetails.stream.products.length > 0
+          ) {
+            console.log(
+              "New Stream products:",
+              JSON.stringify(streamDetails.stream.products),
+            );
+            setStreamProducts(streamDetails.stream.products);
+          }
 
-        // Debug seller information
-        console.log("Seller info from API:", streamDetails.seller);
-        console.log("Stream info:", streamDetails.stream);
+          // Debug seller information
+          console.log("Seller info from API:", streamDetails.seller);
+          console.log("Stream info:", streamDetails.stream);
 
-        // Based on the console log, we can see the seller info is in streamDetails.stream.seller
-        if (streamDetails.stream && streamDetails.stream.seller) {
-          // Get seller data from stream.seller with type assertion
-          const sellerData = streamDetails.stream.seller as {
-            _id: string;
-            businessName: string;
-            storeAvatar: {
-              url: string;
+          // Based on the console log, we can see the seller info is in streamDetails.stream.seller
+          if (streamDetails.stream && streamDetails.stream.seller) {
+            // Get seller data from stream.seller with type assertion
+            const sellerData = streamDetails.stream.seller as {
+              _id: string;
+              businessName: string;
+              storeAvatar: {
+                url: string;
+              };
+              storeName: string;
             };
-            storeName: string;
-          };
-          console.log("Using seller data from stream.seller:", sellerData);
+            console.log("Using seller data from stream.seller:", sellerData);
 
-          const newStoreInfo = {
-            name: sellerData.storeName || sellerData.businessName || "seller",
-            username: `@${(sellerData.storeName || sellerData.businessName || "username").toLowerCase().replace(/\s+/g, "")}`,
-            avatar: sellerData.storeAvatar?.url
-              ? { uri: sellerData.storeAvatar.url }
-              : require("@/assets/icons/animoji.png"),
-            sellerId: sellerData._id || "",
-          };
+            const newStoreInfo = {
+              name: sellerData.storeName || sellerData.businessName || "seller",
+              username: `@${(sellerData.storeName || sellerData.businessName || "username").toLowerCase().replace(/\s+/g, "")}`,
+              avatar: sellerData.storeAvatar?.url
+                ? { uri: sellerData.storeAvatar.url }
+                : require("@/assets/icons/animoji.png"),
+              sellerId: sellerData._id || "",
+            };
 
-          console.log("Setting store info to:", newStoreInfo);
-          setStoreInfo(newStoreInfo);
+            console.log("Setting store info to:", newStoreInfo);
+            setStoreInfo(newStoreInfo);
 
-          // Set the seller ID and check if user is following the seller
-          if (sellerData._id) {
-            setSellerId(sellerData._id);
-            try {
-              const sellerProfileData =
-                await checkIfSellerIsFollowedFromSellerProfile(sellerData._id);
-              // console.log("Seller profile data:", sellerProfileData);
-              setIsFollowing(
-                sellerProfileData?.storeInfo?.isFollowing || false,
-              );
-            } catch (error) {
-              console.error("Error checking if seller is followed:", error);
+            // Set the seller ID and check if user is following the seller
+            if (sellerData._id) {
+              setSellerId(sellerData._id);
+              try {
+                const sellerProfileData =
+                  await checkIfSellerIsFollowedFromSellerProfile(sellerData._id);
+                // console.log("Seller profile data:", sellerProfileData);
+                setIsFollowing(
+                  sellerProfileData?.storeInfo?.isFollowing || false,
+                );
+              } catch (error) {
+                console.error("Error checking if seller is followed:", error);
+              }
             }
           }
-        }
-        // If seller info is directly in streamDetails
-        else if (streamDetails.seller) {
-          console.log("Using seller data from streamDetails.seller");
+          // If seller info is directly in streamDetails
+          else if (streamDetails.seller) {
+            console.log("Using seller data from streamDetails.seller");
 
-          const sellerData = streamDetails.seller;
-          const newStoreInfo = {
-            name:
-              sellerData.storeName || sellerData.businessName || "Store Name",
-            username: `@${(sellerData.storeName || sellerData.businessName || "username").toLowerCase().replace(/\s+/g, "")}`,
-            avatar: sellerData.storeAvatar?.url
-              ? { uri: sellerData.storeAvatar.url }
-              : require("@/assets/icons/animoji.png"),
-            sellerId: sellerData._id || "",
-          };
+            const sellerData = streamDetails.seller;
+            const newStoreInfo = {
+              name:
+                sellerData.storeName || sellerData.businessName || "Store Name",
+              username: `@${(sellerData.storeName || sellerData.businessName || "username").toLowerCase().replace(/\s+/g, "")}`,
+              avatar: sellerData.storeAvatar?.url
+                ? { uri: sellerData.storeAvatar.url }
+                : require("@/assets/icons/animoji.png"),
+              sellerId: sellerData._id || "",
+            };
 
-          console.log("Setting store info to:", newStoreInfo);
-          setStoreInfo(newStoreInfo);
+            console.log("Setting store info to:", newStoreInfo);
+            setStoreInfo(newStoreInfo);
 
-          // Set the seller ID and check if user is following the seller
-          if (sellerData._id) {
-            setSellerId(sellerData._id);
-            try {
-              const sellerProfileData =
-                await checkIfSellerIsFollowedFromSellerProfile(sellerData._id);
-              // console.log("Seller profile data:", sellerProfileData);
-              setIsFollowing(
-                sellerProfileData?.storeInfo?.isFollowing || false,
-              );
-            } catch (error) {
-              console.error("Error checking if seller is followed:", error);
+            // Set the seller ID and check if user is following the seller
+            if (sellerData._id) {
+              setSellerId(sellerData._id);
+              try {
+                const sellerProfileData =
+                  await checkIfSellerIsFollowedFromSellerProfile(sellerData._id);
+                // console.log("Seller profile data:", sellerProfileData);
+                setIsFollowing(
+                  sellerProfileData?.storeInfo?.isFollowing || false,
+                );
+              } catch (error) {
+                console.error("Error checking if seller is followed:", error);
+              }
             }
+          }
+
+          // Set stream details
+          if (streamDetails.stream) {
+            const stream = streamDetails.stream as any;
+            setStreamDetails({
+              title: stream.title || "Live Stream",
+              description:
+                stream.description ||
+                "Join our live stream and shop exclusive items!",
+              category: stream.category || "Shopping",
+              tags: stream.tags || ["shopping", "live", "exclusive"],
+              viewerCount:
+                typeof stream.viewerCount === "number"
+                  ? stream.viewerCount
+                  : Array.isArray(stream.viewers)
+                    ? stream.viewers.length
+                    : 0,
+              scheduledStartTime:
+                stream.scheduledStartTime || new Date().toISOString(),
+              actualStartTime: stream.startTime || new Date().toISOString(),
+              status: stream.status || "live",
+              type: "regular",
+              sellerFollowers: stream.sellerFollowers || 0,
+            });
           }
         }
 
-        // Set stream details
-        if (streamDetails.stream) {
-          const stream = streamDetails.stream as any;
-          setStreamDetails({
-            title: stream.title || "Live Stream",
-            description:
-              stream.description ||
-              "Join our live stream and shop exclusive items!",
-            category: stream.category || "Shopping",
-            tags: stream.tags || ["shopping", "live", "exclusive"],
-            viewerCount:
-              typeof stream.viewerCount === "number"
-                ? stream.viewerCount
-                : Array.isArray(stream.viewers)
-                  ? stream.viewers.length
-                  : 0,
-            scheduledStartTime:
-              stream.scheduledStartTime || new Date().toISOString(),
-            actualStartTime: stream.startTime || new Date().toISOString(),
-            status: stream.status || "live",
-            type: "regular",
-            sellerFollowers: stream.sellerFollowers || 0,
+        // Set initial viewer count if available
+        if (streamDetails?.stream) {
+          const streamData = streamDetails.stream as any;
+          console.log("Stream view count data:", streamData);
+          if (typeof streamData.viewerCount === "number") {
+            console.log("Viewer count:", streamData.viewerCount);
+            setViewerCount(streamData.viewerCount);
+          } else if (Array.isArray(streamData.viewers)) {
+            setViewerCount(streamData.viewers.length);
+          }
+        }
+
+        setStreamConfig({
+          appId: process.env.EXPO_PUBLIC_AGORA_APP_ID || "",
+          channel: streamDetails?.channelName || "",
+          token: streamDetails?.token || "",
+          uid: streamDetails?.uid || "",
+        });
+
+        // Initialize with chat interactions from the stream
+        const chatInteractions =
+          (streamDetails.stream as any)?.chatInteractions || [];
+
+        // Check for announcements in stream data
+        const streamAnnouncements =
+          (streamDetails.stream as any)?.liveAnnouncements ||
+          (streamDetails.stream as any)?.announcements ||
+          [];
+
+        if (
+          Array.isArray(streamAnnouncements) &&
+          streamAnnouncements.length > 0
+        ) {
+          console.log("Found announcements in stream data:", streamAnnouncements);
+          setLiveAnnouncements(streamAnnouncements);
+        }
+
+        // Get the current user's information
+        const user = await getUser();
+
+        // Create a join event for the current user
+        const userJoinEvent = {
+          id: Date.now().toString(),
+          type: "join" as const,
+          user: user?.firstName || "You",
+          avatar:
+            user?.profileImage?.url || require("@/assets/icons/animoji.png"),
+          content: "joined the stream",
+          timestamp: new Date(),
+          data: {
+            isCurrentUser: true, // Add this flag to identify the current user's join event
+          },
+        };
+
+        // Add the user's join event to the beginning of chat interactions
+        // Filter out announcement types as they will be displayed separately
+        const filteredChatInteractions = chatInteractions.filter(
+          (interaction: any) => interaction.type !== "announcement",
+        );
+        const updatedChatInteractions = [
+          ...filteredChatInteractions,
+          userJoinEvent,
+        ];
+
+        // Set the live comments with the updated data
+        setLiveComments(updatedChatInteractions);
+
+        console.log(
+          `Loaded ${updatedChatInteractions.length} chat interactions from server`,
+        );
+
+        // Use requestAnimationFrame and setTimeout for more reliable scrolling
+        if (updatedChatInteractions.length > 0) {
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              if (commentsListRef.current) {
+                commentsListRef.current.scrollToEnd({
+                  animated: true,
+                });
+              }
+            }, 500); // Increased timeout to ensure layout is complete
           });
         }
-      }
 
-      // Set initial viewer count if available
-      if (streamDetails?.stream) {
-        const streamData = streamDetails.stream as any;
-        console.log("Stream view count data:", streamData);
-        if (typeof streamData.viewerCount === "number") {
-          console.log("Viewer count:", streamData.viewerCount);
-          setViewerCount(streamData.viewerCount);
-        } else if (Array.isArray(streamData.viewers)) {
-          setViewerCount(streamData.viewers.length);
+        // Initialize socket connection for real-time chat
+        const userToken = await getToken();
+        if (userToken) {
+          initializeSocket(userToken, handleStreamNotification, id as string);
         }
-      }
 
-      setStreamConfig({
-        appId: process.env.EXPO_PUBLIC_AGORA_APP_ID || "",
-        channel: streamDetails?.channelName || "",
-        token: streamDetails?.token || "",
-        uid: streamDetails?.uid || "",
-      });
-
-      // Initialize with chat interactions from the stream
-      const chatInteractions =
-        (streamDetails.stream as any)?.chatInteractions || [];
-
-      // Check for announcements in stream data
-      const streamAnnouncements =
-        (streamDetails.stream as any)?.liveAnnouncements ||
-        (streamDetails.stream as any)?.announcements ||
-        [];
-
-      if (
-        Array.isArray(streamAnnouncements) &&
-        streamAnnouncements.length > 0
-      ) {
-        console.log("Found announcements in stream data:", streamAnnouncements);
-        setLiveAnnouncements(streamAnnouncements);
-      }
-
-      // Get the current user's information
-      const user = await getUser();
-
-      // Create a join event for the current user
-      const userJoinEvent = {
-        id: Date.now().toString(),
-        type: "join" as const,
-        user: user?.firstName || "You",
-        avatar:
-          user?.profileImage?.url || require("@/assets/icons/animoji.png"),
-        content: "joined the stream",
-        timestamp: new Date(),
-        data: {
-          isCurrentUser: true, // Add this flag to identify the current user's join event
-        },
-      };
-
-      // Add the user's join event to the beginning of chat interactions
-      // Filter out announcement types as they will be displayed separately
-      const filteredChatInteractions = chatInteractions.filter(
-        (interaction: any) => interaction.type !== "announcement",
-      );
-      const updatedChatInteractions = [
-        ...filteredChatInteractions,
-        userJoinEvent,
-      ];
-
-      // Set the live comments with the updated data
-      setLiveComments(updatedChatInteractions);
-
-      console.log(
-        `Loaded ${updatedChatInteractions.length} chat interactions from server`,
-      );
-
-      // Use requestAnimationFrame and setTimeout for more reliable scrolling
-      if (updatedChatInteractions.length > 0) {
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            if (commentsListRef.current) {
-              commentsListRef.current.scrollToEnd({
-                animated: true,
-              });
-            }
-          }, 500); // Increased timeout to ensure layout is complete
-        });
-      }
-
-      // Initialize socket connection for real-time chat
-      const userToken = await getToken();
-      if (userToken) {
-        initializeSocket(userToken, handleStreamNotification, id as string);
+      } else {
+        console.log("Stream is scheduled", streamDetails?.message);
       }
     } catch (error: any) {
       console.error("Error setting up livestream:", error);
@@ -602,9 +613,9 @@ const LivestreamStudioFeed = ({
                     viewer._id &&
                     viewer._id.toString() === buyerId.toString() &&
                     viewer.firstName ===
-                      notification?.data?.buyerName?.split(" ")[0] &&
+                    notification?.data?.buyerName?.split(" ")[0] &&
                     viewer.lastName ===
-                      notification?.data?.buyerName?.split(" ")[1],
+                    notification?.data?.buyerName?.split(" ")[1],
                 );
 
               console.log(
@@ -1665,8 +1676,8 @@ const LivestreamStudioFeed = ({
             {(isLoading ||
               showNoHostAlert2 ||
               (!isVideoPlaying && isHostPresent)) && (
-              <SkeletonLoader type="loading" />
-            )}
+                <SkeletonLoader type="loading" />
+              )}
 
             {/* No Host Alert */}
             {showNoHostAlert && !isLoading && !keyboardVisibleRef.current && (
@@ -1914,9 +1925,9 @@ const LivestreamStudioFeed = ({
           style={{
             height: keyboardVisibleRef.current
               ? height -
-                keyboardHeightRef?.current -
-                insets.bottom -
-                (Platform.OS == "android" ? insets.top : 0)
+              keyboardHeightRef?.current -
+              insets.bottom -
+              (Platform.OS == "android" ? insets.top : 0)
               : undefined,
             justifyContent: "flex-end",
           }}
@@ -2228,17 +2239,23 @@ const LivestreamStudioFeed = ({
         childrenStyle="!px-[11px]"
         showCloseIcon={false}
         show={rsvpSheet}
-        onRequestClose={() => showRsvpSheet(false)}
+        onRequestClose={() => {
+          if (scheduledStreamDetails) {
+            console.log("Scheduled stream details", scheduledStreamDetails);
+          }
+          else {
+            setRsvpSheet(false);
+          }
+        }}
         snapPoints={["45%"]}
         enableDynamicSizing={false}
         keyboardBehavior={"interactive"}
-        enablePanDownToClose={true}
-        enableContentPanningGesture={true}
+        enablePanDownToClose={scheduledStreamDetails ? false : true}
+        enableContentPanningGesture={scheduledStreamDetails ? false : true}
       >
         {scheduledStreamDetails && (
           <RsvpSheet
             streamDetails={scheduledStreamDetails}
-            closeSheet={() => showRsvpSheet(false)}
           />
         )}
       </BottomSheet>
