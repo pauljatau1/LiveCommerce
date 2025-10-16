@@ -1,4 +1,9 @@
 class PipelineHelper {
+  /**
+   * Builds the primary match stage for filtering products with blips
+   * This is the base filter that ensures products have blips and are not drafts
+   * @returns {Object} MongoDB match stage object
+   */
   buildPrimaryMatchStage() {
     return {
       $and: [
@@ -21,10 +26,60 @@ class PipelineHelper {
     };
   }
 
+  /**
+   * Builds a category-enhanced match stage that prioritizes buyer's selected categories
+   * This allows us to filter products based on buyer's category preferences
+   * @param {Array<string>} categoryNames - Array of category names from buyer's selected categories
+   * @returns {Object} MongoDB match stage object with category filter
+   */
+  buildCategoryEnhancedMatchStage(categoryNames = []) {
+    const baseMatch = this.buildPrimaryMatchStage();
+    
+    // If no categories provided, return the base match
+    if (!categoryNames || categoryNames.length === 0) {
+      return baseMatch;
+    }
+
+    // Add category filter to the base match
+    // Products with matching categories will be prioritized
+    return {
+      $and: [
+        ...baseMatch.$and,
+        { category: { $in: categoryNames } }
+      ]
+    };
+  }
+
+  /**
+   * Builds a fallback match stage when primary stage returns no results
+   * This is a more lenient filter
+   * @returns {Object} MongoDB match stage object
+   */
   buildFallbackMatchStage() {
     return {
       'blips.0': { $exists: true },
       status: 'active'
+    };
+  }
+
+  /**
+   * Builds a category-enhanced fallback match stage
+   * Used when the primary category-enhanced query returns no results
+   * @param {Array<string>} categoryNames - Array of category names from buyer's selected categories
+   * @returns {Object} MongoDB match stage object with category filter
+   */
+  buildCategoryEnhancedFallbackMatchStage(categoryNames = []) {
+    const baseMatch = this.buildFallbackMatchStage();
+    
+    // If no categories provided, return the base match
+    if (!categoryNames || categoryNames.length === 0) {
+      return baseMatch;
+    }
+
+    // Add category filter to the fallback match
+    return {
+      ...baseMatch,
+      category: { $in: categoryNames }
     };
   }
 
