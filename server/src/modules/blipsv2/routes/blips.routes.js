@@ -19,6 +19,12 @@ router.get('/new', optionalAuthMiddleware, blipsController.getNewBlips);
 // Get trending blips
 router.get('/trending', optionalAuthMiddleware, blipsController.getTrendingBlips);
 
+// Get top blips (recent + high engagement) with optional auth
+router.get('/top', optionalAuthMiddleware, blipsController.getTopBlips);
+
+// Get blips by category (query ?category= or path /:category)
+router.get('/by-category', optionalAuthMiddleware, blipsController.getBlipsByCategory);
+
 // Get following blips (requires authentication)
 router.get('/following', verifyToken, blipsController.getFollowingBlips);
 
