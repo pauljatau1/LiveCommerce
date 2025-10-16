@@ -100,6 +100,7 @@ const LivestreamStudioFeed = ({
     isStreamEnded,
     isStreamScheduled,
     scheduledStreamDetails,
+    dispatch
   } = useLivestream() as LivestreamContextType;
   const [streamConfig, setStreamConfig] = useState<StreamConfig | null>(null);
   const [status, setStatus] = useState("Initializing...");
@@ -190,14 +191,11 @@ const LivestreamStudioFeed = ({
     type: "regular",
     sellerFollowers: 0,
   });
-  const [rsvpSheet, setRsvpSheet] = useState<boolean>(false);
+  //const [rsvpSheet, setRsvpSheet] = useState<boolean>(false);
   
-  useEffect(() => {
-    console.log("isStreamScheduled", isStreamScheduled);
-    setRsvpSheet(isStreamScheduled);
-  }, [isStreamScheduled]);
   
-  console.log("rsvpSheet", rsvpSheet);
+  
+  //console.log("rsvpSheet", rsvpSheet);
   // Add state for leave stream loading
   const [isLeavingStream, setIsLeavingStream] = useState(false);
 
@@ -343,6 +341,7 @@ const LivestreamStudioFeed = ({
       // Join the stream using the stream ID from route parameters
       const streamDetails = await joinStream(id as string) as any;
       console.log("Stream details:", streamDetails);
+      console.log("isStreamScheduled", isStreamScheduled);
       //console.log("stream viewers", streamDetails?.stream?.viewers);
 
       if (streamDetails?.success === true && streamDetails?.message !== "Stream has not started yet") {
@@ -2238,24 +2237,21 @@ const LivestreamStudioFeed = ({
         bgColor="#121212"
         childrenStyle="!px-[11px]"
         showCloseIcon={false}
-        show={rsvpSheet}
-        onRequestClose={() => {
-          if (scheduledStreamDetails) {
-            console.log("Scheduled stream details", scheduledStreamDetails);
-          }
-          else {
-            setRsvpSheet(false);
-          }
-        }}
+        show={isStreamScheduled}
+        onRequestClose={() => {}}
         snapPoints={["45%"]}
         enableDynamicSizing={false}
         keyboardBehavior={"interactive"}
-        enablePanDownToClose={scheduledStreamDetails ? false : true}
-        enableContentPanningGesture={scheduledStreamDetails ? false : true}
+        enablePanDownToClose={false}
+        enableContentPanningGesture={false}
       >
         {scheduledStreamDetails && (
           <RsvpSheet
             streamDetails={scheduledStreamDetails}
+            closeSheet={() => {
+              dispatch({type: 'SET_IS_STREAM_SCHEDULED', isStreamScheduled: false, scheduledStreamDetails: null})
+              router?.push('/(root)/(tabs)/home/home')
+            }}
           />
         )}
       </BottomSheet>
