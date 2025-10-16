@@ -138,6 +138,10 @@ const streamSchema = new mongoose.Schema({
     enum: ['auction', 'open_show'],
     default: 'auction'
   },
+  autoUpload: {
+    type: Boolean,
+    default: false
+  },
   cancelledStream: {
     type: Boolean,
     default: false
