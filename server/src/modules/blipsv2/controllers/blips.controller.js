@@ -4,6 +4,9 @@ const getRelatedBlipsService = require('../services/getRelatedBlips.service');
 const getNewBlipsService = require('../services/getNewBlips.service');
 const getTrendingBlipsService = require('../services/getTrendingBlips.service');
 const getFollowingBlipsService = require('../services/getFollowingBlips.service');
+const getTopBlipsService = require('../services/getTopBlips.service');
+const getBlipsByCategoryService = require('../services/getBlipsByCategory.service');
+const getBlipsByRandomCategoryService = require('../services/getBlipsByRandomCategory.service');
 
 exports.getPersonalizedBlips = async (req, res) => {
   try {
@@ -140,6 +143,74 @@ exports.getFollowingBlips = async (req, res) => {
     res.status(500).json({
       status: false,
       message: 'Failed to fetch following blips',
+      error: error.message
+    });
+  }
+};
+
+exports.getTopBlips = async (req, res) => {
+  try {
+    const result = await getTopBlipsService.execute(req);
+
+    res.json({
+      blips: result.blips,
+      currentPage: result.currentPage,
+      totalPages: result.totalPages,
+      totalBlips: result.totalBlips
+    });
+  } catch (error) {
+    console.error('Error in getTopBlips:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to fetch top blips',
+      error: error.message
+    });
+  }
+};
+
+exports.getBlipsByCategory = async (req, res) => {
+  try {
+    const result = await getBlipsByCategoryService.execute(req);
+
+    if (result.error) {
+      return res.status(400).json({
+        status: false,
+        message: result.error
+      });
+    }
+
+    res.json({
+      blips: result.blips,
+      currentPage: result.currentPage,
+      totalPages: result.totalPages,
+      totalBlips: result.totalBlips
+    });
+  } catch (error) {
+    console.error('Error in getBlipsByCategory:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to fetch blips by category',
+      error: error.message
+    });
+  }
+};
+
+exports.getBlipsByRandomCategory = async (req, res) => {
+  try {
+    const result = await getBlipsByRandomCategoryService.execute(req);
+
+    res.json({
+      blips: result.blips,
+      selectedCategory: result.selectedCategory,
+      currentPage: result.currentPage,
+      totalPages: result.totalPages,
+      totalBlips: result.totalBlips
+    });
+  } catch (error) {
+    console.error('Error in getBlipsByRandomCategory:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to fetch blips by random category',
       error: error.message
     });
   }
