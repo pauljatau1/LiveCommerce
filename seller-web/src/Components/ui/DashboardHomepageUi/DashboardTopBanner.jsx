@@ -26,11 +26,10 @@ export default function DashboardTopBanner({ sellerDetails }) {
   const { fetchSellerDetails } = useAuthContext();
 
   useEffect(() => {
-    const pickupAddressRequired = searchParams.get("pickupAddressRequired");
-    if (pickupAddressRequired) {
+    if (isPickupAddressRequired) {
       setShowPickupAddressModal(true);
     }
-  }, [searchParams]);
+  }, [isPickupAddressRequired]);
 
 
   const navigate = useNavigate();
