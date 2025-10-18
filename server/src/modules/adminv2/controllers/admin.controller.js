@@ -289,44 +289,60 @@ const disableNonLagosSellers = async (req, res, next) => {
     const update = { $set: { isDisabled: true } };
     const result = await Seller.updateMany(nonLagosFilter, update);
 
-    // Send notification emails to all affected sellers
-    const emailPromises = sellersToDisable.map(async (seller) => {
-      try {
-        // Get email content from helper
-        const emailContent = getNonLagosSellerNotificationEmail(seller);
-        
-        // Send to primary email
-        await emailService.sendEmail(
-          seller.email, 
-          emailContent.subject, 
-          emailContent.text, 
-          emailContent.html
-        );
-        
-        // Also send to business email if it exists and is different
-        if (seller.businessEmail && seller.businessEmail !== seller.email) {
+    // Send notification emails asynchronously (non-blocking)
+    // Don't wait for emails to complete - they run in the background
+    const sendEmailsAsync = async () => {
+      const emailPromises = sellersToDisable.map(async (seller) => {
+        try {
+          // Get email content from helper
+          const emailContent = getNonLagosSellerNotificationEmail(seller);
+          
+          // Send to primary email
           await emailService.sendEmail(
-            seller.businessEmail, 
+            seller.email, 
             emailContent.subject, 
             emailContent.text, 
             emailContent.html
           );
+          
+          // Also send to business email if it exists and is different
+          if (seller.businessEmail && seller.businessEmail !== seller.email) {
+            await emailService.sendEmail(
+              seller.businessEmail, 
+              emailContent.subject, 
+              emailContent.text, 
+              emailContent.html
+            );
+          }
+          
+          console.log(`✅ Notification email sent to ${seller.email}`);
+        } catch (emailError) {
+          console.error(`❌ Failed to send notification email to ${seller.email}:`, emailError);
+          // Continue with other emails even if one fails
         }
-      } catch (emailError) {
-        console.error(`Failed to send notification email to ${seller.email}:`, emailError);
-        // Continue with other emails even if one fails
+      });
+
+      // Run all email sending in parallel without blocking
+      try {
+        await Promise.allSettled(emailPromises);
+        console.log(`📧 Email sending completed for ${sellersToDisable.length} sellers`);
+      } catch (error) {
+        console.error('📧 Email sending process failed:', error);
       }
+    };
+
+    // Start email sending in background (fire and forget)
+    sendEmailsAsync().catch(error => {
+      console.error('📧 Background email sending failed:', error);
     });
 
-    // Wait for all emails to be sent (or fail)
-    await Promise.allSettled(emailPromises);
-
+    // Return response immediately without waiting for emails
     return res.status(200).json({
       status: true,
-      message: 'Sellers outside Lagos have been disabled and notification emails sent',
+      message: 'Sellers outside Lagos have been disabled. Notification emails are being sent in the background.',
       matchedCount: result.matchedCount ?? result.nMatched ?? 0,
       modifiedCount: result.modifiedCount ?? result.nModified ?? 0,
-      emailsSent: sellersToDisable.length
+      emailsQueued: sellersToDisable.length
     });
   } catch (error) {
     next(error);
