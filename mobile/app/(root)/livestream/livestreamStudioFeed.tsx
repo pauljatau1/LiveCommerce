@@ -100,7 +100,7 @@ const LivestreamStudioFeed = ({
     isStreamEnded,
     isStreamScheduled,
     scheduledStreamDetails,
-    dispatch
+    dispatch,
   } = useLivestream() as LivestreamContextType;
   const [streamConfig, setStreamConfig] = useState<StreamConfig | null>(null);
   const [status, setStatus] = useState("Initializing...");
@@ -143,14 +143,14 @@ const LivestreamStudioFeed = ({
     Array<{
       id: string;
       type:
-      | "comment"
-      | "join"
-      | "purchase"
-      | "hostLeft"
-      | "hostRejoin"
-      | "leave"
-      | "liveshow_order"
-      | "announcement";
+        | "comment"
+        | "join"
+        | "purchase"
+        | "hostLeft"
+        | "hostRejoin"
+        | "leave"
+        | "liveshow_order"
+        | "announcement";
       user: string;
       avatar?: any;
       content: string;
@@ -192,9 +192,7 @@ const LivestreamStudioFeed = ({
     sellerFollowers: 0,
   });
   //const [rsvpSheet, setRsvpSheet] = useState<boolean>(false);
-  
-  
-  
+
   //console.log("rsvpSheet", rsvpSheet);
   // Add state for leave stream loading
   const [isLeavingStream, setIsLeavingStream] = useState(false);
@@ -339,12 +337,15 @@ const LivestreamStudioFeed = ({
       setStatus("Joining stream...");
 
       // Join the stream using the stream ID from route parameters
-      const streamDetails = await joinStream(id as string) as any;
+      const streamDetails = (await joinStream(id as string)) as any;
       console.log("Stream details:", streamDetails);
       console.log("isStreamScheduled", isStreamScheduled);
       //console.log("stream viewers", streamDetails?.stream?.viewers);
 
-      if (streamDetails?.success === true && streamDetails?.message !== "Stream has not started yet") {
+      if (
+        streamDetails?.success === true &&
+        streamDetails?.message !== "Stream has not started yet"
+      ) {
         // Set stream metadata if available from API
         if (streamDetails) {
           // Update likes and comments if available from API
@@ -399,7 +400,9 @@ const LivestreamStudioFeed = ({
               setSellerId(sellerData._id);
               try {
                 const sellerProfileData =
-                  await checkIfSellerIsFollowedFromSellerProfile(sellerData._id);
+                  await checkIfSellerIsFollowedFromSellerProfile(
+                    sellerData._id,
+                  );
                 // console.log("Seller profile data:", sellerProfileData);
                 setIsFollowing(
                   sellerProfileData?.storeInfo?.isFollowing || false,
@@ -432,7 +435,9 @@ const LivestreamStudioFeed = ({
               setSellerId(sellerData._id);
               try {
                 const sellerProfileData =
-                  await checkIfSellerIsFollowedFromSellerProfile(sellerData._id);
+                  await checkIfSellerIsFollowedFromSellerProfile(
+                    sellerData._id,
+                  );
                 // console.log("Seller profile data:", sellerProfileData);
                 setIsFollowing(
                   sellerProfileData?.storeInfo?.isFollowing || false,
@@ -502,7 +507,10 @@ const LivestreamStudioFeed = ({
           Array.isArray(streamAnnouncements) &&
           streamAnnouncements.length > 0
         ) {
-          console.log("Found announcements in stream data:", streamAnnouncements);
+          console.log(
+            "Found announcements in stream data:",
+            streamAnnouncements,
+          );
           setLiveAnnouncements(streamAnnouncements);
         }
 
@@ -558,7 +566,6 @@ const LivestreamStudioFeed = ({
         if (userToken) {
           initializeSocket(userToken, handleStreamNotification, id as string);
         }
-
       } else {
         console.log("Stream is scheduled", streamDetails?.message);
       }
@@ -612,9 +619,9 @@ const LivestreamStudioFeed = ({
                     viewer._id &&
                     viewer._id.toString() === buyerId.toString() &&
                     viewer.firstName ===
-                    notification?.data?.buyerName?.split(" ")[0] &&
+                      notification?.data?.buyerName?.split(" ")[0] &&
                     viewer.lastName ===
-                    notification?.data?.buyerName?.split(" ")[1],
+                      notification?.data?.buyerName?.split(" ")[1],
                 );
 
               console.log(
@@ -1379,7 +1386,7 @@ const LivestreamStudioFeed = ({
       // Show error message to user if needed
       disconnectSocket();
     } finally {
-      disconnectSocket();
+      // disconnectSocket();
       setIsLeavingStream(false);
       setShowMenuPopover(false);
     }
@@ -1399,7 +1406,7 @@ const LivestreamStudioFeed = ({
       console.log("🔄 [Studio] Stream scheduled state changed to true", {
         isStreamScheduled,
         hasScheduledDetails: !!scheduledStreamDetails,
-        streamId: (scheduledStreamDetails as any)?._id
+        streamId: (scheduledStreamDetails as any)?._id,
       });
     }
   }, [isStreamScheduled, scheduledStreamDetails]);
@@ -1410,8 +1417,12 @@ const LivestreamStudioFeed = ({
 
   // Memoize the closeSheet function for RsvpSheet to prevent unnecessary re-renders
   const handleCloseRsvpSheet = useCallback(() => {
-    dispatch({type: 'SET_IS_STREAM_SCHEDULED', isStreamScheduled: false, scheduledStreamDetails: null});
-    router?.push('/(root)/(tabs)/home/home');
+    dispatch({
+      type: "SET_IS_STREAM_SCHEDULED",
+      isStreamScheduled: false,
+      scheduledStreamDetails: null,
+    });
+    router?.replace("/(root)/(tabs)/home/home");
   }, [dispatch, router]);
 
   // Add follow/unfollow handler functions
@@ -1510,7 +1521,9 @@ const LivestreamStudioFeed = ({
   const isAnimating = useRef(false);
   const TAP_THRESHOLD = 150;
   const heartPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const socketThrottleTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const socketThrottleTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const animationFrameRef = useRef<number | null>(null);
 
   // Debounced socket event emitter
@@ -1692,8 +1705,8 @@ const LivestreamStudioFeed = ({
             {(isLoading ||
               showNoHostAlert2 ||
               (!isVideoPlaying && isHostPresent)) && (
-                <SkeletonLoader type="loading" />
-              )}
+              <SkeletonLoader type="loading" />
+            )}
 
             {/* No Host Alert */}
             {showNoHostAlert && !isLoading && !keyboardVisibleRef.current && (
@@ -1941,9 +1954,9 @@ const LivestreamStudioFeed = ({
           style={{
             height: keyboardVisibleRef.current
               ? height -
-              keyboardHeightRef?.current -
-              insets.bottom -
-              (Platform.OS == "android" ? insets.top : 0)
+                keyboardHeightRef?.current -
+                insets.bottom -
+                (Platform.OS == "android" ? insets.top : 0)
               : undefined,
             justifyContent: "flex-end",
           }}
@@ -2252,7 +2265,7 @@ const LivestreamStudioFeed = ({
       {/* Bottom Sheets */}
       {isStreamScheduled && scheduledStreamDetails && (
         <BottomSheet
-          key={`rsvp-sheet-${(scheduledStreamDetails as any)?._id || 'scheduled'}`}
+          key={`rsvp-sheet-${(scheduledStreamDetails as any)?._id || "scheduled"}`}
           bgColor="#121212"
           childrenStyle="!px-[11px]"
           showCloseIcon={false}
@@ -2261,8 +2274,8 @@ const LivestreamStudioFeed = ({
           snapPoints={["45%"]}
           enableDynamicSizing={false}
           keyboardBehavior={"interactive"}
-          enablePanDownToClose={true}
-          enableContentPanningGesture={true}
+          enablePanDownToClose={false}
+          enableContentPanningGesture={false}
         >
           <RsvpSheet
             streamDetails={scheduledStreamDetails}
