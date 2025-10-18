@@ -13,7 +13,7 @@ module.exports = ({ config }) => {
       name: "auqli",
       slug: "auqli-app",
       // slug: "auqli-mobile",
-      version: "1.2.7",
+      version: "1.2.8",
       orientation: "portrait",
       icon: "./assets/images/appstore.png",
       scheme: IS_STAGING ? "auqlistaging" : "auqli",
