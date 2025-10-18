@@ -5,6 +5,7 @@ const adminBuyerService = require('../services/adminBuyer.service');
 const emailService = require('../../../utils/emailService');
 const { toggleSellerVacationMode } = require('../services/adminVacation.service');
 const ErrorLog = require('../../../models/ErrorLog');
+const { getNonLagosSellerNotificationEmail } = require('../helpers/email.helper');
 
 const getShipments = async (req, res, next) => {
   try {
@@ -252,6 +253,86 @@ const deleteBuyerAccount = async (req, res, next) => {
   }
 };
 
+/**
+ * Bulk disable sellers that are not in Lagos state
+ * POST /admin/sellers/disable-non-lagos
+ * This operation disables all sellers whose sellerAddress.state is not "Lagos" (case-insensitive)
+ */
+const disableNonLagosSellers = async (req, res, next) => {
+  try {
+    // Build a filter that matches sellers who have addresses but are NOT in Lagos
+    // We should only disable sellers who have filled addresses but the state is not Lagos
+    // We should NOT disable sellers who haven't filled any addresses at all
+    const nonLagosFilter = {
+      isDisabled: { $ne: true },
+      $and: [
+        // Only target sellers who have at least one address field filled
+        {
+          $or: [
+            { 'sellerAddress.state': { $exists: true, $ne: null, $ne: '' } },
+            { 'businessAddress.state': { $exists: true, $ne: null, $ne: '' } }
+          ]
+        },
+        // But exclude those who have Lagos in either address field
+        {
+          $nor: [
+            { 'sellerAddress.state': /^lagos$/i },
+            { 'businessAddress.state': /^lagos$/i }
+          ]
+        }
+      ]
+    };
+
+    // First, get the sellers that will be affected for email notifications
+    const sellersToDisable = await Seller.find(nonLagosFilter).select('email firstName lastName businessName businessEmail');
+
+    const update = { $set: { isDisabled: true } };
+    const result = await Seller.updateMany(nonLagosFilter, update);
+
+    // Send notification emails to all affected sellers
+    const emailPromises = sellersToDisable.map(async (seller) => {
+      try {
+        // Get email content from helper
+        const emailContent = getNonLagosSellerNotificationEmail(seller);
+        
+        // Send to primary email
+        await emailService.sendEmail(
+          seller.email, 
+          emailContent.subject, 
+          emailContent.text, 
+          emailContent.html
+        );
+        
+        // Also send to business email if it exists and is different
+        if (seller.businessEmail && seller.businessEmail !== seller.email) {
+          await emailService.sendEmail(
+            seller.businessEmail, 
+            emailContent.subject, 
+            emailContent.text, 
+            emailContent.html
+          );
+        }
+      } catch (emailError) {
+        console.error(`Failed to send notification email to ${seller.email}:`, emailError);
+        // Continue with other emails even if one fails
+      }
+    });
+
+    // Wait for all emails to be sent (or fail)
+    await Promise.allSettled(emailPromises);
+
+    return res.status(200).json({
+      status: true,
+      message: 'Sellers outside Lagos have been disabled and notification emails sent',
+      matchedCount: result.matchedCount ?? result.nMatched ?? 0,
+      modifiedCount: result.modifiedCount ?? result.nModified ?? 0,
+      emailsSent: sellersToDisable.length
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getShipments,
   getShipmentById,
@@ -270,4 +351,5 @@ module.exports = {
   updateProductSoldCount,
   getErrors,
   deleteBuyerAccount,
+  disableNonLagosSellers,
 };
