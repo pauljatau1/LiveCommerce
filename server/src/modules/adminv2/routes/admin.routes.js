@@ -29,4 +29,7 @@ router.get('/errors', adminAuth, adminController.getErrors);
 // Buyer management routes
 router.delete('/buyers/:buyerId', adminAuth, adminController.deleteBuyerAccount);
 
+// Seller management routes
+router.post('/sellers/disable-non-lagos', adminAuth, adminController.disableNonLagosSellers);
+
 module.exports = router;

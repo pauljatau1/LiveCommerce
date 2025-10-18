@@ -660,6 +660,7 @@ exports.enableSeller = async (req, res) => {
 };
 
 
+
 exports.getAllProducts = async (req, res) => {
   try {
     // Extract pagination parameters from query with defaults
