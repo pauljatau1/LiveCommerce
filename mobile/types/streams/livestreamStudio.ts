@@ -103,5 +103,6 @@ export interface LivestreamContextType {
     isStreamEnded: boolean;
     isStreamScheduled: boolean;
     scheduledStreamDetails: StreamDetails | null;
+    dispatch: Dispatch<any>;
     // Add other properties as needed
 }
