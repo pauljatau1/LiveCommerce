@@ -4826,7 +4826,7 @@ exports.handlePaystackWebhook = async (req, res) => {
       await updateProductStockForPaidOrder(order);
       
       // Get the buyer for notification and send Slack email
-      const webhookBuyer = await Buyer.findById(order.buyer);
+      const webhookBuyer = await Buyer.findById(order.buyer._id);
       if (webhookBuyer) {
         await sendSlackNotificationForPaidOrder(order, webhookBuyer);
       }
