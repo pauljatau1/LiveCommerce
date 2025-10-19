@@ -141,7 +141,7 @@ const akwaIbomCityMapping = {
     "Eket": "Eket",
     "Ikot Ekpene": "Ikot Ekpene",
     "Esuk Oron": "Oron",
-    "Itu": "Abak",
+    "Itu": "Itu",
     "Akwa Ibom": "Uyo",
     "Abak": "Itu",
     "Eastern Obolo": "Uyo",
