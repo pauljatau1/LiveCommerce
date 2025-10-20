@@ -33,6 +33,33 @@ class GetBlipsCategoriesService {
   }
 
   /**
+   * Enrich category stats with image URLs from Category collection
+   * @param {Array<{name: string}>} categories
+   * @returns {Promise<Array<{imageUrl?: string}>>}
+   */
+  async enrichWithCategoryImages(categories) {
+    try {
+      const names = categories.map(c => c.name).filter(Boolean);
+      if (names.length === 0) return categories;
+
+      const images = await productRepository.findCategoryImagesByNames(names);
+      const nameToImage = new Map(images.map(i => [i.name, { id: i.id, imageUrl: i.imageUrl } ]));
+
+      return categories.map(cat => {
+        const found = nameToImage.get(cat.name);
+        return {
+          ...cat,
+          categoryId: found?.id || null,
+          imageUrl: found?.imageUrl || null
+        };
+      });
+    } catch (e) {
+      console.error('⚠️ [BLIPS CATEGORIES] Failed to enrich with category images:', e.message);
+      return categories;
+    }
+  }
+
+  /**
    * Get categories for authenticated users based on their selected categories
    * @param {string} buyerId - The buyer's ID
    * @returns {Promise<Object>} User's categories with statistics
@@ -93,8 +120,9 @@ class GetBlipsCategoriesService {
       if (categoriesWithStats.length === 0) {
         console.log('👤 [BLIPS CATEGORIES] No categories found for user preferences, falling back to popular categories');
         const popularCategories = await this.getPopularCategories();
+        const enriched = await this.enrichWithCategoryImages(popularCategories.categories);
         return {
-          categories: popularCategories.categories,
+          categories: enriched,
           totalCategories: popularCategories.totalCategories,
           isPersonalized: false,
           message: 'Popular categories (your preferences not found in current products)'
@@ -117,16 +145,18 @@ class GetBlipsCategoriesService {
           ...additionalCategories.slice(0, 6 - categoriesWithStats.length)
         ];
 
+        const enriched = await this.enrichWithCategoryImages(combinedCategories);
         return {
-          categories: combinedCategories,
+          categories: enriched,
           totalCategories: combinedCategories.length,
           isPersonalized: true,
           message: 'Categories based on your preferences (supplemented with popular categories)'
         };
       }
 
+      const enriched = await this.enrichWithCategoryImages(categoriesWithStats);
       return {
-        categories: categoriesWithStats,
+        categories: enriched,
         totalCategories: categoriesWithStats.length,
         isPersonalized: true,
         message: 'Categories based on your preferences'
@@ -215,8 +245,9 @@ class GetBlipsCategoriesService {
 
       console.log(`🌐 [BLIPS CATEGORIES] Found ${popularCategories.length} popular categories`);
 
+      const enriched = await this.enrichWithCategoryImages(popularCategories);
       return {
-        categories: popularCategories,
+        categories: enriched,
         totalCategories: popularCategories.length,
         isPersonalized: false,
         message: 'Popular categories with high engagement'

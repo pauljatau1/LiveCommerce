@@ -1,5 +1,6 @@
 const Product = require('../../../models/Product');
 const Buyer = require('../../../models/Buyer');
+const Category = require('../../../models/Category');
 const mongoose = require('mongoose');
 
 class ProductRepository {
@@ -77,6 +78,80 @@ class ProductRepository {
     })
     .select('_id name blips category subCategory seo.slug price discount stats images variants stock status');
   }
+
+  /**
+   * Fetches category images for a list of category names
+   * Returns an array of { name, imageUrl }
+   * @param {string[]} categoryNames
+   * @returns {Promise<Array<{name: string, imageUrl: string|null}>>}
+   */
+  async findCategoryImagesByNames(categoryNames) {
+    if (!Array.isArray(categoryNames) || categoryNames.length === 0) {
+      return [];
+    }
+
+    const uniqueNames = [...new Set(categoryNames.filter(Boolean))];
+    // Pass 1: Exact matches
+    const exactDocs = await Category.find({ name: { $in: uniqueNames } }).select('_id name image.url');
+    const foundNames = new Set(exactDocs.map(d => d.name));
+    const remaining = uniqueNames.filter(n => !foundNames.has(n));
+
+    let results = [...exactDocs];
+
+    // Pass 2: Case-insensitive regex matches for remaining
+    if (remaining.length > 0) {
+      const regexOr = remaining.map(n => ({ name: { $regex: `^${escapeRegex(n)}$`, $options: 'i' } }));
+      if (regexOr.length > 0) {
+        const ciDocs = await Category.find({ $or: regexOr }).select('_id name image.url');
+        results.push(...ciDocs);
+        ciDocs.forEach(d => foundNames.add(d.name));
+      }
+    }
+
+    // Pass 3: Slug/normalized fallback match against all categories (avoids extra roundtrips)
+    const stillRemaining = uniqueNames.filter(n => !Array.from(foundNames).some(fn => fn.toLowerCase() === n.toLowerCase()));
+    if (stillRemaining.length > 0) {
+      const all = await Category.find({}).select('_id name image.url');
+      const toSlug = (s) => s
+        .toString()
+        .trim()
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/\p{Diacritic}+/gu, '')
+        .replace(/&/g, 'and')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+      const allBySlug = new Map(all.map(d => [toSlug(d.name), d]));
+      for (const name of stillRemaining) {
+        const slug = toSlug(name);
+        const match = allBySlug.get(slug);
+        if (match) {
+          results.push(match);
+        }
+      }
+    }
+
+    // Deduplicate by name (prefer earlier passes)
+    const nameSeen = new Set();
+    const deduped = [];
+    for (const doc of results) {
+      if (nameSeen.has(doc.name)) continue;
+      nameSeen.add(doc.name);
+      deduped.push(doc);
+    }
+
+    return deduped.map(doc => ({
+      id: doc._id,
+      name: doc.name,
+      imageUrl: doc?.image?.url || null
+    }));
+  }
+}
+
+// Escapes regex special characters in a string
+function escapeRegex(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 module.exports = new ProductRepository();
