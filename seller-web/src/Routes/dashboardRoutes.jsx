@@ -31,12 +31,12 @@ const Account = lazy(() => import('../Pages/Account/account'));
 const KycVerificationPage = lazy(() => import('../Pages/KycVerification/KycVerificationPage'));
 const LiveStreamLayout = lazy(() => import('../Components/LiveStreamLayout'));
 const LiveStream = lazy(() => import('../Pages/LiveStream/LiveStream'));
-//const CreateLiveAuction = lazy(() => import('../Pages/LiveStream/CreateLiveAuction'));
+const CreateLiveAuction = lazy(() => import('../Pages/LiveStream/CreateLiveAuction'));
 const CreateLiveShow = lazy(() => import('../Pages/LiveStream/CreateLiveShow'));
 const ScheduleShows = lazy(() => import('../Pages/LiveStream/ScheduleShows'));
 const PastShows = lazy(() => import('../Pages/LiveStream/PastShows'));
 const SubmitLiveShow = lazy(() => import('../Pages/LiveStream/SubmitLiveShow'));
-//const SubmitLiveAuction = lazy(() => import('../Pages/LiveStream/SubmitLiveAuction'));
+const SubmitLiveAuction = lazy(() => import('../Pages/LiveStream/SubmitLiveAuction'));
 const LivestreamStudio = lazy(() => import('../Pages/LiveStream/LivestreamStudio'));
 
 export const dashboardRoutes = [
@@ -101,12 +101,12 @@ export const dashboardRoutes = [
                     { path: 'live-stream', element: <LiveStream /> },
                     {/** commented out create-live-auction and submit-live-auction routes' components and replaced with
                          NotFoundPage since live auctions is now a coming soon feature per management */},
-                    {/* path: 'create-live-auction', element: <CreateLiveAuction/>}, */ },
+                    { path: 'create-live-auction', element: <CreateLiveAuction/>},
                     { path: 'create-live-show', element: <CreateLiveShow /> },
                     { path: 'past-shows', element: <PastShows /> },
                     { path: 'scheduled-shows', element: <ScheduleShows /> },
                     { path: 'submit-live-show', element: <SubmitLiveShow /> },
-                    {/* path: 'submit-live-auction', element: <SubmitLiveAuction/>}, */ },
+                    { path: 'submit-live-auction', element: <SubmitLiveAuction/>},
                     { path: 'live-stream-studio/:id', element: <LivestreamStudio /> },
                 ],
             },

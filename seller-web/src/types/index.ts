@@ -55,3 +55,10 @@ export type {
     ShippingFee,
     OrdersPagination
 } from "./orders";
+
+export type {
+    ProductImage,
+    ProductApiModel,
+    ProductsSearchResponse,
+    ProductsSearchParams
+} from "./products";

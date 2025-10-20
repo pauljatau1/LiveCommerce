@@ -7,11 +7,12 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { useNavigate } from 'react-router-dom';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { useOutletContext } from 'react-router-dom';
-import { fetchSellerProducts } from '../../Redux/Slices/ProductSlice';
+// removed redux-based products fetch
 import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
-import { useDispatch, useSelector } from 'react-redux';
+import { useAuthContext } from '@/Hooks/useAuthContextV2';
+// import { useSelector } from 'react-redux';
 import { Autocomplete, TextField, Chip, Switch } from '@mui/material';
 import { debounce } from 'lodash';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../../Components/ui/tooltip';
@@ -20,12 +21,15 @@ import axios from 'axios';
 import dayjs from 'dayjs';
 import CreateAuctionIcon from '../../assets/Upload icon.png';
 import ZeroQuantityProductsModal from '../../Components/ZeroQuantityProductsModal';
+import ProductLimitModal from "../../Components/livestream/ProductLimitModal";
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { productService } from '@/services/productService';
 
 const CreateLiveShow = () => {
     const { setHeaderName, setNavName } = useOutletContext();
-    const dispatch = useDispatch();
     const navigate = useNavigate();
-    const { products, message } = useSelector((state) => state.product);
+    // Redux store not used here for products anymore
+    const { seller } = useAuthContext();
     const { dispatch: livestreamDispatch, livestream } = useLivestreamContext();
     const [dragActive, setDragActive] = useState(false);
     const [categories, setCategories] = useState([]);
@@ -34,6 +38,7 @@ const CreateLiveShow = () => {
     const [startImmediately, setStartImmediately] = useState(false);
     const [showZeroQuantityModal, setShowZeroQuantityModal] = useState(false);
     const [zeroQuantityProducts, setZeroQuantityProducts] = useState([]);
+    const [showProductLimitModal, setShowProductLimitModal] = useState(false);
 
     // Blips related state
     const [videos, setVideos] = useState([]);
@@ -48,6 +53,17 @@ const CreateLiveShow = () => {
     // State for tag search
     const [searchTag, setSearchTag] = useState('');
     const [filteredTags, setFilteredTags] = useState([]);
+
+    // Maximum number of products that can be selected
+    const MAX_PRODUCTS = 20;
+
+    // Store all selected products in local state
+    const [allSelectedProducts, setAllSelectedProducts] = useState([]);
+
+    // New infinite query paging
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [searchInput, setSearchInput] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Comprehensive predefined tags grouped by category
     const allTags = [
@@ -125,43 +141,60 @@ const CreateLiveShow = () => {
         setFilteredTags(allTags);
     }, []);
 
-    useEffect(() => {
-        dispatch(fetchSellerProducts());
-    }, [dispatch]);
+    // Infinite search query for seller products
+    const {
+        data: productPages,
+        isLoading: isProductsLoading,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+        refetch: refetchProducts
+    } = useInfiniteQuery({
+        queryKey: ['sellerProductsSearch', seller?._id, searchQuery, itemsPerPage],
+        enabled: Boolean(seller?._id),
+        queryFn: ({ pageParam = 1 }) => productService.searchSellerProducts(seller?._id, {
+            page: pageParam,
+            limit: itemsPerPage,
+            query: searchQuery || undefined,
+        }),
+        getNextPageParam: (lastPage) => {
+            if (lastPage?.pagination?.hasMore) {
+                return (lastPage.pagination.currentPage || 1) + 1;
+            }
+            return undefined;
+        },
+        refetchOnMount: true,
+        refetchOnWindowFocus: true,
+    });
 
-    // fetch products on initial render
+    // Debounce search input to set query
     useEffect(() => {
-        if (message === 'Products fetched successfully') {
-          livestreamDispatch({
+        const handler = setTimeout(() => {
+            setSearchQuery(searchInput.trim());
+        }, 400);
+        return () => clearTimeout(handler);
+    }, [searchInput]);
+
+    // Map API products from pages into context state
+    useEffect(() => {
+        const all = productPages?.pages?.flatMap(p => p?.data || []) || [];
+        const processedProducts = all.map(product => ({
+            productId: product._id,
+            name: product.name,
+            category: product.category,
+            images: product.images,
+            sku: product.sku,
+            quantity: product.stock,
+            price: product.price,
+        }));
+        livestreamDispatch({
             type: 'SET_LIVESTREAM_DATA',
             payload: {
-              products: products.map(product => {
-                return {
-                  productId: product?._id,
-                  name: product?.name,
-                  category: product?.category,
-                  images: product?.images,
-                  sku: product?.sku,
-                  quantity: product?.stock,
-                  minBid: product?.price,
-                  maxBid: 0,
-                  selected: true
-                }
-              })
+                products: processedProducts,
+                selectedProducts: livestream?.selectedProducts || []
             }
-          });
-        }
-      }, [message, products, livestreamDispatch])
-
-    // Initialize tags if they're undefined
-    useEffect(() => {
-        if (!livestream?.tags) {
-            livestreamDispatch({
-                type: 'SET_LIVESTREAM_DATA',
-                payload: { tags: [] }
-            });
-        }
-    }, [livestream?.tags, livestreamDispatch]);
+        });
+    }, [productPages, livestream?.selectedProducts, livestreamDispatch]);
 
     // Filter tags based on search input
     useEffect(() => {
@@ -176,9 +209,18 @@ const CreateLiveShow = () => {
         }
     }, [searchTag]);
 
+    // Replace with new useEffect that watches livestream.selectedProducts
+    useEffect(() => {
+        // Update local state to match context selectedProducts
+        setAllSelectedProducts(livestream?.selectedProducts || []);
+    }, [livestream?.selectedProducts]);
+
     // Handle search input change
     const handleSearchChange = (event) => {
         setSearchTag(event.target.value);
+    };
+    const handleProductsSearchChange = (e) => {
+        setSearchInput(e.target.value);
     };
 
     useEffect(() => {
@@ -229,11 +271,6 @@ const CreateLiveShow = () => {
         }
         fetchCategories();
     }, []);
-
-    
-    useEffect(() => {
-        dispatch(fetchSellerProducts());
-    }, [dispatch]);
 
     // Handle drag events
     const handleDrag = (e) => {
@@ -452,39 +489,52 @@ const CreateLiveShow = () => {
         });
     };
 
-    
-    const handleContinue = () => {
-        // Check each required field individually
-        const missingFields = [];
-        
-        if (!livestream?.title) missingFields.push('Stream Title');
-        if (!livestream?.description) missingFields.push('Stream Description');
-        if (!livestream?.category) missingFields.push('Stream Category');
-        if (!livestream?.tags || livestream.tags.length === 0) missingFields.push('Livestream Tags');
-        if (!livestream?.coverPhoto) missingFields.push('Stream Cover Photo');
-        if (!livestream?.scheduledStartTime) missingFields.push('Schedule Time');
 
-        if (missingFields.length > 0) {
-            const fieldsList = missingFields.length === 1 
-                ? missingFields[0]
-                : missingFields.length === 2
-                ? `${missingFields[0]} and ${missingFields[1]}`
-                : `${missingFields.slice(0, -1).join(', ')}, and ${missingFields[missingFields.length - 1]}`;
-            
-            toast.error(`Missing required field${missingFields.length > 1 ? 's' : ''}`, {
-                description: `Please fill in: ${fieldsList}`,
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
+    // Handle product selection with product limit checking
+    const handleSelectProduct = (productId) => {
+        const product = livestream.products.find(p => p.productId === productId);
+
+        // Check if product is already selected
+        const isSelected = livestream.selectedProducts.some(p => p.productId === productId);
+
+        if (isSelected) {
+            // If selected, remove it
+            livestreamDispatch({
+                type: 'SET_LIVESTREAM_DATA',
+                payload: {
+                    selectedProducts: livestream.selectedProducts.filter(p => p.productId !== productId)
                 }
+            });
+        } else {
+            // If not selected and we're at the limit, show warning
+            if (livestream.selectedProducts.length >= MAX_PRODUCTS) {
+                setShowProductLimitModal(true);
+                return;
+            }
+
+            // Otherwise, add it to selected products
+            livestreamDispatch({
+                type: 'SET_LIVESTREAM_DATA',
+                payload: {
+                    selectedProducts: [...livestream.selectedProducts, product]
+                }
+            });
+        }
+    };
+
+    const handleContinue = () => {
+        if (livestream?.selectedProducts.length === 0) {
+            toast.error('Please select at least one product', {
+                description: 'You must select at least one product to continue',
             });
             return;
         }
 
-        // Check for products with zero or negative quantity
-        // For live shows, we check all products since they're all included
-        if (livestream.products && livestream.products.length > 0) {
-            const invalidProducts = livestream.products.filter(product => 
+        if (livestream?.title && livestream?.description && livestream?.category &&
+            livestream?.tags?.length > 0 && livestream?.coverPhoto && livestream?.scheduledStartTime) {
+
+            // Check for products with zero or negative quantity
+            const invalidProducts = livestream.selectedProducts.filter(product =>
                 product.quantity <= 0 || !product.quantity
             );
 
@@ -493,10 +543,20 @@ const CreateLiveShow = () => {
                 setShowZeroQuantityModal(true);
                 return;
             }
-        }
 
-        navigate('/dashboard/live-streams/submit-live-show');
-    }
+            navigate('/dashboard/live-streams/submit-live-show');
+        } else {
+            toast.error('Please fill all fields', {
+                description: 'Please fill all fields to continue',
+            });
+        }
+    };
+
+    // Handle items per page change
+    const handleItemsPerPageChange = (newLimit) => {
+        setItemsPerPage(newLimit);
+        refetchProducts();
+    };
 
     // Add these new state variables for CategorySelectionModal
     const [selectedCategory, setSelectedCategory] = useState('');
@@ -1228,69 +1288,169 @@ const CreateLiveShow = () => {
                 <div className="space-y-4">
                     <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
                         <h3 className="text-sm md:text-base font-inter font-bold text-[#27272E]">Select Products for Stream</h3>
+                        <div className="text-sm text-gray-500">
+                            Selected: {allSelectedProducts.length}/{MAX_PRODUCTS}
+                        </div>
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="min-w-full border-separate border-spacing-0">
                             <thead>
                                 <tr>
-                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-medium text-[#8492A6] uppercase tracking-wider">
+                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-semibold text-[#8492A6] uppercase tracking-wider">
                                         Select
                                     </th>
-                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-medium text-[#8492A6] uppercase tracking-wider">
+                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-semibold text-[#8492A6] uppercase tracking-wider">
                                         Products
                                     </th>
-                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-medium text-[#8492A6] uppercase tracking-wider">
+                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-semibold text-[#8492A6] uppercase tracking-wider">
+                                        Category
+                                    </th>
+                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-semibold text-[#8492A6] uppercase tracking-wider">
                                         SKU
                                     </th>
-                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-medium text-[#8492A6] uppercase tracking-wider">
+                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-semibold text-[#8492A6] uppercase tracking-wider">
+                                        Price
+                                    </th>
+                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-semibold text-[#8492A6] uppercase tracking-wider">
                                         Quantity
                                     </th>
-                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-medium text-[#8492A6] uppercase tracking-wider">
-                                        Min Bid
-                                    </th>
-                                    <th className="sticky top-0 bg-[#FAFAFB] px-4 py-3 text-left text-xs font-medium text-[#8492A6] uppercase tracking-wider">
-                                        Max Bid
+                                </tr>
+                                <tr>
+                                    <th colSpan="6" className="bg-white px-4 py-3">
+                                        <input
+                                            type="text"
+                                            value={searchInput}
+                                            onChange={handleProductsSearchChange}
+                                            placeholder="Search products by name, description or category..."
+                                            className="w-full px-3 py-2 border font-normal border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#02020238]"
+                                        />
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <tr>
-                                    <td colSpan="6" className="h-[300px]">
-                                        <div className="w-[300px] md:w-full h-full flex flex-col md:flex-row items-center justify-center space-y-2">
-                                            <div className="flex flex-col md:flex-row items-center gap-10" >
-                                                <div>
-                                                    <h3 className="text-base xl:text-lg font-semibold font-inter text-[#16192C]">Products Selection</h3>
-                                                    <p className="text-sm text-[#425466] font-inter max-w-[500px]  ">
-                                                        All products in your store are automatically selected for open live shows.
-                                                        To remove a product, you can deactivate the product from the product listings.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {isProductsLoading ? (
+                                    <tr>
+                                        <td colSpan="6" className="px-4 py-6 text-center text-sm text-gray-500">
+                                            Loading products...
+                                        </td>
+                                    </tr>
+                                ) : livestream?.products?.length > 0 ? (
+                                    livestream.products.map((product) => {
+                                        // Check if this product is in selectedProducts array
+                                        const isSelected = livestream.selectedProducts.some(p => p.productId === product.productId);
+
+                                        return (
+                                            <tr
+                                                key={product.productId}
+                                                className={`transition-colors ${!isSelected ? 'bg-gray-50 opacity-60' : ''}`}
+                                            >
+                                                <td className="px-4 py-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => handleSelectProduct(product.productId)}
+                                                        className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                                    />
+                                                </td>
+                                                <td className="px-4 pr-12 xl:pr-0 py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <img
+                                                            src={product?.images[0]?.url}
+                                                            alt={product?.name}
+                                                            className="w-10 h-10 bg-gray-200 rounded-lg object-cover"
+                                                        />
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm truncate max-w-[150px] font-medium text-gray-900">{product?.name}</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-500">
+                                                    {product.category}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-500">
+                                                    {product.sku}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <p className="text-sm text-gray-500 font-medium">₦{product?.price?.toLocaleString() || 0}</p>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <p className="text-sm text-gray-500 font-medium">{product?.quantity}</p>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                ) : (
+                                    <tr>
+                                        <td colSpan="6" className="px-4 py-6 text-center text-sm text-gray-500">
+                                            No products available. Please add products to your store.
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
 
+                    {/* Infinite Load Controls */}
+                    <div className="flex flex-wrap items-center gap-3 justify-between mt-4">
+                        <div className="text-sm text-gray-500">
+                            Showing {livestream?.products?.length || 0} products
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => fetchNextPage()}
+                                disabled={!hasNextPage || isFetchingNextPage}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm ${!hasNextPage
+                                    ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                                    : 'text-gray-700 bg-gray-100 hover:bg-gray-200'}`}
+                            >
+                                {isFetchingNextPage ? 'Loading...' : hasNextPage ? 'Load more' : 'No more results'}
+                            </button>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                                className="px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500"
+                            >
+                                <option value={10}>10 per page</option>
+                                <option value={20}>20 per page</option>
+                                <option value={50}>50 per page</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div className="flex justify-end gap-3 pt-4">
-                        <button className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                        <button
+                            onClick={() => navigate(-1)}
+                            className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
                             Cancel
                         </button>
-                        <button onClick={handleContinue}>
-                            <button className="px-6 py-2 text-sm font-medium text-white bg-[#0BB248] rounded-lg hover:bg-[#0BB248]/90">
-                                Continue
-                            </button>
+                        <button
+                            onClick={handleContinue}
+                            disabled={!livestream?.coverPhoto}
+                            className={`px-6 py-2 text-sm font-medium text-white rounded-lg ${!livestream?.coverPhoto
+                                ? 'bg-gray-300 cursor-not-allowed'
+                                : 'bg-[#0BB248] hover:bg-[#0BB248]/90'
+                                }`}
+                        >
+                            Continue
                         </button>
                     </div>
                 </div>
             </div>
 
+            {/* Modals */}
             {showZeroQuantityModal && (
                 <ZeroQuantityProductsModal
                     products={zeroQuantityProducts}
                     onClose={() => setShowZeroQuantityModal(false)}
+                />
+            )}
+
+            {showProductLimitModal && (
+                <ProductLimitModal
+                    isOpen={showProductLimitModal}
+                    onClose={() => setShowProductLimitModal(false)}
                 />
             )}
         </div>

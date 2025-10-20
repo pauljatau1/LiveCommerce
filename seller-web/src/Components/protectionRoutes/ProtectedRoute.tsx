@@ -1,17 +1,19 @@
 import { Seller } from '@/types/seller';
+import { AxiosError, isAxiosError } from 'axios';
 import { useQuery } from '@tanstack/react-query';
 import { sellerService } from '@/services/sellerService';
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { tokenUtils, sellerUtils, authUtils } from '@/util/auth';
+import { tokenUtils, authUtils } from '@/util/auth';
 import DisabledAccountDialog from '@/Components/DisabledAccountDialog';
 import PropTypes from 'prop-types';
+import { toast } from 'sonner';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { seller, isAuthenticated, isAccountDisabled, logout, dispatch } = useAuthContext();
+  const { isAccountDisabled, logout, dispatch } = useAuthContext();
   const [showDisabledDialog, setShowDisabledDialog] = useState(false);
 
   // Define route types for easier checking
@@ -20,14 +22,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const isAuthRoute = isSignUpRoute || isLoginRoute;
 
 
-  const { data } = useQuery({
+  const { data, error, isLoading, isFetching } = useQuery({
     queryKey: ['sellerDetails'],
     queryFn: () => sellerService.fetchSellerDetails(),
     enabled: !isAuthRoute,
     refetchOnMount: true,
     refetchOnReconnect: true,
-    retry: 5,
-    retryDelay: 7000,
   });
 
   console.log("seller details data", data);
@@ -41,6 +41,29 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       }
     }
   }, [data])
+
+  // Handle 401 errors from sellerDetails query
+  useEffect(() => {
+    // Avoid acting while loading/fetching to prevent premature redirects
+    if (isLoading || isFetching) return;
+
+    // Only act on explicit 401 Unauthorized from Axios
+    if (error && isAxiosError(error) && (error as AxiosError).response?.status === 401) {
+      authUtils.clearAllAuthData();
+
+      toast.error("Session expired, please login again", {
+        style: {
+          backgroundColor: '#17171B',
+          color: '#F7FAFC',
+          fontFamily: 'Inter',
+          fontSize: '14px',
+          fontWeight: '400',
+        }
+      });
+
+      navigate('/login', { replace: true });
+    }
+  }, [error, isLoading, isFetching, navigate]);
 
 
   // Handle disabled account dialog
@@ -63,6 +86,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     // Log the user out when they close the dialog
     logout();
   };
+
 
 
 

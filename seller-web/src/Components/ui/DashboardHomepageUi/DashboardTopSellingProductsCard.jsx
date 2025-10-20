@@ -49,10 +49,10 @@ export default function DashboardTopSellingProductsCard() {
           </div>
         ) : (
           <div className=" space-y-3 mt-3 h-full">
-            {products.length > 0 ? (
+            {products?.length > 0 ? (
               products?.map((product) => (
                 <QuickOrderCard
-                  key={product._id}
+                  key={product?._id}
                   product={product}
                   className="hover:bg-gray-50 transition-colors duration-200 p-3"
                 />
