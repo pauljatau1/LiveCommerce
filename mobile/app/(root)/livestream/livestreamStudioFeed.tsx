@@ -142,14 +142,14 @@ const LivestreamStudioFeed = ({
     Array<{
       id: string;
       type:
-        | "comment"
-        | "join"
-        | "purchase"
-        | "hostLeft"
-        | "hostRejoin"
-        | "leave"
-        | "liveshow_order"
-        | "announcement";
+      | "comment"
+      | "join"
+      | "purchase"
+      | "hostLeft"
+      | "hostRejoin"
+      | "leave"
+      | "liveshow_order"
+      | "announcement";
       user: string;
       avatar?: any;
       content: string;
@@ -602,9 +602,9 @@ const LivestreamStudioFeed = ({
                     viewer._id &&
                     viewer._id.toString() === buyerId.toString() &&
                     viewer.firstName ===
-                      notification?.data?.buyerName?.split(" ")[0] &&
+                    notification?.data?.buyerName?.split(" ")[0] &&
                     viewer.lastName ===
-                      notification?.data?.buyerName?.split(" ")[1],
+                    notification?.data?.buyerName?.split(" ")[1],
                 );
 
               console.log(
@@ -1482,8 +1482,8 @@ const LivestreamStudioFeed = ({
   const lastTapTime = useRef(0);
   const isAnimating = useRef(false);
   const TAP_THRESHOLD = 150;
-  const heartPressTimeout = useRef<NodeJS.Timeout | null>(null);
-  const socketThrottleTimeout = useRef<NodeJS.Timeout | null>(null);
+  const heartPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const socketThrottleTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
   // Debounced socket event emitter
@@ -1665,8 +1665,8 @@ const LivestreamStudioFeed = ({
             {(isLoading ||
               showNoHostAlert2 ||
               (!isVideoPlaying && isHostPresent)) && (
-              <SkeletonLoader type="loading" />
-            )}
+                <SkeletonLoader type="loading" />
+              )}
 
             {/* No Host Alert */}
             {showNoHostAlert && !isLoading && !keyboardVisibleRef.current && (
@@ -1914,9 +1914,9 @@ const LivestreamStudioFeed = ({
           style={{
             height: keyboardVisibleRef.current
               ? height -
-                keyboardHeightRef?.current -
-                insets.bottom -
-                (Platform.OS == "android" ? insets.top : 0)
+              keyboardHeightRef?.current -
+              insets.bottom -
+              (Platform.OS == "android" ? insets.top : 0)
               : undefined,
             justifyContent: "flex-end",
           }}
@@ -2381,7 +2381,7 @@ const LivestreamStudioFeed = ({
       >
         <ShopBottomSheet
           sellerId={sellerId}
-          streamId={id}
+          streamProducts={streamProducts}
           closeSheet={() => setShowShop(false)}
         />
       </BottomSheet>
