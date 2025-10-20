@@ -7,6 +7,7 @@ const getFollowingBlipsService = require('../services/getFollowingBlips.service'
 const getTopBlipsService = require('../services/getTopBlips.service');
 const getBlipsByCategoryService = require('../services/getBlipsByCategory.service');
 const getBlipsByRandomCategoryService = require('../services/getBlipsByRandomCategory.service');
+const getBlipsCategoriesService = require('../services/getBlipsCategories.service');
 
 exports.getPersonalizedBlips = async (req, res) => {
   try {
@@ -211,6 +212,32 @@ exports.getBlipsByRandomCategory = async (req, res) => {
     res.status(500).json({
       status: false,
       message: 'Failed to fetch blips by random category',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get blips categories with statistics
+ * For authenticated users: Returns their selected categories with stats
+ * For non-authenticated users: Returns popular categories with high blip counts
+ */
+exports.getBlipsCategories = async (req, res) => {
+  try {
+    const result = await getBlipsCategoriesService.execute(req);
+
+    res.json({
+      status: true,
+      categories: result.categories,
+      totalCategories: result.totalCategories,
+      isPersonalized: result.isPersonalized,
+      message: result.message
+    });
+  } catch (error) {
+    console.error('Error in getBlipsCategories:', error);
+    res.status(500).json({
+      status: false,
+      message: 'Failed to fetch blips categories',
       error: error.message
     });
   }
