@@ -369,6 +369,8 @@ const productSlice = createSlice({
         state.message = null;
     }).addCase(fetchSellerProducts.fulfilled, (state, action) => {
         state.isLoading = false;
+        console.log('products fetched successfully with redux', action.payload);
+        state.message = 'Products fetched successfully';
         state.products = action.payload?.products || [];
         state.pagination = {
             currentPage: action.payload?.currentPage || 1,
