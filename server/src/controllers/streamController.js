@@ -972,9 +972,10 @@ exports.joinStream = async (req, res) => {
         viewerCount: populatedStream.viewers ? populatedStream.viewers.length : 0
       };
       
-      return res.status(500).json({ 
+      return res.status(200).json({ 
         message: 'Stream has not started yet',
-        stream: streamWithSubscriberCount
+        stream: streamWithSubscriberCount,
+        success: false
       });
     }
 
@@ -1088,6 +1089,7 @@ exports.joinStream = async (req, res) => {
     
     res.json({
       message: 'Successfully joined stream',
+      success: true,
       channelName: stream.channelName,
       token,
       uid: tokenUid,
