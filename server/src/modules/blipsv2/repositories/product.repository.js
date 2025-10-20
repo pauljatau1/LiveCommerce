@@ -18,12 +18,24 @@ class ProductRepository {
     });
   }
 
+  /**
+   * Finds a buyer by ID and returns only their followers
+   * Used for basic buyer information lookup
+   * @param {string} buyerId - The buyer's MongoDB ObjectId
+   * @returns {Promise<Object>} Buyer object with followers field
+   */
   async findBuyerById(buyerId) {
     return await Buyer.findById(buyerId).select('followers');
   }
 
+  /**
+   * Finds a buyer by ID and returns their selected categories and followers
+   * Used for personalized blips algorithm to match buyer's category preferences
+   * @param {string} buyerId - The buyer's MongoDB ObjectId
+   * @returns {Promise<Object>} Buyer object with selectedCategories and followers fields
+   */
   async findBuyerByIdWithCategories(buyerId) {
-    return await mongoose.model('Buyer').findById(buyerId).select('selectedCategories followers');
+    return await Buyer.findById(buyerId).select('selectedCategories followers');
   }
 
   async findProductWithBlip(blipId) {

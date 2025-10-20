@@ -207,7 +207,11 @@ couponSchema.methods.getCurrentDiscountedPrice = function(productId) {
 // Create the model first
 const CouponModel = mongoose.model('Coupon', couponSchema);
 
-// Modify the cleanup function with better error handling and timeout management
+/**
+ * Cleans up expired coupons and deactivates their associated product discounts
+ * This function runs periodically to ensure expired coupons don't show active discounts
+ * on products, maintaining data consistency across the system.
+ */
 const cleanupExpiredDiscounts = async () => {
   try {
     // Check if mongoose is connected first
@@ -218,7 +222,7 @@ const cleanupExpiredDiscounts = async () => {
 
     const now = new Date();
     
-    // Add timeout option and batch processing
+    // Add timeout option and batch processing to prevent long-running queries
     const batchSize = 100;
     const expiredCoupons = await CouponModel.find({
       endDate: { $lte: now },
@@ -228,9 +232,36 @@ const cleanupExpiredDiscounts = async () => {
     .maxTimeMS(5000); // Set maximum execution time to 5 seconds
 
     let updatedCount = 0;
+    const Product = mongoose.model('Product');
+    
     for (const coupon of expiredCoupons) {
       try {
+        // Update coupon status and applicableProducts status
         const updated = await coupon.updateDiscountStatuses();
+        
+        // Get all product IDs from the coupon's applicable products
+        const productIds = coupon.applicableProducts.map(ap => ap.product);
+        
+        // Update all products to deactivate the discount
+        // This ensures that expired coupons don't show active discounts on products
+        if (productIds.length > 0) {
+          await Product.updateMany(
+            {
+              _id: { $in: productIds },
+              'discount.couponName': coupon.name
+            },
+            {
+              $set: {
+                'discount.isActive': false,
+                'pricing.discountInfo.isActive': false,
+                'variants.$[].discount.isActive': false
+              }
+            }
+          );
+          
+          console.log(`Deactivated discounts for ${productIds.length} products from expired coupon: ${coupon.name}`);
+        }
+        
         if (updated) updatedCount++;
       } catch (err) {
         console.error(`Error updating coupon ${coupon._id}:`, err.message);
@@ -238,7 +269,9 @@ const cleanupExpiredDiscounts = async () => {
       }
     }
 
-    // console.log(`Cleanup completed: ${updatedCount} coupons updated`);
+    if (updatedCount > 0) {
+      console.log(`Cleanup completed: ${updatedCount} coupons expired and product discounts deactivated`);
+    }
   } catch (error) {
     console.error('Error during discount cleanup:', error.message);
   }
