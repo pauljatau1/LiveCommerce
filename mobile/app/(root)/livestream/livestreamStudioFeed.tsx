@@ -31,7 +31,8 @@ import {
   SimpleLineIcons,
 } from "@expo/vector-icons";
 import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
-import BottomSheet from "@/components/global/bottom-sheet";
+import BottomSheet from "@/components/ui/BottomSheet";
+import { BottomSheetMethods } from "@/components/ui/BottomSheet";
 import CustomCarousel from "@/components/livestream/CustomCarousel";
 import { getToken, getUser } from "@/store/features/auth/utils";
 import {
@@ -132,6 +133,14 @@ const LivestreamStudioFeed = ({
   const [viewerCount, setViewerCount] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const webViewRef = useRef<WebView>(null);
+  const shopBottomSheetRef = useRef<BottomSheetMethods>(null);
+  const rsvpSheetRef = useRef<BottomSheetMethods>(null);
+  const productPreviewSheetRef = useRef<BottomSheetMethods>(null);
+  const checkoutNowSheetRef = useRef<BottomSheetMethods>(null);
+  const viewersSheetRef = useRef<BottomSheetMethods>(null);
+  const streamInfoSheetRef = useRef<BottomSheetMethods>(null);
+  const ordersSheetRef = useRef<BottomSheetMethods>(null);
+  const announcementSheetRef = useRef<BottomSheetMethods>(null);
 
   // Bottom sheet state for product preview and checkout
   const [showProductPreview, setShowProductPreview] = useState(false);
@@ -966,7 +975,7 @@ const LivestreamStudioFeed = ({
   const handleBuyNow = (product: Product) => {
     // Set the selected product and show checkout
     setSelectedProduct(product);
-    setShowCheckout(true);
+    checkoutNowSheetRef.current?.handleSnapPress();
     console.log("Buy product:", product.name);
   };
 
@@ -974,7 +983,7 @@ const LivestreamStudioFeed = ({
   const handleProductPreview = (product: Product) => {
     // Set the selected product and show preview
     setSelectedProduct(product);
-    setShowProductPreview(true);
+    productPreviewSheetRef.current?.handleSnapPress();
     handleProductCardClick(product);
     console.log("Preview product:", product);
   };
@@ -1272,11 +1281,15 @@ const LivestreamStudioFeed = ({
   };
 
   const handleShowOrders = () => {
-    setShowOrders(true);
+    ordersSheetRef.current?.handleSnapPress();
   };
 
   const handleShowShop = () => {
-    setShowShop(true);
+    shopBottomSheetRef.current?.handleSnapPress();
+  };
+
+  const handleCloseShop = () => {
+    shopBottomSheetRef.current?.handleClosePress();
   };
 
   const handleCantComment = () => {
@@ -1294,12 +1307,12 @@ const LivestreamStudioFeed = ({
 
   // Add handleShowViewers function
   const handleShowViewers = () => {
-    setShowViewers(true);
+    viewersSheetRef.current?.handleSnapPress();
   };
 
   // Add handleShowStreamInfo function
   const handleShowStreamInfo = () => {
-    setShowStreamInfo(true);
+    streamInfoSheetRef.current?.handleSnapPress();
   };
 
   // Update handleLeaveStream function to actually leave the stream
@@ -2263,65 +2276,42 @@ const LivestreamStudioFeed = ({
       {/* Bottom Sheets */}
       {isStreamScheduled && scheduledStreamDetails && (
         <BottomSheet
-          key={`rsvp-sheet-${(scheduledStreamDetails as any)?._id || "scheduled"}`}
-          bgColor="#121212"
-          childrenStyle="!px-[11px]"
-          showCloseIcon={false}
-          show={isStreamScheduled}
-          onRequestClose={() => {}}
-          snapPoints={["45%"]}
-          enableDynamicSizing={false}
-          keyboardBehavior={"interactive"}
-          enablePanDownToClose={false}
-          enableContentPanningGesture={false}
+          backgroundColor="#121212"
+          ref={rsvpSheetRef}
+          snapStart="45%"
+          snapEnd="60%"
         >
           <RsvpSheet
             streamDetails={scheduledStreamDetails}
-            closeSheet={handleCloseRsvpSheet}
+            closeSheet={() => rsvpSheetRef.current?.handleClosePress()}
           />
         </BottomSheet>
       )}
 
       <BottomSheet
-        bgColor="#fff"
-        childrenStyle="!px-[11px]"
-        showCloseIcon={false}
-        title=""
-        show={showProductPreview}
-        // snapPoints={["70%"]}
-        // snapPoints={["70%"]}
-        titleColor="!text-white"
-        onRequestClose={() => setShowProductPreview(false)}
-        keyboardBehavior="interactive"
-        enablePanDownToClose={true}
-        enableContentPanningGesture={true}
-        detached
+        backgroundColor="#fff"
+        ref={productPreviewSheetRef}
+        snapStart="42%"
+        snapEnd="42%"
       >
         {selectedProduct && (
           <ProductPreview
             product={selectedProduct}
-            closeSheet={() => setShowProductPreview(false)}
+            closeSheet={() => productPreviewSheetRef.current?.handleClosePress()}
           />
         )}
       </BottomSheet>
 
       <BottomSheet
-        bgColor="#121212"
-        childrenStyle="!px-[11px]"
-        showCloseIcon={false}
-        title=""
-        show={showCheckout}
-        snapPoints={["85%"]}
-        titleColor="!text-white"
-        onRequestClose={() => setShowCheckout(false)}
-        keyboardBehavior="interactive"
-        enablePanDownToClose={true}
-        enableDynamicSizing={false}
+        backgroundColor="#121212"
+        ref={checkoutNowSheetRef}
+        snapStart="85%"
+        snapEnd="90%"
       >
         {selectedProduct && (
           <CheckoutNow
             productId={selectedProduct?.productId}
-            closeSheet={handleCloseCheckout}
+            closeSheet={() => checkoutNowSheetRef.current?.handleClosePress()}
             sellerId={
               (selectedProduct.seller as any)?._id ||
               activeStreamDetails?.stream?.seller?._id ||
@@ -2336,17 +2326,10 @@ const LivestreamStudioFeed = ({
 
       {/* Viewers Bottom Sheet */}
       <BottomSheet
-        bgColor="#121212"
-        childrenStyle="!px-0"
-        showCloseIcon={false}
-        title=""
-        show={showViewers}
-        snapPoints={["40%"]}
-        titleColor="!text-white"
-        onRequestClose={() => setShowViewers(false)}
-        keyboardBehavior="interactive"
-        enablePanDownToClose={true}
-        enableContentPanningGesture={true}
+        backgroundColor="#121212"
+        ref={viewersSheetRef}
+        snapStart="40%"
+        snapEnd="60%"
       >
         <StreamViewers
           viewers={detailedViewers}
@@ -2354,24 +2337,16 @@ const LivestreamStudioFeed = ({
             name: storeInfo.name,
             avatar: storeInfo.avatar,
           }}
-          closeSheet={() => setShowViewers(false)}
+          closeSheet={() => viewersSheetRef.current?.handleClosePress()}
         />
       </BottomSheet>
 
       {/* Add StreamInfo Bottom Sheet */}
       <BottomSheet
-        bgColor="#121212"
-        childrenStyle="!px-0"
-        showCloseIcon={false}
-        title=""
-        show={showStreamInfo}
-        // snapPoints={["70%"]}
-        // snapPoints={["70%"]}
-        titleColor="!text-white"
-        onRequestClose={() => setShowStreamInfo(false)}
-        keyboardBehavior="interactive"
-        enablePanDownToClose={true}
-        enableContentPanningGesture={true}
+        backgroundColor="#121212"
+        ref={streamInfoSheetRef}
+        snapStart="60%"
+        snapEnd="80%"
       >
         <StreamInfo
           storeInfo={{
@@ -2380,7 +2355,7 @@ const LivestreamStudioFeed = ({
           }}
           streamInfo={streamDetails}
           isLoading={isLoading}
-          closeSheet={() => setShowStreamInfo(false)}
+          closeSheet={() => streamInfoSheetRef.current?.handleClosePress()}
           sellerId={sellerId}
           isFollowing={isFollowing}
           isFollowingLoading={isFollowingLoading2}
@@ -2391,58 +2366,37 @@ const LivestreamStudioFeed = ({
 
       {/* Orders Bottom Sheet */}
       <BottomSheet
-        bgColor="#121212"
-        childrenStyle="!px-0"
-        showCloseIcon={false}
-        title=""
-        show={showOrders}
-        snapPoints={["70%"]}
-        titleColor="!text-white"
-        onRequestClose={() => setShowOrders(false)}
-        keyboardBehavior="interactive"
-        enablePanDownToClose={true}
-        enableContentPanningGesture={true}
+        backgroundColor="#121212"
+        ref={ordersSheetRef}
+        snapStart="70%"
+        snapEnd="90%"
       >
-        <StreamOrders streamId={id} closeSheet={() => setShowOrders(false)} />
+        <StreamOrders streamId={id} closeSheet={() => ordersSheetRef.current?.handleClosePress()} />
       </BottomSheet>
 
       {/* Shop Bottom Sheet */}
       <BottomSheet
-        bgColor="#121212"
-        childrenStyle="!px-0"
-        showCloseIcon={false}
-        title=""
-        show={showShop}
-        snapPoints={["90%"]}
-        titleColor="!text-white"
-        onRequestClose={() => setShowShop(false)}
-        keyboardBehavior="interactive"
-        enablePanDownToClose={true}
-        enableContentPanningGesture={true}
+        backgroundColor="#121212"
+        ref={shopBottomSheetRef}
+        snapStart="60%"
+        snapEnd="70%"
       >
         <ShopBottomSheet
-          sellerId={sellerId}
           streamProducts={streamProducts}
-          closeSheet={() => setShowShop(false)}
+          closeSheet={handleCloseShop}
         />
       </BottomSheet>
 
       {/* Announcement Bottom Sheet */}
       <BottomSheet
-        bgColor="#121212"
-        childrenStyle="!px-[11px]"
-        showCloseIcon={false}
-        title=""
-        show={showAnnouncementSheet}
-        snapPoints={["55%"]}
-        titleColor="!text-white"
-        onRequestClose={() => setShowAnnouncementSheet(false)}
-        enablePanDownToClose={true}
-        enableContentPanningGesture={true}
+        backDropColor="#121212"
+        ref={announcementSheetRef}
+        snapStart="70%"
+        snapEnd="90%"
       >
         <AnnouncementView
           announcement={selectedAnnouncement}
-          closeSheet={() => setShowAnnouncementSheet(false)}
+          closeSheet={() => announcementSheetRef.current?.handleClosePress()}
         />
       </BottomSheet>
     </View>
