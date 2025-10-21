@@ -102,7 +102,7 @@ export const LivestreamProvider = ({ children }) => {
         },
       );
 
-      if (response.status === 200) {
+      if (response.status === 200 && response.data.success === true && response.data.message !== "Stream has not started yet") {
         dispatch({ type: "SET_ACTIVE_STREAM_DETAILS", payload: response.data });
         console.log("joined stream", response.data);
         // Track event for buyer joining stream
@@ -130,6 +130,12 @@ export const LivestreamProvider = ({ children }) => {
           console.log("Customer.io stream join tracking error:", trackError);
         }
         return response.data;
+      } else {
+        dispatch({
+          type: "SET_IS_STREAM_SCHEDULED",
+          isStreamScheduled: true,
+          scheduledStreamDetails: response?.data?.stream,
+        });
       }
     } catch (error) {
       console.error("Error joining stream:", error);
@@ -143,11 +149,7 @@ export const LivestreamProvider = ({ children }) => {
       ) {
         console.log("Stream is not active, setting stream scheduled state");
         console.log("Scheduled stream details", error?.response?.data?.stream);
-        dispatch({
-          type: "SET_IS_STREAM_SCHEDULED",
-          isStreamScheduled: true,
-          scheduledStreamDetails: error?.response?.data?.stream,
-        });
+        
       }
 
       throw new Error(

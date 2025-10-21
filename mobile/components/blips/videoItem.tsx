@@ -286,7 +286,7 @@ const VideoItem = ({
     } catch (e: any) {
       console.log("error liking blip ", e.response.data);
     }
-  }, [product, id]);
+  }, [product, id, liked]);
 
   const handleView = useCallback(async () => {
     const token = await getToken();
