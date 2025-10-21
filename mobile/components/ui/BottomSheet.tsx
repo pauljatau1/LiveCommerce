@@ -12,8 +12,9 @@ import React, {
     useMemo,
     useRef,
 } from "react";
-import { Keyboard, StyleSheet } from "react-native";
+import { Keyboard, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BottomSheetView } from "@gorhom/bottom-sheet";
 
 interface Props extends BottomSheetModalProps {
     index?: number;
@@ -24,6 +25,8 @@ interface Props extends BottomSheetModalProps {
     snapStart?: string;
     snapEnd?: string;
     onPressBackDrop?: VoidFunction;
+    enableDynamicSizing?: boolean;
+    enablePanDownToClose?: boolean;
 }
 
 export interface BottomSheetMethods {
@@ -36,11 +39,12 @@ const Bottomsheet = forwardRef<BottomSheetMethods, Props>(
         {
             index = 0,
             children,
-            snapStart = "50%",
-            snapEnd = "100%",
+            snapStart = "",
+            snapEnd = "",
             onPressBackDrop,
             backgroundColor = "#FDFFFC",
             detached = false,
+            enableDynamicSizing = false,
             ...props
         },
         ref
@@ -48,8 +52,8 @@ const Bottomsheet = forwardRef<BottomSheetMethods, Props>(
         const { bottom } = useSafeAreaInsets();
         const sheetRef = useRef<BottomSheetModal>(null);
         const snapPoints = useMemo(
-            () => [snapStart, snapEnd],
-            [snapStart, snapEnd]
+            () => (enableDynamicSizing ? [] : [snapStart, snapEnd]),
+            [snapStart, snapEnd, enableDynamicSizing]
         );
 
         const handleSheetChange = useCallback((index: number) => {
@@ -97,18 +101,17 @@ const Bottomsheet = forwardRef<BottomSheetMethods, Props>(
                 detached={detached}
                 onChange={handleSheetChange}
                 backdropComponent={renderBackdrop}
-                enablePanDownToClose
                 keyboardBehavior="interactive"
                 stackBehavior="push"
-                enableDynamicSizing={false}
+                enableDynamicSizing={enableDynamicSizing}
                 handleIndicatorStyle={{
                     width: 41,
                     height: 4,
                     backgroundColor: "#94A3B1",
                 }}
                 backgroundStyle={[styles.background, { backgroundColor: backgroundColor }]}
-                bottomInset={detached ? bottom + 20 : 0}
-                style={[styles.modal, detached && { marginHorizontal: 20 }]}
+                bottomInset={detached ? bottom + 20 : bottom}
+                style={[styles.modal, detached && { marginHorizontal: 20, marginBottom: bottom }]}
                 {...props}
             >
                 {children}

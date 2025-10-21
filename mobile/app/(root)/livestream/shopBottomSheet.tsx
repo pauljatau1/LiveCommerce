@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions, Pressable, RefreshControl, TextInput } from 'react-native';
-import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
+import { BottomSheetFlatList, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { AntDesign, Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -332,7 +332,7 @@ const ShopBottomSheet = memo(({ streamProducts, closeSheet }: ShopBottomSheetPro
   };
 
   return (
-    <View style={styles.container}>
+    <View className='h-[100%] bg-[#121212] ' >
       <View style={styles.header}>
         <Text style={styles.title}>Shop</Text>
       </View>
@@ -379,7 +379,7 @@ const ShopBottomSheet = memo(({ streamProducts, closeSheet }: ShopBottomSheetPro
 // Define styles outside the component to avoid recreation on each render
 const styles = StyleSheet.create({
   container: {
-    height: 600,
+    height: 900,
     backgroundColor: '#121212',
   },
   header: {

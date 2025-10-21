@@ -2291,8 +2291,7 @@ const LivestreamStudioFeed = ({
       <BottomSheet
         backgroundColor="#fff"
         ref={productPreviewSheetRef}
-        snapStart="42%"
-        snapEnd="42%"
+        enableDynamicSizing={true}
         detached
       >
         {selectedProduct && (

@@ -7,6 +7,7 @@ import { ActivityIndicator } from "react-native-paper";
 import { router } from "expo-router";
 import { formatNumber, getResizedImage } from "@/helpers/helpers";
 import AnimatedButton from "../Primitives/Buttons/animatedButton";
+import { BottomSheetView } from "@gorhom/bottom-sheet";
 
 const ProductPreview = ({
   product,
@@ -28,7 +29,7 @@ const ProductPreview = ({
     router.push(`/product/${productDetails._id}`);
   }, [closeSheet, productDetails]);
   return (
-    <View className="px-[10px] pb-[20px]">
+    <BottomSheetView className="px-[10px] pb-[20px]">
       <View className=" rounded-[14px] bg-white gap-[16px]">
         <Image
           source={{ uri: getResizedImage(productDetails?.images?.[0], 320) }}
@@ -76,7 +77,7 @@ const ProductPreview = ({
           </AnimatedButton>
         </View>
       </View>
-    </View>
+    </BottomSheetView>
   );
 };
 
