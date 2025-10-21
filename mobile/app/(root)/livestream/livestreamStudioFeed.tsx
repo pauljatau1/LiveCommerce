@@ -2284,7 +2284,6 @@ const LivestreamStudioFeed = ({
 
       <BottomSheet
         bgColor="#fff"
-        bgColor="#fff"
         childrenStyle="!px-[11px]"
         showCloseIcon={false}
         title=""
@@ -2296,7 +2295,6 @@ const LivestreamStudioFeed = ({
         keyboardBehavior="interactive"
         enablePanDownToClose={true}
         enableContentPanningGesture={true}
-        detached
         detached
       >
         {selectedProduct && (
