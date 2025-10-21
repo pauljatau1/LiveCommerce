@@ -1436,6 +1436,7 @@ const LivestreamStudioFeed = ({
       isStreamScheduled: false,
       scheduledStreamDetails: null,
     });
+    rsvpSheetRef.current?.handleClosePress();
     router?.replace("/(root)/(tabs)/home/home");
   }, [dispatch, router]);
 
@@ -2284,7 +2285,7 @@ const LivestreamStudioFeed = ({
         >
           <RsvpSheet
             streamDetails={scheduledStreamDetails}
-            closeSheet={() => rsvpSheetRef.current?.handleClosePress()}
+            closeSheet={handleCloseRsvpSheet}
           />
         </BottomSheet>
       )}
