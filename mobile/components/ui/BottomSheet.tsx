@@ -13,12 +13,14 @@ import React, {
     useRef,
 } from "react";
 import { Keyboard, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface Props extends BottomSheetModalProps {
     index?: number;
     children: ReactNode;
     backgroundColor?: string;
     backDropColor?: string;
+    detached?: boolean;
     snapStart?: string;
     snapEnd?: string;
     onPressBackDrop?: VoidFunction;
@@ -38,10 +40,12 @@ const Bottomsheet = forwardRef<BottomSheetMethods, Props>(
             snapEnd = "100%",
             onPressBackDrop,
             backgroundColor = "#FDFFFC",
+            detached = false,
             ...props
         },
         ref
     ) => {
+        const { bottom } = useSafeAreaInsets();
         const sheetRef = useRef<BottomSheetModal>(null);
         const snapPoints = useMemo(
             () => [snapStart, snapEnd],
@@ -90,7 +94,7 @@ const Bottomsheet = forwardRef<BottomSheetMethods, Props>(
                 ref={sheetRef}
                 index={index}
                 snapPoints={snapPoints}
-                
+                detached={detached}
                 onChange={handleSheetChange}
                 backdropComponent={renderBackdrop}
                 enablePanDownToClose
@@ -103,6 +107,8 @@ const Bottomsheet = forwardRef<BottomSheetMethods, Props>(
                     backgroundColor: "#94A3B1",
                 }}
                 backgroundStyle={[styles.background, { backgroundColor: backgroundColor }]}
+                bottomInset={detached ? bottom + 20 : 0}
+                style={[styles.modal, detached && { marginHorizontal: 20 }]}
                 {...props}
             >
                 {children}
@@ -117,5 +123,8 @@ const styles = StyleSheet.create({
     background: {
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
+    },
+    modal: {
+        zIndex: 10000000,
     },
 });

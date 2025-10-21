@@ -2293,6 +2293,7 @@ const LivestreamStudioFeed = ({
         ref={productPreviewSheetRef}
         snapStart="42%"
         snapEnd="42%"
+        detached
       >
         {selectedProduct && (
           <ProductPreview
