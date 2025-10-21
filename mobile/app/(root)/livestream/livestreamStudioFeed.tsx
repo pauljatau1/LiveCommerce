@@ -1421,8 +1421,9 @@ const LivestreamStudioFeed = ({
         hasScheduledDetails: !!scheduledStreamDetails,
         streamId: (scheduledStreamDetails as any)?._id,
       });
+      rsvpSheetRef.current?.handleSnapPress();
     }
-  }, [isStreamScheduled, scheduledStreamDetails]);
+  }, [isStreamScheduled, scheduledStreamDetails, rsvpSheetRef]);
 
   const handleCloseCheckout = useCallback(() => {
     setShowCheckout(false);
