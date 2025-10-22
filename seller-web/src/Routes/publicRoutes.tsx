@@ -4,6 +4,7 @@ import {lazy} from 'react';
 const LoginPageV2 = lazy(() => import('../Pages/LoginPage/LoginPageV2'));
 //const SignUpPage = lazy(() => import('../Pages/SignUpPage/SignUpPage'));
 const SignUpPageV2 = lazy(() => import('../Pages/SignUpPage/SignUpPageV2'));
+const ForgotPasswordPage = lazy(() => import('../Pages/ForgotPasswordPage/ForgotPasswordPage'));
 const Loader = lazy(() => import('../Components/Loader'));
 const NotFoundPage = lazy(() => import('../Pages/NotFoundPage/NotFoundPage'));
 
@@ -20,6 +21,11 @@ export const publicRoutes = [
     {
         path: 'signup',
         element: <SignUpPageV2/>,
+        errorElement: <NotFoundPage/>,
+    },
+    {
+        path: 'forgot-password',
+        element: <ForgotPasswordPage/>,
         errorElement: <NotFoundPage/>,
     },
 ];
