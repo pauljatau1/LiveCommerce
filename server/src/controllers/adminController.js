@@ -20,6 +20,7 @@ const Conversation = require('../models/Conversation');
 const PlatformNotification = require('../models/PlatformNotification');
 const { Expo } = require('expo-server-sdk');
 const axios = require('axios');
+const { createSafeAutomaticWithdrawal, getWithdrawalSafetyReport, sendNoBankDetailsEmails } = require('../utils/withdrawalSafety');
 
 const sgMail = require('@sendgrid/mail');
 const mongoose = require('mongoose');
@@ -487,6 +488,122 @@ exports.disableSeller = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
+    // Check if seller has wallet balance and create automatic withdrawal request safely
+    let automaticWithdrawal = null;
+    let withdrawalSafetyReport = null;
+    
+    if (seller.walletBalance > 0) {
+      try {
+        // Get comprehensive withdrawal safety report
+        withdrawalSafetyReport = await getWithdrawalSafetyReport(seller._id);
+        
+        console.log(`Withdrawal safety report for ${seller.email}:`, {
+          canWithdraw: withdrawalSafetyReport.withdrawalCalculation.canWithdraw,
+          availableBalance: withdrawalSafetyReport.withdrawalCalculation.availableBalance,
+          existingWithdrawals: withdrawalSafetyReport.existingWithdrawals.count,
+          bankDetailsValid: withdrawalSafetyReport.bankDetails.isValid
+        });
+
+        // Only create withdrawal if it's safe to do so
+        if (withdrawalSafetyReport.recommendations.shouldCreateWithdrawal) {
+          const withdrawalResult = await createSafeAutomaticWithdrawal(
+            seller._id,
+            seller.bankDetails,
+            'Automatic withdrawal request created due to account being disabled by admin'
+          );
+
+          if (withdrawalResult.success) {
+            automaticWithdrawal = withdrawalResult.withdrawal;
+            
+            // Send email notification about automatic withdrawal
+            const withdrawalEmailMsg = {
+              to: seller.email,
+              from: 'Auqli Admin <support@auqli.com>',
+              subject: 'Automatic Withdrawal Request Created - Account Disabled',
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2>Automatic Withdrawal Request Created</h2>
+                  <p>Dear ${seller.firstName},</p>
+                  <p>Your Auqli seller account has been disabled, and we have automatically created a withdrawal request for your remaining wallet balance.</p>
+                  <p><strong>Withdrawal Details:</strong></p>
+                  <ul>
+                    <li><strong>Amount:</strong> ₦${automaticWithdrawal.amount.toLocaleString()}</li>
+                    <li><strong>Reference:</strong> ${automaticWithdrawal.reference}</li>
+                    <li><strong>Status:</strong> Pending</li>
+                    <li><strong>Bank Details:</strong> ${seller.bankDetails?.bankName || 'Not provided'} - ${seller.bankDetails?.accountNumber || 'Not provided'}</li>
+                  </ul>
+                  <p>This withdrawal will be processed according to our standard withdrawal procedures. You will receive another email once the withdrawal is completed.</p>
+                  <p>If you have any questions about this withdrawal, please contact our support team at support@auqli.com</p>
+                  <p>Best regards,<br>Auqli Finance Team</p>
+                </div>
+              `
+            };
+
+            await sgMail.send(withdrawalEmailMsg);
+
+            // Also send notification to admin about the automatic withdrawal
+            const adminNotificationMsg = {
+              to: 'support@auqli.com',
+              from: 'Auqli System <support@auqli.com>',
+              subject: 'Automatic Withdrawal Created for Disabled Seller',
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2>Automatic Withdrawal Created</h2>
+                  <p>A seller account has been disabled and an automatic withdrawal request has been created.</p>
+                  <p><strong>Seller Details:</strong></p>
+                  <ul>
+                    <li><strong>Name:</strong> ${seller.firstName} ${seller.lastName}</li>
+                    <li><strong>Email:</strong> ${seller.email}</li>
+                    <li><strong>Business Name:</strong> ${seller.businessName || 'N/A'}</li>
+                    <li><strong>Wallet Balance:</strong> ₦${seller.walletBalance.toLocaleString()}</li>
+                  </ul>
+                  <p><strong>Withdrawal Details:</strong></p>
+                  <ul>
+                    <li><strong>Amount:</strong> ₦${automaticWithdrawal.amount.toLocaleString()}</li>
+                    <li><strong>Reference:</strong> ${automaticWithdrawal.reference}</li>
+                    <li><strong>Bank Details:</strong> ${seller.bankDetails?.bankName || 'Not provided'} - ${seller.bankDetails?.accountNumber || 'Not provided'}</li>
+                  </ul>
+                  <p>Please process this withdrawal according to standard procedures.</p>
+                </div>
+              `
+            };
+
+            await sgMail.send(adminNotificationMsg);
+
+            console.log(`✅ Automatic withdrawal created for disabled seller ${seller.email}: ₦${automaticWithdrawal.amount.toLocaleString()} (Ref: ${automaticWithdrawal.reference})`);
+          } else if (withdrawalResult.requiresSupportContact) {
+            // Handle case where seller has no bank details
+            console.log(`📧 Sending no bank details emails for ${seller.email} (Balance: ₦${withdrawalResult.availableBalance.toLocaleString()})`);
+            
+            try {
+              await sendNoBankDetailsEmails(
+                withdrawalResult.seller,
+                withdrawalResult.availableBalance,
+                'Account disabled by admin'
+              );
+              
+              console.log(`✅ No bank details emails sent for ${seller.email}`);
+            } catch (emailError) {
+              console.error(`❌ Error sending no bank details emails for ${seller.email}:`, emailError);
+            }
+          } else {
+            console.log(`⚠️ Automatic withdrawal skipped for ${seller.email}: ${withdrawalResult.reason}`);
+            console.log(`   Details:`, withdrawalResult.details);
+          }
+        } else {
+          console.log(`⚠️ Automatic withdrawal skipped for ${seller.email}: ${withdrawalSafetyReport.recommendations.reason}`);
+          console.log(`   Safety report:`, {
+            canWithdraw: withdrawalSafetyReport.withdrawalCalculation.canWithdraw,
+            existingWithdrawals: withdrawalSafetyReport.existingWithdrawals.count,
+            bankDetailsValid: withdrawalSafetyReport.bankDetails.isValid
+          });
+        }
+      } catch (withdrawalError) {
+        console.error('❌ Error creating automatic withdrawal for disabled seller:', withdrawalError);
+        // Don't fail the entire operation if withdrawal creation fails
+      }
+    }
+
     // Send notification emails
     const emailMsg = {
       to: seller.email,
@@ -503,6 +620,7 @@ exports.disableSeller = async (req, res) => {
             <li>Multiple customer complaints</li>
             <li>Non-compliance with seller policies</li>
           </ul>
+          ${automaticWithdrawal ? `<p><strong>Note:</strong> An automatic withdrawal request has been created for your remaining wallet balance (₦${seller.walletBalance.toLocaleString()}). You will receive a separate email with withdrawal details.</p>` : ''}
           <p>If you believe this is an error or would like to appeal this decision, please contact our support team at support@auqli.com</p>
           <p>Best regards,<br>Auqli Trust & Safety Team</p>
         </div>
@@ -526,6 +644,7 @@ exports.disableSeller = async (req, res) => {
               <li>You cannot process new orders</li>
               <li>Access to seller dashboard is restricted</li>
             </ul>
+            ${automaticWithdrawal ? `<p><strong>Note:</strong> An automatic withdrawal request has been created for your remaining wallet balance (₦${seller.walletBalance.toLocaleString()}). You will receive a separate email with withdrawal details.</p>` : ''}
             <p>For immediate assistance or to appeal this decision, please contact our business support team.</p>
             <p>Best regards,<br>Auqli Business Support Team</p>
           </div>
@@ -539,7 +658,19 @@ exports.disableSeller = async (req, res) => {
     res.json({
       success: true,
       message: 'Seller account disabled successfully',
-      seller
+      seller,
+      automaticWithdrawal: automaticWithdrawal ? {
+        reference: automaticWithdrawal.reference,
+        amount: automaticWithdrawal.amount,
+        status: automaticWithdrawal.status
+      } : null,
+      withdrawalSafety: withdrawalSafetyReport ? {
+        canWithdraw: withdrawalSafetyReport.withdrawalCalculation.canWithdraw,
+        availableBalance: withdrawalSafetyReport.withdrawalCalculation.availableBalance,
+        existingWithdrawals: withdrawalSafetyReport.existingWithdrawals.count,
+        bankDetailsValid: withdrawalSafetyReport.bankDetails.isValid,
+        recommendation: withdrawalSafetyReport.recommendations.reason
+      } : null
     });
 
   } catch (error) {

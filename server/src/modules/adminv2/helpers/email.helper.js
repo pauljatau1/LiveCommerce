@@ -17,7 +17,7 @@ function getVacationModeEmail(seller, isOn) {
  * @param {Object} seller - The seller object with email, firstName, lastName, businessName
  * @returns {Object} - Object containing subject, html, and text content
  */
-function getNonLagosSellerNotificationEmail(seller) {
+function getNonLagosSellerNotificationEmail(seller, automaticWithdrawal = null) {
   const recipientName = seller.businessName || `${seller.firstName} ${seller.lastName}`;
   const subject = 'Important: Auqli Service Update - Lagos Only';
   
@@ -54,6 +54,23 @@ function getNonLagosSellerNotificationEmail(seller) {
           <li>You cannot process new orders at this time</li>
           <li>Your account data and information remain secure</li>
         </ul>
+        
+        ${automaticWithdrawal ? `
+        <div style="background-color: #e8f5e8; border: 1px solid #c3e6c3; border-radius: 6px; padding: 20px; margin: 20px 0;">
+          <h3 style="color: #2d5a2d; margin: 0 0 15px 0; font-size: 18px;">💰 Automatic Withdrawal Created</h3>
+          <p style="color: #2d5a2d; margin: 0 0 15px 0; line-height: 1.6;">
+            We have automatically created a withdrawal request for your remaining wallet balance.
+          </p>
+          <ul style="color: #2d5a2d; margin: 0; line-height: 1.6;">
+            <li><strong>Amount:</strong> ₦${automaticWithdrawal.amount.toLocaleString()}</li>
+            <li><strong>Reference:</strong> ${automaticWithdrawal.reference}</li>
+            <li><strong>Status:</strong> Pending</li>
+          </ul>
+          <p style="color: #2d5a2d; margin: 15px 0 0 0; line-height: 1.6;">
+            This withdrawal will be processed according to our standard procedures. You will receive another email once the withdrawal is completed.
+          </p>
+        </div>
+        ` : ''}
         
         <h3 style="color: #2c3e50; margin: 25px 0 15px 0;">🚀 Future Expansion Plans</h3>
         <p style="color: #34495e; line-height: 1.6; margin-bottom: 20px;">
@@ -111,6 +128,16 @@ function getNonLagosSellerNotificationEmail(seller) {
     - Your products are no longer visible in the marketplace
     - You cannot process new orders at this time
     - Your account data and information remain secure
+    ${automaticWithdrawal ? `
+    
+    AUTOMATIC WITHDRAWAL CREATED:
+    We have automatically created a withdrawal request for your remaining wallet balance.
+    - Amount: ₦${automaticWithdrawal.amount.toLocaleString()}
+    - Reference: ${automaticWithdrawal.reference}
+    - Status: Pending
+    
+    This withdrawal will be processed according to our standard procedures. You will receive another email once the withdrawal is completed.
+    ` : ''}
     
     FUTURE EXPANSION PLANS:
     We're excited to share that Auqli is actively working on expanding our services to other states across Nigeria. Our development team is working hard to ensure a seamless experience when we launch in your state.
