@@ -83,13 +83,18 @@ export interface AuthLoginActivity {
   handleLoginActivity: (seller: Seller, token: string) => void;
 }
 
+// Auth signup activity interface
+export interface AuthSignupActivity {
+  handleSignupActivity: (seller: Seller, token: string) => Promise<boolean>;
+}
+
 // Auth logout activity interface
 export interface AuthLogoutActivity {
   logout: () => void;
 }
 
 // Complete AuthContext type
-export type AuthContextType = AuthState & AuthContextMethods & AuthLoginActivity & AuthLogoutActivity;
+export type AuthContextType = AuthState & AuthContextMethods & AuthLoginActivity & AuthLogoutActivity & AuthSignupActivity;
 
 // Props for AuthProvider component
 export interface AuthProviderProps {
@@ -104,12 +109,13 @@ export interface LoginFormData {
 
 // Signup form data interface
 export interface SignupFormData {
-  firstName: string;
-  lastName: string;
+  fullName: string;
   email: string;
-  password: string;
-  phoneNumber: string;
   storeName: string;
+  phoneNumber: string;
+  password: string;
+  confirmPassword: string;
+  termsAccepted: boolean;
 }
 
 // Verify OTP form data interface

@@ -40,6 +40,8 @@ export interface Seller {
     state: string;
     addressLine1: string;
   };
+  referralUsed: boolean;
+  referrerId: string;
 }
 
 // Top sold seller products interface

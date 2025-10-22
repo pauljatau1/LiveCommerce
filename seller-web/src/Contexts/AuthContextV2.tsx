@@ -374,10 +374,87 @@ function AuthProvider({ children }: AuthProviderProps) {
         }
     };
 
+    // function to handle signup activity
+    const handleSignupActivity = async (seller: Seller, token: string) => {
+        try {
+            // shutdown intercom for fresh restart upon login
+            shutdown();
+            // dispatch loading action to show loading state
+            dispatch({ type: 'SET_LOADING', payload: true });
+            // dispatch signup success action to update all auth state
+            dispatch({ type: 'SIGNUP_SUCCESS', payload: seller });
+            // dispatch token action to update all auth state
+            dispatch({ type: 'SET_TOKEN', payload: { data: token, isVerified: true } })
+            // store seller data in global auth context
+            sellerUtils.storeSeller(seller);
+            // store token in global auth context
+            tokenUtils.storeBearerToken({ data: token, isVerified: true });
+
+            // Track signup event
+            try {
+                const userData = {
+                    "Seller ID": seller?._id,
+                    "$email": seller?.email,                           // Use reserved property
+                    "$name": `${seller?.firstName} ${seller?.lastName}`,       // Use reserved property
+                    "Seller Phone Number": seller?.phoneNumber,
+                    "Seller Store Name": seller?.storeName,
+                    "Signup Method": "Email",
+                    "Referral Used": seller?.referralUsed ? "Yes" : "No",
+                    "Referrer ID": seller?.referrerId || "None",
+                    "User Type": "Seller",
+                    "IP Address": await getClientIP().catch(() => 'unknown')
+                };
+
+                await identifyUserMixpanel(seller?._id, userData);
+                await trackEvent("Seller Signed Up", userData);
+
+                // Track seller account creation with Customer.io
+                if (window.cioanalytics) {
+                    const clientIP = await getClientIP().catch(() => 'unknown');
+                    // First identify the user
+                    window.cioanalytics?.identify?.(seller?._id, {
+                        seller_id: seller?._id,
+                        email: seller?.email,
+                        first_name: seller?.firstName,
+                        last_name: seller?.lastName,
+                        phone: seller?.phoneNumber,
+                        store_name: seller?.storeName,
+                        created_at: Math.floor(new Date().getTime() / 1000),
+                        user_type: 'seller'
+                    });
+
+                    // Then track events after a small delay
+                    setTimeout(() => {
+                        window.cioanalytics?.track?.('seller_account_created', {
+                            seller_id: seller?._id,
+                            email: seller?.email,
+                            first_name: seller?.firstName,
+                            last_name: seller?.lastName,
+                            phone: seller?.phoneNumber,
+                            store_name: seller?.storeName,
+                            ip_address: clientIP,
+                            device_type: getDeviceType(),
+                        });
+                    }, 500);
+                }
+
+                return true;
+            } catch (e) {
+                console.error('Analytics tracking error:', e);
+                return false;
+            }
+        } catch (error) {
+            console.log(error);
+            return false;
+        } finally {
+            dispatch({ type: 'SET_LOADING', payload: false });
+        }
+    }
 
     const contextValue = useMemo(() => ({
         ...state,
         handleLoginActivity,
+        handleSignupActivity,
         dispatch,
         logout
     }), [state, dispatch])
