@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { authService } from "@/services/authService";
 import { Button } from "@/Components/ui/button";
 import { FloatingLabelInput } from "@/Components/shared/floating-label-input";
 import {
@@ -11,9 +13,9 @@ import {
     FormItem,
     FormMessage,
 } from "@/Components/ui/form/form";
+import { AxiosError } from 'axios';
 import PrimaryTypography from '../shared/PrimaryTypography';
 import { forgotPasswordStep1Schema, forgotPasswordStep2Schema, type ForgotPasswordStep1Data, type ForgotPasswordStep2Data } from '@/schemas/forgotPasswordSchema';
-import PadlockIcon from '@/assets/icons/PadlockIcon';
 
 interface ForgotPasswordFormProps {
     onSuccess?: () => void;
@@ -46,38 +48,61 @@ export default function ForgotPasswordForm({ onSuccess, onCancel }: ForgotPasswo
         },
     });
 
-    // Mock mutation for step 1 (send OTP)
+    // Step 1: request forgot password (send OTP to email)
     const sendOtpMutation = useMutation({
         mutationFn: async (data: ForgotPasswordStep1Data) => {
-            // Mock API call - replace with actual API
-            console.log('Sending OTP to:', data.email);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            return { success: true };
+            const response = await authService.forgotPasswordRequest(data.email);
+            return response;
         },
         onSuccess: () => {
-            setEmail(step1Form.getValues('email'));
+            const submittedEmail = step1Form.getValues('email');
+            setEmail(submittedEmail);
             setCurrentStep(2);
             setOtpTimer(30);
             setCanResend(false);
+            toast.success("Verification code sent to your email");
         },
-        onError: (error) => {
+        onError: (error: unknown) => {
             console.error('Error sending OTP:', error);
+            toast.error("Failed to send verification code", {
+                description: error instanceof AxiosError ? error.response?.data?.message : "Something went wrong. Please try again later.",
+            });
         },
     });
 
-    // Mock mutation for step 2 (verify OTP and reset password)
-    const resetPasswordMutation = useMutation({
-        mutationFn: async (data: ForgotPasswordStep2Data) => {
-            // Mock API call - replace with actual API
-            console.log('Resetting password with OTP:', data);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            return { success: true };
+    // Resend OTP
+    const resendOtpMutation = useMutation({
+        mutationFn: async (emailToResend: string) => {
+            const response = await authService.requestOtp(emailToResend);
+            return response;
         },
         onSuccess: () => {
+            setOtpTimer(30);
+            setCanResend(false);
+            toast.success("A new verification code has been sent");
+        },
+        onError: (error: unknown) => {
+            console.error('Error resending OTP:', error);
+            toast.error("Failed to resend verification code", {
+                description: error instanceof AxiosError ? error.response?.data?.message : "Something went wrong. Please try again later.",
+            });
+        },
+    });
+
+    // Step 2: reset password with OTP
+    const resetPasswordMutation = useMutation({
+        mutationFn: async (data: ForgotPasswordStep2Data) => {
+            const payload = { email, code: data.otp, newPassword: data.newPassword };
+            const response = await authService.resetPasswordWithOtp(payload);
+            return response;
+        },
+        onSuccess: () => {
+            toast.success("Password updated successfully");
             onSuccess?.();
         },
-        onError: (error) => {
+        onError: (error: unknown) => {
             console.error('Error resetting password:', error);
+            toast.error("Failed to update password. Check code and try again");
         },
     });
 
@@ -102,10 +127,8 @@ export default function ForgotPasswordForm({ onSuccess, onCancel }: ForgotPasswo
     };
 
     const handleResendOtp = () => {
-        if (canResend) {
-            sendOtpMutation.mutate({ email });
-            setOtpTimer(30);
-            setCanResend(false);
+        if (canResend && email) {
+            resendOtpMutation.mutate(email);
         }
     };
 

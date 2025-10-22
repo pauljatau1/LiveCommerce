@@ -19,7 +19,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   // Define route types for easier checking
   const isSignUpRoute = location.pathname.startsWith('/signup');
   const isLoginRoute = location.pathname.startsWith('/login');
-  const isAuthRoute = isSignUpRoute || isLoginRoute;
+  const isForgotPasswordRoute = location.pathname.startsWith('/forgot-password');
+  const isAuthRoute = isSignUpRoute || isLoginRoute || isForgotPasswordRoute;
 
 
   const { data, error, isLoading, isFetching } = useQuery({

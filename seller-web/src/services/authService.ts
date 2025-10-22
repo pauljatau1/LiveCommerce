@@ -17,8 +17,8 @@ import type {
 const AUTH_ENDPOINTS = {
   login: "/sellers/login",
   signUp: "/sellers/register",
-  forgotPassword: "/sellers/forgot-password",
-  resetPassword: "/sellers/reset-password",
+  forgotPassword: "/seller/forgot-password",
+  resetPassword: "/seller/reset-password",
   verifyOtp: "/sellers/verify-otp",
   requestOtp: "/sellers/request-otp",
   checkTokenValidity: "/sellers/check-token",
