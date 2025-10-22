@@ -292,6 +292,31 @@ const disableNonLagosSellers = async (req, res, next) => {
     const update = { $set: { isDisabled: true } };
     const result = await Seller.updateMany(nonLagosFilter, update);
 
+    // Set all disabled sellers' products to draft status
+    let productStatusUpdate = null;
+    try {
+      const Product = require('../../../models/Product');
+      const productUpdateResult = await Product.updateMany(
+        { seller: { $in: sellersToDisable.map(s => s._id) }, status: { $in: ['active', 'offline_auction'] } },
+        { $set: { status: 'draft' } }
+      );
+      
+      productStatusUpdate = {
+        productsUpdated: productUpdateResult.modifiedCount,
+        status: 'success'
+      };
+      
+      console.log(`📦 Set ${productUpdateResult.modifiedCount} products to draft status for ${sellersToDisable.length} disabled sellers`);
+    } catch (productError) {
+      console.error(`❌ Error setting products to draft for disabled sellers:`, productError);
+      productStatusUpdate = {
+        productsUpdated: 0,
+        status: 'error',
+        error: productError.message
+      };
+      // Don't fail the entire operation if product update fails
+    }
+
     // Process automatic withdrawals for sellers with wallet balance > 0 using safety checks
     const automaticWithdrawals = [];
     const withdrawalSafetyReports = [];
@@ -337,13 +362,12 @@ const disableNonLagosSellers = async (req, res, next) => {
             // Handle case where seller has no bank details
             console.log(`📧 Sending no bank details emails for ${seller.email} (Balance: ₦${withdrawalResult.availableBalance.toLocaleString()})`);
             
-            try {
-              await sendNoBankDetailsEmails(
-                withdrawalResult.seller,
-                withdrawalResult.availableBalance,
-                'Account disabled (Non-Lagos seller)'
-              );
-              
+            // Send no bank details emails asynchronously (non-blocking)
+            sendNoBankDetailsEmails(
+              withdrawalResult.seller,
+              withdrawalResult.availableBalance,
+              'Account disabled (Non-Lagos seller)'
+            ).then(() => {
               automaticWithdrawals.push({
                 sellerEmail: seller.email,
                 amount: withdrawalResult.availableBalance,
@@ -353,7 +377,7 @@ const disableNonLagosSellers = async (req, res, next) => {
               });
               
               console.log(`✅ No bank details emails sent for ${seller.email}`);
-            } catch (emailError) {
+            }).catch(emailError => {
               console.error(`❌ Error sending no bank details emails for ${seller.email}:`, emailError);
               automaticWithdrawals.push({
                 sellerEmail: seller.email,
@@ -362,7 +386,7 @@ const disableNonLagosSellers = async (req, res, next) => {
                 status: 'error',
                 reason: `Email sending failed: ${emailError.message}`
               });
-            }
+            });
           } else {
             console.log(`⚠️ Automatic withdrawal skipped for ${seller.email}: ${withdrawalResult.reason}`);
             automaticWithdrawals.push({
@@ -382,6 +406,75 @@ const disableNonLagosSellers = async (req, res, next) => {
             status: 'skipped',
             reason: safetyReport.recommendations.reason
           });
+
+          // Send admin notification for invalid bank details case
+          if (!safetyReport.bankDetails.isValid && safetyReport.withdrawalCalculation.canWithdraw) {
+            const invalidBankDetailsAdminMsg = {
+              to: 'bolu@auqli.com',
+              from: 'Auqli System <support@auqli.com>',
+              subject: `Action Required: Seller ${seller.firstName} ${seller.lastName} Has Invalid Bank Details (Bulk Disable)`,
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2>⚠️ Seller Disabled - Invalid Bank Details (Bulk Operation)</h2>
+                  <p>A seller account has been disabled in a bulk operation but cannot receive automatic withdrawal due to invalid bank details.</p>
+                  
+                  <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                    <h3 style="color: #495057; margin: 0 0 15px 0; font-size: 18px;">👤 Seller Information</h3>
+                    <ul style="color: #495057; margin: 0; line-height: 1.6;">
+                      <li><strong>Name:</strong> ${seller.firstName} ${seller.lastName}</li>
+                      <li><strong>Email:</strong> ${seller.email}</li>
+                      <li><strong>Business Name:</strong> ${seller.businessName || 'N/A'}</li>
+                      <li><strong>Account Status:</strong> Disabled (Bulk Operation)</li>
+                      <li><strong>Reason:</strong> Non-Lagos seller bulk disable</li>
+                    </ul>
+                  </div>
+                  
+                  <div style="background-color: #e8f5e8; border: 1px solid #c3e6c3; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                    <h3 style="color: #2d5a2d; margin: 0 0 15px 0; font-size: 18px;">💰 Available Balance</h3>
+                    <p style="color: #2d5a2d; margin: 0; font-size: 24px; font-weight: bold;">
+                      ₦${seller.walletBalance.toLocaleString()}
+                    </p>
+                  </div>
+                  
+                  <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                    <h3 style="color: #721c24; margin: 0 0 15px 0; font-size: 18px;">❌ Bank Details Issue</h3>
+                    <p style="color: #721c24; margin: 0 0 15px 0; line-height: 1.6;">
+                      The seller's bank details are invalid or incomplete.
+                    </p>
+                    <p style="color: #721c24; margin: 0; line-height: 1.6;">
+                      <strong>Issue:</strong> ${safetyReport.bankDetails.message}
+                    </p>
+                  </div>
+                  
+                  <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                    <h3 style="color: #0c5460; margin: 0 0 15px 0; font-size: 18px;">📋 Required Action</h3>
+                    <p style="color: #0c5460; margin: 0 0 15px 0; line-height: 1.6;">
+                      Please contact the seller to collect valid bank details for withdrawal processing.
+                    </p>
+                    <ul style="color: #0c5460; margin: 0; line-height: 1.6;">
+                      <li>Bank name</li>
+                      <li>Account number</li>
+                      <li>Account name (as it appears on bank statement)</li>
+                      <li>Bank routing code or SWIFT code (if available)</li>
+                    </ul>
+                  </div>
+                  
+                  <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f8f9fa; border-radius: 6px;">
+                    <p style="color: #6c757d; margin: 0; font-size: 14px;">
+                      <strong>Seller Contact:</strong> ${seller.email}<br>
+                      <strong>System Generated:</strong> ${new Date().toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              `
+            };
+
+            sgMail.send(invalidBankDetailsAdminMsg).catch(emailError => {
+              console.error(`❌ Error sending invalid bank details admin notification:`, emailError);
+            });
+            
+            console.log(`📧 Admin notification sent to bolu@auqli.com for invalid bank details: ${seller.email}`);
+          }
         }
       } catch (withdrawalError) {
         console.error(`❌ Error processing automatic withdrawal for seller ${seller.email}:`, withdrawalError);
@@ -463,6 +556,7 @@ const disableNonLagosSellers = async (req, res, next) => {
       matchedCount: result.matchedCount ?? result.nMatched ?? 0,
       modifiedCount: result.modifiedCount ?? result.nModified ?? 0,
       emailsQueued: sellersToDisable.length,
+      productStatusUpdate,
       automaticWithdrawals: withdrawalStats,
       safetySummary: {
         totalSellersWithBalance: sellersWithBalance.length,

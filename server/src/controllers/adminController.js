@@ -488,6 +488,31 @@ exports.disableSeller = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
+    // Set all seller products to draft status
+    let productStatusUpdate = null;
+    try {
+      const Product = require('../models/Product');
+      const productUpdateResult = await Product.updateMany(
+        { seller: sellerId, status: { $in: ['active', 'offline_auction'] } },
+        { $set: { status: 'draft' } }
+      );
+      
+      productStatusUpdate = {
+        productsUpdated: productUpdateResult.modifiedCount,
+        status: 'success'
+      };
+      
+      console.log(`📦 Set ${productUpdateResult.modifiedCount} products to draft status for disabled seller ${seller.email}`);
+    } catch (productError) {
+      console.error(`❌ Error setting products to draft for seller ${seller.email}:`, productError);
+      productStatusUpdate = {
+        productsUpdated: 0,
+        status: 'error',
+        error: productError.message
+      };
+      // Don't fail the entire operation if product update fails
+    }
+
     // Check if seller has wallet balance and create automatic withdrawal request safely
     let automaticWithdrawal = null;
     let withdrawalSafetyReport = null;
@@ -539,7 +564,10 @@ exports.disableSeller = async (req, res) => {
               `
             };
 
-            await sgMail.send(withdrawalEmailMsg);
+            // Send emails asynchronously (non-blocking)
+            sgMail.send(withdrawalEmailMsg).catch(emailError => {
+              console.error(`❌ Error sending withdrawal email to ${seller.email}:`, emailError);
+            });
 
             // Also send notification to admin about the automatic withdrawal
             const adminNotificationMsg = {
@@ -568,24 +596,25 @@ exports.disableSeller = async (req, res) => {
               `
             };
 
-            await sgMail.send(adminNotificationMsg);
+            sgMail.send(adminNotificationMsg).catch(emailError => {
+              console.error(`❌ Error sending admin notification email:`, emailError);
+            });
 
             console.log(`✅ Automatic withdrawal created for disabled seller ${seller.email}: ₦${automaticWithdrawal.amount.toLocaleString()} (Ref: ${automaticWithdrawal.reference})`);
           } else if (withdrawalResult.requiresSupportContact) {
             // Handle case where seller has no bank details
             console.log(`📧 Sending no bank details emails for ${seller.email} (Balance: ₦${withdrawalResult.availableBalance.toLocaleString()})`);
             
-            try {
-              await sendNoBankDetailsEmails(
-                withdrawalResult.seller,
-                withdrawalResult.availableBalance,
-                'Account disabled by admin'
-              );
-              
+            // Send no bank details emails asynchronously (non-blocking)
+            sendNoBankDetailsEmails(
+              withdrawalResult.seller,
+              withdrawalResult.availableBalance,
+              'Account disabled by admin'
+            ).then(() => {
               console.log(`✅ No bank details emails sent for ${seller.email}`);
-            } catch (emailError) {
+            }).catch(emailError => {
               console.error(`❌ Error sending no bank details emails for ${seller.email}:`, emailError);
-            }
+            });
           } else {
             console.log(`⚠️ Automatic withdrawal skipped for ${seller.email}: ${withdrawalResult.reason}`);
             console.log(`   Details:`, withdrawalResult.details);
@@ -597,6 +626,75 @@ exports.disableSeller = async (req, res) => {
             existingWithdrawals: withdrawalSafetyReport.existingWithdrawals.count,
             bankDetailsValid: withdrawalSafetyReport.bankDetails.isValid
           });
+
+          // Send admin notification for invalid bank details case
+          if (!withdrawalSafetyReport.bankDetails.isValid && withdrawalSafetyReport.withdrawalCalculation.canWithdraw) {
+            const invalidBankDetailsAdminMsg = {
+              to: 'bolu@auqli.com',
+              from: 'Auqli System <support@auqli.com>',
+              subject: `Action Required: Seller ${seller.firstName} ${seller.lastName} Has Invalid Bank Details`,
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2>⚠️ Seller Disabled - Invalid Bank Details</h2>
+                  <p>A seller account has been disabled but cannot receive automatic withdrawal due to invalid bank details.</p>
+                  
+                  <div style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                    <h3 style="color: #495057; margin: 0 0 15px 0; font-size: 18px;">👤 Seller Information</h3>
+                    <ul style="color: #495057; margin: 0; line-height: 1.6;">
+                      <li><strong>Name:</strong> ${seller.firstName} ${seller.lastName}</li>
+                      <li><strong>Email:</strong> ${seller.email}</li>
+                      <li><strong>Business Name:</strong> ${seller.businessName || 'N/A'}</li>
+                      <li><strong>Account Status:</strong> Disabled</li>
+                      <li><strong>Reason:</strong> Account disabled by admin</li>
+                    </ul>
+                  </div>
+                  
+                  <div style="background-color: #e8f5e8; border: 1px solid #c3e6c3; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                    <h3 style="color: #2d5a2d; margin: 0 0 15px 0; font-size: 18px;">💰 Available Balance</h3>
+                    <p style="color: #2d5a2d; margin: 0; font-size: 24px; font-weight: bold;">
+                      ₦${seller.walletBalance.toLocaleString()}
+                    </p>
+                  </div>
+                  
+                  <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                    <h3 style="color: #721c24; margin: 0 0 15px 0; font-size: 18px;">❌ Bank Details Issue</h3>
+                    <p style="color: #721c24; margin: 0 0 15px 0; line-height: 1.6;">
+                      The seller's bank details are invalid or incomplete.
+                    </p>
+                    <p style="color: #721c24; margin: 0; line-height: 1.6;">
+                      <strong>Issue:</strong> ${withdrawalSafetyReport.bankDetails.message}
+                    </p>
+                  </div>
+                  
+                  <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 6px; padding: 20px; margin: 20px 0;">
+                    <h3 style="color: #0c5460; margin: 0 0 15px 0; font-size: 18px;">📋 Required Action</h3>
+                    <p style="color: #0c5460; margin: 0 0 15px 0; line-height: 1.6;">
+                      Please contact the seller to collect valid bank details for withdrawal processing.
+                    </p>
+                    <ul style="color: #0c5460; margin: 0; line-height: 1.6;">
+                      <li>Bank name</li>
+                      <li>Account number</li>
+                      <li>Account name (as it appears on bank statement)</li>
+                      <li>Bank routing code or SWIFT code (if available)</li>
+                    </ul>
+                  </div>
+                  
+                  <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f8f9fa; border-radius: 6px;">
+                    <p style="color: #6c757d; margin: 0; font-size: 14px;">
+                      <strong>Seller Contact:</strong> ${seller.email}<br>
+                      <strong>System Generated:</strong> ${new Date().toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              `
+            };
+
+            sgMail.send(invalidBankDetailsAdminMsg).catch(emailError => {
+              console.error(`❌ Error sending invalid bank details admin notification:`, emailError);
+            });
+            
+            console.log(`📧 Admin notification sent to bolu@auqli.com for invalid bank details: ${seller.email}`);
+          }
         }
       } catch (withdrawalError) {
         console.error('❌ Error creating automatic withdrawal for disabled seller:', withdrawalError);
@@ -659,6 +757,7 @@ exports.disableSeller = async (req, res) => {
       success: true,
       message: 'Seller account disabled successfully',
       seller,
+      productStatusUpdate,
       automaticWithdrawal: automaticWithdrawal ? {
         reference: automaticWithdrawal.reference,
         amount: automaticWithdrawal.amount,
