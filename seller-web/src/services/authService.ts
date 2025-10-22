@@ -62,9 +62,17 @@ export const authService = {
     const config = {
       baseURL: API_CONFIG.BASE_URL_V2,
     };
+
+    // create a temporary credentials object with the first name till endpoint changes are made
+    const tempCredentials = {
+      ...credentials,
+      firstName: credentials.fullName.split(" ")[0],
+      lastName: credentials.fullName.split(" ")[1],
+    }
+
     const response = await apiService.post<SignupResponse>(
       url,
-      credentials as unknown as Record<string, unknown>,
+      tempCredentials as unknown as Record<string, unknown>,
       config
     );
     return response;

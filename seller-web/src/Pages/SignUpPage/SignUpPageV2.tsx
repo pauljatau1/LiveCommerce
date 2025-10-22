@@ -1,4 +1,6 @@
 import { toast } from "sonner";
+import { AxiosError } from "axios";
+import { authService } from "@/services/authService";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { SignupFormData } from "@/schemas/signupSchema";
@@ -9,19 +11,13 @@ import PrimaryButton from "@/Components/shared/PrimaryButton";
 import MarketingSection from "@/Components/loginPage/MarketingSection";
 
 export default function SignUpPageV2() {
+    const { signUp } = authService;
+    const { isLoading, handleSignupActivity } = useAuthContext();
     const navigate = useNavigate();
-    const { isLoading } = useAuthContext();
 
-    // Mock mutation for signup - will be replaced with actual API call in another ticket
-    const { mutate, isPending } = useMutation({ 
-        mutationFn: (data: SignupFormData) => {
-            // Mock API call - replace with actual signup service
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    resolve({ success: true, data });
-                }, 2000);
-            });
-        }
+    // mutation for signup
+    const { mutate, isPending } = useMutation({
+        mutationFn: (data: SignupFormData) => signUp(data)
     });
 
     // Mock handlers for demonstration
@@ -36,27 +32,30 @@ export default function SignUpPageV2() {
 
     const handleSubmit = (data: SignupFormData) => {
         mutate(data, {
-            onSuccess: (res) => {
+            onSuccess: async (res) => {
                 console.log("Signup successful:", res);
-                
-                toast.success("Account created successfully!", {
-                    description: "Please check your email to verify your account.",
-                    style: {
-                        background: "#17171B",
-                        color: "#fff",
-                    }
-                });
 
-                // Navigate to login page after successful signup
-                setTimeout(() => {
-                    navigate("/login", { replace: true });
-                }, 2000);
+                const signUpActivity = await handleSignupActivity(res.data.user, res.data.token);
+                if (signUpActivity) {
+                    toast.success("Account created successfully!", {
+                        description: "Please check your email to verify your account.",
+                        style: {
+                            background: "#17171B",
+                            color: "#fff",
+                        }
+                    });
+
+                    // Navigate to login page after successful signup
+
+                    navigate("/dashboard/home", { replace: true });
+                }
+
             },
             onError: (error) => {
-                console.log("Signup error:", error);
-                
+                console.log("Signup error:", error instanceof AxiosError);
+
                 toast.error("Signup Failed", {
-                    description: "Something went wrong. Please try again later.",
+                    description: error?.message || "Something went wrong. Please try again later.",
                     style: {
                         background: "#17171B",
                         color: "#fff",

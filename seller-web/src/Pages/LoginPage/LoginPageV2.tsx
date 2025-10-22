@@ -18,7 +18,6 @@ export default function LoginPageV2() {
 
 
     const { mutate, isPending } = useMutation({ mutationFn: (data: LoginFormData) => login(data) });
-    // Mock handlers for demonstration
     const handleSignupClick = () => {
         // navigate to signup page
         navigate("/signup");
@@ -30,8 +29,8 @@ export default function LoginPageV2() {
     };
 
     const handleResetPasswordClick = () => {
-        console.log("Navigate to reset password page");
-        // In a real app, you would navigate to the reset password page
+        // navigate to forgot password page
+        navigate("/forgot-password");
     };
 
     const handleSubmit = (data: LoginFormData) => {
@@ -47,11 +46,6 @@ export default function LoginPageV2() {
 
                 console.log("login data from login page v2", data);
                 handleLoginActivity(data.seller, data.token);
-
-                // wait for 2 seconds after showing toast and then navigate to dashboard
-                setTimeout(() => {
-                    navigate("/dashboard/home", { replace: true });
-                }, 2000);
             },
             onError: (error) => {
                 console.log(error instanceof AxiosError);
