@@ -96,9 +96,18 @@ const RsvpSheet = ({ streamDetails, closeSheet }: any) => {
           </View>
         </Pressable>
       </View>
-      { streamDetails?.seller && (
+      {streamDetails?.seller && (
         <View className="flex-row items-center justify-center gap-[8px] mb-[5px]">
-          <GlassImage source={{ uri: streamDetails?.seller?.storeAvatar?.url }} containerClassName="w-[30px] h-[30px] rounded-full" imageClassName="w-full h-full rounded-full" glassClassName="w-full h-full rounded-full" placeholderColor="rgba(255, 255, 255, 0.1)" blurIntensity={20} tint="dark" showActivityIndicator={false} />
+          <GlassImage
+            source={{ uri: streamDetails?.seller?.storeAvatar?.url }}
+            containerClassName="w-[30px] h-[30px] rounded-full"
+            imageClassName="w-full h-full rounded-full"
+            glassClassName="w-full h-full rounded-full"
+            placeholderColor="rgba(255, 255, 255, 0.1)"
+            blurIntensity={20}
+            tint="dark"
+            showActivityIndicator={false}
+          />
           <Text className="text-[14px] text-[#ccc] font-LexendDecaMedium">
             {streamDetails?.seller?.storeName}
           </Text>
@@ -111,13 +120,7 @@ const RsvpSheet = ({ streamDetails, closeSheet }: any) => {
         </Text>
       </View>
 
-      {gettingStatus ? (
-        <ActivityIndicator
-          size={"small"}
-          color="white"
-          style={{ marginBottom: 12 }}
-        />
-      ) : subscribed ? (
+      {subscribed ? (
         <Pressable
           className="mb-[12px] border-[2px] border-[#16783A] rounded-[8px] bg-[#16783A] items-center justify-center h-[60px] w-[90%] self-center"
           style={{

@@ -9,7 +9,7 @@ import {
   Platform,
   RefreshControl,
 } from "react-native";
-import React, { useCallback, useRef, useState, useEffect } from "react";
+import React, { useCallback, useRef, useState, useEffect, Ref } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
@@ -21,11 +21,13 @@ import LottieView from "lottie-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getToken } from "@/store/features/auth/utils";
 import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import { useIsFocused } from "@react-navigation/native";
 
 const { height } = Dimensions.get("screen");
 
 const LivestreamFeed = () => {
   const { id, type, itmSource } = useLocalSearchParams();
+  const isFocused = useIsFocused();
   const token = useSelector((state: RootState) => state.authState.token);
   const insets = useSafeAreaInsets();
   const statusBarHeight = insets.top;
@@ -107,10 +109,15 @@ const LivestreamFeed = () => {
     fetchNextLives();
   }, []);
 
-  const onViewableItemsChanged = useRef(
+  useEffect(() => {
+    setLives([{ _id: id, type }]);
+  }, [id]);
+
+  const onViewableItemsChanged = useCallback(
     async ({ viewableItems }: { viewableItems: any }) => {
       if (viewableItems.length > 0) {
         const newIndex = viewableItems[0].index;
+        console.log({ currentIndex, newIndex });
 
         // If the index is changing, cleanup the previous stream BEFORE updating currentIndex
         if (newIndex !== currentIndex) {
@@ -148,7 +155,46 @@ const LivestreamFeed = () => {
         setCurrentIndex(newIndex);
       }
     },
-  ).current;
+    [currentIndex],
+  );
+
+  const handleCleanupOnUnmount = useCallback(async () => {
+    const currentStreamRef = livestreamRefs.current[currentIndex];
+    console.log("trying to unmount stream");
+
+    if (currentStreamRef?.cleanup) {
+      console.log(
+        `🧹 [Feed] Triggering cleanup for stream at index ${currentIndex}`,
+      );
+      try {
+        await currentStreamRef.cleanup();
+        console.log(
+          `✅ [Feed] Cleanup completed for stream at index ${currentIndex}`,
+        );
+      } catch (error) {
+        console.error(
+          `❌ [Feed] Cleanup failed for stream at index ${currentIndex}:`,
+          error,
+        );
+      }
+    } else {
+      console.log(
+        `⚠️ [Feed] No cleanup function found for stream at index ${currentIndex}`,
+      );
+    }
+  }, [currentIndex, livestreamRefs]);
+
+  useEffect(() => {
+    if (!isFocused && livestreamRefs) {
+      handleCleanupOnUnmount();
+    }
+  }, [isFocused, livestreamRefs]);
+
+  useEffect(() => {
+    return () => {
+      handleCleanupOnUnmount();
+    };
+  }, []);
 
   const viewabilityConfig = {
     itemVisiblePercentThreshold: 80,
@@ -167,7 +213,7 @@ const LivestreamFeed = () => {
         return (
           <LivestreamStudioFeed
             id={item._id}
-            isVisible={index === currentIndex}
+            isVisible={index === currentIndex && isFocused}
             shared={itmSource?.toString() == "share"}
             onRegisterCleanup={registerCleanup}
           />
@@ -176,13 +222,13 @@ const LivestreamFeed = () => {
       return (
         <LiveAuctionStudioFeed
           id={item._id}
-          isVisible={index === currentIndex}
+          isVisible={index === currentIndex && isFocused}
           shared={itmSource?.toString() == "share"}
           onRegisterCleanup={registerCleanup}
         />
       );
     },
-    [currentIndex, itmSource],
+    [currentIndex, itmSource, isFocused],
   );
 
   const renderFooter = useCallback(() => {
@@ -250,9 +296,9 @@ const LivestreamFeed = () => {
             pagingEnabled
             onEndReached={fetchNextLives}
             onEndReachedThreshold={1}
-            initialNumToRender={5}
-            maxToRenderPerBatch={3}
-            windowSize={5}
+            initialNumToRender={1}
+            maxToRenderPerBatch={1}
+            windowSize={1}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
             getItemLayout={(_, index) => ({
@@ -273,12 +319,12 @@ const LivestreamFeed = () => {
             removeClippedSubviews={false}
             updateCellsBatchingPeriod={50}
             decelerationRate="fast"
-            snapToInterval={
-              Platform.OS == "ios"
-                ? height - insets.bottom
-                : height - insets.bottom - insets.top
-            }
-            snapToAlignment="center"
+            // snapToInterval={
+            //   Platform.OS == "ios"
+            //     ? height - insets.bottom
+            //     : height - insets.bottom - insets.top
+            // }
+            // snapToAlignment="center"
             keyboardShouldPersistTaps="handled"
             scrollEventThrottle={16}
           />

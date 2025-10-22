@@ -488,8 +488,8 @@ const LiveAuctionStudio = memo(
     const tapCount = useRef(0);
     const lastTapTime = useRef(0);
     const isAnimating = useRef(false);
-    const heartPressTimeout = useRef<NodeJS.Timeout | null>(null);
-    const socketThrottleTimeout = useRef<NodeJS.Timeout | null>(null);
+    const heartPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const socketThrottleTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const animationFrameRef = useRef<number | null>(null);
 
     // Constants

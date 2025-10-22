@@ -581,7 +581,7 @@ const StreamOrdersComponent = ({ streamId, closeSheet }: StreamOrdersProps) => {
 
   return (
     <BottomSheetScrollView 
-      style={styles.container} 
+      className='h-[600px] bg-[#121212] ' 
       showsVerticalScrollIndicator={false}
       removeClippedSubviews={true}
       contentInsetAdjustmentBehavior="automatic"
