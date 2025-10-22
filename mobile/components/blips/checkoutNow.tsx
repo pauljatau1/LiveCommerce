@@ -486,6 +486,7 @@ const CheckoutNow = ({
     const token = await getToken();
     try {
       setOrderloading(true);
+      setShowRatesSheet(true);
       const config = {
         method: "POST",
         url: process.env.EXPO_PUBLIC_API_URL + `api/v2/orders`,
@@ -528,7 +529,7 @@ const CheckoutNow = ({
       setOrderId(response?.data?.orders?.[0]?.orderId);
       setOrderTotal(response?.data?.orders?.[0]?.totalAmount);
       setOrderloading(false);
-      setShowRatesSheet(true);
+      // setShowRatesSheet(true);
     } catch (e: any) {
       console.log("could not create order", e?.response);
       setOrderloading(false);
@@ -627,6 +628,7 @@ const CheckoutNow = ({
 
   const handleCloseRatesSheet = useCallback(() => {
     setShowRatesSheet(false);
+    setRates([]);
   }, []);
 
   useEffect(() => {
@@ -1276,7 +1278,9 @@ const CheckoutNow = ({
         title=""
         show={showRatesSheet}
         titleColor="!text-white"
-        onRequestClose={() => setShowRatesSheet(false)}
+        onRequestClose={handleCloseRatesSheet}
+        enableContentPanningGesture
+        enablePanDownToClose
         keyboardBehavior="extend"
       >
         <SelectRatesSheet
@@ -1290,6 +1294,9 @@ const CheckoutNow = ({
           isInternational={isInternational}
           isFreeShipping={freeShipping}
           isStorePickup={selectedDeliveryOpt == 1}
+          isReady={
+            (rates?.length || selectedDeliveryOpt === 1) && !orderLoading
+          }
         />
       </BottomSheet>
       {/* <LoadingModal isVisible={orderLoading} />

@@ -1,5 +1,11 @@
-import { View, Text, Pressable, StyleSheet } from "react-native";
-import React, { memo, useCallback, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { toast as sonnerToast } from "sonner-native";
 import Animated, {
   Easing,
@@ -8,6 +14,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
   withTiming,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
@@ -24,6 +31,7 @@ import useGetPaystackKeys from "@/core/hooks/use-get-paystack-keys";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useBottomSheetModal } from "@gorhom/bottom-sheet";
 import CallPaystack from "@/app/(root)/checkout/callPaystack";
+import Spinner from "@/components/global/svgIcons/spinner";
 
 const rates = [
   {
@@ -365,86 +373,118 @@ const SelectRatesSheet = (props: any) => {
         </Pressable>
       );
     },
-    [props?.rates, selectedRate],
+    [props, selectedRate],
   );
 
+  const rotation = useSharedValue(0);
+
+  const spinnerStyle = useAnimatedStyle(() => {
+    return { transform: [{ rotate: `${rotation.value}deg` }] };
+  });
+
+  useEffect(() => {
+    rotation.value = withRepeat(
+      withTiming(360, {
+        duration: 1000,
+        easing: Easing.bezier(0.5, 0.7, 0.5, 0.7),
+      }),
+      -1,
+      false,
+      () => null,
+    );
+  }, []);
+
   return (
-    <View className="p-[12px]">
-      <View className="gap-[10px] mb-[30px]">
-        {props?.rates?.length > 0 &&
-          props?.rates
-            ?.sort((a: any, b: any) => a?.amount - b?.amount)
-            ?.slice(0, 7)
-            .map((rate: any, index: number) => renderRateCard({ rate, index }))}
-      </View>
-      {(selectedRate || props?.isInternational) && (
-        <View className="">
-          <View className="flex-row items-center justify-between mb-[10] mx-[6]">
-            <Text className="text-white text-[14px] font-LexendDecaLight">
-              Total
-            </Text>
-            <Text className="text-white text-[14px] font-LexendDeca">
-              ₦
-              {totalOrderAmount?.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </Text>
-          </View>
-          <View className="flex-row items-center justify-between mb-[10] mx-[6]">
-            <Text className="text-white text-[14px] font-LexendDecaLight">
-              Estiamted Delivery
-            </Text>
-            <Text className="text-white text-[14px] font-LexendDeca">
-              {selectedRate ? selectedRate?.delivery_time : "International"}
-            </Text>
-          </View>
+    <View>
+      {!props.isReady ? (
+        <View className="gap-[20px] px-[30px] py-[50px] pb-[70px] items-center justify-center">
+          <Animated.View style={[spinnerStyle]}>
+            <Spinner />
+          </Animated.View>
+
+          <Text className="text-[#FFFFFFCC] text-[18px] text-center font-LexendDecaLight tracking-[-0.2px]">
+            Checking available riders, will take a few seconds...
+          </Text>
         </View>
-      )}
+      ) : (
+        <View className="p-[12px]">
+          <View className="gap-[10px] mb-[30px]">
+            {props?.rates?.length > 0 &&
+              props?.rates
+                ?.sort((a: any, b: any) => a?.amount - b?.amount)
+                ?.slice(0, 7)
+                .map((rate: any, index: number) =>
+                  renderRateCard({ rate, index }),
+                )}
+          </View>
+          {(selectedRate || props?.isInternational) && (
+            <View className="">
+              <View className="flex-row items-center justify-between mb-[10] mx-[6]">
+                <Text className="text-white text-[14px] font-LexendDecaLight">
+                  Total
+                </Text>
+                <Text className="text-white text-[14px] font-LexendDeca">
+                  ₦
+                  {totalOrderAmount?.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </Text>
+              </View>
+              <View className="flex-row items-center justify-between mb-[10] mx-[6]">
+                <Text className="text-white text-[14px] font-LexendDecaLight">
+                  Estiamted Delivery
+                </Text>
+                <Text className="text-white text-[14px] font-LexendDeca">
+                  {selectedRate ? selectedRate?.delivery_time : "International"}
+                </Text>
+              </View>
+            </View>
+          )}
 
-      <AnimatedPressable
-        disabled={
-          !selectedRate && !props?.isInternational && !props?.isStorePickup
-        }
-        onPressIn={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          payBtnScale.value = withTiming(0.98, {
-            duration: 100,
-            easing: Easing.out(Easing.ease),
-          });
-        }}
-        onPressOut={() => {
-          payBtnScale.value = withTiming(
-            1,
-            {
-              duration: 100,
-            },
+          <AnimatedPressable
+            disabled={
+              !selectedRate && !props?.isInternational && !props?.isStorePickup
+            }
+            onPressIn={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              payBtnScale.value = withTiming(0.98, {
+                duration: 100,
+                easing: Easing.out(Easing.ease),
+              });
+            }}
+            onPressOut={() => {
+              payBtnScale.value = withTiming(
+                1,
+                {
+                  duration: 100,
+                },
 
-            () => runOnJS(handlePay)(),
-          );
-        }}
-        style={[
-          payBtnStyle,
-          {
-            height: 55,
-            borderRadius: 14,
-            justifyContent: "center",
-            alignItems: "center",
-            backgroundColor:
-              selectedRate || props?.isInternational || props?.isStorePickup
-                ? "#16783A"
-                : "#C6C6C6",
-            opacity: selectedRate ? 1 : 0.8,
-            marginHorizontal: 6,
-          },
-        ]}
-      >
-        <Text className="font-LexendDecaMedium text-[14px] text-white">
-          Pay
-        </Text>
-      </AnimatedPressable>
+                () => runOnJS(handlePay)(),
+              );
+            }}
+            style={[
+              payBtnStyle,
+              {
+                height: 55,
+                borderRadius: 14,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor:
+                  selectedRate || props?.isInternational || props?.isStorePickup
+                    ? "#16783A"
+                    : "#C6C6C6",
+                opacity: selectedRate ? 1 : 0.8,
+                marginHorizontal: 6,
+              },
+            ]}
+          >
+            <Text className="font-LexendDecaMedium text-[14px] text-white">
+              Pay
+            </Text>
+          </AnimatedPressable>
 
-      {/* {showPaystack && (
+          {/* {showPaystack && (
         <View className="absolute top-0 left-0 w-full h-full z-10">
           <Paystack
             refNumber={generateReference()}
@@ -490,7 +530,9 @@ const SelectRatesSheet = (props: any) => {
           />
         </View>
       )} */}
-      <LoadingModal isVisible={loading} />
+          <LoadingModal isVisible={loading} />
+        </View>
+      )}
     </View>
   );
 };

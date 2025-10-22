@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     zIndex: 10000000,
   },
   contentView: {
-    flex: 1,
+    // flex: 1,
   },
 });
 

@@ -446,6 +446,7 @@ const Checkout = () => {
 
   const handleCloseRatesSheet = useCallback(() => {
     setShowRatesSheet(false);
+    setRates([]);
   }, []);
 
   const onPaystackSuccess = useCallback(
@@ -609,6 +610,8 @@ const Checkout = () => {
     // return console.log(JSON.stringify(order));
 
     setOrderloading(true);
+    setShowRatesSheet(true);
+
     try {
       const config = {
         method: "POST",
@@ -857,7 +860,7 @@ const Checkout = () => {
       setOrderId(response?.data?.orders?.[0]?.orderId);
       setOrderTotal(response?.data?.orders?.[0]?.totalAmount);
       setOrderloading(false);
-      setShowRatesSheet(true);
+      // setShowRatesSheet(true);
 
       try {
         const userData = await AsyncStorage.getItem("user");
@@ -1628,7 +1631,9 @@ const Checkout = () => {
             title=""
             show={showRatesSheet}
             titleColor="!text-white"
-            onRequestClose={() => setShowRatesSheet(false)}
+            onRequestClose={handleCloseRatesSheet}
+            enableContentPanningGesture
+            enablePanDownToClose
             keyboardBehavior="extend"
           >
             <SelectRatesSheet
@@ -1644,6 +1649,7 @@ const Checkout = () => {
               isInternational={isInternational}
               isFreeShipping={freeShipping}
               isStorePickup={selectedDeliveryOpt == 1}
+              isReady={rates?.length || selectedDeliveryOpt === 1}
             />
           </BottomSheet>
         </View>
