@@ -14,18 +14,18 @@ class GetAllProductsService {
       visibility = 'visible'
     } = req.query;
 
-    // Build base query: exclude offline_auction and out-of-stock
+    // Build base query: exclude offline_auction, draft products and out-of-stock
     const query = {
-      status: { $ne: 'offline_auction' },
+      status: { $nin: ['offline_auction', 'draft'] },
       stock: { $gt: 0 }
     };
 
     // Only add status/visibility filters to the DB query if explicitly provided
     if (Object.prototype.hasOwnProperty.call(req.query, 'status')) {
-      query.status = status;
+      query.status = req.query.status;
     }
     if (Object.prototype.hasOwnProperty.call(req.query, 'visibility')) {
-      query.visibility = visibility;
+      query.visibility = req.query.visibility;
     }
     if (category) query.category = category;
 
