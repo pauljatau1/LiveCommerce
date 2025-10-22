@@ -11,10 +11,9 @@ class GetPersonalizedProductsService {
     const isAuthenticated = !!req.user;
 
     const baseQuery = {
-      status: 'active',
+      status: { $nin: ['offline_auction', 'draft'] },
       visibility: 'visible',
-      stock: { $gt: 0 },
-      status: { $ne: 'offline_auction' }
+      stock: { $gt: 0 }
     };
 
     // total count
