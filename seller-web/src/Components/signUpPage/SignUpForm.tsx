@@ -147,7 +147,7 @@ export default function SignUpForm({ onSignInClick, onGoogleSignup, onSubmit, is
                                                 {...field}
                                                 id="phoneNumber"
                                                 type="tel"
-                                                label="Enter phone number"
+                                                label="Enter number"
                                                 className={`w-full rounded-l-none ${form.formState.errors.phoneNumber ? "border-[#ff4444] focus-visible:border-[#ff4444] focus-visible:ring-[#ff4444]/20" : "border-input focus-visible:border-input focus-visible:ring-input"}`}
                                                 disabled={isPending}
                                             />

@@ -173,7 +173,7 @@ export default function ForgotPasswordForm({ onSuccess, onCancel }: ForgotPasswo
                                             {...field}
                                             id="email"
                                             type="email"
-                                            label="Enter you e-mail"
+                                            label="Enter your e-mail"
                                             className={`w-full ${step1Form.formState.errors.email ? "border-[#ff4444] focus-visible:border-[#ff4444] focus-visible:ring-[#ff4444]/20" : "border-input focus-visible:border-input focus-visible:ring-input"}`}
                                             disabled={sendOtpMutation.isPending}
                                         />
