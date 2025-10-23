@@ -22,7 +22,7 @@ exports.createOrder = async (req, res) => {
     // Step 1: Create the draft order(s)
     console.log('Controller: Calling createOrder service...');
     const createdOrders = await orderService.createOrder(req);
-    const orderResult = { orders: createdOrders }; // Structure the data as the rest of the function expects
+    const orderResult = { orders: createdOrders.mainOrder, liveShowOrders: createdOrders.liveShowOrders }; // Structure the data as the rest of the function expects
     console.log('Controller: Received from createOrder service:', JSON.stringify(createdOrders, null, 2));
 
     // Step 2 & 3: For each order, create shipment and get rates
@@ -75,6 +75,7 @@ exports.createOrder = async (req, res) => {
     return res.status(201).json({
       message: 'Draft orders created and rates fetched successfully.',
       orders: finalOrders,
+      liveShowOrders: createdOrders.liveShowOrders
     });
 
   } catch (error) {
