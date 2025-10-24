@@ -20,6 +20,55 @@ const verifySendGridConfig = () => {
   }
 };
 
+// Helper function to restore product stock when orders are cancelled or expired
+const restoreProductStock = async (order, reason = 'Order cancelled/expired') => {
+  try {
+    console.log(`Restoring stock for order ${order.order_id} - Reason: ${reason}`);
+    
+    const Product = mongoose.model('Product');
+    let totalStockRestored = 0;
+    
+    for (const item of order.items) {
+      // Only restore stock if the item was actually sold (not cancelled already)
+      if (item.status !== 'cancelled') {
+        console.log(`Restoring stock for product ${item.product} - Quantity: ${item.quantity}`);
+        
+        const updateResult = await Product.findByIdAndUpdate(
+          item.product,
+          { 
+            $inc: { 
+              'stats.soldCount': -item.quantity,
+              'stock': item.quantity,
+              'inventory.quantity': item.quantity 
+            }
+          },
+          { new: true }
+        );
+        
+        if (updateResult) {
+          totalStockRestored += item.quantity;
+          console.log(`Successfully restored ${item.quantity} units of stock for product ${item.product}`);
+          console.log(`Product ${item.product} stock after restoration:`, {
+            stock: updateResult.stock,
+            inventoryQuantity: updateResult.inventory.quantity,
+            soldCount: updateResult.stats.soldCount
+          });
+        } else {
+          console.error(`Failed to restore stock for product ${item.product}`);
+        }
+      } else {
+        console.log(`Skipping stock restoration for product ${item.product} - item already cancelled`);
+      }
+    }
+    
+    console.log(`Stock restoration completed for order ${order.order_id} - Total units restored: ${totalStockRestored}`);
+    return totalStockRestored;
+  } catch (error) {
+    console.error(`Error restoring stock for order ${order.order_id}:`, error);
+    throw error;
+  }
+};
+
 // Check SendGrid configuration at startup
 verifySendGridConfig();
 
@@ -1592,6 +1641,16 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
         }
       }
       
+      // Restore product stock for unpaid orders
+      console.log(`Restoring product stock for unpaid order ${order.order_id}`);
+      try {
+        const stockRestored = await restoreProductStock(order, 'Unpaid order marked as stale');
+        console.log(`Successfully restored ${stockRestored} units of stock for unpaid order ${order.order_id}`);
+      } catch (stockError) {
+        console.error(`Error restoring stock for unpaid order ${order.order_id}:`, stockError);
+        // Continue with order processing even if stock restoration fails
+      }
+      
       // Check if this was a hybrid payment (wallet + Paystack) and refund wallet amount if needed
       const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
       
@@ -1949,7 +2008,15 @@ agenda.define('mark_terminal_orders_stale', async (job) => {
       }
     }
     
-    // Do NOT restore stock for draft/pending_payment orders, as it was never deducted.
+    // Restore product stock for expired Terminal Africa orders
+    console.log(`Restoring product stock for expired Terminal Africa order ${order.order_id}`);
+    try {
+      const stockRestored = await restoreProductStock(order, `Terminal Africa order expired - ${staleReason}`);
+      console.log(`Successfully restored ${stockRestored} units of stock for expired Terminal Africa order ${order.order_id}`);
+    } catch (stockError) {
+      console.error(`Error restoring stock for expired Terminal Africa order ${order.order_id}:`, stockError);
+      // Continue with order processing even if stock restoration fails
+    }
     
     // Send notification emails to buyer and seller
     try {
