@@ -220,6 +220,10 @@ function Sellers() {
   });
 
   const [exporting, setExporting] = useState<string | null>(null);
+  
+  // Disable non-Lagos sellers state
+  const [disablingNonLagos, setDisablingNonLagos] = useState(false);
+  const [showDisableNonLagosModal, setShowDisableNonLagosModal] = useState(false);
 
   // Add state for screen size
   const [isMobile, setIsMobile] = useState(false);
@@ -865,6 +869,48 @@ function Sellers() {
     }
   };
 
+  // Handle disabling all sellers outside Lagos
+  const handleDisableNonLagosSellers = async () => {
+    setDisablingNonLagos(true);
+    try {
+      const response = await api.post('/api/v2/admin/sellers/disable-non-lagos');
+      
+      console.log('Disable non-Lagos API response:', response.data);
+      
+      if (response.data.status) {
+        // Show success toast notification
+        toast({
+          title: "Success",
+          description: `Successfully disabled ${response.data.modifiedCount} sellers outside Lagos. ${response.data.emailsSent} notification emails sent.`,
+          variant: "default",
+        });
+        
+        // Show success dialog with actual counts from API response
+        showSuccessDialog(
+          "Non-Lagos Sellers Disabled",
+          `Successfully disabled ${response.data.modifiedCount} sellers outside Lagos. ${response.data.emailsSent} notification emails sent.`
+        );
+        
+        // Refresh the sellers list to reflect the changes
+        await fetchSellers();
+        
+        // Close the modal
+        setShowDisableNonLagosModal(false);
+      } else {
+        throw new Error(response.data.message || "Failed to disable sellers");
+      }
+    } catch (error: any) {
+      console.error("Error disabling non-Lagos sellers:", error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || error.message || "Failed to disable non-Lagos sellers",
+        variant: "destructive",
+      });
+    } finally {
+      setDisablingNonLagos(false);
+    }
+  };
+
   // Check if a seller has incomplete onboarding
   const hasIncompleteOnboarding = (seller: Seller) => {
     return (
@@ -1200,6 +1246,19 @@ function Sellers() {
             Incomplete: {stats.totalIncompleteSellers}
           </Badge> */}
            <div className="flex justify-end gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
+        <Button
+          variant="outline"
+          onClick={() => setShowDisableNonLagosModal(true)}
+          disabled={disablingNonLagos}
+          className="flex text-white bg-red-600 items-center gap-2 text-xs sm:text-sm w-full sm:w-auto mr-2"
+        >
+          {disablingNonLagos ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <XCircle className="h-4 w-4" />
+          )}
+          Disable Non-Lagos Sellers
+        </Button>
         <Button
           variant="outline"
           onClick={handleSendBulkOnboardingReminders}
@@ -2331,6 +2390,68 @@ function Sellers() {
           <DialogFooter>
             <Button onClick={handleCloseSuccessDialog}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disable Non-Lagos Sellers Confirmation Modal */}
+      <Dialog open={showDisableNonLagosModal} onOpenChange={setShowDisableNonLagosModal}>
+        <DialogContent className="bg-zinc-950 text-zinc-100 border border-zinc-800 max-w-md w-[90%]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-white">
+              <XCircle className="h-5 w-5 text-red-400" />
+              Disable Non-Lagos Sellers
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-md p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-medium text-red-400 mb-2">Warning: This action cannot be undone</h4>
+                  <p className="text-sm text-zinc-300">
+                    This will disable all sellers whose business address is not in Lagos state. 
+                    These sellers will no longer be able to access their accounts or sell products.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-amber-400">
+                    <strong>Note:</strong> This action will affect all sellers outside Lagos state. 
+                    Make sure this is the intended action before proceeding.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+            <Button
+              variant="ghost"
+              onClick={() => setShowDisableNonLagosModal(false)}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDisableNonLagosSellers}
+              disabled={disablingNonLagos}
+              className="w-full sm:w-auto bg-red-600 hover:bg-red-700"
+            >
+              {disablingNonLagos ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <XCircle className="h-4 w-4 mr-2" />
+              )}
+              Disable Non-Lagos Sellers
             </Button>
           </DialogFooter>
         </DialogContent>
