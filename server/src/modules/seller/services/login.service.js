@@ -90,8 +90,10 @@ async function login(data) {
   // This provides secure authentication for subsequent requests
   const token = generateToken(seller._id, 'Seller', '2w');
   
-  // Step 4: Return authenticated user data and token
-  return { user: seller, token: token };
+  // Step 4: Return authenticated user data and token (exclude password for security)
+  const userResponse = seller.toObject ? seller.toObject() : { ...seller };
+  delete userResponse.password;
+  return { user: userResponse, token: token };
 }
 
 module.exports = {
