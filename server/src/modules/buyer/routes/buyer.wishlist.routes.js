@@ -208,6 +208,54 @@ router.get('/wishlist', verifyToken, isBuyer, buyerController.getWishlist);
  */
 router.delete('/wishlist/:productId', verifyToken, isBuyer, buyerController.removeFromWishlist);
 
+/**
+ * @swagger
+ * /api/v2/buyers/wishlist/{productId}/check:
+ *   get:
+ *     summary: Check if a product is in buyer's wishlist
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product to check in wishlist
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Wishlist status checked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Wishlist status checked successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     inWishlist:
+ *                       type: boolean
+ *                       description: Whether the product is in the buyer's wishlist
+ *                       example: true
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer or product not found
+ *       422:
+ *         description: Validation error - Invalid product ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/wishlist/:productId/check', verifyToken, isBuyer, buyerController.checkWishlistStatus);
+
 module.exports = router;
 
 
