@@ -18,8 +18,10 @@ import NotFoundIcon from '@/assets/not-found-icon.png';
 import LinearProgress from '@mui/material/LinearProgress';
 import Header from "@/Components/ui/Header/Header"
 import { useOutletContext } from "react-router-dom"
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
 
 function CustomerDetail() {
+  const { token } = useAuthContext();
   const { setHeaderName, setNavName } = useOutletContext()
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
   const [customerData, setCustomerData] = useState(null);
@@ -37,17 +39,16 @@ function CustomerDetail() {
   useEffect(() => {
     const fetchCustomerData = async () => {
       try {
-        const sellerToken = localStorage.getItem('sellerToken')
+        const sellerToken = token?.data
         if (!sellerToken) {
           console.error('Seller token not found')
           return
         }
-        const tokenData = JSON.parse(sellerToken)
         
         // Fetch customer data
         const response = await fetch(`${BASE_URL}/seller/buyer/${id}`, {
           headers: {
-            'Authorization': `Bearer ${tokenData.data}`
+            'Authorization': `Bearer ${sellerToken}`
           }
         });
         const data = await response.json();
@@ -55,7 +56,7 @@ function CustomerDetail() {
         // Check if the seller is following this buyer
         const followingResponse = await fetch(`${BASE_URL}/seller/following/buyers`, {
           headers: {
-            'Authorization': `Bearer ${tokenData.data}`
+            'Authorization': `Bearer ${sellerToken}`
           }
         });
         const followingData = await followingResponse.json();
@@ -124,12 +125,11 @@ function CustomerDetail() {
 
   const handleFollowClick = async () => {
     try {
-      const sellerToken = localStorage.getItem('sellerToken');
+      const sellerToken = token?.data;
       if (!sellerToken) {
         console.error('Seller token not found');
         return;
       }
-      const tokenData = JSON.parse(sellerToken);
 
       const endpoint = isFollowing ? 'unfollow' : 'follow';
       const method = isFollowing ? 'DELETE' : 'POST';
@@ -137,7 +137,7 @@ function CustomerDetail() {
       const response = await fetch(`${BASE_URL}/seller/${endpoint}/${id}`, {
         method,
         headers: {
-          'Authorization': `Bearer ${tokenData.data}`
+          'Authorization': `Bearer ${sellerToken}`
         }
       });
 

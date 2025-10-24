@@ -14,8 +14,10 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { BASE_URL } from '../../Constants/Server';
 import { trackEvent } from '@/util/analytics';
+import { useAuthContext } from '@/Hooks/useAuthContextV2';  
 
 const Blips = () => {
+  const { token, seller } = useAuthContext();
   const { setHeaderName, setNavName } = useOutletContext()
   const dispatch = useDispatch();
   const { blips, isLoadingBlips, blipsPagination, products } = useSelector((state) => state.product);
@@ -111,7 +113,7 @@ const Blips = () => {
     setIsLoadingProducts(true);
     try {
       // Fetch active products for the seller
-      const seller = JSON.parse(localStorage.getItem('seller'));
+      const seller = seller;
       const response = await axios.get(`${BASE_URL}/products/seller/${seller._id}`, {
         params: {
           status: 'active',
@@ -143,8 +145,7 @@ const Blips = () => {
     if (!productIds.length) return;
 
     try {
-      const sellerToken = localStorage.getItem('sellerToken');
-      const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
+      const sellerToken = token?.data;
 
       // Create a map to store which products have blips
       const blipStatusMap = {};
@@ -154,7 +155,7 @@ const Blips = () => {
         try {
           const response = await axios.get(`${BASE_URL}/products/${productId}`, {
             headers: {
-              Authorization: `Bearer ${tokenData.data}`
+              Authorization: `Bearer ${sellerToken}`
             }
           });
 
@@ -279,8 +280,7 @@ const Blips = () => {
         formData.append('blipVideos', file);
       });
 
-      const sellerToken = localStorage.getItem('sellerToken');
-      const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
+      const sellerToken = token?.data;
 
       // Create upload request with progress tracking
       const response = await axios.post(
@@ -288,7 +288,7 @@ const Blips = () => {
         formData,
         {
           headers: {
-            Authorization: `Bearer ${tokenData.data}`,
+            Authorization: `Bearer ${sellerToken}`,
             'Content-Type': 'multipart/form-data'
           },
           onUploadProgress: (progressEvent) => {

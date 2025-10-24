@@ -1,17 +1,19 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/Components/ui/dialog';
-import { Progress } from '@/Components/ui/progress';
-import { CircularProgress } from '@mui/material';
 import { Icon } from '@iconify/react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import { Progress } from '@/Components/ui/progress';
 import { BASE_URL } from '@/Constants/Server';
 import { trackEvent } from '@/util/analytics';
+import { useAuthContext } from '@/Hooks/useAuthContextV2';
+import { CircularProgress } from '@mui/material';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/Components/ui/dialog';
+import axios from 'axios';
 import VideoPlayer from '@/Shared/VideoPlayer';
 import PropTypes from 'prop-types';
 
 // Update the BlipUploadModal to include product information
 const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPopUp, changeLinkType, changeDeepLink }) => {
+    const { token, seller } = useAuthContext();
     const [blipVideos, setBlipVideos] = useState([]);
     const [previewUrls, setPreviewUrls] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -28,7 +30,7 @@ const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPo
         typeof changeLinkType === 'function' &&
         typeof changeDeepLink === 'function';
 
-        console.log('blip upload modal open details', productId, product)
+    console.log('blip upload modal open details', productId, product)
 
     // Fetch complete product data with blips when modal opens
     const fetchProductWithBlips = useCallback(async () => {
@@ -36,12 +38,11 @@ const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPo
 
         setIsLoadingProduct(true);
         try {
-            const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
-
+            const sellerToken = token?.data;
+            if (!sellerToken) return;
             const response = await axios.get(`${BASE_URL}/products/${productId}`, {
                 headers: {
-                    Authorization: `Bearer ${tokenData.data}`
+                    Authorization: `Bearer ${sellerToken}`
                 }
             });
 
@@ -140,8 +141,7 @@ const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPo
                 formData.append('blipVideos', file);
             });
 
-            const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
+            const sellerToken = token?.data;
 
             // Create upload request with progress tracking
             const response = await axios.post(
@@ -149,7 +149,7 @@ const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPo
                 formData,
                 {
                     headers: {
-                        Authorization: `Bearer ${tokenData.data}`,
+                        Authorization: `Bearer ${sellerToken}`,
                         'Content-Type': 'multipart/form-data'
                     },
                     onUploadProgress: (progressEvent) => {
@@ -172,7 +172,7 @@ const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPo
                     setExistingBlips(response.data.blips);
                 }
 
-                const sellerDetails = JSON.parse(localStorage.getItem('seller'));
+                const sellerDetails = seller;
 
                 trackEvent('blip_created', {
                     sellerId: sellerDetails?._id,
@@ -216,14 +216,13 @@ const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPo
         setDeletingBlipId(blipId);
 
         try {
-            const sellerToken = localStorage.getItem('sellerToken');
-            const tokenData = sellerToken ? JSON.parse(sellerToken) : { data: null };
-
+            const sellerToken = token?.data;
+            if (!sellerToken) return;
             const response = await axios.delete(
                 `${BASE_URL}/products/${productId}/blips/${blipId}`,
                 {
                     headers: {
-                        Authorization: `Bearer ${tokenData.data}`
+                        Authorization: `Bearer ${sellerToken}`
                     }
                 }
             );

@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/Components/ui/tabs"
 import { ChevronRight, Package, AlertTriangle } from "lucide-react"
 import { BASE_URL } from "@/Constants/Server"
 import { useOutletContext, useNavigate } from "react-router-dom"
+import { tokenUtils } from "@/util/auth"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
 
 export default function ReturnsDashboard() {
@@ -40,7 +41,7 @@ export default function ReturnsDashboard() {
 
     const fetchReturns = async () => {
         try {
-            const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+            const sellerToken = tokenUtils.getBearerToken()
             const queryParams = new URLSearchParams({
                 page,
                 limit,
@@ -55,7 +56,7 @@ export default function ReturnsDashboard() {
             const data = await response.json()
             
             // Extract unique statuses from the returns data
-            const statuses = new Set(['all-status', ...data.returns.map(item => 
+            const statuses = new Set(['all-status', ...data.returns?.map(item => 
                 item.status.toLowerCase()
             )])
             setAvailableStatuses(statuses)
@@ -70,8 +71,8 @@ export default function ReturnsDashboard() {
 
     const fetchReturnStats = async () => {
         try {
-            const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
-            const response = await fetch(`${BASE_URL}/returns/seller/statistics`, {
+            const sellerToken = tokenUtils.getBearerToken()
+            const response = await fetch(`${BASE_URL}/returns/statistics`, {
                 headers: {
                     Authorization: `Bearer ${sellerToken}`
                 }
@@ -95,7 +96,7 @@ export default function ReturnsDashboard() {
         }
 
         try {
-            const sellerToken = JSON.parse(localStorage.getItem("sellerToken")).data
+            const sellerToken = tokenUtils.getBearerToken()
             const response = await fetch(`${BASE_URL}/returns/${returnId}/respond`, {
                 method: 'POST',
                 headers: {
@@ -199,7 +200,7 @@ export default function ReturnsDashboard() {
             )}
 
             {/* Empty State */}
-            {!loading && returns.length === 0 && (
+            {!loading && returns?.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-64 text-center">
                     <div className="rounded-full bg-muted p-6 mb-4">
                         <Package className="w-8 h-8 sm:w-12 sm:h-12 text-muted-foreground" />
@@ -212,7 +213,7 @@ export default function ReturnsDashboard() {
             )}
 
             {/* Desktop Returns Table - Only show on larger screens */}
-            {!loading && returns.length > 0 && (
+            {!loading && returns?.length > 0 && (
                 <>
                     <div className="hidden sm:block border rounded-lg">
                         <Table>
@@ -227,22 +228,22 @@ export default function ReturnsDashboard() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {returns.map((item) => (
-                                    <TableRow key={item._id}>
-                                        <TableCell>{item._id}</TableCell>
-                                        <TableCell>{item.order.order_id}</TableCell>
-                                        <TableCell>{`${item.buyer.firstName} ${item.buyer.lastName}`}</TableCell>
-                                        <TableCell>{item.items[0]?.reason}</TableCell>
+                                {returns?.map((item) => (
+                                    <TableRow key={item?._id}>
+                                        <TableCell>{item?._id}</TableCell>
+                                        <TableCell>{item?.order?.order_id}</TableCell>
+                                        <TableCell>{`${item?.buyer?.firstName} ${item?.buyer?.lastName}`}</TableCell>
+                                        <TableCell>{item?.items[0]?.reason}</TableCell>
                                         <TableCell>
                                             <Badge className={getStatusBadgeStyles(item.status)}>
-                                                {item.status.replace(/_/g, ' ')}
+                                                {item?.status.replace(/_/g, ' ')}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
                                             <Button 
                                                 variant="link" 
                                                 className="text-blue-600"
-                                                onClick={() => handleReturnAction(item._id, 'view')}
+                                                onClick={() => handleReturnAction(item?._id, 'view')}
                                             >
                                                 View Details
                                             </Button>
@@ -256,7 +257,7 @@ export default function ReturnsDashboard() {
                         <div className="p-4 border-t">
                             <div className="flex items-center justify-between text-sm text-muted-foreground">
                                 <div>
-                                    Showing {returns.length} items out of {stats.totalReturns} results found
+                                    Showing {returns?.length} items out of {stats?.totalReturns} results found
                                 </div>
                                 <div className="flex gap-1">
                                     <Button
@@ -284,7 +285,7 @@ export default function ReturnsDashboard() {
 
                     {/* Mobile Card View */}
                     <div className="sm:hidden space-y-4">
-                        {returns.map((item) => (
+                        {returns?.map((item) => (
                             <Card key={item._id} className="overflow-hidden">
                                 <div className="p-4 space-y-3">
                                     {/* Card Header */}
@@ -303,12 +304,12 @@ export default function ReturnsDashboard() {
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
                                                 <p className="text-xs text-gray-500">Order ID</p>
-                                                <p className="text-sm font-medium">{item.order.order_id}</p>
+                                                <p className="text-sm font-medium">{item?.order?.order_id}</p>
                                             </div>
                                             <div>
                                                 <p className="text-xs text-gray-500">Buyer</p>
                                                 <p className="text-sm font-medium truncate">
-                                                    {`${item.buyer.firstName} ${item.buyer.lastName}`}
+                                                    {`${item?.buyer?.firstName} ${item?.buyer?.lastName}`}
                                                 </p>
                                             </div>
                                         </div>
@@ -319,7 +320,7 @@ export default function ReturnsDashboard() {
                                         <p className="text-xs text-gray-500">Return Reason</p>
                                         <div className="flex items-start gap-1 mt-1">
                                             <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
-                                            <p className="text-sm">{item.items[0]?.reason || "Not specified"}</p>
+                                            <p className="text-sm">{item?.items[0]?.reason || "Not specified"}</p>
                                         </div>
                                     </div>
                                     
@@ -328,7 +329,7 @@ export default function ReturnsDashboard() {
                                         <Button 
                                             variant="outline"
                                             className="text-blue-600 border-blue-200 hover:bg-blue-50 text-xs h-8 px-3"
-                                            onClick={() => handleReturnAction(item._id, 'view')}
+                                            onClick={() => handleReturnAction(item?._id, 'view')}
                                         >
                                             View Details
                                             <ChevronRight className="h-4 w-4 ml-1" />
@@ -341,7 +342,7 @@ export default function ReturnsDashboard() {
                         {/* Mobile Pagination */}
                         <div className="flex flex-col gap-2 mt-4 items-center text-center">
                             <div className="text-xs text-gray-500">
-                                Showing {returns.length} of {stats.totalReturns} returns
+                                Showing {returns?.length} of {stats?.totalReturns} returns
                             </div>
                             <div className="flex gap-2 mt-1">
                                 <Button

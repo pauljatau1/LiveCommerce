@@ -8,7 +8,7 @@
     "npm": ">= 10.7.0"
   },
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -22,6 +22,7 @@
     "@emoji-mart/react": "^1.1.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@hookform/resolvers": "^5.2.2",
     "@iconify-icons/bi": "^1.2.19",
     "@iconify-icons/mdi": "^1.2.48",
     "@iconify/react": "^5.2.0",
@@ -52,6 +53,8 @@
     "@reduxjs/toolkit": "^2.5.0",
     "@sentry/react": "^9.19.0",
     "@smileid/web-components": "^2.0.2",
+    "@tanstack/react-query": "^5.90.2",
+    "@tanstack/react-query-devtools": "^5.90.2",
     "@tiptap/extension-bullet-list": "^2.13.0",
     "@tiptap/extension-color": "^2.13.0",
     "@tiptap/extension-highlight": "^2.13.0",
@@ -93,6 +96,7 @@
     "react-dom": "^18.3.1",
     "react-draggable": "^4.4.6",
     "react-easy-crop": "^5.5.0",
+    "react-hook-form": "^7.64.0",
     "react-icons": "^5.4.0",
     "react-loading-skeleton": "^3.5.0",
     "react-otp-input": "^3.1.1",
@@ -113,7 +117,8 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
-    "yarn": "^1.22.22"
+    "yarn": "^1.22.22",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",

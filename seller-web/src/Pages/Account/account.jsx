@@ -21,8 +21,10 @@ import PickupAddressVerificationModal from "../../Components/PickupAddressVerifi
 import { Icon } from "@iconify/react";
 import { trackEvent } from "@/util/analytics";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/Components/ui/tooltip";
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
 
 export default function AccountPage() {
+  const { seller } = useAuthContext();
   const { setHeaderName, setNavName } = useOutletContext();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
@@ -48,36 +50,13 @@ export default function AccountPage() {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [isDeletingAvatar, setIsDeletingAvatar] = useState(false);
 
-  const fetchProfile = async () => {
-    try {
-      const sellerToken = localStorage.getItem("sellerToken");
-      if (!sellerToken) {
-        throw new Error("No authentication token found");
-      }
-
-      const tokenData = JSON.parse(sellerToken);
-      const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
-        headers: {
-          Authorization: `Bearer ${tokenData.data}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch profile data");
-      }
-
-      const data = await response.json();
-      setProfile(data.data);
+  const fetchProfile = () => {
+    setProfile(seller);
 
       // Fetch review stats
-      if (data.data._id) {
-        fetchReviewStats(data.data._id);
+      if (seller?._id) {
+        fetchReviewStats(seller._id);
       }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
   };
 
   const isPickupAddressRequired = profile?.accountType === 'individual' ? profile?.hasFilledAddress === false : profile?.hasFilledBusinessAddress === false;
@@ -110,20 +89,6 @@ export default function AccountPage() {
 
   useEffect(() => {
     fetchProfile();
-  }, []);
-
-  // Listen for verification completed event
-  useEffect(() => {
-    const handleVerificationCompleted = () => {
-      console.log("Verification completed event received, refreshing profile...");
-      fetchProfile();
-    };
-
-    window.addEventListener('seller-verification-completed', handleVerificationCompleted);
-    
-    return () => {
-      window.removeEventListener('seller-verification-completed', handleVerificationCompleted);
-    };
   }, []);
 
   const fetchReviewStats = async (sellerId) => {
@@ -237,7 +202,7 @@ export default function AccountPage() {
     if (!file) return;
 
     // Preserve the current avatar to allow reverting on failure
-    const previousAvatar = profile?.storeAvatar ? { ...profile.storeAvatar } : null;
+    const previousAvatar = profile?.storeAvatar ? { ...profile?.storeAvatar } : null;
 
     // Create a temporary local preview URL for instant UI feedback
     const localPreviewUrl = URL.createObjectURL(file);
@@ -295,7 +260,7 @@ export default function AccountPage() {
     const file = event.target.files[0];
     if (!file) return;
 
-    const previousBanner = profile?.storeBanner ? { ...profile.storeBanner } : null;
+    const previousBanner = profile?.storeBanner ? { ...profile?.storeBanner } : null;
 
     // Create a temporary local preview URL for instant UI feedback
     const localPreviewUrl = URL.createObjectURL(file);
@@ -394,13 +359,13 @@ export default function AccountPage() {
 
   const handleCopyProfileLink = () => {
     if (profile?._id) {
-      const profileUrl = `${AUQLI_STORE_BASE_URL}/seller/${profile._id}`;
+      const profileUrl = `${AUQLI_STORE_BASE_URL}/seller/${profile?._id}`;
       navigator.clipboard.writeText(profileUrl)
         .then(() => {
           toast.success("Profile link copied to clipboard");
           trackEvent("Seller Copied Profile Link", {
-            "seller id": profile._id,
-            "seller store name": profile.storeName,
+            "seller id": profile?._id,
+            "seller store name": profile?.storeName,
           });
         })
         .catch((error) => {
@@ -409,30 +374,6 @@ export default function AccountPage() {
         });
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex flex-col justify-center items-center h-[80dvh]">
-        <div className="w-1/4">
-          <LinearProgress color="success" />
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col justify-center items-center h-[80dvh]">
-        <p className="text-red-600">Error: {error}</p>
-        <Button
-          onClick={() => window.location.reload()}
-          className="mt-4 bg-green-600 hover:bg-green-700"
-        >
-          Retry
-        </Button>
-      </div>
-    );
-  }
 
 
 
@@ -446,14 +387,14 @@ export default function AccountPage() {
         onClose={() => {
           setShowEmailVerificationModal(false);
           {/* trackEvent("Seller Skipped Onboarding Verification", {
-            "seller id": profile._id,
-            "seller email": profile.email,
-            "seller store name": profile.storeName,
-            "seller first name": profile.firstName,
-            "seller last name": profile.lastName,
-            "seller phone number": profile.phoneNumber,
-            "Signup Date": profile.createdAt,
-            "Verification Status": profile.isVerified ? "Verified" : "Not Verified",
+            "seller id": profile?._id,
+            "seller email": profile?.email,
+            "seller store name": profile?.storeName,
+            "seller first name": profile?.firstName,
+            "seller last name": profile?.lastName,
+            "seller phone number": profile?.phoneNumber,
+            "Signup Date": profile?.createdAt,
+            "Verification Status": profile?.isVerified ? "Verified" : "Not Verified",
           }); 
         }}
         userEmail={profile?.businessEmail || profile?.email || ''}
@@ -466,14 +407,14 @@ export default function AccountPage() {
           onClose={() => {
             setShowPickupAddressModal(false);
             {/* trackEvent("Seller Skipped Onboarding Verification", {
-              "seller id": profile._id,
-              "seller email": profile.email,
-              "seller store name": profile.storeName,
-              "seller first name": profile.firstName,
-              "seller last name": profile.lastName,  
-              "seller phone number": profile.phoneNumber,
-              "Signup Date": profile.createdAt,
-              "Verification Status": profile.isVerified ? "Verified" : "Not Verified",
+              "seller id": profile?._id,
+              "seller email": profile?.email,
+              "seller store name": profile?.storeName,
+              "seller first name": profile?.firstName,
+              "seller last name": profile?.lastName,  
+              "seller phone number": profile?.phoneNumber,
+              "Signup Date": profile?.createdAt,
+              "Verification Status": profile?.isVerified ? "Verified" : "Not Verified",
             }); */}
 
           }}
@@ -503,9 +444,9 @@ export default function AccountPage() {
               </div>
             </div>
           ) 
-          /* : !profile.isVerified && (
+          /* : !profile?.isVerified && (
             <>
-              {profile.accountPending ? (
+              {profile?.accountPending ? (
                 // Account under review banner
                 <div className="bg-blue-50 mt-6 sm:mt-10 border-l-4 border-blue-500 p-3 sm:p-4 mb-4 sm:mb-6 shadow-sm">
                   <div className="flex items-start flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
@@ -636,18 +577,18 @@ export default function AccountPage() {
                   <Button variant="ghost" size="sm" className="p-0 h-auto hover:bg-transparent hover:text-green-600">
                     <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 flex-shrink-0" />
                     {profile?.businessAddress ?
-                      `${profile.businessAddress.city}, ${profile.businessAddress.country}` :
+                      `${profile?.businessAddress?.city}, ${profile?.businessAddress?.country}` :
                       profile?.warehouseAddress ?
-                      `${profile.warehouseAddress.city}, ${profile.warehouseAddress.country}` :
+                      `${profile?.warehouseAddress?.city}, ${profile?.warehouseAddress?.country}` :
                       profile?.sellerAddress ?
-                      `${profile.sellerAddress.city}, ${profile.sellerAddress.country}` :
+                      `${profile?.sellerAddress?.city}, ${profile?.sellerAddress?.country}` :
                       'Address not available'
                     }
                   </Button>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
                     <span className="flex items-center sm:border-l sm:pl-4">
                       <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 flex-shrink-0 text-green-600" />
-                      Joined {format(new Date(profile?.createdAt), 'MMMM yyyy')}
+                      Joined 
                     </span>
                     <span className="flex items-center sm:border-l sm:pl-4">
                       <Phone className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 flex-shrink-0 text-green-600" />

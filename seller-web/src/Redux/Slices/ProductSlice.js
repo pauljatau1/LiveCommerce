@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { BASE_URL } from "../../Constants/Server";
 import { toast } from "sonner";
+import { tokenUtils, sellerUtils } from "@/util/auth";
 import axios from 'axios';
 
 
@@ -52,12 +53,11 @@ const initialState = {
 
 export const createProduct = createAsyncThunk('product/createProduct', async (formData) => {
     try {
-        const storedToken = localStorage.getItem('sellerToken');
-        const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+        const storedToken = tokenUtils.getBearerToken();
 
         const response = await axios.post(`${BASE_URL}/products`, formData, {
             headers: {
-                Authorization: `Bearer ${tokenData.data}`,
+                Authorization: `Bearer ${storedToken}`,
                 'Content-Type': 'application/json'
             },
         });
@@ -75,9 +75,9 @@ export const createProduct = createAsyncThunk('product/createProduct', async (fo
 
 export const fetchSellerProducts = createAsyncThunk('product/fetchSellerProducts', async (params = { page: 1, limit: 10 }) => {
     try {
-        const seller = JSON.parse(localStorage.getItem('seller'));
+        const seller = sellerUtils.getSeller();
         console.log("seller:", seller);
-        const response = await axios.get(`${BASE_URL}/products/seller/${seller._id}`, {
+        const response = await axios.get(`${BASE_URL}/products/seller/${seller?._id}`, {
             params: {
                 page: params.page,
                 limit: params.limit,
@@ -96,8 +96,8 @@ export const fetchSellerProducts = createAsyncThunk('product/fetchSellerProducts
 
 export const fetchSellerAuctionProducts = createAsyncThunk('product/fetchSellerAuctionProducts', async (params = { page: 1, limit: 10 }) => {
     try {
-        const seller = JSON.parse(localStorage.getItem('seller'));
-        const response = await axios.get(`${BASE_URL}/products/seller/${seller._id}/auctions`, {
+        const seller = sellerUtils.getSeller();
+        const response = await axios.get(`${BASE_URL}/products/seller/${seller?._id}/auctions`, {
             params: {
                 page: params.page,
                 limit: params.limit,
@@ -115,12 +115,11 @@ export const fetchSellerAuctionProducts = createAsyncThunk('product/fetchSellerA
 
 export const deleteProduct = createAsyncThunk('product/deleteProduct', async (productId, { rejectWithValue }) => {
     try {
-        const storedToken = localStorage.getItem('sellerToken');
-        const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+        const storedToken = tokenUtils.getBearerToken();
 
         const response = await axios.delete(`${BASE_URL}/products/${productId}`, {
             headers: {
-                Authorization: `Bearer ${tokenData.data}`,
+                Authorization: `Bearer ${storedToken}`,
             },
         });
         if (response.status === 200) {
@@ -149,12 +148,11 @@ export const getProductDetailsById = createAsyncThunk('product/getProductDetails
 
 export const updateProduct = createAsyncThunk('product/updateProduct', async ({ productId, formData }) => {
     try {
-        const storedToken = localStorage.getItem('sellerToken');
-        const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+        const storedToken = tokenUtils.getBearerToken();
 
         const response = await axios.put(`${BASE_URL}/products/${productId}`, formData, {
             headers: {
-                Authorization: `Bearer ${tokenData.data}`,
+                Authorization: `Bearer ${storedToken}`,
                 'Content-Type': 'application/json'
             },
         });
@@ -170,8 +168,8 @@ export const updateProduct = createAsyncThunk('product/updateProduct', async ({ 
 
 export const searchSellerProducts = createAsyncThunk('product/searchSellerProducts', async (params = {}) => {
     try {
-        const seller = JSON.parse(localStorage.getItem('seller'));
-        const response = await axios.get(`${BASE_URL}/products/seller/${seller._id}/search`, {
+        const seller = sellerUtils.getSeller();
+        const response = await axios.get(`${BASE_URL}/products/seller/${seller?._id}/search`, {
             params: {
                 query: params.search,
                 page: params.page || 1,
@@ -195,8 +193,8 @@ export const searchSellerProducts = createAsyncThunk('product/searchSellerProduc
 
 export const fetchSellerBlips = createAsyncThunk('product/fetchSellerBlips', async (params = { page: 1, limit: 10 }) => {
     try {
-        const seller = JSON.parse(localStorage.getItem('seller'));
-        const response = await axios.get(`${BASE_URL}/products/seller/${seller._id}/blips`, {
+        const seller = sellerUtils.getSeller();
+        const response = await axios.get(`${BASE_URL}/products/seller/${seller?._id}/blips`, {
             params: {
                 page: params.page,
                 limit: params.limit
@@ -246,15 +244,14 @@ export const addReplyToBlipComment = createAsyncThunk(
     'product/addReplyToBlipComment',
     async ({ productId, blipId, commentId, comment }) => {
         try {
-            const storedToken = localStorage.getItem('sellerToken');
-            const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+            const storedToken = tokenUtils.getBearerToken();
 
             const response = await axios.post(
                 `${BASE_URL}/products/${productId}/blips/${blipId}/comments/${commentId}/replies`,
                 { comment },
                 {
                     headers: {
-                        Authorization: `Bearer ${tokenData.data}`,
+                        Authorization: `Bearer ${storedToken}`,
                         'Content-Type': 'application/json'
                     }
                 }
@@ -274,15 +271,14 @@ export const toggleVacationMode = createAsyncThunk(
     'product/toggleVacationMode',
     async (isOn, { rejectWithValue }) => {
         try {
-            const storedToken = localStorage.getItem('sellerToken');
-            const tokenData = storedToken ? JSON.parse(storedToken) : { data: null, isVerified: null };
+            const storedToken = tokenUtils.getBearerToken();
 
             const response = await axios.put(
                 `${BASE_URL}/seller/vacation-mode`,
                 { isOn },
                 {
                     headers: {
-                        Authorization: `Bearer ${tokenData.data}`,
+                        Authorization: `Bearer ${storedToken}`,
                         'Content-Type': 'application/json'
                     }
                 }
@@ -320,7 +316,7 @@ const productSlice = createSlice({
         state.message = action.payload.message;
         // Track product listing with Customer.io
         try {
-            const seller = JSON.parse(localStorage.getItem('seller')) || {};
+            const seller = sellerUtils.getSeller();
 
             if (window.cioanalytics) {
                 // First re-identify the user to ensure the connection is active
@@ -373,6 +369,8 @@ const productSlice = createSlice({
         state.message = null;
     }).addCase(fetchSellerProducts.fulfilled, (state, action) => {
         state.isLoading = false;
+        console.log('products fetched successfully with redux', action.payload);
+        state.message = 'Products fetched successfully';
         state.products = action.payload?.products || [];
         state.pagination = {
             currentPage: action.payload?.currentPage || 1,
@@ -439,7 +437,7 @@ const productSlice = createSlice({
         state.message = action.payload.message;
         // Track product update with Customer.io
         try {
-            const seller = JSON.parse(localStorage.getItem('seller')) || {};
+            const seller = sellerUtils.getSeller();
 
             if (window.cioanalytics) {
                 // First re-identify the user to ensure the connection is active

@@ -2,7 +2,7 @@ import { sideBarNavData } from "../../../Utilities/data";
 import { useRef } from "react";
 import { NavLink } from "react-router-dom";
 import { Icon } from "@iconify/react";
-import { useAuthContext } from "../../../Hooks/useAuthContext";
+import { useAuthContext } from "../../../Hooks/useAuthContextV2";
 import Logo from '../../../assets/auqli-official-logo.png'
 import { useLocation } from "react-router-dom";
 import PropTypes from 'prop-types';
@@ -16,8 +16,8 @@ const SideBarNav = ({ isSidebarOpen, setIsSidebarOpen, hideSidebar }) => {
 
 
 
-  const handleLogout = async () => {
-    await logout();
+  const handleLogout = () => {
+    logout();
   };
 
   const handleSubNavOpen = (id) => {

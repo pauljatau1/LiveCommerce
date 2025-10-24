@@ -1,5 +1,5 @@
 import { Button } from "@/Components/ui/button";
-import { Input } from "@/Components/ui/input";
+import { Input } from "@/Components/ui/form/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 import { FilterX, Search as SearchIcon } from "lucide-react";
 

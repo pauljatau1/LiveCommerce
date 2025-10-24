@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Building2, CreditCard, Info, ArrowRight, ArrowLeft, Receipt, Calendar, ArrowDownToLine, Wallet, BanknoteIcon, Clock, FileText, ArrowUpDown, CircleDollarSign, ArrowDownUp, ArrowUpRight } from 'lucide-react'
+import { Building2, CreditCard, Info, ArrowRight, Receipt, Calendar, ArrowDownToLine, Wallet, BanknoteIcon, Clock, FileText, CircleDollarSign, ArrowDownUp, ArrowUpRight } from 'lucide-react'
 import { Card } from "@/Components/ui/card"
 import { Button } from "@/Components/ui/button"
-import Header from '@/Components/ui/Header/Header';
 import {
   Table,
   TableBody,
@@ -19,16 +18,17 @@ import {
   SelectValue,
 } from "@/Components/ui/select"
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/Components/ui/dialog";
-import { Toaster } from "@/Components/ui/sonner";
-import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server";
+import { BASE_URL} from "@/Constants/Server";
 import { useOutletContext, Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs"
 import { formatCurrency } from "@/Utilities/currencyFormater";
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
 
 
 
 export default function Payout() {
+  const { token, seller } = useAuthContext();
   const { setHeaderName, setNavName } = useOutletContext()
   const [withdrawals, setWithdrawals] = useState([]);
   const [financialData, setFinancialData] = useState({
@@ -45,7 +45,6 @@ export default function Payout() {
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [transactionSummary, setTransactionSummary] = useState({
     totalEarnings: 0,
@@ -53,7 +52,7 @@ export default function Payout() {
     totalWithdrawals: 0,
     currentBalance: 0
   });
-  const [transactionPagination, setTransactionPagination] = useState({
+  const [, setTransactionPagination] = useState({
     currentPage: 1,
     totalPages: 1,
     totalTransactions: 0
@@ -70,15 +69,12 @@ export default function Payout() {
     const fetchFinancialData = async () => {
       setIsLoading(true);
       try {
-        const sellerToken = localStorage.getItem('sellerToken');
+        const sellerToken = token?.data;
         if (sellerToken) {
-          const tokenData = JSON.parse(sellerToken);
-          const token = tokenData.data;
-
           // Fetch withdrawals
           const withdrawalsResponse = await fetch(`${BASE_URL}/seller/withdrawals`, {
             headers: {
-              'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${sellerToken}`
             }
           });
           const withdrawalsData = await withdrawalsResponse.json();
@@ -92,13 +88,7 @@ export default function Payout() {
             .filter(w => w.status === 'pending')
             .reduce((sum, w) => sum + w.amount, 0);
 
-          // Fetch seller profile
-          const profileResponse = await fetch(`${BASE_URL_V2}/sellers/profile`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          const profileData = await profileResponse.json();
+          const profileData = seller;
           const availableForWithdrawal = profileData?.data?.walletBalance || 0;
 
           // Set bank details with default values
@@ -128,15 +118,13 @@ export default function Payout() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const sellerToken = localStorage.getItem('sellerToken');
+        const sellerToken = token?.data;
         if (sellerToken) {
-          const tokenData = JSON.parse(sellerToken);
-          const token = tokenData.data;
 
           // Fetch transactions
           const transactionsResponse = await fetch(`${BASE_URL}/seller/transactions?page=1&limit=10`, {
             headers: {
-              'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${sellerToken}`
             }
           });
           const transactionsData = await transactionsResponse.json();
@@ -171,16 +159,14 @@ export default function Payout() {
     setLoading(true);
     setError('');
     try {
-      const sellerToken = localStorage.getItem('sellerToken');
+      const sellerToken = token?.data;
       if (sellerToken) {
-        const tokenData = JSON.parse(sellerToken);
-        const token = tokenData.data;
 
         const response = await fetch(`${BASE_URL}/seller/withdrawals`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${sellerToken}`
           },
           body: JSON.stringify({
             amount: withdrawalAmount,
@@ -201,7 +187,7 @@ export default function Payout() {
           
           // Track withdrawal request with Customer.io
           try {
-            const seller = JSON.parse(localStorage.getItem('seller')) || {};
+            const seller = seller;
             
             if (window.cioanalytics) {
               // First re-identify the user to ensure the connection is active

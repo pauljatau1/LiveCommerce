@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/Components/ui/card"
-import { Input } from "@/Components/ui/input"
+import { Input } from "@/Components/ui/form/input"
 import { Label } from "@/Components/ui/label"
 import { Button } from "@/Components/ui/button"
 import { Textarea } from "@/Components/ui/textarea"
@@ -11,8 +11,10 @@ import axios from "axios"
 import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
 
 export default function CreateCampaign() {
+  const { token, seller } = useAuthContext();
   const navigate = useNavigate()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -46,32 +48,7 @@ export default function CreateCampaign() {
   const fetchProducts = async (page = currentPage, search = "") => {
     setLoading(true)
     try {
-      const sellerString = localStorage.getItem('seller')
-      let sellerId
-      
-      if (!sellerString) {
-        // If seller isn't in localStorage, get it from the profile
-        const sellerToken = localStorage.getItem('sellerToken')
-        if (!sellerToken) {
-          throw new Error("Authentication token not found")
-        }
-        
-        const tokenData = JSON.parse(sellerToken)
-        const token = tokenData.data
-
-        // Get seller profile
-        const profileResponse = await axios.get(`${BASE_URL_V2}/sellers/profile`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-
-        sellerId = profileResponse.data.data._id
-
-        // Save seller ID to localStorage
-        localStorage.setItem('seller', JSON.stringify({ _id: sellerId }))
-      } else {
-        // Use seller ID from localStorage
-        sellerId = JSON.parse(sellerString)._id
-      }
+      let sellerId = seller?._id;
 
       // Build API endpoint and params
       let endpoint = `${BASE_URL}/products/seller/${sellerId}`
@@ -209,7 +186,7 @@ export default function CreateCampaign() {
     setIsSubmitting(true)
     
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken'))?.data
+      const sellerToken = token?.data;
       const response = await axios.post(
         `${BASE_URL}/campaigns`,
         formData,

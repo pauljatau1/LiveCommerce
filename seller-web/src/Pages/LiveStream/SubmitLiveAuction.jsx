@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useOutletContext } from 'react-router-dom';
-import LiveAuctionProductsCard from '../../Components/LiveAuctionProductsCard';
+import LiveAuctionProductsCard from '../../Components/livestream/LiveAuctionProductsCard';
 import PropTypes from 'prop-types';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../Components/ui/tooltip';
 

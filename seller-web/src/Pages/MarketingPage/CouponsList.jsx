@@ -21,13 +21,15 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/Components/ui/dialog"
-import { Input } from "@/Components/ui/input"
+import { Input } from "@/Components/ui/form/input"
 import { Label } from "@/Components/ui/label"
 import { Loader2 } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/Components/ui/radio-group"
 import { Checkbox } from "@/Components/ui/checkbox"
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
 
 export default function CouponsList() {
+  const { token } = useAuthContext();
   const [coupons, setCoupons] = useState([])
   const [specialCoupons, setSpecialCoupons] = useState([])
   const [activeTab, setActiveTab] = useState('all') // 'all', 'product', 'special'
@@ -62,19 +64,17 @@ export default function CouponsList() {
 
   const fetchCoupons = async () => {
     try {
-      const sellerToken = localStorage.getItem('sellerToken')
+      const sellerToken = token?.data;
       if (!sellerToken) throw new Error("Not authenticated")
       
-      const tokenData = JSON.parse(sellerToken)
-      const token = tokenData.data
 
       // Fetch both regular coupons and special coupons
       const [regularResponse, specialResponse] = await Promise.all([
         axios.get(`${BASE_URL}/coupons/seller`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${sellerToken}` }
         }),
         axios.get(`${BASE_URL}/coupons/special`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${sellerToken}` }
         })
       ])
 
@@ -92,13 +92,11 @@ export default function CouponsList() {
 
   const fetchSellerProducts = async () => {
     try {
-      const sellerToken = localStorage.getItem('sellerToken')
+      const sellerToken = token?.data;
       if (!sellerToken) return
-      const tokenData = JSON.parse(sellerToken)
-      const token = tokenData.data
 
       const profileResponse = await axios.get(`${BASE_URL_V2}/sellers/profile`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${sellerToken}` }
       })
       const sellerId = profileResponse.data.data._id
 
@@ -114,13 +112,11 @@ export default function CouponsList() {
     setResetError(null)
     setResetLoading(true)
     try {
-      const sellerToken = localStorage.getItem('sellerToken')
+      const sellerToken = token?.data;
       if (!sellerToken) throw new Error('Not authenticated')
-      const tokenData = JSON.parse(sellerToken)
-      const token = tokenData.data
 
       await axios.post(`${BASE_URL}/coupons/reset`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${sellerToken}` }
       })
 
       await fetchCoupons()
@@ -178,7 +174,7 @@ export default function CouponsList() {
 
   const handleDelete = async (couponId) => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data
+      const sellerToken = token?.data;
       await axios.delete(`${BASE_URL}/coupons/${couponId}`, {
         headers: { Authorization: `Bearer ${sellerToken}` }
       })
@@ -208,7 +204,7 @@ export default function CouponsList() {
 
   const handleUpdate = async () => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data
+      const sellerToken = token?.data;
       
       // Combine date and time for endDate
       let endDateTime = null
@@ -496,7 +492,7 @@ export default function CouponsList() {
               Delete Coupon
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the coupon "{selectedCoupon?.name}"? This action cannot be undone.
+              Are you sure you want to delete the coupon &quot;{selectedCoupon?.name}&quot;? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end space-x-2 mt-4">

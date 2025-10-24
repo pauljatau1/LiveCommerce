@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, /* useNavigate */ } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useAuthContext } from '../../Hooks/useAuthContext';
 import { useState, useEffect } from 'react';
@@ -18,14 +18,14 @@ import OtpInput from 'react-otp-input';
 const LoginPage = () => {
   const { initVisitor } = useIntercomChat();
   const { isLoading, login, resetPassword, resetPasswordWithOtp, isForgotPasswordRequestSuccessful, passwordResetSuccessful, dispatch } = useAuthContext();
-  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+ // const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
 
   const [resetEmail, setResetEmail] = useState('');
   const [password, setPassword] = useState('');
   const [forgotPassword, setForgotPassword] = useState(false);
-  const navigate = useNavigate();
+ // const navigate = useNavigate();
   const [otp, setOtp] = useState('');
   const [isOtpEntered, setIsOtpEntered] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -142,7 +142,7 @@ const LoginPage = () => {
           <div className='flex flex-col' >
             <img src={Emoji} alt="Emoji" className='w-10 h-10 mb-4 xl:mb-8' />
             <h1 className='text-xl md:text-3xl font-semibold font-inter' >Welcome Back!</h1>
-            <p className='text-sm md:text-base font-inter' >Let's build something great</p>
+            <p className='text-sm md:text-base font-inter' >Let&apos;s build something great</p>
           </div>
           <form className="w-full mt-8" >
             <div className="flex flex-col gap-2 w-full mb-4">
@@ -217,7 +217,7 @@ const LoginPage = () => {
               </button>
             </div>
             <div className="text-center mt-10 mb-4">
-              <span className="text-sm text-gray-500">Don't have an account? </span>{' '}
+              <span className="text-sm text-gray-500">Don&apos;t have an account? </span>{' '}
               <Link to="/signup" className="text-[#0BB248] font-inter text-sm md:text-base font-bold hover:underline">
                 create
               </Link>

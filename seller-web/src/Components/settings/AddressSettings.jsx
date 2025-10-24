@@ -1,14 +1,15 @@
-import { useState, useEffect } from "react"
-import { Plus, MapPin, Building2, Home, Trash2, X } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card"
-import { Button } from "@/Components/ui/button"
-import { Badge } from "@/Components/ui/badge"
-import { Input } from "@/Components/ui/input"
-import { Label } from "@/Components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/Components/ui/dialog"
-import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import { toast } from "sonner"
+import { Label } from "@/Components/ui/label"
+import { Badge } from "@/Components/ui/badge"
+import { Input } from "@/Components/ui/form/input"
+import { Button } from "@/Components/ui/button"
+import { useAuthContext } from "@/Hooks/useAuthContextV2"
+import { useState, useEffect } from "react"
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
+import {MapPin, Building2, Home } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/Components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
 import React from "react"
 
 // Replace the COUNTRIES constant with:
@@ -65,6 +66,7 @@ const NIGERIAN_CITIES = {
 
 
 export default function AddressSettings() {
+  const { token } = useAuthContext();
   console.log("Main component render");
   
   const [profileData, setProfileData] = useState({
@@ -271,7 +273,7 @@ export default function AddressSettings() {
 
   const fetchProfileData = async () => {
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
         headers: {
           Authorization: `Bearer ${sellerToken}`,
@@ -290,7 +292,7 @@ export default function AddressSettings() {
   const handleAddressUpdate = async (type, addressData) => {
     setIsLoading(true);
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const endpoint = type === 'business' 
         ? '/business-address'
         : type === 'warehouse' 
@@ -338,7 +340,7 @@ export default function AddressSettings() {
     if (!confirm(`Are you sure you want to delete this ${type} address?`)) return;
     
     try {
-      const sellerToken = JSON.parse(localStorage.getItem('sellerToken')).data;
+      const sellerToken = token?.data;
       const endpoint = type === 'business' 
         ? '/business-address'
         : type === 'warehouse' 

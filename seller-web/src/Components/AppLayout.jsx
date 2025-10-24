@@ -1,14 +1,8 @@
-import { Outlet, useNavigation } from "react-router-dom";
-import Loader from "./Loader";
-import ScrollToTop from "../Utilities/ScrollToTop";
+import { Outlet } from "react-router-dom";
 
 const AppLayout = () => {
-    const navigation = useNavigation();
-    const isLoading = navigation.state === 'loading';
-
     return (
         <>
-           
             <main>
                 <Outlet />
             </main>

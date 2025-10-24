@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/Components/ui/dropdown-menu";
-import { Input } from "@/Components/ui/input";
+import { Input } from "@/Components/ui/form/input";
 import { Textarea } from "@/Components/ui/textarea";
 import { toast } from "sonner";
 import PropTypes from "prop-types";

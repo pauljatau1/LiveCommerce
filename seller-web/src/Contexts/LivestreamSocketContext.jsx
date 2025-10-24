@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { BASE_URL } from '../Constants/Server';
+import { tokenUtils } from '@/util/auth';
 import PropTypes from 'prop-types';
 
 const LivestreamSocketContext = createContext();
@@ -13,7 +14,7 @@ export function LivestreamSocketProvider({ children }) {
   const [productStatuses, setProductStatuses] = useState({});
   
   useEffect(() => {
-    const token = JSON.parse(localStorage.getItem('sellerToken'))?.data;
+    const token = tokenUtils.getBearerToken();
     if (!token) return;
 
     try {

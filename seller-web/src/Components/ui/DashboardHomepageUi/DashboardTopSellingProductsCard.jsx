@@ -1,35 +1,15 @@
-import { useEffect, useState } from "react";
-import CircularProgress from "@mui/material/CircularProgress";
-import { BASE_URL } from "@/Constants/Server";
-import axios from "axios";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { sellerService } from "@/services/sellerService";
 import QuickOrderCard from "@/Components/QuickOrderCard";
 import NotFoundAsset from "@/assets/no-order-found.png";
 
 export default function DashboardTopSellingProductsCard() {
-  const [products, setProducts] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchTopSellingProducts = async () => {
-      setIsLoading(true);
-      try {
-        const response = await axios.get(
-          `${BASE_URL}/seller/top-sold-products`
-        );
-        if (response.status === 200) {
-          console.log("Top Selling Products:", response.data);
-          setProducts(response.data);
-        }
-      } catch (error) {
-        console.error("Error fetching dashboard top selling products:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchTopSellingProducts();
-  }, []);
+  const { data: products, isPending } = useQuery({
+    queryKey: ["topSellingProducts"],
+    queryFn: () => sellerService.fetchTopSoldProducts()
+  });
 
   return (
     <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-6 flex flex-col">
@@ -63,16 +43,16 @@ export default function DashboardTopSellingProductsCard() {
         </Link>
       </div>
       <div className="overflow-hidden flex-1">
-        {isLoading ? (
+        {isPending ? (
           <div className="flex justify-center items-center py-8">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#16783A]"></div>
           </div>
         ) : (
           <div className=" space-y-3 mt-3 h-full">
-            {products.length > 0 ? (
+            {products?.length > 0 ? (
               products?.map((product) => (
                 <QuickOrderCard
-                  key={product._id}
+                  key={product?._id}
                   product={product}
                   className="hover:bg-gray-50 transition-colors duration-200 p-3"
                 />
