@@ -299,7 +299,7 @@ async function register(data) {
   ]);
 
   // Return success response (exclude password for security)
-  const userResponse = savedSeller.toObject();
+  const userResponse = savedSeller.toObject ? savedSeller.toObject() : { ...savedSeller };
   delete userResponse.password;
   return {
     user: userResponse,

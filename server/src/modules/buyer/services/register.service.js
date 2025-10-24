@@ -136,7 +136,7 @@ async function register(data) {
   const token = generateToken(newBuyer._id);
 
   // Step 6: Return user data and authentication token (exclude password and OTP for security)
-  const userResponse = newBuyer.toObject();
+  const userResponse = newBuyer.toObject ? newBuyer.toObject() : { ...newBuyer };
   delete userResponse.password;
   delete userResponse.otp;
   return { user: userResponse, token: token };

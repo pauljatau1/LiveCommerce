@@ -149,7 +149,7 @@ async function login(data) {
   const token = generateToken(buyer._id);
   
   // Step 7: Return authenticated user data and token (exclude password and OTP for security)
-  const userResponse = buyer.toObject();
+  const userResponse = buyer.toObject ? buyer.toObject() : { ...buyer };
   delete userResponse.password;
   delete userResponse.otp;
   return { user: userResponse, token: token };
@@ -220,7 +220,7 @@ async function googleLoginMobile(data) {
 
   // Step 5: Generate JWT token and return authenticated user (exclude password and OTP for security)
   const token = generateToken(buyer._id);
-  const userResponse = buyer.toObject();
+  const userResponse = buyer.toObject ? buyer.toObject() : { ...buyer };
   delete userResponse.password;
   delete userResponse.otp;
   return { user: userResponse, token: token };

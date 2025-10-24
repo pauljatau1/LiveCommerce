@@ -201,7 +201,7 @@ exports.register = async (req, res) => {
     }
 
     // Exclude password and OTP from response for security
-    const userResponse = newBuyer.toObject();
+    const userResponse = newBuyer.toObject ? newBuyer.toObject() : { ...newBuyer };
     delete userResponse.password;
     delete userResponse.otp;
     res.status(201).json({ user: userResponse, token });
@@ -247,7 +247,7 @@ exports.login = async (req, res) => {
 
     const token = generateToken(buyer._id);
     // Exclude password and OTP from response for security
-    const userResponse = buyer.toObject();
+    const userResponse = buyer.toObject ? buyer.toObject() : { ...buyer };
     delete userResponse.password;
     delete userResponse.otp;
     res.json({ user: userResponse, token });
@@ -275,7 +275,7 @@ async function googleLoginMobile(data, res) {
 
     const token = generateToken(buyer._id);
     // Exclude password and OTP from response for security
-    const userResponse = buyer.toObject();
+    const userResponse = buyer.toObject ? buyer.toObject() : { ...buyer };
     delete userResponse.password;
     delete userResponse.otp;
     res.json({ user: userResponse, token });
@@ -332,7 +332,7 @@ async function googleRegisterMobile(data, res) {
     }
     const token = generateToken(newBuyer._id);
     // Exclude password and OTP from response for security
-    const userResponse = newBuyer.toObject();
+    const userResponse = newBuyer.toObject ? newBuyer.toObject() : { ...newBuyer };
     delete userResponse.password;
     delete userResponse.otp;
     res.status(201).json({ user: userResponse, token });
