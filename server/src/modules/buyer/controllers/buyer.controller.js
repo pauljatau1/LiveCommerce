@@ -21,6 +21,7 @@ const unfollowSellerService = require('../services/unfollowSeller.service');
 const addToWishlistService = require('../services/addToWishlist.service');
 const getWishlistService = require('../services/getWishlist.service');
 const removeFromWishlistService = require('../services/removeFromWishlist.service');
+const checkWishlistStatusService = require('../services/checkWishlistStatus.service');
 const uploadIdentityDocumentService = require('../services/uploadIdentityDocument.service');
 const sendPhoneOTPService = require('../services/sendPhoneOTP.service');
 const verifyPhoneOTPService = require('../services/verifyPhoneOTP.service');
@@ -657,6 +658,33 @@ async function removeFromWishlist(req, res, next) {
 
     // Send success response with updated wishlist data
     res.success(response, 'Product removed from wishlist successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Check if product is in buyer's wishlist.
+ *
+ * This controller handles the check wishlist status HTTP request.
+ * It delegates the check wishlist status logic to the service layer and returns the wishlist status.
+ *
+ * @param {Request} req - Express request object containing the product ID in `req.params.productId` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function checkWishlistStatus(req, res, next) {
+  try {
+    // Extract buyer ID and product ID from request parameters
+    const buyerId = req.user.id;
+    const productId = req.params.productId;
+
+    // Call the service layer to handle check wishlist status logic
+    const response = await checkWishlistStatusService.checkWishlistStatus(buyerId, productId);
+
+    // Send success response with wishlist status
+    res.success(response, 'Wishlist status checked successfully');
   } catch (err) {
     // Forward any error to the error-handling middleware
     next(err);
@@ -1487,6 +1515,7 @@ module.exports = {
   addToWishlist,
   getWishlist,
   removeFromWishlist,
+  checkWishlistStatus,
   uploadIdentityDocument,
   sendPhoneOTP,
   verifyPhoneOTP,
