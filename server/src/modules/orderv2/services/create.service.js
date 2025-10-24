@@ -148,8 +148,141 @@ exports.createOrder = async (req) => {
       }
     }
 
+    const liveShowOrders = [];
+
+    for (const order of orders) {
+      const firstItem = order.items[0];
+
+      liveShowOrders.push({
+        orderId: order.order_id,
+        buyer: order.buyerDetails,
+        orderDetails: {
+          _id: order._id,
+          order_id: order.order_id,
+          itemsCount: order.items.length,
+          totalAmount: order.totalAmount,
+          shippingFee: sellerItems[order.seller.toString()].shippingFee,
+          orderTotal: order.totalAmount + sellerItems[order.seller.toString()].shippingFee,
+          seller: order.seller,
+          fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null,
+          items: order.items
+        },
+        product: firstItem.product,
+        amount: order.totalAmount,
+        createdAt: new Date()
+      });
+    }
+
+    // Check if the order is from a liveshow and update the stream with order information
+    if (req.body.channel === "liveshow" && req.body.streamId) {
+      try {
+        const Stream = mongoose.model('Stream');
+        const stream = await Stream.findById(req.body.streamId);
+
+        if (stream) {
+          console.log('Processing liveshow order for stream:', {
+            streamId: stream._id,
+            title: stream.title
+          });
+
+          // For each order, create an entry in the stream's orders array
+          for (const order of orders) {
+            // Get the first product from the order for simplicity
+            const firstItem = order.items[0];
+
+            // Add to the stream's orders array
+            stream.orders.push({
+              orderId: order.order_id,
+              buyer: order.buyerDetails,
+              orderDetails: {
+                _id: order._id,
+                order_id: order.order_id,
+                itemsCount: order.items.length,
+                totalAmount: order.totalAmount,
+                shippingFee: sellerItems[order.seller.toString()].shippingFee,
+                orderTotal: order.totalAmount + sellerItems[order.seller.toString()].shippingFee,
+                seller: order.seller,
+                fezOrderNo: fezResponse.data?.orderNos?.[order.order_id] || null,
+                items: order.items
+              },
+              product: firstItem.product,
+              amount: order.totalAmount,
+              createdAt: new Date()
+            });
+          }
+
+          // Save the stream with updated orders
+          await stream.save();
+
+
+          // Send a socket notification about the order for the stream
+          if (req.app && req.app.get('io')) {
+            const io = req.app.get('io');
+
+            // Helper function to format product name to only 3 words
+            function formatProductName(name) {
+              if (!name) return 'an item';
+              const words = name.split(' ');
+              return words.slice(0, 3).join(' ') + (words.length > 3 ? '...' : '');
+            }
+
+            // Create notification object for WebSocket
+            const notificationObj = {
+              id: Date.now().toString(),
+              type: 'liveshow_order',
+              user: buyer.username || 'Anonymous User',
+              avatar: buyer.profileImage?.url || '',
+              content: `purchased ${formatProductName(orders[0]?.items[0]?.productName || 'an item')} 🎉🎉`,
+              data: {
+                message: `New order placed during the liveshow`,
+                streamId: stream._id.toString(),
+                sellerId: stream.seller._id.toString(),
+                storeName: stream.seller.storeName || 'Unknown Store',
+                orders: orders,
+                streamOrders: stream.orders
+              },
+              timestamp: new Date()
+            };
+
+
+
+            // Send WebSocket notification
+            console.log('Broadcasting liveshow order notification to subscribers');
+            const streamRoom = `stream_notifications_${stream._id.toString()}`;
+            io.to(streamRoom).emit('stream_notification', notificationObj);
+
+            // Add the notification to stream chat interactions
+            stream.chatInteractions.push(notificationObj);
+            await stream.save();
+          } else {
+            console.warn('Could not send socket notification - io not available');
+          }
+
+          // track live show order event on mixpanel
+          mixpanel.track('live_show_order', {
+            streamId: stream._id,
+            buyerId: buyer.id,
+            productId: orders[0].items[0].product,
+            productName: orders[0].items[0].productName,
+            buyerName: buyer.firstName + " " + buyer.lastName,
+            buyerUsername: buyer.username,
+            orderId: orders[0].order_id,
+            orderTotal: orders[0].totalAmount,
+            orderDate: orders[0].createdAt,
+          });
+
+        } else {
+          console.warn('Stream not found for liveshow order:', req.body.streamId);
+        }
+      } catch (streamError) {
+        console.error('Error updating stream with order information:', streamError);
+        // Continue with the response even if stream update fails
+      }
+    }
+
     // Return only the essential order data for the controller to process
-    return orders.map(o => ({
+    return {
+      mainOrder: orders.map(o => ({
         orderId: o._id,
         order_id: o.order_id,
         seller: o.seller,
@@ -157,7 +290,9 @@ exports.createOrder = async (req) => {
         status: o.status,
         isStorePickup: o.isStorePickup,
         isInternational: o.isInternational
-    }));
+      })),
+      liveShowOrders: liveShowOrders
+    };
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
@@ -317,11 +452,11 @@ async function createDraftOrderForSeller(sellerData, buyer, orderId, req, sessio
     delivery_address: deliveryAddress,
     pickup_address: pickupAddress,
     shipping: {
-        fee: { amount: shippingFeeAmount, currency: 'NGN' }
+      fee: { amount: shippingFeeAmount, currency: 'NGN' }
     },
     paid: false,
     paymentInfo: {
-        status: 'pending'
+      status: 'pending'
     },
     statusHistory: [{ status: 'draft', note: 'Order created' }],
     notificationsSent: false

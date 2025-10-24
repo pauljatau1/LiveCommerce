@@ -200,7 +200,11 @@ exports.register = async (req, res) => {
       });
     }
 
-    res.status(201).json({ user: newBuyer, token });
+    // Exclude password and OTP from response for security
+    const userResponse = newBuyer.toObject ? newBuyer.toObject() : { ...newBuyer };
+    delete userResponse.password;
+    delete userResponse.otp;
+    res.status(201).json({ user: userResponse, token });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({
@@ -242,7 +246,11 @@ exports.login = async (req, res) => {
     }
 
     const token = generateToken(buyer._id);
-    res.json({ user: buyer, token });
+    // Exclude password and OTP from response for security
+    const userResponse = buyer.toObject ? buyer.toObject() : { ...buyer };
+    delete userResponse.password;
+    delete userResponse.otp;
+    res.json({ user: userResponse, token });
   } catch (error) {
     res.status(500).json({ message: 'Login failed', error: error.message });
   }
@@ -266,7 +274,11 @@ async function googleLoginMobile(data, res) {
     }
 
     const token = generateToken(buyer._id);
-    res.json({ user: buyer, token });
+    // Exclude password and OTP from response for security
+    const userResponse = buyer.toObject ? buyer.toObject() : { ...buyer };
+    delete userResponse.password;
+    delete userResponse.otp;
+    res.json({ user: userResponse, token });
   } catch (error) {
     res.status(500).json({ message: 'google Login failed', error: error.message });
   }
@@ -319,7 +331,11 @@ async function googleRegisterMobile(data, res) {
       await saveToken(newBuyer._id, expoPushToken);
     }
     const token = generateToken(newBuyer._id);
-    res.status(201).json({ user: newBuyer, token });
+    // Exclude password and OTP from response for security
+    const userResponse = newBuyer.toObject ? newBuyer.toObject() : { ...newBuyer };
+    delete userResponse.password;
+    delete userResponse.otp;
+    res.status(201).json({ user: userResponse, token });
   }
   catch (error) {
     res.status(500).json({ message: 'google register Login failed', error: error.message });

@@ -148,8 +148,11 @@ async function login(data) {
   // This provides secure authentication for subsequent requests
   const token = generateToken(buyer._id);
   
-  // Step 7: Return authenticated user data and token
-  return { user: buyer, token: token };
+  // Step 7: Return authenticated user data and token (exclude password and OTP for security)
+  const userResponse = buyer.toObject ? buyer.toObject() : { ...buyer };
+  delete userResponse.password;
+  delete userResponse.otp;
+  return { user: userResponse, token: token };
 }
 
 /**
@@ -215,9 +218,12 @@ async function googleLoginMobile(data) {
     await saveToken(buyer._id, expoPushToken);
   }
 
-  // Step 5: Generate JWT token and return authenticated user
+  // Step 5: Generate JWT token and return authenticated user (exclude password and OTP for security)
   const token = generateToken(buyer._id);
-  return { user: buyer, token: token };
+  const userResponse = buyer.toObject ? buyer.toObject() : { ...buyer };
+  delete userResponse.password;
+  delete userResponse.otp;
+  return { user: userResponse, token: token };
 }
 
 module.exports = {

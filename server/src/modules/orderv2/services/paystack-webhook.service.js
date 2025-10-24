@@ -74,7 +74,7 @@ async function handleSuccessfulPayment(event) {
     await processOrderAsPaid(order, event.data);
 
     // Get the buyer for notification and send Slack email
-    const webhookBuyer = await Buyer.findById(order.buyer);
+    const webhookBuyer = await Buyer.findById(order.buyer._id);
     if (webhookBuyer) {
       await sendSlackNotificationForPaidOrder(order, webhookBuyer);
     }

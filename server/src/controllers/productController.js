@@ -360,18 +360,18 @@ exports.getAllProducts = async (req, res) => {
       visibility = 'visible'
     } = req.query;
 
-    // Build query - start with base query that excludes offline_auction products and out of stock products
+    // Build query - start with base query that excludes offline_auction and draft products, and out of stock products
     let query = { 
-      status: { $ne: 'offline_auction' },
+      status: { $nin: ['offline_auction', 'draft'] },
       stock: { $gt: 0 } // Only fetch products with stock greater than 0
     };
 
     // Only add additional status filter if specifically provided in the query
     if (req.query.status) {
-      query.status = status;
+      query.status = req.query.status;
     }
     if (req.query.visibility) {
-      query.visibility = visibility;
+      query.visibility = req.query.visibility;
     }
     if (category) {
       query.category = category;
@@ -3042,10 +3042,9 @@ async function getGeneralProducts(req, res) {
     
     // Build base query for active and visible products
     const baseQuery = {
-      status: 'active',
+      status: { $nin: ['offline_auction', 'draft'] },
       visibility: 'visible',
-      stock: { $gt: 0 },
-      status: { $ne: 'offline_auction' }
+      stock: { $gt: 0 }
     };
     
     // Get total count of all available products
@@ -3129,10 +3128,9 @@ exports.getPersonalizedProducts = async (req, res) => {
     
     // Build base query for active and visible products
     const baseQuery = {
-      status: 'active',
+      status: { $nin: ['offline_auction', 'draft'] },
       visibility: 'visible',
-      stock: { $gt: 0 },
-      status: { $ne: 'offline_auction' }
+      stock: { $gt: 0 }
     };
     
     // Get total count of all available products

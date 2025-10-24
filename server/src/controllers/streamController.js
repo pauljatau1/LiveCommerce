@@ -1319,7 +1319,9 @@ exports.createOpenLiveShow = async (req, res) => {
       tags,
       scheduledStartTime,
       video,
-      coverImage
+      coverImage,
+      products,
+      autoUpload
     } = req.body;
 
     // Validate required fields
@@ -1346,6 +1348,92 @@ exports.createOpenLiveShow = async (req, res) => {
 
     // No need to parse tags as they should now be arrays directly
     const parsedTags = tags || [];
+    
+    // Build products for the stream based on autoUpload flag
+    let productsForStream = [];
+    if (autoUpload === true) {
+      // Auto-fetch seller's active products when autoUpload is enabled
+      const sellerProducts = await Product.find({
+        seller: req.user.id,
+        status: 'active',
+        visibility: 'visible'
+      })
+        .sort({ createdAt: -1 })
+        .select('_id name description category images price sku stock');
+
+      if (sellerProducts.length === 0) {
+        return res.status(400).json({
+          message: 'No active products found for this seller'
+        });
+      }
+
+      productsForStream = sellerProducts.map(p => ({
+        product: {
+          productId: p._id,
+          name: p.name,
+          category: p.category,
+          images: p.images,
+          sku: p.sku,
+          quantity: p.stock || 0,
+          price: p.price,
+          description: p.description
+        }
+      }));
+    } else {
+      // Use products provided by the client; validate format and size
+      const productsList = products || [];
+      if (!Array.isArray(productsList)) {
+        return res.status(400).json({
+          message: 'Invalid products format. Expected array'
+        });
+      }
+
+      if (productsList.length === 0) {
+        return res.status(400).json({
+          message: 'At least one product is required for an open live show'
+        });
+      }
+
+      if (productsList.length > 20) {
+        return res.status(400).json({
+          message: 'Maximum of 20 products allowed for an open live show'
+        });
+      }
+
+      // Enrich each product with full details from DB for consistency
+      const productsWithFullDetails = await Promise.all(
+        productsList.map(async (p) => {
+          const productId = p.product?.productId;
+          if (!productId) {
+            return p;
+          }
+          const completeProduct = await Product.findById(productId).select(
+            '_id name description category images price sku stock variants'
+          );
+          if (!completeProduct) {
+            return p;
+          }
+          return {
+            ...p,
+            product: {
+              productId: completeProduct._id,
+              name: completeProduct.name,
+              category: completeProduct.category,
+              images: completeProduct.images,
+              sku: completeProduct.sku,
+              quantity: completeProduct.stock || 0,
+              price: completeProduct.price,
+              description: completeProduct.description,
+              variants: completeProduct.variants
+            }
+          };
+        })
+      );
+
+      productsForStream = productsWithFullDetails.map(p => ({
+        product: p.product
+      }));
+    }
 
     // Upload cover image to AWS S3
     let imageData = {};
@@ -1424,21 +1512,6 @@ exports.createOpenLiveShow = async (req, res) => {
     // Generate Agora token
     const token = agoraService.generateToken(channelName, req.user.agoraUid);
 
-    // Get all seller's active products with full details (limited to 30, sorted newest first)
-    const sellerProducts = await Product.find({
-      seller: req.user.id,
-      status: 'active',
-      visibility: 'visible'
-    })
-    .sort({ createdAt: -1 }) // Sort by creation date, newest first
-    .select('_id name description category images price sku stock');
-
-    if (sellerProducts.length === 0) {
-      return res.status(400).json({
-        message: 'No active products found for this seller'
-      });
-    }
-
     const stream = new Stream({
       seller: req.user.id,
       title,
@@ -1448,23 +1521,13 @@ exports.createOpenLiveShow = async (req, res) => {
       category,
       subCategory,
       tags: parsedTags,
-      products: sellerProducts.map(p => ({
-        product: {
-          productId: p._id,
-          name: p.name,
-          category: p.category,
-          images: p.images,
-          sku: p.sku,
-          quantity: p.stock || 0,
-          price: p.price
-        }
-        // For open shows, we don't include minBid and maxBid
-      })),
+      products: productsForStream,
       channelName,
       agoraToken: token,
       scheduledStartTime: startDate,
       type: 'open_show',
-      status: 'scheduled'
+      status: 'scheduled',
+      autoUpload: !!autoUpload
     });
 
     stream.streamLink = generateStreamLink(stream._id,stream.type)

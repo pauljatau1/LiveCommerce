@@ -208,3 +208,74 @@ Returns blips only from sellers that the authenticated buyer follows.
 - **Relaxed Filtering**: Gradually relaxes constraints if no results
 - **Error Handling**: Graceful degradation on database errors
 - **Empty Results**: Proper handling when no content is available
+
+### GET `/api/v2/blips/top`
+Returns a non-scrollable list of recent, high-engagement blips. This endpoint does not use session tracking or de-duplication.
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Number of blips per page (default: 12)
+
+**Algorithm & Logic:**
+- **Engagement + Recency Scoring**: Views (1pt) + Likes (6pts) + Comments (12pts) + recency boost (≤14 days)
+- **Personalization Boosts (if logged in)**: Preferred categories and followed sellers receive additional score
+- **Variety**: Random tie-breaker within a top pool to avoid static ordering
+- **No Session**: Designed for simple list usage, not infinite scroll
+- **Fallbacks**: Relaxes to active/pending, then basic sort if needed
+
+**Response:**
+```json
+{
+  "blips": [...],
+  "currentPage": 1,
+  "totalPages": 3,
+  "totalBlips": 36
+}
+```
+
+### GET `/api/v2/blips/by-category`
+Returns blips for a provided category or subCategory (case-insensitive), ranked by engagement and recency.
+
+**Query Parameters:**
+- `category` (required): Category or subCategory name
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Number of blips per page (default: 12)
+
+**Algorithm & Logic:**
+- **Category Match**: Matches either `category` or `subCategory`
+- **Engagement + Recency**: Ranks by engagement score and recency with randomization for variety
+- **Fallbacks**: Relaxes product status constraints if needed
+
+**Response:**
+```json
+{
+  "blips": [...],
+  "currentPage": 1,
+  "totalPages": 5,
+  "totalBlips": 60
+}
+```
+
+### GET `/api/v2/blips/by-random-category`
+Returns blips from a randomly selected category that contains at least 6 blips. If the user is logged in, it first tries to pick from the buyer's selected categories.
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Number of blips per page (default: 12)
+
+**Algorithm & Logic:**
+- **Category Selection**: Randomly selects a category where blip count ≥ 6
+- **Preference Bias**: Prefers categories in the buyer's `selectedCategories` when available
+- **Engagement + Recency**: Ranks blips within the chosen category
+- **Fallbacks**: Falls back to global active/pending pool to find a qualifying category
+
+**Response:**
+```json
+{
+  "blips": [...],
+  "selectedCategory": "Electronics",
+  "currentPage": 1,
+  "totalPages": 4,
+  "totalBlips": 48
+}
+```
