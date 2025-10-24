@@ -298,9 +298,11 @@ async function register(data) {
     sendAdminNotification(data.firstName, data.lastName, data.email, data.phoneNumber)
   ]);
 
-  // Return success response
+  // Return success response (exclude password for security)
+  const userResponse = savedSeller.toObject();
+  delete userResponse.password;
   return {
-    user: savedSeller,
+    user: userResponse,
     token: token
   };
 }
