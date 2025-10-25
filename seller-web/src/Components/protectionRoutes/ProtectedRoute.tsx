@@ -5,7 +5,7 @@ import { sellerService } from '@/services/sellerService';
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { tokenUtils, authUtils } from '@/util/auth';
+import { tokenUtils, authUtils, sellerUtils } from '@/util/auth';
 import DisabledAccountDialog from '@/Components/DisabledAccountDialog';
 import PropTypes from 'prop-types';
 import { toast } from 'sonner';
@@ -35,7 +35,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   // handle auth success and check if seller is disabled
   useEffect(() => {
+    console.log("seller details data", sellerUtils.getSeller());
+    dispatch({ type: "AUTH_SUCCESS", payload: { seller: sellerUtils.getSeller() as Seller, token: tokenUtils.getBearerToken() || "" } })
     if (data) {
+      console.log("useEffect seller details data", data);
       dispatch({ type: "AUTH_SUCCESS", payload: { seller: data as Seller, token: tokenUtils.getBearerToken() || "" } })
       if (data?.isDisabled) {
         dispatch({ type: "ACCOUNT_DISABLED" });
