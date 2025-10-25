@@ -5,8 +5,7 @@ import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
 import AgoraRTC from 'agora-rtc-sdk-ng';
 import CircularProgress from '@mui/material/CircularProgress';
 import { toast } from 'sonner';
-import { useSocket } from '../../Contexts/SocketContext';
-import { useLivestreamSocket } from '../../Contexts/LivestreamSocketContext';
+import { useLivestreamSocket } from '@/Contexts/LivestreamSocketContext';
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
 import { Icon } from '@iconify/react';
 
@@ -124,7 +123,8 @@ const LivestreamStudio = () => {
         isLoading,
         liveStreamDetails,
         joinLiveStreamAsHost,
-        renewAgoraToken
+        renewAgoraToken,
+
     } = useLivestreamContext();
 
     // Group related state variables together for better organization and performance
@@ -157,8 +157,13 @@ const LivestreamStudio = () => {
     const [totalShares] = useState(0);
 
     // Context values
-    const socket = useSocket();
-    const livestreamSocket = useLivestreamSocket();
+    const {
+        socket,
+        subscribeToStreamNotifications,
+        unsubscribeFromStreamNotifications,
+        resetBiddingStates,
+        cleanupListeners,
+    } = useLivestreamSocket();
 
     // Refs
     const reconnectionInProgress = useRef(false);
@@ -235,14 +240,14 @@ const LivestreamStudio = () => {
                 if (!response && isMounted) {
                     throw new Error('Failed to fetch livestream details');
                 }
-                
+
                 // Check for ended status as soon as we get initial data
                 if (isMounted && response && response.status === "ended") {
                     console.log('Initial data indicates stream has ended');
                     setStreamEndModalType('initialize');
                     setShowStreamEndedModal(true);
                 }
-                
+
                 if (isMounted) setIsInitialDataLoaded(true);
             } catch (error) {
                 console.error('Error fetching initial livestream data:', error);
@@ -290,7 +295,7 @@ const LivestreamStudio = () => {
         viewers,
         orders,
         _id,
-        status
+        //status
         // streamType included for potential future use
     } = livestreamDetailsData;
 
@@ -446,6 +451,13 @@ const LivestreamStudio = () => {
 
             const streamData = await startLiveStream(_id);
             if (streamData) {
+                if (id && subscribeToStreamNotifications) {
+                    console.log(`LivestreamStudio: Subscribing to notifications for stream ${id}`);
+                    subscribeToStreamNotifications(id);
+                } else {
+                    console.log(`LivestreamStudio: Cannot subscribe to notifications for stream ${id}`);
+                    console.log(`LivestreamStudio: id: ${id}`);
+                }
                 // Pass the fresh stream data directly to initialize
                 await initializeStream(streamData);
             }
@@ -473,7 +485,7 @@ const LivestreamStudio = () => {
                 console.log('📷 [STREAM INIT] Stream has ended, showing modal');
                 setIsLiveStreamStarting(false);
                 isInitializingStream.current = false;
-                
+
                 // Show the ended stream modal
                 setStreamEndModalType('initialize');
                 setShowStreamEndedModal(true);
@@ -957,21 +969,21 @@ const LivestreamStudio = () => {
         }
     }, []);
 
-        // Function to switch between front and back cameras - ultra-optimized for <200ms
+    // Function to switch between front and back cameras - ultra-optimized for <200ms
     const switchCamera = useCallback(async (specificCameraId) => {
         if (!isStreaming || localTracks.length === 0) return;
 
         const startTime = performance.now();
-        
+
         try {
             // 1. Fast camera enumeration and current track lookup
             const [currentVideoTrack, mediaDevices] = await Promise.all([
                 Promise.resolve(localTracks.find(track => track.trackMediaType === 'video')),
                 navigator.mediaDevices.enumerateDevices()
             ]);
-            
+
             if (!currentVideoTrack) throw new Error("No video track found");
-            
+
             const cameras = mediaDevices.filter(device => device.kind === 'videoinput');
             if (cameras.length < 2) throw new Error("Device has only one camera");
 
@@ -981,8 +993,8 @@ const LivestreamStudio = () => {
                 targetCamera = cameras.find(cam => cam.deviceId === specificCameraId);
                 if (!targetCamera) throw new Error("Selected camera not found");
             } else {
-                const currentIndex = cameras.findIndex(cam => 
-                    cam.deviceId === currentVideoTrack._deviceId || 
+                const currentIndex = cameras.findIndex(cam =>
+                    cam.deviceId === currentVideoTrack._deviceId ||
                     cam.label === currentVideoTrack._originMediaStreamTrack?.label
                 ) || (cameraFacingMode === "user" ? 1 : 0);
                 targetCamera = cameras[(currentIndex + 1) % cameras.length];
@@ -992,7 +1004,7 @@ const LivestreamStudio = () => {
                 targetCamera.label.toLowerCase().includes('rear') ||
                 targetCamera.label.toLowerCase().includes('environment') ||
                 targetCamera.label.includes('0');
-            
+
             const calculatedFacingMode = isRearCamera ? "environment" : "user";
 
             // 3. Parallel cleanup and new camera access preparation
@@ -1003,12 +1015,12 @@ const LivestreamStudio = () => {
                     setPreviewMediaStream(null);
                 }
                 if (window.activeCameraStreams?.length) {
-                    window.activeCameraStreams.forEach(stream => 
+                    window.activeCameraStreams.forEach(stream =>
                         stream.getTracks().forEach(track => track.stop())
                     );
                     window.activeCameraStreams = [];
                 }
-                
+
                 // Unpublish and close current track
                 await client.unpublish(currentVideoTrack);
                 currentVideoTrack.stop();
@@ -1016,16 +1028,16 @@ const LivestreamStudio = () => {
             })();
 
             // 4. Prepare new camera constraints while cleanup happens
-            const cameraConstraints = isRearCamera ? 
+            const cameraConstraints = isRearCamera ?
                 { video: { facingMode: { exact: "environment" } }, audio: false } :
                 { video: { deviceId: { exact: targetCamera.deviceId }, facingMode: { exact: "user" } }, audio: false };
 
             // 5. Wait for cleanup completion, then immediate camera access
             await cleanupPromise;
-            
+
             // 6. Get new camera stream (no artificial delay)
             const newStream = await navigator.mediaDevices.getUserMedia(cameraConstraints);
-            
+
             // Store for cleanup
             if (!window.activeCameraStreams) window.activeCameraStreams = [];
             window.activeCameraStreams.push(newStream);
@@ -1076,7 +1088,7 @@ const LivestreamStudio = () => {
 
             const duration = performance.now() - startTime;
             console.log(`Camera switch completed in ${duration.toFixed(2)}ms`);
-            
+
             toast.success(`Switched to ${calculatedFacingMode === "user" ? "front" : "back"} camera`, {
                 style: { background: '#161A1E', color: '#fff' }
             });
@@ -1088,7 +1100,7 @@ const LivestreamStudio = () => {
             });
         }
     }, [isStreaming, localTracks, cameraFacingMode, id, previewMediaStream, videoSettings, client]);
-    
+
 
     // Function to end stream - wrapped in useCallback
     const endStream = useCallback(async (button1, button2) => {
@@ -1221,32 +1233,31 @@ const LivestreamStudio = () => {
             await endLiveStream(_id, liveStreamDetails);
 
             // Reset all bidding states from the socket context
-            if (livestreamSocket && typeof livestreamSocket.resetBiddingStates === 'function') {
+            if (resetBiddingStates) {
                 console.log("📤 [STREAM END] Resetting all bidding states");
-                livestreamSocket.resetBiddingStates();
+                resetBiddingStates();
 
                 // Emit a host_disconnect event to notify viewers that the host has ended the stream
-                if (livestreamSocket.socket) {
-                    console.log("📤 [STREAM END] Notifying viewers about host disconnect");
-                    livestreamSocket.socket.emit('stream_notification', {
-                        type: 'host_disconnect',
-                        data: {
-                            streamId: _id,
-                            message: 'Host has ended the stream'
-                        }
-                    });
-                }
+
+                console.log("📤 [STREAM END] Notifying viewers about host disconnect");
+                socket.emit('stream_notification', {
+                    type: 'host_disconnect',
+                    data: {
+                        streamId: _id,
+                        message: 'Host has ended the stream'
+                    }
+                });
 
                 // Clean up socket listeners to prevent memory leaks
-                if (typeof livestreamSocket.cleanupListeners === 'function') {
+                if (cleanupListeners) {
                     console.log("📤 [STREAM END] Cleaning up socket listeners");
-                    livestreamSocket.cleanupListeners(_id);
+                    cleanupListeners(_id);
                 }
 
                 // Unsubscribe from stream notifications
-                if (typeof livestreamSocket.unsubscribeFromStreamNotifications === 'function') {
+                if (unsubscribeFromStreamNotifications) {
                     console.log("📤 [STREAM END] Unsubscribing from stream notifications");
-                    livestreamSocket.unsubscribeFromStreamNotifications(_id);
+                    unsubscribeFromStreamNotifications(_id);
                 }
             }
 
@@ -1300,10 +1311,12 @@ const LivestreamStudio = () => {
         localTracks,
         _id,
         liveStreamDetails,
-        livestreamSocket,
+        cleanupListeners,
+        unsubscribeFromStreamNotifications,
         stopTimer,
         navigate,
-        endLiveStream
+        endLiveStream,
+        resetBiddingStates,
     ]);
 
     // Add code to load camera state from localStorage in initializeStream
@@ -1481,12 +1494,13 @@ const LivestreamStudio = () => {
 
         console.log('🔄 [RECONNECT 2/18] Set reconnection locks to prevent concurrent attempts');
 
-        try {
 
+        try {
             // Force cleanup first - always ensure we're starting with a clean slate
             console.log('🔄 [RECONNECT 3/18] Cleaning up any existing Agora resources');
             await cleanupAgoraResources();
             console.log('🔄 [RECONNECT 4/18] Agora resources cleanup completed');
+            // Socket subscription is now handled by dedicated useEffect
 
             // Check all localStorage items for any with stream_connected_ prefix
             console.log('🔄 [RECONNECT 5/18] Searching localStorage for existing stream sessions');
@@ -1552,13 +1566,13 @@ const LivestreamStudio = () => {
                 globalReconnectionInProgress = false;
                 reconnectionInProgress.current = false;
                 setIsReconnecting(false);
-                
+
                 // Show the ended stream modal
                 setStreamEndModalType('reconnect');
                 setShowStreamEndedModal(true);
                 return;
             }
-            
+
             console.log('🔄 [RECONNECT 10/18] Successfully fetched fresh stream data');
 
             // Check permissions with improved waiting
@@ -1912,8 +1926,13 @@ const LivestreamStudio = () => {
             // Update tracks and start timer
             console.log('🔄 [FINALIZE 2/3] Updating local tracks state');
             setLocalTracks([audioTrack, videoTrack]);
-            console.log('🔄 [FINALIZE 3/3] Starting stream timer');
+            //console.log('🔄 [FINALIZE 3/3] Starting stream timer');
             startTimer();
+
+            if (id) {
+                console.log(`LivestreamStudio: Subscribing to notifications for stream ${id}`);
+                subscribeToStreamNotifications(id);
+            }
 
             console.log('✅ [RECONNECT] Reconnection process completed successfully');
             toast.success('Successfully reconnected to your livestream');
@@ -1947,7 +1966,6 @@ const LivestreamStudio = () => {
 
     useEffect(() => {
         console.log('🔄 [MOUNT] Component mounted, checking for existing stream');
-
         // Add a small delay to ensure we don't have race conditions with other effects
         const timeoutId = setTimeout(() => {
             checkForExistingStream();
@@ -2333,10 +2351,10 @@ const LivestreamStudio = () => {
                         </div>
                         <h2 className="text-[#EFF0FA] font-lexend font-bold text-lg 2xl:text-xl mb-2">Leaving Your Stream?</h2>
                         <p className="text-[#7A828A] text-sm 2xl:text-base mb-6">
-                            If you leave now, your stream will end in one minute and all viewers will be disconnected. 
+                            If you leave now, your stream will end in one minute and all viewers will be disconnected.
                             Are you sure you want to leave?
                         </p>
-                        
+
                         <div className="flex gap-4 w-full">
                             <button
                                 onClick={() => {
@@ -2373,12 +2391,12 @@ const LivestreamStudio = () => {
                         </div>
                         <h2 className="text-[#EFF0FA] font-lexend font-bold text-lg 2xl:text-xl mb-2">Stream Ended</h2>
                         <p className="text-[#7A828A] text-sm 2xl:text-base mb-6">
-                            This stream has already ended and is no longer available. 
-                            {streamEndModalType === 'reconnect' 
+                            This stream has already ended and is no longer available.
+                            {streamEndModalType === 'reconnect'
                                 ? ' You were reconnecting to a stream that is no longer active.'
                                 : ' You cannot start this stream again.'}
                         </p>
-                        
+
                         <div className="flex gap-4 w-full">
                             <button
                                 onClick={() => {

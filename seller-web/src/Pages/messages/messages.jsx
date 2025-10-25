@@ -277,7 +277,7 @@ export default function ChatInterface() {
   const [sellerId, setSellerId] = useState(null);
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef(null);
-  const socket = useSocket();
+  const { socket } = useSocket();
   const navigate = useNavigate();
   const location = useLocation();
   const [customers, setCustomers] = useState([]);

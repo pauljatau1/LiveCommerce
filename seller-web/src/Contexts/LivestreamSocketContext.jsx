@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { BASE_URL } from '../Constants/Server';
 import { tokenUtils } from '@/util/auth';
@@ -12,11 +12,9 @@ export function LivestreamSocketProvider({ children }) {
   const [bidUpdates, setBidUpdates] = useState({});
   const [bidTimers, setBidTimers] = useState({});
   const [productStatuses, setProductStatuses] = useState({});
-  
-  useEffect(() => {
-    const token = tokenUtils.getBearerToken();
-    if (!token) return;
+  const token = tokenUtils.getBearerToken();
 
+  const connectSocket = useCallback(() => {
     try {
       // Parse the BASE_URL to extract just the origin (protocol + hostname + port)
       let socketUrl;
@@ -32,7 +30,7 @@ export function LivestreamSocketProvider({ children }) {
         socketUrl = window.location.origin;
         console.log('Falling back to origin:', socketUrl);
       }
-      
+
       // Create a socket connection specifically for livestream
       const socketInstance = io(socketUrl, {
         transports: ["websocket"],
@@ -72,24 +70,55 @@ export function LivestreamSocketProvider({ children }) {
     } catch (error) {
       console.error('Error creating socket connection:', error);
     }
-  }, []);
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    connectSocket();
+  }, [connectSocket, token]);
+
+  const disconnectSocket = useCallback(() => {
+    if (socket) {
+      console.log('🔌 [LIVESTREAM SOCKET] User not authenticated, disconnecting livestream socket...');
+
+      // Clean up all event listeners
+      socket.off('stream_notification');
+      socket.off('viewer_joined_stream');
+      socket.off('viewer_left_stream');
+      socket.off('bid_timer_update');
+
+      // Reset all states
+      setNotifications([]);
+      setBidUpdates({});
+      setBidTimers({});
+      setProductStatuses({});
+
+      // Disconnect the socket
+      socket.disconnect();
+      setSocket(null);
+
+      console.log('🔌 [LIVESTREAM SOCKET] Livestream socket disconnected and states cleared');
+    }
+  }, [socket]);
+
 
   // Function to subscribe to a specific stream's notifications
   const subscribeToStreamNotifications = (streamId) => {
     if (!socket || !streamId) {
-      console.error('Cannot subscribe to stream notifications: socket not connected or invalid stream ID');
+      console.error('Cannot subscribe to stream notifications: socket not connected or invalid stream ID', socket, streamId);
       return false;
     }
 
     try {
       console.log(`Subscribing to notifications for stream: ${streamId}`);
       socket.emit('stream_notification_subscribe', { streamId });
-      
+
       // Set up event listeners for this stream
       // Listen for stream notifications
       socket.on('stream_notification', (notification) => {
         console.log('Received stream notification:', notification);
-        
+
         // Handle bid-specific notifications
         if (notification.type === 'new_bid') {
           console.log('Processing new bid notification:', notification);
@@ -104,7 +133,7 @@ export function LivestreamSocketProvider({ children }) {
                 timestamp: notification.timestamp
               }
             }));
-            
+
             // Make sure the bid amount is available for display in the chat
             if (!notification.content && notification.data.bidAmount) {
               notification.content = `placed a bid of ${new Intl.NumberFormat('en-US', {
@@ -127,13 +156,13 @@ export function LivestreamSocketProvider({ children }) {
                 timestamp: notification.timestamp
               }
             }));
-            
+
             // Update the product status to 'ongoing'
             setProductStatuses(prev => ({
               ...prev,
               [productId]: 'ongoing'
             }));
-            
+
             // Enhance notification with bid amount for display in chat
             if (notification.data.bidWinner.bidAmount && !notification.data.bidAmount) {
               notification.data.bidAmount = notification.data.bidWinner.bidAmount;
@@ -144,7 +173,7 @@ export function LivestreamSocketProvider({ children }) {
           // No specific state updates needed, just handle the notification display
           // We could track orders in state if needed in the future
         }
-        
+
         // Add all notifications to the notifications array
         setNotifications(prev => [...prev, notification]);
       });
@@ -160,7 +189,7 @@ export function LivestreamSocketProvider({ children }) {
         console.log('Viewer left stream:', notification);
         setNotifications(prev => [...prev, notification]);
       });
-      
+
       // Listen for bid timer updates
       socket.on('bid_timer_update', (timerData) => {
         console.log('Received bid timer update:', timerData);
@@ -173,19 +202,19 @@ export function LivestreamSocketProvider({ children }) {
               timestamp: timerData.timestamp
             }
           }));
-          
+
           // If timer reaches zero, update the product status to 'ongoing'
           if (timerData.secondsLeft <= 0) {
             console.log('Timer expired for product:', timerData.productId);
-            
+
             // Get the current status before updating
             const currentStatus = productStatuses[timerData.productId];
             console.log(`Current status before timer update for ${timerData.productId}: ${currentStatus}`);
-            
+
             // Only update if the current status is 'active' - prevent conflicts with other updates
             if (currentStatus === 'active') {
               console.log(`Timer expired: Updating product ${timerData.productId} status from active to ongoing`);
-              
+
               // Set this in its own state update to ensure it happens
               setTimeout(() => {
                 setProductStatuses(prev => {
@@ -194,7 +223,7 @@ export function LivestreamSocketProvider({ children }) {
                     console.log(`Status already changed from active, now: ${prev[timerData.productId]}, skipping update`);
                     return prev;
                   }
-                  
+
                   console.log(`Timer update: Changing product status from active to ongoing for ${timerData.productId}`);
                   return {
                     ...prev,
@@ -208,7 +237,7 @@ export function LivestreamSocketProvider({ children }) {
           }
         }
       });
-      
+
       return true;
     } catch (error) {
       console.error('Error subscribing to stream notifications:', error);
@@ -226,13 +255,13 @@ export function LivestreamSocketProvider({ children }) {
     try {
       console.log(`Unsubscribing from notifications for stream: ${streamId}`);
       socket.emit('stream_notification_unsubscribe', { streamId });
-      
+
       // Remove all event listeners to prevent memory leaks
       socket.off('stream_notification');
       socket.off('viewer_joined_stream');
       socket.off('viewer_left_stream');
       socket.off('bid_timer_update');
-      
+
       return true;
     } catch (error) {
       console.error('Error unsubscribing from stream notifications:', error);
@@ -243,7 +272,7 @@ export function LivestreamSocketProvider({ children }) {
   // Function to send a comment to the stream
   const sendStreamComment = (streamId, content) => {
     if (!socket || !streamId || !content.trim()) {
-      console.error('Cannot send comment: socket not connected or invalid data');
+      console.error('Cannot send comment: socket not connected or invalid data', socket, streamId, content);
       return false;
     }
 
@@ -277,26 +306,26 @@ export function LivestreamSocketProvider({ children }) {
       return false;
     }
   };
-  
+
   // Function to manually update a product status
   const updateProductStatus = (productId, status) => {
     if (!productId || !status) return;
-    
+
     // Special case: When setting a status to 'active', automatically end other active/ongoing items
     if (status === 'active') {
       console.log(`Setting ${productId} to active, will check for other active/ongoing products to end`);
-      
+
       // First update this product to active
       setProductStatuses(prev => {
         // If status is the same, return the previous state unchanged
         if (prev[productId] === status) {
           return prev;
         }
-        
+
         // Set this product to active
         console.log(`Updating product ${productId} status from ${prev[productId] || 'none'} to ${status}`);
         const updated = { ...prev, [productId]: status };
-        
+
         // Now check for other active/ongoing products that need to be ended
         Object.entries(updated).forEach(([pid, currentStatus]) => {
           if (pid !== productId && (currentStatus === 'active' || currentStatus === 'ongoing')) {
@@ -304,13 +333,13 @@ export function LivestreamSocketProvider({ children }) {
             updated[pid] = 'ended';
           }
         });
-        
+
         return updated;
       });
-      
+
       return; // Exit early - we've handled everything in one update
     }
-    
+
     // Special case for 'ongoing' to 'ended' transitions - add a delay to keep the OngoingBidProductCard visible
     if (status === 'ended') {
       const currentStatus = productStatuses[productId];
@@ -318,7 +347,7 @@ export function LivestreamSocketProvider({ children }) {
         // Check if this is a very recent transition to 'ongoing' (within the last 30 seconds)
         // to ensure we show the OngoingBidProductCard for a minimum amount of time
         console.log(`Request to set ${productId} from 'ongoing' to 'ended', adding a delay for better UX`);
-        
+
         // Delay the transition to 'ended' by 30 seconds
         setTimeout(() => {
           console.log(`Now setting ${productId} from 'ongoing' to 'ended' after delay`);
@@ -328,38 +357,38 @@ export function LivestreamSocketProvider({ children }) {
               console.log(`Status already changed from ongoing, now: ${prev[productId]}, skipping update`);
               return prev;
             }
-            
+
             return {
               ...prev,
               [productId]: 'ended'
             };
           });
         }, 30000); // 30-second delay
-        
+
         return; // Exit early
       }
     }
-    
+
     // For other status transitions, use the standard update
     setProductStatuses(prev => {
       // If status is the same, return the previous state unchanged
       if (prev[productId] === status) {
         return prev;
       }
-      
+
       // If trying to set status to 'ongoing' but another product is already 'active', prevent it
       if (status === 'ongoing') {
         // Check if another product is active
         const isAnotherProductActive = Object.entries(prev).some(
           ([pid, pStatus]) => pid !== productId && pStatus === 'active'
         );
-        
+
         if (isAnotherProductActive) {
           console.log(`Not setting ${productId} to 'ongoing' because another product is still 'active'`);
           return prev;
         }
       }
-      
+
       // Only if status is different, update it
       console.log(`Updating product ${productId} status from ${prev[productId] || 'none'} to ${status}`);
       return {
@@ -368,7 +397,7 @@ export function LivestreamSocketProvider({ children }) {
       };
     });
   };
-  
+
   // Function to reset all bidding-related states
   const resetBiddingStates = () => {
     setNotifications([]);
@@ -377,24 +406,24 @@ export function LivestreamSocketProvider({ children }) {
     setProductStatuses({});
     console.log('All bidding states have been reset');
   };
-  
+
   // Function to clean up socket listeners for a specific stream
   const cleanupListeners = (streamId) => {
     if (!socket || !streamId) {
       console.warn('Cannot clean up listeners: socket not connected or invalid stream ID');
       return false;
     }
-    
+
     try {
       // Unsubscribe from stream-specific notifications
       unsubscribeFromStreamNotifications(streamId);
-      
+
       // Reset states
       setNotifications([]);
       setBidUpdates({});
       setBidTimers({});
       setProductStatuses({});
-      
+
       console.log(`Cleaned up socket listeners for stream: ${streamId}`);
       return true;
     } catch (error) {
@@ -404,8 +433,8 @@ export function LivestreamSocketProvider({ children }) {
   };
 
   return (
-    <LivestreamSocketContext.Provider value={{ 
-      socket, 
+    <LivestreamSocketContext.Provider value={{
+      socket,
       notifications,
       bidUpdates,
       bidTimers,
@@ -416,7 +445,9 @@ export function LivestreamSocketProvider({ children }) {
       resetBiddingStates,
       cleanupListeners,
       subscribeToStreamNotifications,
-      unsubscribeFromStreamNotifications
+      unsubscribeFromStreamNotifications,
+      disconnectSocket,
+      connectSocket
     }}>
       {children}
     </LivestreamSocketContext.Provider>
@@ -429,7 +460,7 @@ LivestreamSocketProvider.propTypes = {
 
 export const useLivestreamSocket = () => {
   const context = useContext(LivestreamSocketContext);
-  
+
   // Return a default object if context is not available (used outside provider)
   if (!context) {
     console.warn('useLivestreamSocket hook used outside of LivestreamSocketProvider');
@@ -464,9 +495,17 @@ export const useLivestreamSocket = () => {
       unsubscribeFromStreamNotifications: () => {
         console.warn('Cannot unsubscribe from stream notifications: socket not available');
         return false;
+      },
+      disconnectSocket: () => {
+        console.warn('Cannot disconnect socket: socket not available');
+        return false;
+      },
+      connectSocket: () => {
+        console.warn('Cannot connect socket: socket not available');
+        return false;
       }
     };
   }
-  
+
   return context;
 }; 

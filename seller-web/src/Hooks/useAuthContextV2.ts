@@ -7,7 +7,7 @@ import { AuthContextType } from '../types';
  * Provides type-safe access to all authentication state and methods
  * 
  * @returns AuthContextType - The complete authentication context
- * @throws Error if used outside of AuthProvider
+ * @throws Error if used outside of AuthProviderV2
  * 
  * @example
  * ```typescript
@@ -18,7 +18,7 @@ const useAuthContext = (): AuthContextType => {
     const context = useContext(AuthContext);
     
     if (!context) {
-        throw new Error('useAuthContext must be used within an AuthProvider');
+        throw new Error('useAuthContext must be used within an AuthProviderV2');
     }
 
     return context;
