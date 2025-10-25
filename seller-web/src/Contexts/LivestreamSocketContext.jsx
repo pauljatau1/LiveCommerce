@@ -77,7 +77,7 @@ export function LivestreamSocketProvider({ children }) {
   // Function to subscribe to a specific stream's notifications
   const subscribeToStreamNotifications = (streamId) => {
     if (!socket || !streamId) {
-      console.error('Cannot subscribe to stream notifications: socket not connected or invalid stream ID');
+      console.error('Cannot subscribe to stream notifications: socket not connected or invalid stream ID', socket, streamId);
       return false;
     }
 
@@ -243,7 +243,7 @@ export function LivestreamSocketProvider({ children }) {
   // Function to send a comment to the stream
   const sendStreamComment = (streamId, content) => {
     if (!socket || !streamId || !content.trim()) {
-      console.error('Cannot send comment: socket not connected or invalid data');
+      console.error('Cannot send comment: socket not connected or invalid data', socket, streamId, content);
       return false;
     }
 

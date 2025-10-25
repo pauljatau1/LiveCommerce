@@ -69,22 +69,6 @@ const StreamDesktopUi = ({
         }
     }, [orders]);
 
-    // Subscribe to stream-specific notifications when component mounts
-    useEffect(() => {
-        if (liveStreamDetails?._id && socket?.subscribeToStreamNotifications) {
-            console.log(`Desktop UI: Subscribing to notifications for stream ${liveStreamDetails._id}`);
-            socket.subscribeToStreamNotifications(liveStreamDetails._id);
-        }
-
-        // Cleanup function to unsubscribe when component unmounts
-        return () => {
-            if (liveStreamDetails?._id && socket?.unsubscribeFromStreamNotifications) {
-                console.log(`Desktop UI: Unsubscribing from notifications for stream ${liveStreamDetails._id}`);
-                socket.unsubscribeFromStreamNotifications(liveStreamDetails._id);
-            }
-        };
-    }, [liveStreamDetails, socket]);
-
     // Update total sales and items sold when liveshow_order notifications come in
     useEffect(() => {
         if (notifications.length > 0) {
