@@ -1672,7 +1672,7 @@ const LivestreamStudioFeed = ({
           Platform.OS == "ios"
             ? height - insets.bottom
             : height - insets.bottom - insets.top,
-        backgroundColor: "blue",
+        backgroundColor: "#000000",
         position: "relative",
         // paddingBottom: insets.bottom,
       }}
