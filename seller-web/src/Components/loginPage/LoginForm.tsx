@@ -11,6 +11,8 @@ import {
     FormItem,
     FormMessage,
 } from "@/Components/ui/form/form";
+import { GoogleLogin } from "@react-oauth/google";
+import { jwtDecode } from "jwt-decode";
 import GoogleIcon from "@/assets/icons/GoogleIcon";
 import PrimaryTypography from "@/Components/shared/PrimaryTypography";
 
@@ -24,7 +26,7 @@ interface LoginFormProps {
 
 export default function LoginForm({ onSignupClick, onGoogleLogin, onResetPasswordClick, onSubmit, isPending }: LoginFormProps) {
     const [showPassword, setShowPassword] = useState(false);
-    
+
     // Initialize form with React Hook Form and Zod validation
     const form = useForm<LoginFormData>({
         resolver: zodResolver(loginSchema),
@@ -169,18 +171,32 @@ export default function LoginForm({ onSignupClick, onGoogleLogin, onResetPasswor
             </div>
 
             {/* Google Login Button */}
-            <Button
+            {/*<Button
                 type="button"
                 variant="outline"
                 className="w-full border-gray-300 hover:bg-gray-50"
                 onClick={onGoogleLogin}
             >
                 <div className="flex items-center justify-center space-x-2">
-                    {/* Google Logo SVG */}
+                    {/* Google Logo SVG 
                     <GoogleIcon />
                     <span className="text-[#27272E]">Log In With Google</span>
                 </div>
-            </Button>
+            </Button>*/}
+            <GoogleLogin
+                onSuccess={credentialResponse => {
+                    if (credentialResponse.credential) {
+                        const decoded = jwtDecode(credentialResponse.credential);
+                        console.log("decoded", decoded);
+                    } else {
+                        console.log("No credential response");
+                    }
+                }}
+                onError={() => {
+                    console.log('Login Failed');
+                }}
+                logo_alignment="center"
+            />
         </div>
     );
 }
