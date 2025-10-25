@@ -9,9 +9,7 @@ import { LivestreamSocketProvider } from './Contexts/LivestreamSocketContext';
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Provider store={store}>
-      <LivestreamSocketProvider>
         <AppWithErrorBoundary />
-      </LivestreamSocketProvider>
     </Provider>
   </StrictMode>,
 )
