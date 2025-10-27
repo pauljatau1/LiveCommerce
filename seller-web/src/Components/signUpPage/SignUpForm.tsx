@@ -319,7 +319,7 @@ export default function SignUpForm({ onSignInClick, onGoogleSignup, onSubmit, is
                 </div>
             </div>
 
-            {/* Google Signup Button */}
+            {/* Google Signup Button 
             <Button
                 type="button"
                 variant="outline"
@@ -330,7 +330,7 @@ export default function SignUpForm({ onSignInClick, onGoogleSignup, onSubmit, is
                     <GoogleIcon />
                     <span className="text-[#27272E]">Log In With Google</span>
                 </div>
-            </Button>
+            </Button> */}
         </div>
     );
 }

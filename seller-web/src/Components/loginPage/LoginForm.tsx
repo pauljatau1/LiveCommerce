@@ -168,7 +168,7 @@ export default function LoginForm({ onSignupClick, onGoogleLogin, onResetPasswor
                 </div>
             </div>
 
-            {/* Google Login Button */}
+            {/* Google Login Button 
             <Button
                 type="button"
                 variant="outline"
@@ -176,11 +176,11 @@ export default function LoginForm({ onSignupClick, onGoogleLogin, onResetPasswor
                 onClick={onGoogleLogin}
             >
                 <div className="flex items-center justify-center space-x-2">
-                    {/* Google Logo SVG */}
+                
                     <GoogleIcon />
                     <span className="text-[#27272E]">Log In With Google</span>
                 </div>
-            </Button>
+            </Button> */}
         </div>
     );
 }
