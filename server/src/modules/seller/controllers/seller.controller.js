@@ -1,9 +1,10 @@
 const registerService = require('../services/register.service');
 const loginService = require('../services/login.service');
+const googleAuthService = require('../services/googleAuth.service');
 const checkTokenService = require('../services/checkToken.service');
 const resendOTPService = require('../services/resendOTP.service');
 const getProfileService = require('../services/getProfile.service');
-const selectAccountTypeService = require('../services/selectAccountType.service');
+const completeProfileService = require('../services/completeProfile.service');
 const addBankDetailsService = require('../services/addBankDetails.service');
 const uploadCompanyVerificationService = require('../services/uploadCompanyVerification.service');
 const uploadIndividualVerificationService = require('../services/uploadIndividualVerification.service');
@@ -72,6 +73,39 @@ async function login(req, res, next) {
 
     // Send success response with user data and token
     res.success(response, 'Login successful');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Authenticate seller using Google OAuth.
+ *
+ * This controller handles Google OAuth authentication HTTP requests.
+ * It delegates the Google OAuth authentication logic to the service layer,
+ * and sends a success response with user data and JWT token.
+ *
+ * The controller processes Google ID tokens from the frontend and:
+ * - Verifies the token with Google's servers
+ * - Creates new seller accounts or links to existing ones
+ * - Generates application JWT tokens for session management
+ * - Returns authenticated user data
+ *
+ * @param {Request} req - Express request object containing Google ID token in `req.body.token`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function googleAuth(req, res, next) {
+  try {
+    // Extract Google ID token from request body
+    const googleAuthData = req.body;
+
+    // Call the service layer to handle Google OAuth authentication
+    const response = await googleAuthService.authenticateWithGoogle(googleAuthData);
+
+    // Send success response with user data and token
+    res.success(response, 'Google authentication successful');
   } catch (err) {
     // Forward any error to the error-handling middleware
     next(err);
@@ -185,6 +219,95 @@ async function selectAccountType(req, res, next) {
       message: 'Account type selected successfully', 
       seller: response 
     }, 'Account type selected successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Complete seller profile by adding phone number and store name.
+ *
+ * This controller handles the profile completion HTTP request for sellers
+ * who registered via Google OAuth and need to add missing required information.
+ * It validates the input data and updates the seller's profile with phone number
+ * and store name information.
+ *
+ * Business Logic:
+ * - Validates phone number format and store name requirements
+ * - Updates seller profile with provided information
+ * - Returns updated seller data
+ * - Handles validation errors gracefully
+ *
+ * @param {Request} req - Express request object containing:
+ *   - req.user.id: Seller ID from JWT token
+ *   - req.body.phoneNumber: Phone number to add
+ *   - req.body.storeName: Store name to add
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function completeProfile(req, res, next) {
+  try {
+    // Extract seller ID from authenticated user
+    const sellerId = req.user.id;
+
+    // Extract profile completion data from request body
+    const { phoneNumber, storeName } = req.body;
+
+    // Validate required fields
+    if (!phoneNumber || !storeName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: [
+          {
+            field: !phoneNumber ? 'phoneNumber' : 'storeName',
+            message: `${!phoneNumber ? 'Phone number' : 'Store name'} is required`
+          }
+        ]
+      });
+    }
+
+    // Validate phone number format (basic validation)
+    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+    if (!phoneRegex.test(phoneNumber.replace(/\s/g, ''))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: [
+          {
+            field: 'phoneNumber',
+            message: 'Please enter a valid phone number'
+          }
+        ]
+      });
+    }
+
+    // Validate store name length
+    if (storeName.trim().length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: [
+          {
+            field: 'storeName',
+            message: 'Store name must be at least 2 characters long'
+          }
+        ]
+      });
+    }
+
+    // Call the service layer to handle profile completion logic
+    const response = await completeProfileService.completeProfile(sellerId, {
+      phoneNumber: phoneNumber.trim(),
+      storeName: storeName.trim()
+    });
+
+    // Send success response
+    res.success({ 
+      message: 'Profile completed successfully', 
+      seller: response 
+    }, 'Profile completed successfully');
   } catch (err) {
     // Forward any error to the error-handling middleware
     next(err);
@@ -957,11 +1080,13 @@ async function getShippingLabel(req, res, next) {
 module.exports = {
   register,
   login,
+  googleAuth,
   checkToken,
   resendOTP,
   verifyOTP,
   getProfile,
   selectAccountType,
+  completeProfile,
   addBankDetails,
   uploadCompanyVerification,
   uploadIndividualVerification,

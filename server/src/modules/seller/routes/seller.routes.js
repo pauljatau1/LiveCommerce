@@ -292,6 +292,129 @@ router.post('/login', sellerController.login);
 
 /**
  * @swagger
+ * /api/v2/sellers/google-auth:
+ *   post:
+ *     summary: Authenticate seller using Google OAuth
+ *     description: Authenticates a seller using Google OAuth ID token. Creates new account or links to existing one.
+ *     tags: [Seller V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: Google ID token from frontend Google Sign-In
+ *                 example: "eyJhbGciOiJSUzI1NiIsImtpZCI6IjE2NzI4MzQ5NzI..."
+ *     responses:
+ *       200:
+ *         description: Google authentication successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Google authentication successful"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       type: object
+ *                       description: Authenticated seller data
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         firstName:
+ *                           type: string
+ *                           example: "John"
+ *                         lastName:
+ *                           type: string
+ *                           example: "Doe"
+ *                         email:
+ *                           type: string
+ *                           example: "john.doe@gmail.com"
+ *                         googleId:
+ *                           type: string
+ *                           example: "123456789012345678901"
+ *                         googleProfilePicture:
+ *                           type: string
+ *                           example: "https://lh3.googleusercontent.com/a/..."
+ *                         emailVerified:
+ *                           type: boolean
+ *                           example: true
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2024-01-15T10:30:00.000Z"
+ *                     token:
+ *                       type: string
+ *                       description: JWT authentication token
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *       400:
+ *         description: Bad request - Invalid token or validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Google ID token is required"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "token"
+ *                       message:
+ *                         type: string
+ *                         example: "Google ID token is required"
+ *       401:
+ *         description: Unauthorized - Invalid Google token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid Google token: Unable to verify with Google"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
+router.post('/google-auth', sellerController.googleAuth);
+
+/**
+ * @swagger
  * /api/v2/sellers/check-token:
  *   get:
  *     summary: Check and validate JWT token for seller authentication
@@ -693,6 +816,88 @@ router.post('/verify-otp', sellerController.verifyOTP);
  *         description: Seller not found
  *       500:
  *         description: Internal server error
+ */
+
+// Complete profile route (for Google OAuth users)
+router.put('/profile/complete', verifyToken, sellerController.completeProfile);
+
+/**
+ * @swagger
+ * /api/v2/sellers/profile/complete:
+ *   put:
+ *     summary: Complete seller profile with phone number and store name
+ *     description: Add phone number and store name to complete seller profile (typically used after Google OAuth registration)
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - phoneNumber
+ *               - storeName
+ *             properties:
+ *               phoneNumber:
+ *                 type: string
+ *                 description: Seller's phone number
+ *                 example: "+1234567890"
+ *               storeName:
+ *                 type: string
+ *                 description: Seller's store name
+ *                 example: "My Awesome Store"
+ *     responses:
+ *       200:
+ *         description: Profile completed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile completed successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Profile completed successfully"
+ *                     seller:
+ *                       $ref: '#/components/schemas/Seller'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Validation failed"
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       field:
+ *                         type: string
+ *                         example: "phoneNumber"
+ *                       message:
+ *                         type: string
+ *                         example: "Phone number is required"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Seller not found
  */
 
 // Select account type route
