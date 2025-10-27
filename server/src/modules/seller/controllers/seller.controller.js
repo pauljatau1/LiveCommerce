@@ -4,6 +4,7 @@ const googleAuthService = require('../services/googleAuth.service');
 const checkTokenService = require('../services/checkToken.service');
 const resendOTPService = require('../services/resendOTP.service');
 const getProfileService = require('../services/getProfile.service');
+const selectAccountTypeService = require('../services/selectAccountType.service');
 const completeProfileService = require('../services/completeProfile.service');
 const addBankDetailsService = require('../services/addBankDetails.service');
 const uploadCompanyVerificationService = require('../services/uploadCompanyVerification.service');
