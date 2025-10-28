@@ -56,6 +56,9 @@ const buyerController = require('../controllers/buyer.controller');
  *                       zipCode:
  *                         type: string
  *                         example: "100001"
+ *                       isActive:
+ *                         type: boolean
+ *                         example: false
  *       401:
  *         description: Unauthorized - Invalid or missing token
  *       404:
@@ -163,6 +166,9 @@ router.get('/addresses', verifyToken, isBuyer, buyerController.getAddresses);
  *                         zipCode:
  *                           type: string
  *                           example: "100001"
+ *                         isActive:
+ *                           type: boolean
+ *                           example: false
  *       422:
  *         description: Unprocessable Entity - Validation error
  *         content:
@@ -294,6 +300,9 @@ router.post('/addresses', verifyToken, isBuyer, buyerController.addAddress);
  *                         zipCode:
  *                           type: string
  *                           example: "100001"
+ *                         isActive:
+ *                           type: boolean
+ *                           example: false
  *       422:
  *         description: Unprocessable Entity - Validation error
  *         content:
@@ -373,6 +382,83 @@ router.put('/addresses/:addressId', verifyToken, isBuyer, buyerController.update
  *         description: Internal server error
  */
 router.delete('/addresses/:addressId', verifyToken, isBuyer, buyerController.deleteAddress);
+
+/**
+ * @swagger
+ * /api/v2/buyers/addresses/{addressId}/set-active:
+ *   patch:
+ *     summary: Set a shipping address as active for checkout
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: addressId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the address to set as active
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Address set as active successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Address set as active successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Address set as active successfully"
+ *                     address:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         addressType:
+ *                           type: string
+ *                           example: "home"
+ *                         country:
+ *                           type: string
+ *                           example: "Nigeria"
+ *                         state:
+ *                           type: string
+ *                           example: "Lagos"
+ *                         city:
+ *                           type: string
+ *                           example: "Lagos"
+ *                         addressLine1:
+ *                           type: string
+ *                           example: "123 Main Street"
+ *                         addressLine2:
+ *                           type: string
+ *                           example: "Apt 4B"
+ *                         zipCode:
+ *                           type: string
+ *                           example: "100001"
+ *                         isActive:
+ *                           type: boolean
+ *                           example: true
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: Buyer or address not found
+ *       422:
+ *         description: Validation error - Invalid address ID format
+ *       500:
+ *         description: Internal server error
+ */
+router.patch('/addresses/:addressId/set-active', verifyToken, isBuyer, buyerController.setActiveAddress);
 
 module.exports = router;
 

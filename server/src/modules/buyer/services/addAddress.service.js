@@ -48,7 +48,8 @@ const NotFoundException = require('../../../utils/errors/NotFoundException');
  * 1. Validates the address data using comprehensive validation
  * 2. Checks if buyer exists in the database
  * 3. Adds the new address to the buyer's shipping addresses
- * 4. Returns the newly added address with success confirmation
+ * 4. If no addresses are active, sets the new address as active by default
+ * 5. Returns the newly added address with success confirmation
  *
  * Security Features:
  * - Comprehensive input validation before processing
@@ -96,6 +97,7 @@ const NotFoundException = require('../../../utils/errors/NotFoundException');
  *     - country: {string} - Country name
  *     - postalCode: {string} - Postal/ZIP code
  *     - isDefault: {boolean} - Default address indicator
+ *     - isActive: {boolean} - Active address indicator for checkout
  *     - createdAt: {Date} - Address creation timestamp
  *     - updatedAt: {Date} - Address last update timestamp
  * @throws {ValidationError} If address data validation fails
@@ -171,7 +173,22 @@ async function addAddress(buyerId, addressData) {
   // This adds the (potentially defaulted) address to the buyer's shipping addresses array
   const updatedBuyer = await buyerRepository.addShippingAddress(buyerId, mergedAddressData);
 
-  // Step 5: Return the newly added address
+  // Step 5: Check if this is the first address or if no addresses are active
+  // If so, set this new address as active by default
+  const addresses = updatedBuyer.shippingAddresses || [];
+  const hasActiveAddress = addresses.some(addr => addr.isActive === true);
+  
+  if (!hasActiveAddress && addresses.length > 0) {
+    // Set the newly added address as active (it's the last one in the array)
+    const newAddressId = addresses[addresses.length - 1]._id;
+    await buyerRepository.setActiveShippingAddress(buyerId, newAddressId);
+    
+    // Refetch to get the updated address with isActive set to true
+    const finalBuyer = await buyerRepository.findByIdWithShippingAddresses(buyerId);
+    updatedBuyer.shippingAddresses = finalBuyer.shippingAddresses;
+  }
+
+  // Step 6: Return the newly added address
   // Extract the last address from the array (the newly added one)
   const addedAddress = updatedBuyer.shippingAddresses[updatedBuyer.shippingAddresses.length - 1];
 
