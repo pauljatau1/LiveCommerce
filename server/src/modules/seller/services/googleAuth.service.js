@@ -225,7 +225,7 @@ async function findOrCreateSeller(payload) {
     
     const nameParts = name.split(' ');
     const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
+    const lastName = nameParts.slice(1).join(' ') || 'seller';
 
     // Generate unique Agora UID for live streaming (same as regular registration)
     const agoraUid = await generateUniqueAgoraUid();

@@ -47,7 +47,7 @@ const reviewSchema = new mongoose.Schema({
 
 const sellerSchema = new mongoose.Schema({
   firstName: { type: String, required: true },
-  lastName: { type: String, required: true },
+  lastName: { type: String },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: function() { return !this.googleId; } }, // Password not required if Google OAuth
   phoneNumber: { type: String, required: function() { return !this.googleId; } }, // Phone not required if Google OAuth
