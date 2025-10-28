@@ -6,6 +6,19 @@ const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 // Mock the buyer repository
 jest.mock('@modules/buyer/repositories/buyer.repository');
 
+// Mock the Stream and Product models
+jest.mock('../../../../src/models/Stream', () => ({
+  find: jest.fn().mockReturnValue({
+    select: jest.fn().mockReturnValue({
+      lean: jest.fn().mockResolvedValue([])
+    })
+  })
+}));
+
+jest.mock('../../../../src/models/Product', () => ({
+  aggregate: jest.fn().mockResolvedValue([])
+}));
+
 describe('getFollowing.service', () => {
   let mongoServer;
 
@@ -58,7 +71,10 @@ describe('getFollowing.service', () => {
         name: 'John Doe',
         storeName: 'John\'s Electronics',
         profileImage: 'https://cdn.example.com/avatar.jpg',
-        followDate: new Date('2024-01-15T10:30:00.000Z')
+        followDate: new Date('2024-01-15T10:30:00.000Z'),
+        followerCount: 1,
+        isLive: false,
+        itemsCount: 0
       });
     });
 
@@ -208,7 +224,10 @@ describe('getFollowing.service', () => {
               name: 'John Doe',
               storeName: 'John\'s Store',
               profileImage: undefined,
-              followDate: new Date('2024-01-15T10:30:00.000Z')
+              followDate: new Date('2024-01-15T10:30:00.000Z'),
+              followerCount: 1,
+              isLive: false,
+              itemsCount: 0
             }
           ]
         },
@@ -285,7 +304,10 @@ describe('getFollowing.service', () => {
               name: 'John Doe',
               storeName: 'John\'s Store',
               profileImage: undefined,
-              followDate: new Date('2024-01-15T10:30:00.000Z')
+              followDate: new Date('2024-01-15T10:30:00.000Z'),
+              followerCount: 1,
+              isLive: false,
+              itemsCount: 0
             }
           ]
         },

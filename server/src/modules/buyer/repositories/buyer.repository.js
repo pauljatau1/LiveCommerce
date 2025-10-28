@@ -193,6 +193,43 @@ async function deleteShippingAddress(buyerId, addressId) {
 }
 
 /**
+ * Set a shipping address as active and deactivate all other addresses.
+ * @param {string} buyerId - The buyer's ID
+ * @param {string} addressId - The address ID to set as active
+ * @returns {Promise<Buyer>} Updated buyer with active address set
+ */
+async function setActiveShippingAddress(buyerId, addressId) {
+  // First, set all addresses to inactive
+  await Buyer.findByIdAndUpdate(
+    buyerId,
+    {
+      $set: {
+        'shippingAddresses.$[].isActive': false
+      }
+    },
+    {
+      new: false, // We don't need the updated document here
+      runValidators: true
+    }
+  );
+
+  // Then, set the specific address to active
+  return Buyer.findByIdAndUpdate(
+    buyerId,
+    {
+      $set: {
+        'shippingAddresses.$[address].isActive': true
+      }
+    },
+    {
+      new: true,
+      runValidators: true,
+      arrayFilters: [{ 'address._id': addressId }]
+    }
+  );
+}
+
+/**
  * Find buyer by ID with populated wishlist.
  * @param {string} buyerId - The buyer's ID
  * @returns {Promise<Buyer|null>} Buyer with populated wishlist or null if not found
@@ -293,7 +330,7 @@ async function findSellersFollowingByBuyer(buyerId) {
   const Seller = require('../../../models/Seller');
   const sellers = await Seller.find({
     _id: { $in: sellerIds }
-  }).select('firstName lastName storeName businessName storeAvatar profileImage');
+  }).select('firstName lastName storeName businessName storeAvatar profileImage followers');
 
   // Create a map of activity creation dates
   const activityDates = {};
@@ -953,6 +990,7 @@ module.exports = {
   addShippingAddress,
   updateShippingAddress,
   deleteShippingAddress,
+  setActiveShippingAddress,
   findByIdWithPopulatedWishlist,
   updatePhoneVerification,
   findUserById,

@@ -164,7 +164,6 @@ exports.createOrder = async (req) => {
           shippingFee: sellerItems[order.seller.toString()].shippingFee,
           orderTotal: order.totalAmount + sellerItems[order.seller.toString()].shippingFee,
           seller: order.seller,
-          fezOrderNo: null,
           items: order.items
         },
         product: firstItem.product,
@@ -202,7 +201,6 @@ exports.createOrder = async (req) => {
                 shippingFee: sellerItems[order.seller.toString()].shippingFee,
                 orderTotal: order.totalAmount + sellerItems[order.seller.toString()].shippingFee,
                 seller: order.seller,
-                fezOrderNo: null,
                 items: order.items
               },
               product: firstItem.product,

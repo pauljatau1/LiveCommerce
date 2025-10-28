@@ -248,7 +248,7 @@ describe('Get Profile Service', () => {
       orderRepository.countOrdersBySeller.mockResolvedValue(mockOrders);
       streamRepository.countStreamsBySeller.mockResolvedValue(mockStreams);
       sellerRepository.getCategoriesCount.mockResolvedValue(mockCategories);
-      buyerRepository.countBuyersFollowingSeller.mockResolvedValue(mockFollowing);
+      buyerRepository.countBuyersFollowedBySeller.mockResolvedValue(mockFollowing);
       productRepository.findProductsBySeller.mockResolvedValue(mockProducts);
 
       // Act
@@ -277,7 +277,7 @@ describe('Get Profile Service', () => {
       expect(orderRepository.countOrdersBySeller).toHaveBeenCalledWith(sellerId);
       expect(streamRepository.countStreamsBySeller).toHaveBeenCalledWith(sellerId);
       expect(sellerRepository.getCategoriesCount).toHaveBeenCalledWith(sellerId);
-      expect(buyerRepository.countBuyersFollowingSeller).toHaveBeenCalledWith(sellerId);
+      expect(buyerRepository.countBuyersFollowedBySeller).toHaveBeenCalledWith(sellerId);
       expect(productRepository.findProductsBySeller).toHaveBeenCalledWith(sellerId);
     });
 
@@ -291,7 +291,7 @@ describe('Get Profile Service', () => {
       orderRepository.countOrdersBySeller.mockResolvedValue(0);
       streamRepository.countStreamsBySeller.mockResolvedValue(0);
       sellerRepository.getCategoriesCount.mockResolvedValue(0);
-      buyerRepository.countBuyersFollowingSeller.mockResolvedValue(0);
+      buyerRepository.countBuyersFollowedBySeller.mockResolvedValue(0);
       productRepository.findProductsBySeller.mockResolvedValue([]);
 
       // Act
@@ -325,7 +325,7 @@ describe('Get Profile Service', () => {
       orderRepository.countOrdersBySeller.mockResolvedValue(5);
       streamRepository.countStreamsBySeller.mockResolvedValue(3);
       sellerRepository.getCategoriesCount.mockResolvedValue(2);
-      buyerRepository.countBuyersFollowingSeller.mockResolvedValue(10);
+      buyerRepository.countBuyersFollowedBySeller.mockResolvedValue(10);
       productRepository.findProductsBySeller.mockResolvedValue(productsWithFewBlips);
 
       // Act
@@ -353,7 +353,7 @@ describe('Get Profile Service', () => {
       orderRepository.countOrdersBySeller.mockResolvedValue(10);
       streamRepository.countStreamsBySeller.mockResolvedValue(5);
       sellerRepository.getCategoriesCount.mockResolvedValue(3);
-      buyerRepository.countBuyersFollowingSeller.mockResolvedValue(20);
+      buyerRepository.countBuyersFollowedBySeller.mockResolvedValue(20);
       productRepository.findProductsBySeller.mockResolvedValue(mockProducts);
 
       // Act
@@ -391,7 +391,7 @@ describe('Get Profile Service', () => {
       orderRepository.countOrdersBySeller.mockResolvedValue(10);
       streamRepository.countStreamsBySeller.mockResolvedValue(5);
       sellerRepository.getCategoriesCount.mockResolvedValue(3);
-      buyerRepository.countBuyersFollowingSeller.mockResolvedValue(20);
+      buyerRepository.countBuyersFollowedBySeller.mockResolvedValue(20);
       productRepository.findProductsBySeller.mockResolvedValue(mockProducts);
 
       // Act
@@ -420,7 +420,7 @@ describe('Get Profile Service', () => {
       orderRepository.countOrdersBySeller.mockResolvedValue(10);
       streamRepository.countStreamsBySeller.mockResolvedValue(5);
       sellerRepository.getCategoriesCount.mockResolvedValue(3);
-      buyerRepository.countBuyersFollowingSeller.mockResolvedValue(20);
+      buyerRepository.countBuyersFollowedBySeller.mockResolvedValue(20);
       productRepository.findProductsBySeller.mockResolvedValue(mockProducts);
 
       // Act
@@ -442,7 +442,7 @@ describe('Get Profile Service', () => {
       orderRepository.countOrdersBySeller.mockRejectedValue(new Error('Database error'));
       streamRepository.countStreamsBySeller.mockRejectedValue(new Error('Database error'));
       sellerRepository.getCategoriesCount.mockRejectedValue(new Error('Database error'));
-      buyerRepository.countBuyersFollowingSeller.mockRejectedValue(new Error('Database error'));
+      buyerRepository.countBuyersFollowedBySeller.mockRejectedValue(new Error('Database error'));
       productRepository.findProductsBySeller.mockRejectedValue(new Error('Database error'));
 
       // Act
@@ -483,7 +483,7 @@ describe('Get Profile Service', () => {
       orderRepository.countOrdersBySeller.mockResolvedValue(10);
       streamRepository.countStreamsBySeller.mockResolvedValue(5);
       sellerRepository.getCategoriesCount.mockResolvedValue(3);
-      buyerRepository.countBuyersFollowingSeller.mockResolvedValue(20);
+      buyerRepository.countBuyersFollowedBySeller.mockResolvedValue(20);
       productRepository.findProductsBySeller.mockResolvedValue(mockProducts);
 
       // Act
@@ -528,7 +528,7 @@ describe('Get Profile Service', () => {
       orderRepository.countOrdersBySeller.mockResolvedValue(0);
       streamRepository.countStreamsBySeller.mockResolvedValue(0);
       sellerRepository.getCategoriesCount.mockResolvedValue(0);
-      buyerRepository.countBuyersFollowingSeller.mockResolvedValue(0);
+      buyerRepository.countBuyersFollowedBySeller.mockResolvedValue(0);
       productRepository.findProductsBySeller.mockResolvedValue([]);
 
       // Act
