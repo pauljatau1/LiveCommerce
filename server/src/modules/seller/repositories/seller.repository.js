@@ -65,6 +65,15 @@ async function findByIdWithFields(id, fields) {
 }
 
 /**
+ * Find seller by Google ID.
+ * @param {string} googleId - Google user ID
+ * @returns {Promise<Object|null>} Seller data or null if not found
+ */
+async function findByGoogleId(googleId) {
+  return Seller.findOne({ googleId });
+}
+
+/**
  * Find seller by Agora UID.
  * @param {number} agoraUid - Agora user ID
  * @returns {Promise<Object|null>} Seller data or null if not found
@@ -106,6 +115,7 @@ module.exports = {
   findAll,
   save,
   findByEmail,
+  findByGoogleId,
   saveSeller,
   findById,
   findByIdWithFields,
