@@ -12,15 +12,13 @@ import {
     FormMessage,
 } from "@/Components/ui/form/form";
 import { GoogleLogin } from "@react-oauth/google";
-import { jwtDecode } from "jwt-decode";
-import GoogleIcon from "@/assets/icons/GoogleIcon";
 import PrimaryTypography from "@/Components/shared/PrimaryTypography";
 
 interface LoginFormProps {
     onSubmit: (data: LoginFormData) => void;
     isPending: boolean;
     onSignupClick: () => void;
-    onGoogleLogin: () => void;
+    onGoogleLogin: (googleToken: string) => void;
     onResetPasswordClick: () => void;
 }
 
@@ -186,14 +184,15 @@ export default function LoginForm({ onSignupClick, onGoogleLogin, onResetPasswor
             <GoogleLogin
                 onSuccess={credentialResponse => {
                     if (credentialResponse.credential) {
-                        const decoded = jwtDecode(credentialResponse.credential);
-                        console.log("decoded", decoded);
+                        console.log("Google OAuth credential received:", credentialResponse.credential);
+                        // Call the onGoogleLogin function with the Google ID token
+                        onGoogleLogin(credentialResponse.credential);
                     } else {
-                        console.log("No credential response");
+                        console.log("No credential response from Google");
                     }
                 }}
                 onError={() => {
-                    console.log('Login Failed');
+                    console.log('Google OAuth Login Failed');
                 }}
                 logo_alignment="center"
             />

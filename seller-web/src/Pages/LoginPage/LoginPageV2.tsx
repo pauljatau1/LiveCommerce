@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { authService } from "@/services/authService";
 import { LoginFormData } from "@/schemas/loginSchema";
+import { GoogleOAuthRequestData } from "@/types";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import AuqliLogo from "@/assets/icons/AuqliLogo";
 import LoginForm from "@/Components/loginPage/LoginForm";
@@ -13,19 +14,75 @@ import MarketingSection from "@/Components/loginPage/MarketingSection";
 
 export default function LoginPageV2() {
     const navigate = useNavigate();
-    const { login } = authService
+    const { login, googleAuth } = authService
     const { isLoading, handleLoginActivity } = useAuthContext();
 
-
+    // Regular login mutation
     const { mutate, isPending } = useMutation({ mutationFn: (data: LoginFormData) => login(data) });
+    
+    // Google OAuth mutation
+    const { mutate: googleAuthMutate, isPending: isGoogleAuthPending } = useMutation({ 
+        mutationFn: (data: GoogleOAuthRequestData) => googleAuth(data) 
+    });
     const handleSignupClick = () => {
         // navigate to signup page
         navigate("/signup");
     };
 
-    const handleGoogleLogin = () => {
-        console.log("Initiate Google login");
-        // In a real app, you would initiate Google OAuth
+    const handleGoogleLogin = (googleToken: string) => {
+        console.log("Processing Google OAuth token:", googleToken);
+        
+        // Call the Google OAuth mutation with the token
+        googleAuthMutate({ token: googleToken }, {
+            onSuccess: (response) => {
+                console.log("Google OAuth successful:", response);
+                
+                // Extract user and token from response
+                const { user, token } = response.data;
+                
+                // Call handleLoginActivity to complete the login process
+                handleLoginActivity(user, token);
+            },
+            onError: (error) => {
+                console.error("Google OAuth failed:", error);
+                
+                if (error instanceof AxiosError) {
+                    if (error.status === 401) {
+                        toast.error("Google Authentication Failed", {
+                            description: "Invalid Google token. Please try again.",
+                            style: {
+                                background: "#17171B",
+                                color: "#fff",
+                            }
+                        });
+                    } else if (error.status === 400) {
+                        toast.error("Google Authentication Failed", {
+                            description: error.response?.data?.message || "Invalid request. Please try again.",
+                            style: {
+                                background: "#17171B",
+                                color: "#fff",
+                            }
+                        });
+                    } else {
+                        toast.error("Google Authentication Failed", {
+                            description: error.response?.data?.message || error.message,
+                            style: {
+                                background: "#17171B",
+                                color: "#fff",
+                            }
+                        });
+                    }
+                } else {
+                    toast.error("Google Authentication Failed", {
+                        description: "Something went wrong. Please try again later.",
+                        style: {
+                            background: "#17171B",
+                            color: "#fff",
+                        }
+                    });
+                }
+            }
+        });
     };
 
     const handleResetPasswordClick = () => {
@@ -97,7 +154,7 @@ export default function LoginPageV2() {
                     <div className="w-full max-w-md py-4">
                         <LoginForm
                             onSubmit={handleSubmit}
-                            isPending={isPending || isLoading}
+                            isPending={isPending || isLoading || isGoogleAuthPending}
                             onSignupClick={handleSignupClick}
                             onGoogleLogin={handleGoogleLogin}
                             onResetPasswordClick={handleResetPasswordClick}

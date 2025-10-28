@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import {
   Dialog,
@@ -24,7 +24,8 @@ import {
   Shield,
   Sparkles,
   CheckSquare,
-  Loader2
+  Loader2,
+  Phone
 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/Components/ui/radio-group";
 import { Label } from "@/Components/ui/label";
@@ -34,6 +35,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import VerificationService from '@/services/VerificationService';
 import { Icon } from '@iconify/react';
 import { trackEvent } from '@/util/analytics';
+import { sellerService } from '@/services/sellerService';
+import { sellerUtils } from '@/util/auth';
 
 // Nigerian States and Cities Data
 const NIGERIAN_STATES = [
@@ -109,6 +112,15 @@ const PickupAddressVerificationModal = ({
   const [currentStep, setCurrentStep] = useState(0);
   const [accountType, setAccountType] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // Retrieve current seller using sellerUtils to drive conditional UI and defaults
+  const currentSeller = useMemo(() => sellerUtils.getSeller(), []);
+  // Per requirement: show the complete-profile step only if seller?.storeName && seller?.phoneNumber is true
+  const showCompleteProfileStep = !(currentSeller?.storeName && currentSeller?.phoneNumber);
+  // Local state for profile completion form (phone number and store name)
+  const [profileForm, setProfileForm] = useState({
+    phoneNumber: currentSeller?.phoneNumber || '',
+    storeName: currentSeller?.storeName || ''
+  });
   const [formData, setFormData] = useState({
     country: 'nigeria',
     state: '',
@@ -125,27 +137,27 @@ const PickupAddressVerificationModal = ({
   
   // Set default title and message based on status
   const defaultTitle = "Pickup Address Required";
-  const defaultMessage = "Your seller account does not have a pickup address yet. To access product listing features and start selling on Auqli, you need to add a pickup address.";
+  const defaultMessage = showCompleteProfileStep ? "Your seller account does not have a pickup address, store name and phone number yet. To access product listing features and start selling on Auqli, you need to add a pickup address, store name and phone number." : "Your seller account does not have a pickup address yet. To access product listing features and start selling on Auqli, you need to add a pickup address.";
   
   // Use provided values or defaults
   const displayTitle = title || defaultTitle;
   const displayMessage = message || defaultMessage;
 
-  const handleInputChange = (e) => {
+  const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       [name]: value
-    });
-  };
+    }));
+  }, []);
 
-  const handleStateChange = (value) => {
-    setFormData({
-      ...formData,
+  const handleStateChange = useCallback((value) => {
+    setFormData((prev) => ({
+      ...prev,
       state: value,
       city: '' // Reset city when state changes
-    });
-  };
+    }));
+  }, []);
 
   const handleStartVerification = () => {
     setCurrentView('verification');
@@ -177,9 +189,64 @@ const PickupAddressVerificationModal = ({
     };
   }, []);
 
-  // Verification steps
-  const verificationSteps = [
-    {
+  // Verification steps (conditionally include complete-profile step first)
+  const verificationSteps = useMemo(() => {
+    const steps = [];
+
+    if (showCompleteProfileStep) {
+      steps.push({
+        id: 'complete-profile',
+        title: 'Complete Profile',
+        description: 'Confirm or update your store name and phone number',
+        content: (
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="storeName" className="flex items-center gap-1.5 text-sm font-medium">
+                <Building className="h-4 w-4 text-gray-500" /> Store Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="storeName"
+                name="storeName"
+                value={profileForm.storeName}
+                onChange={(e) => setProfileForm(prev => ({ ...prev, storeName: e.target.value }))}
+                placeholder="Your store name"
+                required
+                className="border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 h-10"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phoneNumber" className="flex items-center gap-1.5 text-sm font-medium">
+                <Phone className="h-4 w-4 text-gray-500" /> Phone Number <span className="text-red-500">*</span>
+              </Label>
+              <div className="flex w-full">
+                <div className="flex items-center border border-gray-300 rounded-l-md px-3 bg-white border-r-0 text-gray-700 text-sm">
+                  +234
+                </div>
+                <Input
+                  id="phoneNumber"
+                  name="phoneNumber"
+                  value={profileForm.phoneNumber}
+                  onChange={(e) => {
+                    const digitsOnly = (e.target.value || '').replace(/\D/g, '').slice(0, 10);
+                    setProfileForm(prev => ({ ...prev, phoneNumber: digitsOnly }));
+                  }}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={10}
+                  placeholder="8123456789"
+                  required
+                  className="border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 h-10 rounded-l-none"
+                />
+              </div>
+              <p className="text-xs text-gray-500">Enter the remaining 10 digits after +234.</p>
+            </div>
+          </div>
+        ),
+      });
+    }
+
+    steps.push({
       id: 'account-type',
       title: "Account Type",
       description: "Choose the type of account you're creating",
@@ -261,8 +328,9 @@ const PickupAddressVerificationModal = ({
           </RadioGroup>
         </div>
       ),
-    },
-    {
+    });
+
+    steps.push({
       id: 'address-info',
       title: "Address Information",
       description: "Enter your pickup address details",
@@ -386,26 +454,33 @@ const PickupAddressVerificationModal = ({
           </div>
         </div>
       ),
-    }
-  ];
+    });
+
+    return steps;
+  }, [showCompleteProfileStep, accountType, formData, profileForm, handleInputChange, handleStateChange]);
 
   const validateCurrentStep = () => {
-    if (currentStep === 0) {
+    const step = verificationSteps[currentStep]?.id;
+    if (step === 'complete-profile') {
+      return Boolean(profileForm.storeName && profileForm.phoneNumber);
+    }
+    if (step === 'account-type') {
       return !!accountType;
     }
-    if (currentStep === 1) {
-      return formData.country && formData.state && 
-             formData.city && formData.streetAddress1 && formData.zipCode;
+    if (step === 'address-info') {
+      return Boolean(
+        formData.country && formData.state && formData.city && formData.streetAddress1 && formData.zipCode
+      );
     }
     return true;
   };
 
   const nextStep = () => {
-    if (currentStep === 1) {
+    // If at the last step, submit
+    if (currentStep === verificationSteps.length - 1) {
       handleSubmit();
       return;
     }
-    
     if (currentStep < verificationSteps.length - 1) {
       setCurrentStep(currentStep + 1);
     }
@@ -424,11 +499,25 @@ const PickupAddressVerificationModal = ({
   const handleSubmit = async () => {
     try {
       setIsLoading(true);
-      
+      // 0. Optionally complete seller profile (storeName and phoneNumber) if step is included
+      let profileCompletedOk = true;
+      if (showCompleteProfileStep) {
+        try {
+          const profileResult = await sellerService.completeSellerProfile({
+            phoneNumber: profileForm.phoneNumber,
+            storeName: profileForm.storeName
+          });
+          profileCompletedOk = profileResult?.success === true;
+        } catch {
+          profileCompletedOk = false;
+        }
+      }
+
       // 1. Select account type
       await VerificationService.selectAccountType(accountType);
       
       // 2. Update address information based on account type
+      let addressSucceeded = false;
       if (accountType === 'individual') {
         // Get seller data from localStorage for name
         const seller = JSON.parse(localStorage.getItem('seller')) || {};
@@ -451,6 +540,7 @@ const PickupAddressVerificationModal = ({
         const sellerDetails = JSON.parse(localStorage.getItem('seller')) || {};
 
         if (result.status === 200) {
+          addressSucceeded = true;
           trackEvent("seller pickup address verification completed", {
             "seller id": sellerDetails._id,
             "seller email": sellerDetails.email,
@@ -487,6 +577,7 @@ const PickupAddressVerificationModal = ({
        const sellerDetails = JSON.parse(localStorage.getItem('seller')) || {};
 
        if (result.status === 200) {
+         addressSucceeded = true;
          trackEvent("seller pickup address adddress verification completed", {
            "seller id": sellerDetails._id,
            "seller email": sellerDetails.email,
@@ -503,24 +594,28 @@ const PickupAddressVerificationModal = ({
          });
        }
       }
-      
-      // Success notification
-      toast.success("Pickup address added successfully!", {
-        duration: 5000,
-      });
-      
-      // Close the modal and reload
-      onClose();
-      
-      // Force refresh the parent component
-      if (window.dispatchEvent) {
-        window.dispatchEvent(new CustomEvent('seller-verification-completed'));
+      // Close only if both succeed (or profile step not required)
+      if ((showCompleteProfileStep ? profileCompletedOk : true) && addressSucceeded) {
+        // Success notification
+        toast.success("Pickup address added successfully!", {
+          duration: 5000,
+        });
+
+        // Close the modal and reload
+        onClose();
+
+        // Force refresh the parent component
+        if (window.dispatchEvent) {
+          window.dispatchEvent(new CustomEvent('seller-verification-completed'));
+        }
+
+        // Reload the page after modal closes
+        setTimeout(() => {
+          window.location.reload();
+        }, 300);
+      } else {
+        toast.error("Could not complete profile and address update. Please try again.");
       }
-      
-      // Reload the page after modal closes
-      setTimeout(() => {
-        window.location.reload();
-      }, 300);
       
     } catch (error) {
       console.error("Error submitting address:", error);
@@ -566,7 +661,7 @@ const PickupAddressVerificationModal = ({
                   <div className="flex items-start gap-3 bg-blue-50 p-3 rounded-lg">
                     <Icon icon="solar:info-circle-bold" className="h-5 w-5 text-blue-600 mt-0.5" />
                     <p className="text-gray-700 text-sm">
-                      Please add a pickup address to continue with your product listing.
+                      {showCompleteProfileStep ? "Please add a pickup address, store name and phone number to continue with your product listing." : "Please add a pickup address to continue with your product listing."}
                     </p>
                   </div>
                 )}
