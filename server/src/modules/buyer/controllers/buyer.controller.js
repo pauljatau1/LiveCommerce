@@ -16,6 +16,7 @@ const getAddressesService = require('../services/getAddresses.service');
 const addAddressService = require('../services/addAddress.service');
 const updateAddressService = require('../services/updateAddress.service');
 const deleteAddressService = require('../services/deleteAddress.service');
+const setActiveAddressService = require('../services/setActiveAddress.service');
 const followSellerService = require('../services/followSeller.service');
 const unfollowSellerService = require('../services/unfollowSeller.service');
 const addToWishlistService = require('../services/addToWishlist.service');
@@ -524,6 +525,32 @@ async function deleteAddress(req, res, next) {
 
     // Send success response with deletion message
     res.success(response, 'Address deleted successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Set a shipping address as active for a buyer.
+ *
+ * This controller handles the address activation HTTP request.
+ * It delegates the activation logic to the service layer and returns the updated address.
+ *
+ * @param {Request} req - Express request object containing the address ID in `req.params.addressId` and buyer's ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function setActiveAddress(req, res, next) {
+  try {
+    // Extract buyer ID from authenticated user
+    const buyerId = req.user.id;
+
+    // Call the service layer to handle address activation logic
+    const response = await setActiveAddressService.setActiveAddress(buyerId, req.params.addressId);
+
+    // Send success response with updated address data
+    res.success(response, 'Address set as active successfully');
   } catch (err) {
     // Forward any error to the error-handling middleware
     next(err);
@@ -1510,6 +1537,7 @@ module.exports = {
   addAddress,
   updateAddress,
   deleteAddress,
+  setActiveAddress,
   followSeller,
   unfollowSeller,
   addToWishlist,
