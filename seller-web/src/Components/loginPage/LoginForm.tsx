@@ -11,20 +11,20 @@ import {
     FormItem,
     FormMessage,
 } from "@/Components/ui/form/form";
-import GoogleIcon from "@/assets/icons/GoogleIcon";
+import { GoogleLogin } from "@react-oauth/google";
 import PrimaryTypography from "@/Components/shared/PrimaryTypography";
 
 interface LoginFormProps {
     onSubmit: (data: LoginFormData) => void;
     isPending: boolean;
     onSignupClick: () => void;
-    onGoogleLogin: () => void;
+    onGoogleLogin: (googleToken: string) => void;
     onResetPasswordClick: () => void;
 }
 
 export default function LoginForm({ onSignupClick, onGoogleLogin, onResetPasswordClick, onSubmit, isPending }: LoginFormProps) {
     const [showPassword, setShowPassword] = useState(false);
-    
+
     // Initialize form with React Hook Form and Zod validation
     const form = useForm<LoginFormData>({
         resolver: zodResolver(loginSchema),
@@ -158,7 +158,7 @@ export default function LoginForm({ onSignupClick, onGoogleLogin, onResetPasswor
                 </span>
             </div>
 
-            {/* Divider 
+            {/* Divider */}
             <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-gray-300" />
@@ -166,21 +166,36 @@ export default function LoginForm({ onSignupClick, onGoogleLogin, onResetPasswor
                 <div className="relative flex justify-center text-sm">
                     <span className="bg-gray-50 px-2 text-gray-500">or do it via other accounts</span>
                 </div>
-            </div> */}
+            </div> 
 
-            {/* Google Login Button 
-            <Button
+            {/* Google Login Button */}
+            {/*<Button
                 type="button"
                 variant="outline"
                 className="w-full border-gray-300 hover:bg-gray-50"
                 onClick={onGoogleLogin}
             >
                 <div className="flex items-center justify-center space-x-2">
-                
+                    {/* Google Logo SVG 
                     <GoogleIcon />
                     <span className="text-[#27272E]">Log In With Google</span>
                 </div>
-            </Button> */}
+            </Button>*/}
+            <GoogleLogin
+                onSuccess={credentialResponse => {
+                    if (credentialResponse.credential) {
+                        console.log("Google OAuth credential received:", credentialResponse.credential);
+                        // Call the onGoogleLogin function with the Google ID token
+                        onGoogleLogin(credentialResponse.credential);
+                    } else {
+                        console.log("No credential response from Google");
+                    }
+                }}
+                onError={() => {
+                    console.log('Google OAuth Login Failed');
+                }}
+                logo_alignment="center"
+            />
         </div>
     );
 }

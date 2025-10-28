@@ -103,7 +103,8 @@ function AuthProvider({ children }: AuthProviderProps) {
                     isAuthenticated: false,
                     message: "",
                     otpStatus: "",
-                    token: null
+                    token: null,
+                    isAccountDisabled: false,
                 }
             case "REQUEST_OTP_SUCCESS":
                 return {

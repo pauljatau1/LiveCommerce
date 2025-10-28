@@ -18,6 +18,7 @@ const SELLER_ENDPOINTS = {
   notifications: "/notifications",
   analytics: "/sellers/statistics",
   fetchSellerConversations: "/conversations",
+  completeProfile: "/sellers/profile/complete",
 };
 
 export const sellerService = {
@@ -87,5 +88,26 @@ export const sellerService = {
     const response = await apiService.get<SellerConversationsResponse>(url);
     console.log("seller conversations service", response.data);
     return response.data.data.conversations as SellerConversations[];
+  },
+
+  /**
+   * Complete seller profile (phone number and store name)
+   *
+   * @param payload - Object containing phoneNumber and storeName
+   * @returns Promise<{ success: boolean; message: string; data: { message: string; seller: Seller } }>
+   */
+  async completeSellerProfile(payload: { phoneNumber: string; storeName: string }): Promise<{ success: boolean; message: string; data: { message: string; seller: Seller } }> {
+    const url = SELLER_ENDPOINTS.completeProfile;
+    // use v2 base url for this endpoint
+    const config = {
+      baseURL: API_CONFIG.BASE_URL_V2,
+    };
+    const response = await apiService.put<{ success: boolean; message: string; data: { message: string; seller: Seller } }>(
+      url,
+      payload as unknown as Record<string, unknown>,
+      config
+    );
+    // Ensure we return the full standard API response shape
+    return (response as unknown) as { success: boolean; message: string; data: { message: string; seller: Seller } };
   },
 };

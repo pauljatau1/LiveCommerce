@@ -184,3 +184,18 @@ export interface CheckTokenValidityResponse {
   };
 }
 
+// Google OAuth request data interface
+export interface GoogleOAuthRequestData {
+  token: string;
+}
+
+// Google OAuth response interface
+export interface GoogleOAuthResponse {
+  success: boolean;
+  message: string;
+  data: {
+    user: Seller;
+    token: string;
+  };
+}
+
