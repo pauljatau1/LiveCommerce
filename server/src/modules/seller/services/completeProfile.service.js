@@ -49,7 +49,7 @@ async function completeProfile(sellerId, profileData) {
     // Update seller profile with phone number and store name
     const updatedSeller = await findByIdAndUpdate(sellerId, {
       phoneNumber: phoneNumber,
-      businessName: storeName
+      storeName: storeName
     });
 
     // Check if seller was found and updated
