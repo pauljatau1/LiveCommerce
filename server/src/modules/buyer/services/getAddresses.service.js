@@ -46,8 +46,9 @@ const NotFoundException = require('../../../utils/errors/NotFoundException');
  * Business Logic Flow:
  * 1. Validates that the buyer exists in the database
  * 2. Retrieves all shipping addresses for the buyer
- * 3. Handles empty address lists gracefully
- * 4. Returns formatted address information
+ * 3. Checks if any address is active, if not sets the first address as active by default
+ * 4. Handles empty address lists gracefully
+ * 5. Returns formatted address information
  *
  * Security Features:
  * - Buyer existence validation before processing
@@ -83,6 +84,7 @@ const NotFoundException = require('../../../utils/errors/NotFoundException');
  *   - country: {string} - Country name
  *   - postalCode: {string} - Postal/ZIP code
  *   - isDefault: {boolean} - Whether this is the default address
+ *   - isActive: {boolean} - Whether this is the active address for checkout
  *   - createdAt: {Date} - Address creation timestamp
  *   - updatedAt: {Date} - Address last update timestamp
  * @throws {NotFoundException} If buyer is not found
@@ -132,7 +134,24 @@ async function getAddresses(buyerId) {
     throw new NotFoundException('Buyer not found');
   }
 
-  // Step 3: Default missing contact fields on each address from buyer profile
+  // Step 3: Check if there are any addresses and if any are active
+  // If no addresses are active, set the first address as active by default
+  const addresses = buyer.shippingAddresses || [];
+  if (addresses.length > 0) {
+    const hasActiveAddress = addresses.some(addr => addr.isActive === true);
+    
+    if (!hasActiveAddress) {
+      // Set the first address as active by default
+      const firstAddressId = addresses[0]._id;
+      await buyerRepository.setActiveShippingAddress(buyerId, firstAddressId);
+      
+      // Refetch the buyer to get the updated addresses
+      const updatedBuyer = await buyerRepository.findByIdWithShippingAddresses(buyerId);
+      buyer.shippingAddresses = updatedBuyer.shippingAddresses;
+    }
+  }
+
+  // Step 4: Default missing contact fields on each address from buyer profile
   // This ensures older addresses created before contact fields were added still expose contact info
   const firstName = buyer.firstName;
   const lastName = buyer.lastName;
