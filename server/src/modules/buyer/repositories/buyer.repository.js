@@ -293,7 +293,7 @@ async function findSellersFollowingByBuyer(buyerId) {
   const Seller = require('../../../models/Seller');
   const sellers = await Seller.find({
     _id: { $in: sellerIds }
-  }).select('firstName lastName storeName businessName storeAvatar profileImage');
+  }).select('firstName lastName storeName businessName storeAvatar profileImage followers');
 
   // Create a map of activity creation dates
   const activityDates = {};
