@@ -166,7 +166,7 @@ async function fetchSellerStatistics(sellerId) {
     orderRepository.countOrdersBySeller(sellerId).catch(() => 0),
     streamRepository.countStreamsBySeller(sellerId).catch(() => 0),
     sellerRepository.getCategoriesCount(sellerId).catch(() => 0),
-    buyerRepository.countBuyersFollowingSeller(sellerId).catch(() => 0),
+    buyerRepository.countBuyersFollowedBySeller(sellerId).catch(() => 0),
     productRepository.findProductsBySeller(sellerId).catch(() => [])
   ]);
 }
@@ -194,7 +194,7 @@ function calculateProductMetrics(products) {
  * @param {number} orderCount - Total order count
  * @param {number} streamCount - Total stream count
  * @param {number} categoriesCount - Total categories count
- * @param {number} followingCount - Total following count
+ * @param {number} followingCount - Number of buyers the seller is following
  * @param {Object} productMetrics - Product-related metrics
  * @returns {Object} Enhanced seller profile
  */
