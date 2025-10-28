@@ -54,22 +54,6 @@ const AuctionStreamDesktopUi = ({
     // Ref to track which products we've processed to prevent infinite loops
     const processedProductsRef = useRef({});
 
-    // Subscribe to stream-specific notifications when component mounts
-    useEffect(() => {
-        if (liveStreamDetails?._id && socket?.subscribeToStreamNotifications) {
-            console.log(`Desktop UI: Subscribing to notifications for stream ${liveStreamDetails._id}`);
-            socket.subscribeToStreamNotifications(liveStreamDetails._id);
-        }
-
-        // Cleanup function to unsubscribe when component unmounts
-        return () => {
-            if (liveStreamDetails?._id && socket?.unsubscribeFromStreamNotifications) {
-                console.log(`Desktop UI: Unsubscribing from notifications for stream ${liveStreamDetails._id}`);
-                socket.unsubscribeFromStreamNotifications(liveStreamDetails._id);
-            }
-        };
-    }, [liveStreamDetails, socket]);
-
     // Update total sales and items sold when auction_end notifications come in
     useEffect(() => {
         if (notifications.length > 0) {

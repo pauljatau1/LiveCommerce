@@ -10,9 +10,9 @@ export default function AppProviders({ children }) {
     return (
         <LivestreamSocketProvider>
             <SocketProvider>
-                    <TooltipProvider>
-                        <Suspense fallback={<Loader />}>{children}</Suspense>
-                    </TooltipProvider>
+                <TooltipProvider>
+                    <Suspense fallback={<Loader />}>{children}</Suspense>
+                </TooltipProvider>
             </SocketProvider>
         </LivestreamSocketProvider>
     );

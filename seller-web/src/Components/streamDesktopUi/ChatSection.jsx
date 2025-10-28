@@ -19,15 +19,8 @@ const ChatSection = ({ streamId, seller, initialMessages = [], liveStreamDetails
   const [autoScroll, setAutoScroll] = useState(true);
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
-  const { notifications, sendStreamComment, subscribeToStreamNotifications } = useLivestreamSocket();
+  const { notifications, sendStreamComment } = useLivestreamSocket();
   
-  // Subscribe to stream-specific notifications
-  useEffect(() => {
-    if (streamId && subscribeToStreamNotifications) {
-      console.log(`ChatSection: Subscribing to notifications for stream ${streamId}`);
-      subscribeToStreamNotifications(streamId);
-    }
-  }, [streamId, subscribeToStreamNotifications]);
   
   // Update messages when liveStreamDetails or chatInteractions change
   useEffect(() => {

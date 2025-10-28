@@ -18,15 +18,8 @@ const MobileChatSection = ({ streamId, seller, liveStreamDetails, onClose }) => 
   const [autoScroll, setAutoScroll] = useState(true);
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
-  const { notifications, sendStreamComment, subscribeToStreamNotifications } = useLivestreamSocket();
-  
-  // Subscribe to stream-specific notifications
-  useEffect(() => {
-    if (streamId && subscribeToStreamNotifications) {
-      console.log(`MobileChatSection: Subscribing to notifications for stream ${streamId}`);
-      subscribeToStreamNotifications(streamId);
-    }
-  }, [streamId, subscribeToStreamNotifications]);
+  const { notifications, sendStreamComment } = useLivestreamSocket();
+
   
   // Update messages when liveStreamDetails or chatInteractions change
   useEffect(() => {
