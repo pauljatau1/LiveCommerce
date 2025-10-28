@@ -1,6 +1,6 @@
 import { Seller } from '@/types/seller';
 import { isAxiosError } from 'axios';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { sellerService } from '@/services/sellerService';
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -21,6 +21,7 @@ import Loader from '@/Components/Loader';
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const { logout, dispatch } = useAuthContext();
   const [showDisabledDialog, setShowDisabledDialog] = useState(false);
   const [hasAuthenticated, setHasAuthenticated] = useState(false);
@@ -57,7 +58,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   // Handle authentication flow based on query results
   useEffect(() => {
     // Skip authentication logic for auth routes
+    
+    // always initially set disabled dialog to false
+    setShowDisabledDialog(false);
     if (isAuthRoute) {
+      // Clear cached sellerDetails query when on auth routes to avoid stale auth state
+      queryClient.cancelQueries({ queryKey: ['sellerDetails'] }).catch(() => {});
+      queryClient.removeQueries({ queryKey: ['sellerDetails'], exact: true });
       setHasAuthenticated(true);
       return;
     }
@@ -90,7 +97,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       // Check if account is disabled
       if (data.isDisabled) {
         console.log("Account is disabled, showing dialog");
-        dispatch({ type: "ACCOUNT_DISABLED" });
+        //dispatch({ type: "ACCOUNT_DISABLED" });
         setShowDisabledDialog(true);
       }
 

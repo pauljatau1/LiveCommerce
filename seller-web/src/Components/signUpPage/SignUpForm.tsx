@@ -309,7 +309,7 @@ export default function SignUpForm({ onSignInClick, onGoogleSignup, onSubmit, is
                 </span>
             </div>
 
-            {/* Divider 
+            {/* Divider */}
             <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-gray-300" />
@@ -317,7 +317,7 @@ export default function SignUpForm({ onSignInClick, onGoogleSignup, onSubmit, is
                 <div className="relative flex justify-center text-sm">
                     <span className="bg-gray-50 px-2 text-gray-500">or do it via other accounts</span>
                 </div>
-            </div> */}
+            </div> 
 
             {/* Google Signup Button */}
             {/*<Button
