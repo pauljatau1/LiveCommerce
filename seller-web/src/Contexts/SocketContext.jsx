@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { BASE_URL } from '@/Constants/Server';
 import { tokenUtils, sellerUtils } from '@/util/auth';
@@ -8,11 +8,9 @@ const SocketContext = createContext();
 
 export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
+  const token = tokenUtils.getBearerToken();
 
-  useEffect(() => {
-    const token = tokenUtils.getBearerToken();
-    if (!token) return;
-
+  const connectSocket = useCallback(() => {
     try {
       // Parse the BASE_URL to extract just the origin (protocol + hostname + port)
       let socketUrl;
@@ -66,10 +64,25 @@ export function SocketProvider({ children }) {
     } catch (error) {
       console.error('Error creating socket connection:', error);
     }
-  }, []);
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    connectSocket();
+  }, [connectSocket, token]);
+
+  const disconnectSocket = useCallback(() => {
+    if (socket) {
+      console.log('🔌 [SOCKET] User not authenticated, disconnecting general socket...');
+      socket.disconnect();
+      setSocket(null);
+    }
+  }, [socket]);
+
 
   return (
-    <SocketContext.Provider value={socket}>
+    <SocketContext.Provider value={{ socket, disconnectSocket, connectSocket }}>
       {children}
     </SocketContext.Provider>
   );

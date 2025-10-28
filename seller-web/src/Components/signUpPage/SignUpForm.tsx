@@ -14,20 +14,20 @@ import {
     FormMessage,
 } from "@/Components/ui/form/form";
 // import { Checkbox } from "@/Components/ui/checkbox";
-import GoogleIcon from "@/assets/icons/GoogleIcon";
+import { GoogleLogin } from "@react-oauth/google";
 import PrimaryTypography from "@/Components/shared/PrimaryTypography";
 
 interface SignUpFormProps {
     onSubmit: (data: SignupFormData) => void;
     isPending: boolean;
     onSignInClick: () => void;
-    onGoogleSignup: () => void;
+    onGoogleSignup: (googleToken: string) => void;
 }
 
 export default function SignUpForm({ onSignInClick, onGoogleSignup, onSubmit, isPending }: SignUpFormProps) {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    
+
     // Initialize form with React Hook Form and Zod validation
     const form = useForm<SignupFormData>({
         resolver: zodResolver(signupSchema),
@@ -317,10 +317,10 @@ export default function SignUpForm({ onSignInClick, onGoogleSignup, onSubmit, is
                 <div className="relative flex justify-center text-sm">
                     <span className="bg-gray-50 px-2 text-gray-500">or do it via other accounts</span>
                 </div>
-            </div>
+            </div> 
 
             {/* Google Signup Button */}
-            <Button
+            {/*<Button
                 type="button"
                 variant="outline"
                 className="w-full border-gray-300 hover:bg-gray-50"
@@ -330,7 +330,22 @@ export default function SignUpForm({ onSignInClick, onGoogleSignup, onSubmit, is
                     <GoogleIcon />
                     <span className="text-[#27272E]">Log In With Google</span>
                 </div>
-            </Button>
+            </Button>*/}
+            <GoogleLogin
+                onSuccess={credentialResponse => {
+                    if (credentialResponse.credential) {
+                        console.log("Google OAuth credential received:", credentialResponse.credential);
+                        // Call the onGoogleSignup function with the Google ID token
+                        onGoogleSignup(credentialResponse.credential);
+                    } else {
+                        console.log("No credential response from Google");
+                    }
+                }}
+                onError={() => {
+                    console.log('Google OAuth Signup Failed');
+                }}
+                logo_alignment="center"
+            />
         </div>
     );
 }

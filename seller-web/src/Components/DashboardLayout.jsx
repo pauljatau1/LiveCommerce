@@ -1,4 +1,4 @@
-import { Outlet, useNavigation, useLocation } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import SideBarNav from '../Components/ui/DashboardHomepageUi/SideBarNav';
 import ScrollToTop from '../Utilities/ScrollToTop';
@@ -11,8 +11,8 @@ const DashboardLayout = () => {
   const [headerName, setHeaderName] = useState('');
   const [navName, setNavName] = useState('');
   const [showBackButton, setShowBackButton] = useState(true);
-  const navigation = useNavigation();
-  const isLoading = navigation.state === 'loading'
+ // const navigation = useNavigation();
+ // const isLoading = navigation.state === 'loading'
 
   // Create an object with the context values
   const outletContext = {

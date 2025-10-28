@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -21,7 +20,6 @@ export default function DashboardTopBanner({ sellerDetails }) {
       ? sellerDetails?.hasFilledAddress === false
       : sellerDetails?.hasFilledBusinessAddress === false;
 
-  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     if (isPickupAddressRequired) {

@@ -194,7 +194,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
           </p>
           {seller?.storeName && (
             <p className="text-xs text-gray-500">
-              {seller.storeName || seller.businessName}
+              {seller?.storeName || seller?.businessName}
             </p>
           )}
         </div>

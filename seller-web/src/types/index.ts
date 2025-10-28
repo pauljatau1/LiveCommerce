@@ -15,7 +15,9 @@ export type {
     VerifyOtpFormData,
     RequestOtpResponse,
     ResetPasswordResponse,
-    CheckTokenValidityResponse
+    CheckTokenValidityResponse,
+    GoogleOAuthRequestData,
+    GoogleOAuthResponse
 } from "./auth";
 
 export type {

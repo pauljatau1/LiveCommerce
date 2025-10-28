@@ -49,22 +49,6 @@ const AuctionStreamMobileUi = ({
     // Ref to track which products we've processed to prevent infinite loops
     const processedProductsRef = useRef({});
 
-    // Subscribe to stream-specific notifications when component mounts
-    useEffect(() => {
-        if (liveStreamDetails?._id && socket?.subscribeToStreamNotifications) {
-            console.log(`Mobile UI: Subscribing to notifications for stream ${liveStreamDetails._id}`);
-            socket.subscribeToStreamNotifications(liveStreamDetails._id);
-        }
-
-        // Cleanup function to unsubscribe when component unmounts
-        return () => {
-            if (liveStreamDetails?._id && socket?.unsubscribeFromStreamNotifications) {
-                console.log(`Mobile UI: Unsubscribing from notifications for stream ${liveStreamDetails._id}`);
-                socket.unsubscribeFromStreamNotifications(liveStreamDetails._id);
-            }
-        };
-    }, [liveStreamDetails, socket]);
-
     // Initialize messages from liveStreamDetails if available
     useEffect(() => {
         if (liveStreamDetails?.chatInteractions?.length > 0) {

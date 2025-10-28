@@ -8,7 +8,7 @@ const QuickOrderCard = ({ product }) => {
         <div className="flex items-center space-x-4">
           <div className="relative h-16 w-16 flex-shrink-0 rounded-md overflow-hidden">
             <img
-              src={product?.images[0].url || "/placeholder.svg"}
+              src={product?.images[0]?.url || "/placeholder.svg"}
               alt={product?.name}
              
               className="rounded-md"

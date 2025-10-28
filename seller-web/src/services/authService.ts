@@ -12,6 +12,8 @@ import type {
   RequestOtpResponse,
   ResetPasswordResponse,
   CheckTokenValidityResponse,
+  GoogleOAuthRequestData,
+  GoogleOAuthResponse,
 } from "@/types";
 
 const AUTH_ENDPOINTS = {
@@ -22,6 +24,7 @@ const AUTH_ENDPOINTS = {
   verifyOtp: "/sellers/verify-otp",
   requestOtp: "/sellers/request-otp",
   checkTokenValidity: "/sellers/check-token",
+  googleAuth: "/sellers/google-auth",
   getTop3SellingProducts: "/sellers/top-3-selling-products",
   getSellerNotifications: "/sellers/notifications",
   getOnboardingProcess: "/sellers/onboarding-process",
@@ -165,6 +168,26 @@ export const authService = {
     };
     const response = await apiService.get<CheckTokenValidityResponse>(url, config);
     return response.data;
+  },
+
+  /**
+   * Authenticate seller using Google OAuth
+   * 
+   * @param credentials - Google OAuth request data containing the Google ID token
+   * @returns Promise<GoogleOAuthResponse> - Google OAuth response
+   */
+  async googleAuth(credentials: GoogleOAuthRequestData): Promise<GoogleOAuthResponse> {
+    const url = AUTH_ENDPOINTS.googleAuth;
+    // use v2 base url for this google auth endpoint
+    const config = {
+      baseURL: API_CONFIG.BASE_URL_V2,
+    };
+    const response = await apiService.post<GoogleOAuthResponse>(
+      url,
+      credentials as unknown as Record<string, unknown>,
+      config
+    );
+    return response;
   },
 
   /**

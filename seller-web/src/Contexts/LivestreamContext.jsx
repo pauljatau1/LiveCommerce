@@ -2,14 +2,18 @@ import { toast } from 'sonner';
 import { BASE_URL } from "../Constants/Server";
 import { trackEvent } from "../util/analytics";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
-import { createContext, useReducer } from "react";
+import { useLivestreamSocket } from "./LivestreamSocketContext";
+import { useSocket } from "./SocketContext";
+import { createContext, useReducer, useEffect } from "react";
 import PropTypes from 'prop-types';
 import axios from "axios";
 
 const LivestreamContext = createContext();
 
 export const LivestreamProvider = ({ children }) => {
-    const { token, seller } = useAuthContext();
+    const { token, seller, isAuthenticated } = useAuthContext();
+    const { disconnectSocket } = useLivestreamSocket();
+    const { disconnectSocket: disconnectGeneralSocket } = useSocket();
     const initialState = {
         livestream: {
             title: '',
@@ -146,6 +150,21 @@ export const LivestreamProvider = ({ children }) => {
                 return state;
         }
     }, initialState);
+
+    // Watch for authentication state changes and reset livestream data when user is not authenticated
+    useEffect(() => {
+        if (!isAuthenticated) {
+            console.log('🔌 [LIVESTREAM CONTEXT] User not authenticated, resetting livestream data...');
+            
+            // Reset all livestream-related state
+            dispatch({ type: 'RESET_API_STATE' });
+            dispatch({ type: 'RESET_SCHEDULE_DATA' });
+            dispatch({ type: 'SET_SUCCESS_LIVESTREAM_STOP' });
+            disconnectSocket();
+            disconnectGeneralSocket();
+            console.log('🔌 [LIVESTREAM CONTEXT] Livestream data reset completed');
+        }
+    }, [isAuthenticated, disconnectSocket, disconnectGeneralSocket]);
 
     const scheduleLiveShow = async (streamData) => {
         try {

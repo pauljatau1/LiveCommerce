@@ -4,7 +4,6 @@ import { useOutletContext } from "react-router-dom";
 import { useEffect, useState } from "react";
 import AlertNotification from "@/Components/ui/AlertNotification";
 import HomeAnalyticsCards from "@/Components/ui/DashboardHomepageUi/HomeAnalyticsCards";
-import DisabledAccountDialog from "@/Components/DisabledAccountDialog";
 import AuqliUniversity from "@/Components/AuqliUniversity";
 import DashboardNotificationsCard from "@/Components/ui/DashboardHomepageUi/DashboardNotificationsCard";
 import DashboardTopSellingProductsCard from "@/Components/ui/DashboardHomepageUi/DashboardTopSellingProductsCard";
@@ -15,10 +14,9 @@ import DashboardTopBanner from "@/Components/ui/DashboardHomepageUi/DashboardTop
 const HomePage = () => {
   const { initUser } = useIntercomChat();
   const { setHeaderName, setNavName, setShowBackButton } = useOutletContext();
-  const { seller, logout, isAccountDisabled } = useAuthContext();
+  const { seller } = useAuthContext();
 
   const [notification] = useState(false);
-  const [showDisabledDialog, setShowDisabledDialog] = useState(false);
 
   // useEffect to set the header name, nav name, and show back button
   useEffect(() => {
@@ -38,34 +36,8 @@ const HomePage = () => {
     }
   }, []);
 
-
-  // Check for disabled account
-  useEffect(() => {
-    if (isAccountDisabled) {
-      // Add a small delay to ensure the page is fully loaded
-      // before showing the dialog to prevent analytics errors
-      const timer = setTimeout(() => {
-        setShowDisabledDialog(true);
-      }, 500);
-
-      return () => clearTimeout(timer);
-    }
-  }, [isAccountDisabled]);
-
-  // Handler for when the disabled account dialog is closed
-  const handleCloseDisabledDialog = () => {
-    setShowDisabledDialog(false);
-    // Log the user out when they close the dialog
-    logout();
-  };
-
   return (
     <div className="mt-28">
-      {/* Disabled Account Dialog */}
-      <DisabledAccountDialog
-        isOpen={showDisabledDialog}
-        onClose={handleCloseDisabledDialog}
-      />
 
       {/* Notification */}
       {notification && <AlertNotification />}
@@ -100,11 +72,6 @@ const HomePage = () => {
           <DashboardPlatformAnnouncmentsCard />
         </div>
       </div>
-
-      {/* Disabled Account Dialog */}
-      {showDisabledDialog && (
-        <DisabledAccountDialog onClose={handleCloseDisabledDialog} />
-      )}
     </div>
   );
 };
