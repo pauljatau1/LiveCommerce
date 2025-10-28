@@ -96,7 +96,7 @@ describe('getSellerProfile.service', () => {
       buyerRepository.findSellerById.mockResolvedValue(mockSeller);
       orderRepository.findOrdersBySeller.mockResolvedValue(mockOrders);
       streamRepository.countStreamsBySeller.mockResolvedValue(5);
-      sellerRepository.countBuyersFollowingSeller.mockResolvedValue(10);
+      sellerRepository.countBuyersFollowedBySeller.mockResolvedValue(10);
       orderRepository.getReviewStats.mockResolvedValue([
         { totalReviews: 100, averageRating: 4.5 }
       ]);
@@ -113,7 +113,7 @@ describe('getSellerProfile.service', () => {
       expect(buyerRepository.findSellerById).toHaveBeenCalledWith(mockSellerId);
       expect(orderRepository.findOrdersBySeller).toHaveBeenCalledWith(mockSellerId);
       expect(streamRepository.countStreamsBySeller).toHaveBeenCalledWith(mockSellerId);
-      expect(sellerRepository.countBuyersFollowingSeller).toHaveBeenCalledWith(mockSellerId);
+      expect(sellerRepository.countBuyersFollowedBySeller).toHaveBeenCalledWith(mockSellerId);
       expect(orderRepository.getReviewStats).toHaveBeenCalledWith(mockSellerId);
       expect(sellerRepository.incrementStoreVisits).toHaveBeenCalledWith(mockSellerId);
 
@@ -191,7 +191,7 @@ describe('getSellerProfile.service', () => {
       buyerRepository.findSellerById.mockResolvedValue(sellerWithoutFollowers);
       orderRepository.findOrdersBySeller.mockResolvedValue([]);
       streamRepository.countStreamsBySeller.mockResolvedValue(0);
-      sellerRepository.countBuyersFollowingSeller.mockResolvedValue(0);
+      sellerRepository.countBuyersFollowedBySeller.mockResolvedValue(0);
       orderRepository.getReviewStats.mockResolvedValue([]);
       sellerRepository.incrementStoreVisits.mockResolvedValue(sellerWithoutFollowers);
 
@@ -212,7 +212,7 @@ describe('getSellerProfile.service', () => {
       buyerRepository.findSellerById.mockResolvedValue(sellerWithoutReviews);
       orderRepository.findOrdersBySeller.mockResolvedValue([]);
       streamRepository.countStreamsBySeller.mockResolvedValue(0);
-      sellerRepository.countBuyersFollowingSeller.mockResolvedValue(0);
+      sellerRepository.countBuyersFollowedBySeller.mockResolvedValue(0);
       orderRepository.getReviewStats.mockResolvedValue([]);
       sellerRepository.incrementStoreVisits.mockResolvedValue(sellerWithoutReviews);
 
@@ -241,7 +241,7 @@ describe('getSellerProfile.service', () => {
       buyerRepository.findSellerById.mockResolvedValue(minimalSeller);
       orderRepository.findOrdersBySeller.mockResolvedValue([]);
       streamRepository.countStreamsBySeller.mockResolvedValue(0);
-      sellerRepository.countBuyersFollowingSeller.mockResolvedValue(0);
+      sellerRepository.countBuyersFollowedBySeller.mockResolvedValue(0);
       orderRepository.getReviewStats.mockResolvedValue([]);
       sellerRepository.incrementStoreVisits.mockResolvedValue(minimalSeller);
 
@@ -290,7 +290,7 @@ describe('getSellerProfile.service', () => {
       buyerRepository.findSellerById.mockResolvedValue(mockSeller);
       orderRepository.findOrdersBySeller.mockResolvedValue(ordersWithDeliveredItems);
       streamRepository.countStreamsBySeller.mockResolvedValue(5);
-      sellerRepository.countBuyersFollowingSeller.mockResolvedValue(10);
+      sellerRepository.countBuyersFollowedBySeller.mockResolvedValue(10);
       orderRepository.getReviewStats.mockResolvedValue([
         { totalReviews: 100, averageRating: 4.5 }
       ]);
