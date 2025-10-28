@@ -97,7 +97,7 @@ async function validateSetActiveAddressData(data) {
 
   // If there are validation errors, throw ValidationError
   if (errors.length > 0) {
-    throw new ValidationError('Validation failed', errors);
+    throw new ValidationError(errors);
   }
 }
 
