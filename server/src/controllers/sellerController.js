@@ -2974,8 +2974,48 @@ exports.searchSellers = async (req, res) => {
       console.log('Buyer followers found:', buyer?.followers?.length || 0);
     }
 
+    // Get additional data for sellers (isLive and itemsCount)
+    const sellerIds = sellers.map(seller => seller._id);
+    
+    // Check for active streams (isLive)
+    const Stream = require('../models/Stream');
+    const activeStreams = await Stream.find({
+      seller: { $in: sellerIds },
+      status: 'live'
+    }).select('seller').lean();
+    
+    const sellerLiveStatus = {};
+    activeStreams.forEach(stream => {
+      sellerLiveStatus[stream.seller.toString()] = true;
+    });
+
+    // Count active products (itemsCount)
+    const Product = require('../models/Product');
+    const productCounts = await Product.aggregate([
+      {
+        $match: {
+          seller: { $in: sellerIds },
+          status: 'active',
+          visibility: 'visible'
+        }
+      },
+      {
+        $group: {
+          _id: '$seller',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    const sellerItemCounts = {};
+    productCounts.forEach(item => {
+      sellerItemCounts[item._id.toString()] = item.count;
+    });
+
     // Process sellers to add isFollowing property if user is authenticated
     const processedSellers = sellers.map(seller => {
+      const sellerIdStr = seller._id.toString();
+      
       // Create a clean seller object with only necessary information
       const cleanSeller = {
         _id: seller._id,
@@ -2983,6 +3023,8 @@ exports.searchSellers = async (req, res) => {
         storeName: seller.storeName,
         storeAvatar: seller.storeAvatar?.url || null,
         followerCount: seller.followers?.length || 0,
+        isLive: sellerLiveStatus[sellerIdStr] || false,
+        itemsCount: sellerItemCounts[sellerIdStr] || 0,
         // Default isFollowing to false
         isFollowing: false
       };

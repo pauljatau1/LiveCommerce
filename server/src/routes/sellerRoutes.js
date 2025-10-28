@@ -2191,6 +2191,12 @@ router.get('/product/:productId/review/:reviewId', sellerController.getPublicPro
  *                                     type: string
  *                       followerCount:
  *                         type: integer
+ *                       isLive:
+ *                         type: boolean
+ *                         description: Whether the seller has an active live stream
+ *                       itemsCount:
+ *                         type: integer
+ *                         description: Number of active items listed by the seller
  *                       isFollowing:
  *                         type: boolean
  *                         description: Only present for authenticated buyers

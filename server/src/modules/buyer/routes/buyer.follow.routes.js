@@ -301,6 +301,18 @@ router.get('/followers', verifyToken, isBuyer, buyerController.getFollowers);
  *                             format: date-time
  *                             description: When the buyer started following this user
  *                             example: "2024-01-15T10:30:00.000Z"
+ *                           followerCount:
+ *                             type: integer
+ *                             description: Number of followers for this seller
+ *                             example: 150
+ *                           isLive:
+ *                             type: boolean
+ *                             description: Whether the seller has an active live stream
+ *                             example: true
+ *                           itemsCount:
+ *                             type: integer
+ *                             description: Number of active items listed by the seller
+ *                             example: 25
  *                     pagination:
  *                       type: object
  *                       properties:

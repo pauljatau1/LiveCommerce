@@ -71,7 +71,10 @@ function formatFollowingSeller(seller, buyerId) {
     name: `${seller.firstName} ${seller.lastName}`,
     storeName: seller.storeName || seller.businessName,
     profileImage: seller.storeAvatar?.url || seller.profileImage?.url,
-    followDate: followerData.followDate
+    followDate: followerData.followDate,
+    followerCount: seller.followers?.length || 0,
+    isLive: false, // Will be updated by the calling function
+    itemsCount: 0  // Will be updated by the calling function
   };
 }
 
@@ -170,18 +173,64 @@ async function listPaginatedFollowing(buyerId, params) {
   // This retrieves all buyers with follow relationships for the buyer
   const buyers = await buyerRepository.findBuyersFollowingByBuyer(buyerId);
 
-  // Step 3: Combine and format following data
+  // Step 3: Get additional data for sellers (isLive and itemsCount)
+  const sellerIds = sellers.map(seller => seller._id);
+  
+  // Check for active streams (isLive)
+  const Stream = require('../../../models/Stream');
+  const activeStreams = await Stream.find({
+    seller: { $in: sellerIds },
+    status: 'live'
+  }).select('seller').lean();
+  
+  const sellerLiveStatus = {};
+  activeStreams.forEach(stream => {
+    sellerLiveStatus[stream.seller.toString()] = true;
+  });
+
+  // Count active products (itemsCount)
+  const Product = require('../../../models/Product');
+  const productCounts = await Product.aggregate([
+    {
+      $match: {
+        seller: { $in: sellerIds },
+        status: 'active',
+        visibility: 'visible'
+      }
+    },
+    {
+      $group: {
+        _id: '$seller',
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+  
+  const sellerItemCounts = {};
+  productCounts.forEach(item => {
+    sellerItemCounts[item._id.toString()] = item.count;
+  });
+
+  // Step 4: Combine and format following data
   // This merges seller and buyer following data into a single array
   let following = [
-    ...sellers.map(seller => formatFollowingSeller(seller, buyerId)).filter(f => f !== null),
+    ...sellers.map(seller => {
+      const formattedSeller = formatFollowingSeller(seller, buyerId);
+      if (formattedSeller) {
+        const sellerIdStr = seller._id.toString();
+        formattedSeller.isLive = sellerLiveStatus[sellerIdStr] || false;
+        formattedSeller.itemsCount = sellerItemCounts[sellerIdStr] || 0;
+      }
+      return formattedSeller;
+    }).filter(f => f !== null),
     ...buyers.map(buyer => formatFollowingBuyer(buyer, buyerId)).filter(f => f !== null)
   ];
 
-  // Step 4: Sort by follow date (newest first)
+  // Step 5: Sort by follow date (newest first)
   // This provides chronological ordering of following relationships
   following.sort((a, b) => new Date(b.followDate) - new Date(a.followDate));
 
-  // Step 5: Apply pagination
+  // Step 6: Apply pagination
   // This extracts the appropriate subset of data for the requested page
   const startIndex = (page - 1) * limit;
   const endIndex = startIndex + limit;
@@ -216,9 +265,55 @@ async function listFollowing(buyerId, filters) {
   // Find buyers that this buyer follows
   const buyers = await buyerRepository.findBuyersFollowingByBuyer(buyerId);
 
+  // Get additional data for sellers (isLive and itemsCount)
+  const sellerIds = sellers.map(seller => seller._id);
+  
+  // Check for active streams (isLive)
+  const Stream = require('../../../models/Stream');
+  const activeStreams = await Stream.find({
+    seller: { $in: sellerIds },
+    status: 'live'
+  }).select('seller').lean();
+  
+  const sellerLiveStatus = {};
+  activeStreams.forEach(stream => {
+    sellerLiveStatus[stream.seller.toString()] = true;
+  });
+
+  // Count active products (itemsCount)
+  const Product = require('../../../models/Product');
+  const productCounts = await Product.aggregate([
+    {
+      $match: {
+        seller: { $in: sellerIds },
+        status: 'active',
+        visibility: 'visible'
+      }
+    },
+    {
+      $group: {
+        _id: '$seller',
+        count: { $sum: 1 }
+      }
+    }
+  ]);
+  
+  const sellerItemCounts = {};
+  productCounts.forEach(item => {
+    sellerItemCounts[item._id.toString()] = item.count;
+  });
+
   // Combine and format following data
   let following = [
-    ...sellers.map(seller => formatFollowingSeller(seller, buyerId)).filter(f => f !== null),
+    ...sellers.map(seller => {
+      const formattedSeller = formatFollowingSeller(seller, buyerId);
+      if (formattedSeller) {
+        const sellerIdStr = seller._id.toString();
+        formattedSeller.isLive = sellerLiveStatus[sellerIdStr] || false;
+        formattedSeller.itemsCount = sellerItemCounts[sellerIdStr] || 0;
+      }
+      return formattedSeller;
+    }).filter(f => f !== null),
     ...buyers.map(buyer => formatFollowingBuyer(buyer, buyerId)).filter(f => f !== null)
   ];
 
