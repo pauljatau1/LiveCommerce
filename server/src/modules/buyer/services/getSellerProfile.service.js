@@ -333,8 +333,8 @@ function buildStorePolicies(seller) {
  * comprehensive statistics.
  *
  * Statistics Included:
- * - Follower count
- * - Following count (sellers they follow)
+ * - Follower count (buyers following this seller)
+ * - Following count (buyers that this seller is following)
  * - Total orders received
  * - Total streams conducted
  * - Total items sold
@@ -342,7 +342,7 @@ function buildStorePolicies(seller) {
  * @param {Object} seller - Seller object with followers data
  * @param {Array} orders - Array of seller's orders
  * @param {number} streamCount - Total number of streams
- * @param {number} followingCount - Number of sellers they follow
+ * @param {number} followingCount - Number of buyers the seller is following
  * @param {number} soldItemsCount - Total items sold
  * @returns {Object} Statistics object
  */
@@ -445,9 +445,9 @@ async function getSellerProfile(sellerId, buyerId) {
   // Fetch all related data concurrently to minimize response time
   const [orders, streamCount, followingCount, reviews] = await Promise.all([
     orderRepository.findOrdersBySeller(sellerId),
-          streamRepository.countStreamsBySeller(sellerId),
-      sellerRepository.countBuyersFollowingSeller(sellerId),
-          orderRepository.getReviewStats(sellerId)
+    streamRepository.countStreamsBySeller(sellerId),
+    sellerRepository.countBuyersFollowedBySeller(sellerId),
+    orderRepository.getReviewStats(sellerId)
   ]);
 
   // Step 4: Calculate delivered orders count
