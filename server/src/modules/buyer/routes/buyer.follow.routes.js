@@ -151,6 +151,11 @@ router.delete('/follow/:sellerId', verifyToken, isBuyer, buyerController.unfollo
  *           minimum: 1
  *           maximum: 100
  *         description: Number of items per page
+ *       - in: query
+ *         name: query
+ *         schema:
+ *           type: string
+ *         description: Search by name or store/business name
  *     responses:
  *       200:
  *         description: Followers retrieved successfully
