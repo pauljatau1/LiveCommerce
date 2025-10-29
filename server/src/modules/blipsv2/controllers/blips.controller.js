@@ -8,6 +8,10 @@ const getTopBlipsService = require('../services/getTopBlips.service');
 const getBlipsByCategoryService = require('../services/getBlipsByCategory.service');
 const getBlipsByRandomCategoryService = require('../services/getBlipsByRandomCategory.service');
 const getBlipsCategoriesService = require('../services/getBlipsCategories.service');
+const saveBlipService = require('../services/saveBlip.service');
+const unsaveBlipService = require('../services/unsaveBlip.service');
+const isBlipSavedService = require('../services/isBlipSaved.service');
+const getSavedBlipsService = require('../services/getSavedBlips.service');
 
 exports.getPersonalizedBlips = async (req, res) => {
   try {
@@ -239,6 +243,86 @@ exports.getBlipsCategories = async (req, res) => {
       status: false,
       message: 'Failed to fetch blips categories',
       error: error.message
+    });
+  }
+};
+
+/**
+ * Save a blip for the authenticated buyer
+ */
+exports.saveBlip = async (req, res) => {
+  try {
+    const result = await saveBlipService.execute(req);
+    res.status(200).json({
+      status: true,
+      message: result.message,
+      created: result.created
+    });
+  } catch (error) {
+    const status = error.statusCode || 500;
+    res.status(status).json({
+      status: false,
+      message: error.message || 'Failed to save blip'
+    });
+  }
+};
+
+/**
+ * Check if a blip is saved by the authenticated buyer
+ */
+exports.isBlipSaved = async (req, res) => {
+  try {
+    const result = await isBlipSavedService.execute(req);
+    res.status(200).json({
+      status: true,
+      isSaved: result.isSaved
+    });
+  } catch (error) {
+    const status = error.statusCode || 500;
+    res.status(status).json({
+      status: false,
+      message: error.message || 'Failed to check saved state'
+    });
+  }
+};
+
+/**
+ * Unsave a blip for the authenticated buyer
+ */
+exports.unsaveBlip = async (req, res) => {
+  try {
+    const result = await unsaveBlipService.execute(req);
+    res.status(200).json({
+      status: true,
+      message: result.message,
+      removed: result.removed
+    });
+  } catch (error) {
+    const status = error.statusCode || 500;
+    res.status(status).json({
+      status: false,
+      message: error.message || 'Failed to unsave blip'
+    });
+  }
+};
+
+/**
+ * Get all saved blips for the authenticated buyer (paginated)
+ */
+exports.getSavedBlips = async (req, res) => {
+  try {
+    const result = await getSavedBlipsService.execute(req);
+    res.status(200).json({
+      blips: result.blips,
+      currentPage: result.currentPage,
+      totalPages: result.totalPages,
+      totalBlips: result.totalBlips
+    });
+  } catch (error) {
+    const status = error.statusCode || 500;
+    res.status(status).json({
+      status: false,
+      message: error.message || 'Failed to fetch saved blips'
     });
   }
 };

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const blipsController = require('../controllers/blips.controller');
 const optionalAuthMiddleware = require('../../../middlewares/optionalAuthMiddleware');
-const { verifyToken } = require('../../../middlewares/authMiddleware');
+const { verifyToken, isBuyer } = require('../../../middlewares/authMiddleware');
 
 // Get personalized blips
 router.get('/personalized', optionalAuthMiddleware, blipsController.getPersonalizedBlips);
@@ -33,5 +33,17 @@ router.get('/following', verifyToken, blipsController.getFollowingBlips);
 
 // Get blips categories with statistics (optional authentication)
 router.get('/categories', optionalAuthMiddleware, blipsController.getBlipsCategories);
+
+// Save a blip for the authenticated buyer
+router.post('/:blipId/save', verifyToken, isBuyer, blipsController.saveBlip);
+
+// Check if a blip is saved by the authenticated buyer
+router.get('/:blipId/saved', verifyToken, isBuyer, blipsController.isBlipSaved);
+
+// Unsave a blip for the authenticated buyer
+router.delete('/:blipId/save', verifyToken, isBuyer, blipsController.unsaveBlip);
+
+// Get all saved blips for the authenticated buyer (paginated)
+router.get('/saved', verifyToken, isBuyer, blipsController.getSavedBlips);
 
 module.exports = router;
