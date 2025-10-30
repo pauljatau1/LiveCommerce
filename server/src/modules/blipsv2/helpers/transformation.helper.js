@@ -1,10 +1,17 @@
 class TransformationHelper {
   transformProductsToBlips(products, buyerId, isAuthenticated, followedSellers) {
     return products.map(product => {
-      const isFollowing = product.seller.followers && buyerId
+      // Determine follow status either from seller.followers array
+      // or from provided followedSellers list (fallback for scenarios
+      // where followers aren't populated on the seller document)
+      const directFollow = product.seller.followers && buyerId
         ? product.seller.followers.some(follower =>
             follower.buyerId?.toString() === buyerId.toString())
         : false;
+      const listFollow = Array.isArray(followedSellers)
+        ? followedSellers.includes(product.seller._id.toString())
+        : false;
+      const isFollowing = directFollow || listFollow;
 
       const isLiked = isAuthenticated && product.blip.likes
         ? product.blip.likes.some(like => like.toString() === buyerId)
@@ -64,7 +71,7 @@ class TransformationHelper {
           isFeatured: product.seller.isFeatured
         },
         _metadata: {
-          isFollowingSeller: isFollowing || followedSellers.includes(product.seller._id.toString()),
+          isFollowingSeller: isFollowing,
           engagementScore: product.engagementScore,
           daysSinceCreation: product.daysSinceCreation,
           isNewBlip: product.daysSinceCreation < 25,
