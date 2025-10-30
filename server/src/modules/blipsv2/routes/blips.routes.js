@@ -32,6 +32,7 @@ router.get('/by-random-category', optionalAuthMiddleware, blipsController.getBli
 router.get('/following', verifyToken, blipsController.getFollowingBlips);
 
 // Get blips categories with statistics (optional authentication)
+
 router.get('/categories', optionalAuthMiddleware, blipsController.getBlipsCategories);
 
 module.exports = router;
