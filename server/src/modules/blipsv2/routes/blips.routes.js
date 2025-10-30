@@ -35,4 +35,7 @@ router.get('/following', verifyToken, blipsController.getFollowingBlips);
 
 router.get('/categories', optionalAuthMiddleware, blipsController.getBlipsCategories);
 
+// Get a blip's position in the default feed
+router.get('/:blipId/position', optionalAuthMiddleware, blipsController.getBlipPosition);
+
 module.exports = router;
