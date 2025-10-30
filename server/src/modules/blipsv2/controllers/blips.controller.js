@@ -8,6 +8,7 @@ const getTopBlipsService = require('../services/getTopBlips.service');
 const getBlipsByCategoryService = require('../services/getBlipsByCategory.service');
 const getBlipsByRandomCategoryService = require('../services/getBlipsByRandomCategory.service');
 const getBlipsCategoriesService = require('../services/getBlipsCategories.service');
+const getBlipPositionService = require('../services/getBlipPosition.service');
 
 exports.getPersonalizedBlips = async (req, res) => {
   try {
@@ -212,6 +213,37 @@ exports.getBlipsByRandomCategory = async (req, res) => {
     res.status(500).json({
       status: false,
       message: 'Failed to fetch blips by random category',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get a blip's position in the default New Blips feed.
+ * Response schema: { page: number, index: number, totalBlips: number }
+ * - page: 1-based page number
+ * - index: 0-based index within the page
+ * - totalBlips: total number of blips in the feed
+ */
+exports.getBlipPosition = async (req, res) => {
+  try {
+    const result = await getBlipPositionService.execute(req);
+
+    if (result?.error) {
+      const status = result.statusCode || 400;
+      return res.status(status).json({ status: false, message: result.error });
+    }
+
+    return res.json({
+      page: result.page,
+      index: result.index,
+      totalBlips: result.totalBlips
+    });
+  } catch (error) {
+    console.error('Error in getBlipPosition:', error);
+    return res.status(500).json({
+      status: false,
+      message: 'Failed to compute blip position',
       error: error.message
     });
   }
