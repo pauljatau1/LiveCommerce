@@ -38,4 +38,7 @@ router.get('/categories', optionalAuthMiddleware, blipsController.getBlipsCatego
 // Get a blip's position in the default feed
 router.get('/:blipId/position', optionalAuthMiddleware, blipsController.getBlipPosition);
 
+// Get blips for a specific product (newest first)
+router.get('/by-product/:productId', optionalAuthMiddleware, blipsController.getBlipsByProduct);
+
 module.exports = router;

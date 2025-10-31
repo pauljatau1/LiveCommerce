@@ -410,3 +410,72 @@ Returns blips from a randomly selected category that contains at least 6 blips. 
   "totalBlips": 48
 }
 ```
+
+### GET `/api/v2/blips/by-product/:productId`
+Returns blips that are attached to a specific product, ordered newest-first. Uses the same blip item shape as other blips endpoints for consistency across clients.
+
+**Authentication:** Optional (Buyer authentication enables accurate `blipEngagement.isLiked`)
+
+**Path Parameters:**
+- `productId` (required): The ID of the product whose blips are requested
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Number of blips per page. If omitted, returns all processed blips for the product
+
+**Notes:**
+- Only processed blips are returned to ensure reliable playback on clients
+- Newest-first ordering by blip `createdAt`
+- Response shape matches other endpoints (e.g., `new`, `trending`, `suggested`)
+
+**Response:**
+```json
+{
+  "blips": [
+    {
+      "discount": {
+        "isActive": false,
+        "type": "percentage",
+        "value": 0,
+        "discountedPrice": 45000
+      },
+      "_id": "<productId>",
+      "blipId": "<blipId>",
+      "blipUrl": "https://...",
+      "thumbnail": "https://...",
+      "processed": true,
+      "productId": "<productId>",
+      "productName": "Product Name",
+      "price": 45000,
+      "stock": 10,
+      "status": "active",
+      "auctionInfo": null,
+      "images": "https://.../image.jpg",
+      "blipEngagement": {
+        "likesCount": 0,
+        "commentsCount": 0,
+        "viewCount": 0,
+        "isLiked": false
+      },
+      "averageRating": 4.5,
+      "reviewCount": 23,
+      "createdAt": "2025-10-10T12:00:00.000Z",
+      "seller": {
+        "_id": "<sellerId>",
+        "firstName": "John",
+        "lastName": "Doe",
+        "storeName": "TechStore",
+        "storeAvatar": "https://.../avatar.jpg",
+        "aboutStore": "...",
+        "storeRating": 4.8,
+        "totalStoreReviews": 234,
+        "isFollowing": false,
+        "isFeatured": false
+      }
+    }
+  ],
+  "currentPage": 1,
+  "totalPages": 1,
+  "totalBlips": 3
+}
+```
