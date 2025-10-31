@@ -138,7 +138,13 @@ function getPaginationOptions(params) {
  * @returns {Object} Filters object for data filtering
  */
 function getFilters(params) {
-  return queryParser.getFilters(params);
+  const base = queryParser.getFilters(params);
+  // Extract free-text search query for filtering following results
+  const q = (params?.query?.query || '').trim();
+  if (q) {
+    base.query = q;
+  }
+  return base;
 }
 
 /**
@@ -226,11 +232,21 @@ async function listPaginatedFollowing(buyerId, params) {
     ...buyers.map(buyer => formatFollowingBuyer(buyer, buyerId)).filter(f => f !== null)
   ];
 
-  // Step 5: Sort by follow date (newest first)
+  // Step 5: Apply optional search query filter before sorting/pagination
+  if (filters?.query) {
+    const ql = filters.query.toLowerCase();
+    following = following.filter(item => {
+      const name = (item?.name || '').toLowerCase();
+      const storeName = (item?.storeName || '').toLowerCase();
+      return name.includes(ql) || storeName.includes(ql);
+    });
+  }
+
+  // Step 6: Sort by follow date (newest first)
   // This provides chronological ordering of following relationships
   following.sort((a, b) => new Date(b.followDate) - new Date(a.followDate));
 
-  // Step 6: Apply pagination
+  // Step 7: Apply pagination
   // This extracts the appropriate subset of data for the requested page
   const startIndex = (page - 1) * limit;
   const endIndex = startIndex + limit;
@@ -316,6 +332,16 @@ async function listFollowing(buyerId, filters) {
     }).filter(f => f !== null),
     ...buyers.map(buyer => formatFollowingBuyer(buyer, buyerId)).filter(f => f !== null)
   ];
+
+  // Apply optional search query filter
+  if (filters?.query) {
+    const ql = filters.query.toLowerCase();
+    following = following.filter(item => {
+      const name = (item?.name || '').toLowerCase();
+      const storeName = (item?.storeName || '').toLowerCase();
+      return name.includes(ql) || storeName.includes(ql);
+    });
+  }
 
   // Sort by follow date (newest first)
   following.sort((a, b) => new Date(b.followDate) - new Date(a.followDate));
