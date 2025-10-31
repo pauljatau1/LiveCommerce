@@ -18,6 +18,30 @@ const { generateStreamLink } = require('../utils/helpers');
 const expo = new Expo();
 
 
+// Helper: Determine if the current requester (buyer) is subscribed to a given stream
+// We compute this from the stream's subscribers array. This is used to enrich
+// paginated responses of scheduled livestreams so clients can render a
+// "Notify me"/"Subscribed" UI state correctly without extra API calls.
+const isBuyerSubscribedToStream = (streamDoc, user) => {
+  try {
+    // Must have a user (authenticated) and it should be a Buyer
+    if (!user || user.role !== 'Buyer') return false;
+
+    // Streams may be Mongoose docs or plain objects from aggregation
+    const subscribers = streamDoc?.subscribers || [];
+    if (!Array.isArray(subscribers) || subscribers.length === 0) return false;
+
+    // Compare ObjectIds and strings safely
+    const userId = user.id?.toString();
+    return subscribers.some((sub) => {
+      const buyerId = (sub?.buyer?._id || sub?.buyer || '').toString();
+      return buyerId === userId;
+    });
+  } catch (_) {
+    return false;
+  }
+};
+
 exports.createStream = async (req, res) => {
   try {
     const {
@@ -1292,8 +1316,15 @@ exports.getSellerStreams = async (req, res) => {
     // Get total count for pagination
     const total = await Stream.countDocuments(query);
 
+    // Enrich with isSubscribed
+    const enrichedStreams = streams.map((s) => {
+      const obj = typeof s.toObject === 'function' ? s.toObject() : s;
+      obj.isSubscribed = isBuyerSubscribedToStream(obj, req.user);
+      return obj;
+    });
+
     res.json({
-      streams,
+      streams: enrichedStreams,
       pagination: {
         total,
         pages: Math.ceil(total / limit),
@@ -1613,16 +1644,19 @@ exports.getStreamsByStatus = async (req, res) => {
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
 
-    // Add subscribersCount to each stream with proper typing
+    // Add subscribersCount and isSubscribed to each stream
     const streamsWithSubscriberCount = streams.map(stream => {
       // Convert to plain object first
       const streamObj = stream.toObject();
 
       // Add the subscribers count property
-      return {
+      const enriched = {
         ...streamObj,
         subscribersCount: streamObj.subscribers ? streamObj.subscribers.length : 0
       };
+      // Add isSubscribed state for the requester (relevant for scheduled streams)
+      enriched.isSubscribed = isBuyerSubscribedToStream(streamObj, req.user);
+      return enriched;
     });
 
     const total = await Stream.countDocuments(query);
@@ -1686,11 +1720,17 @@ exports.getSellerStreamsByStatus = async (req, res) => {
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
 
-
     const total = await Stream.countDocuments(query);
 
+    // Enrich with isSubscribed
+    const enrichedStreams = streams.map((s) => {
+      const obj = typeof s.toObject === 'function' ? s.toObject() : s;
+      obj.isSubscribed = isBuyerSubscribedToStream(obj, req.user);
+      return obj;
+    });
+
     res.json({
-      streams,
+      streams: enrichedStreams,
       pagination: {
         total,
         pages: Math.ceil(total / limit),
@@ -1808,6 +1848,8 @@ exports.getPopularStreams = async (req, res) => {
     const streamsWithViewerCount = streams.map(stream => {
       const streamObj = stream.toObject();
       streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      // Add isSubscribed for requester
+      streamObj.isSubscribed = isBuyerSubscribedToStream(streamObj, req.user);
       return streamObj;
     });
 
@@ -1893,6 +1935,7 @@ exports.getSpotlightStreams = async (req, res) => {
     const streamsWithViewerCount = streams.map(stream => {
       const streamObj = stream.toObject();
       streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      streamObj.isSubscribed = isBuyerSubscribedToStream(streamObj, req.user);
       return streamObj;
     });
 
@@ -1969,6 +2012,7 @@ exports.getStreamsFromFavoriteSellers = async (req, res) => {
     const streamsWithViewerCount = streams.map(stream => {
       const streamObj = stream.toObject();
       streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      streamObj.isSubscribed = isBuyerSubscribedToStream(streamObj, req.user);
       return streamObj;
     });
 
@@ -3195,12 +3239,13 @@ exports.searchStreams = async (req, res) => {
       ]);
     }
 
-    // Add viewerCount to each stream
+    // Add viewerCount and isSubscribed to each stream
     const streamsWithViewerCount = streams.map(stream => {
       // Convert to plain object if not already
       const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
       streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
       streamObj.isLive = stream.status === 'live';
+      streamObj.isSubscribed = isBuyerSubscribedToStream(streamObj, req.user);
       return streamObj;
     });
 

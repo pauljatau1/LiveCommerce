@@ -210,6 +210,11 @@ router.get('/unread/count', authMiddleware.verifyToken, conversationController.g
  *           maximum: 100
  *           default: 20
  *         description: Number of conversations per page
+ *       - in: query
+ *         name: query
+ *         schema:
+ *           type: string
+ *         description: Search by participant name, store name, or last message content
  *     responses:
  *       200:
  *         description: List of conversations with pagination

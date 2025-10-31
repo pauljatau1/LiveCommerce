@@ -51,6 +51,16 @@ class ProductRepository {
     });
   }
 
+  /**
+   * Finds a product that contains the given blipId regardless of blip processed
+   * state or product status. Intended for validation/error messaging.
+   * @param {string} blipId
+   * @returns {Promise<Object|null>} Product with blips array
+   */
+  async findProductContainingBlipAnyStatus(blipId) {
+    return await Product.findOne({ 'blips._id': blipId }).select('_id status blips');
+  }
+
   async findRelatedProducts(productId, category) {
     return await Product.find({
       _id: { $ne: productId },
@@ -63,6 +73,20 @@ class ProductRepository {
       select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified followers'
     })
     .select('_id name blips category subCategory seo.slug price discount stats images variants stock status');
+  }
+
+  /**
+   * Finds a product that contains the given blipId regardless of processed/status,
+   * and populates seller info to support blip transformation.
+   * @param {string} blipId
+   * @returns {Promise<Object|null>}
+   */
+  async findProductWithBlipAnyStatus(blipId) {
+    return await Product.findOne({ 'blips._id': blipId })
+      .populate({
+        path: 'seller',
+        select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions followers'
+      });
   }
 
   async findRandomProducts(excludeProductId) {

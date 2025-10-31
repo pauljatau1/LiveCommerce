@@ -18,13 +18,16 @@ class GetBlipsCategoriesService {
     try {
       const buyerId = req.user?.id;
       const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
+      const searchQuery = (req.query?.query || '').trim().toLowerCase();
+      const page = parseInt(req.query?.page) || 1;
+      const limit = parseInt(req.query?.limit) || 10;
 
       console.log(`📊 [BLIPS CATEGORIES] Processing request for ${isAuthenticated ? 'authenticated' : 'non-authenticated'} user`);
 
       if (isAuthenticated) {
-        return await this.getUserCategories(buyerId);
+        return await this.getUserCategories(buyerId, searchQuery, page, limit);
       } else {
-        return await this.getPopularCategories();
+        return await this.getPopularCategories(searchQuery, page, limit);
       }
     } catch (error) {
       console.error('❌ [BLIPS CATEGORIES] Service error:', error);
@@ -64,7 +67,7 @@ class GetBlipsCategoriesService {
    * @param {string} buyerId - The buyer's ID
    * @returns {Promise<Object>} User's categories with statistics
    */
-  async getUserCategories(buyerId) {
+  async getUserCategories(buyerId, searchQuery, page, limit) {
     try {
       console.log(`👤 [BLIPS CATEGORIES] Fetching categories for authenticated user: ${buyerId}`);
 
@@ -73,7 +76,7 @@ class GetBlipsCategoriesService {
       
       if (!buyer) {
         console.log('👤 [BLIPS CATEGORIES] Buyer not found, falling back to popular categories');
-        return await this.getPopularCategories();
+        return await this.getPopularCategories(searchQuery, page, limit);
       }
 
       // Extract category names from buyer's selected categories
@@ -81,7 +84,7 @@ class GetBlipsCategoriesService {
       
       if (!categoryNames || categoryNames.length === 0) {
         console.log('👤 [BLIPS CATEGORIES] No selected categories found, falling back to popular categories');
-        return await this.getPopularCategories();
+        return await this.getPopularCategories(searchQuery, page, limit);
       }
 
       console.log(`👤 [BLIPS CATEGORIES] Found ${categoryNames.length} selected categories: ${categoryNames.join(', ')}`);
@@ -119,11 +122,13 @@ class GetBlipsCategoriesService {
       // If no categories found for user's preferences, fallback to popular categories
       if (categoriesWithStats.length === 0) {
         console.log('👤 [BLIPS CATEGORIES] No categories found for user preferences, falling back to popular categories');
-        const popularCategories = await this.getPopularCategories();
+        const popularCategories = await this.getPopularCategories(searchQuery, page, limit);
         const enriched = await this.enrichWithCategoryImages(popularCategories.categories);
         return {
           categories: enriched,
           totalCategories: popularCategories.totalCategories,
+          currentPage: popularCategories.currentPage,
+          totalPages: popularCategories.totalPages,
           isPersonalized: false,
           message: 'Popular categories (your preferences not found in current products)'
         };
@@ -132,7 +137,7 @@ class GetBlipsCategoriesService {
       // If we found some categories but not many, supplement with popular categories
       if (categoriesWithStats.length < 3) {
         console.log(`👤 [BLIPS CATEGORIES] Found only ${categoriesWithStats.length} categories for user preferences, supplementing with popular categories`);
-        const popularCategories = await this.getPopularCategories();
+        const popularCategories = await this.getPopularCategories(searchQuery, page, limit);
         
         // Combine user categories with popular categories, avoiding duplicates
         const userCategoryNames = categoriesWithStats.map(cat => cat.name);
@@ -145,26 +150,50 @@ class GetBlipsCategoriesService {
           ...additionalCategories.slice(0, 6 - categoriesWithStats.length)
         ];
 
-        const enriched = await this.enrichWithCategoryImages(combinedCategories);
+        // Apply search filter if present
+        const filteredCombined = searchQuery
+          ? combinedCategories.filter(c => (c?.name || '').toLowerCase().includes(searchQuery))
+          : combinedCategories;
+
+        // Pagination
+        const total = filteredCombined.length;
+        const startIndex = (page - 1) * limit;
+        const pageItems = filteredCombined.slice(startIndex, startIndex + limit);
+
+        const enriched = await this.enrichWithCategoryImages(pageItems);
         return {
           categories: enriched,
-          totalCategories: combinedCategories.length,
+          totalCategories: total,
+          currentPage: page,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
           isPersonalized: true,
           message: 'Categories based on your preferences (supplemented with popular categories)'
         };
       }
 
-      const enriched = await this.enrichWithCategoryImages(categoriesWithStats);
+      // Apply search filter if present
+      const filteredUserCats = searchQuery
+        ? categoriesWithStats.filter(c => (c?.name || '').toLowerCase().includes(searchQuery))
+        : categoriesWithStats;
+
+      // Pagination
+      const total = filteredUserCats.length;
+      const startIndex = (page - 1) * limit;
+      const pageItems = filteredUserCats.slice(startIndex, startIndex + limit);
+
+      const enriched = await this.enrichWithCategoryImages(pageItems);
       return {
         categories: enriched,
-        totalCategories: categoriesWithStats.length,
+        totalCategories: total,
+        currentPage: page,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
         isPersonalized: true,
         message: 'Categories based on your preferences'
       };
     } catch (error) {
       console.error('❌ [BLIPS CATEGORIES] Error getting user categories:', error);
       // Fallback to popular categories on error
-      return await this.getPopularCategories();
+      return await this.getPopularCategories(searchQuery, page, limit);
     }
   }
 
@@ -172,7 +201,7 @@ class GetBlipsCategoriesService {
    * Get popular categories for non-authenticated users
    * @returns {Promise<Object>} Popular categories with statistics
    */
-  async getPopularCategories() {
+  async getPopularCategories(searchQuery, page, limit) {
     try {
       console.log('🌐 [BLIPS CATEGORIES] Fetching popular categories for non-authenticated user');
 
@@ -245,10 +274,22 @@ class GetBlipsCategoriesService {
 
       console.log(`🌐 [BLIPS CATEGORIES] Found ${popularCategories.length} popular categories`);
 
-      const enriched = await this.enrichWithCategoryImages(popularCategories);
+      // Apply search filter if present
+      const filtered = searchQuery
+        ? popularCategories.filter(c => (c?.name || '').toLowerCase().includes(searchQuery))
+        : popularCategories;
+
+      // Pagination
+      const total = filtered.length;
+      const startIndex = (page - 1) * limit;
+      const pageItems = filtered.slice(startIndex, startIndex + limit);
+
+      const enriched = await this.enrichWithCategoryImages(pageItems);
       return {
         categories: enriched,
-        totalCategories: popularCategories.length,
+        totalCategories: total,
+        currentPage: page,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
         isPersonalized: false,
         message: 'Popular categories with high engagement'
       };

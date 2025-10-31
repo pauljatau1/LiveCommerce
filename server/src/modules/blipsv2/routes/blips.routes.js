@@ -32,6 +32,13 @@ router.get('/by-random-category', optionalAuthMiddleware, blipsController.getBli
 router.get('/following', verifyToken, blipsController.getFollowingBlips);
 
 // Get blips categories with statistics (optional authentication)
+
 router.get('/categories', optionalAuthMiddleware, blipsController.getBlipsCategories);
+
+// Get a blip's position in the default feed
+router.get('/:blipId/position', optionalAuthMiddleware, blipsController.getBlipPosition);
+
+// Get blips for a specific product (newest first)
+router.get('/by-product/:productId', optionalAuthMiddleware, blipsController.getBlipsByProduct);
 
 module.exports = router;

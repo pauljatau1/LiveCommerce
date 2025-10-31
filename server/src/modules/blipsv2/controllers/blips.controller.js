@@ -8,6 +8,8 @@ const getTopBlipsService = require('../services/getTopBlips.service');
 const getBlipsByCategoryService = require('../services/getBlipsByCategory.service');
 const getBlipsByRandomCategoryService = require('../services/getBlipsByRandomCategory.service');
 const getBlipsCategoriesService = require('../services/getBlipsCategories.service');
+const getBlipPositionService = require('../services/getBlipPosition.service');
+const getProductBlipsService = require('../services/getProductBlips.service');
 
 exports.getPersonalizedBlips = async (req, res) => {
   try {
@@ -46,6 +48,37 @@ exports.getSuggestedBlips = async (req, res) => {
     res.status(500).json({
       status: false,
       message: 'Failed to retrieve suggested blips',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get blips attached to a specific product.
+ * Response schema aligns with other blips endpoints:
+ * { blips: [...], currentPage, totalPages, totalBlips }
+ * Supports optional pagination via ?page=&limit=
+ */
+exports.getBlipsByProduct = async (req, res) => {
+  try {
+    const result = await getProductBlipsService.execute(req);
+
+    if (result?.error) {
+      const status = result.statusCode || 400;
+      return res.status(status).json({ status: false, message: result.error });
+    }
+
+    return res.json({
+      blips: result.blips,
+      currentPage: result.currentPage,
+      totalPages: result.totalPages,
+      totalBlips: result.totalBlips
+    });
+  } catch (error) {
+    console.error('Error in getBlipsByProduct:', error);
+    return res.status(500).json({
+      status: false,
+      message: 'Failed to fetch product blips',
       error: error.message
     });
   }
@@ -218,6 +251,37 @@ exports.getBlipsByRandomCategory = async (req, res) => {
 };
 
 /**
+ * Get a blip's position in the default New Blips feed.
+ * Response schema: { page: number, index: number, totalBlips: number }
+ * - page: 1-based page number
+ * - index: 0-based index within the page
+ * - totalBlips: total number of blips in the feed
+ */
+exports.getBlipPosition = async (req, res) => {
+  try {
+    const result = await getBlipPositionService.execute(req);
+
+    if (result?.error) {
+      const status = result.statusCode || 400;
+      return res.status(status).json({ status: false, message: result.error });
+    }
+
+    return res.json({
+      page: result.page,
+      index: result.index,
+      totalBlips: result.totalBlips
+    });
+  } catch (error) {
+    console.error('Error in getBlipPosition:', error);
+    return res.status(500).json({
+      status: false,
+      message: 'Failed to compute blip position',
+      error: error.message
+    });
+  }
+};
+
+/**
  * Get blips categories with statistics
  * For authenticated users: Returns their selected categories with stats
  * For non-authenticated users: Returns popular categories with high blip counts
@@ -230,6 +294,8 @@ exports.getBlipsCategories = async (req, res) => {
       status: true,
       categories: result.categories,
       totalCategories: result.totalCategories,
+      currentPage: result.currentPage,
+      totalPages: result.totalPages,
       isPersonalized: result.isPersonalized,
       message: result.message
     });
