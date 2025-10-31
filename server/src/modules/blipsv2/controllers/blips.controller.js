@@ -262,6 +262,8 @@ exports.getBlipsCategories = async (req, res) => {
       status: true,
       categories: result.categories,
       totalCategories: result.totalCategories,
+      currentPage: result.currentPage,
+      totalPages: result.totalPages,
       isPersonalized: result.isPersonalized,
       message: result.message
     });

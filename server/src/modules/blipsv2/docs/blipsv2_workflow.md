@@ -5,6 +5,137 @@ The BlipsV2 module provides a comprehensive set of endpoints for fetching blips 
 
 ## API Endpoints
 
+### Saved Blips (Favorites)
+
+The following endpoints allow buyers to save blips (favorite), check saved status, unsave, and retrieve their saved blips. All endpoints require authentication with Buyer role.
+
+#### POST `/api/v2/blips/:blipId/save`
+Saves a blip for the authenticated buyer. You can save a blip whether it is processed or not. Idempotent: saving an already-saved blip returns a success message with `created: false`.
+
+Authentication: Required (Buyer)
+
+Path Parameters:
+- `blipId` (required): The ID of the blip to save
+
+Response:
+```json
+{
+  "status": true,
+  "message": "Blip saved successfully",
+  "created": true
+}
+```
+
+Possible variations:
+```json
+{
+  "status": true,
+  "message": "Blip already saved",
+  "created": false
+}
+```
+
+Errors:
+```json
+{
+  "status": false,
+  "message": "Unauthorized"
+}
+```
+
+#### GET `/api/v2/blips/:blipId/saved`
+Checks whether the authenticated buyer has saved the specified blip.
+
+Authentication: Required (Buyer)
+
+Path Parameters:
+- `blipId` (required): The ID of the blip to check
+
+Response:
+```json
+{
+  "status": true,
+  "isSaved": true
+}
+```
+
+#### DELETE `/api/v2/blips/:blipId/save`
+Unsaves the specified blip for the authenticated buyer. Idempotent: unsaving a non-saved blip returns success with `removed: false`.
+
+Authentication: Required (Buyer)
+
+Path Parameters:
+- `blipId` (required): The ID of the blip to unsave
+
+Response:
+```json
+{
+  "status": true,
+  "message": "Blip unsaved successfully",
+  "removed": true
+}
+```
+
+Possible variations:
+```json
+{
+  "status": true,
+  "message": "Blip was not saved",
+  "removed": false
+}
+```
+
+#### GET `/api/v2/blips/saved`
+Returns the authenticated buyer's saved blips with pagination. The blip items are shaped identically to other blips endpoints (e.g., personalized/suggested/related), using the same transformation helper.
+
+Authentication: Required (Buyer)
+
+Query Parameters:
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Number of blips per page (default: 20)
+
+Response:
+```json
+{
+  "blips": [
+    {
+      "discount": { "isActive": false, "type": "percentage", "value": 0, "discountedPrice": 12999 },
+      "_id": "<productId>",
+      "blipId": "<blipId>",
+      "blipUrl": "https://...",
+      "thumbnail": "https://...",
+      "processed": true,
+      "productId": "<productId>",
+      "productName": "Product Name",
+      "price": 12999,
+      "stock": 12,
+      "status": "active",
+      "auctionInfo": null,
+      "images": [{ "url": "https://..." }],
+      "blipEngagement": { "likesCount": 10, "commentsCount": 2, "viewCount": 250, "isLiked": false },
+      "averageRating": 4.5,
+      "reviewCount": 23,
+      "createdAt": "2025-03-25T10:00:00.000Z",
+      "seller": {
+        "_id": "<sellerId>",
+        "firstName": "Jane",
+        "lastName": "Doe",
+        "storeName": "Jane's Store",
+        "storeAvatar": "https://...",
+        "aboutStore": "...",
+        "storeRating": 4.8,
+        "totalStoreReviews": 120,
+        "isFollowing": false,
+        "isFeatured": false
+      }
+    }
+  ],
+  "currentPage": 1,
+  "totalPages": 5,
+  "totalBlips": 100
+}
+```
+
 ### GET `/api/v2/blips/personalized`
 Returns personalized blips based on user preferences and engagement metrics.
 

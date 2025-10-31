@@ -26,7 +26,7 @@ class GetBlipPositionService {
    * - Project only blip ids for minimal memory usage during index lookup.
    * - Compute total blips count with a lightweight aggregation.
    *
-   * Returns page as 1-based and index (0-based) within that page.
+   * Returns page as 1-based and index (1-based) within that page.
    */
   async execute(req) {
     const { blipId } = req.params;
@@ -51,19 +51,26 @@ class GetBlipPositionService {
     };
 
     // Build the aggregation that yields ordered blip ids only
+    // Include both processed and unprocessed blips, handle null createdAt values
     const idOnlyPipeline = [
       { $match: primaryMatchStage },
       { $unwind: '$blips' },
       {
+        $addFields: {
+          // Fallback to product createdAt if blip createdAt is null/undefined
+          blipCreatedAt: { $ifNull: ['$blips.createdAt', '$createdAt'] }
+        }
+      },
+      {
         $sort: {
-          'blips.createdAt': -1,
+          blipCreatedAt: -1,
           'blips._id': -1
         }
       },
       { $project: { _id: 0, blipId: '$blips._id' } }
     ];
 
-    // Compute the total number of blips in this feed
+    // Compute the total number of blips in this feed (both processed and unprocessed)
     const countPipeline = [
       { $match: primaryMatchStage },
       { $unwind: '$blips' },
@@ -96,7 +103,7 @@ class GetBlipPositionService {
     }
 
     const page = Math.floor(globalIndex / limit) + 1; // 1-based page
-    const index = globalIndex % limit; // 0-based index within page
+    const index = (globalIndex % limit) + 1; // 1-based index within page
 
     return { page, index, totalBlips };
   }

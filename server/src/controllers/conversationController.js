@@ -9,12 +9,74 @@ exports.getConversations = async (req, res) => {
     const userModel = req.user.role;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
+    const searchQuery = (req.query.query || '').trim();
 
-    const conversations = await Conversation.find({
+    // Build base match to scope to conversations the user participates in
+    const baseMatch = {
       'participants': {
         $elemMatch: { id: userId, model: userModel }
       }
-    })
+    };
+
+    // If a search query is provided, prepare additional match conditions
+    let searchConditions = [];
+    if (searchQuery) {
+      const regex = new RegExp(searchQuery, 'i');
+
+      // Match by last message content
+      searchConditions.push({ 'lastMessage.content': { $regex: regex } });
+
+      // Match by other participant's name for Buyers and Sellers
+      // Fetch candidate Buyer and Seller IDs that match the name/store fields
+      const [matchingBuyers, matchingSellers] = await Promise.all([
+        Buyer.find({
+          $or: [
+            { firstName: { $regex: regex } },
+            { lastName: { $regex: regex } }
+          ]
+        }).select('_id').lean(),
+        Seller.find({
+          $or: [
+            { storeName: { $regex: regex } },
+            { businessName: { $regex: regex } },
+            { firstName: { $regex: regex } },
+            { lastName: { $regex: regex } }
+          ]
+        }).select('_id').lean()
+      ]);
+
+      const buyerIdSet = matchingBuyers.map(b => b._id);
+      const sellerIdSet = matchingSellers.map(s => s._id);
+
+      if (buyerIdSet.length) {
+        searchConditions.push({
+          participants: {
+            $elemMatch: {
+              id: { $in: buyerIdSet, $ne: userId },
+              model: 'Buyer'
+            }
+          }
+        });
+      }
+
+      if (sellerIdSet.length) {
+        searchConditions.push({
+          participants: {
+            $elemMatch: {
+              id: { $in: sellerIdSet, $ne: userId },
+              model: 'Seller'
+            }
+          }
+        });
+      }
+    }
+
+    // Combine base match with optional search conditions
+    const mongoFilter = searchConditions.length
+      ? { $and: [baseMatch, { $or: searchConditions }] }
+      : baseMatch;
+
+    const conversations = await Conversation.find(mongoFilter)
     .populate({
       path: 'participants.id',
       refPath: 'participants.model',
@@ -100,11 +162,7 @@ exports.getConversations = async (req, res) => {
     // Filter out any null values that might have occurred during mapping
     const validConversations = formattedConversations.filter(conv => conv !== null);
 
-    const total = await Conversation.countDocuments({
-      'participants': {
-        $elemMatch: { id: userId, model: userModel }
-      }
-    });
+    const total = await Conversation.countDocuments(mongoFilter);
 
     res.json({
       conversations: validConversations,
