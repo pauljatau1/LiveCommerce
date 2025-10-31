@@ -9,6 +9,7 @@ const getBlipsByCategoryService = require('../services/getBlipsByCategory.servic
 const getBlipsByRandomCategoryService = require('../services/getBlipsByRandomCategory.service');
 const getBlipsCategoriesService = require('../services/getBlipsCategories.service');
 const getBlipPositionService = require('../services/getBlipPosition.service');
+const getProductBlipsService = require('../services/getProductBlips.service');
 
 exports.getPersonalizedBlips = async (req, res) => {
   try {
@@ -47,6 +48,37 @@ exports.getSuggestedBlips = async (req, res) => {
     res.status(500).json({
       status: false,
       message: 'Failed to retrieve suggested blips',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get blips attached to a specific product.
+ * Response schema aligns with other blips endpoints:
+ * { blips: [...], currentPage, totalPages, totalBlips }
+ * Supports optional pagination via ?page=&limit=
+ */
+exports.getBlipsByProduct = async (req, res) => {
+  try {
+    const result = await getProductBlipsService.execute(req);
+
+    if (result?.error) {
+      const status = result.statusCode || 400;
+      return res.status(status).json({ status: false, message: result.error });
+    }
+
+    return res.json({
+      blips: result.blips,
+      currentPage: result.currentPage,
+      totalPages: result.totalPages,
+      totalBlips: result.totalBlips
+    });
+  } catch (error) {
+    console.error('Error in getBlipsByProduct:', error);
+    return res.status(500).json({
+      status: false,
+      message: 'Failed to fetch product blips',
       error: error.message
     });
   }
