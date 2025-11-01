@@ -153,21 +153,57 @@ async function addShippingAddress(buyerId, addressData) {
 
 /**
  * Update a shipping address for a buyer.
+ * 
+ * This function preserves existing address fields (like isActive and createdAt)
+ * when updating an address, ensuring that the active address status is not
+ * accidentally reset during updates.
+ * 
  * @param {string} buyerId - The buyer's ID
  * @param {string} addressId - The address ID to update
  * @param {Object} updateData - The address data to update
  * @returns {Promise<Buyer>} Updated buyer with modified address
  */
 async function updateShippingAddress(buyerId, addressId, updateData) {
+  // Step 1: Fetch the buyer to get the current address data
+  // This is necessary to preserve existing fields like isActive and createdAt
+  // that might not be included in the updateData
+  const buyer = await Buyer.findById(buyerId);
+  if (!buyer) {
+    // Return null if buyer not found (service layer will handle this appropriately)
+    // Note: This should typically be caught by validators before reaching here
+    return null;
+  }
+
+  // Step 2: Find the existing address in the shipping addresses array
+  // This allows us to preserve fields that aren't being updated
+  const existingAddress = buyer.shippingAddresses.find(
+    addr => addr._id.toString() === addressId
+  );
+  
+  if (!existingAddress) {
+    // Return null if address not found (service layer will handle this appropriately)
+    // Note: This should typically be caught by validators before reaching here
+    return null;
+  }
+
+  // Step 3: Merge existing address with update data
+  // This preserves fields like isActive, createdAt, and _id unless explicitly updated
+  // Note: We exclude _id from updateData if present, as it should never change
+  const { _id, ...updateDataWithoutId } = updateData;
+  const mergedAddress = {
+    ...existingAddress.toObject(), // Convert mongoose doc to plain object
+    ...updateDataWithoutId, // Apply updates (this will override existing fields if provided)
+    _id: addressId, // Ensure _id is preserved (never change the address ID)
+    updatedAt: new Date() // Always update the updatedAt timestamp
+  };
+
+  // Step 4: Update the address in the database
+  // Use the merged address which preserves all existing fields
   return Buyer.findByIdAndUpdate(
     buyerId,
     {
       $set: {
-        'shippingAddresses.$[address]': {
-          ...updateData,
-          _id: addressId,
-          updatedAt: new Date()
-        }
+        'shippingAddresses.$[address]': mergedAddress
       }
     },
     {
