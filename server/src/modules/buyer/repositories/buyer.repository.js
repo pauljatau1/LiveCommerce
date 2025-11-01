@@ -8,6 +8,7 @@
  */
 
 const Buyer = require('../../../models/Buyer');
+const mongoose = require('mongoose');
 
 /**
  * Retrieves all buyers that match the given filters.
@@ -176,8 +177,10 @@ async function updateShippingAddress(buyerId, addressId, updateData) {
 
   // Step 2: Find the existing address in the shipping addresses array
   // This allows us to preserve fields that aren't being updated
+  // Normalize addressId for comparison (handle both string and ObjectId)
+  const addressIdStr = addressId.toString();
   const existingAddress = buyer.shippingAddresses.find(
-    addr => addr._id.toString() === addressId
+    addr => addr._id.toString() === addressIdStr
   );
   
   if (!existingAddress) {
@@ -189,15 +192,26 @@ async function updateShippingAddress(buyerId, addressId, updateData) {
   // Step 3: Merge existing address with update data
   // This preserves fields like isActive, createdAt, and _id unless explicitly updated
   // Note: We exclude _id from updateData if present, as it should never change
-  const { _id, ...updateDataWithoutId } = updateData;
+  const { _id: updateDataId, ...updateDataWithoutId } = updateData;
+  const existingAddressObj = existingAddress.toObject(); // Convert mongoose doc to plain object
+  
+  // Preserve the existing _id (as ObjectId) to ensure proper MongoDB matching
+  // The _id must remain as an ObjectId for MongoDB arrayFilters to work correctly
   const mergedAddress = {
-    ...existingAddress.toObject(), // Convert mongoose doc to plain object
+    ...existingAddressObj, // Start with existing address fields (including correct _id format)
     ...updateDataWithoutId, // Apply updates (this will override existing fields if provided)
-    _id: addressId, // Ensure _id is preserved (never change the address ID)
+    _id: existingAddressObj._id, // Preserve the original _id from the existing address (ObjectId format)
     updatedAt: new Date() // Always update the updatedAt timestamp
   };
 
-  // Step 4: Update the address in the database
+  // Step 4: Normalize addressId for arrayFilters
+  // MongoDB arrayFilters need the _id in a consistent format (ObjectId or string)
+  // Convert addressId to ObjectId if it's a string to ensure proper matching
+  const addressIdForFilter = typeof addressId === 'string' 
+    ? new mongoose.Types.ObjectId(addressId) 
+    : addressId;
+
+  // Step 5: Update the address in the database
   // Use the merged address which preserves all existing fields
   return Buyer.findByIdAndUpdate(
     buyerId,
@@ -209,7 +223,7 @@ async function updateShippingAddress(buyerId, addressId, updateData) {
     {
       new: true,
       runValidators: true,
-      arrayFilters: [{ 'address._id': addressId }]
+      arrayFilters: [{ 'address._id': addressIdForFilter }]
     }
   );
 }
