@@ -184,17 +184,12 @@ couponSchema.methods.updateDiscountStatuses = async function() {
   return hasChanges;
 };
 
-// Add pre-find middleware to check expiration before queries
-couponSchema.pre('find', async function() {
-  // Add condition to only return active discounts when querying
-  this.where({
-    $or: [
-      { endDate: { $gt: new Date() } },
-      { endDate: null }
-    ],
-    status: 'active'
-  });
-});
+// NOTE:
+// Avoid using a global pre('find') filter here. It can produce surprising
+// side-effects (e.g., hiding coupons in admin screens or interfering with
+// internal cleanup queries that intentionally need expired coupons).
+// Instead, each controller/query should explicitly specify the desired filter
+// (active/expired/all) at call sites.
 
 // Add method to get current valid discounted price
 couponSchema.methods.getCurrentDiscountedPrice = function(productId) {
