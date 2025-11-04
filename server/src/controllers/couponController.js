@@ -3,6 +3,16 @@ const Product = require('../models/Product');
 const Seller = require('../models/Seller');
 const notificationController = require('../controllers/notificationController');
 
+// Normalize a provided end date to the end of that calendar day in server local time.
+// This prevents coupons from expiring earlier than intended when UI supplies date-only values.
+function normalizeEndOfDay(dateLike) {
+  if (!dateLike) return null;
+  const d = new Date(dateLike);
+  if (isNaN(d.getTime())) return null;
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
 // Reset all coupons and discounts for the authenticated seller
 exports.resetAllSellerDiscounts = async (req, res) => {
   try {
@@ -157,13 +167,16 @@ exports.createCoupon = async (req, res) => {
       }
 
       // Update product's discount information and its variants
+      // Normalize end date to end of day to avoid early expiry due to date-only inputs
+      const normalizedEnd = normalizeEndOfDay(endDate);
+
       await Product.findByIdAndUpdate(product._id, {
         discount: {
           isActive: true,
           type: discountType,
           value: discountType === 'percentage' ? discountValue : fixedAmount,
           startDate: startDate || new Date(),
-          endDate: endDate,
+          endDate: normalizedEnd,
           couponName: name,
           discountedPrice: discountedPrice
         },
@@ -172,7 +185,7 @@ exports.createCoupon = async (req, res) => {
           type: discountType,
           value: discountType === 'percentage' ? discountValue : fixedAmount,
           startDate: startDate || new Date(),
-          endDate: endDate,
+          endDate: normalizedEnd,
           couponName: name,
           discountedPrice: discountedPrice
         },
@@ -183,7 +196,7 @@ exports.createCoupon = async (req, res) => {
             type: discountType,
             value: discountType === 'percentage' ? discountValue : fixedAmount,
             startDate: startDate || new Date(),
-            endDate: endDate,
+            endDate: normalizedEnd,
             couponName: name,
             discountedPrice: null // Will be calculated for each variant
           }
@@ -233,7 +246,7 @@ exports.createCoupon = async (req, res) => {
       hasMinimumRequirement,
       minimumAmount: hasMinimumRequirement ? minimumAmount : 0,
       startDate: startDate || new Date(),
-      endDate,
+      endDate: normalizeEndOfDay(endDate),
       customerEligibility,
       applicableProducts,
       usageLimit
@@ -357,6 +370,11 @@ exports.updateCoupon = async (req, res) => {
           }))
         });
       }
+    }
+
+    // If endDate is being updated, normalize to end of day
+    if (Object.prototype.hasOwnProperty.call(updateData, 'endDate')) {
+      updateData.endDate = normalizeEndOfDay(updateData.endDate);
     }
 
     const updatedCoupon = await Coupon.findByIdAndUpdate(
@@ -987,13 +1005,17 @@ exports.getSpecialCoupons = async (req, res) => {
         usageCount: coupon.usageCount,
         status: coupon.status,
         createdAt: coupon.createdAt,
-        applicableProducts: coupon.applicableProducts.length > 0 ? 
-          coupon.applicableProducts.map(ap => ({
-            productId: ap.product._id || ap.product,
-            productName: ap.product.name,
-            originalPrice: ap.originalPrice,
-            discountedPrice: ap.discountedPrice
-          })) : 
+        applicableProducts: coupon.applicableProducts && coupon.applicableProducts.length > 0 ? 
+          coupon.applicableProducts.map(ap => {
+            const populated = ap.product && typeof ap.product === 'object' ? ap.product : null;
+            const objectId = ap.product && typeof ap.product !== 'object' ? ap.product : null;
+            return {
+              productId: populated ? populated._id : objectId || null,
+              productName: populated ? populated.name : null,
+              originalPrice: ap.originalPrice,
+              discountedPrice: ap.discountedPrice
+            };
+          }) : 
           'All products'
       })),
       currentPage: parseInt(page),
