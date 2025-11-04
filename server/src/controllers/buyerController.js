@@ -415,8 +415,50 @@ exports.getProfile = async (req, res) => {
       followingCount,
       postsCount,
       profilePictureUrl: buyer.profileImage?.url || null,
-      bio: buyer.bio || null  // Explicitly include bio in the response
+      bio: buyer.bio || null,  // Explicitly include bio in the response
+      followingPreview: [],
+      followersPreview: []
     };
+
+    // Build a lightweight preview of followed sellers that have profile images (max 4)
+    // We select only the image URL to avoid bloating the response
+    try {
+      const buyerObjectId = new mongoose.Types.ObjectId(req.user.id);
+
+      const followingWithImages = await Seller.aggregate([
+        { $match: { 'followers.buyerId': buyerObjectId } },
+        { $unwind: '$followers' },
+        { $match: { 'followers.buyerId': buyerObjectId } },
+        { $addFields: { imageUrl: { $ifNull: ['$storeAvatar.url', '$profileImage.url'] } } },
+        { $match: { imageUrl: { $ne: null } } },
+        { $sort: { 'followers.followDate': -1 } },
+        { $project: { _id: 0, imageUrl: 1 } },
+        { $limit: 4 }
+      ]);
+
+      enhancedBuyer.followingPreview = (Array.isArray(followingWithImages)
+        ? followingWithImages.map(item => ({ imageUrl: item.imageUrl }))
+        : []);
+
+      // Followers preview: sellers who follow this buyer and have images (max 4)
+      const followersWithImages = await Seller.aggregate([
+        { $match: { 'followers.buyerId': buyerObjectId } },
+        { $unwind: '$followers' },
+        { $match: { 'followers.buyerId': buyerObjectId } },
+        { $addFields: { imageUrl: { $ifNull: ['$storeAvatar.url', '$profileImage.url'] } } },
+        { $match: { imageUrl: { $ne: null } } },
+        { $sort: { 'followers.followDate': -1 } },
+        { $project: { _id: 0, imageUrl: 1 } },
+        { $limit: 4 }
+      ]);
+
+      enhancedBuyer.followersPreview = (Array.isArray(followersWithImages)
+        ? followersWithImages.map(item => ({ imageUrl: item.imageUrl }))
+        : []);
+    } catch (aggErr) {
+      // Silently ignore preview errors to avoid impacting main profile response
+      console.error('followingPreview aggregation error:', aggErr?.message || aggErr);
+    }
 
     res.json(enhancedBuyer);
   } catch (error) {
