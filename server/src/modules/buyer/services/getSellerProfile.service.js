@@ -26,9 +26,6 @@ const streamRepository = require('../repositories/stream.repository');
 const orderRepository = require('../repositories/order.repository');
 const getSellerProfileValidator = require('../validators/getSellerProfile.validator');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
-const mongoose = require('mongoose');
-const Seller = require('../../../models/Seller');
-const Buyer = require('../../../models/Buyer');
 
 /**
  * Calculates delivered items count from orders.
@@ -472,36 +469,6 @@ async function getSellerProfile(sellerId, buyerId) {
     stats: buildStats(seller, orders, streamCount, followingCount, soldItemsCount),
     reviews: buildReviewsInfo(reviewStats)
   };
-
-  // Lightweight followers preview: up to 4 buyers that follow this seller and have profile images
-  try {
-    const sellerObjectId = new mongoose.Types.ObjectId(sellerId);
-    const followersWithImages = await Seller.aggregate([
-      { $match: { _id: sellerObjectId } },
-      { $unwind: '$followers' },
-      { $sort: { 'followers.followDate': -1 } },
-      {
-        $lookup: {
-          from: 'buyers',
-          localField: 'followers.buyerId',
-          foreignField: '_id',
-          as: 'buyer'
-        }
-      },
-      { $unwind: '$buyer' },
-      { $project: { imageUrl: '$buyer.profileImage.url' } },
-      { $match: { imageUrl: { $ne: null } } },
-      { $limit: 4 }
-    ]);
-
-    if (Array.isArray(followersWithImages) && followersWithImages.length > 0) {
-      sellerProfile.followersPreview = followersWithImages.map(item => ({ imageUrl: item.imageUrl }));
-    }
-  } catch (aggErr) {
-    // Do not fail the request if preview fails; just log for observability
-    // eslint-disable-next-line no-console
-    console.error('followersPreview aggregation error:', aggErr?.message || aggErr);
-  }
 
   // Step 7: Increment store visits for analytics
   // Track profile views for engagement metrics
