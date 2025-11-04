@@ -418,6 +418,46 @@ exports.getProfile = async (req, res) => {
       bio: buyer.bio || null  // Explicitly include bio in the response
     };
 
+    // Build a lightweight preview of followed sellers that have profile images (max 4)
+    // We select only the image URL to avoid bloating the response
+    try {
+      const buyerObjectId = new mongoose.Types.ObjectId(req.user.id);
+
+      const followingWithImages = await Seller.aggregate([
+        { $match: { 'followers.buyerId': buyerObjectId } },
+        { $unwind: '$followers' },
+        { $match: { 'followers.buyerId': buyerObjectId } },
+        { $addFields: { imageUrl: { $ifNull: ['$storeAvatar.url', '$profileImage.url'] } } },
+        { $match: { imageUrl: { $ne: null } } },
+        { $sort: { 'followers.followDate': -1 } },
+        { $project: { _id: 0, imageUrl: 1 } },
+        { $limit: 4 }
+      ]);
+
+      if (Array.isArray(followingWithImages) && followingWithImages.length > 0) {
+        enhancedBuyer.followingPreview = followingWithImages.map(item => ({ imageUrl: item.imageUrl }));
+      }
+
+      // Followers preview: sellers who follow this buyer and have images (max 4)
+      const followersWithImages = await Seller.aggregate([
+        { $match: { 'followers.buyerId': buyerObjectId } },
+        { $unwind: '$followers' },
+        { $match: { 'followers.buyerId': buyerObjectId } },
+        { $addFields: { imageUrl: { $ifNull: ['$storeAvatar.url', '$profileImage.url'] } } },
+        { $match: { imageUrl: { $ne: null } } },
+        { $sort: { 'followers.followDate': -1 } },
+        { $project: { _id: 0, imageUrl: 1 } },
+        { $limit: 4 }
+      ]);
+
+      if (Array.isArray(followersWithImages) && followersWithImages.length > 0) {
+        enhancedBuyer.followersPreview = followersWithImages.map(item => ({ imageUrl: item.imageUrl }));
+      }
+    } catch (aggErr) {
+      // Silently ignore preview errors to avoid impacting main profile response
+      console.error('followingPreview aggregation error:', aggErr?.message || aggErr);
+    }
+
     res.json(enhancedBuyer);
   } catch (error) {
     res.status(500).json({
