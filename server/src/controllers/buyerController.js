@@ -415,7 +415,9 @@ exports.getProfile = async (req, res) => {
       followingCount,
       postsCount,
       profilePictureUrl: buyer.profileImage?.url || null,
-      bio: buyer.bio || null  // Explicitly include bio in the response
+      bio: buyer.bio || null,  // Explicitly include bio in the response
+      followingPreview: [],
+      followersPreview: []
     };
 
     // Build a lightweight preview of followed sellers that have profile images (max 4)
@@ -434,9 +436,9 @@ exports.getProfile = async (req, res) => {
         { $limit: 4 }
       ]);
 
-      if (Array.isArray(followingWithImages) && followingWithImages.length > 0) {
-        enhancedBuyer.followingPreview = followingWithImages.map(item => ({ imageUrl: item.imageUrl }));
-      }
+      enhancedBuyer.followingPreview = (Array.isArray(followingWithImages)
+        ? followingWithImages.map(item => ({ imageUrl: item.imageUrl }))
+        : []);
 
       // Followers preview: sellers who follow this buyer and have images (max 4)
       const followersWithImages = await Seller.aggregate([
@@ -450,9 +452,9 @@ exports.getProfile = async (req, res) => {
         { $limit: 4 }
       ]);
 
-      if (Array.isArray(followersWithImages) && followersWithImages.length > 0) {
-        enhancedBuyer.followersPreview = followersWithImages.map(item => ({ imageUrl: item.imageUrl }));
-      }
+      enhancedBuyer.followersPreview = (Array.isArray(followersWithImages)
+        ? followersWithImages.map(item => ({ imageUrl: item.imageUrl }))
+        : []);
     } catch (aggErr) {
       // Silently ignore preview errors to avoid impacting main profile response
       console.error('followingPreview aggregation error:', aggErr?.message || aggErr);
