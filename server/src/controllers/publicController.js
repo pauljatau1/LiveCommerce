@@ -67,7 +67,10 @@ exports.getActivePlatformNotifications = async (req, res) => {
 exports.getMajorCategories = async (req, res) => {
   try {
     const majorCategories = await MajorCategory.find({ isActive: true })
-      .populate('categories', 'name image')
+      .populate({
+        path: 'categories',
+        select: 'name image subCategories._id subCategories.name'
+      })
       .sort({ createdAt: -1 });
     
     res.json({
