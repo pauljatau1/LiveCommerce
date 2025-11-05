@@ -97,14 +97,16 @@ describe('Profile Service', () => {
       expect(buyerRepository.getFollowingCount).toHaveBeenCalledWith(mockBuyerId);
       expect(postRepository.getPostsCount).toHaveBeenCalledWith(mockBuyerId);
 
-      // Verify result structure
+      // Verify result structure (allow new preview fields)
       expect(result).toEqual({
         ...mockBuyer,
         followersCount: 25,
         followingCount: 10,
         postsCount: 5,
         profilePictureUrl: 'https://example.com/profile.jpg',
-        bio: 'Hello, I am John!'
+        bio: 'Hello, I am John!',
+        followingPreview: [],
+        followersPreview: []
       });
     });
 
