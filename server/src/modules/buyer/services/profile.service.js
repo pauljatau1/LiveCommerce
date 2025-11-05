@@ -37,6 +37,9 @@
 const buyerRepository = require('../repositories/buyer.repository');
 const postRepository = require('../repositories/post.repository');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
+const mongoose = require('mongoose');
+const Seller = require('../../../models/Seller');
+const Buyer = require('../../../models/Buyer');
 
 /**
  * Retrieves the profile information for a buyer - Main business logic function.
@@ -164,10 +167,74 @@ async function getProfile(buyerId) {
     followingCount,
     postsCount,
     profilePictureUrl: buyer.profileImage?.url || null,
-    bio: buyer.bio || null
+    bio: buyer.bio || null,
+    followingPreview: [],
+    followersPreview: []
   };
 
-  // Step 5: Return enhanced profile data
+  // Step 5: Build lightweight previews of followed sellers and followers (max 4 each)
+  // These previews only include image URLs to avoid bloating the response
+  try {
+    const buyerObjectId = new mongoose.Types.ObjectId(buyerId);
+
+    // Following preview: Sellers that this buyer follows (stored in Seller.followers array)
+    // Get sellers where this buyer appears in their followers array
+    const followingWithImages = await Seller.aggregate([
+      { $match: { 'followers.buyerId': buyerObjectId } },
+      { $unwind: '$followers' },
+      { $match: { 'followers.buyerId': buyerObjectId } },
+      { $addFields: { imageUrl: { $ifNull: ['$storeAvatar.url', '$profileImage.url'] } } },
+      { $match: { imageUrl: { $ne: null } } },
+      { $sort: { 'followers.followDate': -1 } },
+      { $project: { _id: 0, imageUrl: 1 } },
+      { $limit: 4 }
+    ]);
+
+    enhancedBuyer.followingPreview = (Array.isArray(followingWithImages)
+      ? followingWithImages.map(item => ({ imageUrl: item.imageUrl }))
+      : []);
+
+    // Followers preview: Sellers that follow this buyer (stored in Buyer.followers array)
+    // Get buyer's followers array and fetch seller images
+    const buyerWithFollowers = await Buyer.findById(buyerId)
+      .select('followers')
+      .lean();
+
+    if (buyerWithFollowers && buyerWithFollowers.followers && buyerWithFollowers.followers.length > 0) {
+      // Get seller IDs from followers array
+      const followerSellerIds = buyerWithFollowers.followers
+        .filter(f => f.sellerId)
+        .map(f => {
+          // Handle both ObjectId and string formats
+          return typeof f.sellerId === 'string' 
+            ? new mongoose.Types.ObjectId(f.sellerId) 
+            : f.sellerId;
+        })
+        .slice(0, 20); // Limit to avoid too many queries
+
+      if (followerSellerIds.length > 0) {
+        // Fetch sellers with images
+        const followersWithImages = await Seller.aggregate([
+          { $match: { _id: { $in: followerSellerIds } } },
+          { $addFields: { imageUrl: { $ifNull: ['$storeAvatar.url', '$profileImage.url'] } } },
+          { $match: { imageUrl: { $ne: null } } },
+          { $project: { _id: 0, imageUrl: 1 } },
+          { $limit: 4 }
+        ]);
+
+        enhancedBuyer.followersPreview = (Array.isArray(followersWithImages)
+          ? followersWithImages.map(item => ({ imageUrl: item.imageUrl }))
+          : []);
+      }
+    }
+  } catch (aggErr) {
+    // Silently ignore preview errors to avoid impacting main profile response
+    // Log error for observability but don't fail the request
+    // eslint-disable-next-line no-console
+    console.error('Profile preview aggregation error:', aggErr?.message || aggErr);
+  }
+
+  // Step 6: Return enhanced profile data
   return enhancedBuyer;
 }
 

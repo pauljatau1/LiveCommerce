@@ -3666,5 +3666,3 @@ exports.getSelectedMajorCategories = async (req, res) => {
     });
   }
 };
-
-
