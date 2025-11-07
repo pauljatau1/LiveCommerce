@@ -337,6 +337,143 @@ router.get('/categories/search', async (req, res) => {
 
 /**
  * @swagger
+ * /api/public/categories/{id}:
+ *   get:
+ *     summary: Get category details by ID
+ *     tags: [Public]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category ID
+ *     responses:
+ *       200:
+ *         description: Category details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     image:
+ *                       type: object
+ *                       properties:
+ *                         url:
+ *                           type: string
+ *                         public_id:
+ *                           type: string
+ *                     platformFee:
+ *                       type: number
+ *                     subCategories:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                           subSubCategories:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 name:
+ *                                   type: string
+ *                     statistics:
+ *                       type: object
+ *                       properties:
+ *                         orders:
+ *                           type: object
+ *                           properties:
+ *                             pending:
+ *                               type: number
+ *                             completed:
+ *                               type: number
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             pending:
+ *                               type: number
+ *                             sold:
+ *                               type: number
+ *                         totalProducts:
+ *                           type: number
+ *                         streams:
+ *                           type: object
+ *                           properties:
+ *                             active:
+ *                               type: number
+ *                             scheduled:
+ *                               type: number
+ *                             ended:
+ *                               type: number
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: Invalid category ID format
+ *       404:
+ *         description: Category not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/categories/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate that the ID is a valid MongoDB ObjectId
+    // This ensures that literal paths like "search" won't match this route
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid category ID format'
+      });
+    }
+
+    // Find the category by ID
+    // This will automatically include all subcategories and sub-subcategories
+    // as they are nested in the schema
+    const category = await Category.findById(id);
+
+    // Check if category exists
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    // Return the complete category details
+    // The category object already contains all nested subcategories and sub-subcategories
+    res.json({
+      success: true,
+      data: category
+    });
+
+  } catch (error) {
+    console.error('Error retrieving category details:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve category details',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @swagger
  * /api/public/banners:
  *   get:
  *     summary: Get all banners
