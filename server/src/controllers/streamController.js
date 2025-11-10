@@ -227,7 +227,7 @@ exports.createStream = async (req, res) => {
       status: 'scheduled'
     });
 
-    stream.streamLink = generateStreamLink(stream._id,stream.type)
+    stream.streamLink = generateStreamLink(stream._id, stream.type)
 
     await stream.save();
 
@@ -313,10 +313,10 @@ exports.startStream = async (req, res) => {
     if (!stream) {
       return res.status(404).json({ message: 'Stream not found' });
     }
-    
+
     // Check if the stream has already ended
     if (stream.status === 'ended') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'This stream has already ended',
         error: 'Cannot restart an ended stream'
       });
@@ -377,20 +377,20 @@ exports.startStream = async (req, res) => {
         // Track which followers have been notified about this stream
         // to prevent duplicate notifications
         const followerNotifications = [];
-        
+
         // Keep track of followers who have already been notified via subscription
-        const alreadyNotifiedBuyerIds = stream.subscribers ? 
+        const alreadyNotifiedBuyerIds = stream.subscribers ?
           stream.subscribers
             .filter(sub => sub.notified)
-            .map(sub => sub.buyer.toString()) : 
+            .map(sub => sub.buyer.toString()) :
           [];
-        
+
         for (const follower of seller.followers) {
           // Skip if this follower has already been notified as a subscriber
           if (alreadyNotifiedBuyerIds.includes(follower.buyerId.toString())) {
             continue;
           }
-          
+
           // Get the user's push token
           const userToken = await getToken(follower.buyerId);
           if (userToken) {
@@ -407,7 +407,7 @@ exports.startStream = async (req, res) => {
             });
           }
         }
-        
+
         // Send notifications to followers
         if (followerNotifications.length > 0) {
           await expo.sendPushNotificationsAsync(followerNotifications);
@@ -988,15 +988,15 @@ exports.joinStream = async (req, res) => {
         .populate('seller', 'storeName businessName storeAvatar rating')
         .populate('products.product', 'name description images price')
         .lean();
-      
+
       // Add subscribersCount to stream
       const streamWithSubscriberCount = {
         ...populatedStream,
         subscribersCount: populatedStream.subscribers ? populatedStream.subscribers.length : 0,
         viewerCount: populatedStream.viewers ? populatedStream.viewers.length : 0
       };
-      
-      return res.status(200).json({ 
+
+      return res.status(200).json({
         message: 'Stream has not started yet',
         stream: streamWithSubscriberCount,
         success: false
@@ -1107,10 +1107,10 @@ exports.joinStream = async (req, res) => {
 
     // Remove sensitive fields
     const { __v, ...streamData } = stream;
-    
+
     // Get total product count before limiting
     const totalProductCount = stream.products.length;
-    
+
     res.json({
       message: 'Successfully joined stream',
       success: true,
@@ -1379,18 +1379,19 @@ exports.createOpenLiveShow = async (req, res) => {
 
     // No need to parse tags as they should now be arrays directly
     const parsedTags = tags || [];
-    
+
     // Build products for the stream based on autoUpload flag
     let productsForStream = [];
     if (autoUpload === true) {
       // Auto-fetch seller's active products when autoUpload is enabled
+      // Select discount fields needed to calculate discountedPrice (virtual field)
       const sellerProducts = await Product.find({
         seller: req.user.id,
         status: 'active',
         visibility: 'visible'
       })
         .sort({ createdAt: -1 })
-        .select('_id name description category images price sku stock');
+        .select('_id name description category discount images price sku stock');
 
       if (sellerProducts.length === 0) {
         return res.status(400).json({
@@ -1398,18 +1399,30 @@ exports.createOpenLiveShow = async (req, res) => {
         });
       }
 
-      productsForStream = sellerProducts.map(p => ({
-        product: {
-          productId: p._id,
-          name: p.name,
-          category: p.category,
-          images: p.images,
-          sku: p.sku,
-          quantity: p.stock || 0,
-          price: p.price,
-          description: p.description
-        }
-      }));
+      // Map products and calculate discountedPrice using the virtual field
+      // Convert to plain object to access virtual fields
+      productsForStream = sellerProducts.map(p => {
+        // Convert to plain object to access virtual discountedPrice field
+        const productObj = p.toObject();
+        // Calculate discountedPrice: use virtual field if available, otherwise use stored discount.discountedPrice or fallback to price
+        const discountedPrice = productObj.discountedPrice ||
+          (p.discount?.discountedPrice) ||
+          p.price;
+
+        return {
+          product: {
+            productId: p._id,
+            name: p.name,
+            category: p.category,
+            images: p.images,
+            sku: p.sku,
+            quantity: p.stock || 0,
+            price: p.price,
+            description: p.description,
+            discountedPrice: discountedPrice
+          }
+        };
+      });
     } else {
       // Use products provided by the client; validate format and size
       const productsList = products || [];
@@ -1432,6 +1445,7 @@ exports.createOpenLiveShow = async (req, res) => {
       }
 
       // Enrich each product with full details from DB for consistency
+      // Select discount fields needed to calculate discountedPrice (virtual field)
       const productsWithFullDetails = await Promise.all(
         productsList.map(async (p) => {
           const productId = p.product?.productId;
@@ -1439,11 +1453,19 @@ exports.createOpenLiveShow = async (req, res) => {
             return p;
           }
           const completeProduct = await Product.findById(productId).select(
-            '_id name description category images price sku stock variants'
+            '_id name description category discount images price sku stock variants'
           );
           if (!completeProduct) {
             return p;
           }
+
+          // Convert to plain object to access virtual discountedPrice field
+          const productObj = completeProduct.toObject();
+          // Calculate discountedPrice: use virtual field if available, otherwise use stored discount.discountedPrice or fallback to price
+          const discountedPrice = productObj.discountedPrice ||
+            (completeProduct.discount?.discountedPrice) ||
+            completeProduct.price;
+
           return {
             ...p,
             product: {
@@ -1455,7 +1477,8 @@ exports.createOpenLiveShow = async (req, res) => {
               quantity: completeProduct.stock || 0,
               price: completeProduct.price,
               description: completeProduct.description,
-              variants: completeProduct.variants
+              variants: completeProduct.variants,
+              discountedPrice: discountedPrice
             }
           };
         })
@@ -1561,8 +1584,8 @@ exports.createOpenLiveShow = async (req, res) => {
       autoUpload: !!autoUpload
     });
 
-    stream.streamLink = generateStreamLink(stream._id,stream.type)
-    
+    stream.streamLink = generateStreamLink(stream._id, stream.type)
+
     await stream.save();
 
     const populatedStream = await Stream.findById(stream._id)
@@ -1612,7 +1635,7 @@ exports.getStreamsByStatus = async (req, res) => {
     if (status) {
       if (['scheduled', 'live', 'ended'].includes(status)) {
         query.status = status;
-        
+
         // Add additional check for scheduled streams to ensure scheduled time hasn't passed
         if (status === 'scheduled') {
           query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
@@ -1620,11 +1643,11 @@ exports.getStreamsByStatus = async (req, res) => {
       } else if (status === 'live_upcoming') {
         // For live_upcoming, get both live streams and scheduled streams with future start time
         query.status = { $in: ['live', 'scheduled'] };
-        
+
         // Add a filter to make sure scheduled streams have a future start time
         query.$or = [
           { status: 'live' },
-          { 
+          {
             status: 'scheduled',
             scheduledStartTime: { $gt: new Date() }
           }
@@ -1688,7 +1711,7 @@ exports.getSellerStreamsByStatus = async (req, res) => {
     if (status) {
       if (['scheduled', 'live', 'ended'].includes(status)) {
         query.status = status;
-        
+
         // Add additional check for scheduled streams to ensure scheduled time hasn't passed
         if (status === 'scheduled') {
           query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
@@ -1696,11 +1719,11 @@ exports.getSellerStreamsByStatus = async (req, res) => {
       } else if (status === 'live_upcoming') {
         // For live_upcoming, get both live streams and scheduled streams with future start time
         query.status = { $in: ['live', 'scheduled'] };
-        
+
         // Add a filter to make sure scheduled streams have a future start time
         query.$or = [
           { status: 'live' },
-          { 
+          {
             status: 'scheduled',
             scheduledStartTime: { $gt: new Date() }
           }
@@ -1810,7 +1833,7 @@ exports.getPopularStreams = async (req, res) => {
     if (status) {
       if (['scheduled', 'live', 'ended'].includes(status)) {
         query.status = status;
-        
+
         // Add additional check for scheduled streams to ensure scheduled time hasn't passed
         if (status === 'scheduled') {
           query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
@@ -1818,11 +1841,11 @@ exports.getPopularStreams = async (req, res) => {
       } else if (status === 'live_upcoming') {
         // For live_upcoming, get both live streams and scheduled streams with future start time
         query.status = { $in: ['live', 'scheduled'] };
-        
+
         // Add a filter to make sure scheduled streams have a future start time
         query.$or = [
           { status: 'live' },
-          { 
+          {
             status: 'scheduled',
             scheduledStartTime: { $gt: new Date() }
           }
@@ -1901,7 +1924,7 @@ exports.getSpotlightStreams = async (req, res) => {
     if (status) {
       if (['scheduled', 'live', 'ended'].includes(status)) {
         query.status = status;
-        
+
         // Add additional check for scheduled streams to ensure scheduled time hasn't passed
         if (status === 'scheduled') {
           query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
@@ -1910,7 +1933,7 @@ exports.getSpotlightStreams = async (req, res) => {
         // For live_upcoming, create a $or query to get both live streams and scheduled streams with future start time
         query.$or = [
           { status: 'live' },
-          { 
+          {
             status: 'scheduled',
             scheduledStartTime: { $gt: new Date() }
           }
@@ -1988,7 +2011,7 @@ exports.getStreamsFromFavoriteSellers = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
-      
+
       // Add additional check for scheduled streams to ensure scheduled time hasn't passed
       if (status === 'scheduled') {
         query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
@@ -2048,7 +2071,7 @@ exports.getStreamsByCategory = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
-      
+
       // Add additional check for scheduled streams to ensure scheduled time hasn't passed
       if (status === 'scheduled') {
         query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
@@ -2544,6 +2567,312 @@ exports.activateProductBidding = async (req, res) => {
     console.error('[ACTIVATE_BID] ERROR: Failed to activate product bidding:', error);
     return res.status(500).json({
       message: 'Failed to activate product bidding',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Display a product in a stream by setting its isVisible state to true
+ * and setting all other products' isVisible state to false
+ * @route POST /api/streams/:streamId/display-product
+ * @access Private (Seller only)
+ */
+exports.displayStreamProduct = async (req, res) => {
+  try {
+    const { streamId } = req.params;
+    const { productId } = req.body;
+
+    console.log('[DISPLAY_PRODUCT] 1. Received request to display stream product', {
+      streamId,
+      productId,
+      sellerId: req.user.id
+    });
+
+    // Validate required fields
+    if (!streamId || !productId) {
+      console.error('[DISPLAY_PRODUCT] 2. FAILED: Missing streamId or productId');
+      return res.status(400).json({
+        message: 'Stream ID and Product ID are required'
+      });
+    }
+
+    // Find the stream and populate necessary fields
+    console.log('[DISPLAY_PRODUCT] 3. Finding stream');
+    const stream = await Stream.findById(streamId)
+      .populate('seller', 'storeName storeAvatar')
+      .populate('products.currentBidder', 'firstName lastName username');
+
+    if (!stream) {
+      console.error('[DISPLAY_PRODUCT] 4. FAILED: Stream not found');
+      return res.status(404).json({ message: 'Stream not found' });
+    }
+
+    console.log('[DISPLAY_PRODUCT] 5. Stream found', {
+      streamId: stream._id,
+      title: stream.title
+    });
+
+    // Check if stream belongs to the seller making the request
+    if (stream.seller._id.toString() !== req.user.id.toString()) {
+      console.error('[DISPLAY_PRODUCT] 6. FAILED: Stream does not belong to seller', {
+        streamSellerId: stream.seller._id,
+        requestSellerId: req.user.id
+      });
+      return res.status(403).json({
+        message: 'You do not have permission to modify this stream'
+      });
+    }
+
+    // Check if stream is live
+    if (stream.status !== 'live') {
+      console.error('[DISPLAY_PRODUCT] 7. FAILED: Stream is not live', { status: stream.status });
+      return res.status(400).json({
+        message: 'Stream must be live to display products'
+      });
+    }
+
+    // Find the product in the stream's products array
+    console.log('[DISPLAY_PRODUCT] 8. Looking for product in stream products array');
+    const productIndex = stream.products.findIndex(p =>
+      p.product && p.product.productId && p.product.productId.toString() === productId
+    );
+
+    if (productIndex === -1) {
+      console.error('[DISPLAY_PRODUCT] 9. FAILED: Product not found in stream');
+      return res.status(404).json({ message: 'Product not found in stream' });
+    }
+
+    console.log('[DISPLAY_PRODUCT] 10. Found product in stream', {
+      productIndex,
+      productName: stream.products[productIndex].product.name
+    });
+
+    // Set all products' isVisible to false first
+    stream.products.forEach((product, index) => {
+      if (product.isVisible === true) {
+        console.log('[DISPLAY_PRODUCT] 11. Setting product isVisible to false', {
+          productIndex: index,
+          productName: product.product.name
+        });
+        product.isVisible = false;
+      }
+    });
+
+    // Set the selected product's isVisible to true
+    stream.products[productIndex].isVisible = true;
+    console.log('[DISPLAY_PRODUCT] 12. Updated product isVisible to true');
+
+    // Save the stream
+    await stream.save();
+    console.log('[DISPLAY_PRODUCT] 13. Stream saved successfully');
+
+    // Helper function to format product name to max 3 words
+    const formatProductName = (name) => {
+      if (!name) return 'a product';
+
+      // Split by spaces and take first 3 words
+      const words = name.split(' ');
+      const truncatedName = words.slice(0, 3).join(' ');
+
+      // Add ellipsis if there were more than 3 words
+      return words.length > 3 ? `${truncatedName}...` : truncatedName;
+    };
+
+    // Format the product name
+    const formattedProductName = formatProductName(stream.products[productIndex].product.name);
+
+    // Create notification object for WebSocket
+    const notificationObj = {
+      id: Date.now().toString(),
+      type: 'product_display',
+      user: stream.seller.storeName || 'Host',
+      avatar: stream.seller.storeAvatar?.url || '',
+      content: `Displaying ${formattedProductName}`,
+      data: {
+        message: `Displaying ${formattedProductName}`,
+        streamId: stream._id.toString(),
+        sellerId: stream.seller._id.toString(),
+        storeName: stream.seller.storeName || 'Unknown Store',
+        product: stream.products[productIndex]
+      },
+      timestamp: new Date()
+    };
+
+    // Send WebSocket notification
+    console.log('[DISPLAY_PRODUCT] 14. Broadcasting display notification to subscribers');
+    if (req.app && req.app.get('io')) {
+      const io = req.app.get('io');
+
+      // Create a stream-specific room name
+      const streamRoom = `stream_notifications_${stream._id.toString()}`;
+
+      // Emit to stream-specific room
+      io.to(streamRoom).emit('stream_notification', notificationObj);
+    }
+
+    // Add the notification to stream chat interactions
+    stream.chatInteractions.push(notificationObj);
+    await stream.save();
+
+    console.log('[DISPLAY_PRODUCT] 15. Successfully displayed product');
+
+    // Return the updated product information
+    return res.status(200).json({
+      message: 'Product displayed successfully',
+      product: stream.products[productIndex]
+    });
+  } catch (error) {
+    console.error('[DISPLAY_PRODUCT] ERROR: Failed to display stream product:', error);
+    return res.status(500).json({
+      message: 'Failed to display stream product',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Hide a product in a stream by setting its isVisible state to false
+ * @route POST /api/streams/:streamId/hide-product
+ * @access Private (Seller only)
+ */
+exports.hideStreamProduct = async (req, res) => {
+  try {
+    const { streamId } = req.params;
+    const { productId } = req.body;
+
+    console.log('[HIDE_PRODUCT] 1. Received request to hide stream product', {
+      streamId,
+      productId,
+      sellerId: req.user.id
+    });
+
+    // Validate required fields
+    if (!streamId || !productId) {
+      console.error('[HIDE_PRODUCT] 2. FAILED: Missing streamId or productId');
+      return res.status(400).json({
+        message: 'Stream ID and Product ID are required'
+      });
+    }
+
+    // Find the stream and populate necessary fields
+    console.log('[HIDE_PRODUCT] 3. Finding stream');
+    const stream = await Stream.findById(streamId)
+      .populate('seller', 'storeName storeAvatar')
+      .populate('products.currentBidder', 'firstName lastName username');
+
+    if (!stream) {
+      console.error('[HIDE_PRODUCT] 4. FAILED: Stream not found');
+      return res.status(404).json({ message: 'Stream not found' });
+    }
+
+    console.log('[HIDE_PRODUCT] 5. Stream found', {
+      streamId: stream._id,
+      title: stream.title
+    });
+
+    // Check if stream belongs to the seller making the request
+    if (stream.seller._id.toString() !== req.user.id.toString()) {
+      console.error('[HIDE_PRODUCT] 6. FAILED: Stream does not belong to seller', {
+        streamSellerId: stream.seller._id,
+        requestSellerId: req.user.id
+      });
+      return res.status(403).json({
+        message: 'You do not have permission to modify this stream'
+      });
+    }
+
+    // Check if stream is live
+    if (stream.status !== 'live') {
+      console.error('[HIDE_PRODUCT] 7. FAILED: Stream is not live', { status: stream.status });
+      return res.status(400).json({
+        message: 'Stream must be live to hide products'
+      });
+    }
+
+    // Find the product in the stream's products array
+    console.log('[HIDE_PRODUCT] 8. Looking for product in stream products array');
+    const productIndex = stream.products.findIndex(p =>
+      p.product && p.product.productId && p.product.productId.toString() === productId
+    );
+
+    if (productIndex === -1) {
+      console.error('[HIDE_PRODUCT] 9. FAILED: Product not found in stream');
+      return res.status(404).json({ message: 'Product not found in stream' });
+    }
+
+    console.log('[HIDE_PRODUCT] 10. Found product in stream', {
+      productIndex,
+      productName: stream.products[productIndex].product.name
+    });
+
+    // Set the product's isVisible to false
+    stream.products[productIndex].isVisible = false;
+    console.log('[HIDE_PRODUCT] 11. Updated product isVisible to false');
+
+    // Save the stream
+    await stream.save();
+    console.log('[HIDE_PRODUCT] 12. Stream saved successfully');
+
+    // Helper function to format product name to max 3 words
+    const formatProductName = (name) => {
+      if (!name) return 'a product';
+
+      // Split by spaces and take first 3 words
+      const words = name.split(' ');
+      const truncatedName = words.slice(0, 3).join(' ');
+
+      // Add ellipsis if there were more than 3 words
+      return words.length > 3 ? `${truncatedName}...` : truncatedName;
+    };
+
+    // Format the product name
+    const formattedProductName = formatProductName(stream.products[productIndex].product.name);
+
+    // Create notification object for WebSocket
+    const notificationObj = {
+      id: Date.now().toString(),
+      type: 'product_hide',
+      user: stream.seller.storeName || 'Host',
+      avatar: stream.seller.storeAvatar?.url || '',
+      content: `Hiding ${formattedProductName}`,
+      data: {
+        message: `Hiding ${formattedProductName}`,
+        streamId: stream._id.toString(),
+        sellerId: stream.seller._id.toString(),
+        storeName: stream.seller.storeName || 'Unknown Store',
+        product: stream.products[productIndex]
+      },
+      timestamp: new Date()
+    };
+
+    // Send WebSocket notification
+    console.log('[HIDE_PRODUCT] 13. Broadcasting hide notification to subscribers');
+    if (req.app && req.app.get('io')) {
+      const io = req.app.get('io');
+
+      // Create a stream-specific room name
+      const streamRoom = `stream_notifications_${stream._id.toString()}`;
+
+      // Emit to stream-specific room
+      io.to(streamRoom).emit('stream_notification', notificationObj);
+    }
+
+    // Add the notification to stream chat interactions
+    stream.chatInteractions.push(notificationObj);
+    await stream.save();
+
+    console.log('[HIDE_PRODUCT] 14. Successfully hid product');
+
+    // Return the updated product information
+    return res.status(200).json({
+      message: 'Product hidden successfully',
+      product: stream.products[productIndex]
+    });
+  } catch (error) {
+    console.error('[HIDE_PRODUCT] ERROR: Failed to hide stream product:', error);
+    return res.status(500).json({
+      message: 'Failed to hide stream product',
       error: error.message
     });
   }
@@ -3166,7 +3495,7 @@ exports.searchStreams = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended', 'expired'].includes(status)) {
       searchQuery.status = status;
-      
+
       // Add additional check for scheduled streams to ensure scheduled time hasn't passed
       if (status === 'scheduled') {
         searchQuery.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
@@ -3870,7 +4199,7 @@ exports.getStreamsByCategoryAndSubcategory = async (req, res) => {
 
     if (status && ['scheduled', 'live', 'ended'].includes(status)) {
       query.status = status;
-      
+
       // Add additional check for scheduled streams to ensure scheduled time hasn't passed
       if (status === 'scheduled') {
         query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
@@ -3971,7 +4300,7 @@ exports.getStreamProducts = async (req, res) => {
 
     // Get total count for pagination
     const totalProducts = stream.products.length;
-    
+
     // Extract the paginated subset of products
     const paginatedProducts = stream.products.slice(skip, skip + limit);
 
@@ -4117,7 +4446,7 @@ exports.rescheduleExpiredStream = async (req, res) => {
     // Update the stream with new scheduled time and reset status to scheduled
     stream.scheduledStartTime = newStartDate;
     stream.status = 'scheduled';
-    
+
     // Clear any end time if it was set during expiration
     if (stream.endTime) {
       stream.endTime = undefined;

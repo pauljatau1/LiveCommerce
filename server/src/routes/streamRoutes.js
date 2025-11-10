@@ -302,6 +302,140 @@ router.post('/:streamId/end-product-bidding',
 
 /**
  * @swagger
+ * /api/streams/{streamId}/display-product:
+ *   post:
+ *     summary: Display a product in a live stream
+ *     description: Sets the isVisible state of a product to true and sets all other products' isVisible state to false. Only one product can be visible at a time.
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the stream
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - productId
+ *             properties:
+ *               productId:
+ *                 type: string
+ *                 description: ID of the product to display
+ *     responses:
+ *       200:
+ *         description: Product displayed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Product displayed successfully
+ *                 product:
+ *                   type: object
+ *                   description: The updated product with isVisible set to true
+ *       400:
+ *         description: Invalid request - missing parameters or stream is not live
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Stream must be live to display products
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - stream does not belong to the seller
+ *       404:
+ *         description: Stream or product not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:streamId/display-product',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  streamController.displayStreamProduct
+);
+
+/**
+ * @swagger
+ * /api/streams/{streamId}/hide-product:
+ *   post:
+ *     summary: Hide a product in a live stream
+ *     description: Sets the isVisible state of a product to false, hiding it from viewers.
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the stream
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - productId
+ *             properties:
+ *               productId:
+ *                 type: string
+ *                 description: ID of the product to hide
+ *     responses:
+ *       200:
+ *         description: Product hidden successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Product hidden successfully
+ *                 product:
+ *                   type: object
+ *                   description: The updated product with isVisible set to false
+ *       400:
+ *         description: Invalid request - missing parameters or stream is not live
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Stream must be live to hide products
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - stream does not belong to the seller
+ *       404:
+ *         description: Stream or product not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:streamId/hide-product',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  streamController.hideStreamProduct
+);
+
+/**
+ * @swagger
  * /api/streams/{streamId}/place-bid:
  *   post:
  *     summary: Place a bid on a product in an auction stream (REST API fallback - WebSocket preferred)
