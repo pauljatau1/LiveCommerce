@@ -89,6 +89,10 @@ const streamSchema = new mongoose.Schema({
     },
     orderId: {
       type: String
+    },
+    isVisible: {
+      type: Boolean,
+      default: false
     }
   }],
   status: {
