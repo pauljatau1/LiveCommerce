@@ -89,14 +89,14 @@ export default function Payout() {
             .reduce((sum, w) => sum + w.amount, 0);
 
           const profileData = seller;
-          const availableForWithdrawal = profileData?.data?.walletBalance || 0;
+          const availableForWithdrawal = profileData?.walletBalance || 0;
 
           // Set bank details with default values
           setBankDetails({
-            bankName: profileData?.data?.bankDetails?.bankName || '',
-            accountNumber: profileData?.data?.bankDetails?.accountNumber || '',
-            accountName: profileData?.data?.bankDetails?.accountName || '',
-            bankIdentifierCode: profileData?.data?.bankDetails?.bankIdentifierCode || ''
+            bankName: profileData?.bankDetails?.bankName || '',
+            accountNumber: profileData?.bankDetails?.accountNumber || '',
+            accountName: profileData?.bankDetails?.accountName || '',
+            bankIdentifierCode: profileData?.bankDetails?.bankIdentifierCode || ''
           });
 
           setFinancialData({
