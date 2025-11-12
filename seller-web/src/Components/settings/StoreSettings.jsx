@@ -54,6 +54,7 @@ const DELIVERY_POLICIES = {
   ]
 };
 
+
 export default function StoreSettings() {
   const { show } = useIntercom();
   const { token } = useAuthContext();
@@ -75,7 +76,7 @@ export default function StoreSettings() {
     businessDetails: {
       cac: "",
     },
-
+    
     specialDates: [],
     timezone: "Africa/Lagos",
     storePolicy: {
@@ -104,7 +105,7 @@ export default function StoreSettings() {
       tiktok: ""
     },
   });
-
+  
   const [isLoading, setIsLoading] = useState(false);
   const [storeAvatar, setStoreAvatar] = useState(null);
   const [storeBanner, setStoreBanner] = useState(null);
@@ -115,7 +116,7 @@ export default function StoreSettings() {
     closeTime: "17:00",
     note: ""
   });
-
+  
   // Add new state for tracking individual section updates
   const [updatingSection, setUpdatingSection] = useState({
     accountType: false,
@@ -126,17 +127,17 @@ export default function StoreSettings() {
     storePolicy: false,
     socialMedia: false,
   });
-
+  
   //fetch seller products
   useEffect(() => {
     dispatch(fetchSellerProducts());
   }, []);
-
+  
   // Fetch initial store data
   useEffect(() => {
     fetchStoreData();
   }, []);
-
+  
   const fetchStoreData = async () => {
     try {
       const sellerToken = token?.data;
@@ -164,21 +165,26 @@ export default function StoreSettings() {
           businessDetails: {
             taxInformation: data.data.businessType || "",
           },
-
+          
           specialDates: data.data.specialDates || [],
           timezone: data.data.timezone || "Africa/Lagos",
-          storePolicy: data.data.storePolicy || {
-            deliveryTimes: "",
-            freeShippingPolicy: "",
-            lostOrDamagedPolicy: "",
-            refundPolicy: "",
-            processingTime: "",
-            refundMethod: "",
-            nonRefundableItems: [],
-            returnWindow: 14,
-            returnCondition: "",
-            returnShipping: "",
-            exchangePolicy: "",
+          storePolicy: {
+            deliveryTimes: data.data.storePolicy?.deliveryTimes || "",
+            freeShippingPolicy: data.data.storePolicy?.freeShippingPolicy || "",
+            lostOrDamagedPolicy: data.data.storePolicy?.lostOrDamagedPolicy || "",
+            refundPolicy: data.data.storePolicy?.refundPolicy || "",
+            processingTime: data.data.storePolicy?.processingTime || "",
+            refundMethod: data.data.storePolicy?.refundMethod || "",
+            nonRefundableItems: data.data.storePolicy?.nonRefundableItems || [],
+            // Ensure returnWindow is a number, defaulting to 14 if null/undefined
+            returnWindow: data.data.storePolicy?.returnWindow != null 
+              ? (typeof data.data.storePolicy.returnWindow === 'number' 
+                  ? data.data.storePolicy.returnWindow 
+                  : parseInt(data.data.storePolicy.returnWindow, 10))
+              : 14,
+            returnCondition: data.data.storePolicy?.returnCondition || "",
+            returnShipping: data.data.storePolicy?.returnShipping || "",
+            exchangePolicy: data.data.storePolicy?.exchangePolicy || "",
             allowsCod: data.data.storePolicy?.allowsCod || false
           },
           offersStorePickup: data.data.offersStorePickup || false, // Set initial value here
@@ -193,12 +199,12 @@ export default function StoreSettings() {
             tiktok: data.data.socialMedia?.tiktok || ""
           },
         });
-  
+        
         // Set store avatar if exists
         if (data.data.storeAvatar?.url) {
           setStoreAvatar(data.data.storeAvatar.url);
         }
-  
+        
         // Set store banner if exists
         if (data.data.storeBanner?.url) {
           setStoreBanner(data.data.storeBanner.url);
@@ -209,7 +215,7 @@ export default function StoreSettings() {
     }
   };
   
-
+  
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
@@ -245,7 +251,8 @@ export default function StoreSettings() {
       [name]: value
     }));
   };
-
+  console.log("policy error log", formData.storePolicy)
+  
   const handleAddressChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -336,12 +343,22 @@ export default function StoreSettings() {
     }));
   };
 
+  /**
+   * Handle store policy field changes
+   * Converts returnWindow from string to number when storing
+   * 
+   * @param {string} field - The field name to update
+   * @param {string|number|boolean} value - The new value for the field
+   */
   const handleStorePolicyChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
       storePolicy: {
         ...prev.storePolicy,
-        [field]: value
+        // Convert returnWindow from string to number if it's a numeric string
+        [field]: field === 'returnWindow' 
+          ? (value === 'no_returns' ? null : parseInt(value, 10))
+          : value
       }
     }));
   };
@@ -508,7 +525,7 @@ export default function StoreSettings() {
 
       if (Object.keys(updateData).length === 0) return true; // Skip if no changes
 
-      const response = await fetch(`${BASE_URL_V2}/sellers/individual-information`, {
+      const response = await fetch(`${BASE_URL}/seller/individual-information`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -1091,8 +1108,13 @@ export default function StoreSettings() {
                     <div className="space-y-2">
                       <Label>Return Window</Label>
                       <Select
-                        value={formData.storePolicy.returnWindow.toString()}
-                        onValueChange={(value) => handleStorePolicyChange('returnWindow', parseInt(value))}
+                        value={
+                          formData?.storePolicy?.returnWindow !== null && 
+                          formData?.storePolicy?.returnWindow !== undefined
+                            ? formData.storePolicy.returnWindow.toString()
+                            : ""
+                        }
+                        onValueChange={(value) => handleStorePolicyChange('returnWindow', value)}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select return window" />
