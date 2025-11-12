@@ -901,7 +901,57 @@ exports.endStream = async (req, res) => {
     stream.endTime = new Date();
     await stream.save();
 
-    // Notify connected clients that the stream has ended
+    // Populate stream with full details for notification
+    const populatedStream = await Stream.findById(stream._id)
+      .populate('seller', 'storeName businessName storeAvatar rating')
+      .populate('products.product', 'name description images price stock sku variants')
+      .populate('products.currentBidder', 'firstName lastName username email')
+      .populate('viewers', 'firstName lastName username avatarUrl')
+      .populate('bids.buyer', 'firstName lastName username')
+      .populate('bids.product', 'name price')
+      .lean();
+
+    // Get seller details for notification
+    const seller = await Seller.findById(req.user.id).select('storeName storeAvatar');
+
+    // Create notification object for stream_notifications room
+    const notificationObj = {
+      id: Date.now().toString(),
+      type: 'stream_ended',
+      user: seller?.storeName || 'Host',
+      avatar: seller?.storeAvatar?.url || '',
+      content: 'Stream has ended',
+      data: {
+        message: 'Stream has ended',
+        streamId: stream._id.toString(),
+        sellerId: req.user.id.toString(),
+        storeName: seller?.storeName || 'Unknown Store',
+        stream: populatedStream // Include full stream data
+      },
+      timestamp: new Date()
+    };
+
+    // Send WebSocket notification to stream_notifications room
+    if (req.app && req.app.get('io')) {
+      const io = req.app.get('io');
+      const streamRoom = `stream_notifications_${stream._id.toString()}`;
+      
+      // Emit to stream-specific notification room
+      io.to(streamRoom).emit('stream_notification', notificationObj);
+    }
+
+    // Add notification to stream chat interactions
+    try {
+      await Stream.findByIdAndUpdate(
+        stream._id,
+        { $push: { chatInteractions: notificationObj } }
+      );
+    } catch (chatError) {
+      console.error('Failed to save chat interaction:', chatError);
+      // Continue even if saving the chat interaction fails
+    }
+
+    // Notify connected clients that the stream has ended (existing functionality)
     req.io.to(stream.channelName).emit('streamEnded', {
       streamId: stream._id,
       message: 'Stream has ended'
@@ -909,7 +959,7 @@ exports.endStream = async (req, res) => {
 
     res.json({
       message: 'Stream ended successfully',
-      stream
+      stream: populatedStream || stream
     });
   } catch (error) {
     res.status(500).json({
@@ -1004,7 +1054,7 @@ exports.joinStream = async (req, res) => {
     }
 
     if (stream.status === 'ended') {
-      return res.status(500).json({ message: 'Stream has already ended' });
+      return res.status(200).json({ message: 'Stream has already ended', success: false, stream: stream });
     }
 
     if (stream.status !== 'live') {
@@ -2688,9 +2738,9 @@ exports.displayStreamProduct = async (req, res) => {
       type: 'product_display',
       user: stream.seller.storeName || 'Host',
       avatar: stream.seller.storeAvatar?.url || '',
-      content: `Displaying ${formattedProductName}`,
+      content: `Displaying ${formattedProductName} product`,
       data: {
-        message: `Displaying ${formattedProductName}`,
+        message: `Displaying ${formattedProductName} product`,
         streamId: stream._id.toString(),
         sellerId: stream.seller._id.toString(),
         storeName: stream.seller.storeName || 'Unknown Store',
@@ -2835,9 +2885,9 @@ exports.hideStreamProduct = async (req, res) => {
       type: 'product_hide',
       user: stream.seller.storeName || 'Host',
       avatar: stream.seller.storeAvatar?.url || '',
-      content: `Hiding ${formattedProductName}`,
+      content: `Hiding ${formattedProductName} product`,
       data: {
-        message: `Hiding ${formattedProductName}`,
+        message: `Hiding ${formattedProductName} product`,
         streamId: stream._id.toString(),
         sellerId: stream.seller._id.toString(),
         storeName: stream.seller.storeName || 'Unknown Store',

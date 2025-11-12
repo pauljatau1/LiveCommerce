@@ -1132,6 +1132,119 @@ function initializeSocket(server) {
       }
     });
 
+    // Handler for stream likes
+    socket.on('stream_like', async (data) => {
+      try {
+        console.log(`Received like from ${socket.user.id} for stream ${data.streamId}`);
+
+        // Ensure streamId is provided
+        if (!data.streamId) {
+          console.error('Missing streamId in stream_like event');
+          return;
+        }
+
+        // Find the stream
+        const stream = await Stream.findById(data.streamId);
+        if (!stream) {
+          console.error(`Stream not found: ${data.streamId}`);
+          return;
+        }
+
+        // Get user details based on role (buyer or seller)
+        let userDetails;
+        let userRole = socket.user.role; // Default to buyer if role not specified
+
+        if (userRole === 'Seller') {
+          userDetails = await Seller.findById(socket.user.id).select('storeName storeAvatar');
+
+          if (!userDetails) {
+            console.error(`Seller not found: ${socket.user.id}`);
+            return;
+          }
+
+          // Create notification object
+          const notificationObj = {
+            id: Date.now().toString(),
+            type: 'stream_like',
+            user: userDetails.storeName || 'Host',
+            avatar: userDetails.storeAvatar?.url || '',
+            content: `${userDetails.storeName || 'Host'} Sent A Like`,
+            data: {
+              message: `${userDetails.storeName || 'Host'} Sent A Like`,
+              sellerId: socket.user.id,
+              sellerName: userDetails.storeName || 'Host',
+              streamId: data.streamId,
+              isHost: true
+            }
+          };
+
+          // Store in database - store likes in the likes array, not chatInteractions
+          await Stream.findByIdAndUpdate(
+            data.streamId,
+            { $push: { likes: notificationObj } }
+          );
+
+          // Add timestamp for the WebSocket payload
+          notificationObj.timestamp = new Date();
+
+          // Broadcast to stream-specific room
+          const streamRoom = `stream_notifications_${data.streamId}`;
+          io.to(streamRoom).emit('stream_notification', notificationObj);
+        } else {
+          // Assume buyer
+          userDetails = await Buyer.findById(socket.user.id).select('firstName lastName username profileImage avatarUrl');
+
+          if (!userDetails) {
+            console.error(`Buyer not found: ${socket.user.id}`);
+            return;
+          }
+
+          // Create notification object
+          const notificationObj = {
+            id: Date.now().toString(),
+            type: 'stream_like',
+            user: userDetails.username || userDetails.firstName || 'Viewer',
+            avatar: userDetails.profileImage?.url || userDetails.avatarUrl || '',
+            content: `${userDetails.username || userDetails.firstName || 'Viewer'} Sent A Like`,
+            data: {
+              message: `${userDetails.username || userDetails.firstName || 'Viewer'} Sent A Like`,
+              buyerId: socket.user.id,
+              buyerName: userDetails.firstName + " " + userDetails.lastName,
+              buyerUsername: userDetails.username,
+              streamId: data.streamId,
+              isHost: false
+            }
+          };
+
+          // Store in database - store likes in the likes array, not chatInteractions
+          await Stream.findByIdAndUpdate(
+            data.streamId,
+            { $push: { likes: notificationObj } }
+          );
+
+          // Add timestamp for the WebSocket payload
+          notificationObj.timestamp = new Date();
+
+          // track user likes in mixpanel
+          mixpanel.track('stream_like', {
+            streamId: data.streamId,
+            buyerId: socket.user.id,
+            buyerName: userDetails.firstName + " " + userDetails.lastName,
+            buyerUsername: userDetails.username,
+            engagementType: 'like',
+            likeTime: new Date().toISOString()
+          });
+
+          // Broadcast to stream-specific room
+          const streamRoom = `stream_notifications_${data.streamId}`;
+          io.to(streamRoom).emit('stream_notification', notificationObj);
+        }
+
+      } catch (error) {
+        console.error('Error handling stream like:', error);
+      }
+    });
+
     // Handler for live announcements (Host only)
     socket.on('stream_announcement', async (data) => {
       try {
