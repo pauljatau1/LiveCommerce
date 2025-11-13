@@ -3227,6 +3227,112 @@ router.get('/category/:category/subcategory/:subcategory', optionalAuthMiddlewar
 
 /**
  * @swagger
+ * /api/products/category/{category}:
+ *   get:
+ *     summary: Get products by category
+ *     description: Retrieve products filtered by category only (without subcategory filter) with pagination and sorting options
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: category
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category name
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Filter products with price greater than or equal to this value
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Filter products with price less than or equal to this value
+ *       - in: query
+ *         name: condition
+ *         schema:
+ *           type: string
+ *           enum: [new, fairly used]
+ *         description: Filter products by condition (case-insensitive)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [price_asc, price_desc, newest, oldest, popular, best_selling, rating]
+ *           default: newest
+ *         description: Field to sort by
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order
+ *     responses:
+ *       200:
+ *         description: List of products with pagination details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 5
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *                 totalProducts:
+ *                   type: integer
+ *                   example: 20
+ *                 currentPage:
+ *                   type: integer
+ *                   example: 1
+ *                 totalPages:
+ *                   type: integer
+ *                   example: 4
+ *                 filters:
+ *                   type: object
+ *                   properties:
+ *                     category:
+ *                       type: string
+ *                     priceRange:
+ *                       type: object
+ *                       properties:
+ *                         min:
+ *                           type: number
+ *                         max:
+ *                           type: number
+ *                     condition:
+ *                       type: string
+ *                     sortBy:
+ *                       type: string
+ *                     order:
+ *                       type: string
+ *       500:
+ *         description: Server error
+ */
+router.get('/category/:category', optionalAuthMiddleware, productController.getProductsByCategory);
+
+/**
+ * @swagger
  * /api/products/category/{category}/subcategories:
  *   get:
  *     summary: Get all subcategories with products for a category

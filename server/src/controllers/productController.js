@@ -4497,6 +4497,96 @@ exports.getProductsByCategoryAndSubcategory = async (req, res) => {
   }
 };
 
+// Get products by category only (without subcategory filter)
+exports.getProductsByCategory = async (req, res) => {
+  try {
+    const { category } = req.params;
+    const { page = 1, limit = 20, sortBy = 'createdAt', order = 'desc', minPrice, maxPrice, condition } = req.query;
+    
+    // Build query - filter by category only, no subcategory filter
+    const query = { 
+      category, 
+      status: 'active',
+      visibility: 'visible'
+    };
+    
+    // Add price filter if min or max price is provided
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      query.price = {};
+      if (minPrice !== undefined) query.price.$gte = Number(minPrice);
+      if (maxPrice !== undefined) query.price.$lte = Number(maxPrice);
+    }
+    
+    // Add condition filter if provided (case-insensitive)
+    if (condition) {
+      query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
+    }
+    
+    // Build sort options
+    let sortOptions = {};
+    switch (sortBy) {
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'oldest':
+        sortOptions = { createdAt: 1 };
+        break;
+      case 'popular':
+        sortOptions = { 'analytics.views': -1 };
+        break;
+      case 'best_selling':
+        sortOptions = { 'stats.soldCount': -1 };
+        break;
+      case 'rating':
+        sortOptions = { 'stats.averageRating': -1 };
+        break;
+      case 'newest':
+      default:
+        sortOptions = { createdAt: order === 'asc' ? 1 : -1 };
+    }
+    
+    // Find products with pagination
+    const products = await Product.find(query)
+      .sort(sortOptions)
+      .skip((page - 1) * parseInt(limit))
+      .limit(parseInt(limit))
+      .populate('seller', sellerPopulationFields)
+      .select('-__v');
+    
+    // Get total count for pagination
+    const total = await Product.countDocuments(query);
+    
+    return res.status(200).json({
+      success: true,
+      count: products.length,
+      data: products,
+      totalProducts: total,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit)),
+      filters: {
+        category,
+        priceRange: {
+          min: minPrice,
+          max: maxPrice
+        },
+        condition,
+        sortBy,
+        order
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching products by category:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
 // Get all subcategories with products for a specific category
 exports.getSubcategoriesWithProducts = async (req, res) => {
   try {
