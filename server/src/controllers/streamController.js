@@ -1319,8 +1319,13 @@ exports.getSellerStreams = async (req, res) => {
     const { sellerId } = req.params;
     const { status, page = 1, limit = 10 } = req.query;
 
+    // Convert sellerId to ObjectId for proper querying
+    const sellerObjectId = mongoose.Types.ObjectId.isValid(sellerId) 
+      ? new mongoose.Types.ObjectId(sellerId) 
+      : sellerId;
+
     // Build query
-    const query = { seller: sellerId };
+    const query = { seller: sellerObjectId };
     if (status) {
       if (['scheduled', 'live', 'ended'].includes(status)) {
         query.status = status;
@@ -1332,13 +1337,20 @@ exports.getSellerStreams = async (req, res) => {
       } else if (status === 'live_upcoming') {
         // For live_upcoming, get both live streams and scheduled streams with future start time
         // Use $or to match either live streams OR scheduled streams with future start time
+        // Include seller in each $or condition to ensure proper filtering
         query.$or = [
-          { status: 'live' },
+          { 
+            seller: sellerObjectId,
+            status: 'live' 
+          },
           {
+            seller: sellerObjectId,
             status: 'scheduled',
             scheduledStartTime: { $gt: new Date() }
           }
         ];
+        // Remove the seller from top level since it's now in $or
+        delete query.seller;
       }
     }
 
@@ -1346,8 +1358,23 @@ exports.getSellerStreams = async (req, res) => {
     let sortOrder = { scheduledStartTime: -1, createdAt: -1 };
     if (status === 'live_upcoming') {
       // Use aggregation to sort live streams before scheduled streams
+      // Build the match query for aggregation - ensure seller is properly included
+      const matchQuery = {
+        $or: [
+          { 
+            seller: sellerObjectId,
+            status: 'live' 
+          },
+          {
+            seller: sellerObjectId,
+            status: 'scheduled',
+            scheduledStartTime: { $gt: new Date() }
+          }
+        ]
+      };
+
       const aggregationPipeline = [
-        { $match: query },
+        { $match: matchQuery },
         {
           $addFields: {
             // Add sort priority: 0 for live, 1 for scheduled
@@ -1406,8 +1433,21 @@ exports.getSellerStreams = async (req, res) => {
         }
       }
 
-      // Get total count for pagination
-      const total = await Stream.countDocuments(query);
+      // Get total count for pagination - use the same match query as aggregation
+      const countQuery = {
+        $or: [
+          { 
+            seller: sellerObjectId,
+            status: 'live' 
+          },
+          {
+            seller: sellerObjectId,
+            status: 'scheduled',
+            scheduledStartTime: { $gt: new Date() }
+          }
+        ]
+      };
+      const total = await Stream.countDocuments(countQuery);
 
       // Enrich with isSubscribed
       const enrichedStreams = streams.map((s) => {
