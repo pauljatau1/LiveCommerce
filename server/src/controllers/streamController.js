@@ -1853,8 +1853,8 @@ exports.getStreamsByStatus = async (req, res) => {
 
     // Add subscribersCount and isSubscribed to each stream
     const streamsWithSubscriberCount = streams.map(stream => {
-      // Convert to plain object first
-      const streamObj = stream.toObject();
+      // Convert to plain object first (aggregation results are already plain objects)
+      const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
 
       // Add the subscribers count property
       const enriched = {
@@ -2121,8 +2121,12 @@ exports.getPopularStreams = async (req, res) => {
 
     // Add viewerCount to each stream
     const streamsWithViewerCount = streams.map(stream => {
-      const streamObj = stream.toObject();
-      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      // Convert to plain object first (aggregation results are already plain objects)
+      const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
+      // Use viewerCount from aggregation if it exists, otherwise calculate from viewers array
+      streamObj.viewerCount = streamObj.viewerCount !== undefined 
+        ? streamObj.viewerCount 
+        : (streamObj.viewers ? streamObj.viewers.length : 0);
       // Add isSubscribed for requester
       streamObj.isSubscribed = isBuyerSubscribedToStream(streamObj, req.user);
       return streamObj;
