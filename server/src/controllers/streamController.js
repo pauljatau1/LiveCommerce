@@ -2245,8 +2245,9 @@ exports.getSpotlightStreams = async (req, res) => {
 
     // Add viewerCount to each stream
     const streamsWithViewerCount = streams.map(stream => {
-      const streamObj = stream.toObject();
-      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      // Convert to plain object first (aggregation results are already plain objects)
+      const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
+      streamObj.viewerCount = streamObj.viewers ? streamObj.viewers.length : 0;
       streamObj.isSubscribed = isBuyerSubscribedToStream(streamObj, req.user);
       return streamObj;
     });
@@ -2322,8 +2323,9 @@ exports.getStreamsFromFavoriteSellers = async (req, res) => {
 
     // Add viewerCount to each stream
     const streamsWithViewerCount = streams.map(stream => {
-      const streamObj = stream.toObject();
-      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      // Convert to plain object first (aggregation results are already plain objects)
+      const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
+      streamObj.viewerCount = streamObj.viewers ? streamObj.viewers.length : 0;
       streamObj.isSubscribed = isBuyerSubscribedToStream(streamObj, req.user);
       return streamObj;
     });
@@ -3744,8 +3746,9 @@ exports.getStreamsForYou = async (req, res) => {
 
     // Add viewerCount to each stream
     const streamsWithViewerCount = streams.map(stream => {
-      const streamObj = stream.toObject();
-      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      // Convert to plain object first (aggregation results are already plain objects)
+      const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
+      streamObj.viewerCount = streamObj.viewers ? streamObj.viewers.length : 0;
       return streamObj;
     });
 
