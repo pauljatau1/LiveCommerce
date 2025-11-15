@@ -2,9 +2,11 @@ import { Icon } from '@iconify/react';
 import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { useLivestreamSocket } from '../../Contexts/LivestreamSocketContext';
+import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
 import MobileChatMessage from './MobileChatMessage';
 import AuqliLogo from '../../assets/auqli-logo.png';
 import BottomSheet from '../BottomSheet';
+import ProductVisibilityConfirmationModal from '../ProductVisibilityConfirmationModal';
 
 const StreamMobileUi = ({
     endStream,
@@ -20,10 +22,10 @@ const StreamMobileUi = ({
     formatCurrency = (val) => `$${val}`,
     orders = []
 }) => {
-    const { socket, notifications, sendStreamComment } = useLivestreamSocket();
+    const { notifications, sendStreamComment } = useLivestreamSocket();
+    const { displayStreamProduct, hideStreamProduct } = useLivestreamContext();
     const [viewerCount, setViewerCount] = useState(viewers?.length || 0);
     const [commentInput, setCommentInput] = useState('');
-    const [isInputFocused, setIsInputFocused] = useState(false);
     const [messages, setMessages] = useState([]);
     const messagesEndRef = useRef(null);
     const chatContainerRef = useRef(null);
@@ -36,25 +38,31 @@ const StreamMobileUi = ({
     const [isLoadingCameras, setIsLoadingCameras] = useState(false);
     const [isProductsSheetOpen, setIsProductsSheetOpen] = useState(false);
     const [productOrderCounts, setProductOrderCounts] = useState({});
-    const [ordersData, setOrdersData] = useState(orders || []);
+    const [visibilityModalOpen, setVisibilityModalOpen] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [visibilityAction, setVisibilityAction] = useState('show'); // 'show' or 'hide'
+    const [isVisibilityLoading, setIsVisibilityLoading] = useState(false);
+    const prevOrdersLengthRef = useRef(0);
 
     // Initialize product order counts from the initial orders data
     useEffect(() => {
         if (orders && orders.length > 0) {
             const initialCounts = {};
-            
+
             orders.forEach(order => {
                 // Extract product ID from order
-                const productId = order.product || 
-                                 (order.orderDetails?.items && 
-                                  order.orderDetails.items[0]?.product);
-                
+                const productId = order.product ||
+                    (order.orderDetails?.items &&
+                        order.orderDetails.items[0]?.product);
+
                 if (productId) {
                     initialCounts[productId] = (initialCounts[productId] || 0) + 1;
                 }
             });
-            
+
             setProductOrderCounts(initialCounts);
+            // Initialize the ref with the initial orders length
+            prevOrdersLengthRef.current = orders.length;
         }
     }, [orders]);
 
@@ -90,41 +98,36 @@ const StreamMobileUi = ({
                     }
                     return [...prevMessages, latestNotification];
                 });
-                
-                // Update orders data and product order counts for liveshow_order notifications
-                if (latestNotification.type === 'liveshow_order' && 
-                    latestNotification.data?.streamOrders && 
-                    latestNotification.data.streamOrders.length > 0) {
-                    
-                    // Update orders data
-                    setOrdersData(prevOrdersData => {
-                        // Check if there are new orders
-                        if (latestNotification.data.streamOrders.length > prevOrdersData.length) {
-                            // Find the new order by comparing order IDs
-                            const existingOrderIds = new Set(prevOrdersData.map(order => order.orderId));
-                            const newOrders = latestNotification.data.streamOrders.filter(
-                                order => !existingOrderIds.has(order.orderId)
-                            );
 
-                            // Only increment counts for new orders
-                            newOrders.forEach(order => {
-                                const productId = order.product || 
-                                                (order.orderDetails?.items && 
-                                                 order.orderDetails.items[0]?.product);
-                                
-                                if (productId) {
-                                    setProductOrderCounts(prevCounts => ({
-                                        ...prevCounts,
-                                        [productId]: (prevCounts[productId] || 0) + 1
-                                    }));
-                                }
-                            });
-                            
-                            return latestNotification.data.streamOrders;
-                        }
-                        
-                        return prevOrdersData;
-                    });
+                // Update product order counts for liveshow_order notifications
+                if (latestNotification.type === 'liveshow_order' &&
+                    latestNotification.data?.streamOrders &&
+                    latestNotification.data.streamOrders.length > 0) {
+
+                    // Check if there are new orders by comparing lengths
+                    const currentOrdersLength = latestNotification.data.streamOrders.length;
+                    if (currentOrdersLength > prevOrdersLengthRef.current) {
+                        // Get previous orders from the notification data (we'll use the current length to determine new ones)
+                        // Since we only care about new orders, we can process all orders and let the count logic handle duplicates
+                        const newOrders = latestNotification.data.streamOrders.slice(prevOrdersLengthRef.current);
+
+                        // Only increment counts for new orders
+                        newOrders.forEach(order => {
+                            const productId = order.product ||
+                                (order.orderDetails?.items &&
+                                    order.orderDetails.items[0]?.product);
+
+                            if (productId) {
+                                setProductOrderCounts(prevCounts => ({
+                                    ...prevCounts,
+                                    [productId]: (prevCounts[productId] || 0) + 1
+                                }));
+                            }
+                        });
+                    }
+
+                    // Update the ref with the current length
+                    prevOrdersLengthRef.current = currentOrdersLength;
                 }
             }
         }
@@ -278,6 +281,47 @@ const StreamMobileUi = ({
         }
     };
 
+    // Handle show product button click - opens confirmation modal
+    const handleShowProduct = (product) => {
+        setSelectedProduct(product);
+        setVisibilityAction('show');
+        setVisibilityModalOpen(true);
+    };
+
+    // Handle hide product button click - opens confirmation modal
+    const handleHideProduct = (product) => {
+        setSelectedProduct(product);
+        setVisibilityAction('hide');
+        setVisibilityModalOpen(true);
+    };
+
+    // Confirm visibility action (show or hide)
+    const handleConfirmVisibility = async () => {
+        if (!selectedProduct || !liveStreamDetails?._id) return;
+
+        const productId = selectedProduct?.product?.productId || selectedProduct?.productId;
+        if (!productId) {
+            console.error('Product ID not found');
+            return;
+        }
+
+        setIsVisibilityLoading(true);
+        try {
+            if (visibilityAction === 'show') {
+                await displayStreamProduct(liveStreamDetails._id, productId);
+            } else {
+                await hideStreamProduct(liveStreamDetails._id, productId);
+            }
+            setVisibilityModalOpen(false);
+            setSelectedProduct(null);
+        } catch (error) {
+            // Error is already handled in the context functions with toast notifications
+            console.error('Error handling product visibility:', error);
+        } finally {
+            setIsVisibilityLoading(false);
+        }
+    };
+
     return (
         <div className="block xl:hidden">
             {/* Mobile Main Content - Stream Preview */}
@@ -366,7 +410,7 @@ const StreamMobileUi = ({
 
                     {/* Bottom Bar - Absolutely positioned */}
                     <div className="absolute bottom-0 left-0 right-0 py-2 px-2 bg-gradient-to-t from-black/100 to-transparent h-36 z-10">
-                        <div  className="h-full relative ">
+                        <div className="h-full relative ">
                             <div className="flex absolute bottom-0 left-0 right-0 items-center justify-between">
                                 <button
                                     className="w-10 h-10 sm:w-10 sm:h-10 ring-1 ring-white/30 flex-shrink-0 flex items-center justify-center bg-black/40 rounded-full"
@@ -378,7 +422,7 @@ const StreamMobileUi = ({
                                 <div className="flex-1 mx-2 sm:mx-2 min-w-0">
                                     <div
                                         className={`flex items-center bg-black/40 rounded-full overflow-hidden ring-1 ring-white/30`}
-                                      
+
                                     >
                                         <input
                                             type="text"
@@ -420,10 +464,10 @@ const StreamMobileUi = ({
                 styles={{
                     bottomSheet: { zIndex: 30 },
                     backdrop: { backgroundColor: 'rgba(0, 0, 0, 0.75)' },
-                    window: { 
-                        wrap: { 
-                            backgroundColor: '#0D0F12', 
-                            borderTopLeftRadius: '1rem', 
+                    window: {
+                        wrap: {
+                            backgroundColor: '#0D0F12',
+                            borderTopLeftRadius: '1rem',
                             borderTopRightRadius: '1rem',
                             maxHeight: '80vh'
                         }
@@ -437,26 +481,62 @@ const StreamMobileUi = ({
                     <h2 className="text-[#EFF0FA] font-inter font-medium text-lg mb-4">Products</h2>
                     <div className="space-y-4 overflow-y-auto max-h-[60vh] pb-6" data-no-drag>
                         {products?.length > 0 ? (
-                            products?.map((item, index) => (
-                                <div key={item?.product?._id || index} className="bg-[#161A1E] flex gap-4 rounded-xl p-3">
-                                    <div className="">
-                                        <img
-                                            src={item?.product?.images[0]?.url}
-                                            alt={item?.product?.name}
-                                            className="w-[62px] h-[62px] object-contain rounded-lg"
-                                        />
+                            products?.map((item, index) => {
+                                const isVisible = item?.isVisible === true;
+                                const productId = item?.product?.productId || item?.productId || item?.product?._id;
+
+                                return (
+                                    <div key={productId || index} className="bg-[#161A1E] flex flex-col rounded-xl p-3">
+                                        <div className="flex gap-4">
+                                            <div className="">
+                                                <img
+                                                    src={item?.product?.images[0]?.url}
+                                                    alt={item?.product?.name}
+                                                    className="w-[62px] h-[62px] object-contain rounded-lg"
+                                                />
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item?.product?.name}</p>
+                                                <p className="text-sm text-[#718096] font-inter font-medium">
+                                                    {formatCurrency(item?.product?.price)}
+                                                </p>
+                                                <p className="text-sm text-[#718096] font-inter font-medium mb-2">
+                                                    Orders: <span className="text-[#EFF0FA] font-inter font-medium">{getOrderCountForProduct(productId)}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {/* Show/Hide Product Buttons */}
+                                        <div>
+                                            <div className="flex gap-2 mt-2">
+                                                {!isVisible ? (
+                                                    <button
+                                                        onClick={() => handleShowProduct(item)}
+                                                        className="flex-1 px-3 py-1.5 text-xs font-inter font-medium bg-[#14AE5C] text-white rounded-md hover:bg-[#14AE5C]/90 transition-colors flex items-center justify-center gap-1"
+                                                    >
+                                                        <Icon icon="solar:eye-bold" className="w-3 h-3" />
+                                                        Show
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleHideProduct(item)}
+                                                        className="flex-1 px-3 py-1.5 text-xs font-inter font-medium bg-[#C74E5B] text-white rounded-md hover:bg-[#C74E5B]/90 transition-colors flex items-center justify-center gap-1"
+                                                    >
+                                                        <Icon icon="solar:eye-closed-bold" className="w-3 h-3" />
+                                                        Hide
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {/* Visibility indicator */}
+                                            {isVisible && (
+                                                <div className="mt-1 flex items-center gap-1">
+                                                    <Icon icon="solar:eye-bold" className="w-3 h-3 text-[#14AE5C]" />
+                                                    <span className="text-xs text-[#14AE5C] font-inter">Visible to viewers</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item?.product?.name}</p>
-                                        <p className="text-sm text-[#718096] font-inter font-medium">
-                                            {formatCurrency(item?.product?.price)}
-                                        </p>
-                                        <p className="text-sm text-[#718096] font-inter font-medium">
-                                            Orders: <span className="text-[#EFF0FA] font-inter font-medium">{getOrderCountForProduct(item?.product?.productId)}</span>
-                                        </p>
-                                    </div>
-                                </div>
-                            ))
+                                );
+                            })
                         ) : (
                             <div className="flex flex-col mt-10 items-center justify-center h-full py-10">
                                 <Icon icon="mdi:shopping-outline" className="w-12 h-12 text-[#7A828A] mb-2" />
@@ -516,6 +596,23 @@ const StreamMobileUi = ({
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Product Visibility Confirmation Modal */}
+            {visibilityModalOpen && selectedProduct && (
+                <ProductVisibilityConfirmationModal
+                    product={selectedProduct}
+                    onClose={() => {
+                        if (!isVisibilityLoading) {
+                            setVisibilityModalOpen(false);
+                            setSelectedProduct(null);
+                        }
+                    }}
+                    onConfirm={handleConfirmVisibility}
+                    isLoading={isVisibilityLoading}
+                    action={visibilityAction}
+                    formatCurrency={formatCurrency}
+                />
             )}
         </div>
     );
