@@ -17,6 +17,23 @@ const chatInteractionSchema = new mongoose.Schema({
   }
 });
 
+// Define a separate schema for stream likes
+const streamLikeSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  type: { type: String, required: true },
+  user: { type: String, required: true },
+  avatar: { type: String },
+  content: { type: String, required: true },
+  data: { 
+    type: mongoose.Schema.Types.Mixed,
+    required: true 
+  },
+  timestamp: { 
+    type: Date,
+    default: Date.now 
+  }
+});
+
 const streamSchema = new mongoose.Schema({
   seller: {
     type: mongoose.Schema.Types.ObjectId,
@@ -89,6 +106,10 @@ const streamSchema = new mongoose.Schema({
     },
     orderId: {
       type: String
+    },
+    isVisible: {
+      type: Boolean,
+      default: false
     }
   }],
   status: {
@@ -165,6 +186,7 @@ const streamSchema = new mongoose.Schema({
     }
   }],
   chatInteractions: [chatInteractionSchema],
+  likes: [streamLikeSchema],
   liveAnnouncements: [{
     id: { type: String, required: true },
     content: { type: String, required: true },

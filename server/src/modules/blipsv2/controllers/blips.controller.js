@@ -10,6 +10,10 @@ const getBlipsByRandomCategoryService = require('../services/getBlipsByRandomCat
 const getBlipsCategoriesService = require('../services/getBlipsCategories.service');
 const getBlipPositionService = require('../services/getBlipPosition.service');
 const getProductBlipsService = require('../services/getProductBlips.service');
+const saveBlipService = require('../services/saveBlip.service');
+const unsaveBlipService = require('../services/unsaveBlip.service');
+const isBlipSavedService = require('../services/isBlipSaved.service');
+const getSavedBlipsService = require('../services/getSavedBlips.service');
 
 exports.getPersonalizedBlips = async (req, res) => {
   try {
@@ -305,6 +309,121 @@ exports.getBlipsCategories = async (req, res) => {
       status: false,
       message: 'Failed to fetch blips categories',
       error: error.message
+    });
+  }
+};
+
+/**
+ * Save a blip for the authenticated buyer.
+ * Idempotent: saving an already-saved blip returns success with created: false.
+ * Requires authentication (Buyer role).
+ */
+exports.saveBlip = async (req, res) => {
+  try {
+    const result = await saveBlipService.execute(req);
+
+    res.json({
+      status: true,
+      message: result.message,
+      created: result.created
+    });
+  } catch (error) {
+    console.error('Error in saveBlip:', error);
+    
+    // Handle specific error status codes from service
+    const statusCode = error.statusCode || 500;
+    const message = error.message || 'Failed to save blip';
+
+    res.status(statusCode).json({
+      status: false,
+      message: message,
+      error: statusCode === 500 ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Unsave a blip for the authenticated buyer.
+ * Idempotent: unsaving a non-saved blip returns success with removed: false.
+ * Requires authentication (Buyer role).
+ */
+exports.unsaveBlip = async (req, res) => {
+  try {
+    const result = await unsaveBlipService.execute(req);
+
+    res.json({
+      status: true,
+      message: result.message,
+      removed: result.removed
+    });
+  } catch (error) {
+    console.error('Error in unsaveBlip:', error);
+    
+    // Handle specific error status codes from service
+    const statusCode = error.statusCode || 500;
+    const message = error.message || 'Failed to unsave blip';
+
+    res.status(statusCode).json({
+      status: false,
+      message: message,
+      error: statusCode === 500 ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Check if a blip is saved by the authenticated buyer.
+ * Requires authentication (Buyer role).
+ */
+exports.isBlipSaved = async (req, res) => {
+  try {
+    const result = await isBlipSavedService.execute(req);
+
+    res.json({
+      status: true,
+      isSaved: result.isSaved
+    });
+  } catch (error) {
+    console.error('Error in isBlipSaved:', error);
+    
+    // Handle specific error status codes from service
+    const statusCode = error.statusCode || 500;
+    const message = error.message || 'Failed to check saved status';
+
+    res.status(statusCode).json({
+      status: false,
+      message: message,
+      error: statusCode === 500 ? error.message : undefined
+    });
+  }
+};
+
+/**
+ * Get paginated saved blips for the authenticated buyer.
+ * Returns blips in the same shape as other blips endpoints for consistency.
+ * Requires authentication (Buyer role).
+ */
+exports.getSavedBlips = async (req, res) => {
+  try {
+    const result = await getSavedBlipsService.execute(req);
+
+    res.json({
+      blips: result.blips,
+      currentPage: result.currentPage,
+      totalPages: result.totalPages,
+      totalBlips: result.totalBlips
+    });
+  } catch (error) {
+    console.error('Error in getSavedBlips:', error);
+    
+    // Handle specific error status codes from service
+    const statusCode = error.statusCode || 500;
+    const message = error.message || 'Failed to fetch saved blips';
+
+    res.status(statusCode).json({
+      status: false,
+      message: message,
+      error: statusCode === 500 ? error.message : undefined
     });
   }
 };

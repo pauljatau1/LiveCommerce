@@ -31,8 +31,17 @@ router.get('/by-random-category', optionalAuthMiddleware, blipsController.getBli
 // Get following blips (requires authentication)
 router.get('/following', verifyToken, blipsController.getFollowingBlips);
 
-// Get blips categories with statistics (optional authentication)
+// Get saved blips (requires authentication)
+// Note: Must come before /:blipId/saved to avoid route conflict
+router.get('/saved', verifyToken, blipsController.getSavedBlips);
 
+// Save/Unsave blips endpoints (require authentication)
+
+router.post('/:blipId/save', verifyToken, blipsController.saveBlip);
+router.delete('/:blipId/save', verifyToken, blipsController.unsaveBlip);
+router.get('/:blipId/saved', verifyToken, blipsController.isBlipSaved);
+
+// Get blips categories with statistics (optional authentication)
 router.get('/categories', optionalAuthMiddleware, blipsController.getBlipsCategories);
 
 // Get a blip's position in the default feed
