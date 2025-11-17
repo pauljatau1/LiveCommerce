@@ -41,6 +41,19 @@ async function findByEmail(email) {
 }
 
 /**
+ * Find a Buyer by phone number.
+ * 
+ * This method retrieves a buyer by their phone number. Since phone numbers
+ * are not unique in the schema, this will return the first matching buyer.
+ * 
+ * @param {string} phoneNumber - The phone number to search for
+ * @returns {Promise<Buyer|null>} The buyer with the matching phone number or null if not found
+ */
+async function findByPhoneNumber(phoneNumber) {
+  return Buyer.findOne({ phoneNumber: phoneNumber });
+}
+
+/**
  * Save a new Buyer.
  * @param {Buyer} buyerInstance
  * @returns {Promise<Buyer>}
@@ -1028,6 +1041,7 @@ module.exports = {
   findAll,
   save,
   findByEmail,
+  findByPhoneNumber,
   saveBuyer,
   findById,
   findByIdWithFields,
