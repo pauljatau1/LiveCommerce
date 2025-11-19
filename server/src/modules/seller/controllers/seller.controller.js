@@ -27,6 +27,8 @@ const getTopProductsService = require('../services/getTopProducts.service');
 const getStatisticsService = require('../services/getStatistics.service');
 const getOrdersService = require('../services/getOrders.service');
 const getShippingLabelService = require('../services/getShippingLabel.service');
+const sendPhoneVerificationService = require('../services/sendPhoneVerification.service');
+const verifyPhoneService = require('../services/verifyPhone.service');
 
 /**
  * Register a seller user.
@@ -1078,6 +1080,73 @@ async function getShippingLabel(req, res, next) {
   }
 }
 
+/**
+ * Send phone verification OTP to seller.
+ *
+ * This controller handles the HTTP request for sending phone verification OTP.
+ * It delegates the logic to the service layer and sends a success response.
+ *
+ * @param {Request} req - Express request object containing phone number in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function sendPhoneVerification(req, res, next) {
+  try {
+    const phoneVerificationData = req.body;
+    const response = await sendPhoneVerificationService.sendPhoneVerification(phoneVerificationData);
+    res.success(response, 'Phone verification code sent successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Verify phone number with OTP.
+ *
+ * This controller handles the HTTP request for verifying phone number with OTP.
+ * It delegates the logic to the service layer and sends a success response.
+ *
+ * @param {Request} req - Express request object containing phone number and OTP in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function verifyPhone(req, res, next) {
+  try {
+    const verifyPhoneData = req.body;
+    const response = await verifyPhoneService.verifyPhone(verifyPhoneData);
+    res.success(response, 'Phone number verified successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Check if a seller's phone number is verified.
+ *
+ * This controller handles the HTTP request for checking phone verification status.
+ * It retrieves the seller by ID and returns the verification status.
+ *
+ * @param {Request} req - Express request object containing sellerId in `req.params`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function checkPhoneVerificationStatus(req, res, next) {
+  try {
+    const { sellerId } = req.params;
+    const sellerRepository = require('../repositories/seller.repository');
+    const NotFoundException = require('../../../utils/errors/NotFoundException');
+    
+    const seller = await sellerRepository.findById(sellerId);
+    if (!seller) {
+      throw new NotFoundException('Seller not found');
+    }
+    
+    res.success({ isPhoneVerified: seller.isPhoneVerified || false }, 'Phone verification status retrieved successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1107,5 +1176,8 @@ module.exports = {
   getTopProducts,
   getStatistics,
   getOrders,
-  getShippingLabel
+  getShippingLabel,
+  sendPhoneVerification,
+  verifyPhone,
+  checkPhoneVerificationStatus
 };

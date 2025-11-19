@@ -1,7 +1,9 @@
 // services/orderService.js
 const orderRepository = require('../repositories/order.repository');
 const { verifyPaystackTransaction, updateProductStockForPaidOrder, sendOrderConfirmationEmail, sendSlackNotificationForPaidOrder } = require('../helpers/order.helper');
+const { sendOrderPaymentConfirmationSMS } = require('../helpers/sms.helper');
 const Buyer = require('../../../models/Buyer');
+const Seller = require('../../../models/Seller');
 
 exports.verifyPaymentByReference = async (reference, orderId) => {
   try {
@@ -67,6 +69,16 @@ exports.verifyPaymentByReference = async (reference, orderId) => {
           } catch (emailError) {
             console.error('Error sending order confirmation email:', emailError);
           }
+        }
+
+        // Send SMS notifications to buyer and seller (non-blocking)
+        // This will not affect order processing if SMS sending fails
+        try {
+          const seller = await Seller.findById(order.seller).select('phoneNumber firstName lastName businessName storeName');
+          await sendOrderPaymentConfirmationSMS(updatedOrder, buyer, seller);
+        } catch (smsError) {
+          // Log error but don't throw - SMS failures should not affect order processing
+          console.error(`Error sending SMS notifications for order ${order.order_id}:`, smsError);
         }
 
         return {

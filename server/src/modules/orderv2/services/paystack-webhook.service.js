@@ -3,8 +3,10 @@ const crypto = require('crypto');
 const orderRepository = require('../repositories/order.repository');
 const { updateProductStockForPaidOrder, sendOrderConfirmationEmail, sendSlackNotificationForPaidOrder } = require('../helpers/order.helper');
 const { handleWalletTopUp, handleFailedPayment } = require('../helpers/order.helper');
+const { sendOrderPaymentConfirmationSMS } = require('../helpers/sms.helper');
 const agenda = require('../../../config/agenda');
 const Buyer = require('../../../models/Buyer');
+const Seller = require('../../../models/Seller');
 
 // Get paystack secret key with fallback
 const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || require('../../../config/paystack');
@@ -87,6 +89,16 @@ async function handleSuccessfulPayment(event) {
       } catch (emailError) {
         console.error('Error sending order confirmation email for paid Terminal Africa order:', emailError);
       }
+    }
+
+    // Send SMS notifications to buyer and seller (non-blocking)
+    // This will not affect order processing if SMS sending fails
+    try {
+      const seller = await Seller.findById(order.seller).select('phoneNumber firstName lastName businessName storeName');
+      await sendOrderPaymentConfirmationSMS(order, webhookBuyer, seller);
+    } catch (smsError) {
+      // Log error but don't throw - SMS failures should not affect order processing
+      console.error(`Error sending SMS notifications for order ${order.order_id}:`, smsError);
     }
 
     return { status: 200, data: { message: 'Terminal Africa payment processed successfully' } };
