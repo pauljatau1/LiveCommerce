@@ -1319,18 +1319,160 @@ exports.getSellerStreams = async (req, res) => {
     const { sellerId } = req.params;
     const { status, page = 1, limit = 10 } = req.query;
 
+    // Convert sellerId to ObjectId for proper querying
+    const sellerObjectId = mongoose.Types.ObjectId.isValid(sellerId) 
+      ? new mongoose.Types.ObjectId(sellerId) 
+      : sellerId;
+
     // Build query
-    const query = { seller: sellerId };
-    if (status && ['scheduled', 'live', 'ended'].includes(status)) {
-      query.status = status;
+    const query = { seller: sellerObjectId };
+    if (status) {
+      if (['scheduled', 'live', 'ended'].includes(status)) {
+        query.status = status;
+
+        // Add additional check for scheduled streams to ensure scheduled time hasn't passed
+        if (status === 'scheduled') {
+          query.scheduledStartTime = { $gt: new Date() }; // Only include streams whose scheduled time is in the future
+        }
+      } else if (status === 'live_upcoming') {
+        // For live_upcoming, get both live streams and scheduled streams with future start time
+        // Use $or to match either live streams OR scheduled streams with future start time
+        // Include seller in each $or condition to ensure proper filtering
+        query.$or = [
+          { 
+            seller: sellerObjectId,
+            status: 'live' 
+          },
+          {
+            seller: sellerObjectId,
+            status: 'scheduled',
+            scheduledStartTime: { $gt: new Date() }
+          }
+        ];
+        // Remove the seller from top level since it's now in $or
+        delete query.seller;
+      }
     }
 
-    // Execute query with pagination
+    // Determine sort order - if live_upcoming, prioritize live streams
+    let sortOrder = { scheduledStartTime: -1, createdAt: -1 };
+    if (status === 'live_upcoming') {
+      // Use aggregation to sort live streams before scheduled streams
+      // Build the match query for aggregation - ensure seller is properly included
+      const matchQuery = {
+        $or: [
+          { 
+            seller: sellerObjectId,
+            status: 'live' 
+          },
+          {
+            seller: sellerObjectId,
+            status: 'scheduled',
+            scheduledStartTime: { $gt: new Date() }
+          }
+        ]
+      };
+
+      const aggregationPipeline = [
+        { $match: matchQuery },
+        {
+          $addFields: {
+            // Add sort priority: 0 for live, 1 for scheduled
+            sortPriority: {
+              $cond: [{ $eq: ['$status', 'live'] }, 0, 1]
+            }
+          }
+        },
+        {
+          $sort: {
+            sortPriority: 1, // Live (0) comes before scheduled (1)
+            scheduledStartTime: -1,
+            createdAt: -1
+          }
+        },
+        { $skip: (page - 1) * limit },
+        { $limit: parseInt(limit) }
+      ];
+
+      // Execute aggregation
+      let streams = await Stream.aggregate(aggregationPipeline);
+
+      // Populate references after aggregation
+      streams = await Stream.populate(streams, [
+        { path: 'seller', select: 'storeName businessName storeAvatar rating' },
+        { path: 'products.product', select: 'name description images price' },
+        { path: 'products.currentBidder', select: 'firstName lastName username' }
+      ]);
+
+      // Check and update expiration status for each stream
+      const ONE_HOUR = 60 * 60 * 1000;
+      const now = new Date();
+
+      for (const stream of streams) {
+        let needsUpdate = false;
+        const update = { status: 'expired' };
+
+        if (stream.status === 'scheduled' && stream.scheduledStartTime) {
+          const expirationTime = new Date(stream.scheduledStartTime.getTime());
+          if (now > expirationTime) {
+            needsUpdate = true;
+          }
+        } else if (stream.status === 'live' && stream.actualStartTime && !stream.endTime) {
+          const expirationTime = new Date(stream.actualStartTime.getTime());
+          if (now > expirationTime) {
+            needsUpdate = true;
+          }
+        }
+
+        if (needsUpdate) {
+          await Stream.updateOne(
+            { _id: stream._id },
+            { $set: update },
+            { runValidators: false }  // Bypass validation for status updates
+          );
+        }
+      }
+
+      // Get total count for pagination - use the same match query as aggregation
+      const countQuery = {
+        $or: [
+          { 
+            seller: sellerObjectId,
+            status: 'live' 
+          },
+          {
+            seller: sellerObjectId,
+            status: 'scheduled',
+            scheduledStartTime: { $gt: new Date() }
+          }
+        ]
+      };
+      const total = await Stream.countDocuments(countQuery);
+
+      // Enrich with isSubscribed
+      const enrichedStreams = streams.map((s) => {
+        const obj = typeof s.toObject === 'function' ? s.toObject() : s;
+        obj.isSubscribed = isBuyerSubscribedToStream(obj, req.user);
+        return obj;
+      });
+
+      return res.json({
+        streams: enrichedStreams,
+        pagination: {
+          total,
+          pages: Math.ceil(total / limit),
+          currentPage: parseInt(page),
+          hasMore: page * limit < total
+        }
+      });
+    }
+
+    // Execute query with pagination for non-live_upcoming status
     const streams = await Stream.find(query)
       .populate('seller', 'storeName businessName storeAvatar rating')
       .populate('products.product', 'name description images price')
       .populate('products.currentBidder', 'firstName lastName username')
-      .sort({ scheduledStartTime: -1, createdAt: -1 })
+      .sort(sortOrder)
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
 
@@ -1692,9 +1834,7 @@ exports.getStreamsByStatus = async (req, res) => {
         }
       } else if (status === 'live_upcoming') {
         // For live_upcoming, get both live streams and scheduled streams with future start time
-        query.status = { $in: ['live', 'scheduled'] };
-
-        // Add a filter to make sure scheduled streams have a future start time
+        // Use $or to match either live streams OR scheduled streams with future start time
         query.$or = [
           { status: 'live' },
           {
@@ -1709,18 +1849,52 @@ exports.getStreamsByStatus = async (req, res) => {
       query.type = type;
     }
 
-    const streams = await Stream.find(query)
-      .populate('seller', 'storeName businessName storeAvatar rating')
-      .populate('products.product', 'name description images price')
-      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt subscribers')
-      .sort({ scheduledStartTime: -1, createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+    // If live_upcoming status, use aggregation to prioritize live streams
+    let streams;
+    if (status === 'live_upcoming') {
+      const aggregationPipeline = [
+        { $match: query },
+        {
+          $addFields: {
+            // Add sort priority: 0 for live, 1 for scheduled
+            sortPriority: {
+              $cond: [{ $eq: ['$status', 'live'] }, 0, 1]
+            }
+          }
+        },
+        {
+          $sort: {
+            sortPriority: 1, // Live (0) comes before scheduled (1)
+            scheduledStartTime: -1,
+            createdAt: -1
+          }
+        },
+        { $skip: (page - 1) * limit },
+        { $limit: parseInt(limit) }
+      ];
+
+      // Execute aggregation
+      streams = await Stream.aggregate(aggregationPipeline);
+
+      // Populate references after aggregation
+      streams = await Stream.populate(streams, [
+        { path: 'seller', select: 'storeName businessName storeAvatar rating' },
+        { path: 'products.product', select: 'name description images price' }
+      ]);
+    } else {
+      streams = await Stream.find(query)
+        .populate('seller', 'storeName businessName storeAvatar rating')
+        .populate('products.product', 'name description images price')
+        .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt subscribers')
+        .sort({ scheduledStartTime: -1, createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit));
+    }
 
     // Add subscribersCount and isSubscribed to each stream
     const streamsWithSubscriberCount = streams.map(stream => {
-      // Convert to plain object first
-      const streamObj = stream.toObject();
+      // Convert to plain object first (aggregation results are already plain objects)
+      const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
 
       // Add the subscribers count property
       const enriched = {
@@ -1768,9 +1942,7 @@ exports.getSellerStreamsByStatus = async (req, res) => {
         }
       } else if (status === 'live_upcoming') {
         // For live_upcoming, get both live streams and scheduled streams with future start time
-        query.status = { $in: ['live', 'scheduled'] };
-
-        // Add a filter to make sure scheduled streams have a future start time
+        // Use $or to match either live streams OR scheduled streams with future start time
         query.$or = [
           { status: 'live' },
           {
@@ -1785,13 +1957,47 @@ exports.getSellerStreamsByStatus = async (req, res) => {
       query.type = type;
     }
 
-    const streams = await Stream.find(query)
-      .populate('seller', 'storeName businessName storeAvatar rating')
-      .populate('products.product', 'name description images price')
-      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
-      .sort({ scheduledStartTime: -1, createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+    // If live_upcoming status, use aggregation to prioritize live streams
+    let streams;
+    if (status === 'live_upcoming') {
+      const aggregationPipeline = [
+        { $match: query },
+        {
+          $addFields: {
+            // Add sort priority: 0 for live, 1 for scheduled
+            sortPriority: {
+              $cond: [{ $eq: ['$status', 'live'] }, 0, 1]
+            }
+          }
+        },
+        {
+          $sort: {
+            sortPriority: 1, // Live (0) comes before scheduled (1)
+            scheduledStartTime: -1,
+            createdAt: -1
+          }
+        },
+        { $skip: (page - 1) * limit },
+        { $limit: parseInt(limit) }
+      ];
+
+      // Execute aggregation
+      streams = await Stream.aggregate(aggregationPipeline);
+
+      // Populate references after aggregation
+      streams = await Stream.populate(streams, [
+        { path: 'seller', select: 'storeName businessName storeAvatar rating' },
+        { path: 'products.product', select: 'name description images price' }
+      ]);
+    } else {
+      streams = await Stream.find(query)
+        .populate('seller', 'storeName businessName storeAvatar rating')
+        .populate('products.product', 'name description images price')
+        .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
+        .sort({ scheduledStartTime: -1, createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit));
+    }
 
     const total = await Stream.countDocuments(query);
 
@@ -1890,9 +2096,7 @@ exports.getPopularStreams = async (req, res) => {
         }
       } else if (status === 'live_upcoming') {
         // For live_upcoming, get both live streams and scheduled streams with future start time
-        query.status = { $in: ['live', 'scheduled'] };
-
-        // Add a filter to make sure scheduled streams have a future start time
+        // Use $or to match either live streams OR scheduled streams with future start time
         query.$or = [
           { status: 'live' },
           {
@@ -1907,20 +2111,62 @@ exports.getPopularStreams = async (req, res) => {
       query.type = type;
     }
 
-    // Find streams and sort by viewer count (descending)
-    const streams = await Stream.find(query)
-      .populate('seller', 'storeName businessName storeAvatar rating')
-      .populate('products.product', 'name description images price')
-      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
-      // Sort by number of viewers (descending)
-      .sort({ 'viewers.length': -1, actualStartTime: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+    // If live_upcoming status, use aggregation to prioritize live streams
+    let streams;
+    if (status === 'live_upcoming') {
+      const aggregationPipeline = [
+        { $match: query },
+        {
+          $addFields: {
+            // Add sort priority: 0 for live, 1 for scheduled
+            sortPriority: {
+              $cond: [{ $eq: ['$status', 'live'] }, 0, 1]
+            },
+            // Calculate viewer count for sorting
+            viewerCount: { $size: { $ifNull: ['$viewers', []] } }
+          }
+        },
+        {
+          $sort: {
+            sortPriority: 1, // Live (0) comes before scheduled (1)
+            viewerCount: -1, // Then by viewer count (descending)
+            actualStartTime: -1,
+            scheduledStartTime: -1,
+            createdAt: -1
+          }
+        },
+        { $skip: (page - 1) * limit },
+        { $limit: parseInt(limit) }
+      ];
+
+      // Execute aggregation
+      streams = await Stream.aggregate(aggregationPipeline);
+
+      // Populate references after aggregation
+      streams = await Stream.populate(streams, [
+        { path: 'seller', select: 'storeName businessName storeAvatar rating' },
+        { path: 'products.product', select: 'name description images price' }
+      ]);
+    } else {
+      // Find streams and sort by viewer count (descending)
+      streams = await Stream.find(query)
+        .populate('seller', 'storeName businessName storeAvatar rating')
+        .populate('products.product', 'name description images price')
+        .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
+        // Sort by number of viewers (descending)
+        .sort({ 'viewers.length': -1, actualStartTime: -1 })
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit));
+    }
 
     // Add viewerCount to each stream
     const streamsWithViewerCount = streams.map(stream => {
-      const streamObj = stream.toObject();
-      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      // Convert to plain object first (aggregation results are already plain objects)
+      const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
+      // Use viewerCount from aggregation if it exists, otherwise calculate from viewers array
+      streamObj.viewerCount = streamObj.viewerCount !== undefined 
+        ? streamObj.viewerCount 
+        : (streamObj.viewers ? streamObj.viewers.length : 0);
       // Add isSubscribed for requester
       streamObj.isSubscribed = isBuyerSubscribedToStream(streamObj, req.user);
       return streamObj;
@@ -1995,19 +2241,53 @@ exports.getSpotlightStreams = async (req, res) => {
       query.type = type;
     }
 
-    // Find streams from featured sellers
-    const streams = await Stream.find(query)
-      .populate('seller', 'storeName businessName storeAvatar rating isFeatured businessAddress')
-      .populate('products.product', 'name description images price')
-      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+    // If live_upcoming status, use aggregation to prioritize live streams
+    let streams;
+    if (status === 'live_upcoming') {
+      const aggregationPipeline = [
+        { $match: query },
+        {
+          $addFields: {
+            // Add sort priority: 0 for live, 1 for scheduled
+            sortPriority: {
+              $cond: [{ $eq: ['$status', 'live'] }, 0, 1]
+            }
+          }
+        },
+        {
+          $sort: {
+            sortPriority: 1, // Live (0) comes before scheduled (1)
+            createdAt: -1
+          }
+        },
+        { $skip: (page - 1) * limit },
+        { $limit: parseInt(limit) }
+      ];
+
+      // Execute aggregation
+      streams = await Stream.aggregate(aggregationPipeline);
+
+      // Populate references after aggregation
+      streams = await Stream.populate(streams, [
+        { path: 'seller', select: 'storeName businessName storeAvatar rating isFeatured businessAddress' },
+        { path: 'products.product', select: 'name description images price' }
+      ]);
+    } else {
+      // Find streams from featured sellers
+      streams = await Stream.find(query)
+        .populate('seller', 'storeName businessName storeAvatar rating isFeatured businessAddress')
+        .populate('products.product', 'name description images price')
+        .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime viewers type bids createdAt updatedAt')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit));
+    }
 
     // Add viewerCount to each stream
     const streamsWithViewerCount = streams.map(stream => {
-      const streamObj = stream.toObject();
-      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      // Convert to plain object first (aggregation results are already plain objects)
+      const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
+      streamObj.viewerCount = streamObj.viewers ? streamObj.viewers.length : 0;
       streamObj.isSubscribed = isBuyerSubscribedToStream(streamObj, req.user);
       return streamObj;
     });
@@ -2083,8 +2363,9 @@ exports.getStreamsFromFavoriteSellers = async (req, res) => {
 
     // Add viewerCount to each stream
     const streamsWithViewerCount = streams.map(stream => {
-      const streamObj = stream.toObject();
-      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      // Convert to plain object first (aggregation results are already plain objects)
+      const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
+      streamObj.viewerCount = streamObj.viewers ? streamObj.viewers.length : 0;
       streamObj.isSubscribed = isBuyerSubscribedToStream(streamObj, req.user);
       return streamObj;
     });
@@ -3505,8 +3786,9 @@ exports.getStreamsForYou = async (req, res) => {
 
     // Add viewerCount to each stream
     const streamsWithViewerCount = streams.map(stream => {
-      const streamObj = stream.toObject();
-      streamObj.viewerCount = stream.viewers ? stream.viewers.length : 0;
+      // Convert to plain object first (aggregation results are already plain objects)
+      const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
+      streamObj.viewerCount = streamObj.viewers ? streamObj.viewers.length : 0;
       return streamObj;
     });
 
