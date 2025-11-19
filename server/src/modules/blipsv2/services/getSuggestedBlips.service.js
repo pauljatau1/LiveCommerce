@@ -1,482 +1,279 @@
 const productRepository = require('../repositories/product.repository');
+const sessionHelper = require('../helpers/session.helper');
 const pipelineHelper = require('../helpers/pipeline.helper');
 const transformationHelper = require('../helpers/transformation.helper');
+const categoryHelper = require('../helpers/category.helper');
 
+/**
+ * GetSuggestedBlipsService
+ * 
+ * This service provides suggested blip recommendations based on:
+ * 1. For logged-in buyers WITH selected categories: Prioritizes blips from their chosen categories
+ * 2. For logged-in buyers WITHOUT selected categories: Uses standard random algorithm
+ * 3. For non-logged-in users: Uses standard random algorithm
+ * 
+ * The algorithm ensures:
+ * - No duplicate blips across pagination (session-based tracking)
+ * - Balanced distribution across sellers
+ * - Proper fallback mechanisms when category-filtered queries return no results
+ * - Session management for both logged-in and logged-out users
+ */
 class GetSuggestedBlipsService {
   async execute(req) {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.max(1, parseInt(req.query.limit) || 20);
     const skip = (page - 1) * limit;
     
-    // Check if user is authenticated
+    // Generate or get session ID
+    const sessionId = sessionHelper.generateSessionId(req);
+    console.log(`🔍 [SUGGESTED BLIPS DEBUG] Session ID: ${sessionId}, Page: ${page}, Limit: ${limit}`);
+
+    // Get or create session
+    const { sessionData, seenBlipIds } = sessionHelper.getOrCreateSession(sessionId, page);
+    
+    console.log(`📝 [SUGGESTED BLIPS DEBUG] Current seen blips count: ${seenBlipIds.length}`);
+    console.log(`📄 [SUGGESTED BLIPS DEBUG] Last page visited: ${sessionData.lastPage}, Current page: ${page}`);
+    if (seenBlipIds.length > 0) {
+      console.log(`📝 [SUGGESTED BLIPS DEBUG] First 5 seen blip IDs: ${seenBlipIds.slice(0, 5).join(', ')}`);
+    }
+
+    // Get buyer information and selected categories
     const buyerId = req.user?.id;
     const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
-    
-    console.log('Starting getSuggestedBlips aggregation...');
-    
-    // Define match stages
-    const primaryMatchStage = {
-      blips: { $exists: true, $ne: [] },
-      blips: { $elemMatch: { processed: true } },
-      status: { $ne: 'draft' }, // Exclude draft products
-      $nor: [
-        {
-          status: 'offline_auction',
-          'auction.status': 'ended'
-        }
-      ]
-    };
-    
-    const fallbackMatchStage = {
-      blips: { $exists: true, $ne: [] },
-      status: { $ne: 'draft' } // Exclude draft products in fallback as well
-    };
-    
-    // Get buyer's preferred categories and followed sellers if authenticated
-    let buyerCategories = [];
     let followedSellers = [];
+    let selectedCategoryNames = [];
+
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`🎯 [SUGGESTED BLIPS] PERSONALIZATION ANALYSIS`);
+    console.log(`${'='.repeat(80)}`);
+
     if (isAuthenticated) {
-      console.log(`Getting preferences for buyer: ${buyerId}`);
+      console.log(`✅ [SUGGESTED BLIPS] User is authenticated - Buyer ID: ${buyerId}`);
+      
+      // Fetch buyer with selected categories for personalized blips
       const buyer = await productRepository.findBuyerByIdWithCategories(buyerId);
       
-      if (buyer && buyer.selectedCategories && buyer.selectedCategories.length > 0) {
-        buyerCategories = buyer.selectedCategories.reduce((acc, cat) => {
-          acc.push(cat.name);
-          if (cat.subCategories) {
-            acc.push(...cat.subCategories.map(sub => sub.name));
-          }
-          return acc;
-        }, []);
-        console.log(`Found preferred categories: ${buyerCategories.join(', ')}`);
+      if (buyer?.followers?.length > 0) {
+        followedSellers = buyer.followers.map(f => f.sellerId.toString());
+      }
+
+      // Log the raw buyer's selected categories data
+      console.log(`\n📋 [SUGGESTED BLIPS] BUYER'S RAW SELECTED CATEGORIES:`);
+      if (buyer?.selectedCategories && buyer.selectedCategories.length > 0) {
+        console.log(JSON.stringify(buyer.selectedCategories, null, 2));
+        console.log(`📊 [SUGGESTED BLIPS] Total selected categories: ${buyer.selectedCategories.length}`);
       } else {
-        console.log('No preferred categories found for buyer');
+        console.log(`❌ [SUGGESTED BLIPS] No selected categories found in buyer document`);
       }
-      
-      if (buyer && buyer.followers) {
-        followedSellers = buyer.followers.map(follow => follow.sellerId.toString());
-        console.log(`Found followed sellers: ${followedSellers.length}`);
+
+      // Extract category names from buyer's selected categories
+      // This is used to filter products that match the buyer's interests
+      if (categoryHelper.hasSelectedCategories(buyer)) {
+        selectedCategoryNames = categoryHelper.extractCategoryNames(buyer.selectedCategories);
+        const summary = categoryHelper.getCategorySummary(buyer);
+        
+        console.log(`\n🎯 [SUGGESTED BLIPS] EXTRACTED CATEGORY NAMES FOR FILTERING:`);
+        console.log(`   Categories to match: [${selectedCategoryNames.map(c => `"${c}"`).join(', ')}]`);
+        console.log(`   Total categories: ${summary.totalCategories}`);
+        console.log(`   Total subcategories: ${summary.totalSubCategories}`);
+        console.log(`\n✅ [SUGGESTED BLIPS] Will use CATEGORY-ENHANCED algorithm`);
+      } else {
+        console.log(`\n⚠️ [SUGGESTED BLIPS] Buyer has NO selected categories`);
+        console.log(`✅ [SUGGESTED BLIPS] Will use RANDOM algorithm (no filtering)`);
       }
+    } else {
+      console.log(`❌ [SUGGESTED BLIPS] User is NOT authenticated (guest user)`);
+      console.log(`✅ [SUGGESTED BLIPS] Will use RANDOM algorithm (no filtering)`);
     }
-    
-    // Get total count for primary match stage
-    let total = await productRepository.countProductsWithBlips(primaryMatchStage);
+
+    console.log(`${'='.repeat(80)}\n`);
+
+    // Build match stages based on whether buyer has selected categories
+    // For logged-in buyers with selected categories, we prioritize those categories
+    // For non-logged-in buyers or buyers without categories, we use the standard algorithm
+    const useCategoryFilter = isAuthenticated && selectedCategoryNames.length > 0;
+    let primaryMatchStage, fallbackMatchStage;
+
+    if (useCategoryFilter) {
+      primaryMatchStage = pipelineHelper.buildCategoryEnhancedMatchStage(selectedCategoryNames);
+      fallbackMatchStage = pipelineHelper.buildCategoryEnhancedFallbackMatchStage(selectedCategoryNames);
+      
+      console.log(`\n🔧 [SUGGESTED BLIPS] MONGODB QUERY FILTER:`);
+      console.log(`   Using category filter: { category: { $in: [${selectedCategoryNames.map(c => `"${c}"`).join(', ')}] } }`);
+      console.log(`   This will ONLY return products where product.category matches one of the above categories\n`);
+    } else {
+      primaryMatchStage = pipelineHelper.buildPrimaryMatchStage();
+      fallbackMatchStage = pipelineHelper.buildFallbackMatchStage();
+      
+      console.log(`\n🔧 [SUGGESTED BLIPS] MONGODB QUERY FILTER:`);
+      console.log(`   No category filter applied - will return random products from ALL categories\n`);
+    }
+
+    // Count total products
+    let total = await productRepository.countProductsWithBlips({ 'blips.0': { $exists: true }, status: { $ne: 'draft' } });
     const poolSize = Math.max(10, Math.min(total, limit * 3));
     
-    const now = new Date();
+    // Build common pipeline
+    const commonPipeline = pipelineHelper.buildCommonPipeline(poolSize);
+
+    // Validate and clean ObjectIds
+    const { seenBlipObjectIds, validIds } = sessionHelper.validateAndCleanObjectIds(seenBlipIds);
     
-    // Common pipeline stages
-    const commonPipeline = [
-      {
-        $addFields: {
-          randomScore: { $rand: {} },
-          daysSinceCreation: {
-            $divide: [
-              { $subtract: [now, { $ifNull: ["$blips.createdAt", now] }] },
-              1000 * 60 * 60 * 24
-            ]
-          },
-          engagementScore: {
-            $add: [
-              { $ifNull: ["$blips.viewCount", 0] },
-              { $multiply: [{ $size: { $ifNull: ["$blips.likes", []] } }, 5] },
-              { $multiply: [{ $size: { $ifNull: ["$blips.comments", []] } }, 10] }
-            ]
-          }
-        }
-      },
-      {
-        $lookup: {
-          from: 'sellers',
-          localField: 'seller',
-          foreignField: '_id',
-          as: 'sellerInfo'
-        }
-      },
-      { $unwind: '$sellerInfo' },
-      {
-        $lookup: {
-          from: 'buyers',
-          localField: 'auction.currentHighestBid.buyer',
-          foreignField: '_id',
-          as: 'highestBidder'
-        }
-      },
-      { $sort: { randomScore: -1 } },
-      { $limit: poolSize },
-      {
-        $project: {
-          _id: '$_id',
-          blipId: '$blips._id',
-          blipUrl: '$blips.url',
-          processed: '$blips.processed',
-          thumbnail: { 
-            $ifNull: [
-              '$blips.thumbnail', 
-              'https://res.cloudinary.com/dljgzevaj/image/upload/v1742758888/sans-affiche_zu6wj4.png'
-            ] 
-          },
-          productId: '$_id',
-          productName: '$name',
-          price: '$price',
-          category: '$category',
-          subCategory: '$subCategory',
-          stock: '$stock',
-          status: '$status',
-          auctionInfo: {
-            $cond: {
-              if: { $eq: ['$status', 'offline_auction',] },
-              then: {
-                minBid: '$auction.minBid',
-                maxBid: '$auction.maxBid',
-                endOnMaxBid: '$auction.endOnMaxBid',
-                startDate: '$auction.startDate',
-                endDate: '$auction.endDate',
-                status: '$auction.status',
-                daysLeft: '$auction.daysLeft',
-                currentHighestBid: {
-                  amount: '$auction.currentHighestBid.amount',
-                  buyer: {
-                    _id: '$auction.currentHighestBid.buyer',
-                    firstName: { $arrayElemAt: ['$highestBidder.firstName', 0] },
-                    lastName: { $arrayElemAt: ['$highestBidder.lastName', 0] },
-                    profileImage: { $arrayElemAt: ['$highestBidder.profileImage', 0] }
-                  }
-                },
-                winner: {
-                  buyer: '$auction.winner.buyer',
-                  bidAmount: '$auction.winner.bidAmount',
-                  winningDate: '$auction.winner.winningDate'
-                },
-                bidsCount: {
-                  $cond: {
-                    if: { $isArray: '$auction.bids' },
-                    then: { $size: '$auction.bids' },
-                    else: 0
-                  }
-                }
-              },
-              else: null
-            }
-          },
-          discount: {
-            isActive: '$discount.isActive',
-            type: '$discount.type',
-            value: '$discount.value',
-            startDate: '$discount.startDate',
-            endDate: '$discount.endDate',
-            couponName: '$discount.couponName',
-            discountedPrice: {
-              $cond: {
-                if: '$discount.isActive',
-                then: {
-                  $cond: {
-                    if: { $eq: ['$discount.type', 'percentage'] },
-                    then: { $round: [{ $multiply: ['$price', { $subtract: [1, { $divide: ['$discount.value', 100] }] }] }, 0] },
-                    else: { $subtract: ['$price', '$discount.value'] }
-                  }
-                },
-                else: '$price'
-              }
-            }
-          },
-          seller: {
-            _id: '$sellerInfo._id',
-            firstName: '$sellerInfo.firstName',
-            lastName: '$sellerInfo.lastName',
-            storeName: '$sellerInfo.storeName',
-            storeAvatar: '$sellerInfo.storeAvatar',
-            aboutStore: '$sellerInfo.aboutStore',
-            storeRating: { $ifNull: ['$sellerInfo.stats.averageRating', 0] },
-            totalStoreReviews: { $ifNull: ['$sellerInfo.stats.totalReviews', 0] },
-            isFollowing: {
-              $cond: {
-                if: { $isArray: '$sellerInfo.followers' },
-                then: {
-                  $in: [
-                    { $toObjectId: { $ifNull: [buyerId, null] } },
-                    { $ifNull: ['$sellerInfo.followers.buyerId', []] }
-                  ]
-                },
-                else: false
-              }
-            },
-            isFeatured: { $ifNull: ['$sellerInfo.isFeatured', false] }
-          },
-          images: { $first: '$images.url' },
-          blipEngagement: {
-            likesCount: {
-              $size: {
-                $cond: {
-                  if: { $isArray: '$blips.likes' },
-                  then: '$blips.likes',
-                  else: []
-                }
-              }
-            },
-            commentsCount: {
-              $size: {
-                $cond: {
-                  if: { $isArray: '$blips.comments' },
-                  then: '$blips.comments',
-                  else: []
-                }
-              }
-            },
-            viewCount: '$blips.viewCount',
-            isLiked: {
-              $cond: {
-                if: { $and: [isAuthenticated, { $isArray: '$blips.likes' }] },
-                then: {
-                  $in: [
-                    { $toObjectId: { $ifNull: [buyerId, null] } },
-                    '$blips.likes'
-                  ]
-                },
-                else: false
-              }
-            }
-          },
-          averageRating: {
-            $cond: {
-              if: { $isArray: '$reviews' },
-              then: { $avg: '$reviews.rating' },
-              else: null
-            }
-          },
-          reviewCount: {
-            $cond: {
-              if: { $isArray: '$reviews' },
-              then: { $size: '$reviews' },
-              else: 0
-            }
-          },
-          createdAt: '$blips.createdAt',
-          daysSinceCreation: 1,
-          engagementScore: 1
-        }
-      }
-    ];
-    
-    // Primary pipeline
-    const primaryPipeline = [
+    // Update session with cleaned IDs if needed
+    if (validIds !== seenBlipIds) {
+      sessionData.seenBlipIds = validIds;
+    }
+
+    // Log exclusion match stage details
+    if (seenBlipObjectIds.length > 0) {
+      console.log(`🚫 [SUGGESTED BLIPS DEBUG] Excluding ${seenBlipObjectIds.length} blip ObjectIds from query`);
+      console.log(`🚫 [SUGGESTED BLIPS DEBUG] String IDs: ${seenBlipIds.slice(0, 3).join(', ')}`);
+      console.log(`🚫 [SUGGESTED BLIPS DEBUG] ObjectIds: ${seenBlipObjectIds.slice(0, 3).map(id => id.toString()).join(', ')}`);
+    }
+
+    // Execute primary pipeline
+    const { pipeline: primaryPipeline, exclusionMatchStage } = pipelineHelper.buildPrimaryPipeline(
+      primaryMatchStage, 
+      seenBlipObjectIds, 
+      commonPipeline
+    );
+
+    console.log(`🔎 [SUGGESTED BLIPS DEBUG] Executing primary pipeline with ${seenBlipObjectIds.length} exclusions...`);
+    let products;
+    try {
+      products = await productRepository.aggregateProducts(primaryPipeline);
+    } catch (dbError) {
+      console.error(`❌ [SUGGESTED BLIPS DEBUG] Database error in primary pipeline:`, dbError.message);
+      // Fallback to query without exclusions if there's a DB error
+      const simplePipeline = [
       { $match: primaryMatchStage },
-      { $unwind: '$blips' },
-      { $match: { 'blips.processed': true } },
-      ...commonPipeline
-    ];
-    
-    // Fetch blips with primary criteria
-    let allBlips = await productRepository.aggregateProducts(primaryPipeline);
-    
-    // Fallback if no blips are found
-    if (allBlips.length === 0) {
-      console.log('No processed blips found, falling back to all blips');
-      total = await productRepository.countProductsWithBlips(fallbackMatchStage);
-      const fallbackPipeline = [
-        { $match: fallbackMatchStage },
-        { $unwind: '$blips' },
+        { $unwind: "$blips" },
+        { $match: { "blips.processed": true } },
         ...commonPipeline
       ];
-      allBlips = await productRepository.aggregateProducts(fallbackPipeline);
+      products = await productRepository.aggregateProducts(simplePipeline);
+      console.log(`🔄 [SUGGESTED BLIPS DEBUG] Used fallback pipeline without exclusions due to DB error`);
     }
     
-    // Handle case when no blips are found (should be rare with fallback)
-    if (allBlips.length === 0) {
+    console.log(`📊 [SUGGESTED BLIPS DEBUG] Primary pipeline returned: ${products.length} products`);
+
+    // Fallback if no products found
+    if (products.length === 0) {
+      console.log('❌ [SUGGESTED BLIPS DEBUG] No primary blips, falling back to general pool');
+
+      const { pipeline: fallbackPipeline } = pipelineHelper.buildFallbackPipeline(
+        fallbackMatchStage, 
+        seenBlipObjectIds, 
+        commonPipeline
+      );
+
+      console.log(`🔎 [SUGGESTED BLIPS DEBUG] Executing fallback pipeline with ${seenBlipObjectIds.length} exclusions...`);
+      try {
+        products = await productRepository.aggregateProducts(fallbackPipeline);
+      } catch (dbError) {
+        console.error(`❌ [SUGGESTED BLIPS DEBUG] Database error in fallback pipeline:`, dbError.message);
+        // Final fallback to simple query without exclusions
+        const simpleFallbackPipeline = pipelineHelper.buildSimpleFallbackPipeline(fallbackMatchStage, commonPipeline);
+        products = await productRepository.aggregateProducts(simpleFallbackPipeline);
+        console.log(`🔄 [SUGGESTED BLIPS DEBUG] Used simple fallback without exclusions due to DB error`);
+      }
+      console.log(`📊 [SUGGESTED BLIPS DEBUG] Fallback pipeline returned: ${products.length} products`);
+
+      // Final fallback: If category-filtered queries returned no results, try without category filter
+      // This ensures we always return blips even if the buyer's selected categories have no matching products
+      if (products.length === 0 && useCategoryFilter) {
+        console.log('🔄 [SUGGESTED BLIPS] Category-filtered queries returned no results, falling back to non-filtered blips');
+        
+        // Build non-filtered match stages
+        const nonFilteredPrimaryMatch = pipelineHelper.buildPrimaryMatchStage();
+        const nonFilteredFallbackMatch = pipelineHelper.buildFallbackMatchStage();
+
+        // Try non-filtered fallback
+        const { pipeline: nonFilteredPipeline } = pipelineHelper.buildFallbackPipeline(
+          nonFilteredFallbackMatch,
+          seenBlipObjectIds,
+          commonPipeline
+        );
+
+        try {
+          products = await productRepository.aggregateProducts(nonFilteredPipeline);
+          console.log(`📊 [SUGGESTED BLIPS] Non-filtered fallback returned: ${products.length} products`);
+        } catch (dbError) {
+          console.error(`❌ [SUGGESTED BLIPS] Database error in non-filtered fallback:`, dbError.message);
+          // Absolute final fallback
+          const simplePipeline = pipelineHelper.buildSimpleFallbackPipeline(nonFilteredFallbackMatch, commonPipeline);
+          products = await productRepository.aggregateProducts(simplePipeline);
+          console.log(`🔄 [SUGGESTED BLIPS] Used simple non-filtered fallback: ${products.length} products`);
+        }
+      }
+    }
+
+    // Populate seller information
+    await productRepository.populateSellerInfo(products);
+
+    if (products.length === 0) {
       return {
         blips: [],
-        isPersonalized: buyerCategories.length > 0,
+        isPersonalized: selectedCategoryNames.length > 0,
         currentPage: page,
         totalPages: 0,
-        totalBlips: 0
+        totalBlips: 0,
+        sessionId
       };
     }
-    
-    // Process blips with additional metadata for categorization
-    const transformedBlips = allBlips.map(blip => {
-      const isInBuyerCategory = buyerCategories.length > 0 && 
-        (buyerCategories.includes(blip.category) || buyerCategories.includes(blip.subCategory));
-      const isFollowingSeller = followedSellers.includes(blip.seller._id.toString());
-      
-      blip._metadata = {
-        isInBuyerCategory,
-        isFollowingSeller: isFollowingSeller || blip.seller.isFollowing,
-        engagementScore: blip.engagementScore,
-        daysSinceCreation: blip.daysSinceCreation,
-        isNewBlip: blip.daysSinceCreation < 7,
-        isLowView: (blip.blipEngagement.viewCount || 0) < 50,
-        sellerId: blip.seller._id.toString()
-      };
-      
-      delete blip.daysSinceCreation;
-      delete blip.engagementScore;
-      
-      return blip;
-    });
+
+    // Transform products to blips
+    const transformedBlips = transformationHelper.transformProductsToBlips(
+      products, 
+      buyerId, 
+      isAuthenticated, 
+      followedSellers
+    );
     
     // Categorize blips
-    const categorizedBlips = {
-      newInBuyerCategory: [],
-      followedSellers: [],
-      highEngagement: [],
-      undiscovered: [],
-      random: []
-    };
-    
-    transformedBlips.forEach(blip => {
-      const meta = blip._metadata;
-      delete blip._metadata;
-      
-      if (isAuthenticated && meta.isInBuyerCategory && meta.isNewBlip) {
-        categorizedBlips.newInBuyerCategory.push(blip);
-      } else if (isAuthenticated && meta.isFollowingSeller) {
-        categorizedBlips.followedSellers.push(blip);
-      } else if (meta.engagementScore > 100) {
-        categorizedBlips.highEngagement.push(blip);
-      } else if (meta.isLowView) {
-        categorizedBlips.undiscovered.push(blip);
-      } else {
-        categorizedBlips.random.push(blip);
-      }
-    });
+    const categorizedBlips = transformationHelper.categorizeBlips(transformedBlips, isAuthenticated);
     
     // Shuffle each category
-    Object.keys(categorizedBlips).forEach(category => {
-      const array = categorizedBlips[category];
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-      }
-    });
-    
-    // Distribute blips
-    const rearrangedBlips = [];
-    const sellerTracker = new Map();
-    const productTracker = new Map();
-    const minSellerDistance = 3;
-    
-    const addBlipsFromCategory = (category, count) => {
-      let added = 0;
-      let index = 0;
-      
-      while (added < count && index < categorizedBlips[category].length) {
-        const blip = categorizedBlips[category][index];
-        const sellerId = blip.seller._id.toString();
-        const productId = blip.productId.toString();
-        
-        if (productTracker.has(productId)) {
-          index++;
-          continue;
-        }
-        
-        const lastPosition = sellerTracker.get(sellerId) || -minSellerDistance;
-        if (rearrangedBlips.length - lastPosition >= minSellerDistance) {
-          rearrangedBlips.push(blip);
-          sellerTracker.set(sellerId, rearrangedBlips.length - 1);
-          productTracker.set(productId, true);
-          categorizedBlips[category].splice(index, 1);
-          added++;
+    transformationHelper.shuffleCategories(categorizedBlips);
+
+    // Create balanced distribution
+    const finalBlips = transformationHelper.createBalancedBlipDistribution(categorizedBlips, limit);
+
+    // Extract the blip IDs from the final result to add to seen blips
+    const newlySeenBlipIds = finalBlips.map(blip => blip.blipId.toString());
+    console.log(`➕ [SUGGESTED BLIPS DEBUG] Adding ${newlySeenBlipIds.length} new blip IDs to session`);
+    console.log(`➕ [SUGGESTED BLIPS DEBUG] New blip IDs: ${newlySeenBlipIds.slice(0, 3).join(', ')}${newlySeenBlipIds.length > 3 ? '...' : ''}`);
+
+    // Final check: ensure no duplicates in the final result
+    const duplicatesInResult = newlySeenBlipIds.filter(id => seenBlipIds.includes(id));
+    if (duplicatesInResult.length > 0) {
+      console.log(`🚨 [SUGGESTED BLIPS DEBUG] CRITICAL ERROR: Found duplicates in final result: ${duplicatesInResult.join(', ')}`);
+      console.log(`🚨 [SUGGESTED BLIPS DEBUG] This indicates the MongoDB exclusion is not working properly`);
         } else {
-          index++;
-        }
-        
-        if (index >= categorizedBlips[category].length && added < count && categorizedBlips[category].length > 0) {
-          index = 0;
-          const blip = categorizedBlips[category][0];
-          rearrangedBlips.push(blip);
-          sellerTracker.set(blip.seller._id.toString(), rearrangedBlips.length - 1);
-          productTracker.set(blip.productId.toString(), true);
-          categorizedBlips[category].splice(0, 1);
-          added++;
-        }
-      }
-      
-      return added;
-    };
-    
-    const totalNeeded = limit;
-    let remaining = totalNeeded;
-    
-    const categoryOrder = [
-      'newInBuyerCategory',
-      'highEngagement',
-      'followedSellers',
-      'undiscovered',
-      'random'
-    ];
-    
-    for (const category of categoryOrder) {
-      if (remaining > 0 && categorizedBlips[category].length > 0) {
-        const toAdd = Math.min(1, remaining, categorizedBlips[category].length);
-        const added = addBlipsFromCategory(category, toAdd);
-        remaining -= added;
-      }
+      console.log(`✅ [SUGGESTED BLIPS DEBUG] No duplicates found in final result - exclusion working correctly`);
+    }
+
+    // Update session with new blips
+    sessionHelper.updateSessionWithNewBlips(sessionData, newlySeenBlipIds, page);
+
+    // Log some final stats
+    console.log(`📤 [SUGGESTED BLIPS DEBUG] Returning ${finalBlips.length} blips for page ${page}`);
+    if (finalBlips.length > 0) {
+      console.log(`📤 [SUGGESTED BLIPS DEBUG] First blip product: ${finalBlips[0].productName} (ID: ${finalBlips[0].blipId})`);
     }
     
-    while (remaining > 0) {
-      let addedAny = false;
-      
-      for (const category of categoryOrder) {
-        if (remaining > 0 && categorizedBlips[category].length > 0) {
-          const toAdd = Math.min(5, remaining, categorizedBlips[category].length);
-          const added = addBlipsFromCategory(category, toAdd);
-          remaining -= added;
-          if (added > 0) addedAny = true;
-        }
-      }
-      
-      if (!addedAny) break;
+    // Log personalization status with final category breakdown
+    if (useCategoryFilter) {
+      console.log(`\n✨ [SUGGESTED BLIPS] Returned personalized blips based on ${selectedCategoryNames.length} selected categories`);
     }
-    
-    if (remaining > 0) {
-      const allRemaining = [].concat(...Object.values(categorizedBlips));
-      for (let i = allRemaining.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [allRemaining[i], allRemaining[j]] = [allRemaining[j], allRemaining[i]];
-      }
-      
-      let index = 0;
-      while (remaining > 0 && index < allRemaining.length) {
-        const blip = allRemaining[index];
-        const sellerId = blip.seller._id.toString();
-        const productId = blip.productId.toString();
-        
-        if (productTracker.has(productId)) {
-          index++;
-          continue;
-        }
-        
-        const lastPosition = sellerTracker.get(sellerId) || -minSellerDistance;
-        if (rearrangedBlips.length - lastPosition >= minSellerDistance) {
-          rearrangedBlips.push(blip);
-          sellerTracker.set(sellerId, rearrangedBlips.length - 1);
-          productTracker.set(productId, true);
-          remaining--;
-        }
-        
-        index++;
-        
-        if (index >= allRemaining.length && remaining > 0 && allRemaining.length > 0) {
-          for (let i = 0; i < allRemaining.length; i++) {
-            const blip = allRemaining[i];
-            if (!productTracker.has(blip.productId.toString())) {
-              rearrangedBlips.push(blip);
-              productTracker.set(blip.productId.toString(), true);
-              remaining--;
-              break;
-            }
-          }
-        }
-      }
-    }
-    
-    console.log(`Found ${rearrangedBlips.length} suggested blips with distribution algorithm`);
     
     return {
-      blips: rearrangedBlips,
-      isPersonalized: buyerCategories.length > 0,
+      blips: finalBlips,
+      isPersonalized: selectedCategoryNames.length > 0,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
-      totalBlips: total
+      totalBlips: total,
+      sessionId
     };
   }
 }
