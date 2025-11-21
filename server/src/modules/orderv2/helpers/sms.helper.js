@@ -19,7 +19,6 @@ const termiiAPI = require('../../../config/termii');
 const Buyer = require('../../../models/Buyer');
 const Seller = require('../../../models/Seller');
 const { generateOTP } = require('../../../utils/helpers');
-require('dotenv').config();
 
 /**
  * Formats phone number for Termii API.
@@ -67,17 +66,10 @@ async function sendSMS(phoneNumber, message) {
       return false;
     }
 
-    // Step 2: Check if API key is available
-    const apiKey = process.env.TERMII_API_KEY;
-    if (!apiKey) {
-      console.error('TERMII_API_KEY environment variable is not set');
-      return false;
-    }
-
-    // Step 3: Prepare Termii API request payload
+    // Step 2: Prepare Termii API request payload
     // Using generic channel for order notifications
     const payload = {
-      api_key: apiKey,
+      api_key: process.env.TERMII_API_KEY,
       to: formattedPhoneNumber,
       from: process.env.TERMII_SENDER_ID || 'Auqli',
       sms: message,
@@ -85,10 +77,10 @@ async function sendSMS(phoneNumber, message) {
       channel: 'generic'
     };
 
-    // Step 4: Send SMS via Termii API
+    // Step 3: Send SMS via Termii API
     const response = await termiiAPI.post('/api/sms/send', payload);
 
-    // Step 5: Verify successful response from Termii API
+    // Step 4: Verify successful response from Termii API
     if (response.data && response.data.code === 'ok') {
       console.log(`✅ SMS sent successfully to ${phoneNumber}`);
       return true;
