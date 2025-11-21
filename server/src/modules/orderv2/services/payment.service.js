@@ -2,6 +2,7 @@
 const mongoose = require('mongoose');
 const orderRepository = require('../repositories/order.repository');
 const arrangeShipmentHelper = require('../helpers/order.helper');
+const { sendOrderPaymentConfirmationSMS } = require('../helpers/sms.helper');
 const Product = require('../../../models/Product');
 const Buyer = require('../../../models/Buyer');
 const Seller = require('../../../models/Seller');
@@ -142,6 +143,7 @@ exports.payForOrder = async (orderId, paymentDetails) => {
             session.endSession();
 
             // Send notifications
+            let smsStatus = { buyerSMS: { success: false }, sellerSMS: { success: false } };
             try {
                 const buyer = await Buyer.findById(order.buyer);
                 const seller = await Seller.findById(order.seller);
@@ -152,6 +154,16 @@ exports.payForOrder = async (orderId, paymentDetails) => {
                     await arrangeShipmentHelper.sendSlackNotificationForPaidOrder(order, buyer, sellerName);
                     await arrangeShipmentHelper.sendOrderConfirmationEmail(order, buyer);
                     await arrangeShipmentHelper.sendSellerOrderNotificationEmail(order, seller);
+                    
+                    // Send SMS notifications to buyer and seller (non-blocking)
+                    // This will not affect order processing if SMS sending fails
+                    try {
+                        const sellerForSMS = await Seller.findById(order.seller).select('phoneNumber firstName lastName businessName storeName');
+                        smsStatus = await sendOrderPaymentConfirmationSMS(order, buyer, sellerForSMS);
+                    } catch (smsError) {
+                        // Log error but don't throw - SMS failures should not affect order processing
+                        console.error(`Error sending SMS notifications for order ${order.order_id}:`, smsError);
+                    }
                 }
             } catch (notificationError) {
                 console.error(`Failed to send notifications for order ${order.order_id}:`, notificationError);
@@ -161,7 +173,8 @@ exports.payForOrder = async (orderId, paymentDetails) => {
                 message: 'Payment successful and order is now being processed.',
                 order_id: order.order_id,
                 status: order.status,
-                paid: order.paid
+                paid: order.paid,
+                smsStatus: smsStatus
             };
         } else {
             throw new Error('Payment could not be verified.');

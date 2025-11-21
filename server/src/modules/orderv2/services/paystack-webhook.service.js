@@ -91,17 +91,33 @@ async function handleSuccessfulPayment(event) {
       }
     }
 
-    // Send SMS notifications to buyer and seller (non-blocking)
+    // Send SMS notifications to buyer and seller with OTP (non-blocking)
     // This will not affect order processing if SMS sending fails
+    let smsStatus = { buyerSMS: { success: false }, sellerSMS: { success: false } };
     try {
       const seller = await Seller.findById(order.seller).select('phoneNumber firstName lastName businessName storeName');
-      await sendOrderPaymentConfirmationSMS(order, webhookBuyer, seller);
+      smsStatus = await sendOrderPaymentConfirmationSMS(order, webhookBuyer, seller);
+      
+      // Reload order to get updated SMS status and OTP
+      const orderWithSMS = await orderRepository.findOrderById(order._id);
+      if (orderWithSMS) {
+        order = orderWithSMS;
+      }
     } catch (smsError) {
       // Log error but don't throw - SMS failures should not affect order processing
       console.error(`Error sending SMS notifications for order ${order.order_id}:`, smsError);
     }
 
-    return { status: 200, data: { message: 'Terminal Africa payment processed successfully' } };
+    return { 
+      status: 200, 
+      data: { 
+        message: 'Terminal Africa payment processed successfully',
+        order: {
+          order_id: order.order_id,
+          smsStatus: order.smsStatus || smsStatus
+        }
+      } 
+    };
   } catch (error) {
     console.error('Error processing Terminal Africa Paystack webhook:', error);
     return { status: 200, data: { message: 'Error processing webhook, but acknowledging receipt' } };

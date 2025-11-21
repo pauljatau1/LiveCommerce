@@ -18,6 +18,8 @@
 const termiiAPI = require('../../../config/termii');
 const Buyer = require('../../../models/Buyer');
 const Seller = require('../../../models/Seller');
+const { generateOTP } = require('../../../utils/helpers');
+require('dotenv').config();
 
 /**
  * Formats phone number for Termii API.
@@ -65,10 +67,17 @@ async function sendSMS(phoneNumber, message) {
       return false;
     }
 
-    // Step 2: Prepare Termii API request payload
+    // Step 2: Check if API key is available
+    const apiKey = process.env.TERMII_API_KEY;
+    if (!apiKey) {
+      console.error('TERMII_API_KEY environment variable is not set');
+      return false;
+    }
+
+    // Step 3: Prepare Termii API request payload
     // Using generic channel for order notifications
     const payload = {
-      api_key: process.env.TERMII_API_KEY,
+      api_key: apiKey,
       to: formattedPhoneNumber,
       from: process.env.TERMII_SENDER_ID || 'Auqli',
       sms: message,
@@ -76,10 +85,10 @@ async function sendSMS(phoneNumber, message) {
       channel: 'generic'
     };
 
-    // Step 3: Send SMS via Termii API
+    // Step 4: Send SMS via Termii API
     const response = await termiiAPI.post('/api/sms/send', payload);
 
-    // Step 4: Verify successful response from Termii API
+    // Step 5: Verify successful response from Termii API
     if (response.data && response.data.code === 'ok') {
       console.log(`✅ SMS sent successfully to ${phoneNumber}`);
       return true;
@@ -132,7 +141,7 @@ function getSellerOrderNotificationMessage(order, buyerName) {
     minimumFractionDigits: 0
   });
   
-  return `New order on Auqli! Order #${order.order_id} from ${buyerName}. Amount: ${formattedAmount}. Please prepare items for shipping. Check your seller dashboard for details.`;
+  return `New Paid order on Auqli! Order #${order.order_id} from ${buyerName}. Amount: ${formattedAmount}. Please prepare items for shipping. Check your seller dashboard for details.`;
 }
 
 /**
@@ -143,20 +152,25 @@ function getSellerOrderNotificationMessage(order, buyerName) {
  *
  * @param {Object} order - The order object
  * @param {Object} buyer - The buyer object (must have phoneNumber field)
- * @returns {Promise<boolean>} True if SMS sent successfully, false otherwise
+ * @returns {Promise<{success: boolean, error?: string}>} Result object with success status
  */
 async function sendBuyerOrderConfirmationSMS(order, buyer) {
   // Check if buyer has a phone number
   if (!buyer || !buyer.phoneNumber) {
     console.log(`Skipping buyer SMS for order ${order.order_id}: No phone number available`);
-    return false;
+    return { success: false, error: 'No phone number available' };
   }
 
   // Construct the SMS message
   const message = getBuyerOrderConfirmationMessage(order);
 
   // Send SMS (non-blocking - failures won't affect order processing)
-  return await sendSMS(buyer.phoneNumber, message);
+  const success = await sendSMS(buyer.phoneNumber, message);
+  
+  return {
+    success: success,
+    error: success ? undefined : 'Failed to send SMS'
+  };
 }
 
 /**
@@ -168,41 +182,76 @@ async function sendBuyerOrderConfirmationSMS(order, buyer) {
  * @param {Object} order - The order object
  * @param {Object} seller - The seller object (must have phoneNumber field)
  * @param {string} buyerName - The buyer's name for the notification
- * @returns {Promise<boolean>} True if SMS sent successfully, false otherwise
+ * @returns {Promise<{success: boolean, error?: string}>} Result object with success status
  */
 async function sendSellerOrderNotificationSMS(order, seller, buyerName) {
   // Check if seller has a phone number
   if (!seller || !seller.phoneNumber) {
     console.log(`Skipping seller SMS for order ${order.order_id}: No phone number available`);
-    return false;
+    return { success: false, error: 'No phone number available' };
   }
 
   // Construct the SMS message
   const message = getSellerOrderNotificationMessage(order, buyerName);
 
   // Send SMS (non-blocking - failures won't affect order processing)
-  return await sendSMS(seller.phoneNumber, message);
+  const success = await sendSMS(seller.phoneNumber, message);
+  
+  return {
+    success: success,
+    error: success ? undefined : 'Failed to send SMS'
+  };
+}
+
+/**
+ * Generates and stores payment OTP for an order.
+ *
+ * This function generates a 4-digit OTP, sets expiration (10 minutes),
+ * and saves it to the order document.
+ *
+ * @param {Object} order - The order object (Mongoose document)
+ * @returns {string} The generated OTP code
+ */
+function generateAndStorePaymentOTP(order) {
+  // Generate 4-digit OTP
+  const otp = generateOTP();
+  
+  // Set expiration to 10 minutes from now
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  
+  // Store OTP and expiration in order
+  order.paymentOTP = otp;
+  order.paymentOTPExpires = expiresAt;
+  
+  return otp;
 }
 
 /**
  * Sends order payment confirmation SMS to both buyer and seller.
  * 
  * This is the main function that orchestrates sending SMS notifications to both
- * buyer and seller when an order is paid. It's designed to be completely non-blocking
- * and will not throw errors that affect order processing.
+ * buyer and seller when an order is paid. It's designed to be completely
+ * non-blocking and will not throw errors that affect order processing.
  *
  * Usage:
  * - Call this function after an order is marked as paid
- * - Pass the order object and optionally the buyer/seller objects
+ * - Pass the order object (Mongoose document) and optionally the buyer/seller objects
  * - If buyer/seller objects are not provided, they will be fetched from the database
+ * - SMS sending status is tracked in order.smsStatus
  * - SMS sending failures are logged but don't affect the return value
  *
- * @param {Object} order - The order object (must have order_id, totalAmount, buyer, seller)
+ * @param {Object} order - The order object (Mongoose document, must have order_id, totalAmount, buyer, seller)
  * @param {Object} [buyer] - Optional buyer object (if not provided, will be fetched)
  * @param {Object} [seller] - Optional seller object (if not provided, will be fetched)
- * @returns {Promise<void>} Resolves when SMS sending attempts are complete (regardless of success/failure)
+ * @returns {Promise<{buyerSMS: {success: boolean, error?: string}, sellerSMS: {success: boolean, error?: string}}>} 
+ *   Object with SMS sending status for both buyer and seller
  */
 async function sendOrderPaymentConfirmationSMS(order, buyer = null, seller = null) {
+  const smsStatus = {
+    buyerSMS: { success: false },
+    sellerSMS: { success: false }
+  };
+
   try {
     // Step 1: Fetch buyer if not provided
     let buyerData = buyer;
@@ -211,6 +260,7 @@ async function sendOrderPaymentConfirmationSMS(order, buyer = null, seller = nul
         buyerData = await Buyer.findById(order.buyer).select('phoneNumber firstName lastName');
       } catch (error) {
         console.error(`Error fetching buyer for SMS notification (order ${order.order_id}):`, error.message);
+        smsStatus.buyerSMS.error = `Error fetching buyer: ${error.message}`;
       }
     }
 
@@ -221,32 +271,82 @@ async function sendOrderPaymentConfirmationSMS(order, buyer = null, seller = nul
         sellerData = await Seller.findById(order.seller).select('phoneNumber firstName lastName businessName storeName');
       } catch (error) {
         console.error(`Error fetching seller for SMS notification (order ${order.order_id}):`, error.message);
+        smsStatus.sellerSMS.error = `Error fetching seller: ${error.message}`;
       }
     }
 
     // Step 3: Send SMS to buyer (non-blocking)
     if (buyerData) {
-      sendBuyerOrderConfirmationSMS(order, buyerData).catch(error => {
+      try {
+        const buyerResult = await sendBuyerOrderConfirmationSMS(order, buyerData);
+        smsStatus.buyerSMS = {
+          success: buyerResult.success,
+          sentAt: buyerResult.success ? new Date() : undefined,
+          error: buyerResult.error
+        };
+        
+        if (buyerResult.success) {
+          console.log(`✅ Buyer SMS sent successfully for order ${order.order_id}`);
+        } else {
+          console.error(`❌ Failed to send buyer SMS for order ${order.order_id}: ${buyerResult.error}`);
+        }
+      } catch (error) {
         console.error(`Error sending buyer SMS for order ${order.order_id}:`, error.message);
-      });
+        smsStatus.buyerSMS.error = error.message;
+      }
+    } else {
+      smsStatus.buyerSMS.error = 'Buyer not found or no phone number available';
+      console.log(`Skipping buyer SMS for order ${order.order_id}: Buyer not found or no phone number`);
     }
 
     // Step 4: Send SMS to seller (non-blocking)
     if (sellerData) {
-      const buyerName = buyerData 
-        ? `${buyerData.firstName || ''} ${buyerData.lastName || ''}`.trim() || 'Customer'
-        : 'Customer';
-      
-      sendSellerOrderNotificationSMS(order, sellerData, buyerName).catch(error => {
+      try {
+        const buyerName = buyerData 
+          ? `${buyerData.firstName || ''} ${buyerData.lastName || ''}`.trim() || 'Customer'
+          : 'Customer';
+        
+        const sellerResult = await sendSellerOrderNotificationSMS(order, sellerData, buyerName);
+        smsStatus.sellerSMS = {
+          success: sellerResult.success,
+          sentAt: sellerResult.success ? new Date() : undefined,
+          error: sellerResult.error
+        };
+        
+        if (sellerResult.success) {
+          console.log(`✅ Seller SMS sent successfully for order ${order.order_id}`);
+        } else {
+          console.error(`❌ Failed to send seller SMS for order ${order.order_id}: ${sellerResult.error}`);
+        }
+      } catch (error) {
         console.error(`Error sending seller SMS for order ${order.order_id}:`, error.message);
-      });
+        smsStatus.sellerSMS.error = error.message;
+      }
+    } else {
+      smsStatus.sellerSMS.error = 'Seller not found or no phone number available';
+      console.log(`Skipping seller SMS for order ${order.order_id}: Seller not found or no phone number`);
     }
 
-    console.log(`SMS notification attempts initiated for order ${order.order_id}`);
+    // Step 5: Update order with SMS status
+    order.smsStatus = smsStatus;
+    await order.save();
+
+    console.log(`📱 SMS notification attempts completed for order ${order.order_id}. Buyer: ${smsStatus.buyerSMS.success ? '✅' : '❌'}, Seller: ${smsStatus.sellerSMS.success ? '✅' : '❌'}`);
+
   } catch (error) {
     // Log error but don't throw - SMS failures should never affect order processing
     console.error(`Error in sendOrderPaymentConfirmationSMS for order ${order.order_id}:`, error.message);
+    
+    // Update order with error status if possible
+    try {
+      order.smsStatus = smsStatus;
+      await order.save();
+    } catch (saveError) {
+      console.error(`Error saving SMS status for order ${order.order_id}:`, saveError.message);
+    }
   }
+
+  return smsStatus;
 }
 
 /**
