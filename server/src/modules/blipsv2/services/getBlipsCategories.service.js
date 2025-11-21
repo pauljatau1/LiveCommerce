@@ -145,15 +145,15 @@ class GetBlipsCategoriesService {
         ? combinedCategories.filter(c => (c?.name || '').toLowerCase().includes(searchQuery))
         : combinedCategories;
 
-      // Ensure we always have at least 10 categories (or as many as available if less than 10 exist)
-      // If filtering removed too many, use unfiltered to ensure minimum
+      // Ensure we always have at least 10 categories available in the database (for data richness)
+      // If filtering removed too many, use unfiltered to ensure minimum availability
       let finalCategories = filteredCategories.length >= minTotalCategories 
         ? filteredCategories 
         : (filteredCategories.length > 0 ? filteredCategories : combinedCategories);
 
       // If we still don't have enough after filtering, try to get more from unfiltered
       if (finalCategories.length < minTotalCategories && combinedCategories.length > finalCategories.length) {
-        // Add more from unfiltered combined list
+        // Add more from unfiltered combined list to ensure we have at least 10 available
         const missing = minTotalCategories - finalCategories.length;
         const additionalFromUnfiltered = combinedCategories
           .filter(cat => !finalCategories.some(fc => fc.name === cat.name))
@@ -161,24 +161,10 @@ class GetBlipsCategoriesService {
         finalCategories = [...finalCategories, ...additionalFromUnfiltered];
       }
 
-      // Ensure minimum of 10 categories (or all available if less than 10 exist in total)
-      // This ensures we always return a good amount of categories
-      const minCategoriesToReturn = Math.min(minTotalCategories, finalCategories.length);
-
-      // Pagination - but ensure we return at least the minimum on first page
+      // Pagination - respect the limit parameter exactly
       const total = finalCategories.length;
-      let startIndex, endIndex;
-      
-      if (page === 1) {
-        // On first page, return at least minTotalCategories (or all if less)
-        startIndex = 0;
-        endIndex = Math.max(minCategoriesToReturn, limit);
-      } else {
-        // On subsequent pages, use normal pagination
-        startIndex = (page - 1) * limit;
-        endIndex = startIndex + limit;
-      }
-      
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
       const pageItems = finalCategories.slice(startIndex, endIndex);
 
       // Enrich with category images
@@ -501,20 +487,10 @@ class GetBlipsCategoriesService {
         currentPage = 1;
         totalPages = 1;
       } else {
-        // Apply pagination for direct calls, but ensure at least 10 on first page
+        // Apply pagination for direct calls - respect the limit parameter exactly
         total = filtered.length;
-        let startIndex, endIndex;
-        
-        if (page === 1) {
-          // On first page, return at least minTotalCategories (or all if less)
-          startIndex = 0;
-          endIndex = Math.max(minTotalCategories, limit);
-        } else {
-          // On subsequent pages, use normal pagination
-          startIndex = (page - 1) * limit;
-          endIndex = startIndex + limit;
-        }
-        
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
         finalCategories = filtered.slice(startIndex, endIndex);
         currentPage = page;
         totalPages = Math.max(1, Math.ceil(total / limit));
