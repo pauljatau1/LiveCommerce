@@ -45,7 +45,8 @@ exports.getSuggestedBlips = async (req, res) => {
       isPersonalized: result.isPersonalized,
       currentPage: result.currentPage,
       totalPages: result.totalPages,
-      totalBlips: result.totalBlips
+      totalBlips: result.totalBlips,
+      sessionId: result.sessionId
     });
   } catch (error) {
     console.error('Detailed error in getSuggestedBlips:', error);
@@ -92,7 +93,15 @@ exports.getRelatedBlips = async (req, res) => {
   try {
     const result = await getRelatedBlipsService.execute(req);
 
-    res.status(200).json(result);
+    res.status(200).json({
+      success: result.success,
+      blips: result.blips,
+      currentPage: result.currentPage,
+      totalPages: result.totalPages,
+      totalBlips: result.totalBlips,
+      hasMore: result.hasMore,
+      sessionId: result.sessionId
+    });
   } catch (error) {
     console.error('Error fetching related blips:', error);
     res.status(500).json({
