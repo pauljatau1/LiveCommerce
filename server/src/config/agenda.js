@@ -2694,6 +2694,30 @@ agenda.define('send_terminal_order_warning', async (job) => {
   }
 });
 
+// Define the job for sending stream reminder SMS 2 hours before scheduled start
+agenda.define('stream_reminder_sms', async (job) => {
+  try {
+    const { streamId } = job.attrs.data;
+    
+    if (!streamId) {
+      console.error('No streamId provided for stream_reminder_sms job');
+      return;
+    }
+    
+    console.log(`[AGENDA] Running stream reminder SMS job for streamId: ${streamId}`);
+    
+    // Import the SMS helper function
+    const { sendStreamReminderSMS } = require('../modules/orderv2/helpers/sms.helper');
+    
+    // Send reminder SMS to seller and subscribed buyers
+    await sendStreamReminderSMS(streamId);
+    
+    console.log(`[AGENDA] Stream reminder SMS job completed for streamId: ${streamId}`);
+  } catch (error) {
+    console.error('Error in stream_reminder_sms job:', error);
+  }
+});
+
 // Define the job for stream auto end
 agenda.define('stream_auto_end', async (job) => {
   let streamId;

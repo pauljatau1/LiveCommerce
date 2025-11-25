@@ -111,6 +111,50 @@ async function getCategoriesCount(sellerId) {
   return seller?.categories?.length || 0;
 }
 
+/**
+ * Find seller by phone number.
+ * @param {string} phoneNumber - Phone number to search for
+ * @returns {Promise<Object|null>} Seller data or null if not found
+ */
+async function findByPhoneNumber(phoneNumber) {
+  return Seller.findOne({ phoneNumber: phoneNumber });
+}
+
+/**
+ * Update seller's phone verification OTP.
+ * @param {string} sellerId - Seller ID
+ * @param {string} otp - Phone verification OTP
+ * @param {Date} expiresAt - OTP expiration date
+ * @returns {Promise<Object|null>} Updated seller data or null if not found
+ */
+async function updatePhoneVerificationOTP(sellerId, otp, expiresAt) {
+  return Seller.findByIdAndUpdate(
+    sellerId,
+    {
+      phoneVerificationOTP: otp,
+      phoneVerificationOTPExpires: expiresAt
+    },
+    { new: true }
+  );
+}
+
+/**
+ * Verify seller's phone number and clear OTP.
+ * @param {string} sellerId - Seller ID
+ * @returns {Promise<Object|null>} Updated seller data or null if not found
+ */
+async function verifyPhoneNumber(sellerId) {
+  return Seller.findByIdAndUpdate(
+    sellerId,
+    {
+      isPhoneVerified: true,
+      phoneVerificationOTP: undefined,
+      phoneVerificationOTPExpires: undefined
+    },
+    { new: true }
+  );
+}
+
 module.exports = {
   findAll,
   save,
@@ -122,5 +166,8 @@ module.exports = {
   findByAgoraUid,
   findByIdAndUpdate,
   findByIdAndDelete,
-  getCategoriesCount
+  getCategoriesCount,
+  findByPhoneNumber,
+  updatePhoneVerificationOTP,
+  verifyPhoneNumber
 };

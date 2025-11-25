@@ -107,6 +107,7 @@ function getProfileFieldSelection() {
     phoneNumber: 1,
     isVerified: 1,
     emailVerified: 1,
+    isPhoneVerified: 1,
     isFeatured: 1,
     isDisabled: 1,
     walletBalance: 1,

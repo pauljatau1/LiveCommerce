@@ -3,8 +3,10 @@ const crypto = require('crypto');
 const orderRepository = require('../repositories/order.repository');
 const { updateProductStockForPaidOrder, sendOrderConfirmationEmail, sendSlackNotificationForPaidOrder } = require('../helpers/order.helper');
 const { handleWalletTopUp, handleFailedPayment } = require('../helpers/order.helper');
+const { sendOrderPaymentConfirmationSMS } = require('../helpers/sms.helper');
 const agenda = require('../../../config/agenda');
 const Buyer = require('../../../models/Buyer');
+const Seller = require('../../../models/Seller');
 
 // Get paystack secret key with fallback
 const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || require('../../../config/paystack');
@@ -89,7 +91,33 @@ async function handleSuccessfulPayment(event) {
       }
     }
 
-    return { status: 200, data: { message: 'Terminal Africa payment processed successfully' } };
+    // Send SMS notifications to buyer and seller with OTP (non-blocking)
+    // This will not affect order processing if SMS sending fails
+    let smsStatus = { buyerSMS: { success: false }, sellerSMS: { success: false } };
+    try {
+      const seller = await Seller.findById(order.seller).select('phoneNumber firstName lastName businessName storeName');
+      smsStatus = await sendOrderPaymentConfirmationSMS(order, webhookBuyer, seller);
+      
+      // Reload order to get updated SMS status and OTP
+      const orderWithSMS = await orderRepository.findOrderById(order._id);
+      if (orderWithSMS) {
+        order = orderWithSMS;
+      }
+    } catch (smsError) {
+      // Log error but don't throw - SMS failures should not affect order processing
+      console.error(`Error sending SMS notifications for order ${order.order_id}:`, smsError);
+    }
+
+    return { 
+      status: 200, 
+      data: { 
+        message: 'Terminal Africa payment processed successfully',
+        order: {
+          order_id: order.order_id,
+          smsStatus: order.smsStatus || smsStatus
+        }
+      } 
+    };
   } catch (error) {
     console.error('Error processing Terminal Africa Paystack webhook:', error);
     return { status: 200, data: { message: 'Error processing webhook, but acknowledging receipt' } };
