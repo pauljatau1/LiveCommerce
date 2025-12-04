@@ -8,7 +8,6 @@ const jwtDecode = require('jwt-decode');
 const Seller = require('../models/Seller');
 const { RtcRole } = require('agora-access-token');
 const Buyer = require('../models/Buyer');
-const { saveToken, getToken } = require('../../Firebase');
 const { Expo } = require('expo-server-sdk');
 const mongoose = require('mongoose');
 const orderController = require('./orderController');
@@ -355,6 +354,7 @@ exports.startStream = async (req, res) => {
     }
 
     // Get seller with store name and followers
+    // We need followers here so we can notify buyers who follow this seller
     const seller = await Seller.findById(req.user.id).select('agoraUid storeName followers');
     const freshToken = agoraService.generateToken(stream.channelName, seller.agoraUid, RtcRole.PUBLISHER);
     console.log('start stream uid', seller.agoraUid);
@@ -404,30 +404,44 @@ exports.startStream = async (req, res) => {
         { $push: { chatInteractions: notificationObj } }
       );
 
-      // Send push notifications to all followers
+      // Send push notifications to all followers (buyers who follow this seller)
+      // We now use the Buyer's stored Expo push token instead of Firebase userTokens,
+      // because the mobile app saves tokens directly on the Buyer document.
       if (seller.followers && seller.followers.length > 0) {
-        // Track which followers have been notified about this stream
-        // to prevent duplicate notifications
-        const followerNotifications = [];
+        // Build a set of all subscriber buyerIds so we don't double‑notify
+        // buyers who both follow the seller and explicitly subscribed to the stream.
+        const subscribedBuyerIds = new Set(
+          (stream.subscribers || []).map((sub) => sub.buyer.toString())
+        );
 
-        // Keep track of followers who have already been notified via subscription
-        const alreadyNotifiedBuyerIds = stream.subscribers ?
-          stream.subscribers
-            .filter(sub => sub.notified)
-            .map(sub => sub.buyer.toString()) :
-          [];
+        // Collect follower buyerIds that should receive a push (excluding subscribers)
+        const followerBuyerIds = seller.followers
+          .map((follower) => follower.buyerId)
+          .filter(Boolean)
+          .map((id) => id.toString())
+          .filter((buyerId) => !subscribedBuyerIds.has(buyerId));
 
-        for (const follower of seller.followers) {
-          // Skip if this follower has already been notified as a subscriber
-          if (alreadyNotifiedBuyerIds.includes(follower.buyerId.toString())) {
-            continue;
-          }
+        if (followerBuyerIds.length > 0) {
+          // Fetch all followers' buyer records in a single query for efficiency
+          const followerBuyers = await Buyer.find({
+            _id: { $in: followerBuyerIds }
+          }).select('_id expoPushToken notificationPreferences');
 
-          // Get the user's push token
-          const userToken = await getToken(follower.buyerId);
-          if (userToken) {
+          const followerNotifications = [];
+
+          for (const followerBuyer of followerBuyers) {
+            // Skip if no Expo push token is registered for this buyer
+            if (!followerBuyer.expoPushToken) continue;
+
+            // Respect buyer notification preferences for live shows
+            const livePrefs = followerBuyer.notificationPreferences?.liveShows || {};
+            const wantsFollowedSellerNotifications =
+              livePrefs.allShows !== false && livePrefs.followedSellers !== false;
+
+            if (!wantsFollowedSellerNotifications) continue;
+
             followerNotifications.push({
-              to: userToken.token,
+              to: followerBuyer.expoPushToken,
               title: `${seller.storeName} Started a Live ${stream.type === 'auction' ? 'Auction' : 'Show'}`,
               body: `${seller.storeName} has started a live ${stream.type === 'auction' ? 'auction' : 'show'}. Join now!`,
               data: {
@@ -438,20 +452,28 @@ exports.startStream = async (req, res) => {
               }
             });
           }
-        }
 
-        // Send notifications to followers
-        if (followerNotifications.length > 0) {
-          await expo.sendPushNotificationsAsync(followerNotifications);
-          console.log(`Sent push notifications to ${followerNotifications.length} followers`);
+          // Send notifications to followers in a single Expo batch
+          if (followerNotifications.length > 0) {
+            try {
+              await expo.sendPushNotificationsAsync(followerNotifications);
+              console.log(`Sent push notifications to ${followerNotifications.length} followers`);
+            } catch (expoError) {
+              // Log Expo errors but do not fail stream start for notification issues
+              console.error('Error sending follower push notifications:', expoError);
+            }
+          }
         }
       }
 
-      // After updating the stream to 'live' status
-      // Add this code to notify subscribers
+      // After updating the stream to 'live' status,
+      // notify subscribers (buyers who explicitly subscribed to this stream)
       if (stream.subscribers && stream.subscribers.length > 0) {
         const notificationController = require('./notificationController');
         const Buyer = mongoose.model('Buyer');
+
+        // Collect Expo push notifications for all subscribers we successfully process
+        const subscriberPushNotifications = [];
 
         // Get seller details for the notification
         const seller = await Seller.findById(stream.seller);
@@ -493,6 +515,29 @@ exports.startStream = async (req, res) => {
 
                 await notificationController.sendEmailToBuyer(buyer, emailNotification);
 
+                // Queue a push notification for the subscriber if they have an Expo token
+                // and their live show notification preferences allow it.
+                if (buyer.expoPushToken) {
+                  const livePrefs = buyer.notificationPreferences?.liveShows || {};
+                  const wantsStreamStartPush =
+                    livePrefs.allShows !== false; // treat allShows=false as a global opt‑out
+
+                  if (wantsStreamStartPush) {
+                    subscriberPushNotifications.push({
+                      to: buyer.expoPushToken,
+                      title: `${storeName} Started a Live ${stream.type === 'auction' ? 'Auction' : 'Show'}`,
+                      body: `${storeName} has started a live ${stream.type === 'auction' ? 'auction' : 'show'}: "${stream.title}". Tap to join now!`,
+                      data: {
+                        streamId: stream._id.toString(),
+                        streamType: stream.type,
+                        sellerId: seller._id.toString(),
+                        action: 'open_stream',
+                        subscribed: true
+                      }
+                    });
+                  }
+                }
+
                 // Mark the subscriber as notified
                 await Stream.updateOne(
                   {
@@ -508,6 +553,16 @@ exports.startStream = async (req, res) => {
               console.error(`Error notifying subscriber ${subscriber.buyer}:`, notificationError);
               // Continue with other subscribers even if one fails
             }
+          }
+        }
+
+        // Send batched Expo push notifications to all subscribers who should receive them
+        if (subscriberPushNotifications.length > 0) {
+          try {
+            await expo.sendPushNotificationsAsync(subscriberPushNotifications);
+            console.log(`Sent push notifications to ${subscriberPushNotifications.length} subscribers`);
+          } catch (expoError) {
+            console.error('Error sending subscriber push notifications:', expoError);
           }
         }
       }
