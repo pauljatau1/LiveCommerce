@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom';
 import RouterErrorHandler from '../Components/RouterErrorHandler';
 import { VariantsProvider } from '../Contexts/VariantContext';
 import { LivestreamProvider } from '../Contexts/LivestreamContext';
+import { LivestreamSocketProvider } from '../Contexts/LivestreamSocketContext';
 
 const HomePage = lazy(() => import('../Pages/HomePage/HomePage'));
 const Customers = lazy(() => import('../Pages/Customers/Customers'));
@@ -93,7 +94,9 @@ export const dashboardRoutes = [
                 path: 'live-streams',
                 element: (
                     <LivestreamProvider>
-                        <LiveStreamLayout />
+                        <LivestreamSocketProvider>
+                            <LiveStreamLayout />
+                        </LivestreamSocketProvider>
                     </LivestreamProvider>
                 ),
                 children: [

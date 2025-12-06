@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { BASE_URL } from '../Constants/Server';
 import { tokenUtils } from '@/util/auth';
@@ -6,16 +6,195 @@ import PropTypes from 'prop-types';
 
 const LivestreamSocketContext = createContext();
 
+// Reconnection algorithm constants
+// These values define the aggressive reconnection strategy
+const RECONNECT_INITIAL_DELAY = 1000; // Start with 1 second delay
+const RECONNECT_MAX_DELAY = 30000; // Cap at 30 seconds maximum delay
+const RECONNECT_BACKOFF_MULTIPLIER = 2; // Double the delay on each retry
+
 export function LivestreamSocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [bidUpdates, setBidUpdates] = useState({});
   const [bidTimers, setBidTimers] = useState({});
   const [productStatuses, setProductStatuses] = useState({});
+  // Boolean state to control visibility of connection notification UI
+  // Set to true when connection errors occur, false when connection is successful
+  const [showConnectionNotification, setShowConnectionNotification] = useState(false);
   const token = tokenUtils.getBearerToken();
 
+  // Reconnection state management using refs to avoid stale closures
+  // These refs persist across renders and allow us to track reconnection state
+  const reconnectTimeoutRef = useRef(null);
+  const reconnectAttemptRef = useRef(0);
+  const isReconnectingRef = useRef(false);
+  const isManualDisconnectRef = useRef(false);
+  const currentSocketRef = useRef(null);
+
+  /**
+   * Calculates the delay for the next reconnection attempt using exponential backoff
+   * This ensures we don't overwhelm the server while still being aggressive about reconnecting
+   * @returns {number} The delay in milliseconds before the next reconnection attempt
+   */
+  const calculateReconnectDelay = useCallback(() => {
+    // Calculate exponential backoff: delay = initial * (multiplier ^ attempt)
+    // Cap it at the maximum delay to prevent extremely long waits
+    const calculatedDelay = Math.min(
+      RECONNECT_INITIAL_DELAY * Math.pow(RECONNECT_BACKOFF_MULTIPLIER, reconnectAttemptRef.current),
+      RECONNECT_MAX_DELAY
+    );
+    return calculatedDelay;
+  }, []);
+
+  /**
+   * Aggressive reconnection function that retries indefinitely until successful connection
+   * Uses exponential backoff to avoid overwhelming the server while maintaining persistence
+   * This function will keep retrying even during total internet unavailability
+   */
+  const attemptReconnection = useCallback(() => {
+    // Prevent multiple simultaneous reconnection attempts
+    if (isReconnectingRef.current) {
+      console.log('🔄 [RECONNECTION] Reconnection already in progress, skipping duplicate attempt');
+      return;
+    }
+
+    // Don't reconnect if it was a manual disconnect (user-initiated)
+    if (isManualDisconnectRef.current) {
+      console.log('🔄 [RECONNECTION] Manual disconnect detected, not attempting reconnection');
+      return;
+    }
+
+    // Check if we still have a token before attempting reconnection
+    const currentToken = tokenUtils.getBearerToken();
+    if (!currentToken) {
+      console.log('🔄 [RECONNECTION] No token available, skipping reconnection attempt');
+      return;
+    }
+
+    // Mark that we're attempting to reconnect
+    isReconnectingRef.current = true;
+    reconnectAttemptRef.current += 1;
+
+    // Calculate delay for this attempt using exponential backoff
+    const delay = calculateReconnectDelay();
+
+    console.log(
+      `🔄 [RECONNECTION] Attempting reconnection #${reconnectAttemptRef.current} in ${delay}ms`
+    );
+
+    // Clear any existing timeout to prevent duplicate reconnection attempts
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
+    // Schedule the reconnection attempt
+    reconnectTimeoutRef.current = setTimeout(() => {
+      console.log(`🔄 [RECONNECTION] Executing reconnection attempt #${reconnectAttemptRef.current}`);
+
+      // Reset the reconnecting flag to allow this attempt to proceed
+      isReconnectingRef.current = false;
+
+      // Clean up any existing socket instance before creating a new one
+      // This prevents duplicate socket connections and memory leaks
+      const existingSocket = currentSocketRef.current;
+      if (existingSocket) {
+        console.log('🧹 [RECONNECTION] Cleaning up existing socket before reconnection attempt');
+        existingSocket.removeAllListeners();
+        existingSocket.disconnect();
+        currentSocketRef.current = null;
+        setSocket(null);
+      }
+
+      // Attempt to create a new socket connection
+      const newToken = tokenUtils.getBearerToken();
+      if (newToken) {
+        // Parse the BASE_URL to extract just the origin (protocol + hostname + port)
+        let socketUrl;
+        try {
+          const baseUrlObj = new URL(BASE_URL);
+          socketUrl = baseUrlObj.origin;
+        } catch (parseError) {
+          console.error('Invalid BASE_URL format:', BASE_URL, parseError);
+          socketUrl = window.location.origin;
+        }
+
+        // Create a new socket instance
+        const socketInstance = io(socketUrl, {
+          transports: ["websocket"],
+          auth: { token: newToken },
+          // Disable socket.io's built-in reconnection since we're handling it manually
+          reconnection: false,
+          // Set a longer timeout for connection attempts
+          timeout: 20000
+        });
+
+        // Set up connection success handler
+        socketInstance.once('connect', () => {
+          console.log('✅ [RECONNECTION] Successfully reconnected to livestream socket');
+          // Reset reconnection attempt counter on successful connection
+          reconnectAttemptRef.current = 0;
+          isReconnectingRef.current = false;
+          // Hide connection notification on successful reconnection
+          setShowConnectionNotification(false);
+          // Update the socket state
+          setSocket(socketInstance);
+          currentSocketRef.current = socketInstance;
+        });
+
+        // Set up connection error handler - will trigger another reconnection attempt
+        socketInstance.once('connect_error', (error) => {
+          console.error(`❌ [RECONNECTION] Reconnection attempt #${reconnectAttemptRef.current} failed:`, error);
+          // Show connection notification when reconnection fails
+          setShowConnectionNotification(true);
+          // Clean up the failed socket instance
+          socketInstance.removeAllListeners();
+          socketInstance.disconnect();
+          // Reset the reconnecting flag to allow another attempt
+          isReconnectingRef.current = false;
+          // Schedule the next reconnection attempt
+          attemptReconnection();
+        });
+
+        // Set up disconnect handler for the new socket
+        socketInstance.once('disconnect', (reason) => {
+          console.log(`🔌 [RECONNECTION] Socket disconnected during reconnection: ${reason}`);
+          // Only attempt reconnection if it wasn't a manual disconnect
+          if (!isManualDisconnectRef.current) {
+            isReconnectingRef.current = false;
+            attemptReconnection();
+          }
+        });
+
+        // Store the socket instance reference
+        currentSocketRef.current = socketInstance;
+      } else {
+        // No token available, reset flag and don't retry
+        console.log('🔄 [RECONNECTION] No token available, stopping reconnection attempts');
+        isReconnectingRef.current = false;
+      }
+    }, delay);
+  }, [calculateReconnectDelay]);
+
+  /**
+   * Creates and sets up a new socket connection with aggressive reconnection handling
+   * This function initializes the socket and sets up all necessary event listeners
+   * for handling disconnections and connection errors
+   */
   const connectSocket = useCallback(() => {
     try {
+      // Reset manual disconnect flag when initiating a new connection
+      isManualDisconnectRef.current = false;
+
+      // Clean up any existing socket instance before creating a new one
+      // This prevents duplicate socket connections and ensures a clean state
+      const existingSocket = currentSocketRef.current;
+      if (existingSocket) {
+        console.log('🧹 [SOCKET] Cleaning up existing socket before creating new connection');
+        existingSocket.removeAllListeners();
+        existingSocket.disconnect();
+        currentSocketRef.current = null;
+      }
+
       // Parse the BASE_URL to extract just the origin (protocol + hostname + port)
       let socketUrl;
       try {
@@ -23,7 +202,7 @@ export function LivestreamSocketProvider({ children }) {
         const baseUrlObj = new URL(BASE_URL);
         // Use only the origin part (protocol + hostname + port)
         socketUrl = baseUrlObj.origin;
-        console.log('Connecting to socket server at:', socketUrl);
+        console.log('🔌 [SOCKET] Connecting to socket server at:', socketUrl);
       } catch (parseError) {
         console.error('Invalid BASE_URL format:', BASE_URL, parseError);
         // Fallback to a default if URL parsing fails
@@ -32,33 +211,72 @@ export function LivestreamSocketProvider({ children }) {
       }
 
       // Create a socket connection specifically for livestream
+      // Disable socket.io's built-in reconnection since we're implementing our own aggressive algorithm
       const socketInstance = io(socketUrl, {
         transports: ["websocket"],
         auth: {
           token
-        }
+        },
+        // Disable built-in reconnection to use our custom aggressive reconnection logic
+        reconnection: false,
+        // Set a longer timeout for connection attempts to handle slow networks
+        timeout: 20000
       });
 
+      // Store reference to current socket for cleanup
+      currentSocketRef.current = socketInstance;
+
+      // Handle successful connection
       socketInstance.on('connect', () => {
-        console.log('Livestream socket connected successfully');
+        console.log('✅ [SOCKET] Livestream socket connected successfully');
+        // Reset reconnection attempt counter on successful connection
+        reconnectAttemptRef.current = 0;
+        isReconnectingRef.current = false;
+        // Hide connection notification on successful connection
+        setShowConnectionNotification(false);
         // Basic events setup (will add stream-specific events on subscription)
       });
 
+      // Handle connection errors - trigger aggressive reconnection
       socketInstance.on('connect_error', (error) => {
-        console.error('Livestream socket connection error:', error);
-        // Add more detailed error logging
+        console.error('❌ [SOCKET] Livestream socket connection error:', error);
+        // Show connection notification when connection error occurs
+        setShowConnectionNotification(true);
+        // Add more detailed error logging for debugging
         if (error.description) {
           console.error('Error description:', error.description);
         }
         if (error.data) {
           console.error('Error data:', error.data);
         }
+
+        // Only attempt reconnection if it wasn't a manual disconnect
+        if (!isManualDisconnectRef.current) {
+          console.log('🔄 [SOCKET] Connection error detected, initiating aggressive reconnection...');
+          attemptReconnection();
+        }
       });
 
+      // Handle disconnection events - trigger aggressive reconnection
+      socketInstance.on('disconnect', (reason) => {
+        console.log(`🔌 [SOCKET] Livestream socket disconnected. Reason: ${reason}`);
+
+        // Only attempt reconnection if it wasn't a manual disconnect
+        // Socket.io disconnect reasons: 'io server disconnect', 'io client disconnect', 'ping timeout', 'transport close', 'transport error'
+        if (!isManualDisconnectRef.current) {
+          console.log('🔄 [SOCKET] Disconnection detected, initiating aggressive reconnection...');
+          attemptReconnection();
+        } else {
+          console.log('🔄 [SOCKET] Manual disconnect detected, skipping reconnection');
+        }
+      });
+
+      // Set the socket in state
       setSocket(socketInstance);
 
+      // Return cleanup function
       return () => {
-        console.log('Disconnecting livestream socket');
+        console.log('🧹 [SOCKET] Cleaning up socket connection');
         if (socketInstance) {
           socketInstance.off('stream_notification');
           socketInstance.off('viewer_joined_stream');
@@ -68,35 +286,89 @@ export function LivestreamSocketProvider({ children }) {
         }
       };
     } catch (error) {
-      console.error('Error creating socket connection:', error);
+      console.error('❌ [SOCKET] Error creating socket connection:', error);
+      // Even if socket creation fails, attempt reconnection
+      if (!isManualDisconnectRef.current) {
+        attemptReconnection();
+      }
     }
-  }, [token]);
+  }, [token, attemptReconnection]);
 
   useEffect(() => {
     if (!token) return;
 
+    // Reset reconnection state when connecting with a new token
+    reconnectAttemptRef.current = 0;
+    isReconnectingRef.current = false;
+    isManualDisconnectRef.current = false;
+
     connectSocket();
+
+    // Cleanup function to clear any pending reconnection attempts
+    return () => {
+      console.log('🧹 [EFFECT] Cleaning up socket connection and reconnection timers');
+      // Clear any pending reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      // Mark as manual disconnect to prevent reconnection attempts during cleanup
+      isManualDisconnectRef.current = true;
+      // Reset reconnection state
+      isReconnectingRef.current = false;
+    };
   }, [connectSocket, token]);
 
+  /**
+   * Manually disconnects the socket and prevents automatic reconnection
+   * This is used when the user explicitly wants to disconnect (e.g., logout)
+   * Sets the manual disconnect flag to prevent the aggressive reconnection algorithm from retrying
+   */
   const disconnectSocket = useCallback(() => {
-    if (socket) {
-      console.log('🔌 [LIVESTREAM SOCKET] User not authenticated, disconnecting livestream socket...');
+    if (socket || currentSocketRef.current) {
+      console.log('🔌 [LIVESTREAM SOCKET] Manual disconnect requested, disconnecting livestream socket...');
 
-      // Clean up all event listeners
-      socket.off('stream_notification');
-      socket.off('viewer_joined_stream');
-      socket.off('viewer_left_stream');
-      socket.off('bid_timer_update');
+      // Mark as manual disconnect to prevent automatic reconnection
+      isManualDisconnectRef.current = true;
+
+      // Clear any pending reconnection attempts
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+
+      // Reset reconnection state
+      isReconnectingRef.current = false;
+      reconnectAttemptRef.current = 0;
+
+      // Get the socket instance (could be from state or ref)
+      const socketInstance = socket || currentSocketRef.current;
+
+      if (socketInstance) {
+        // Clean up all event listeners to prevent memory leaks
+        socketInstance.off('stream_notification');
+        socketInstance.off('viewer_joined_stream');
+        socketInstance.off('viewer_left_stream');
+        socketInstance.off('bid_timer_update');
+        socketInstance.off('connect');
+        socketInstance.off('connect_error');
+        socketInstance.off('disconnect');
+
+        // Disconnect the socket
+        socketInstance.disconnect();
+      }
 
       // Reset all states
       setNotifications([]);
       setBidUpdates({});
       setBidTimers({});
       setProductStatuses({});
+      // Hide connection notification on manual disconnect
+      setShowConnectionNotification(false);
 
-      // Disconnect the socket
-      socket.disconnect();
+      // Clear socket references
       setSocket(null);
+      currentSocketRef.current = null;
 
       console.log('🔌 [LIVESTREAM SOCKET] Livestream socket disconnected and states cleared');
     }
@@ -105,18 +377,43 @@ export function LivestreamSocketProvider({ children }) {
 
   // Function to subscribe to a specific stream's notifications
   const subscribeToStreamNotifications = (streamId) => {
-    if (!socket || !streamId) {
-      console.error('Cannot subscribe to stream notifications: socket not connected or invalid stream ID', socket, streamId);
+    // Use currentSocketRef as primary source since it's always up to date
+    // Fallback to socket from state if ref is not available
+    // This ensures we always use the most recent socket instance, especially after reconnection
+    const currentSocket = currentSocketRef.current || socket;
+    
+    if (!currentSocket || !streamId) {
+      console.error('Cannot subscribe to stream notifications: socket not connected or invalid stream ID', {
+        socketFromState: socket,
+        socketFromRef: currentSocketRef.current,
+        streamId
+      });
       return false;
+    }
+
+    // Check if socket is actually connected before subscribing
+    // If not connected, wait for connection event before subscribing
+    if (!currentSocket.connected) {
+      console.warn('Socket is not connected yet, waiting for connection before subscribing to stream:', streamId);
+      // Wait for connection and then subscribe
+      const connectHandler = () => {
+        console.log('Socket connected, now subscribing to notifications for stream:', streamId);
+        // Remove this one-time listener to prevent memory leaks
+        currentSocket.off('connect', connectHandler);
+        // Recursively call to subscribe now that we're connected
+        subscribeToStreamNotifications(streamId);
+      };
+      currentSocket.once('connect', connectHandler);
+      return true; // Return true to indicate subscription is in progress
     }
 
     try {
       console.log(`Subscribing to notifications for stream: ${streamId}`);
-      socket.emit('stream_notification_subscribe', { streamId });
+      currentSocket.emit('stream_notification_subscribe', { streamId });
 
       // Set up event listeners for this stream
       // Listen for stream notifications
-      socket.on('stream_notification', (notification) => {
+      currentSocket.on('stream_notification', (notification) => {
         console.log('Received stream notification:', notification);
 
         // Handle bid-specific notifications
@@ -179,19 +476,19 @@ export function LivestreamSocketProvider({ children }) {
       });
 
       // Listen for viewer join event
-      socket.on('viewer_joined_stream', (notification) => {
+      currentSocket.on('viewer_joined_stream', (notification) => {
         console.log('Viewer joined stream:', notification);
         setNotifications(prev => [...prev, notification]);
       });
 
       // Listen for viewer leave event
-      socket.on('viewer_left_stream', (notification) => {
+      currentSocket.on('viewer_left_stream', (notification) => {
         console.log('Viewer left stream:', notification);
         setNotifications(prev => [...prev, notification]);
       });
 
       // Listen for bid timer updates
-      socket.on('bid_timer_update', (timerData) => {
+      currentSocket.on('bid_timer_update', (timerData) => {
         console.log('Received bid timer update:', timerData);
         if (timerData.productId) {
           setBidTimers(prev => ({
@@ -247,20 +544,27 @@ export function LivestreamSocketProvider({ children }) {
 
   // Function to unsubscribe from a stream's notifications
   const unsubscribeFromStreamNotifications = (streamId) => {
-    if (!socket || !streamId) {
-      console.error('Cannot unsubscribe from stream notifications: socket not connected or invalid stream ID');
+    // Use currentSocketRef as primary source since it's always up to date
+    const currentSocket = currentSocketRef.current || socket;
+    
+    if (!currentSocket || !streamId) {
+      console.error('Cannot unsubscribe from stream notifications: socket not connected or invalid stream ID', {
+        socketFromState: socket,
+        socketFromRef: currentSocketRef.current,
+        streamId
+      });
       return false;
     }
 
     try {
       console.log(`Unsubscribing from notifications for stream: ${streamId}`);
-      socket.emit('stream_notification_unsubscribe', { streamId });
+      currentSocket.emit('stream_notification_unsubscribe', { streamId });
 
       // Remove all event listeners to prevent memory leaks
-      socket.off('stream_notification');
-      socket.off('viewer_joined_stream');
-      socket.off('viewer_left_stream');
-      socket.off('bid_timer_update');
+      currentSocket.off('stream_notification');
+      currentSocket.off('viewer_joined_stream');
+      currentSocket.off('viewer_left_stream');
+      currentSocket.off('bid_timer_update');
 
       return true;
     } catch (error) {
@@ -271,13 +575,21 @@ export function LivestreamSocketProvider({ children }) {
 
   // Function to send a comment to the stream
   const sendStreamComment = (streamId, content) => {
-    if (!socket || !streamId || !content.trim()) {
-      console.error('Cannot send comment: socket not connected or invalid data', socket, streamId, content);
+    // Use currentSocketRef as primary source since it's always up to date
+    const currentSocket = currentSocketRef.current || socket;
+    
+    if (!currentSocket || !streamId || !content.trim()) {
+      console.error('Cannot send comment: socket not connected or invalid data', {
+        socketFromState: socket,
+        socketFromRef: currentSocketRef.current,
+        streamId,
+        content
+      });
       return false;
     }
 
     try {
-      socket.emit('stream_comment', {
+      currentSocket.emit('stream_comment', {
         streamId,
         content: content.trim()
       });
@@ -290,13 +602,21 @@ export function LivestreamSocketProvider({ children }) {
 
   // Function to send an announcement to the stream
   const sendStreamAnnouncement = (streamId, content) => {
-    if (!socket || !streamId || !content.trim()) {
-      console.error('Cannot send announcement: socket not connected or invalid data');
+    // Use currentSocketRef as primary source since it's always up to date
+    const currentSocket = currentSocketRef.current || socket;
+    
+    if (!currentSocket || !streamId || !content.trim()) {
+      console.error('Cannot send announcement: socket not connected or invalid data', {
+        socketFromState: socket,
+        socketFromRef: currentSocketRef.current,
+        streamId,
+        content
+      });
       return false;
     }
 
     try {
-      socket.emit('stream_announcement', {
+      currentSocket.emit('stream_announcement', {
         streamId,
         content: content.trim()
       });
@@ -439,6 +759,7 @@ export function LivestreamSocketProvider({ children }) {
       bidUpdates,
       bidTimers,
       productStatuses,
+      showConnectionNotification,
       sendStreamComment,
       sendStreamAnnouncement,
       updateProductStatus,
@@ -470,6 +791,7 @@ export const useLivestreamSocket = () => {
       bidUpdates: {},
       bidTimers: {},
       productStatuses: {},
+      showConnectionNotification: false,
       sendStreamComment: () => {
         console.warn('Cannot send comment: socket not available');
         return false;

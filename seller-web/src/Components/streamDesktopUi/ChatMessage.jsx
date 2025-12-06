@@ -24,7 +24,7 @@ const getUsernameColor = (username) => {
 
 const ChatMessage = ({ message }) => {
 
-  console.log('chat message', message);
+  //console.log('chat message', message);
   // Get a consistent color for this username
   const usernameColor = useMemo(() =>
     getUsernameColor((message && message.user) || 'user'),
@@ -90,7 +90,7 @@ const ChatMessage = ({ message }) => {
       );
 
     case 'join':
-      console.log('Rendering join message:', message);
+      //console.log('Rendering join message:', message);
       return (
         <div className="flex items-center justify-center py-2">
           <div className="px-3 py-1 bg-[#14AE5C15] rounded-full">
@@ -102,7 +102,7 @@ const ChatMessage = ({ message }) => {
       );
 
     case 'leave':
-      console.log('Rendering leave message:', message);
+      //console.log('Rendering leave message:', message);
       return (
         <div className="flex items-center justify-center py-2">
           <div className="px-3 py-1 bg-[#C74E5B15] rounded-full">
