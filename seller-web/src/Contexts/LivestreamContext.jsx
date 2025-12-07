@@ -3,7 +3,6 @@ import { BASE_URL } from "../Constants/Server";
 import { trackEvent } from "../util/analytics";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import { useLivestreamSocket } from "./LivestreamSocketContext";
-import { useSocket } from "./SocketContext";
 import { createContext, useReducer, useEffect } from "react";
 import PropTypes from 'prop-types';
 import axios from "axios";
@@ -13,7 +12,6 @@ const LivestreamContext = createContext();
 export const LivestreamProvider = ({ children }) => {
     const { token, seller, isAuthenticated } = useAuthContext();
     const { disconnectSocket } = useLivestreamSocket();
-    const { disconnectSocket: disconnectGeneralSocket } = useSocket();
     const initialState = {
         livestream: {
             title: '',
@@ -161,10 +159,9 @@ export const LivestreamProvider = ({ children }) => {
             dispatch({ type: 'RESET_SCHEDULE_DATA' });
             dispatch({ type: 'SET_SUCCESS_LIVESTREAM_STOP' });
             disconnectSocket();
-            disconnectGeneralSocket();
             console.log('🔌 [LIVESTREAM CONTEXT] Livestream data reset completed');
         }
-    }, [isAuthenticated, disconnectSocket, disconnectGeneralSocket]);
+    }, [isAuthenticated, disconnectSocket]);
 
     const scheduleLiveShow = async (streamData) => {
         try {

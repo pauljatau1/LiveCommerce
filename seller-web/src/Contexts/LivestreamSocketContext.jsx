@@ -30,6 +30,16 @@ export function LivestreamSocketProvider({ children }) {
   const isReconnectingRef = useRef(false);
   const isManualDisconnectRef = useRef(false);
   const currentSocketRef = useRef(null);
+  // Track if socket was disconnected to detect reconnection scenarios
+  // This helps us emit seller_rejoined_stream event when re-subscribing after a disconnect
+  const wasDisconnectedRef = useRef(false);
+  // Track the last subscribed streamId to detect re-subscription after reconnection
+  const lastSubscribedStreamIdRef = useRef(null);
+  // Ref to store the latest subscribeToStreamNotifications function
+  // This allows us to call it from connection handlers without creating circular dependencies
+  const subscribeToStreamNotificationsRef = useRef(null);
+  // Track if we're currently in the process of subscribing to prevent duplicate attempts
+  const isSubscribingRef = useRef(false);
 
   /**
    * Calculates the delay for the next reconnection attempt using exponential backoff
@@ -125,7 +135,7 @@ export function LivestreamSocketProvider({ children }) {
           // Disable socket.io's built-in reconnection since we're handling it manually
           reconnection: false,
           // Set a longer timeout for connection attempts
-          timeout: 20000
+          //timeout: 20000
         });
 
         // Set up connection success handler
@@ -136,9 +146,44 @@ export function LivestreamSocketProvider({ children }) {
           isReconnectingRef.current = false;
           // Hide connection notification on successful reconnection
           setShowConnectionNotification(false);
+          // Note: wasDisconnectedRef remains true until we re-subscribe
+          // This allows us to detect reconnection scenario in subscribeToStreamNotifications
           // Update the socket state
           setSocket(socketInstance);
           currentSocketRef.current = socketInstance;
+          
+          // After successful reconnection, check if we need to re-subscribe to stream notifications
+          // This ensures all socket listeners are restored after reconnection
+          try {
+            const storedStreamId = localStorage.getItem('livestream_subscribed_streamId');
+            if (storedStreamId && subscribeToStreamNotificationsRef.current) {
+              console.log('🔄 [RECONNECTION] Re-subscribing to stream notifications after reconnection:', storedStreamId);
+              // Use a longer delay to ensure socket is fully authenticated and ready
+              // Socket.IO authentication happens after the 'connect' event, so we need to wait
+              setTimeout(() => {
+                // Double-check that we have a valid socket reference before subscribing
+                if (currentSocketRef.current && currentSocketRef.current.connected) {
+                  console.log('🔄 [RECONNECTION] Socket is ready, proceeding with subscription:', {
+                    socketId: currentSocketRef.current.id,
+                    connected: currentSocketRef.current.connected
+                  });
+                  subscribeToStreamNotificationsRef.current(storedStreamId);
+                } else {
+                  console.warn('⚠️ [RECONNECTION] Socket not ready yet, retrying subscription in 500ms');
+                  // Retry after another delay if socket isn't ready
+                  setTimeout(() => {
+                    if (currentSocketRef.current && currentSocketRef.current.connected) {
+                      subscribeToStreamNotificationsRef.current(storedStreamId);
+                    } else {
+                      console.error('❌ [RECONNECTION] Socket still not ready after retry, subscription failed');
+                    }
+                  }, 500);
+                }
+              }, 300); // Increased delay to 300ms to allow authentication to complete
+            }
+          } catch (error) {
+            console.warn('Failed to re-subscribe after reconnection:', error);
+          }
         });
 
         // Set up connection error handler - will trigger another reconnection attempt
@@ -220,7 +265,7 @@ export function LivestreamSocketProvider({ children }) {
         // Disable built-in reconnection to use our custom aggressive reconnection logic
         reconnection: false,
         // Set a longer timeout for connection attempts to handle slow networks
-        timeout: 20000
+        //timeout: 20000
       });
 
       // Store reference to current socket for cleanup
@@ -234,6 +279,41 @@ export function LivestreamSocketProvider({ children }) {
         isReconnectingRef.current = false;
         // Hide connection notification on successful connection
         setShowConnectionNotification(false);
+        // Note: wasDisconnectedRef is only reset when we successfully re-subscribe
+        // This allows us to detect reconnection scenario in subscribeToStreamNotifications
+        
+        // After successful connection, check if we need to re-subscribe to stream notifications
+        // This handles cases where the socket was disconnected and reconnected
+        try {
+          const storedStreamId = localStorage.getItem('livestream_subscribed_streamId');
+          if (storedStreamId && subscribeToStreamNotificationsRef.current) {
+            console.log('🔄 [SOCKET] Re-subscribing to stream notifications after connection:', storedStreamId);
+            // Use a longer delay to ensure socket is fully authenticated and ready
+            // Socket.IO authentication happens after the 'connect' event, so we need to wait
+            setTimeout(() => {
+              // Double-check that we have a valid socket reference before subscribing
+              if (currentSocketRef.current && currentSocketRef.current.connected) {
+                console.log('🔄 [SOCKET] Socket is ready, proceeding with subscription:', {
+                  socketId: currentSocketRef.current.id,
+                  connected: currentSocketRef.current.connected
+                });
+                subscribeToStreamNotificationsRef.current(storedStreamId);
+              } else {
+                console.warn('⚠️ [SOCKET] Socket not ready yet, retrying subscription in 500ms');
+                // Retry after another delay if socket isn't ready
+                setTimeout(() => {
+                  if (currentSocketRef.current && currentSocketRef.current.connected) {
+                    subscribeToStreamNotificationsRef.current(storedStreamId);
+                  } else {
+                    console.error('❌ [SOCKET] Socket still not ready after retry, subscription failed');
+                  }
+                }, 500);
+              }
+            }, 300); // Increased delay to 300ms to allow authentication to complete
+          }
+        } catch (error) {
+          console.warn('Failed to re-subscribe after connection:', error);
+        }
         // Basic events setup (will add stream-specific events on subscription)
       });
 
@@ -265,9 +345,14 @@ export function LivestreamSocketProvider({ children }) {
         // Socket.io disconnect reasons: 'io server disconnect', 'io client disconnect', 'ping timeout', 'transport close', 'transport error'
         if (!isManualDisconnectRef.current) {
           console.log('🔄 [SOCKET] Disconnection detected, initiating aggressive reconnection...');
+          // Mark that we had a disconnect to detect reconnection scenario later
+          wasDisconnectedRef.current = true;
           attemptReconnection();
         } else {
           console.log('🔄 [SOCKET] Manual disconnect detected, skipping reconnection');
+          // Reset disconnect flag on manual disconnect
+          wasDisconnectedRef.current = false;
+          lastSubscribedStreamIdRef.current = null;
         }
       });
 
@@ -366,6 +451,19 @@ export function LivestreamSocketProvider({ children }) {
       // Hide connection notification on manual disconnect
       setShowConnectionNotification(false);
 
+      // Reset reconnection tracking refs on manual disconnect
+      wasDisconnectedRef.current = false;
+      lastSubscribedStreamIdRef.current = null;
+      
+      // Remove stored streamId from localStorage on manual disconnect
+      // This prevents automatic re-subscription after reconnection if user has manually disconnected
+      try {
+        localStorage.removeItem('livestream_subscribed_streamId');
+        console.log('💾 [DISCONNECT] Removed streamId from localStorage on manual disconnect');
+      } catch (error) {
+        console.warn('Failed to remove streamId from localStorage on disconnect:', error);
+      }
+
       // Clear socket references
       setSocket(null);
       currentSocketRef.current = null;
@@ -376,18 +474,32 @@ export function LivestreamSocketProvider({ children }) {
 
 
   // Function to subscribe to a specific stream's notifications
-  const subscribeToStreamNotifications = (streamId) => {
-    // Use currentSocketRef as primary source since it's always up to date
-    // Fallback to socket from state if ref is not available
+  // Wrapped in useCallback to ensure stable reference for reconnection handlers
+  const subscribeToStreamNotifications = useCallback((streamId) => {
+    // Always use currentSocketRef as primary source since it's always up to date
     // This ensures we always use the most recent socket instance, especially after reconnection
+    // The state 'socket' might be stale during reconnection, so we prioritize the ref
     const currentSocket = currentSocketRef.current || socket;
     
+    // Log socket state for debugging
+    console.log('🔍 [SUBSCRIPTION] subscribeToStreamNotifications called:', {
+      streamId,
+      hasRefSocket: !!currentSocketRef.current,
+      hasStateSocket: !!socket,
+      refSocketId: currentSocketRef.current?.id,
+      stateSocketId: socket?.id,
+      refConnected: currentSocketRef.current?.connected,
+      stateConnected: socket?.connected
+    });
+
     if (!currentSocket || !streamId) {
       console.error('Cannot subscribe to stream notifications: socket not connected or invalid stream ID', {
         socketFromState: socket,
         socketFromRef: currentSocketRef.current,
         streamId
       });
+      // Reset subscription flag on invalid input
+      isSubscribingRef.current = false;
       return false;
     }
 
@@ -396,11 +508,13 @@ export function LivestreamSocketProvider({ children }) {
     if (!currentSocket.connected) {
       console.warn('Socket is not connected yet, waiting for connection before subscribing to stream:', streamId);
       // Wait for connection and then subscribe
+      // Note: We keep isSubscribingRef.current = true to prevent duplicate attempts while waiting
       const connectHandler = () => {
         console.log('Socket connected, now subscribing to notifications for stream:', streamId);
         // Remove this one-time listener to prevent memory leaks
         currentSocket.off('connect', connectHandler);
         // Recursively call to subscribe now that we're connected
+        // The flag will be reset after the emit attempt
         subscribeToStreamNotifications(streamId);
       };
       currentSocket.once('connect', connectHandler);
@@ -408,8 +522,77 @@ export function LivestreamSocketProvider({ children }) {
     }
 
     try {
+      // Prevent duplicate subscription attempts
+      if (isSubscribingRef.current) {
+        console.warn('⚠️ [SUBSCRIPTION] Subscription already in progress, skipping duplicate attempt for stream:', streamId);
+        return true; // Return true to indicate subscription is in progress
+      }
+      
+      // Mark that we're subscribing
+      isSubscribingRef.current = true;
+      
       console.log(`Subscribing to notifications for stream: ${streamId}`);
-      currentSocket.emit('stream_notification_subscribe', { streamId });
+
+      // Check if this is a re-subscription after a disconnect/reconnection
+      // If we were disconnected and we're re-subscribing to the same stream, emit seller_rejoined_stream
+      const isReconnectionScenario = wasDisconnectedRef.current &&
+        lastSubscribedStreamIdRef.current === streamId;
+
+      if (isReconnectionScenario) {
+        console.log('🔄 [REJOIN] Detected reconnection scenario, emitting seller_rejoined_stream event');
+
+        // Get seller information from localStorage (similar to how LivestreamStudio does it)
+        let seller = null;
+        try {
+          const sellerData = localStorage.getItem('seller');
+          seller = sellerData ? JSON.parse(sellerData) : null;
+        } catch (error) {
+          console.warn('Failed to parse seller data from localStorage:', error);
+        }
+
+        // Construct notification object matching backend structure
+        const notificationObj = {
+          id: Date.now().toString(),
+          type: 'join',
+          user: seller?.storeName || seller?.businessName || 'Host',
+          avatar: seller?.storeAvatar?.url || seller?.businessAvatar?.url || '',
+          content: 'Host rejoined room',
+          data: {
+            message: 'Host rejoined room',
+            sellerId: seller?.id?.toString() || seller?._id?.toString() || '',
+            streamId: streamId.toString(),
+            sellerName: seller?.storeName || seller?.businessName || 'Host'
+          },
+          timestamp: new Date()
+        };
+
+        // Emit seller_rejoined_stream event to notify all viewers
+        currentSocket.emit('seller_rejoined_stream', notificationObj);
+        console.log('✅ [REJOIN] Emitted seller_rejoined_stream event:', notificationObj);
+
+        // Reset the disconnect flag after emitting the event
+        wasDisconnectedRef.current = false;
+      }
+
+      // Update the last subscribed stream ID
+      lastSubscribedStreamIdRef.current = streamId;
+      
+      // Store streamId in localStorage so we can re-subscribe after reconnection
+      // This ensures all socket listeners are restored automatically after a disconnect/reconnect
+      try {
+        localStorage.setItem('livestream_subscribed_streamId', streamId);
+        console.log('💾 [SUBSCRIPTION] Stored streamId in localStorage for reconnection recovery:', streamId);
+      } catch (error) {
+        console.warn('Failed to store streamId in localStorage:', error);
+      }
+
+      // Remove any existing event listeners before adding new ones
+      // This prevents duplicate listeners on re-subscription
+      currentSocket.off('stream_notification');
+      currentSocket.off('viewer_joined_stream');
+      currentSocket.off('viewer_left_stream');
+      currentSocket.off('bid_timer_update');
+      console.log('🧹 [SUBSCRIPTION] Cleaned up old event listeners before re-subscribing');
 
       // Set up event listeners for this stream
       // Listen for stream notifications
@@ -535,18 +718,56 @@ export function LivestreamSocketProvider({ children }) {
         }
       });
 
+      // Emit subscription request AFTER setting up listeners
+      // Ensure socket is connected and ready before emitting
+      if (currentSocket.connected && currentSocket.id) {
+        console.log('📤 [SUBSCRIPTION] Emitting stream_notification_subscribe event:', { streamId, socketId: currentSocket.id });
+        currentSocket.emit('stream_notification_subscribe', { streamId });
+        console.log('✅ [SUBSCRIPTION] Subscription emit completed for stream:', streamId);
+        // Reset subscription flag after successful emit
+        isSubscribingRef.current = false;
+      } else {
+        console.warn('⚠️ [SUBSCRIPTION] Socket not ready for subscription emit:', {
+          connected: currentSocket.connected,
+          socketId: currentSocket.id,
+          streamId
+        });
+        // If socket is not ready, wait a bit and try again
+        setTimeout(() => {
+          if (currentSocketRef.current && currentSocketRef.current.connected && currentSocketRef.current.id) {
+            console.log('📤 [SUBSCRIPTION] Retrying subscription emit after delay:', { streamId, socketId: currentSocketRef.current.id });
+            currentSocketRef.current.emit('stream_notification_subscribe', { streamId });
+            console.log('✅ [SUBSCRIPTION] Retry subscription emit completed for stream:', streamId);
+            // Reset subscription flag after successful retry emit
+            isSubscribingRef.current = false;
+          } else {
+            console.error('❌ [SUBSCRIPTION] Socket still not ready after delay, subscription failed for stream:', streamId);
+            // Reset subscription flag on failure
+            isSubscribingRef.current = false;
+          }
+        }, 500);
+      }
+
       return true;
     } catch (error) {
       console.error('Error subscribing to stream notifications:', error);
+      // Reset subscription flag on error
+      isSubscribingRef.current = false;
       return false;
     }
-  };
+  }, [socket, productStatuses]);
+
+  // Keep the ref updated with the latest subscribeToStreamNotifications function
+  // This allows connection handlers to call it without creating circular dependencies
+  useEffect(() => {
+    subscribeToStreamNotificationsRef.current = subscribeToStreamNotifications;
+  }, [subscribeToStreamNotifications]);
 
   // Function to unsubscribe from a stream's notifications
   const unsubscribeFromStreamNotifications = (streamId) => {
     // Use currentSocketRef as primary source since it's always up to date
     const currentSocket = currentSocketRef.current || socket;
-    
+
     if (!currentSocket || !streamId) {
       console.error('Cannot unsubscribe from stream notifications: socket not connected or invalid stream ID', {
         socketFromState: socket,
@@ -566,6 +787,24 @@ export function LivestreamSocketProvider({ children }) {
       currentSocket.off('viewer_left_stream');
       currentSocket.off('bid_timer_update');
 
+      // Reset subscription tracking when unsubscribing
+      // This ensures we don't emit seller_rejoined_stream on next subscription unless it's after a disconnect
+      if (lastSubscribedStreamIdRef.current === streamId) {
+        lastSubscribedStreamIdRef.current = null;
+      }
+      
+      // Remove stored streamId from localStorage when unsubscribing
+      // This prevents automatic re-subscription after reconnection if user has explicitly unsubscribed
+      try {
+        const storedStreamId = localStorage.getItem('livestream_subscribed_streamId');
+        if (storedStreamId === streamId) {
+          localStorage.removeItem('livestream_subscribed_streamId');
+          console.log('💾 [UNSUBSCRIPTION] Removed streamId from localStorage:', streamId);
+        }
+      } catch (error) {
+        console.warn('Failed to remove streamId from localStorage:', error);
+      }
+
       return true;
     } catch (error) {
       console.error('Error unsubscribing from stream notifications:', error);
@@ -577,7 +816,7 @@ export function LivestreamSocketProvider({ children }) {
   const sendStreamComment = (streamId, content) => {
     // Use currentSocketRef as primary source since it's always up to date
     const currentSocket = currentSocketRef.current || socket;
-    
+
     if (!currentSocket || !streamId || !content.trim()) {
       console.error('Cannot send comment: socket not connected or invalid data', {
         socketFromState: socket,
@@ -604,7 +843,7 @@ export function LivestreamSocketProvider({ children }) {
   const sendStreamAnnouncement = (streamId, content) => {
     // Use currentSocketRef as primary source since it's always up to date
     const currentSocket = currentSocketRef.current || socket;
-    
+
     if (!currentSocket || !streamId || !content.trim()) {
       console.error('Cannot send announcement: socket not connected or invalid data', {
         socketFromState: socket,

@@ -4,7 +4,6 @@ import { Navigate } from 'react-router-dom';
 import RouterErrorHandler from '../Components/RouterErrorHandler';
 import { VariantsProvider } from '../Contexts/VariantContext';
 import { LivestreamProvider } from '../Contexts/LivestreamContext';
-import { LivestreamSocketProvider } from '../Contexts/LivestreamSocketContext';
 
 const HomePage = lazy(() => import('../Pages/HomePage/HomePage'));
 const Customers = lazy(() => import('../Pages/Customers/Customers'));
@@ -32,12 +31,12 @@ const Account = lazy(() => import('../Pages/Account/account'));
 const KycVerificationPage = lazy(() => import('../Pages/KycVerification/KycVerificationPage'));
 const LiveStreamLayout = lazy(() => import('../Components/LiveStreamLayout'));
 const LiveStream = lazy(() => import('../Pages/LiveStream/LiveStream'));
-const CreateLiveAuction = lazy(() => import('../Pages/LiveStream/CreateLiveAuction'));
+//const CreateLiveAuction = lazy(() => import('../Pages/LiveStream/CreateLiveAuction'));
 const CreateLiveShow = lazy(() => import('../Pages/LiveStream/CreateLiveShow'));
 const ScheduleShows = lazy(() => import('../Pages/LiveStream/ScheduleShows'));
 const PastShows = lazy(() => import('../Pages/LiveStream/PastShows'));
 const SubmitLiveShow = lazy(() => import('../Pages/LiveStream/SubmitLiveShow'));
-const SubmitLiveAuction = lazy(() => import('../Pages/LiveStream/SubmitLiveAuction'));
+//const SubmitLiveAuction = lazy(() => import('../Pages/LiveStream/SubmitLiveAuction'));
 const LivestreamStudio = lazy(() => import('../Pages/LiveStream/LivestreamStudio'));
 
 export const dashboardRoutes = [
@@ -94,9 +93,7 @@ export const dashboardRoutes = [
                 path: 'live-streams',
                 element: (
                     <LivestreamProvider>
-                        <LivestreamSocketProvider>
                             <LiveStreamLayout />
-                        </LivestreamSocketProvider>
                     </LivestreamProvider>
                 ),
                 children: [
