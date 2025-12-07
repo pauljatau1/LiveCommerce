@@ -4970,4 +4970,153 @@ router.get('/orders', verifyToken, sellerController.getOrders);
 // Get shipping label route - using same middleware as original route
 router.get('/orders/:orderId/shipping-label', verifyToken, sellerController.getShippingLabel);
 
+/**
+ * @swagger
+ * /api/v2/sellers/send-phone-verification:
+ *   post:
+ *     summary: Send phone verification OTP
+ *     description: Sends a 4-digit OTP to the seller's phone number for verification
+ *     tags: [Seller V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - phoneNumber
+ *             properties:
+ *               phoneNumber:
+ *                 type: string
+ *                 example: "+23490126727"
+ *                 description: The seller's phone number in international format (must include country code)
+ *     responses:
+ *       200:
+ *         description: Phone verification code sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Phone verification code sent successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Phone verification code sent successfully"
+ *       404:
+ *         description: Seller not found
+ *       422:
+ *         description: Validation error - Invalid phone number format
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/send-phone-verification', sellerController.sendPhoneVerification);
+
+/**
+ * @swagger
+ * /api/v2/sellers/verify-phone:
+ *   post:
+ *     summary: Verify phone number with OTP
+ *     description: Verifies the seller's phone number using the OTP code sent via SMS
+ *     tags: [Seller V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - phoneNumber
+ *               - otp
+ *             properties:
+ *               phoneNumber:
+ *                 type: string
+ *                 example: "+23490126727"
+ *                 description: The seller's phone number in international format
+ *               otp:
+ *                 type: string
+ *                 example: "1234"
+ *                 description: The 4-digit OTP code received via SMS
+ *     responses:
+ *       200:
+ *         description: Phone number verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Phone number verified successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                       example: true
+ *                     message:
+ *                       type: string
+ *                       example: "Phone number verified successfully"
+ *       404:
+ *         description: Seller not found
+ *       422:
+ *         description: Validation error - Invalid OTP or expired OTP
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/verify-phone', sellerController.verifyPhone);
+
+/**
+ * @swagger
+ * /api/v2/sellers/:sellerId/phone-verification-status:
+ *   get:
+ *     summary: Check phone verification status
+ *     description: Checks if a seller's phone number has been verified by seller ID
+ *     tags: [Seller V2]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The seller's ID
+ *         example: "507f1f77bcf86cd799439011"
+ *     responses:
+ *       200:
+ *         description: Phone verification status retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Phone verification status retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     isPhoneVerified:
+ *                       type: boolean
+ *                       example: true
+ *                       description: Whether the seller's phone number is verified
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/:sellerId/phone-verification-status', sellerController.checkPhoneVerificationStatus);
+
 module.exports = router;

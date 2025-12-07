@@ -377,6 +377,55 @@ router.post('/forgot-password', buyerController.forgotPassword);
 
 /**
  * @swagger
+ * /api/v2/buyers/forgot-password-sms:
+ *   post:
+ *     summary: Request password reset OTP via SMS
+ *     description: Send a password reset OTP to the buyer's phone number via SMS using Termii API
+ *     tags: [Buyer V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - phoneNumber
+ *             properties:
+ *               phoneNumber:
+ *                 type: string
+ *                 example: "+23490126727"
+ *                 description: The buyer's phone number in international format (must include country code)
+ *     responses:
+ *       200:
+ *         description: Password reset code sent successfully via SMS
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Password reset code sent successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                       example: "Password reset code sent successfully"
+ *       404:
+ *         description: Buyer not found
+ *       422:
+ *         description: Validation error - Invalid phone number format
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/forgot-password-sms', buyerController.forgotPasswordSMS);
+
+/**
+ * @swagger
  * /api/v2/buyers/reset-password:
  *   post:
  *     summary: Reset password using OTP

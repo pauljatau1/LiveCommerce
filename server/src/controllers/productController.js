@@ -600,6 +600,10 @@ exports.getProduct = async (req, res) => {
       const product = await Product.findById(req.params.id)
         .populate({
           path: 'seller',
+          // NOTE: We explicitly select rating stats so that the seller object
+          // on the product details response has complete review/rating info.
+          // This mirrors how other endpoints expose seller rating data and
+          // keeps the legacy response shape intact while enriching it.
           select: `
             firstName lastName email phoneNumber businessName 
             businessType businessEmail businessNumber businessAddress 
@@ -607,6 +611,7 @@ exports.getProduct = async (req, res) => {
             shippingOptions warehouseDetails categories followers
             isVerified accountType storeVisits products customers
             offersStorePickup
+            stats.averageRating stats.totalReviews stats.ratingDistribution
           `
         })
         .populate({
@@ -670,9 +675,22 @@ exports.getProduct = async (req, res) => {
             accountType: formattedProduct.seller.accountType
           },
           stats: {
+            // Store/storefront level stats
             storeVisits: formattedProduct.seller.storeVisits || 0,
             totalProducts: formattedProduct.seller.products ? formattedProduct.seller.products.length : 0,
-            totalCustomers: formattedProduct.seller.customers ? formattedProduct.seller.customers.length : 0
+            totalCustomers: formattedProduct.seller.customers ? formattedProduct.seller.customers.length : 0,
+            // Review/rating stats aggregated from the seller's products.
+            // These are read from the Seller.stats sub-document so that
+            // product details consumers can show store rating information.
+            averageRating: formattedProduct.seller.stats?.averageRating || 0,
+            totalReviews: formattedProduct.seller.stats?.totalReviews || 0,
+            ratingDistribution: formattedProduct.seller.stats?.ratingDistribution || {
+              1: 0,
+              2: 0,
+              3: 0,
+              4: 0,
+              5: 0
+            }
           }
         };
       }
@@ -831,9 +849,25 @@ exports.getProduct = async (req, res) => {
               accountType: '$sellerInfo.accountType'
             },
             stats: {
+              // Store/storefront level stats
               storeVisits: '$sellerInfo.storeVisits',
               totalProducts: { $size: { $ifNull: ['$sellerInfo.products', []] } },
-              totalCustomers: { $size: { $ifNull: ['$sellerInfo.customers', []] } }
+              totalCustomers: { $size: { $ifNull: ['$sellerInfo.customers', []] } },
+              // Review/rating stats from Seller.stats (computed from product reviews)
+              averageRating: { $ifNull: ['$sellerInfo.stats.averageRating', 0] },
+              totalReviews: { $ifNull: ['$sellerInfo.stats.totalReviews', 0] },
+              ratingDistribution: {
+                $ifNull: [
+                  '$sellerInfo.stats.ratingDistribution',
+                  {
+                    1: 0,
+                    2: 0,
+                    3: 0,
+                    4: 0,
+                    5: 0
+                  }
+                ]
+              }
             }
           },
           // Calculate stats based on embedded reviews

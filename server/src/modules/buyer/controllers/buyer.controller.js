@@ -35,6 +35,7 @@ const getSellerReviewsService = require('../services/getSellerReviews.service');
 const getNotificationPreferencesService = require('../services/getNotificationPreferences.service');
 const updateNotificationPreferencesService = require('../services/updateNotificationPreferences.service');
 const forgotPasswordService = require('../services/forgotPassword.service');
+const forgotPasswordSMSService = require('../services/forgotPasswordSMS.service');
 const resetPasswordService = require('../services/resetPassword.service');
 const requestAccountDeletionService = require('../services/requestAccountDeletion.service');
 const confirmAccountDeletionService = require('../services/confirmAccountDeletion.service');
@@ -1042,6 +1043,35 @@ async function forgotPassword(req, res, next) {
 }
 
 /**
+ * Process forgot password request via SMS.
+ *
+ * This controller handles the forgot password via SMS HTTP request.
+ * It delegates the forgot password SMS logic to the service layer and returns a success response.
+ *
+ * The endpoint accepts a phone number and sends an OTP via SMS using Termii API
+ * for password reset functionality.
+ *
+ * @param {Request} req - Express request object containing the phoneNumber in req.body
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function forgotPasswordSMS(req, res, next) {
+  try {
+    // Extract phone number from request body
+    const forgotPasswordSMSData = req.body;
+
+    // Call the service layer to handle forgot password SMS logic
+    const response = await forgotPasswordSMSService.forgotPasswordSMS(forgotPasswordSMSData);
+
+    // Send success response with message
+    res.success(response, 'Password reset code sent successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
  * Process password reset request.
  *
  * This controller handles the password reset HTTP request.
@@ -1556,6 +1586,7 @@ module.exports = {
   getNotificationPreferences,
   updateNotificationPreferences,
   forgotPassword,
+  forgotPasswordSMS,
   resetPassword,
   requestAccountDeletion,
   confirmAccountDeletion,

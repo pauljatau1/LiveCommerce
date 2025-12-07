@@ -838,6 +838,17 @@ const sendNotificationsForTerminalEvent = async (order, event, data) => {
     try {
       // Send specific email based on event type
       await sendTerminalEventEmails(buyer, seller, order, event, data);
+      
+      // Send SMS notifications for delivery events (non-blocking)
+      if (event === 'shipment.delivered') {
+        try {
+          const { sendOrderDeliverySMS } = require('../modules/orderv2/helpers/sms.helper');
+          await sendOrderDeliverySMS(order, buyer, seller);
+        } catch (smsError) {
+          // Log error but don't throw - SMS failures should not affect order processing
+          console.error(`Error sending SMS notifications for delivered order ${order.order_id}:`, smsError);
+        }
+      }
       console.log(`✅ Terminal event emails sent successfully`);
     } catch (emailError) {
       console.error('❌ Error sending Terminal event emails:', emailError);

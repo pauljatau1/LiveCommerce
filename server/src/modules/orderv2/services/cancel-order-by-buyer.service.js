@@ -3,6 +3,7 @@ const orderRepository = require('../repositories/order.repository');
 const terminalAPI = require('../../../config/terminalAPI');
 const Product = require('../../../models/Product');
 const Buyer = require('../../../models/Buyer');
+const Seller = require('../../../models/Seller');
 const sgMail = require('@sendgrid/mail');
 
 // Set this to true to enable free shipping promo, false to disable
@@ -57,6 +58,19 @@ exports.cancelOrderByBuyer = async (orderId, buyerId, reason) => {
 
     // Send email notifications
     await sendCancellationEmails(order, reason, walletRefundResult);
+
+    // Send SMS notifications to buyer and seller (non-blocking)
+    // This will not affect order processing if SMS sending fails
+    try {
+      const { sendOrderCancellationSMS } = require('../helpers/sms.helper');
+      const buyer = await Buyer.findById(order.buyer).select('phoneNumber firstName lastName');
+      const seller = await Seller.findById(order.seller).select('phoneNumber firstName lastName businessName storeName');
+      const hasRefund = order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet');
+      await sendOrderCancellationSMS(order, reason, hasRefund, buyer, seller);
+    } catch (smsError) {
+      // Log error but don't throw - SMS failures should not affect order processing
+      console.error(`Error sending SMS notifications for cancelled order ${order.order_id}:`, smsError);
+    }
 
     return {
       status: 200,

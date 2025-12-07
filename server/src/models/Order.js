@@ -288,6 +288,24 @@ const orderSchema = new mongoose.Schema({
   notificationsSent: {
     type: Boolean,
     default: false
+  },
+  paymentOTP: {
+    type: String
+  },
+  paymentOTPExpires: {
+    type: Date
+  },
+  smsStatus: {
+    buyerSMS: {
+      sent: { type: Boolean, default: false },
+      sentAt: Date,
+      error: String
+    },
+    sellerSMS: {
+      sent: { type: Boolean, default: false },
+      sentAt: Date,
+      error: String
+    }
   }
 });
 
