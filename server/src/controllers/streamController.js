@@ -359,10 +359,20 @@ exports.startStream = async (req, res) => {
     const freshToken = agoraService.generateToken(stream.channelName, seller.agoraUid, RtcRole.PUBLISHER);
     console.log('start stream uid', seller.agoraUid);
 
+    // Mark stream as live and capture actual start time so downstream services (notifications,
+    // analytics, etc.) have the most accurate timestamp possible.
     stream.status = 'live';
     stream.actualStartTime = new Date();
     stream.agoraUid = seller.agoraUid;
     stream.agoraToken = freshToken;
+
+    // Observability: log whenever a stream is transitioned to live so we can correlate
+    // notification dispatch with the start event in the logs.
+    console.log('[Stream] Live stream starting', {
+      streamId: stream._id?.toString(),
+      sellerId: seller._id?.toString(),
+      startedAt: stream.actualStartTime?.toISOString()
+    });
 
     // Save stream first with basic updates
     await stream.save();
@@ -404,22 +414,21 @@ exports.startStream = async (req, res) => {
         { $push: { chatInteractions: notificationObj } }
       );
 
-      // Send push notifications to all followers (buyers who follow this seller)
+      // Send push notifications to all followers (buyers who follow this seller) as well as
+      // subscribers. We include subscribers in the follower batch to guarantee delivery to all
+      // followers while still deduplicating per buyer to avoid double sends across batches.
       // We now use the Buyer's stored Expo push token instead of Firebase userTokens,
       // because the mobile app saves tokens directly on the Buyer document.
       if (seller.followers && seller.followers.length > 0) {
-        // Build a set of all subscriber buyerIds so we don't double‑notify
-        // buyers who both follow the seller and explicitly subscribed to the stream.
-        const subscribedBuyerIds = new Set(
-          (stream.subscribers || []).map((sub) => sub.buyer.toString())
+        // Collect follower buyerIds (including those who are also subscribers) while deduplicating.
+        const followerBuyerIds = Array.from(
+          new Set(
+            seller.followers
+              .map((follower) => follower.buyerId)
+              .filter(Boolean)
+              .map((id) => id.toString())
+          )
         );
-
-        // Collect follower buyerIds that should receive a push (excluding subscribers)
-        const followerBuyerIds = seller.followers
-          .map((follower) => follower.buyerId)
-          .filter(Boolean)
-          .map((id) => id.toString())
-          .filter((buyerId) => !subscribedBuyerIds.has(buyerId));
 
         if (followerBuyerIds.length > 0) {
           // Fetch all followers' buyer records in a single query for efficiency
@@ -457,11 +466,22 @@ exports.startStream = async (req, res) => {
           if (followerNotifications.length > 0) {
             try {
               await expo.sendPushNotificationsAsync(followerNotifications);
-              console.log(`Sent push notifications to ${followerNotifications.length} followers`);
+              console.log('[Stream] Sent follower push notifications', {
+                streamId: stream._id?.toString(),
+                sellerId: seller._id?.toString(),
+                followerCount: followerBuyerIds.length,
+                notifiedCount: followerNotifications.length
+              });
             } catch (expoError) {
               // Log Expo errors but do not fail stream start for notification issues
               console.error('Error sending follower push notifications:', expoError);
             }
+          } else {
+            console.log('[Stream] No follower push notifications sent', {
+              streamId: stream._id?.toString(),
+              sellerId: seller._id?.toString(),
+              followerCount: followerBuyerIds.length
+            });
           }
         }
       }
@@ -560,10 +580,19 @@ exports.startStream = async (req, res) => {
         if (subscriberPushNotifications.length > 0) {
           try {
             await expo.sendPushNotificationsAsync(subscriberPushNotifications);
-            console.log(`Sent push notifications to ${subscriberPushNotifications.length} subscribers`);
+            console.log('[Stream] Sent subscriber push notifications', {
+              streamId: stream._id?.toString(),
+              sellerId: seller?._id?.toString(),
+              notifiedCount: subscriberPushNotifications.length
+            });
           } catch (expoError) {
             console.error('Error sending subscriber push notifications:', expoError);
           }
+        } else {
+          console.log('[Stream] No subscriber push notifications sent', {
+            streamId: stream._id?.toString(),
+            sellerId: seller?._id?.toString()
+          });
         }
       }
 
