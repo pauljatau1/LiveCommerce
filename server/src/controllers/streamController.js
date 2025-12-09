@@ -1096,7 +1096,16 @@ exports.joinStream = async (req, res) => {
     }
 
     if (stream.status === 'ended') {
-      return res.status(200).json({ message: 'Stream has already ended', success: false, stream: stream });
+      // Populate seller identity fields so clients receive seller context on ended streams
+      const endedStreamWithSeller = await Stream.findById(stream._id)
+        .populate('seller', 'storeName businessName storeAvatar')
+        .lean();
+
+      return res.status(200).json({
+        message: 'Stream has already ended',
+        success: false,
+        stream: endedStreamWithSeller
+      });
     }
 
     if (stream.status !== 'live') {
