@@ -301,12 +301,20 @@ describe('Seller Registration Service', () => {
         expect(adminEmailCall[0].html).toContain('1234567890');
       });
 
-      it('should throw error when email sending fails', async () => {
+      it('should succeed even when email sending fails (non-blocking email)', async () => {
+        // Email sending is now non-blocking, so registration should succeed even if email fails
         sgMail.send.mockRejectedValue(new Error('Email service unavailable'));
 
-        await expect(registerService.register(validRegistrationData))
-          .rejects
-          .toThrow('Email service unavailable');
+        const result = await registerService.register(validRegistrationData);
+
+        // Registration should succeed
+        expect(result).toHaveProperty('user');
+        expect(result).toHaveProperty('token');
+        expect(result.user.email).toBe('john.doe@example.com');
+        
+        // Verify seller was created in database
+        expect(sellerRepository.create).toHaveBeenCalled();
+        expect(sellerRepository.save).toHaveBeenCalled();
       });
     });
   });
