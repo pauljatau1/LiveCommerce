@@ -27,13 +27,18 @@ exports.getBankList = async () => {
       return cachedBanks;
     }
 
-    // Fetch from Paystack if not in cache
-    const response = await paystack.get('/bank');
+    // Fetch from Paystack with NIP codes for Nigeria
+    // Include country=nigeria and include_nip_sort_code for complete bank information
+    const response = await paystack.get('/bank?country=nigeria&perPage=100&include_nip_sort_code=true');
     const banks = response.data.data.map(bank => ({
-      code: bank.code,
-      name: bank.name,
-      longcode: bank.longcode,
-      active: bank.active
+      code: bank.code,              // Bank code used for verification
+      name: bank.name,              // Bank name
+      longcode: bank.longcode,      // Long code
+      active: bank.active,          // Active status
+      slug: bank.slug,              // Bank slug
+      nip_bank_code: bank.nip_bank_code || null,  // NIP code for NIP rails (optional)
+      currency: bank.currency,      // Currency (NGN for Nigerian banks)
+      type: bank.type               // Type (usually "nuban")
     }));
 
     // Store in cache

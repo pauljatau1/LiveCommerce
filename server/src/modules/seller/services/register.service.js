@@ -293,12 +293,27 @@ async function register(data) {
   const token = generateToken(savedSeller._id, 'Seller', '2w');
 
   // Send welcome email and admin notification
-  await Promise.all([
+  // NOTE: Email sending is non-blocking - registration succeeds even if emails fail
+  // This ensures SendGrid issues don't prevent successful account creation
+  Promise.all([
     sendWelcomeEmail(data.email, data.firstName),
     sendAdminNotification(data.firstName, data.lastName, data.email, data.phoneNumber)
-  ]);
+  ])
+    .then(() => {
+      console.log(`✅ Welcome emails sent successfully for ${data.email}`);
+    })
+    .catch((emailError) => {
+      // Log the error but don't fail the registration
+      console.error('⚠️ Email sending failed during registration, but account was created successfully:', {
+        email: data.email,
+        error: emailError.message,
+        code: emailError.code,
+        sellerId: savedSeller._id
+      });
+      // Optionally, you could add this to a retry queue here
+    });
 
-  // Return success response (exclude password for security)
+  // Return success response immediately (exclude password for security)
   const userResponse = savedSeller.toObject ? savedSeller.toObject() : { ...savedSeller };
   delete userResponse.password;
   return {

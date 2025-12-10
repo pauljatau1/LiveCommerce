@@ -1037,6 +1037,17 @@ exports.createWithdrawalRequest = async (req, res) => {
       return res.status(400).json({ message: 'Insufficient wallet balance' });
     }
 
+    // Check if bank details are verified (backward compatible)
+    // If isBankVerified field doesn't exist (old sellers), allow withdrawal
+    // For new/updated sellers, require verification
+    if (seller.isBankVerified === false) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Bank account not verified. Please verify your bank details before making a withdrawal.',
+        requiresVerification: true
+      });
+    }
+
     // Validate bank details
     if (!bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.accountName || !bankDetails.bankIdentifierCode) {
       return res.status(400).json({ message: 'All bank details are required (bankName, accountNumber, accountName, bankIdentifierCode)' });
