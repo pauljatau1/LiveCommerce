@@ -1065,7 +1065,7 @@ exports.createWithdrawalRequest = async (req, res) => {
 
     await withdrawal.save();
 
-    // Send email notification
+    // Send email notifications asynchronously (non-blocking)
     const emailMsg = {
       to: seller.email,
       from: 'Auqli Admin <support@auqli.com>',
@@ -1107,10 +1107,22 @@ exports.createWithdrawalRequest = async (req, res) => {
       `
     };
 
-    await Promise.all([
+    // Send emails without blocking the response (non-blocking)
+    Promise.all([
       sgMail.send(emailMsg),
       sgMail.send(slackPayoutMsg)
-    ]);
+    ])
+      .then(() => {
+        console.log(`✅ Withdrawal notification emails sent successfully for withdrawal ${withdrawal.reference}`);
+      })
+      .catch((emailError) => {
+        console.error('⚠️ Email sending failed for withdrawal request, but withdrawal was created successfully:', {
+          withdrawalRef: withdrawal.reference,
+          error: emailError.message,
+          code: emailError.code,
+          sellerId: seller._id
+        });
+      });
 
     res.json({ 
       message: 'Withdrawal request created successfully', 

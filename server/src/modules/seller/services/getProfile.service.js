@@ -123,6 +123,7 @@ function getProfileFieldSelection() {
     sellerAddress: 1,
     warehouseDetails: 1,
     bankDetails: 1,
+    isBankVerified: 1,
     shippingOptions: 1,
     storeAvatar: 1,
     storeBanner: 1,
