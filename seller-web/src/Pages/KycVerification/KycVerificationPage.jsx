@@ -25,6 +25,7 @@ import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/form/input";
 import { Label } from "@/Components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
+import { SearchableSelect } from "@/Components/ui/searchable-select";
 import { RadioGroup, RadioGroupItem } from "@/Components/ui/radio-group";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/Components/ui/dialog";
@@ -1175,16 +1176,19 @@ const KycVerificationPage = () => {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <Label htmlFor="bankName" className="text-sm font-medium text-gray-700">Bank Name</Label>
-                                                <Select value={bankForm.bankName} onValueChange={(value) => setBankForm(prev => ({ ...prev, bankName: value }))}>
-                                                    <SelectTrigger className="mt-1">
-                                                        <SelectValue placeholder="Select bank" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {NIGERIAN_BANKS.map((bank) => (
-                                                            <SelectItem key={bank.code} value={bank.name}>{bank.name}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                <div className="mt-1">
+                                                    <SearchableSelect
+                                                        options={NIGERIAN_BANKS.map(bank => ({
+                                                            value: bank.name,
+                                                            label: bank.name
+                                                        }))}
+                                                        value={bankForm.bankName}
+                                                        onValueChange={(value) => setBankForm(prev => ({ ...prev, bankName: value }))}
+                                                        placeholder="Select bank"
+                                                        searchPlaceholder="Search for your bank..."
+                                                        emptyText="No banks found. Try a different search."
+                                                    />
+                                                </div>
                                             </div>
 
                                             <div>
