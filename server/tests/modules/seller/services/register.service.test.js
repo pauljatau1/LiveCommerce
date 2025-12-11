@@ -147,13 +147,21 @@ describe('Seller Registration Service', () => {
       );
     });
 
-    it('should throw error when email sending fails', async () => {
-      // Mock email sending to fail
+    it('should succeed even when email sending fails because email is non-blocking', async () => {
+      // Mock email sending to fail - but registration should still succeed
       sgMail.send.mockRejectedValue(new Error('Email service unavailable'));
 
-      await expect(registerService.register(validRegistrationData))
-        .rejects
-        .toThrow('Email service unavailable');
+      // Registration should succeed despite email failure
+      const result = await registerService.register(validRegistrationData);
+
+      expect(result).toHaveProperty('user');
+      expect(result).toHaveProperty('token');
+      expect(result.user.email).toBe('john.doe@example.com');
+      
+      // Verify seller was saved to database
+      const savedSeller = await Seller.findById(result.user._id);
+      expect(savedSeller).toBeDefined();
+      expect(savedSeller.email).toBe('john.doe@example.com');
     });
 
     it('should save seller to database with all required fields', async () => {
@@ -301,8 +309,9 @@ describe('Seller Registration Service', () => {
         expect(adminEmailCall[0].html).toContain('1234567890');
       });
 
-      it('should succeed even when email sending fails (non-blocking email)', async () => {
+      it('should log email failure but not block registration', async () => {
         // Email sending is now non-blocking, so registration should succeed even if email fails
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
         sgMail.send.mockRejectedValue(new Error('Email service unavailable'));
 
         const result = await registerService.register(validRegistrationData);
@@ -313,8 +322,20 @@ describe('Seller Registration Service', () => {
         expect(result.user.email).toBe('john.doe@example.com');
         
         // Verify seller was created in database
-        expect(sellerRepository.create).toHaveBeenCalled();
-        expect(sellerRepository.save).toHaveBeenCalled();
+        const savedSeller = await Seller.findById(result.user._id);
+        expect(savedSeller).toBeDefined();
+        expect(savedSeller.email).toBe('john.doe@example.com');
+        
+        // Wait a bit for the async email error to be logged
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Verify error was logged (since email failed)
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Email sending failed during registration'),
+          expect.any(Object)
+        );
+        
+        consoleSpy.mockRestore();
       });
     });
   });

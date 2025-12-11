@@ -100,8 +100,8 @@ describe('Add Bank Details Service', () => {
       expect(sellerRepository.save).not.toHaveBeenCalled();
     });
 
-    it('should throw ValidationError when seller already has bank details', async () => {
-      // Arrange
+    it('should successfully update bank details when seller already has bank details (no approval required)', async () => {
+      // Arrange - Seller already has existing bank details
       const sellerWithBankDetails = {
         ...mockSeller,
         bankDetails: {
@@ -111,14 +111,22 @@ describe('Add Bank Details Service', () => {
       };
       sellerRepository.findById.mockResolvedValue(sellerWithBankDetails);
       addBankDetailsValidator.validateBankDetails.mockImplementation(() => {});
-
-      // Act & Assert
-      await expect(addBankDetailsService.addBankDetails(mockSellerId, mockBankDetails))
-        .rejects.toThrow(ValidationError);
       
+      const updatedSeller = {
+        ...sellerWithBankDetails,
+        bankDetails: mockBankDetails,
+        hasFilledBankDetails: true
+      };
+      sellerRepository.save.mockResolvedValue(updatedSeller);
+
+      // Act - Should allow direct update without approval process
+      const result = await addBankDetailsService.addBankDetails(mockSellerId, mockBankDetails);
+
+      // Assert - Should succeed (no longer throws error)
+      expect(result).toEqual(updatedSeller);
       expect(sellerRepository.findById).toHaveBeenCalledWith(mockSellerId);
-      expect(addBankDetailsValidator.validateBankDetails).not.toHaveBeenCalled();
-      expect(sellerRepository.save).not.toHaveBeenCalled();
+      expect(addBankDetailsValidator.validateBankDetails).toHaveBeenCalledWith(mockBankDetails);
+      expect(sellerRepository.save).toHaveBeenCalledWith(sellerWithBankDetails);
     });
 
     it('should throw error when seller has bankDetails but no accountNumber', async () => {
