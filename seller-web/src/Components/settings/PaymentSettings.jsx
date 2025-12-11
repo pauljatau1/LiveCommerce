@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle} from "@/Components/ui
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
 import { SearchableSelect } from "@/Components/ui/searchable-select"
 import { Building2, CreditCard, User, Briefcase, Calculator, Globe, AlertCircle, CheckCircle2, XCircle, RefreshCw, Lock, Unlock } from 'lucide-react'
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
+import { Skeleton } from "@/Components/ui/skeleton";
 
 export default function PaymentSettings() {
   const { token } = useAuthContext();
@@ -26,6 +27,7 @@ export default function PaymentSettings() {
   });
   const [banks, setBanks] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingBankDetails, setIsLoadingBankDetails] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [isBankVerified, setIsBankVerified] = useState(false);
@@ -43,6 +45,7 @@ export default function PaymentSettings() {
   }, []);
 
   const fetchProfileData = async () => {
+    setIsLoadingBankDetails(true);
     try {
       const sellerToken = token?.data;
       const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
@@ -59,6 +62,8 @@ export default function PaymentSettings() {
     } catch (error) {
       console.error("Failed to fetch bank details", error);
       toast.error("Failed to fetch bank details");
+    } finally {
+      setIsLoadingBankDetails(false);
     }
   };
 
@@ -509,11 +514,34 @@ export default function PaymentSettings() {
     </Dialog>
   );
 
+  // Skeleton loader for bank details card
+  const BankDetailsSkeleton = () => (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="h-9 w-20" />
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {[...Array(6)].map((_, index) => (
+            <div key={index} className="flex items-center justify-between py-2 border-b">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-5 rounded" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+              <Skeleton className="h-4 w-20" />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6">
       
       {/* Bank Verification Status Banner */}
-      {bankDetails.accountNumber && (
+      {!isLoadingBankDetails && bankDetails.accountNumber && (
         <div className={`p-4 rounded-lg border ${
           isBankVerified 
             ? 'bg-green-50 border-green-200' 
@@ -546,88 +574,92 @@ export default function PaymentSettings() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Payout Details */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle>Payout Details</CardTitle>
-            <Button 
-              variant="default" 
-              className="bg-green-500 hover:bg-green-600"
-              onClick={() => {
-                setEditForm({
-                  ...bankDetails, 
-                  accountCurrency: "NGN",
-                  bankCountry: "Nigeria"
-                });
-                setIsEditing(true);
-                // Reset verification states when opening dialog
-                setVerificationStatus(null);
-                setVerificationMessage('');
-                setIsFieldsLocked(false);
-              }}
-            >
-              Update
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between py-2 border-b">
-                <div className="flex items-center gap-2">
-                  <Globe className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm font-medium">Bank Country</span>
+        {isLoadingBankDetails ? (
+          <BankDetailsSkeleton />
+        ) : (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle>Payout Details</CardTitle>
+              <Button 
+                variant="default" 
+                className="bg-green-500 hover:bg-green-600"
+                onClick={() => {
+                  setEditForm({
+                    ...bankDetails, 
+                    accountCurrency: "NGN",
+                    bankCountry: "Nigeria"
+                  });
+                  setIsEditing(true);
+                  // Reset verification states when opening dialog
+                  setVerificationStatus(null);
+                  setVerificationMessage('');
+                  setIsFieldsLocked(false);
+                }}
+              >
+                Update
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-sm font-medium">Bank Country</span>
+                  </div>
+                  <span className="text-sm">{bankDetails.bankCountry || 'Not set'}</span>
                 </div>
-                <span className="text-sm">{bankDetails.bankCountry || 'Not set'}</span>
-              </div>
 
-              <div className="flex items-center justify-between py-2 border-b">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm font-medium">Bank Name</span>
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-sm font-medium">Bank Name</span>
+                  </div>
+                  <span className="text-sm">{bankDetails.bankName || 'Not set'}</span>
                 </div>
-                <span className="text-sm">{bankDetails.bankName || 'Not set'}</span>
-              </div>
 
-              <div className="flex items-center justify-between py-2 border-b">
-                <div className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm font-medium">Account Name</span>
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div className="flex items-center gap-2">
+                    <User className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-sm font-medium">Account Name</span>
+                  </div>
+                  <span className="text-sm">{bankDetails.accountName || 'Not set'}</span>
                 </div>
-                <span className="text-sm">{bankDetails.accountName || 'Not set'}</span>
-              </div>
 
-              <div className="flex items-center justify-between py-2 border-b">
-                <div className="flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm font-medium">Account Type</span>
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-sm font-medium">Account Type</span>
+                  </div>
+                  <span className="text-sm">{bankDetails.bankAccountType || 'Not set'}</span>
                 </div>
-                <span className="text-sm">{bankDetails.bankAccountType || 'Not set'}</span>
-              </div>
 
-              <div className="flex items-center justify-between py-2 border-b">
-                <div className="flex items-center gap-2">
-                  <Calculator className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm font-medium">Account Number</span>
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-sm font-medium">Account Number</span>
+                  </div>
+                  <span className="text-sm">{bankDetails.accountNumber || 'Not set'}</span>
                 </div>
-                <span className="text-sm">{bankDetails.accountNumber || 'Not set'}</span>
-              </div>
 
-              <div className="flex items-center justify-between py-2 border-b">
-                <div className="flex items-center gap-2">
-                  {isBankVerified ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-red-600" />
-                  )}
-                  <span className="text-sm font-medium">Verification Status</span>
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div className="flex items-center gap-2">
+                    {isBankVerified ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-red-600" />
+                    )}
+                    <span className="text-sm font-medium">Verification Status</span>
+                  </div>
+                  <span className={`text-sm font-semibold ${
+                    isBankVerified ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {isBankVerified ? 'Verified' : 'Not Verified'}
+                  </span>
                 </div>
-                <span className={`text-sm font-semibold ${
-                  isBankVerified ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {isBankVerified ? 'Verified' : 'Not Verified'}
-                </span>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Card Payment Method - Coming Soon */}
         <Card>
