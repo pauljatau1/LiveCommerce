@@ -34,7 +34,8 @@ describe('Add Bank Details Service', () => {
   const mockUpdatedSeller = {
     ...mockSeller,
     bankDetails: mockBankDetails,
-    hasFilledBankDetails: !!mockBankDetails
+    hasFilledBankDetails: !!mockBankDetails,
+    isBankVerified: false // Added isBankVerified field to match Seller model
   };
 
   beforeEach(() => {
