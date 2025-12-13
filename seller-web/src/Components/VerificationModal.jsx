@@ -42,6 +42,7 @@ import { Textarea } from "@/Components/ui/textarea";
 import { Checkbox } from "@/Components/ui/checkbox";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
+import { SearchableSelect } from "@/Components/ui/searchable-select";
 import VerificationService from '@/services/VerificationService';
 import {
   AlertDialog,
@@ -1011,7 +1012,11 @@ const VerificationModal = ({ isOpen, onClose }) => {
               <Label htmlFor="bankName" className="flex items-center gap-1.5 text-sm font-medium">
                 <Building className="h-4 w-4 text-gray-500" /> Bank Name <span className="text-red-500">*</span>
               </Label>
-              <Select 
+              <SearchableSelect
+                options={NIGERIAN_BANKS.map(bank => ({
+                  value: bank.name,
+                  label: bank.name
+                }))}
                 value={formData.bankName}
                 onValueChange={(value) => {
                   const selectedBank = NIGERIAN_BANKS.find(bank => bank.name === value);
@@ -1021,18 +1026,10 @@ const VerificationModal = ({ isOpen, onClose }) => {
                     bicCode: selectedBank.code // Automatically set the BIC code based on selected bank
                   });
                 }}
-              >
-                <SelectTrigger className="h-10 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                  <SelectValue placeholder="Select bank" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-100 max-h-[300px]">
-                  {NIGERIAN_BANKS.map((bank) => (
-                    <SelectItem key={bank.code} value={bank.name}>
-                      {bank.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Select bank"
+                searchPlaceholder="Search for your bank..."
+                emptyText="No banks found. Try a different search."
+              />
             </div>
             
             <div className="space-y-2">

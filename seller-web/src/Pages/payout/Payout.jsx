@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, CreditCard, Info, ArrowRight, Receipt, Calendar, ArrowDownToLine, Wallet, BanknoteIcon, Clock, FileText, CircleDollarSign, ArrowDownUp, ArrowUpRight } from 'lucide-react'
+import { Building2, CreditCard, Info, ArrowRight, Receipt, Calendar, ArrowDownToLine, Wallet, BanknoteIcon, Clock, FileText, CircleDollarSign, ArrowDownUp, ArrowUpRight, AlertCircle } from 'lucide-react'
 import { Card } from "@/Components/ui/card"
 import { Button } from "@/Components/ui/button"
 import {
@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/Components/ui/select"
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/Components/ui/dialog";
-import { BASE_URL} from "@/Constants/Server";
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server";
 import { useOutletContext, Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs"
@@ -59,6 +59,7 @@ export default function Payout() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("withdrawals");
+  const [isBankVerified, setIsBankVerified] = useState(false);
 
   useEffect(() => {
     setHeaderName('Earnings & Payouts')
@@ -71,6 +72,26 @@ export default function Payout() {
       try {
         const sellerToken = token?.data;
         if (sellerToken) {
+          // Fetch fresh seller profile data from API
+          const profileResponse = await fetch(`${BASE_URL_V2}/sellers/profile`, {
+            headers: {
+              'Authorization': `Bearer ${sellerToken}`
+            }
+          });
+          
+          if (!profileResponse.ok) {
+            throw new Error('Failed to fetch profile data');
+          }
+          
+          const profileData = await profileResponse.json();
+          const sellerProfile = profileData?.data || profileData;
+          
+          console.log('💰 Fetched seller profile:', {
+            walletBalance: sellerProfile?.walletBalance,
+            bankDetails: sellerProfile?.bankDetails,
+            isBankVerified: sellerProfile?.isBankVerified
+          });
+
           // Fetch withdrawals
           const withdrawalsResponse = await fetch(`${BASE_URL}/seller/withdrawals`, {
             headers: {
@@ -88,15 +109,27 @@ export default function Payout() {
             .filter(w => w.status === 'pending')
             .reduce((sum, w) => sum + w.amount, 0);
 
-          const profileData = seller;
-          const availableForWithdrawal = profileData?.data?.walletBalance || 0;
+          const availableForWithdrawal = sellerProfile?.walletBalance || 0;
 
-          // Set bank details with default values
+          // Set bank details with default values from fresh profile data
           setBankDetails({
-            bankName: profileData?.data?.bankDetails?.bankName || '',
-            accountNumber: profileData?.data?.bankDetails?.accountNumber || '',
-            accountName: profileData?.data?.bankDetails?.accountName || '',
-            bankIdentifierCode: profileData?.data?.bankDetails?.bankIdentifierCode || ''
+            bankName: sellerProfile?.bankDetails?.bankName || '',
+            accountNumber: sellerProfile?.bankDetails?.accountNumber || '',
+            accountName: sellerProfile?.bankDetails?.accountName || '',
+            bankIdentifierCode: sellerProfile?.bankDetails?.bankIdentifierCode || ''
+          });
+          
+          // Set bank verification status from fresh profile data
+          setIsBankVerified(sellerProfile?.isBankVerified || false);
+
+          console.log('✅ Payout page data loaded:', {
+            availableForWithdrawal,
+            bankDetails: {
+              bankName: sellerProfile?.bankDetails?.bankName,
+              accountNumber: sellerProfile?.bankDetails?.accountNumber,
+              accountName: sellerProfile?.bankDetails?.accountName
+            },
+            isBankVerified: sellerProfile?.isBankVerified
           });
 
           setFinancialData({
@@ -113,7 +146,7 @@ export default function Payout() {
     };
 
     fetchFinancialData();
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -144,6 +177,12 @@ export default function Payout() {
     // Check if bank details are missing
     if (!bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.accountName) {
       setError('Please add your bank account information in Settings before requesting a withdrawal.');
+      return;
+    }
+
+    // Check if bank account is verified
+    if (!isBankVerified) {
+      setError('Your bank account is not verified. Please verify your bank details in Settings before making a withdrawal.');
       return;
     }
 
@@ -233,7 +272,13 @@ export default function Payout() {
           document.querySelector('[data-state="open"]').click(); // Close withdrawal modal
           document.getElementById('withdrawalSuccessDialog').click(); // Open success dialog
         } else {
-          setError('Error: ' + result.message);
+          const errorData = result;
+          // Check if the error is due to unverified bank
+          if (errorData.requiresVerification) {
+            setError('Your bank account needs to be verified. Please go to Settings > Payment to verify your bank details.');
+          } else {
+            setError('Error: ' + errorData.message);
+          }
         }
       }
     } catch (error) {
@@ -406,6 +451,45 @@ export default function Payout() {
                                 Add Bank Details
                               </Button>
                             </div>
+                          ) : !isBankVerified ? (
+                            <div className="space-y-2">
+                              <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                                  <div>
+                                    <p className="text-xs sm:text-sm text-red-700 font-medium">Bank account not verified</p>
+                                    <p className="text-xs text-red-600 mt-1">
+                                      Your bank account must be verified before you can make a withdrawal. Please verify your account in Settings.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="space-y-1 sm:space-y-2">
+                                <div className="flex justify-between text-xs sm:text-sm">
+                                  <span className="text-gray-600">Bank:</span>
+                                  <span className="font-medium">{bankDetails.bankName}</span>
+                                </div>
+                                <div className="flex justify-between text-xs sm:text-sm">
+                                  <span className="text-gray-600">Account:</span>
+                                  <span className="font-medium">{bankDetails.accountNumber}</span>
+                                </div>
+                                <div className="flex justify-between text-xs sm:text-sm">
+                                  <span className="text-gray-600">Name:</span>
+                                  <span className="font-medium">{bankDetails.accountName}</span>
+                                </div>
+                              </div>
+                              <Button
+                                variant="outline"
+                                className="mt-1 sm:mt-2 w-full text-red-600 text-xs sm:text-sm border-red-200 hover:bg-red-50"
+                                onClick={() => {
+                                  document.querySelector('[data-state="open"]').click(); // Close withdrawal modal
+                                  window.location.href = "/dashboard/settings?tab=payment";
+                                }}
+                              >
+                                <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                                Verify Bank Account
+                              </Button>
+                            </div>
                           ) : (
                             <div className="space-y-1 sm:space-y-2">
                               <div className="flex justify-between text-xs sm:text-sm">
@@ -460,7 +544,7 @@ export default function Payout() {
                     <DialogFooter className="flex-col space-y-2 sm:space-y-0 sm:flex-row sm:justify-end">
                       <Button
                         onClick={handleWithdrawalRequest}
-                        disabled={loading || !withdrawalAmount || !bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.accountName}
+                        disabled={loading || !withdrawalAmount || !bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.accountName || !isBankVerified}
                         className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto text-sm rounded-lg"
                       >
                         {loading ? 'Processing...' : 'Withdraw'}
