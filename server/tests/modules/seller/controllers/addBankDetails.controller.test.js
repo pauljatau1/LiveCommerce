@@ -66,7 +66,7 @@ describe('Add Bank Details Controller', () => {
       await sellerController.addBankDetails(mockReq, mockRes, mockNext);
 
       // Assert
-      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, mockBankDetails);
+      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, mockBankDetails, undefined);
       expect(mockRes.success).toHaveBeenCalledWith(
         {
           message: 'Bank details added successfully',
@@ -88,7 +88,7 @@ describe('Add Bank Details Controller', () => {
       await sellerController.addBankDetails(mockReq, mockRes, mockNext);
 
       // Assert
-      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, mockBankDetails);
+      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, mockBankDetails, undefined);
       expect(mockRes.success).not.toHaveBeenCalled();
       expect(mockNext).toHaveBeenCalledWith(validationError);
       expect(validationError.errors).toEqual([
@@ -105,7 +105,7 @@ describe('Add Bank Details Controller', () => {
       await sellerController.addBankDetails(mockReq, mockRes, mockNext);
 
       // Assert
-      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, mockBankDetails);
+      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, mockBankDetails, undefined);
       expect(mockRes.success).not.toHaveBeenCalled();
       expect(mockNext).toHaveBeenCalledWith(notFoundError);
       expect(notFoundError.message).toBe('Seller not found');
@@ -122,7 +122,7 @@ describe('Add Bank Details Controller', () => {
       await sellerController.addBankDetails(mockReq, mockRes, mockNext);
 
       // Assert
-      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, mockBankDetails);
+      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, mockBankDetails, undefined);
       expect(mockRes.success).not.toHaveBeenCalled();
       expect(mockNext).toHaveBeenCalledWith(businessRuleError);
       expect(businessRuleError.errors).toEqual([
@@ -139,7 +139,7 @@ describe('Add Bank Details Controller', () => {
       await sellerController.addBankDetails(mockReq, mockRes, mockNext);
 
       // Assert
-      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, mockBankDetails);
+      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, mockBankDetails, undefined);
       expect(mockRes.success).not.toHaveBeenCalled();
       expect(mockNext).toHaveBeenCalledWith(databaseError);
       expect(databaseError.message).toBe('Database connection failed');
@@ -154,7 +154,7 @@ describe('Add Bank Details Controller', () => {
       await sellerController.addBankDetails(mockReq, mockRes, mockNext);
 
       // Assert
-      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, mockBankDetails);
+      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, mockBankDetails, undefined);
       expect(mockRes.success).not.toHaveBeenCalled();
       expect(mockNext).toHaveBeenCalledWith(findError);
       expect(findError.message).toBe('Database find failed');
@@ -187,7 +187,7 @@ describe('Add Bank Details Controller', () => {
       await sellerController.addBankDetails(mockReqWithMinimal, mockRes, mockNext);
 
       // Assert
-      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, minimalBankDetails);
+      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, minimalBankDetails, undefined);
       expect(mockRes.success).toHaveBeenCalledWith(
         {
           message: 'Bank details added successfully',
@@ -227,7 +227,7 @@ describe('Add Bank Details Controller', () => {
       await sellerController.addBankDetails(mockReqWithComplete, mockRes, mockNext);
 
       // Assert
-      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, completeBankDetails);
+      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(mockSellerId, completeBankDetails, undefined);
       expect(mockRes.success).toHaveBeenCalledWith(
         {
           message: 'Bank details added successfully',
@@ -257,7 +257,7 @@ describe('Add Bank Details Controller', () => {
       await sellerController.addBankDetails(mockReqWithDifferentId, mockRes, mockNext);
 
       // Assert
-      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(differentSellerId, mockBankDetails);
+      expect(addBankDetailsService.addBankDetails).toHaveBeenCalledWith(differentSellerId, mockBankDetails, undefined);
       expect(mockRes.success).toHaveBeenCalledWith(
         {
           message: 'Bank details added successfully',

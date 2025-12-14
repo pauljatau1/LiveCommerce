@@ -29,6 +29,7 @@ const getOrdersService = require('../services/getOrders.service');
 const getShippingLabelService = require('../services/getShippingLabel.service');
 const sendPhoneVerificationService = require('../services/sendPhoneVerification.service');
 const verifyPhoneService = require('../services/verifyPhone.service');
+const bankService = require('../../../services/bankService');
 
 /**
  * Register a seller user.
@@ -333,11 +334,12 @@ async function addBankDetails(req, res, next) {
     // Extract seller ID from authenticated user
     const sellerId = req.user.id;
 
-    // Extract bank details from request body
-    const { bankDetails } = req.body;
+    // Extract bank details and verification status from request body
+    const { bankDetails, isVerified } = req.body;
 
     // Call the service layer to handle bank details addition logic
-    const response = await addBankDetailsService.addBankDetails(sellerId, bankDetails);
+    // Pass isVerified flag to indicate if Paystack verification was successful
+    const response = await addBankDetailsService.addBankDetails(sellerId, bankDetails, isVerified);
 
     // Send success response with exact same structure as original function in data object
     // Original: { message: 'Bank details added successfully', seller: updatedSeller }
@@ -1147,6 +1149,75 @@ async function checkPhoneVerificationStatus(req, res, next) {
   }
 }
 
+/**
+ * Get list of banks from Paystack
+ * 
+ * This controller fetches the list of Nigerian banks from Paystack's API
+ * to allow sellers to select their bank for verification.
+ * 
+ * @param {Request} req - Express request object
+ * @param {Response} res - Express response object
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function getBanks(req, res, next) {
+  try {
+    // Fetch bank list from Paystack via bankService
+    const banks = await bankService.getBankList();
+    
+    // Return success response with banks list
+    res.success(banks, 'Banks fetched successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Verify bank account using Paystack
+ * 
+ * This controller verifies a bank account number with the selected bank
+ * using Paystack's account verification API. It ensures the account exists
+ * and returns the account holder's name for confirmation.
+ * 
+ * @param {Request} req - Express request object containing accountNumber and bankCode in body
+ * @param {Response} res - Express response object
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function verifyBankAccount(req, res, next) {
+  try {
+    const { accountNumber, bankCode } = req.body;
+    
+    // Validate required fields
+    if (!accountNumber || !bankCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Account number and bank code are required'
+      });
+    }
+    
+    // Validate account number format (should be 10 digits for Nigerian banks)
+    if (accountNumber.length !== 10 || !/^\d+$/.test(accountNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid account number format. Must be 10 digits.'
+      });
+    }
+    
+    // Call Paystack to verify the bank account
+    const verificationResult = await bankService.verifyBankAccount(accountNumber, bankCode);
+    
+    // Return success response with account details
+    res.success({
+      accountNumber: verificationResult.account_number,
+      accountName: verificationResult.account_name,
+      bankId: verificationResult.bank_id
+    }, 'Bank account verified successfully');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
@@ -1179,5 +1250,7 @@ module.exports = {
   getShippingLabel,
   sendPhoneVerification,
   verifyPhone,
-  checkPhoneVerificationStatus
+  checkPhoneVerificationStatus,
+  getBanks,
+  verifyBankAccount
 };

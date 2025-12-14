@@ -1520,6 +1520,138 @@ router.put('/profile/bank-details', verifyToken, sellerController.addBankDetails
 
 /**
  * @swagger
+ * /api/v2/sellers/banks:
+ *   get:
+ *     summary: Get list of Nigerian banks from Paystack
+ *     description: Fetches a list of all Nigerian banks with their codes and details for bank account verification
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Banks fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Banks fetched successfully"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       code:
+ *                         type: string
+ *                         description: Bank code used for verification
+ *                         example: "058"
+ *                       name:
+ *                         type: string
+ *                         description: Bank name
+ *                         example: "Guaranty Trust Bank"
+ *                       slug:
+ *                         type: string
+ *                         description: Bank slug
+ *                         example: "guaranty-trust-bank"
+ *                       longcode:
+ *                         type: string
+ *                         description: Bank long code
+ *                         example: "058152036"
+ *                       active:
+ *                         type: boolean
+ *                         description: Whether the bank is active
+ *                         example: true
+ *                       nip_bank_code:
+ *                         type: string
+ *                         description: NIP code for NIP rails (optional)
+ *                         example: "000013"
+ *                       currency:
+ *                         type: string
+ *                         description: Currency supported by bank
+ *                         example: "NGN"
+ *                       type:
+ *                         type: string
+ *                         description: Account type
+ *                         example: "nuban"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       500:
+ *         description: Server error
+ */
+router.get('/banks', verifyToken, sellerController.getBanks);
+
+/**
+ * @swagger
+ * /api/v2/sellers/banks/verify:
+ *   post:
+ *     summary: Verify bank account using Paystack
+ *     description: Verifies a bank account number with the selected bank using Paystack's verification API
+ *     tags: [Seller V2]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - accountNumber
+ *               - bankCode
+ *             properties:
+ *               accountNumber:
+ *                 type: string
+ *                 description: 10-digit bank account number
+ *                 example: "0123456789"
+ *               bankCode:
+ *                 type: string
+ *                 description: Bank code from the banks list
+ *                 example: "058"
+ *     responses:
+ *       200:
+ *         description: Bank account verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Bank account verified successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     accountNumber:
+ *                       type: string
+ *                       description: The verified account number
+ *                       example: "0123456789"
+ *                     accountName:
+ *                       type: string
+ *                       description: The account holder's name
+ *                       example: "JOHN DOE"
+ *                     bankId:
+ *                       type: number
+ *                       description: Paystack's internal bank ID
+ *                       example: 9
+ *       400:
+ *         description: Validation error - Invalid account number or bank code
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       500:
+ *         description: Server error or verification failed
+ */
+router.post('/banks/verify', verifyToken, sellerController.verifyBankAccount);
+
+/**
+ * @swagger
  * /api/v2/sellers/verification/company:
  *   post:
  *     summary: Upload company verification documents
