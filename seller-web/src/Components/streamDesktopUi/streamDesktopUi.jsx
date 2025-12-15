@@ -11,6 +11,9 @@ import StreamQualityIndicator from '../ui/StreamQualityIndicator';
 import AnnouncementModal from './AnnouncementModal';
 import ProductVisibilityConfirmationModal from '../ProductVisibilityConfirmationModal';
 import { checkInternetConnection, getNetworkSpeed } from '../../util/helpers';
+import DangerIcon from '../../assets/icons/DangerIcon';
+import RefreshIcon from '../../assets/icons/RefreshIcon';
+import WifiIcon from '../../assets/icons/WifiIcon';
 
 const StreamDesktopUi = ({
     viewers = [],
@@ -532,9 +535,8 @@ const StreamDesktopUi = ({
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center gap-2">
                                             {/* Connection status icon */}
-                                            <Icon 
-                                                icon="solar:danger-broken" 
-                                                className="w-5 h-5 text-[#C74E5B] animate-pulse" 
+                                            <DangerIcon 
+                                                color="#C74E5B"
                                             />
                                             {/* Connection status text */}
                                             <p className="text-sm font-inter font-medium text-white">
@@ -558,7 +560,7 @@ const StreamDesktopUi = ({
                                                     onClick={() => window.location.reload()}
                                                     className="px-3 py-1.5 text-xs font-inter font-medium text-white border border-white/30 rounded-[5px] hover:bg-white/10 transition-colors flex items-center justify-center gap-1.5"
                                                 >
-                                                    <Icon icon="solar:refresh-bold" className="w-4 h-4" />
+                                                    <RefreshIcon color="#FFFFFF" width={16} height={16} />
                                                     Refresh
                                                 </button>
                                             </div>
@@ -574,10 +576,7 @@ const StreamDesktopUi = ({
                                 ) : (
                                     // Connection is restored
                                     <div className="flex items-center gap-2">
-                                        <Icon 
-                                            icon="famicons:wifi" 
-                                            className="w-5 h-5 text-[#FFFFFF]" 
-                                        />
+                                        <WifiIcon color="#FFFFFF" width={18} height={18} />
                                         <p className="text-sm font-inter font-medium text-white">
                                             Your connection is restored
                                         </p>
