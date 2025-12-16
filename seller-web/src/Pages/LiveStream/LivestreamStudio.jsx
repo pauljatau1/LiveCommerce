@@ -1317,6 +1317,7 @@ const LivestreamStudio = () => {
         navigate,
         endLiveStream,
         resetBiddingStates,
+        socket
     ]);
 
     // Add code to load camera state from localStorage in initializeStream
@@ -1348,19 +1349,19 @@ const LivestreamStudio = () => {
 
             switch (curState) {
                 case 'CONNECTING':
-                    toast.loading('Connecting to stream...', { id: 'stream-connection' });
+                    //toast.loading('Connecting to stream...', { id: 'stream-connection' });
                     break;
                 case 'CONNECTED':
-                    toast.success('Stream connection stable', { id: 'stream-connection' });
+                    //toast.success('Stream connection stable', { id: 'stream-connection' });
                     break;
                 case 'RECONNECTING':
-                    toast.warning('Stream connection unstable', { id: 'stream-connection' });
+                    //toast.warning('Stream connection unstable', { id: 'stream-connection' });
                     break;
                 case 'DISCONNECTING':
-                    toast.loading('Disconnecting from stream...', { id: 'stream-connection' });
+                    //toast.loading('Disconnecting from stream...', { id: 'stream-connection' });
                     break;
                 case 'DISCONNECTED':
-                    toast.error('Stream connection lost', { id: 'stream-connection' });
+                    //toast.error('Stream connection lost', { id: 'stream-connection' });
                     break;
             }
         };
