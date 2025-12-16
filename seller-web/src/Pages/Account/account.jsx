@@ -963,7 +963,7 @@ export default function AccountPage() {
                 }}
               >
                 <Pencil className="h-4 w-4" />
-                Edit Picture
+                {profile?.storeAvatar?.url ? "change Picture" : "Add Picture"}
               </Button>
               
               {profile?.storeAvatar?.url && (
