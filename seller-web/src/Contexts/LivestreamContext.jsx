@@ -3,7 +3,6 @@ import { BASE_URL } from "../Constants/Server";
 import { trackEvent } from "../util/analytics";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import { useLivestreamSocket } from "./LivestreamSocketContext";
-import { useSocket } from "./SocketContext";
 import { createContext, useReducer, useEffect } from "react";
 import PropTypes from 'prop-types';
 import axios from "axios";
@@ -13,7 +12,6 @@ const LivestreamContext = createContext();
 export const LivestreamProvider = ({ children }) => {
     const { token, seller, isAuthenticated } = useAuthContext();
     const { disconnectSocket } = useLivestreamSocket();
-    const { disconnectSocket: disconnectGeneralSocket } = useSocket();
     const initialState = {
         livestream: {
             title: '',
@@ -160,11 +158,9 @@ export const LivestreamProvider = ({ children }) => {
             dispatch({ type: 'RESET_API_STATE' });
             dispatch({ type: 'RESET_SCHEDULE_DATA' });
             dispatch({ type: 'SET_SUCCESS_LIVESTREAM_STOP' });
-            disconnectSocket();
-            disconnectGeneralSocket();
             console.log('🔌 [LIVESTREAM CONTEXT] Livestream data reset completed');
         }
-    }, [isAuthenticated, disconnectSocket, disconnectGeneralSocket]);
+    }, [isAuthenticated]);
 
     const scheduleLiveShow = async (streamData) => {
         try {
@@ -713,6 +709,159 @@ export const LivestreamProvider = ({ children }) => {
         }
     };
 
+    /**
+     * Display a product in a live stream
+     * Sets the isVisible state of a product to true and sets all other products' isVisible state to false
+     * Only one product can be visible at a time
+     * 
+     * @param {string} streamId - ID of the stream
+     * @param {string} productId - ID of the product to display
+     * @returns {Promise<Object>} The updated product object
+     */
+    const displayStreamProduct = async (streamId, productId) => {
+        try {
+            const sellerToken = token?.data;
+
+            if (!sellerToken) {
+                throw new Error('No authentication token found');
+            }
+
+            if (!streamId || !productId) {
+                throw new Error('Stream ID and Product ID are required');
+            }
+
+            const response = await axios.post(
+                `${BASE_URL}/streams/${streamId}/display-product`,
+                { productId },
+                {
+                    headers: {
+                        Authorization: `Bearer ${sellerToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            if (response.status === 200) {
+                // Update the product's visibility in the state
+                // Set all products' isVisible to false, then set the selected product's to true
+                if (state.liveStreamDetails?.products) {
+                    const updatedProducts = state.liveStreamDetails.products.map(product => {
+                        // Set the selected product to visible
+                        if (product.product?.productId === productId || product.productId === productId) {
+                            return { ...product, isVisible: true };
+                        }
+                        // Set all other products to not visible
+                        return { ...product, isVisible: false };
+                    });
+
+                    dispatch({ 
+                        type: 'SET_LIVE_STREAM_DETAILS', 
+                        payload: {
+                            ...state.liveStreamDetails,
+                            products: updatedProducts
+                        }
+                    });
+                }
+
+                toast.success('Product displayed successfully', {
+                    style: {
+                        background: '#161A1E',
+                        color: '#fff',
+                    }
+                });
+
+                return response.data.product;
+            }
+            return null;
+        } catch (error) {
+            console.error('Display stream product error:', error);
+            const errorMessage = error.response?.data?.message || error.message || 'Something went wrong';
+            toast.error('Error displaying product', {
+                description: errorMessage,
+                style: {
+                    background: '#161A1E',
+                    color: '#fff',
+                }
+            });
+            throw error;
+        }
+    };
+
+    /**
+     * Hide a product in a live stream
+     * Sets the isVisible state of a product to false, hiding it from viewers
+     * 
+     * @param {string} streamId - ID of the stream
+     * @param {string} productId - ID of the product to hide
+     * @returns {Promise<Object>} The updated product object
+     */
+    const hideStreamProduct = async (streamId, productId) => {
+        try {
+            const sellerToken = token?.data;
+
+            if (!sellerToken) {
+                throw new Error('No authentication token found');
+            }
+
+            if (!streamId || !productId) {
+                throw new Error('Stream ID and Product ID are required');
+            }
+
+            const response = await axios.post(
+                `${BASE_URL}/streams/${streamId}/hide-product`,
+                { productId },
+                {
+                    headers: {
+                        Authorization: `Bearer ${sellerToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            if (response.status === 200) {
+                // Update the product's visibility in the state
+                if (state.liveStreamDetails?.products) {
+                    const updatedProducts = state.liveStreamDetails.products.map(product => {
+                        // Set the selected product to not visible
+                        if (product.product?.productId === productId || product.productId === productId) {
+                            return { ...product, isVisible: false };
+                        }
+                        return product;
+                    });
+
+                    dispatch({ 
+                        type: 'SET_LIVE_STREAM_DETAILS', 
+                        payload: {
+                            ...state.liveStreamDetails,
+                            products: updatedProducts
+                        }
+                    });
+                }
+
+                toast.success('Product hidden successfully', {
+                    style: {
+                        background: '#161A1E',
+                        color: '#fff',
+                    }
+                });
+
+                return response.data.product;
+            }
+            return null;
+        } catch (error) {
+            console.error('Hide stream product error:', error);
+            const errorMessage = error.response?.data?.message || error.message || 'Something went wrong';
+            toast.error('Error hiding product', {
+                description: errorMessage,
+                style: {
+                    background: '#161A1E',
+                    color: '#fff',
+                }
+            });
+            throw error;
+        }
+    };
+
     return (
         <LivestreamContext.Provider value={{
             ...state,
@@ -726,6 +875,8 @@ export const LivestreamProvider = ({ children }) => {
             activateProductBidding,
             renewAgoraToken,
             rescheduleExpiredStream,
+            displayStreamProduct,
+            hideStreamProduct,
             dispatch
         }}>
             {children}

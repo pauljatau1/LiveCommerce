@@ -2,9 +2,15 @@ import { Icon } from '@iconify/react';
 import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { useLivestreamSocket } from '../../Contexts/LivestreamSocketContext';
+import { useLivestreamContext } from '../../Hooks/useLivestreamContext';
 import MobileChatMessage from './MobileChatMessage';
 import AuqliLogo from '../../assets/auqli-logo.png';
 import BottomSheet from '../BottomSheet';
+import ProductVisibilityConfirmationModal from '../ProductVisibilityConfirmationModal';
+import { checkInternetConnection, getNetworkSpeed } from '../../util/helpers';
+import DangerIcon from '../../assets/icons/DangerIcon';
+import RefreshIcon from '../../assets/icons/RefreshIcon';
+import WifiIcon from '../../assets/icons/WifiIcon';
 
 const StreamMobileUi = ({
     endStream,
@@ -20,10 +26,10 @@ const StreamMobileUi = ({
     formatCurrency = (val) => `$${val}`,
     orders = []
 }) => {
-    const { socket, notifications, sendStreamComment } = useLivestreamSocket();
+    const { notifications, sendStreamComment, showConnectionNotification } = useLivestreamSocket();
+    const { displayStreamProduct, hideStreamProduct } = useLivestreamContext();
     const [viewerCount, setViewerCount] = useState(viewers?.length || 0);
     const [commentInput, setCommentInput] = useState('');
-    const [isInputFocused, setIsInputFocused] = useState(false);
     const [messages, setMessages] = useState([]);
     const messagesEndRef = useRef(null);
     const chatContainerRef = useRef(null);
@@ -36,25 +42,40 @@ const StreamMobileUi = ({
     const [isLoadingCameras, setIsLoadingCameras] = useState(false);
     const [isProductsSheetOpen, setIsProductsSheetOpen] = useState(false);
     const [productOrderCounts, setProductOrderCounts] = useState({});
-    const [ordersData, setOrdersData] = useState(orders || []);
+    const [visibilityModalOpen, setVisibilityModalOpen] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [visibilityAction, setVisibilityAction] = useState('show'); // 'show' or 'hide'
+    const [isVisibilityLoading, setIsVisibilityLoading] = useState(false);
+    const prevOrdersLengthRef = useRef(0);
+    // State to track connection restoration message display
+    // When connection is restored, show "restored" message for 5 seconds before hiding
+    const [showRestoredMessage, setShowRestoredMessage] = useState(false);
+    // Ref to track previous connection notification state to detect transitions
+    const prevConnectionNotificationRef = useRef(showConnectionNotification);
+    // State to track internet connection status and network speed
+    const [hasInternetConnection, setHasInternetConnection] = useState(true);
+    const [networkSpeed, setNetworkSpeed] = useState('');
+    const [isLoadingConnectionInfo, setIsLoadingConnectionInfo] = useState(false);
 
     // Initialize product order counts from the initial orders data
     useEffect(() => {
         if (orders && orders.length > 0) {
             const initialCounts = {};
-            
+
             orders.forEach(order => {
                 // Extract product ID from order
-                const productId = order.product || 
-                                 (order.orderDetails?.items && 
-                                  order.orderDetails.items[0]?.product);
-                
+                const productId = order.product ||
+                    (order.orderDetails?.items &&
+                        order.orderDetails.items[0]?.product);
+
                 if (productId) {
                     initialCounts[productId] = (initialCounts[productId] || 0) + 1;
                 }
             });
-            
+
             setProductOrderCounts(initialCounts);
+            // Initialize the ref with the initial orders length
+            prevOrdersLengthRef.current = orders.length;
         }
     }, [orders]);
 
@@ -90,45 +111,96 @@ const StreamMobileUi = ({
                     }
                     return [...prevMessages, latestNotification];
                 });
-                
-                // Update orders data and product order counts for liveshow_order notifications
-                if (latestNotification.type === 'liveshow_order' && 
-                    latestNotification.data?.streamOrders && 
-                    latestNotification.data.streamOrders.length > 0) {
-                    
-                    // Update orders data
-                    setOrdersData(prevOrdersData => {
-                        // Check if there are new orders
-                        if (latestNotification.data.streamOrders.length > prevOrdersData.length) {
-                            // Find the new order by comparing order IDs
-                            const existingOrderIds = new Set(prevOrdersData.map(order => order.orderId));
-                            const newOrders = latestNotification.data.streamOrders.filter(
-                                order => !existingOrderIds.has(order.orderId)
-                            );
 
-                            // Only increment counts for new orders
-                            newOrders.forEach(order => {
-                                const productId = order.product || 
-                                                (order.orderDetails?.items && 
-                                                 order.orderDetails.items[0]?.product);
-                                
-                                if (productId) {
-                                    setProductOrderCounts(prevCounts => ({
-                                        ...prevCounts,
-                                        [productId]: (prevCounts[productId] || 0) + 1
-                                    }));
-                                }
-                            });
-                            
-                            return latestNotification.data.streamOrders;
-                        }
-                        
-                        return prevOrdersData;
-                    });
+                // Update product order counts for liveshow_order notifications
+                if (latestNotification.type === 'liveshow_order' &&
+                    latestNotification.data?.streamOrders &&
+                    latestNotification.data.streamOrders.length > 0) {
+
+                    // Check if there are new orders by comparing lengths
+                    const currentOrdersLength = latestNotification.data.streamOrders.length;
+                    if (currentOrdersLength > prevOrdersLengthRef.current) {
+                        // Get previous orders from the notification data (we'll use the current length to determine new ones)
+                        // Since we only care about new orders, we can process all orders and let the count logic handle duplicates
+                        const newOrders = latestNotification.data.streamOrders.slice(prevOrdersLengthRef.current);
+
+                        // Only increment counts for new orders
+                        newOrders.forEach(order => {
+                            const productId = order.product ||
+                                (order.orderDetails?.items &&
+                                    order.orderDetails.items[0]?.product);
+
+                            if (productId) {
+                                setProductOrderCounts(prevCounts => ({
+                                    ...prevCounts,
+                                    [productId]: (prevCounts[productId] || 0) + 1
+                                }));
+                            }
+                        });
+                    }
+
+                    // Update the ref with the current length
+                    prevOrdersLengthRef.current = currentOrdersLength;
                 }
             }
         }
     }, [notifications, liveStreamDetails]);
+
+    // Handle connection notification state changes
+    // When connection is restored (showConnectionNotification transitions from true to false), 
+    // show "restored" message for 5 seconds before hiding
+    // When connection becomes unstable, check internet connection and network speed
+    useEffect(() => {
+        const prevValue = prevConnectionNotificationRef.current;
+        const currentValue = showConnectionNotification;
+        
+        // Detect transition from true (unstable) to false (restored)
+        if (prevValue === true && currentValue === false) {
+            // Connection was restored - show restored message
+            setShowRestoredMessage(true);
+            
+            // Hide the restored message after 5 seconds
+            const hideTimeoutId = setTimeout(() => {
+                setShowRestoredMessage(false);
+            }, 5000);
+            
+            // Update ref for next comparison
+            prevConnectionNotificationRef.current = currentValue;
+            
+            return () => clearTimeout(hideTimeoutId);
+        } else if (currentValue === true) {
+            // Connection is unstable - check internet connection and network speed immediately
+            setShowRestoredMessage(false);
+            
+            // Check internet connection and network speed
+            const checkConnection = async () => {
+                setIsLoadingConnectionInfo(true);
+                
+                // Check if there's internet connection at all
+                const hasInternet = await checkInternetConnection();
+                setHasInternetConnection(hasInternet);
+                
+                if (hasInternet) {
+                    // If internet exists, get network speed
+                    const speed = await getNetworkSpeed();
+                    setNetworkSpeed(speed);
+                } else {
+                    // If no internet, clear network speed
+                    setNetworkSpeed('');
+                }
+                
+                setIsLoadingConnectionInfo(false);
+            };
+            
+            checkConnection();
+            
+            // Update ref for next comparison
+            prevConnectionNotificationRef.current = currentValue;
+        } else {
+            // Update ref for next comparison (stays false)
+            prevConnectionNotificationRef.current = currentValue;
+        }
+    }, [showConnectionNotification]);
 
     // Helper function to get order count for a product
     const getOrderCountForProduct = (productId) => {
@@ -278,6 +350,47 @@ const StreamMobileUi = ({
         }
     };
 
+    // Handle show product button click - opens confirmation modal
+    const handleShowProduct = (product) => {
+        setSelectedProduct(product);
+        setVisibilityAction('show');
+        setVisibilityModalOpen(true);
+    };
+
+    // Handle hide product button click - opens confirmation modal
+    const handleHideProduct = (product) => {
+        setSelectedProduct(product);
+        setVisibilityAction('hide');
+        setVisibilityModalOpen(true);
+    };
+
+    // Confirm visibility action (show or hide)
+    const handleConfirmVisibility = async () => {
+        if (!selectedProduct || !liveStreamDetails?._id) return;
+
+        const productId = selectedProduct?.product?.productId || selectedProduct?.productId;
+        if (!productId) {
+            console.error('Product ID not found');
+            return;
+        }
+
+        setIsVisibilityLoading(true);
+        try {
+            if (visibilityAction === 'show') {
+                await displayStreamProduct(liveStreamDetails._id, productId);
+            } else {
+                await hideStreamProduct(liveStreamDetails._id, productId);
+            }
+            setVisibilityModalOpen(false);
+            setSelectedProduct(null);
+        } catch (error) {
+            // Error is already handled in the context functions with toast notifications
+            console.error('Error handling product visibility:', error);
+        } finally {
+            setIsVisibilityLoading(false);
+        }
+    };
+
     return (
         <div className="block xl:hidden">
             {/* Mobile Main Content - Stream Preview */}
@@ -290,49 +403,107 @@ const StreamMobileUi = ({
                     ></div>
 
                     {/* Top Bar - Absolutely positioned */}
-                    <div className="absolute top-0 left-0 right-0 py-2 px-4 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent z-10">
-                        <div className="flex items-center space-x-2">
-                            <img src={AuqliLogo} alt="Auqli Logo" className="w-10 h-8 " />
-                            <div className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-md flex items-center">
-                                <span className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></span>
-                                <span>LIVE</span>
+                    <div className="absolute top-0 left-0 right-0 py-2 px-4 flex flex-col justify-center bg-gradient-to-b from-black/70 to-transparent z-10">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <img src={AuqliLogo} alt="Auqli Logo" className="w-10 h-8 " />
+                                <div className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-md flex items-center">
+                                    <span className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></span>
+                                    <span>LIVE</span>
+                                </div>
+                                <span className="text-white text-sm">{formatTime?.(streamDuration) || "00:00:00"}</span>
                             </div>
-                            <span className="text-white text-sm">{formatTime?.(streamDuration) || "00:00:00"}</span>
-                        </div>
 
-                        <div className="flex items-center space-x-4">
-                            <div className="flex items-center bg-black/40 rounded-full px-2 py-1">
-                                <Icon icon="mdi:eye" className="text-white mr-1" />
-                                <span className="text-white text-xs">{viewerCount}</span>
+                            <div className="flex items-center space-x-4">
+                                <div className="flex items-center bg-black/40 rounded-full px-2 py-1">
+                                    <Icon icon="mdi:eye" className="text-white mr-1" />
+                                    <span className="text-white text-xs">{viewerCount}</span>
+                                </div>
+                                <button
+                                    onClick={handleSwitchCamera}
+                                    className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
+                                    disabled={isLoadingCameras}
+                                >
+                                    {isLoadingCameras ? (
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                        <Icon icon="mdi:camera-flip" className="text-white text-lg" />
+                                    )}
+                                </button>
+                                <button
+                                    onClick={handleToggleMicrophone}
+                                    className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
+                                >
+                                    {isMicrophoneEnabled ? (
+                                        <Icon icon="mdi:microphone" className="text-white text-lg" />
+                                    ) : (
+                                        <Icon icon="mdi:microphone-off" className="text-white text-lg" />
+                                    )}
+                                </button>
+                                <button
+                                    onClick={handleEndStream}
+                                    className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
+                                >
+                                    <Icon icon="mdi:close" className="text-white text-lg" />
+                                </button>
                             </div>
-                            <button
-                                onClick={handleSwitchCamera}
-                                className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
-                                disabled={isLoadingCameras}
-                            >
-                                {isLoadingCameras ? (
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                ) : (
-                                    <Icon icon="mdi:camera-flip" className="text-white text-lg" />
-                                )}
-                            </button>
-                            <button
-                                onClick={handleToggleMicrophone}
-                                className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
-                            >
-                                {isMicrophoneEnabled ? (
-                                    <Icon icon="mdi:microphone" className="text-white text-lg" />
-                                ) : (
-                                    <Icon icon="mdi:microphone-off" className="text-white text-lg" />
-                                )}
-                            </button>
-                            <button
-                                onClick={handleEndStream}
-                                className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
-                            >
-                                <Icon icon="mdi:close" className="text-white text-lg" />
-                            </button>
                         </div>
+                        
+                        {/* Connection Status Notification - Glass-like UI */}
+                        {(showConnectionNotification || showRestoredMessage) && (
+                            <div className="absolute top-20 left-4 right-4 z-20 px-4 py-3 rounded-lg backdrop-blur-md bg-black/40 border border-white/10 shadow-lg transition-all duration-300 opacity-100">
+                                {showConnectionNotification ? (
+                                    // Connection is unstable - show detailed status
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-2">
+                                            {/* Connection status icon */}
+                                            <DangerIcon color="#C74E5B" />
+                                            {/* Connection status text */}
+                                            <p className="text-sm font-inter font-medium text-white">
+                                                Your connection is unstable
+                                            </p>
+                                        </div>
+                                        
+                                        {isLoadingConnectionInfo ? (
+                                            // Show loading state while checking connection
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                <p className="text-xs font-inter text-white/70">Checking connection...</p>
+                                            </div>
+                                        ) : !hasInternetConnection ? (
+                                            // No internet connection - show refresh button
+                                            <div className="flex flex-col gap-2 pl-7">
+                                                <p className="text-xs font-inter text-white/70">
+                                                    your internet connection is lost, please refresh
+                                                </p>
+                                                <button
+                                                    onClick={() => window.location.reload()}
+                                                    className="px-3 py-1.5 text-xs font-inter font-medium text-white border border-white/30 rounded-[5px] hover:bg-white/10 transition-colors flex items-center justify-center gap-1.5"
+                                                >
+                                                    <RefreshIcon color="#FFFFFF" width={14} height={14} />
+                                                    Refresh
+                                                </button>
+                                            </div>
+                                        ) : networkSpeed ? (
+                                            // Internet exists - show network speed
+                                            <div className="pl-7">
+                                                <p className="text-xs font-inter text-white/90">
+                                                    Your network speed is {networkSpeed}
+                                                </p>
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                ) : (
+                                    // Connection is restored
+                                    <div className="flex items-center gap-2">
+                                        <WifiIcon color="#FFFFFF" width={18} height={18} />
+                                        <p className="text-sm font-inter font-medium text-white">
+                                            Your connection is restored
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Live Chat Messages - Always visible */}
@@ -366,7 +537,7 @@ const StreamMobileUi = ({
 
                     {/* Bottom Bar - Absolutely positioned */}
                     <div className="absolute bottom-0 left-0 right-0 py-2 px-2 bg-gradient-to-t from-black/100 to-transparent h-36 z-10">
-                        <div  className="h-full relative ">
+                        <div className="h-full relative ">
                             <div className="flex absolute bottom-0 left-0 right-0 items-center justify-between">
                                 <button
                                     className="w-10 h-10 sm:w-10 sm:h-10 ring-1 ring-white/30 flex-shrink-0 flex items-center justify-center bg-black/40 rounded-full"
@@ -378,7 +549,7 @@ const StreamMobileUi = ({
                                 <div className="flex-1 mx-2 sm:mx-2 min-w-0">
                                     <div
                                         className={`flex items-center bg-black/40 rounded-full overflow-hidden ring-1 ring-white/30`}
-                                      
+
                                     >
                                         <input
                                             type="text"
@@ -420,10 +591,10 @@ const StreamMobileUi = ({
                 styles={{
                     bottomSheet: { zIndex: 30 },
                     backdrop: { backgroundColor: 'rgba(0, 0, 0, 0.75)' },
-                    window: { 
-                        wrap: { 
-                            backgroundColor: '#0D0F12', 
-                            borderTopLeftRadius: '1rem', 
+                    window: {
+                        wrap: {
+                            backgroundColor: '#0D0F12',
+                            borderTopLeftRadius: '1rem',
                             borderTopRightRadius: '1rem',
                             maxHeight: '80vh'
                         }
@@ -437,26 +608,62 @@ const StreamMobileUi = ({
                     <h2 className="text-[#EFF0FA] font-inter font-medium text-lg mb-4">Products</h2>
                     <div className="space-y-4 overflow-y-auto max-h-[60vh] pb-6" data-no-drag>
                         {products?.length > 0 ? (
-                            products?.map((item, index) => (
-                                <div key={item?.product?._id || index} className="bg-[#161A1E] flex gap-4 rounded-xl p-3">
-                                    <div className="">
-                                        <img
-                                            src={item?.product?.images[0]?.url}
-                                            alt={item?.product?.name}
-                                            className="w-[62px] h-[62px] object-contain rounded-lg"
-                                        />
+                            products?.map((item, index) => {
+                                const isVisible = item?.isVisible === true;
+                                const productId = item?.product?.productId || item?.productId || item?.product?._id;
+
+                                return (
+                                    <div key={productId || index} className="bg-[#161A1E] flex flex-col rounded-xl p-3">
+                                        <div className="flex gap-4">
+                                            <div className="">
+                                                <img
+                                                    src={item?.product?.images[0]?.url}
+                                                    alt={item?.product?.name}
+                                                    className="w-[62px] h-[62px] object-contain rounded-lg"
+                                                />
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item?.product?.name}</p>
+                                                <p className="text-sm text-[#718096] font-inter font-medium">
+                                                    {formatCurrency(item?.product?.price)}
+                                                </p>
+                                                <p className="text-sm text-[#718096] font-inter font-medium mb-2">
+                                                    Orders: <span className="text-[#EFF0FA] font-inter font-medium">{getOrderCountForProduct(productId)}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {/* Show/Hide Product Buttons */}
+                                        <div>
+                                            <div className="flex gap-2 mt-2">
+                                                {!isVisible ? (
+                                                    <button
+                                                        onClick={() => handleShowProduct(item)}
+                                                        className="flex-1 px-3 py-1.5 text-xs font-inter font-medium bg-[#14AE5C] text-white rounded-md hover:bg-[#14AE5C]/90 transition-colors flex items-center justify-center gap-1"
+                                                    >
+                                                        <Icon icon="solar:eye-bold" className="w-3 h-3" />
+                                                        Show
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleHideProduct(item)}
+                                                        className="flex-1 px-3 py-1.5 text-xs font-inter font-medium bg-[#C74E5B] text-white rounded-md hover:bg-[#C74E5B]/90 transition-colors flex items-center justify-center gap-1"
+                                                    >
+                                                        <Icon icon="solar:eye-closed-bold" className="w-3 h-3" />
+                                                        Hide
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {/* Visibility indicator */}
+                                            {isVisible && (
+                                                <div className="mt-1 flex items-center gap-1">
+                                                    <Icon icon="solar:eye-bold" className="w-3 h-3 text-[#14AE5C]" />
+                                                    <span className="text-xs text-[#14AE5C] font-inter">Visible to viewers</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-sm text-[#EFF0FA] font-inter mb-1 line-clamp-2">{item?.product?.name}</p>
-                                        <p className="text-sm text-[#718096] font-inter font-medium">
-                                            {formatCurrency(item?.product?.price)}
-                                        </p>
-                                        <p className="text-sm text-[#718096] font-inter font-medium">
-                                            Orders: <span className="text-[#EFF0FA] font-inter font-medium">{getOrderCountForProduct(item?.product?.productId)}</span>
-                                        </p>
-                                    </div>
-                                </div>
-                            ))
+                                );
+                            })
                         ) : (
                             <div className="flex flex-col mt-10 items-center justify-center h-full py-10">
                                 <Icon icon="mdi:shopping-outline" className="w-12 h-12 text-[#7A828A] mb-2" />
@@ -516,6 +723,23 @@ const StreamMobileUi = ({
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Product Visibility Confirmation Modal */}
+            {visibilityModalOpen && selectedProduct && (
+                <ProductVisibilityConfirmationModal
+                    product={selectedProduct}
+                    onClose={() => {
+                        if (!isVisibilityLoading) {
+                            setVisibilityModalOpen(false);
+                            setSelectedProduct(null);
+                        }
+                    }}
+                    onConfirm={handleConfirmVisibility}
+                    isLoading={isVisibilityLoading}
+                    action={visibilityAction}
+                    formatCurrency={formatCurrency}
+                />
             )}
         </div>
     );

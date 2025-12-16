@@ -30,7 +30,7 @@ import {
 import { toast } from "sonner";
 import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server";
 import { io } from "socket.io-client";
-import { useSocket } from "@/Contexts/SocketContext";
+import { useLivestreamSocket } from "@/Contexts/LivestreamSocketContext";
 import { useNavigate, useLocation, useOutletContext } from 'react-router-dom';
 import {
   Dialog,
@@ -277,7 +277,7 @@ export default function ChatInterface() {
   const [sellerId, setSellerId] = useState(null);
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef(null);
-  const { socket } = useSocket();
+  const { socket } = useLivestreamSocket();
   const navigate = useNavigate();
   const location = useLocation();
   const [customers, setCustomers] = useState([]);
