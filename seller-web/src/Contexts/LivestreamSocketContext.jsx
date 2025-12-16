@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef } f
 import { io } from 'socket.io-client';
 import { BASE_URL } from '../Constants/Server';
 import { tokenUtils } from '@/util/auth';
+import { useAuthContext } from '@/Hooks/useAuthContextV2';
 import PropTypes from 'prop-types';
 
 const LivestreamSocketContext = createContext();
@@ -21,8 +22,7 @@ export function LivestreamSocketProvider({ children }) {
   // Boolean state to control visibility of connection notification UI
   // Set to true when connection errors occur, false when connection is successful
   const [showConnectionNotification, setShowConnectionNotification] = useState(false);
-  const token = tokenUtils.getBearerToken();
-
+  const { isAuthenticated, token } = useAuthContext();
   // Reconnection state management using refs to avoid stale closures
   // These refs persist across renders and allow us to track reconnection state
   const reconnectTimeoutRef = useRef(null);
@@ -380,7 +380,7 @@ export function LivestreamSocketProvider({ children }) {
   }, [token, attemptReconnection]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !isAuthenticated) return;
 
     // Reset reconnection state when connecting with a new token
     reconnectAttemptRef.current = 0;
@@ -402,7 +402,7 @@ export function LivestreamSocketProvider({ children }) {
       // Reset reconnection state
       isReconnectingRef.current = false;
     };
-  }, [connectSocket, token]);
+  }, [connectSocket, token, isAuthenticated]);
 
   /**
    * Manually disconnects the socket and prevents automatic reconnection
