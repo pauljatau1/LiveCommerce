@@ -11,7 +11,7 @@
 const ValidationError = require('../../../utils/errors/ValidationError');
 
 /**
- * Validates a name field (firstName or lastName).
+ * Validates a required name field (firstName).
  *
  * @param {string} value - The name value to validate
  * @param {string} fieldName - The field name for error messages
@@ -21,6 +21,30 @@ function validateNameField(value, fieldName, errors) {
   if (!value) {
     errors.push({ field: fieldName, message: `${fieldName} is required` });
   } else if (typeof value !== 'string') {
+    errors.push({ field: fieldName, message: `${fieldName} must be a string` });
+  } else if (value.trim().length < 2) {
+    errors.push({ field: fieldName, message: `${fieldName} must be at least 2 characters long` });
+  } else if (value.trim().length > 50) {
+    errors.push({ field: fieldName, message: `${fieldName} must not exceed 50 characters` });
+  }
+}
+
+/**
+ * Validates an optional name field (lastName).
+ * lastName is optional, but if provided, it must meet validation requirements.
+ *
+ * @param {string} value - The name value to validate (optional)
+ * @param {string} fieldName - The field name for error messages
+ * @param {Array} errors - Array to collect validation errors
+ */
+function validateOptionalNameField(value, fieldName, errors) {
+  // If value is not provided, skip validation (field is optional)
+  if (!value) {
+    return;
+  }
+  
+  // If provided, validate it as a string
+  if (typeof value !== 'string') {
     errors.push({ field: fieldName, message: `${fieldName} must be a string` });
   } else if (value.trim().length < 2) {
     errors.push({ field: fieldName, message: `${fieldName} must be at least 2 characters long` });
@@ -114,7 +138,7 @@ function validateStoreNameField(storeName, errors) {
  *
  * Validation Rules:
  * - firstName: Required, string, 2-50 characters
- * - lastName: Required, string, 2-50 characters
+ * - lastName: Optional, string, 2-50 characters (if provided)
  * - email: Required, valid email format, 3-254 characters
  * - password: Required, string, minimum 6 characters
  * - phoneNumber: Required, string, 10-15 characters
@@ -122,7 +146,7 @@ function validateStoreNameField(storeName, errors) {
  *
  * @param {Object} data - The registration data to validate
  * @param {string} data.firstName - Seller's first name
- * @param {string} data.lastName - Seller's last name
+ * @param {string} [data.lastName] - Seller's last name (optional)
  * @param {string} data.email - Seller's email address
  * @param {string} data.password - Seller's password
  * @param {string} data.phoneNumber - Seller's phone number
@@ -134,7 +158,7 @@ function validateRegisterData(data) {
 
   // Validate all fields using helper functions
   validateNameField(data.firstName, 'firstName', errors);
-  validateNameField(data.lastName, 'lastName', errors);
+  validateOptionalNameField(data.lastName, 'lastName', errors); // lastName is optional
   validateEmailField(data.email, errors);
   validatePasswordField(data.password, errors);
   validatePhoneNumberField(data.phoneNumber, errors);

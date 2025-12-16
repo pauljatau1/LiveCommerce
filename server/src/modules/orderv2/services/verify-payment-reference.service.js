@@ -1,7 +1,9 @@
 // services/orderService.js
 const orderRepository = require('../repositories/order.repository');
 const { verifyPaystackTransaction, updateProductStockForPaidOrder, sendOrderConfirmationEmail, sendSlackNotificationForPaidOrder } = require('../helpers/order.helper');
+const { sendOrderPaymentConfirmationSMS } = require('../helpers/sms.helper');
 const Buyer = require('../../../models/Buyer');
+const Seller = require('../../../models/Seller');
 
 exports.verifyPaymentByReference = async (reference, orderId) => {
   try {
@@ -69,11 +71,34 @@ exports.verifyPaymentByReference = async (reference, orderId) => {
           }
         }
 
+        // Send SMS notifications to buyer and seller with OTP (non-blocking)
+        // This will not affect order processing if SMS sending fails
+        let smsStatus = { buyerSMS: { success: false }, sellerSMS: { success: false } };
+        try {
+          const seller = await Seller.findById(order.seller).select('phoneNumber firstName lastName businessName storeName');
+          smsStatus = await sendOrderPaymentConfirmationSMS(updatedOrder, buyer, seller);
+          
+          // Reload order to get updated SMS status and OTP
+          const orderWithSMS = await orderRepository.findOrderById(updatedOrder._id);
+          if (orderWithSMS) {
+            updatedOrder = orderWithSMS;
+          }
+        } catch (smsError) {
+          // Log error but don't throw - SMS failures should not affect order processing
+          console.error(`Error sending SMS notifications for order ${order.order_id}:`, smsError);
+        }
+
         return {
           status: 200,
           data: {
             message: 'Payment verified and Terminal Africa order marked as paid',
-            order: updatedOrder,
+            order: {
+              _id: updatedOrder._id,
+              order_id: updatedOrder.order_id,
+              paid: updatedOrder.paid,
+              paymentInfo: updatedOrder.paymentInfo,
+              smsStatus: updatedOrder.smsStatus || smsStatus
+            },
             verificationDetails: verificationResult.data
           }
         };
