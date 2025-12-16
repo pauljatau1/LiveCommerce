@@ -158,10 +158,9 @@ export const LivestreamProvider = ({ children }) => {
             dispatch({ type: 'RESET_API_STATE' });
             dispatch({ type: 'RESET_SCHEDULE_DATA' });
             dispatch({ type: 'SET_SUCCESS_LIVESTREAM_STOP' });
-            disconnectSocket();
             console.log('🔌 [LIVESTREAM CONTEXT] Livestream data reset completed');
         }
-    }, [isAuthenticated, disconnectSocket]);
+    }, [isAuthenticated]);
 
     const scheduleLiveShow = async (streamData) => {
         try {
