@@ -7,6 +7,10 @@ import MobileChatMessage from './MobileChatMessage';
 import AuqliLogo from '../../assets/auqli-logo.png';
 import BottomSheet from '../BottomSheet';
 import ProductVisibilityConfirmationModal from '../ProductVisibilityConfirmationModal';
+import { checkInternetConnection, getNetworkSpeed } from '../../util/helpers';
+import DangerIcon from '../../assets/icons/DangerIcon';
+import RefreshIcon from '../../assets/icons/RefreshIcon';
+import WifiIcon from '../../assets/icons/WifiIcon';
 
 const StreamMobileUi = ({
     endStream,
@@ -22,7 +26,7 @@ const StreamMobileUi = ({
     formatCurrency = (val) => `$${val}`,
     orders = []
 }) => {
-    const { notifications, sendStreamComment } = useLivestreamSocket();
+    const { notifications, sendStreamComment, showConnectionNotification } = useLivestreamSocket();
     const { displayStreamProduct, hideStreamProduct } = useLivestreamContext();
     const [viewerCount, setViewerCount] = useState(viewers?.length || 0);
     const [commentInput, setCommentInput] = useState('');
@@ -43,6 +47,15 @@ const StreamMobileUi = ({
     const [visibilityAction, setVisibilityAction] = useState('show'); // 'show' or 'hide'
     const [isVisibilityLoading, setIsVisibilityLoading] = useState(false);
     const prevOrdersLengthRef = useRef(0);
+    // State to track connection restoration message display
+    // When connection is restored, show "restored" message for 5 seconds before hiding
+    const [showRestoredMessage, setShowRestoredMessage] = useState(false);
+    // Ref to track previous connection notification state to detect transitions
+    const prevConnectionNotificationRef = useRef(showConnectionNotification);
+    // State to track internet connection status and network speed
+    const [hasInternetConnection, setHasInternetConnection] = useState(true);
+    const [networkSpeed, setNetworkSpeed] = useState('');
+    const [isLoadingConnectionInfo, setIsLoadingConnectionInfo] = useState(false);
 
     // Initialize product order counts from the initial orders data
     useEffect(() => {
@@ -132,6 +145,62 @@ const StreamMobileUi = ({
             }
         }
     }, [notifications, liveStreamDetails]);
+
+    // Handle connection notification state changes
+    // When connection is restored (showConnectionNotification transitions from true to false), 
+    // show "restored" message for 5 seconds before hiding
+    // When connection becomes unstable, check internet connection and network speed
+    useEffect(() => {
+        const prevValue = prevConnectionNotificationRef.current;
+        const currentValue = showConnectionNotification;
+        
+        // Detect transition from true (unstable) to false (restored)
+        if (prevValue === true && currentValue === false) {
+            // Connection was restored - show restored message
+            setShowRestoredMessage(true);
+            
+            // Hide the restored message after 5 seconds
+            const hideTimeoutId = setTimeout(() => {
+                setShowRestoredMessage(false);
+            }, 5000);
+            
+            // Update ref for next comparison
+            prevConnectionNotificationRef.current = currentValue;
+            
+            return () => clearTimeout(hideTimeoutId);
+        } else if (currentValue === true) {
+            // Connection is unstable - check internet connection and network speed immediately
+            setShowRestoredMessage(false);
+            
+            // Check internet connection and network speed
+            const checkConnection = async () => {
+                setIsLoadingConnectionInfo(true);
+                
+                // Check if there's internet connection at all
+                const hasInternet = await checkInternetConnection();
+                setHasInternetConnection(hasInternet);
+                
+                if (hasInternet) {
+                    // If internet exists, get network speed
+                    const speed = await getNetworkSpeed();
+                    setNetworkSpeed(speed);
+                } else {
+                    // If no internet, clear network speed
+                    setNetworkSpeed('');
+                }
+                
+                setIsLoadingConnectionInfo(false);
+            };
+            
+            checkConnection();
+            
+            // Update ref for next comparison
+            prevConnectionNotificationRef.current = currentValue;
+        } else {
+            // Update ref for next comparison (stays false)
+            prevConnectionNotificationRef.current = currentValue;
+        }
+    }, [showConnectionNotification]);
 
     // Helper function to get order count for a product
     const getOrderCountForProduct = (productId) => {
@@ -334,49 +403,107 @@ const StreamMobileUi = ({
                     ></div>
 
                     {/* Top Bar - Absolutely positioned */}
-                    <div className="absolute top-0 left-0 right-0 py-2 px-4 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent z-10">
-                        <div className="flex items-center space-x-2">
-                            <img src={AuqliLogo} alt="Auqli Logo" className="w-10 h-8 " />
-                            <div className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-md flex items-center">
-                                <span className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></span>
-                                <span>LIVE</span>
+                    <div className="absolute top-0 left-0 right-0 py-2 px-4 flex flex-col justify-center bg-gradient-to-b from-black/70 to-transparent z-10">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <img src={AuqliLogo} alt="Auqli Logo" className="w-10 h-8 " />
+                                <div className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-md flex items-center">
+                                    <span className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></span>
+                                    <span>LIVE</span>
+                                </div>
+                                <span className="text-white text-sm">{formatTime?.(streamDuration) || "00:00:00"}</span>
                             </div>
-                            <span className="text-white text-sm">{formatTime?.(streamDuration) || "00:00:00"}</span>
-                        </div>
 
-                        <div className="flex items-center space-x-4">
-                            <div className="flex items-center bg-black/40 rounded-full px-2 py-1">
-                                <Icon icon="mdi:eye" className="text-white mr-1" />
-                                <span className="text-white text-xs">{viewerCount}</span>
+                            <div className="flex items-center space-x-4">
+                                <div className="flex items-center bg-black/40 rounded-full px-2 py-1">
+                                    <Icon icon="mdi:eye" className="text-white mr-1" />
+                                    <span className="text-white text-xs">{viewerCount}</span>
+                                </div>
+                                <button
+                                    onClick={handleSwitchCamera}
+                                    className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
+                                    disabled={isLoadingCameras}
+                                >
+                                    {isLoadingCameras ? (
+                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                        <Icon icon="mdi:camera-flip" className="text-white text-lg" />
+                                    )}
+                                </button>
+                                <button
+                                    onClick={handleToggleMicrophone}
+                                    className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
+                                >
+                                    {isMicrophoneEnabled ? (
+                                        <Icon icon="mdi:microphone" className="text-white text-lg" />
+                                    ) : (
+                                        <Icon icon="mdi:microphone-off" className="text-white text-lg" />
+                                    )}
+                                </button>
+                                <button
+                                    onClick={handleEndStream}
+                                    className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
+                                >
+                                    <Icon icon="mdi:close" className="text-white text-lg" />
+                                </button>
                             </div>
-                            <button
-                                onClick={handleSwitchCamera}
-                                className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
-                                disabled={isLoadingCameras}
-                            >
-                                {isLoadingCameras ? (
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                ) : (
-                                    <Icon icon="mdi:camera-flip" className="text-white text-lg" />
-                                )}
-                            </button>
-                            <button
-                                onClick={handleToggleMicrophone}
-                                className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
-                            >
-                                {isMicrophoneEnabled ? (
-                                    <Icon icon="mdi:microphone" className="text-white text-lg" />
-                                ) : (
-                                    <Icon icon="mdi:microphone-off" className="text-white text-lg" />
-                                )}
-                            </button>
-                            <button
-                                onClick={handleEndStream}
-                                className="w-8 h-8 flex items-center justify-center bg-black/40 rounded-full"
-                            >
-                                <Icon icon="mdi:close" className="text-white text-lg" />
-                            </button>
                         </div>
+                        
+                        {/* Connection Status Notification - Glass-like UI */}
+                        {(showConnectionNotification || showRestoredMessage) && (
+                            <div className="absolute top-20 left-4 right-4 z-20 px-4 py-3 rounded-lg backdrop-blur-md bg-black/40 border border-white/10 shadow-lg transition-all duration-300 opacity-100">
+                                {showConnectionNotification ? (
+                                    // Connection is unstable - show detailed status
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-2">
+                                            {/* Connection status icon */}
+                                            <DangerIcon color="#C74E5B" />
+                                            {/* Connection status text */}
+                                            <p className="text-sm font-inter font-medium text-white">
+                                                Your connection is unstable
+                                            </p>
+                                        </div>
+                                        
+                                        {isLoadingConnectionInfo ? (
+                                            // Show loading state while checking connection
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                <p className="text-xs font-inter text-white/70">Checking connection...</p>
+                                            </div>
+                                        ) : !hasInternetConnection ? (
+                                            // No internet connection - show refresh button
+                                            <div className="flex flex-col gap-2 pl-7">
+                                                <p className="text-xs font-inter text-white/70">
+                                                    your internet connection is lost, please refresh
+                                                </p>
+                                                <button
+                                                    onClick={() => window.location.reload()}
+                                                    className="px-3 py-1.5 text-xs font-inter font-medium text-white border border-white/30 rounded-[5px] hover:bg-white/10 transition-colors flex items-center justify-center gap-1.5"
+                                                >
+                                                    <RefreshIcon color="#FFFFFF" width={14} height={14} />
+                                                    Refresh
+                                                </button>
+                                            </div>
+                                        ) : networkSpeed ? (
+                                            // Internet exists - show network speed
+                                            <div className="pl-7">
+                                                <p className="text-xs font-inter text-white/90">
+                                                    Your network speed is {networkSpeed}
+                                                </p>
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                ) : (
+                                    // Connection is restored
+                                    <div className="flex items-center gap-2">
+                                        <WifiIcon color="#FFFFFF" width={18} height={18} />
+                                        <p className="text-sm font-inter font-medium text-white">
+                                            Your connection is restored
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Live Chat Messages - Always visible */}
