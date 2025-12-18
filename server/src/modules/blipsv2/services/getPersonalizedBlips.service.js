@@ -15,7 +15,7 @@ const categoryHelper = require('../helpers/category.helper');
  * The algorithm ensures:
  * - No duplicate blips across pagination
  * - Balanced distribution across sellers
- * - Proper fallback mechanisms when category-filtered queries return no results
+ * - Proper fallback mechanisms when category-filtered queries return no results.
  */
 class GetPersonalizedBlipsService {
   async execute(req) {

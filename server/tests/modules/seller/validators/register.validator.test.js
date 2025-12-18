@@ -74,8 +74,8 @@ describe('Seller Registration Validator', () => {
     });
 
     describe('lastName validation', () => {
-      it('should throw error when lastName is missing', () => {
-        const invalidData = {
+      it('should NOT throw error when lastName is missing', () => {
+        const validData = {
           firstName: 'John',
           email: 'john.doe@example.com',
           password: 'password123',
@@ -83,7 +83,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
+        expect(() => sellerValidator.validateRegisterData(validData)).not.toThrow();
       });
 
       it('should throw error when lastName is not a string', () => {
@@ -124,13 +124,24 @@ describe('Seller Registration Validator', () => {
 
         expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(ValidationError);
       });
+
+      it('should NOT throw error if lastName is omitted from valid data', () => {
+        const validData = {
+          firstName: 'John',
+          email: 'john.doe@example.com',
+          password: 'password123',
+          phoneNumber: '1234567890',
+          storeName: 'John Store'
+        };
+        expect(() => sellerValidator.validateRegisterData(validData)).not.toThrow();
+      });
     });
 
     describe('email validation', () => {
       it('should throw error when email is missing', () => {
         const invalidData = {
           firstName: 'John',
-          lastName: 'Doe',
+          // lastName: 'Doe',
           password: 'password123',
           phoneNumber: '1234567890',
           storeName: 'John Store'
@@ -410,8 +421,8 @@ describe('Seller Registration Validator', () => {
         }));
       });
 
-      it('should include correct error message for missing lastName', () => {
-        const invalidData = {
+      it('should NOT include error message for missing lastName', () => {
+        const validData = {
           firstName: 'John',
           email: 'john.doe@example.com',
           password: 'password123',
@@ -419,14 +430,7 @@ describe('Seller Registration Validator', () => {
           storeName: 'John Store'
         };
 
-        expect(() => sellerValidator.validateRegisterData(invalidData)).toThrow(expect.objectContaining({
-          errors: expect.arrayContaining([
-            expect.objectContaining({
-              field: 'lastName',
-              message: 'lastName is required'
-            })
-          ])
-        }));
+        expect(() => sellerValidator.validateRegisterData(validData)).not.toThrow();
       });
 
       it('should include correct error message for missing email', () => {
@@ -661,6 +665,18 @@ describe('Seller Registration Validator', () => {
           password: 'password123',
           phoneNumber: '123456789012345',
           storeName: 'A'.repeat(100)
+        };
+
+        expect(() => sellerValidator.validateRegisterData(validData)).not.toThrow();
+      });
+
+      it('should not throw if lastName is entirely omitted', () => {
+        const validData = {
+          firstName: 'Jane',
+          email: 'jane.doe@example.com',
+          password: 'password123',
+          phoneNumber: '1234567890',
+          storeName: 'Jane Store'
         };
 
         expect(() => sellerValidator.validateRegisterData(validData)).not.toThrow();

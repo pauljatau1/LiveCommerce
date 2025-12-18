@@ -231,6 +231,26 @@ exports.createStream = async (req, res) => {
 
     await stream.save();
 
+    // Schedule SMS reminder job 2 hours before scheduled start time
+    try {
+      const { agenda } = require('../config/agenda');
+      const reminderTime = new Date(startDate.getTime() - 2 * 60 * 60 * 1000); // 2 hours before
+      const now = new Date();
+      
+      // Only schedule if reminder time is in the future
+      if (reminderTime > now) {
+        await agenda.schedule(reminderTime, 'stream_reminder_sms', {
+          streamId: stream._id.toString()
+        });
+        console.log(`Scheduled stream reminder SMS for stream ${stream._id} at ${reminderTime}`);
+      } else {
+        console.log(`Skipping stream reminder SMS for stream ${stream._id}: Reminder time (${reminderTime}) is in the past`);
+      }
+    } catch (reminderError) {
+      // Log error but don't fail stream creation
+      console.error(`Error scheduling stream reminder SMS for stream ${stream._id}:`, reminderError);
+    }
+
     const populatedStream = await Stream.findById(stream._id)
       .populate('seller', 'storeName businessName storeAvatar rating')
       .populate('products.product', 'name description images price');
@@ -292,6 +312,18 @@ exports.startStream = async (req, res) => {
           }
         }
       );
+
+      // Cancel reminder SMS jobs for cancelled streams
+      try {
+        const { agenda } = require('../config/agenda');
+        for (const cancelledStream of existingStreams) {
+          await agenda.cancel({ name: 'stream_reminder_sms', 'data.streamId': cancelledStream._id.toString() });
+        }
+        console.log(`Cancelled reminder SMS jobs for ${existingStreams.length} cancelled stream(s)`);
+      } catch (cancelError) {
+        // Log error but don't fail stream cancellation
+        console.error(`Error cancelling reminder SMS jobs for cancelled streams:`, cancelError);
+      }
       cancelledStreams = existingStreams.map(s => s.title);
 
       // Update seller's cancelledStreamCount and lastStreamCancellation
@@ -901,6 +933,16 @@ exports.endStream = async (req, res) => {
     stream.endTime = new Date();
     await stream.save();
 
+    // Cancel any scheduled reminder SMS jobs for this stream
+    try {
+      const { agenda } = require('../config/agenda');
+      await agenda.cancel({ name: 'stream_reminder_sms', 'data.streamId': stream._id.toString() });
+      console.log(`Cancelled reminder SMS jobs for ended stream ${stream._id}`);
+    } catch (cancelError) {
+      // Log error but don't fail stream ending
+      console.error(`Error cancelling reminder SMS jobs for ended stream ${stream._id}:`, cancelError);
+    }
+
     // Populate stream with full details for notification
     const populatedStream = await Stream.findById(stream._id)
       .populate('seller', 'storeName businessName storeAvatar rating')
@@ -1054,7 +1096,16 @@ exports.joinStream = async (req, res) => {
     }
 
     if (stream.status === 'ended') {
-      return res.status(200).json({ message: 'Stream has already ended', success: false, stream: stream });
+      // Populate seller identity fields so clients receive seller context on ended streams
+      const endedStreamWithSeller = await Stream.findById(stream._id)
+        .populate('seller', 'storeName businessName storeAvatar')
+        .lean();
+
+      return res.status(200).json({
+        message: 'Stream has already ended',
+        success: false,
+        stream: endedStreamWithSeller
+      });
     }
 
     if (stream.status !== 'live') {
@@ -1779,6 +1830,26 @@ exports.createOpenLiveShow = async (req, res) => {
     stream.streamLink = generateStreamLink(stream._id, stream.type)
 
     await stream.save();
+
+    // Schedule SMS reminder job 2 hours before scheduled start time
+    try {
+      const { agenda } = require('../config/agenda');
+      const reminderTime = new Date(startDate.getTime() - 2 * 60 * 60 * 1000); // 2 hours before
+      const now = new Date();
+      
+      // Only schedule if reminder time is in the future
+      if (reminderTime > now) {
+        await agenda.schedule(reminderTime, 'stream_reminder_sms', {
+          streamId: stream._id.toString()
+        });
+        console.log(`Scheduled stream reminder SMS for stream ${stream._id} at ${reminderTime}`);
+      } else {
+        console.log(`Skipping stream reminder SMS for stream ${stream._id}: Reminder time (${reminderTime}) is in the past`);
+      }
+    } catch (reminderError) {
+      // Log error but don't fail stream creation
+      console.error(`Error scheduling stream reminder SMS for stream ${stream._id}:`, reminderError);
+    }
 
     const populatedStream = await Stream.findById(stream._id)
       .populate('seller', 'storeName businessName storeAvatar rating')
@@ -4785,6 +4856,32 @@ exports.rescheduleExpiredStream = async (req, res) => {
     }
 
     await stream.save();
+
+    // Cancel existing reminder jobs and schedule new one for rescheduled time
+    try {
+      const { agenda } = require('../config/agenda');
+      
+      // Cancel any existing reminder jobs for this stream
+      await agenda.cancel({ name: 'stream_reminder_sms', 'data.streamId': stream._id.toString() });
+      console.log(`Cancelled existing reminder jobs for stream ${stream._id}`);
+      
+      // Schedule new reminder job 2 hours before new scheduled start time
+      const reminderTime = new Date(newStartDate.getTime() - 2 * 60 * 60 * 1000); // 2 hours before
+      const now = new Date();
+      
+      // Only schedule if reminder time is in the future
+      if (reminderTime > now) {
+        await agenda.schedule(reminderTime, 'stream_reminder_sms', {
+          streamId: stream._id.toString()
+        });
+        console.log(`Scheduled new stream reminder SMS for rescheduled stream ${stream._id} at ${reminderTime}`);
+      } else {
+        console.log(`Skipping stream reminder SMS for rescheduled stream ${stream._id}: Reminder time (${reminderTime}) is in the past`);
+      }
+    } catch (reminderError) {
+      // Log error but don't fail stream rescheduling
+      console.error(`Error scheduling stream reminder SMS for rescheduled stream ${stream._id}:`, reminderError);
+    }
 
     // Populate the updated stream for response
     const updatedStream = await Stream.findById(stream._id)

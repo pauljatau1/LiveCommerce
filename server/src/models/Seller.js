@@ -101,6 +101,8 @@ const sellerSchema = new mongoose.Schema({
     swiftCode: { type: String },
     bankIdentifierCode: { type: String },
   },
+  // Bank verification field for Paystack verification
+  isBankVerified: { type: Boolean, default: false },
   cancelledStreamCount: { type: Number, default: 0 },
   lastStreamCancellation: {type: Date, default: null},
   categories: [categorySchema],
@@ -143,6 +145,9 @@ const sellerSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   emailVerified: { type: Boolean, default: true },
   otp: { type: String },
+  isPhoneVerified: { type: Boolean, default: false },
+  phoneVerificationOTP: { type: String },
+  phoneVerificationOTPExpires: { type: Date },
   isFeatured: { type: Boolean, default: false },
   isDisabled: { type: Boolean, default: false },
   walletBalance: { type: Number, default: 0 },
