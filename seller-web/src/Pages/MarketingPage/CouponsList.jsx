@@ -45,16 +45,23 @@ export default function CouponsList() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [viewCoupon, setViewCoupon] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [updateLoading, setUpdateLoading] = useState(false)
+  const [updateSuccess, setUpdateSuccess] = useState(false)
   const [editFormData, setEditFormData] = useState({
     name: "",
     status: "",
     discountPercentage: 0,
+    discountType: "percentage",
+    fixedAmount: 0,
     hasMinimumRequirement: false,
     minimumAmount: 0,
     endDate: "",
     endTime: "",
-    usageLimit: null
+    usageLimit: null,
+    selectedProducts: [] // Track selected product IDs
   })
+  const [productSearchQuery, setProductSearchQuery] = useState("")
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -90,21 +97,34 @@ export default function CouponsList() {
     }
   }
 
-  const fetchSellerProducts = async () => {
+  const fetchSellerProducts = async (forceRefresh = false) => {
     try {
       const sellerToken = token?.data;
       if (!sellerToken) return
 
+      setIsLoadingProducts(true)
       const profileResponse = await axios.get(`${BASE_URL_V2}/sellers/profile`, {
         headers: { Authorization: `Bearer ${sellerToken}` }
       })
       const sellerId = profileResponse.data.data._id
 
-      const productsResponse = await axios.get(`${BASE_URL}/products/seller/${sellerId}`)
-      setSellerProducts(productsResponse.data.products || [])
+      // Fetch all products (no pagination limit for editing purposes)
+      const productsResponse = await axios.get(`${BASE_URL}/products/seller/${sellerId}`, {
+        params: { limit: 1000 } // Get all products
+      })
+      
+      // Map products with their current discount status
+      const productsWithDiscountInfo = (productsResponse.data.products || []).map(product => ({
+        ...product,
+        discount: product.discount || { isActive: false }
+      }))
+      
+      setSellerProducts(productsWithDiscountInfo)
     } catch (err) {
       // Don't block the page if product fetch fails; we just show no association
       console.error('Failed to fetch seller products:', err?.message)
+    } finally {
+      setIsLoadingProducts(false)
     }
   }
 
@@ -120,6 +140,7 @@ export default function CouponsList() {
       })
 
       await fetchCoupons()
+      await fetchSellerProducts() // Refresh products to update discount status
       setResetDialogOpen(false)
     } catch (err) {
       setResetError(err.response?.data?.message || err.message)
@@ -179,9 +200,10 @@ export default function CouponsList() {
         headers: { Authorization: `Bearer ${sellerToken}` }
       })
       await fetchCoupons()
+      await fetchSellerProducts() // Refresh products to update discount status
       setDeleteDialogOpen(false)
     } catch (error) {
-      setError(error.message)
+      setError(error.response?.data?.message || error.message)
     }
   }
 
@@ -189,16 +211,31 @@ export default function CouponsList() {
     setSelectedCoupon(coupon)
     // Format the date and time for the form
     const endDateTime = coupon.endDate ? new Date(coupon.endDate) : null
+    
+    // Get the selected products for this coupon
+    let selectedProductIds = []
+    if (coupon.code) {
+      // Special coupon - use applicableProductIds
+      selectedProductIds = coupon.applicableProductIds || []
+    } else {
+      // Regular coupon - use productDiscounts
+      selectedProductIds = (coupon.productDiscounts || []).map(pd => pd.productId)
+    }
+    
     setEditFormData({
       name: coupon.name,
       status: coupon.status,
-      discountPercentage: coupon.discountPercentage,
+      discountPercentage: coupon.discountPercentage || 0,
+      discountType: coupon.discountType || "percentage",
+      fixedAmount: coupon.fixedAmount || 0,
       hasMinimumRequirement: coupon.hasMinimumRequirement,
       minimumAmount: coupon.minimumAmount || 0,
       endDate: endDateTime ? endDateTime.toISOString().split('T')[0] : "",
       endTime: endDateTime ? endDateTime.toISOString().split('T')[1].substring(0, 5) : "",
-      usageLimit: coupon.usageLimit
+      usageLimit: coupon.usageLimit,
+      selectedProducts: selectedProductIds
     })
+    setProductSearchQuery("")
     setEditDialogOpen(true)
   }
 
@@ -216,10 +253,33 @@ export default function CouponsList() {
         name: editFormData.name,
         status: editFormData.status,
         discountPercentage: Number(editFormData.discountPercentage),
+        discountType: editFormData.discountType,
+        fixedAmount: editFormData.fixedAmount ? Number(editFormData.fixedAmount) : undefined,
         hasMinimumRequirement: editFormData.hasMinimumRequirement,
         minimumAmount: editFormData.hasMinimumRequirement ? Number(editFormData.minimumAmount) : 0,
         endDate: endDateTime,
         usageLimit: editFormData.usageLimit ? Number(editFormData.usageLimit) : null
+      }
+
+      // Handle product updates differently for regular vs special coupons
+      if (selectedCoupon.code) {
+        // Special coupon - update applicableProductIds
+        updateData.applicableProductIds = editFormData.selectedProducts
+      } else {
+        // Regular coupon - update productDiscounts with recalculated prices
+        updateData.productDiscounts = editFormData.selectedProducts.map(productId => {
+          const product = sellerProducts.find(p => p._id === productId)
+          if (!product) return { productId, discountedPrice: 0 }
+          
+          const discountedPrice = editFormData.discountType === 'percentage'
+            ? product.price * (1 - (editFormData.discountPercentage / 100))
+            : Math.max(0, product.price - Number(editFormData.fixedAmount || 0))
+          
+          return {
+            productId,
+            discountedPrice: Math.round(discountedPrice)
+          }
+        })
       }
 
       await axios.put(`${BASE_URL}/coupons/${selectedCoupon._id}`, updateData, {
@@ -227,9 +287,10 @@ export default function CouponsList() {
       })
       
       await fetchCoupons()
+      await fetchSellerProducts() // Refresh products to see updated discounts
       setEditDialogOpen(false)
     } catch (error) {
-      setError(error.message)
+      setError(error.response?.data?.message || error.message)
     }
   }
 
@@ -253,15 +314,30 @@ export default function CouponsList() {
   }
 
   const getAssociatedProducts = (coupon) => {
-    // Heuristic association based on product.discount metadata exposed in product objects
-    // Prefer coupon code match when available, then fall back to coupon name
+    if (!coupon) return []
+    
+    // For special coupons, use applicableProductIds
+    if (coupon.code && coupon.applicableProductIds) {
+      return (sellerProducts || []).filter(product => 
+        coupon.applicableProductIds.includes(product._id)
+      )
+    }
+    
+    // For regular coupons, use productDiscounts
+    if (coupon.productDiscounts) {
+      const productIds = coupon.productDiscounts.map(pd => pd.productId)
+      return (sellerProducts || []).filter(product => 
+        productIds.includes(product._id)
+      )
+    }
+    
+    // Fallback: Heuristic association based on product.discount metadata
     return (sellerProducts || []).filter((product) => {
       const d = product.discount || {}
       const isActive = d.isActive === true
       if (!isActive) return false
       const byCode = coupon.code && (d.couponCode === coupon.code)
       const byName = d.couponName && (d.couponName === coupon.name)
-      // Some backends may not expose couponCode; try name match as fallback
       return Boolean(byCode || byName)
     })
   }
@@ -512,114 +588,227 @@ export default function CouponsList() {
       </Dialog>
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Coupon</DialogTitle>
             <DialogDescription>
-              Update the coupon details below.
+              Update the coupon details and manage associated products below.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
-              </Label>
-              <Input
-                id="name"
-                value={editFormData.name}
-                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="status" className="text-right">
-                Status
-              </Label>
-              <RadioGroup
-                value={editFormData.status}
-                onValueChange={(value) => setEditFormData({ ...editFormData, status: value })}
-                className="col-span-3"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="active" id="active" />
-                  <Label htmlFor="active">Active</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="inactive" id="inactive" />
-                  <Label htmlFor="inactive">Inactive</Label>
-                </div>
-              </RadioGroup>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="discount" className="text-right">
-                Discount %
-              </Label>
-              <Input
-                id="discount"
-                type="number"
-                value={editFormData.discountPercentage}
-                onChange={(e) => setEditFormData({ ...editFormData, discountPercentage: e.target.value })}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">
-                Minimum Amount
-              </Label>
-              <div className="col-span-3">
-                <Checkbox
-                  checked={editFormData.hasMinimumRequirement}
-                  onCheckedChange={(checked) => setEditFormData({
-                    ...editFormData,
-                    hasMinimumRequirement: checked
-                  })}
-                />
-                {editFormData.hasMinimumRequirement && (
+          <div className="grid gap-6 py-4">
+            {/* Basic Details Section */}
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <h3 className="font-semibold mb-4 text-sm">Basic Details</h3>
+              <div className="grid gap-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right text-sm">
+                    Name
+                  </Label>
                   <Input
-                    type="number"
-                    value={editFormData.minimumAmount}
-                    onChange={(e) => setEditFormData({ ...editFormData, minimumAmount: e.target.value })}
-                    className="mt-2"
+                    id="name"
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    className="col-span-3"
                   />
-                )}
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="status" className="text-right text-sm">
+                    Status
+                  </Label>
+                  <RadioGroup
+                    value={editFormData.status}
+                    onValueChange={(value) => setEditFormData({ ...editFormData, status: value })}
+                    className="col-span-3"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="active" id="active" />
+                      <Label htmlFor="active">Active</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="inactive" id="inactive" />
+                      <Label htmlFor="inactive">Inactive</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="discount" className="text-right text-sm">
+                    Discount
+                  </Label>
+                  <div className="col-span-3">
+                    {editFormData.discountType === 'percentage' ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="discount"
+                          type="number"
+                          value={editFormData.discountPercentage}
+                          onChange={(e) => setEditFormData({ ...editFormData, discountPercentage: e.target.value })}
+                          className="w-32"
+                        />
+                        <span className="text-sm text-gray-500">%</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-500">₦</span>
+                        <Input
+                          id="fixedAmount"
+                          type="number"
+                          value={editFormData.fixedAmount}
+                          onChange={(e) => setEditFormData({ ...editFormData, fixedAmount: e.target.value })}
+                          className="w-32"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right text-sm">
+                    End Date/Time
+                  </Label>
+                  <div className="col-span-3 grid grid-cols-2 gap-2">
+                    <Input
+                      type="date"
+                      value={editFormData.endDate}
+                      onChange={(e) => setEditFormData({ ...editFormData, endDate: e.target.value })}
+                    />
+                    <Input
+                      type="time"
+                      value={editFormData.endTime}
+                      onChange={(e) => setEditFormData({ ...editFormData, endTime: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="usageLimit" className="text-right text-sm">
+                    Usage Limit
+                  </Label>
+                  <Input
+                    id="usageLimit"
+                    type="number"
+                    value={editFormData.usageLimit || ""}
+                    onChange={(e) => setEditFormData({ ...editFormData, usageLimit: e.target.value })}
+                    className="col-span-3"
+                    placeholder="No limit"
+                  />
+                </div>
               </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">
-                End Date/Time
-              </Label>
-              <div className="col-span-3 grid grid-cols-2 gap-2">
-                <Input
-                  type="date"
-                  value={editFormData.endDate}
-                  onChange={(e) => setEditFormData({ ...editFormData, endDate: e.target.value })}
-                />
-                <Input
-                  type="time"
-                  value={editFormData.endTime}
-                  onChange={(e) => setEditFormData({ ...editFormData, endTime: e.target.value })}
-                />
+
+            {/* Products Section */}
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-sm">Associated Products</h3>
+                <Badge variant="secondary">
+                  {editFormData.selectedProducts.length} selected
+                </Badge>
               </div>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="usageLimit" className="text-right">
-                Usage Limit
-              </Label>
-              <Input
-                id="usageLimit"
-                type="number"
-                value={editFormData.usageLimit || ""}
-                onChange={(e) => setEditFormData({ ...editFormData, usageLimit: e.target.value })}
-                className="col-span-3"
-                placeholder="No limit"
-              />
+              
+              <div className="mb-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  <Input
+                    placeholder="Search products..."
+                    value={productSearchQuery}
+                    onChange={(e) => setProductSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div className="border rounded-md max-h-80 overflow-y-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-white z-10">
+                    <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={editFormData.selectedProducts.length === sellerProducts.filter(p => !p.discount?.isActive || getAssociatedProducts(selectedCoupon).some(ap => ap._id === p._id)).length && sellerProducts.length > 0}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              // Select all available products
+                              const availableIds = sellerProducts
+                                .filter(p => !p.discount?.isActive || getAssociatedProducts(selectedCoupon).some(ap => ap._id === p._id))
+                                .map(p => p._id)
+                              setEditFormData({ ...editFormData, selectedProducts: availableIds })
+                            } else {
+                              setEditFormData({ ...editFormData, selectedProducts: [] })
+                            }
+                          }}
+                          aria-label="Select all products"
+                        />
+                      </TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Stock</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sellerProducts
+                      .filter(p => p.name.toLowerCase().includes(productSearchQuery.toLowerCase()))
+                      .map((product) => {
+                        const isCurrentlyOnThisCoupon = getAssociatedProducts(selectedCoupon).some(ap => ap._id === product._id)
+                        const isOnOtherDiscount = product.discount?.isActive && !isCurrentlyOnThisCoupon
+                        const isSelected = editFormData.selectedProducts.includes(product._id)
+                        
+                        return (
+                          <TableRow 
+                            key={product._id}
+                            className={isOnOtherDiscount ? 'bg-gray-100 opacity-60' : ''}
+                          >
+                            <TableCell>
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setEditFormData({
+                                      ...editFormData,
+                                      selectedProducts: [...editFormData.selectedProducts, product._id]
+                                    })
+                                  } else {
+                                    setEditFormData({
+                                      ...editFormData,
+                                      selectedProducts: editFormData.selectedProducts.filter(id => id !== product._id)
+                                    })
+                                  }
+                                }}
+                                disabled={isOnOtherDiscount}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={product.images?.[0]?.url || '/placeholder.svg'}
+                                  alt={product.name}
+                                  className="h-10 w-10 rounded-md object-cover"
+                                />
+                                <div>
+                                  <div className="font-medium text-sm">{product.name}</div>
+                                  {isOnOtherDiscount && (
+                                    <div className="text-xs text-amber-600">
+                                      On another discount
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              ₦{product.price.toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {product.stock}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdate}>
+            <Button onClick={handleUpdate} className="bg-green-600 hover:bg-green-700">
+              <CheckCircle className="h-4 w-4 mr-2" />
               Save Changes
             </Button>
           </DialogFooter>
