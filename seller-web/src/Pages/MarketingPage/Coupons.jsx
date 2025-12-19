@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/Components/ui/dialog"
 import { useNavigate } from "react-router-dom"
-import { CheckCircle, AlertCircle } from "lucide-react"
+import { CheckCircle, AlertCircle, CheckSquare } from "lucide-react"
 import { Badge } from "@/Components/ui/badge"
 import { InfoIcon } from "lucide-react"
 import { Calendar as CalendarIcon } from "lucide-react"
@@ -80,6 +80,7 @@ export default function Coupons() {
   const [resetLoading, setResetLoading] = useState(false)
   const [resetError, setResetError] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [selectAllLoading, setSelectAllLoading] = useState(false)
 
   useEffect(() => {
     const fetchSellerProducts = async () => {
@@ -241,8 +242,30 @@ export default function Coupons() {
         })
       } else {
         // Regular product discount data
+        // Fetch all selected products from backend to ensure we have complete product data
+        // This handles cases where products were selected from different pages
+        const profileResponse = await axios.get(`${BASE_URL_V2}/sellers/profile`, {
+          headers: { Authorization: `Bearer ${sellerToken}` }
+        })
+        const sellerId = profileResponse.data.data._id
+        
+        // Fetch all selected products
+        const productsResponse = await axios.get(`${BASE_URL}/products/seller/${sellerId}`, {
+          params: {
+            limit: 1000 // Get enough products to cover all selected ones
+          }
+        })
+        
+        const allProducts = productsResponse.data.products || []
+        
         const productDiscounts = selectedProducts.map(productId => {
-          const product = sellerProducts.find(p => p._id === productId)
+          const product = allProducts.find(p => p._id === productId)
+          if (!product) {
+            throw new Error(`Product with ID ${productId} not found`)
+          }
+          if (!product.price) {
+            throw new Error(`Product ${product.name || productId} does not have a price`)
+          }
           const discountedPrice = formData.discountType === 'percentage'
             ? product.price * (1 - (formData.discountPercentage / 100))
             : Math.max(0, product.price - Number(formData.fixedAmount || 0))
@@ -325,6 +348,63 @@ export default function Coupons() {
     } else {
       setSelectedProducts(selectedProducts.filter((id) => id !== productId))
     }
+  }
+
+  // Handle select all products (from current filtered view)
+  const handleSelectAll = (checked) => {
+    if (checked) {
+      // Select all products that are NOT on discount
+      const availableProductIds = filteredProducts
+        .filter(product => !product.discount?.isActive)
+        .map(product => product._id)
+      setSelectedProducts(availableProductIds)
+      setProductErrors({})
+    } else {
+      setSelectedProducts([])
+      setProductErrors({})
+    }
+  }
+
+  // Handle select all available products across all pages
+  const handleSelectAllAvailable = async () => {
+    setSelectAllLoading(true)
+    setProductErrors({})
+    try {
+      const sellerToken = token?.data;
+      if (!sellerToken) {
+        throw new Error("Not authenticated")
+      }
+
+      const profileResponse = await axios.get(`${BASE_URL_V2}/sellers/profile`, {
+        headers: { Authorization: `Bearer ${sellerToken}` }
+      })
+      const sellerId = profileResponse.data.data._id
+      
+      // Fetch all products (not just current page)
+      const productsResponse = await axios.get(`${BASE_URL}/products/seller/${sellerId}`, {
+        params: {
+          limit: 1000 // Get all products
+        }
+      })
+
+      // Filter out products that are already on discount
+      const availableProductIds = (productsResponse.data.products || [])
+        .filter(product => !product.discount?.isActive)
+        .map(product => product._id)
+
+      setSelectedProducts(availableProductIds)
+    } catch (error) {
+      setError("Failed to fetch all products: " + error.message)
+    } finally {
+      setSelectAllLoading(false)
+    }
+  }
+
+  // Check if all available products are selected
+  const areAllSelected = () => {
+    const availableProducts = filteredProducts.filter(product => !product.discount?.isActive)
+    return availableProducts.length > 0 && 
+           availableProducts.every(product => selectedProducts.includes(product._id))
   }
 
   const formatDiscountInfo = (product) => {
@@ -694,7 +774,7 @@ export default function Coupons() {
             {couponType === 'special' ? 'Select Applicable Products' : 'Select Products to Discount'}
           </h2>
           
-          {/* Toolbar: search + reset */}
+          {/* Toolbar: search + actions */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
             <div className="max-w-md w-full">
               <div className="relative">
@@ -707,7 +787,26 @@ export default function Coupons() {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+              <Button
+                type="button"
+                variant="default"
+                onClick={handleSelectAllAvailable}
+                disabled={selectAllLoading}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {selectAllLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Loading...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckSquare className="h-4 w-4" />
+                    Select All Available
+                  </>
+                )}
+              </Button>
               <Button
                 type="button"
                 variant="outline"
@@ -731,7 +830,14 @@ export default function Coupons() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12"></TableHead>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={areAllSelected()}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Select all products"
+                      title="Select all available products"
+                    />
+                  </TableHead>
                   <TableHead>PRODUCTS</TableHead>
                   <TableHead>STOCK</TableHead>
                   <TableHead>PRICE</TableHead>
@@ -849,84 +955,97 @@ export default function Coupons() {
                 )}
               </TableBody>
             </Table>
-            <div className="p-4 border-t text-sm text-gray-500 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div>
-                Showing {filteredProducts.length} of {paginationData.totalProducts} items
+            <div className="p-4 border-t bg-gray-50 text-sm text-gray-500 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-gray-700">
+                  Showing {filteredProducts.length} of {paginationData.totalProducts} products
+                </span>
+                {selectedProducts.length > 0 && (
+                  <Badge variant="secondary" className="bg-green-100 text-green-700">
+                    {selectedProducts.length} selected
+                  </Badge>
+                )}
               </div>
               
               {paginationData.totalPages > 1 && (
                 <div className="flex items-center justify-center flex-wrap gap-3 w-full sm:w-auto">
+                  <span className="text-xs text-gray-500 mr-2 hidden sm:block">Browse products:</span>
+                  
                   {/* Mobile pagination display */}
                   <div className="flex sm:hidden items-center justify-center w-full">
                     <button 
+                      type="button"
                       onClick={handlePreviousPage}
                       disabled={currentPage <= 1}
                       className={`flex-1 ${
                         currentPage <= 1 
                           ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
-                          : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
+                          : 'text-[#ffffff] bg-blue-600 hover:bg-blue-700'
                       } flex items-center justify-center gap-1 rounded-l-lg py-2 transition-all duration-300 ease-in-out`}
                     >
-                      <span className="text-xs">Prev</span>
+                      <span className="text-xs">← Prev Page</span>
                     </button>
                     
-                    <span className="px-4 py-2 text-xs bg-gray-50 border-t border-b border-gray-200">
+                    <span className="px-4 py-2 text-xs bg-white border-t border-b border-gray-200 font-medium">
                       Page {currentPage} of {paginationData.totalPages}
                     </span>
                     
                     <button 
+                      type="button"
                       onClick={handleNextPage}
                       disabled={currentPage >= paginationData.totalPages}
                       className={`flex-1 ${
                         currentPage >= paginationData.totalPages 
                           ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
-                          : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
+                          : 'text-[#ffffff] bg-blue-600 hover:bg-blue-700'
                       } flex items-center justify-center gap-1 rounded-r-lg py-2 transition-all duration-300 ease-in-out`}
                     >
-                      <span className="text-xs">Next</span>
+                      <span className="text-xs">Next Page →</span>
                     </button>
                   </div>
                   
                   {/* Desktop pagination controls */}
                   <div className="hidden sm:flex items-center justify-center gap-3">
                     <button 
+                      type="button"
                       onClick={handlePreviousPage}
                       disabled={currentPage <= 1}
                       className={`text-xs sm:text-sm font-cabin font-normal ${
                         currentPage <= 1 
                           ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
-                          : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
-                      } flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 transition-all duration-500 ease-in-out`}
+                          : 'text-[#ffffff] bg-blue-600 hover:bg-blue-700'
+                      } flex items-center gap-1 sm:gap-2 rounded-lg py-2 sm:py-2 px-3 sm:px-4 transition-all duration-300 ease-in-out`}
                     >
-                      <p className="text-xs sm:text-sm font-cabin font-normal">Previous</p>
+                      <p className="text-xs sm:text-sm font-cabin font-normal">← Previous Page</p>
                     </button>
                     
                     <div className="flex items-center gap-1">
-                      <span className="px-3 py-2 rounded-md bg-[#17171B] text-white">
+                      <span className="px-3 py-2 rounded-md bg-blue-600 text-white font-medium">
                         {currentPage}
                       </span>
                       <span className="text-gray-600">of</span>
-                      <span className="px-3 py-2 rounded-md border border-gray-200">
+                      <span className="px-3 py-2 rounded-md border border-gray-300 bg-white font-medium">
                         {paginationData.totalPages}
                       </span>
                     </div>
                     
                     <button 
+                      type="button"
                       onClick={handleNextPage}
                       disabled={currentPage >= paginationData.totalPages}
                       className={`text-xs sm:text-sm font-cabin font-normal ${
                         currentPage >= paginationData.totalPages 
                           ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
-                          : 'text-[#ffffff] bg-[#17171B] hover:bg-[#17171B]/90'
-                      } flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 transition-all duration-500 ease-in-out`}
+                          : 'text-[#ffffff] bg-blue-600 hover:bg-blue-700'
+                      } flex items-center gap-1 sm:gap-2 rounded-lg py-2 sm:py-2 px-3 sm:px-4 transition-all duration-300 ease-in-out`}
                     >
-                      <p className="text-xs sm:text-sm font-cabin font-normal">Next</p>
+                      <p className="text-xs sm:text-sm font-cabin font-normal">Next Page →</p>
                     </button>
                   </div>
                   
                   <Popover>
                     <PopoverTrigger asChild>
-                      <button className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-[#17171B] flex items-center gap-1 sm:gap-2 rounded-full py-2 sm:py-3 px-3 sm:px-4 whitespace-nowrap hover:bg-[#17171B]/90 transition-all duration-500 ease-in-out">
+                      <button type="button" className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-gray-700 flex items-center gap-1 sm:gap-2 rounded-lg py-2 sm:py-2 px-3 sm:px-4 whitespace-nowrap hover:bg-gray-800 transition-all duration-300 ease-in-out">
                         <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">{itemsPerPage} per page</p>
                       </button>
                     </PopoverTrigger>
@@ -958,29 +1077,47 @@ export default function Coupons() {
         </div>
 
         {/* Form Actions */}
-        <div className="flex justify-end space-x-4 pt-6 border-t">
-          <Button 
-            type="button" 
-            variant="outline" 
-            disabled={isSubmitting}
-            onClick={() => navigate(-1)}
-          >
-            Cancel
-          </Button>
-          <Button 
-            type="submit"
-            className="min-w-[150px]"
-            disabled={selectedProducts.length === 0 || isSubmitting || !isDateValid()}
-          >
-            {isSubmitting ? (
-              <div className="flex items-center justify-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                <span>Creating Coupon...</span>
-              </div>
-            ) : (
-              'Publish Coupon'
-            )}
-          </Button>
+        <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border-2 border-green-200 p-6 mt-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Ready to Create Coupon?</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                {selectedProducts.length > 0 ? (
+                  <>You have selected <strong>{selectedProducts.length}</strong> product{selectedProducts.length > 1 ? 's' : ''} for this coupon</>
+                ) : (
+                  <>Please select at least one product to continue</>
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-4 pt-4 border-t border-green-200">
+            <Button 
+              type="button" 
+              variant="outline" 
+              disabled={isSubmitting}
+              onClick={() => navigate(-1)}
+              className="min-w-[120px]"
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit"
+              className="min-w-[180px] bg-green-600 hover:bg-green-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+              disabled={selectedProducts.length === 0 || isSubmitting || !isDateValid()}
+            >
+              {isSubmitting ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Creating Coupon...</span>
+                </div>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Publish Coupon
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </form>
 
