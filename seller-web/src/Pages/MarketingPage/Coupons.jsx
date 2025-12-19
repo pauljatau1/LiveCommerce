@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/Components/ui/dialog"
 import { useNavigate } from "react-router-dom"
-import { CheckCircle, AlertCircle, CheckSquare } from "lucide-react"
+import { CheckCircle, AlertCircle, CheckSquare, Square } from "lucide-react"
 import { Badge } from "@/Components/ui/badge"
 import { InfoIcon } from "lucide-react"
 import { Calendar as CalendarIcon } from "lucide-react"
@@ -81,6 +81,7 @@ export default function Coupons() {
   const [resetError, setResetError] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [selectAllLoading, setSelectAllLoading] = useState(false)
+  const [allAvailableProductIds, setAllAvailableProductIds] = useState([]) // Track all available product IDs
 
   useEffect(() => {
     const fetchSellerProducts = async () => {
@@ -126,6 +127,41 @@ export default function Coupons() {
 
     fetchSellerProducts()
   }, [currentPage, itemsPerPage, refreshKey]) // Add dependencies to re-fetch when page changes
+
+  // Fetch all available product IDs for toggle functionality
+  // This runs when component loads and when products are refreshed
+  useEffect(() => {
+    const fetchAllAvailableProductIds = async () => {
+      try {
+        const sellerToken = token?.data;
+        if (sellerToken) {
+          const profileResponse = await axios.get(`${BASE_URL_V2}/sellers/profile`, {
+            headers: { Authorization: `Bearer ${sellerToken}` }
+          })
+          const sellerId = profileResponse.data.data._id
+          
+          // Fetch all products to get available product IDs
+          const productsResponse = await axios.get(`${BASE_URL}/products/seller/${sellerId}`, {
+            params: {
+              limit: 1000 // Get all products
+            }
+          })
+
+          // Filter out products that are already on discount and get their IDs
+          const availableProductIds = (productsResponse.data.products || [])
+            .filter(product => !product.discount?.isActive)
+            .map(product => product._id)
+
+          setAllAvailableProductIds(availableProductIds)
+        }
+      } catch (error) {
+        // Silently fail - this is just for UI state, not critical
+        console.error("Failed to fetch all available product IDs:", error)
+      }
+    }
+
+    fetchAllAvailableProductIds()
+  }, [refreshKey, token]) // Re-fetch when products are refreshed
 
   // Update form data when start time option changes
   useEffect(() => {
@@ -365,7 +401,16 @@ export default function Coupons() {
     }
   }
 
-  // Handle select all available products across all pages
+  // Check if all available products across all pages are selected
+  // Uses the stored allAvailableProductIds to check if all are currently selected
+  const areAllAvailableSelected = () => {
+    if (allAvailableProductIds.length === 0) return false
+    // Check if all available products are selected and no extra products are selected
+    return allAvailableProductIds.length === selectedProducts.length &&
+           allAvailableProductIds.every(id => selectedProducts.includes(id))
+  }
+
+  // Handle select/deselect all available products across all pages (toggle functionality)
   const handleSelectAllAvailable = async () => {
     setSelectAllLoading(true)
     setProductErrors({})
@@ -392,7 +437,20 @@ export default function Coupons() {
         .filter(product => !product.discount?.isActive)
         .map(product => product._id)
 
-      setSelectedProducts(availableProductIds)
+      // Update the stored list of available product IDs
+      setAllAvailableProductIds(availableProductIds)
+
+      // Check if all available products are currently selected
+      const allSelected = availableProductIds.length > 0 && 
+                         availableProductIds.length === selectedProducts.length &&
+                         availableProductIds.every(id => selectedProducts.includes(id))
+
+      // Toggle: if all are selected, deselect all; otherwise, select all available
+      if (allSelected) {
+        setSelectedProducts([])
+      } else {
+        setSelectedProducts(availableProductIds)
+      }
     } catch (error) {
       setError("Failed to fetch all products: " + error.message)
     } finally {
@@ -400,7 +458,7 @@ export default function Coupons() {
     }
   }
 
-  // Check if all available products are selected
+  // Check if all available products in current filtered view are selected
   const areAllSelected = () => {
     const availableProducts = filteredProducts.filter(product => !product.discount?.isActive)
     return availableProducts.length > 0 && 
@@ -793,12 +851,21 @@ export default function Coupons() {
                 variant="default"
                 onClick={handleSelectAllAvailable}
                 disabled={selectAllLoading}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                className={`flex items-center gap-2 ${
+                  areAllAvailableSelected() 
+                    ? 'bg-red-600 hover:bg-red-700 text-white' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
               >
                 {selectAllLoading ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                     <span>Loading...</span>
+                  </>
+                ) : areAllAvailableSelected() ? (
+                  <>
+                    <Square className="h-4 w-4" />
+                    Deselect All
                   </>
                 ) : (
                   <>
