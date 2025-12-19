@@ -3302,4 +3302,3 @@ exports.checkVerificationStatus = async (req, res) => {
     });
   }
 };
-
