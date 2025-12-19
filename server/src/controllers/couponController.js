@@ -1210,20 +1210,33 @@ exports.getSpecialCoupons = async (req, res) => {
 
         // Add applicableProductIds array for frontend
         if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
-          couponObj.applicableProductIds = coupon.applicableProducts.map(ap => {
-            return ap.product._id || ap.product;
-          });
+          couponObj.applicableProductIds = coupon.applicableProducts
+            .map(ap => {
+              // Handle null products (deleted or not found during populate)
+              if (!ap.product) {
+                return null;
+              }
+              // If product is populated (object), return its _id, otherwise return the ID directly
+              return ap.product._id || ap.product;
+            })
+            .filter(id => id !== null); // Remove null entries for deleted products
           
-          couponObj.applicableProducts = coupon.applicableProducts.map(ap => {
-            const populated = ap.product && typeof ap.product === 'object' ? ap.product : null;
-            const objectId = ap.product && typeof ap.product !== 'object' ? ap.product : null;
-            return {
-              productId: populated ? populated._id : objectId || null,
-              productName: populated ? populated.name : null,
-              originalPrice: ap.originalPrice,
-              discountedPrice: ap.discountedPrice
-            };
-          });
+          couponObj.applicableProducts = coupon.applicableProducts
+            .map(ap => {
+              // Skip entries where product is null (deleted or not found)
+              if (!ap.product) {
+                return null;
+              }
+              const populated = ap.product && typeof ap.product === 'object' ? ap.product : null;
+              const objectId = ap.product && typeof ap.product !== 'object' ? ap.product : null;
+              return {
+                productId: populated ? populated._id : objectId || null,
+                productName: populated ? populated.name : null,
+                originalPrice: ap.originalPrice,
+                discountedPrice: ap.discountedPrice
+              };
+            })
+            .filter(product => product !== null); // Remove null entries for deleted products
         } else {
           couponObj.applicableProductIds = [];
           couponObj.applicableProducts = [];
