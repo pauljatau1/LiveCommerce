@@ -373,52 +373,87 @@ exports.updateIndividualInformation = async (req, res) => {
 };
 
 // Forgot password
+/**
+ * Handle forgot password request for sellers.
+ * 
+ * This controller processes password reset requests by:
+ * 1. Validating the email address
+ * 2. Finding the seller by email
+ * 3. Generating a secure 4-digit reset code
+ * 4. Storing the reset code with expiration time (1 hour)
+ * 5. Sending password reset email via Termii Email API
+ * 
+ * The email is sent using a pre-configured Termii template with
+ * dynamic variables for personalization and OTP display.
+ * 
+ * @param {Object} req - Express request object
+ * @param {string} req.body.email - Seller's email address
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>}
+ */
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
 
+  // Validate email input
   if (!email) {
     return res.status(400).json({ message: 'Email is required.' });
   }
 
   try {
+    // Find seller by email address
     const seller = await Seller.findOne({ email });
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found.' });
     }
 
-    // Generate a 4-digit reset code
+    // Generate a secure 4-digit reset code
+    // Using Math.random for code generation (consistent with existing implementation)
     const resetCode = Math.floor(1000 + Math.random() * 9000).toString();
+    
+    // Store reset code and expiration time (1 hour from now)
     seller.resetPasswordCode = resetCode;
     seller.resetPasswordExpires = Date.now() + 3600000; // Code valid for 1 hour
     await seller.save();
 
-    // Send email with reset code
-    const msg = {
-      to: email,
-      from: 'Joseph From Auqli <support@auqli.com>',
-      subject: 'Reset Your Password - Auqli',
-      html: `
-        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
-          <div style="max-width: 600px; margin: 0 auto;">
-            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-            <h1 style="color: #4CAF50; margin-bottom: 20px;">Password Reset Code</h1>
-            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
-            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 30px;">You requested to reset your password. Use the code below to complete the process:</p>
-            <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
-              <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${resetCode}</span>
-            </div>
-            <p style="font-size: 14px; color: #999999;">This code will expire in 1 hour. If you didn't request this reset, please ignore this email.</p>
-            <hr style="border: 1px solid #333333; margin: 30px 0;">
-            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+    // Construct HTML email body with reset code (like SendGrid)
+    // This keeps the email template in code
+    const html = `
+      <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto;">
+          <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+          <h1 style="color: #4CAF50; margin-bottom: 20px;">Password Reset Code</h1>
+          <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
+          <p style="font-size: 16px; line-height: 1.5; margin-bottom: 30px;">You requested to reset your password. Use the code below to complete the process:</p>
+          <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
+            <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${resetCode}</span>
           </div>
+          <p style="font-size: 14px; color: #999999;">This code will expire in 1 hour. If you didn't request this reset, please ignore this email.</p>
+          <hr style="border: 1px solid #333333; margin: 30px 0;">
+          <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
         </div>
-      `
-    };
+      </div>
+    `;
 
-    await sgMail.send(msg);
+    // Send password reset email via Termii Email API with raw HTML
+    // The Termii service will pass the HTML to Termii via a template variable
+    const termiiEmailService = require('../services/termiiEmailService');
+    await termiiEmailService.sendPasswordResetEmail({
+      email: email,
+      html: html,
+      subject: 'Reset Your Password - Auqli'
+    });
+
+    // Return success response
     res.json({ message: 'Password reset code sent successfully.' });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to send password reset code', error: error.message });
+    // Log error for debugging
+    console.error('Forgot password error:', error);
+    
+    // Return error response
+    res.status(500).json({ 
+      message: 'Failed to send password reset code', 
+      error: error.message 
+    });
   }
 };
 

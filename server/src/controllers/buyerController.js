@@ -2321,72 +2321,100 @@ exports.updateNotificationPreferences = async (req, res) => {
 };
 
 // Forgot password - send OTP
+/**
+ * Handle forgot password request for buyers (legacy endpoint).
+ * 
+ * This controller processes password reset requests by:
+ * 1. Validating the email address
+ * 2. Finding the buyer by email
+ * 3. Generating a secure 4-digit reset code
+ * 4. Storing the reset code with expiration time (10 minutes)
+ * 5. Sending password reset email via Termii Email API
+ * 
+ * The email is sent using a pre-configured Termii template with
+ * dynamic variables for personalization and OTP display.
+ * 
+ * @param {Object} req - Express request object
+ * @param {string} req.body.email - Buyer's email address
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>}
+ */
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
 
+  // Validate email input
   if (!email) {
     return res.status(400).json({ message: 'Email is required' });
   }
 
   try {
+    // Find buyer by email address
     const buyer = await Buyer.findOne({ email });
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
     // Generate and save OTP
+    // Using the same OTP generation function for consistency
     const resetOTP = generateResetOTP();
     buyer.resetPasswordOTP = resetOTP;
     buyer.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
     await buyer.save();
 
-    // Send email with OTP
-    const msg = {
-      to: email,
-      from: 'Joseph From Auqli <support@auqli.com>',
-      subject: 'Password Reset Code - Auqli',
-      html: `
-        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: 'Arial', sans-serif; line-height: 1.6;">
-          <div style="max-width: 600px; margin: 0 auto; border-radius: 8px; overflow: hidden;">
-            <div style="padding: 25px; text-align: center;">
-              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 180px; margin-bottom: 20px;">
+    // Construct HTML email body with OTP (like SendGrid)
+    // This keeps the email template in code
+    const html = `
+      <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: 'Arial', sans-serif; line-height: 1.6;">
+        <div style="max-width: 600px; margin: 0 auto; border-radius: 8px; overflow: hidden;">
+          <div style="padding: 25px; text-align: center;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 180px; margin-bottom: 20px;">
+          </div>
+          
+          <div style="background-color: #242424; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+            <h1 style="color: #4CAF50; margin-bottom: 20px; font-size: 24px; text-align: center;">Password Reset Request</h1>
+            <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">We received a request to reset your password. Use the code below to create a new password for your Auqli account.</p>
+            
+            <div style="background-color: #333333; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; border-left: 4px solid #4CAF50;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px;">Your Reset Code</h3>
+              <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0; color: #4CAF50; background-color: #1a1a1a; padding: 15px; border-radius: 4px; display: inline-block;">${resetOTP}</p>
+              <p style="font-size: 14px; color: #bbbbbb;">This code will expire in 10 minutes</p>
             </div>
             
-            <div style="background-color: #242424; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-              <h1 style="color: #4CAF50; margin-bottom: 20px; font-size: 24px; text-align: center;">Password Reset Request</h1>
-              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">We received a request to reset your password. Use the code below to create a new password for your Auqli account.</p>
-              
-              <div style="background-color: #333333; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; border-left: 4px solid #4CAF50;">
-                <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px;">Your Reset Code</h3>
-                <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0; color: #4CAF50; background-color: #1a1a1a; padding: 15px; border-radius: 4px; display: inline-block;">${resetOTP}</p>
-                <p style="font-size: 14px; color: #bbbbbb;">This code will expire in 10 minutes</p>
-              </div>
-              
-              <div style="margin: 25px 0; background-color: #1a1a1a; padding: 20px; border-radius: 8px;">
-                <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px; text-align: center;">Security Notice</h3>
-                <p style="font-size: 14px; color: #bbbbbb; text-align: center;">If you didn't request a password reset, please ignore this email or contact our support team immediately. Someone may be trying to access your account.</p>
-              </div>
-            </div>
-            
-            <div style="text-align: center; padding: 0 30px 30px 30px;">
-              <p style="font-size: 14px; color: #999999; margin-bottom: 20px;">Need help? Contact our support team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
-              <div style="margin: 20px 0; height: 1px; background-color: #333333;"></div>
-              <p style="font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            <div style="margin: 25px 0; background-color: #1a1a1a; padding: 20px; border-radius: 8px;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px; text-align: center;">Security Notice</h3>
+              <p style="font-size: 14px; color: #bbbbbb; text-align: center;">If you didn't request a password reset, please ignore this email or contact our support team immediately. Someone may be trying to access your account.</p>
             </div>
           </div>
+          
+          <div style="text-align: center; padding: 0 30px 30px 30px;">
+            <p style="font-size: 14px; color: #999999; margin-bottom: 20px;">Need help? Contact our support team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+            <div style="margin: 20px 0; height: 1px; background-color: #333333;"></div>
+            <p style="font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
         </div>
-      `
-    };
+      </div>
+    `;
 
-    await sgMail.send(msg);
+    // Send password reset email via Termii Email API with raw HTML
+    // The Termii service will pass the HTML to Termii via a template variable
+    const termiiEmailService = require('../services/termiiEmailService');
+    await termiiEmailService.sendPasswordResetEmail({
+      email: email,
+      html: html,
+      subject: 'Password Reset Code - Auqli'
+    });
 
+    // Return success response
     res.json({
       message: 'Password reset code sent successfully',
       validFor: '10 minutes'
     });
 
   } catch (error) {
+    // Log error for debugging
     console.error('Forgot password error:', error);
+    
+    // Return error response
     res.status(500).json({
       message: 'Failed to process password reset request',
       error: error.message
