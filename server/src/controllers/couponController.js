@@ -294,21 +294,40 @@ exports.getSellerCoupons = async (req, res) => {
     const { status, page = 1, limit = 10 } = req.query;
     const sellerId = req.user.id;
 
-    const query = { seller: sellerId };
+    const query = { 
+      seller: sellerId,
+      code: { $exists: false } // Only regular coupons (no code)
+    };
     if (status) {
       query.status = status;
     }
 
     const coupons = await Coupon.find(query)
-      .populate('applicableProducts', 'name price images')
+      .populate('applicableProducts.product', 'name price images')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
     const total = await Coupon.countDocuments(query);
 
+    // Format coupons to include productDiscounts array for frontend compatibility
+    const formattedCoupons = coupons.map(coupon => {
+      const couponObj = coupon.toObject();
+      
+      // Extract productDiscounts from applicableProducts
+      if (couponObj.applicableProducts && couponObj.applicableProducts.length > 0) {
+        couponObj.productDiscounts = couponObj.applicableProducts.map(ap => ({
+          productId: ap.product._id || ap.product,
+          originalPrice: ap.originalPrice,
+          discountedPrice: ap.discountedPrice
+        }));
+      }
+      
+      return couponObj;
+    });
+
     res.json({
-      coupons,
+      coupons: formattedCoupons,
       currentPage: page,
       totalPages: Math.ceil(total / limit),
       totalCoupons: total
@@ -333,43 +352,218 @@ exports.updateCoupon = async (req, res) => {
       return res.status(404).json({ message: 'Coupon not found' });
     }
 
-    // If updating applicable products, validate they belong to seller
-    if (updateData.applicableProducts) {
+    // Determine if this is a special coupon (has code) or regular coupon
+    const isSpecialCoupon = !!coupon.code;
+
+    // Handle product updates for SPECIAL coupons (with code)
+    if (isSpecialCoupon && updateData.applicableProductIds) {
+      const newProductIds = updateData.applicableProductIds;
+      
+      // Validate new products belong to seller
       const products = await Product.find({
-        _id: { $in: updateData.applicableProducts },
+        _id: { $in: newProductIds },
         seller: sellerId
       });
 
-      if (products.length !== updateData.applicableProducts.length) {
+      if (products.length !== newProductIds.length) {
         return res.status(400).json({
           message: 'Some products do not belong to the seller'
         });
       }
+
+      // Build new applicableProducts array with calculated prices
+      const discountType = updateData.discountType || coupon.discountType;
+      const discountPercentage = updateData.discountPercentage || coupon.discountPercentage;
+      const fixedAmount = updateData.fixedAmount || coupon.fixedAmount;
+
+      const applicableProducts = products.map(product => ({
+        product: product._id,
+        originalPrice: product.price,
+        discountedPrice: discountType === 'percentage'
+          ? Math.round((product.price * (100 - discountPercentage)) / 100)
+          : Math.max(0, product.price - fixedAmount),
+        status: 'active'
+      }));
+
+      updateData.applicableProducts = applicableProducts;
+      delete updateData.applicableProductIds; // Remove this field, we use applicableProducts
     }
 
-    // If updating products, check for existing discounts
-    if (req.body.productDiscounts) {
-      const productIds = req.body.productDiscounts.map(pd => pd.productId);
+    // Handle product updates for REGULAR coupons (without code)
+    if (!isSpecialCoupon && updateData.productDiscounts) {
+      const newProductDiscounts = updateData.productDiscounts;
+      const newProductIds = newProductDiscounts.map(pd => pd.productId);
+      
+      // Get old product IDs to know which to remove discounts from
+      const oldProductIds = coupon.applicableProducts.map(ap => ap.product.toString());
+
+      // Validate new products belong to seller
       const products = await Product.find({
-        _id: { $in: productIds },
-        seller: req.user.id
+        _id: { $in: newProductIds },
+        seller: sellerId
       });
 
-      const now = new Date();
-      const productsWithDiscounts = products.filter(product => 
-        product.discountEndDate && new Date(product.discountEndDate) > now
-      );
-
-      if (productsWithDiscounts.length > 0) {
+      if (products.length !== newProductIds.length) {
         return res.status(400).json({
-          message: 'Some products already have active discounts',
-          products: productsWithDiscounts.map(p => ({
-            id: p._id,
-            name: p.name,
-            discountEndDate: p.discountEndDate
-          }))
+          message: 'Some products do not belong to the seller'
         });
       }
+
+      // Check if any NEW products (not previously on this coupon) already have active discounts
+      const productsToCheck = newProductIds.filter(id => !oldProductIds.includes(id));
+      if (productsToCheck.length > 0) {
+        const productsWithDiscounts = await Product.find({
+          _id: { $in: productsToCheck },
+          'discount.isActive': true,
+          'discount.endDate': { $gt: new Date() }
+        });
+
+        if (productsWithDiscounts.length > 0) {
+          return res.status(400).json({
+            message: 'Some products already have active discounts from other coupons',
+            products: productsWithDiscounts.map(p => ({
+              id: p._id,
+              name: p.name,
+              currentCoupon: p.discount.couponName
+            }))
+          });
+        }
+      }
+
+      // Step 1: Remove discounts from products that are no longer in the coupon
+      const productsToRemove = oldProductIds.filter(id => !newProductIds.includes(id));
+      if (productsToRemove.length > 0) {
+        await Product.updateMany(
+          {
+            _id: { $in: productsToRemove },
+            'discount.couponName': coupon.name
+          },
+          {
+            $set: {
+              discount: {
+                isActive: false,
+                type: 'percentage',
+                value: 0,
+                startDate: null,
+                endDate: null,
+                couponName: null,
+                discountedPrice: null
+              },
+              'pricing.discountInfo': {
+                isActive: false,
+                type: 'percentage',
+                value: 0,
+                startDate: null,
+                endDate: null,
+                couponName: null,
+                discountedPrice: null
+              },
+              'variants.$[].discount': {
+                isActive: false,
+                type: 'percentage',
+                value: 0,
+                startDate: null,
+                endDate: null,
+                couponName: null,
+                discountedPrice: null
+              }
+            }
+          }
+        );
+      }
+
+      // Step 2: Apply/update discounts to all products in the new list
+      const discountType = updateData.discountType || coupon.discountType;
+      const discountPercentage = updateData.discountPercentage || coupon.discountPercentage;
+      const fixedAmount = updateData.fixedAmount || coupon.fixedAmount;
+      const normalizedEnd = normalizeEndOfDay(updateData.endDate || coupon.endDate);
+      const couponName = updateData.name || coupon.name;
+
+      const applicableProducts = await Promise.all(products.map(async (product) => {
+        const discountInfo = newProductDiscounts.find(
+          pd => pd.productId.toString() === product._id.toString()
+        );
+        
+        let discountedPrice;
+        let discountValue;
+        if (discountType === 'percentage') {
+          discountedPrice = discountInfo && typeof discountInfo.discountedPrice === 'number'
+            ? discountInfo.discountedPrice
+            : Math.round((product.price * (100 - discountPercentage)) / 100);
+          discountValue = ((product.price - discountedPrice) / product.price) * 100;
+        } else {
+          discountedPrice = Math.max(0, product.price - fixedAmount);
+          discountValue = fixedAmount;
+        }
+
+        // Update product's discount
+        await Product.findByIdAndUpdate(product._id, {
+          discount: {
+            isActive: true,
+            type: discountType,
+            value: discountType === 'percentage' ? discountValue : fixedAmount,
+            startDate: updateData.startDate || coupon.startDate,
+            endDate: normalizedEnd,
+            couponName: couponName,
+            discountedPrice: discountedPrice
+          },
+          'pricing.discountInfo': {
+            isActive: true,
+            type: discountType,
+            value: discountType === 'percentage' ? discountValue : fixedAmount,
+            startDate: updateData.startDate || coupon.startDate,
+            endDate: normalizedEnd,
+            couponName: couponName,
+            discountedPrice: discountedPrice
+          },
+          $set: {
+            'variants.$[].discount': {
+              isActive: true,
+              type: discountType,
+              value: discountType === 'percentage' ? discountValue : fixedAmount,
+              startDate: updateData.startDate || coupon.startDate,
+              endDate: normalizedEnd,
+              couponName: couponName,
+              discountedPrice: null
+            }
+          }
+        });
+
+        // Update variant discounted prices
+        const updatedProduct = await Product.findById(product._id);
+        if (updatedProduct.variants && updatedProduct.variants.length > 0) {
+          const variantUpdates = updatedProduct.variants.map(variant => {
+            const variantDiscountedPrice = discountType === 'percentage'
+              ? Math.round((variant.price * (100 - discountValue)) / 100)
+              : Math.max(0, variant.price - fixedAmount);
+            return {
+              updateOne: {
+                filter: {
+                  _id: product._id,
+                  'variants._id': variant._id
+                },
+                update: {
+                  $set: {
+                    'variants.$.discount.discountedPrice': variantDiscountedPrice
+                  }
+                }
+              }
+            };
+          });
+
+          await Product.bulkWrite(variantUpdates);
+        }
+
+        return {
+          product: product._id,
+          originalPrice: product.price,
+          discountedPrice: discountedPrice,
+          status: 'active'
+        };
+      }));
+
+      updateData.applicableProducts = applicableProducts;
+      delete updateData.productDiscounts; // Remove this field, we use applicableProducts
     }
 
     // If endDate is being updated, normalize to end of day
@@ -381,7 +575,7 @@ exports.updateCoupon = async (req, res) => {
       id,
       { $set: updateData },
       { new: true }
-    ).populate('applicableProducts', 'name price images');
+    ).populate('applicableProducts.product', 'name price images');
 
     res.json(updatedCoupon);
   } catch (error) {
@@ -978,7 +1172,7 @@ exports.getSpecialCoupons = async (req, res) => {
 
     const query = { 
       seller: sellerId,
-      code: { $ne: null } // Only get coupons with codes
+      code: { $ne: null, $exists: true } // Only get coupons with codes
     };
     
     if (status) {
@@ -994,30 +1188,62 @@ exports.getSpecialCoupons = async (req, res) => {
     const total = await Coupon.countDocuments(query);
 
     res.json({
-      coupons: coupons.map(coupon => ({
-        id: coupon._id,
-        name: coupon.name,
-        code: coupon.code,
-        discountPercentage: coupon.discountPercentage,
-        startDate: coupon.startDate,
-        endDate: coupon.endDate,
-        usageLimit: coupon.usageLimit,
-        usageCount: coupon.usageCount,
-        status: coupon.status,
-        createdAt: coupon.createdAt,
-        applicableProducts: coupon.applicableProducts && coupon.applicableProducts.length > 0 ? 
-          coupon.applicableProducts.map(ap => {
-            const populated = ap.product && typeof ap.product === 'object' ? ap.product : null;
-            const objectId = ap.product && typeof ap.product !== 'object' ? ap.product : null;
-            return {
-              productId: populated ? populated._id : objectId || null,
-              productName: populated ? populated.name : null,
-              originalPrice: ap.originalPrice,
-              discountedPrice: ap.discountedPrice
-            };
-          }) : 
-          'All products'
-      })),
+      coupons: coupons.map(coupon => {
+        const couponObj = {
+          _id: coupon._id,
+          id: coupon._id,
+          name: coupon.name,
+          code: coupon.code,
+          discountType: coupon.discountType,
+          discountPercentage: coupon.discountPercentage,
+          fixedAmount: coupon.fixedAmount,
+          startDate: coupon.startDate,
+          endDate: coupon.endDate,
+          usageLimit: coupon.usageLimit,
+          usageCount: coupon.usageCount,
+          status: coupon.status,
+          createdAt: coupon.createdAt,
+          hasMinimumRequirement: coupon.hasMinimumRequirement,
+          minimumAmount: coupon.minimumAmount,
+          customerEligibility: coupon.customerEligibility
+        };
+
+        // Add applicableProductIds array for frontend
+        if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
+          couponObj.applicableProductIds = coupon.applicableProducts
+            .map(ap => {
+              // Handle null products (deleted or not found during populate)
+              if (!ap.product) {
+                return null;
+              }
+              // If product is populated (object), return its _id, otherwise return the ID directly
+              return ap.product._id || ap.product;
+            })
+            .filter(id => id !== null); // Remove null entries for deleted products
+          
+          couponObj.applicableProducts = coupon.applicableProducts
+            .map(ap => {
+              // Skip entries where product is null (deleted or not found)
+              if (!ap.product) {
+                return null;
+              }
+              const populated = ap.product && typeof ap.product === 'object' ? ap.product : null;
+              const objectId = ap.product && typeof ap.product !== 'object' ? ap.product : null;
+              return {
+                productId: populated ? populated._id : objectId || null,
+                productName: populated ? populated.name : null,
+                originalPrice: ap.originalPrice,
+                discountedPrice: ap.discountedPrice
+              };
+            })
+            .filter(product => product !== null); // Remove null entries for deleted products
+        } else {
+          couponObj.applicableProductIds = [];
+          couponObj.applicableProducts = [];
+        }
+
+        return couponObj;
+      }),
       currentPage: parseInt(page),
       totalPages: Math.ceil(total / limit),
       totalCoupons: total
