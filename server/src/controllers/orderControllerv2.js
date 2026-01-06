@@ -1097,7 +1097,7 @@ exports.createOrder = async (req, res) => {
     })));
     
     // Check if the order is from a liveshow and update the stream with order information
-    if (req.body.channel === "liveshow" && req.body.streamId) {
+    if (req.body.channel === "livestream" && req.body.streamId) {
       try {
         const Stream = mongoose.model('Stream');
         const stream = await Stream.findById(req.body.streamId);
