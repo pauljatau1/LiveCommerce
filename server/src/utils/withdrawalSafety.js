@@ -8,7 +8,7 @@
 const Withdrawal = require('../models/Withdrawal');
 const Seller = require('../models/Seller');
 const mongoose = require('mongoose');
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('../services/termiiEmailService');
 
 /**
  * Check if a seller has any pending or processing withdrawals
@@ -25,7 +25,7 @@ async function checkExistingWithdrawals(sellerId) {
 
     if (existingWithdrawals.length > 0) {
       const totalPendingAmount = existingWithdrawals.reduce((sum, w) => sum + w.amount, 0);
-      
+
       return {
         hasExisting: true,
         count: existingWithdrawals.length,
@@ -58,17 +58,17 @@ async function calculateSafeWithdrawalAmount(sellerId) {
   try {
     // Get current seller with fresh data
     const seller = await Seller.findById(sellerId).select('walletBalance firstName lastName email bankDetails');
-    
+
     if (!seller) {
       throw new Error('Seller not found');
     }
 
     // Check for existing withdrawals
     const existingWithdrawals = await checkExistingWithdrawals(sellerId);
-    
+
     // Calculate available balance (current balance minus pending withdrawals)
     const availableBalance = seller.walletBalance - existingWithdrawals.totalPendingAmount;
-    
+
     return {
       seller,
       currentBalance: seller.walletBalance,
@@ -98,7 +98,7 @@ async function createSafeAutomaticWithdrawal(sellerId, bankDetails, reason) {
   try {
     // Calculate safe withdrawal amount
     const withdrawalCalculation = await calculateSafeWithdrawalAmount(sellerId);
-    
+
     // Check if withdrawal is possible
     if (!withdrawalCalculation.canWithdraw) {
       await session.abortTransaction();
@@ -193,7 +193,7 @@ function validateBankDetails(bankDetails) {
   // Core required fields that must be present
   const coreRequiredFields = ['bankName', 'accountNumber', 'accountName'];
   const missingCoreFields = coreRequiredFields.filter(field => !bankDetails?.[field] || bankDetails[field].trim() === '');
-  
+
   if (missingCoreFields.length > 0) {
     return {
       isValid: false,
@@ -204,8 +204,8 @@ function validateBankDetails(bankDetails) {
 
   // Check if at least one identifier is present (bankIdentifierCode OR swiftCode)
   const hasIdentifier = (bankDetails?.bankIdentifierCode && bankDetails.bankIdentifierCode.trim() !== '') ||
-                       (bankDetails?.swiftCode && bankDetails.swiftCode.trim() !== '');
-  
+    (bankDetails?.swiftCode && bankDetails.swiftCode.trim() !== '');
+
   if (!hasIdentifier) {
     return {
       isValid: false,
@@ -270,9 +270,9 @@ async function getWithdrawalSafetyReport(sellerId) {
       recommendations: {
         shouldCreateWithdrawal: calculation.canWithdraw && bankValidation.isValid && existingWithdrawals.count === 0,
         reason: !calculation.canWithdraw ? 'No available balance' :
-                !bankValidation.isValid ? 'Invalid bank details' :
-                existingWithdrawals.count > 0 ? 'Existing withdrawals found' :
-                'Safe to create withdrawal'
+          !bankValidation.isValid ? 'Invalid bank details' :
+            existingWithdrawals.count > 0 ? 'Existing withdrawals found' :
+              'Safe to create withdrawal'
       }
     };
   } catch (error) {
@@ -290,9 +290,6 @@ async function getWithdrawalSafetyReport(sellerId) {
  */
 async function sendNoBankDetailsEmails(seller, availableBalance, reason) {
   try {
-    // Ensure SendGrid API key is set
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    
     const formattedAmount = availableBalance.toLocaleString('en-NG', {
       style: 'currency',
       currency: 'NGN'
@@ -422,8 +419,16 @@ async function sendNoBankDetailsEmails(seller, availableBalance, reason) {
 
     // Send both emails
     await Promise.all([
-      sgMail.send(sellerEmailMsg),
-      sgMail.send(adminEmailMsg)
+      termiiEmailService.sendRawHTMLEmail({
+        email: seller.email,
+        subject: 'Account Disabled - Contact Support for Withdrawal',
+        html: sellerEmailMsg.html
+      }),
+      termiiEmailService.sendRawHTMLEmail({
+        email: 'bolu@auqli.com',
+        subject: `Action Required: Seller ${seller.firstName} ${seller.lastName} Needs Bank Details for Withdrawal`,
+        html: adminEmailMsg.html
+      })
     ]);
 
     console.log(`📧 No bank details emails sent for ${seller.email} (Balance: ${formattedAmount})`);

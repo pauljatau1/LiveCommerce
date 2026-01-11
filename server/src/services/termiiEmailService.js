@@ -29,7 +29,7 @@
  * - TERMII_API_KEY: Your Termii API key from the dashboard
  *
  * Hardcoded Configuration:
- * - Template ID: 471ca5aa-8fc0-4c00-abf0-7d7dbbede954
+ * - Template ID: bbb5385c-9920-4a4d-a151-7f663d95ad8e
  * - Email Configuration ID: 57cc65e1-3708-407a-95ed-ceceea3bd36d
  * - The template should have {{email_body}} variable placeholder for raw HTML emails
  *
@@ -41,7 +41,7 @@ require('dotenv').config();
 
 // Hardcoded Termii email template ID for password reset emails
 // This template should have {{email_body}} variable placeholder
-const TERMII_EMAIL_TEMPLATE_ID = '471ca5aa-8fc0-4c00-abf0-7d7dbbede954';
+const TERMII_EMAIL_TEMPLATE_ID = 'bbb5385c-9920-4a4d-a151-7f663d95ad8e';
 
 // Hardcoded Termii email configuration ID
 const TERMII_EMAIL_CONFIGURATION_ID = '57cc65e1-3708-407a-95ed-ceceea3bd36d';
@@ -172,7 +172,7 @@ async function sendTemplatedEmail(emailData) {
     // Step 7: Handle errors from Termii API
     // Log error details for debugging while maintaining security
     console.error('Error sending email via Termii:', error.response?.data || error.message);
-    
+
     // Throw error with meaningful message
     // This prevents exposing internal API details to users
     throw new Error(`Failed to send email. Please try again later. ${error.response?.data?.message || error.message}`);
@@ -186,7 +186,7 @@ async function sendTemplatedEmail(emailData) {
  * by using a Termii template with a single variable placeholder.
  *
  * Template Configuration:
- * - Uses hardcoded template ID: 471ca5aa-8fc0-4c00-abf0-7d7dbbede954
+ * - Uses hardcoded template ID: bbb5385c-9920-4a4d-a151-7f663d95ad8e
  * - The template should have {{email_body}} variable placeholder
  * - This way, you can keep your HTML email body in your code and pass it as a variable
  *

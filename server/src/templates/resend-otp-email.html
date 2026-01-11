@@ -1,24 +1,86 @@
-        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
-          <div style="max-width: 600px; margin: 0 auto;">
-            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-            <h1 style="color: #4CAF50; margin-bottom: 20px;">Here's Your Auqli OTP</h1>
-            <p style="color: #ffffff; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi {{firstName}},</p>
-            <p style="color: #ffffff; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Your one-time password (OTP) is:</p>
-            <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
-              <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">{{otp}}</span>
-            </div>
-            <p style="color: #ffffff; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Please enter this code in the app. This code will expire in 10 minutes.</p>
-            <p style="color: #ffffff; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">If you didn't request this, just ignore this message.</p>
-            <p style="color: #ffffff; font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Need help? Contact our team anytime at <a href="mailto:support@auqli.com" style="color: #4CAF50;">support@auqli.com</a>.</p>
-            
-            <div style="color: #ffffff; margin: 30px 0;">
-              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 15px;">Stay connected with Auqli Nigeria:</p>
-              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 10px;">📢 Join our Telegram Group</p>
-              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 10px;">💬 WhatsApp Channel</p>
-              <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">📱 Instagram | Twitter | Facebook</p>
-            </div>
-            
-            <hr style="border: 1px solid #333333; margin: 30px 0;">
-            <p style="font-size: 12px; color: #999999; text-align: center;">© {{year}} Auqli. All rights reserved.</p>
-          </div>
-        </div> 
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body
+  style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+
+    <!-- Header -->
+    <div style="text-align: center; margin-bottom: 32px;">
+      <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli"
+        style="width: 120px; margin-bottom: 24px;">
+    </div>
+
+    <!-- Main Card -->
+    <div
+      style="background: #ffffff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden;">
+
+      <!-- Header Banner -->
+      <div
+        style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px 24px; text-align: center;">
+        <div
+          style="width: 64px; height: 64px; line-height: 64px; background: rgba(255,255,255,0.2); border-radius: 50%; margin: 0 auto 16px; text-align: center;">
+          <span style="font-size: 32px; vertical-align: middle;">🔐</span>
+        </div>
+        <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600;">Your Verification Code</h1>
+        <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">Use this code to verify your email
+        </p>
+      </div>
+
+      <!-- Content -->
+      <div style="padding: 32px 24px; text-align: center;">
+
+        <!-- Greeting -->
+        <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 24px;">
+          Hi <strong>{{firstName}}</strong>,<br><br>
+          Enter this verification code to continue:
+        </p>
+
+        <!-- OTP Code Box -->
+        <div
+          style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 2px dashed #10b981; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+          <span
+            style="font-size: 36px; letter-spacing: 12px; color: #10b981; font-weight: 700; font-family: 'Courier New', monospace;">{{otp}}</span>
+        </div>
+
+        <!-- Expiry Notice -->
+        <div
+          style="background: #fff7ed; border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; display: inline-block;">
+          <span style="color: #c2410c; font-size: 13px; font-weight: 500;">⏱ This code expires in 10 minutes</span>
+        </div>
+
+        <!-- Security Note -->
+        <p style="color: #64748b; font-size: 14px; line-height: 1.6; margin: 0;">
+          If you didn't request this code, you can safely ignore this email.
+        </p>
+
+      </div>
+
+      <!-- Divider -->
+      <div style="border-top: 1px solid #e2e8f0; margin: 0 24px;"></div>
+
+      <!-- Help Section -->
+      <div style="padding: 24px; text-align: center;">
+        <p style="color: #64748b; font-size: 13px; margin: 0;">
+          Need help? Contact us at
+          <a href="mailto:support@auqli.com"
+            style="color: #10b981; text-decoration: none; font-weight: 500;">support@auqli.com</a>
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div style="text-align: center; padding: 32px 20px;">
+      <p style="color: #9ca3af; font-size: 12px; margin: 0;">© {{year}} Auqli. All rights reserved.</p>
+    </div>
+
+  </div>
+</body>
+
+</html>

@@ -3,7 +3,7 @@ const Order = mongoose.model('Order');
 const Message = mongoose.model('Message');
 const Conversation = mongoose.model('Conversation');
 const notificationController = require('../controllers/notificationController');
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('../services/termiiEmailService');
 const { agenda } = require('../config/agenda');
 
 /**
@@ -60,11 +60,11 @@ const handleOrderStatusUpdate = async (webhookData) => {
 
     // Calculate appropriate timestamp based on status sequence and existing history
     let newTimestamp;
-    
+
     // Define the expected sequence of statuses
     const statusSequence = ['pending_pickup', 'picked_up', 'in_transit', 'delivered'];
     const currentStatusIndex = statusSequence.indexOf(internalStatus);
-    
+
     if (webhookData.timestamp) {
       // If the webhook includes a timestamp, use it
       newTimestamp = new Date(webhookData.timestamp);
@@ -72,7 +72,7 @@ const handleOrderStatusUpdate = async (webhookData) => {
       // Always use the current date/time for new status updates
       // This ensures the timestamps reflect when the status actually changed
       newTimestamp = new Date();
-      
+
       // Log the timestamp being used
       console.log(`Using current timestamp for status update: ${newTimestamp.toISOString()}`);
     }
@@ -102,14 +102,14 @@ const handleOrderStatusUpdate = async (webhookData) => {
     if (internalStatus === 'delivered' || internalStatus === 'Delivered') {
       shippingUpdate.$set['shipping.delivery.actualDate'] = new Date();
       shippingUpdate.$set['items.$[].status'] = 'delivered';
-      
+
       // Add logging to clarify that payment isn't processed yet
       console.log(`Order ${order.order_id} marked as delivered. Payment will be processed when order is closed after 1 day.`, {
         paymentMethod: order.paymentInfo?.method,
         isCashOnDelivery: order.paymentInfo?.isCashOnDelivery,
         isPaid: order.paid
       });
-      
+
       // Schedule auto-close job for 1 minute after delivery (for testing purposes)
       try {
         // First ensure the job doesn't already exist
@@ -133,7 +133,7 @@ const handleOrderStatusUpdate = async (webhookData) => {
             jobId: job.attrs._id.toString()
           });
         }
-        
+
         // If for some reason the job fails to close the order,
         // make sure we have a direct update fallback
         // Schedule a direct update after 2 minutes if still open
@@ -153,7 +153,7 @@ const handleOrderStatusUpdate = async (webhookData) => {
                 },
                 { new: true }
               );
-              
+
               if (updatedOrder && !updatedOrder.isOpen) {
                 console.log(`Fallback successfully closed order ${order.order_id}`);
                 // Explicitly trigger the pre-save middleware by calling save
@@ -172,7 +172,7 @@ const handleOrderStatusUpdate = async (webhookData) => {
             console.error('Error in fallback order closing:', fallbackError);
           }
         }, 93600000); // 26 hours (1 day + 2 hours buffer)
-        
+
       } catch (scheduleError) {
         console.error('Error scheduling auto-close job:', scheduleError);
         // Try direct update if scheduling fails
@@ -184,16 +184,16 @@ const handleOrderStatusUpdate = async (webhookData) => {
             closedBy: 'auto',
             closedReason: 'Auto-closed after delivery (direct method)'
           };
-          
+
           console.log(`Attempting direct order close for ${order.order_id} as scheduling failed`, directUpdate);
-          
+
           // First attempt to update directly
           const updatedOrder = await Order.findByIdAndUpdate(
             order._id,
             directUpdate,
             { new: true }
           );
-          
+
           if (updatedOrder && !updatedOrder.isOpen) {
             console.log(`Successfully closed order ${order.order_id} directly`);
             // Trigger the save event to ensure proper payment processing
@@ -202,7 +202,7 @@ const handleOrderStatusUpdate = async (webhookData) => {
               console.log(`Successfully triggered payment processing via save hook for order ${order.order_id}`);
             } catch (saveError) {
               console.error(`Error during save hook for order ${order.order_id}:`, saveError);
-              
+
               // Try one more option - get the order and manually close it
               try {
                 const freshOrder = await Order.findById(order._id);
@@ -255,7 +255,7 @@ const sendStatusNotifications = async (order, status, webhookData) => {
   try {
     // Create notification type based on status
     let notificationType;
-    
+
     // Use specific notification types for different statuses
     if (status === 'picked_up') {
       notificationType = 'order_picked_up';
@@ -266,7 +266,7 @@ const sendStatusNotifications = async (order, status, webhookData) => {
     } else {
       notificationType = `order_${status}`;
     }
-    
+
     // Create notification for buyer
     await notificationController.createBuyerNotification(
       order.buyer._id,
@@ -433,7 +433,7 @@ const sendStatusEmails = async (order, status, webhookData) => {
          
           ${emailFooter}
         `);
-        
+
         sellerSubject = 'Order Picked Up - Auqli';
         sellerHtml = emailContainer(`
           <h2 style="color: #333; margin-top: 15px;">Order Picked Up Successfully</h2>
@@ -444,7 +444,7 @@ const sendStatusEmails = async (order, status, webhookData) => {
           ${emailFooter}
         `);
         break;
-        
+
       case 'in_transit':
         buyerSubject = 'Your Order is On the Way - Auqli';
         buyerHtml = `
@@ -457,7 +457,7 @@ const sendStatusEmails = async (order, status, webhookData) => {
             <p>Best regards,<br>The Auqli Team</p>
           </div>
         `;
-        
+
         sellerSubject = 'Order In Transit - Auqli';
         sellerHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -469,7 +469,7 @@ const sendStatusEmails = async (order, status, webhookData) => {
           </div>
         `;
         break;
-        
+
       case 'delivered':
         buyerSubject = 'Your Order Has Been Delivered - Auqli';
         buyerHtml = `
@@ -483,7 +483,7 @@ const sendStatusEmails = async (order, status, webhookData) => {
             <p>Best regards,<br>The Auqli Team</p>
           </div>
         `;
-        
+
         sellerSubject = 'Order Delivered Successfully - Auqli';
         sellerHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -496,7 +496,7 @@ const sendStatusEmails = async (order, status, webhookData) => {
           </div>
         `;
         break;
-        
+
       default:
         return; // Don't send emails for other statuses
     }
@@ -517,13 +517,21 @@ const sendStatusEmails = async (order, status, webhookData) => {
     };
 
     await Promise.all([
-      sgMail.send(buyerEmail),
-      sgMail.send(sellerEmail)
+      termiiEmailService.sendRawHTMLEmail({
+        email: buyerEmail.to,
+        subject: buyerEmail.subject,
+        html: buyerEmail.html
+      }),
+      termiiEmailService.sendRawHTMLEmail({
+        email: sellerEmail.to,
+        subject: sellerEmail.subject,
+        html: sellerEmail.html
+      })
     ]);
 
     console.log(`Status emails sent for order ${order.order_id} with status ${status}`);
   } catch (error) {
-    console.error('Error sending status emails:', error);
+    console.error('Error sending status emails:', error.message);
   }
 };
 

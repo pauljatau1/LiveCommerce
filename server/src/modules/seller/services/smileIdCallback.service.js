@@ -24,7 +24,7 @@
 const sellerRepository = require('../repositories/seller.repository');
 const smileIdCallbackValidator = require('../validators/smileIdCallback.validator');
 const mixpanel = require('../../../config/mixpanel');
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('../../../services/termiiEmailService');
 const fs = require('fs');
 
 /**
@@ -69,7 +69,7 @@ function isVerificationSuccessful(verificationResult) {
   const hasSuccessCode = hasSuccessfulResultCode(resultCode);
   const jobComplete = verificationResult.job_complete === true;
   const success = verificationResult.success === true;
-  
+
   return hasImages && (hasSuccessCode || jobComplete || success);
 }
 
@@ -116,8 +116,12 @@ async function sendVerificationEmail(seller, accountType, jobId, resultCode) {
   // Step 1: Get the email content with processed HTML template
   const emailContent = getVerificationEmailContent(seller, accountType, jobId, resultCode);
 
-  // Step 2: Send the email using SendGrid service
-  await sgMail.send(emailContent);
+  // Step 2: Send the email using Termii email service
+  await termiiEmailService.sendRawHTMLEmail({
+    email: emailContent.to,
+    subject: emailContent.subject,
+    html: emailContent.html
+  });
 }
 
 /**
@@ -155,14 +159,14 @@ async function sendVerificationEmail(seller, accountType, jobId, resultCode) {
 function getVerificationEmailContent(seller, accountType, jobId, resultCode) {
   // Step 1: Construct the path to the SmileID callback verification email template
   const filePath = __dirname + '/../../../templates/smileid-callback-verification-email.html';
-  
+
   // Step 2: Read the HTML template file synchronously
   // Using UTF-8 encoding to ensure proper text handling
   let html = fs.readFileSync(filePath, 'utf-8');
 
   // Step 3: Prepare email subject and business text based on account type
   const emailSubject = accountType === 'business' ? 'Business Verification Completed' : 'Identity Verification Completed';
-  const businessText = accountType === 'business' ? 
+  const businessText = accountType === 'business' ?
     `Your business verification for "${seller.storeName || seller.businessName}" using SmileID has been completed successfully.` :
     'Your identity verification using SmileID has been completed successfully.';
 
@@ -241,7 +245,7 @@ async function processSmileIdCallback(verificationResult) {
   if (isSuccessful && partner_params?.seller_id) {
     const sellerId = partner_params.seller_id;
     const accountType = partner_params.account_type;
-    
+
     // Step 6: Retrieve seller information from repository
     // This ensures we have the latest seller information
     const seller = await sellerRepository.findById(sellerId);

@@ -1,7 +1,7 @@
 const Webhook = require('../models/WebHook');
 const crypto = require('crypto');
 const Withdrawal = require('../models/Withdrawal');
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('../services/termiiEmailService');
 
 exports.createWebhook = async (req, res) => {
   try {
@@ -296,21 +296,24 @@ async function handleTransferSuccess(data) {
   await withdrawal.save();
 
   // Send success email
-  await sgMail.send({
-    to: withdrawal.seller.email,
-    from: 'Auqli Admin <support@auqli.com>',
-    subject: 'Withdrawal Completed Successfully - Auqli',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Withdrawal Completed</h2>
-        <p>Dear ${withdrawal.seller.firstName},</p>
-        <p>Your withdrawal request (Ref: ${withdrawal.reference}) has been completed successfully.</p>
-        <p>Amount: ₦${withdrawal.amount.toLocaleString()}</p>
-        <p>The funds have been transferred to your bank account.</p>
-        <p>Best regards,<br>The Auqli Team</p>
-      </div>
-    `
-  });
+  try {
+    await termiiEmailService.sendRawHTMLEmail({
+      email: withdrawal.seller.email,
+      subject: 'Withdrawal Completed Successfully - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Withdrawal Completed</h2>
+          <p>Dear ${withdrawal.seller.firstName},</p>
+          <p>Your withdrawal request (Ref: ${withdrawal.reference}) has been completed successfully.</p>
+          <p>Amount: ₦${withdrawal.amount.toLocaleString()}</p>
+          <p>The funds have been transferred to your bank account.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    });
+  } catch (emailError) {
+    console.error('Error sending withdrawal success email:', emailError.message);
+  }
 }
 
 async function handleTransferFailed(data) {
@@ -330,21 +333,24 @@ async function handleTransferFailed(data) {
   await withdrawal.save();
 
   // Send failure notification email
-  await sgMail.send({
-    to: withdrawal.seller.email,
-    from: 'Auqli Admin <support@auqli.com>',
-    subject: 'Withdrawal Transfer Failed - Auqli',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Withdrawal Transfer Failed</h2>
-        <p>Dear ${withdrawal.seller.firstName},</p>
-        <p>We encountered an issue while processing your withdrawal (Ref: ${withdrawal.reference}).</p>
-        <p>Our team has been notified and will investigate the issue.</p>
-        <p>We will process your withdrawal as soon as possible.</p>
-        <p>Best regards,<br>The Auqli Team</p>
-      </div>
-    `
-  });
+  try {
+    await termiiEmailService.sendRawHTMLEmail({
+      email: withdrawal.seller.email,
+      subject: 'Withdrawal Transfer Failed - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Withdrawal Transfer Failed</h2>
+          <p>Dear ${withdrawal.seller.firstName},</p>
+          <p>We encountered an issue while processing your withdrawal (Ref: ${withdrawal.reference}).</p>
+          <p>Our team has been notified and will investigate the issue.</p>
+          <p>We will process your withdrawal as soon as possible.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    });
+  } catch (emailError) {
+    console.error('Error sending withdrawal failure email:', emailError.message);
+  }
 }
 
 async function handleTransferReversed(data) {

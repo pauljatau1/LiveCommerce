@@ -5,12 +5,12 @@ const axios = require('axios');
 // Verify SendGrid API key at startup
 const verifySendGridConfig = () => {
   const apiKey = process.env.SENDGRID_API_KEY;
-  
+
   if (!apiKey) {
     console.error('⚠️ SENDGRID_API_KEY is not set in environment variables!');
     return false;
   }
-  
+
   if (apiKey.startsWith('SG.')) {
     // console.log('✅ SendGrid API key appears to be properly formatted');
     return true;
@@ -24,27 +24,27 @@ const verifySendGridConfig = () => {
 const restoreProductStock = async (order, reason = 'Order cancelled/expired') => {
   try {
     console.log(`Restoring stock for order ${order.order_id} - Reason: ${reason}`);
-    
+
     const Product = mongoose.model('Product');
     let totalStockRestored = 0;
-    
+
     for (const item of order.items) {
       // Only restore stock if the item was actually sold (not cancelled already)
       if (item.status !== 'cancelled') {
         console.log(`Restoring stock for product ${item.product} - Quantity: ${item.quantity}`);
-        
+
         const updateResult = await Product.findByIdAndUpdate(
           item.product,
-          { 
-            $inc: { 
+          {
+            $inc: {
               'stats.soldCount': -item.quantity,
               'stock': item.quantity,
-              'inventory.quantity': item.quantity 
+              'inventory.quantity': item.quantity
             }
           },
           { new: true }
         );
-        
+
         if (updateResult) {
           totalStockRestored += item.quantity;
           console.log(`Successfully restored ${item.quantity} units of stock for product ${item.product}`);
@@ -60,7 +60,7 @@ const restoreProductStock = async (order, reason = 'Order cancelled/expired') =>
         console.log(`Skipping stock restoration for product ${item.product} - item already cancelled`);
       }
     }
-    
+
     console.log(`Stock restoration completed for order ${order.order_id} - Total units restored: ${totalStockRestored}`);
     return totalStockRestored;
   } catch (error) {
@@ -84,20 +84,19 @@ agenda.define('closeOrder', async (job) => {
   try {
     console.log('Starting closeOrder job with data:', job.attrs.data);
     const { orderId } = job.attrs.data;
-    
+
     if (!orderId) {
       console.error('No orderId provided for closeOrder job');
       return;
     }
-    
+
     console.log(`Processing auto-close for order: ${orderId}`);
-    
+
     const Order = mongoose.model('Order');
     const Transaction = mongoose.model('Transaction');
     const Category = mongoose.model('Category');
     const Seller = mongoose.model('Seller');
-    const sgMail = require('@sendgrid/mail');
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    const termiiEmailService = require('../services/termiiEmailService');
 
     // First, verify if the order is still open and needs processing
     const orderCheck = await Order.findById(orderId);
@@ -117,7 +116,7 @@ agenda.define('closeOrder', async (job) => {
       console.log(`Order ${orderCheck.order_id} is not paid and not COD, skipping auto-close`);
       return;
     }
-    
+
     console.log(`Processing auto-close for order ${orderCheck.order_id}. Will release payment to seller upon closing.`, {
       paymentMethod: orderCheck.paymentInfo?.method,
       isCashOnDelivery: isCOD,
@@ -134,7 +133,7 @@ agenda.define('closeOrder', async (job) => {
       console.error(`Error retrieving populated order with ID: ${orderId}`);
       return;
     }
-    
+
     // Verify shipping status is delivered
     const shippingStatus = order.shipping?.tracking?.status?.toLowerCase();
     if (shippingStatus !== 'delivered') {
@@ -145,7 +144,7 @@ agenda.define('closeOrder', async (job) => {
       console.log(`Rescheduled auto-close job for order ${order.order_id} in 5 minutes`);
       return;
     }
-    
+
     console.log(`Found order to close: ${order.order_id}`, {
       isOpen: order.isOpen,
       paid: order.paid,
@@ -159,7 +158,7 @@ agenda.define('closeOrder', async (job) => {
     const categoryFeeMap = new Map(
       categories.map(cat => [cat.name.toLowerCase(), cat.platformFee])
     );
-    
+
     console.log(`Found ${categories.length} categories for fee calculation`);
 
     let totalPlatformFee = 0;
@@ -169,14 +168,14 @@ agenda.define('closeOrder', async (job) => {
       const itemTotal = item.price * item.quantity;
       totalAmount += itemTotal;
 
-      const categoryName = typeof item.product?.category === 'string' 
-        ? item.product.category.toLowerCase() 
+      const categoryName = typeof item.product?.category === 'string'
+        ? item.product.category.toLowerCase()
         : null;
-      
+
       const categoryFee = categoryFeeMap.get(categoryName) || 0;
       const itemPlatformFee = itemTotal * (categoryFee / 100);
       totalPlatformFee += itemPlatformFee;
-      
+
       console.log(`Calculated fees for item: ${item.productName}`, {
         category: categoryName,
         categoryFee: `${categoryFee}%`,
@@ -189,7 +188,7 @@ agenda.define('closeOrder', async (job) => {
     const paymentProcessingFee = totalAmount * 0.015;
     const totalDeductions = totalPlatformFee + paymentProcessingFee;
     const sellerAmount = totalAmount - totalDeductions;
-    
+
     console.log('Final calculations for order:', {
       orderId: order.order_id,
       totalAmount,
@@ -203,7 +202,7 @@ agenda.define('closeOrder', async (job) => {
     console.log(`Updating seller wallet and closing order ${order.order_id}`);
     let updatedSeller;
     let updatedOrder;
-    
+
     try {
       // Use a session to ensure transaction atomicity
       const session = await mongoose.startSession();
@@ -214,18 +213,18 @@ agenda.define('closeOrder', async (job) => {
           { $inc: { walletBalance: sellerAmount } },
           { new: true, session }
         );
-        
+
         if (!updatedSeller) {
           throw new Error(`Failed to update seller ${order.seller._id}`);
         }
-        
+
         console.log(`Seller wallet updated:`, {
           sellerId: updatedSeller._id,
           previousBalance: order.seller.walletBalance || 0,
           newBalance: updatedSeller.walletBalance,
           increment: sellerAmount
         });
-        
+
         // Update order status
         updatedOrder = await Order.findByIdAndUpdate(
           order._id,
@@ -237,21 +236,21 @@ agenda.define('closeOrder', async (job) => {
           },
           { new: true, session }
         );
-        
+
         if (!updatedOrder) {
           throw new Error(`Failed to update order ${order._id}`);
         }
-        
+
         console.log(`Order closed:`, {
           orderId: updatedOrder._id,
           isOpen: updatedOrder.isOpen,
           closedBy: updatedOrder.closedBy,
           closedAt: updatedOrder.closedAt
         });
-        
+
         // Create transaction records directly with the session
         const txnPromises = [];
-        
+
         // Add payment method info to order payment transaction
         txnPromises.push(
           new Transaction({
@@ -267,19 +266,19 @@ agenda.define('closeOrder', async (job) => {
             status: 'completed'
           }).save({ session })
         );
-        
+
         console.log(`Creating transaction records for order ${order.order_id}`, {
           paymentMethod: order.paymentInfo?.method,
           isCashOnDelivery: order.paymentInfo?.isCashOnDelivery,
           totalAmount: totalAmount,
           sellerAmount: sellerAmount
         });
-        
+
         // 2. Platform fee transactions for each item
         order.items.forEach(item => {
           const itemTotal = item.price * item.quantity;
-          const categoryName = typeof item.product?.category === 'string' 
-            ? item.product.category.toLowerCase() 
+          const categoryName = typeof item.product?.category === 'string'
+            ? item.product.category.toLowerCase()
             : null;
           const categoryFee = categoryFeeMap.get(categoryName) || 0;
           const itemPlatformFee = itemTotal * (categoryFee / 100);
@@ -302,7 +301,7 @@ agenda.define('closeOrder', async (job) => {
             );
           }
         });
-        
+
         // 3. Processing fee transaction
         txnPromises.push(
           new Transaction({
@@ -318,14 +317,14 @@ agenda.define('closeOrder', async (job) => {
             status: 'completed'
           }).save({ session })
         );
-        
+
         // Wait for all transaction saves to complete
         await Promise.all(txnPromises);
         console.log(`Created and saved ${txnPromises.length} transaction records within session`);
       });
-      
+
       await session.endSession();
-      
+
       console.log(`Successfully closed order ${order.order_id} and updated seller wallet`, {
         newWalletBalance: updatedSeller.walletBalance
       });
@@ -345,7 +344,7 @@ agenda.define('closeOrder', async (job) => {
     const verifyOrder = await Order.findById(orderId);
     if (verifyOrder && verifyOrder.isOpen) {
       console.error(`Order ${order.order_id} is still open after close attempt. Forcing update.`);
-      
+
       try {
         // Force direct update as last resort
         await Order.updateOne(
@@ -409,17 +408,22 @@ agenda.define('closeOrder', async (job) => {
 
     try {
       await Promise.all([
-        sgMail.send(buyerClosureEmail),
-        sgMail.send(sellerClosureEmail)
+        termiiEmailService.sendRawHTMLEmail({
+          email: buyerClosureEmail.to,
+          subject: buyerClosureEmail.subject,
+          html: buyerClosureEmail.html
+        }),
+        termiiEmailService.sendRawHTMLEmail({
+          email: sellerClosureEmail.to,
+          subject: sellerClosureEmail.subject,
+          html: sellerClosureEmail.html
+        })
       ]);
       console.log(`Closure notification emails sent successfully for order ${order.order_id}`);
     } catch (emailError) {
-      console.error('Error sending closure notification emails:', emailError);
-      if (emailError.response) {
-        console.error('SendGrid response:', emailError.response.body);
-      }
+      console.error('Error sending closure notification emails:', emailError.message);
     }
-    
+
     console.log(`Successfully completed closeOrder job for order ${order.order_id}`);
   } catch (error) {
     console.error('Error in closeOrder job:', error);
@@ -430,14 +434,14 @@ agenda.define('closeOrder', async (job) => {
 agenda.define('send-order-notifications', async (job) => {
   try {
     console.log('Starting send-order-notifications job:', job.attrs.data);
-    
+
     const { orderId, buyerId, sellerId, batchProcess = false } = job.attrs.data;
     const notificationController = require('../controllers/notificationController');
 
     // Process batch notifications if this is a batch job
     if (batchProcess) {
       console.log('Processing batch notifications for buyer:', buyerId);
-      
+
       // Check if there's already a job in progress for this buyer
       const runningJobs = await agenda.jobs({
         name: 'send-order-notifications',
@@ -448,17 +452,17 @@ agenda.define('send-order-notifications', async (job) => {
           { nextRunAt: { $lt: new Date() } }
         ]
       });
-      
+
       // If there are already running jobs for this buyer (more than this one), skip
       if (runningJobs.length > 1) {
         console.log(`Skipping duplicate batch notification job for buyer: ${buyerId}. Already ${runningJobs.length} jobs in progress.`);
         return;
       }
-      
+
       await notificationController.processBatchOrderNotifications(buyerId);
       return;
     }
-    
+
     // Fetch the necessary data
     console.log('Fetching order, buyer, and seller data...', {
       orderId: orderId?.toString(),
@@ -471,7 +475,7 @@ agenda.define('send-order-notifications', async (job) => {
     const Seller = mongoose.model('Seller');
     const Message = mongoose.model('Message');
     const Conversation = mongoose.model('Conversation');
-    
+
     let order, buyer, seller;
     try {
       order = await Order.findById(orderId)
@@ -479,7 +483,7 @@ agenda.define('send-order-notifications', async (job) => {
         .populate('shipping')
         .populate('delivery_address');
       console.log('Order fetch result:', order ? 'Found' : 'Not found');
-      
+
       // Skip if notifications were already sent for this order
       if (order && order.notificationsSent) {
         console.log(`Skipping notifications for order ${order.order_id} as they were already sent`);
@@ -502,7 +506,7 @@ agenda.define('send-order-notifications', async (job) => {
     } catch (err) {
       console.error('Error fetching seller:', err);
     }
-    
+
     console.log('Data fetch results:', {
       orderFound: !!order,
       buyerFound: !!buyer,
@@ -513,7 +517,7 @@ agenda.define('send-order-notifications', async (job) => {
         items: order.items.length
       } : null
     });
-    
+
     if (!order || !buyer || !seller) {
       console.error('Missing data for order notifications:', { orderId, buyerId, sellerId });
       return;
@@ -607,15 +611,15 @@ agenda.define('send-order-notifications', async (job) => {
 
     await conversation.save();
     console.log('Conversation updated successfully');
-    
+
     // Send notifications and emails
     console.log('Sending notifications...');
     await notificationController.handleOrderCreationNotifications(order, buyer, seller);
-    
+
     // Mark order as having had notifications sent
     console.log(`Marking order ${order.order_id} as having had notifications sent`);
     await Order.findByIdAndUpdate(orderId, { notificationsSent: true });
-    
+
     console.log('Order notifications and message sent successfully');
   } catch (error) {
     console.error('Error in send-order-notifications job:', error);
@@ -638,36 +642,39 @@ agenda.define('update-auction-status', async (job) => {
     if (newStatus === 'ongoing') {
       const Seller = mongoose.model('Seller');
       const seller = await Seller.findById(product.seller).populate('followers.buyerId', 'email firstName');
-      
+
       if (seller && seller.followers.length > 0) {
-        const sgMail = require('@sendgrid/mail');
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        const termiiEmailService = require('../services/termiiEmailService');
 
-        const notifications = seller.followers.map(follower => ({
-          to: follower.buyerId.email,
-          from: 'Auqli Auctions <support@auqli.com>',
-          subject: 'New Auction Started! - Auqli',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>New Auction Started!</h2>
-              <p>Dear ${follower.buyerId.firstName},</p>
-              <p>A new auction has started for "${product.name}" by ${seller.businessName}.</p>
-              <p>Starting bid: $${product.auction.minBid}</p>
-              <p>Don't miss out on this opportunity!</p>
-             
-              <p>Best regards,<br>The Auqli Team</p>
-            </div>
-          `
-        }));
-
-        await sgMail.send(notifications);
+        // Send emails to each follower
+        for (const follower of seller.followers) {
+          try {
+            await termiiEmailService.sendRawHTMLEmail({
+              email: follower.buyerId.email,
+              subject: 'New Auction Started! - Auqli',
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2>New Auction Started!</h2>
+                  <p>Dear ${follower.buyerId.firstName},</p>
+                  <p>A new auction has started for "${product.name}" by ${seller.businessName}.</p>
+                  <p>Starting bid: $${product.auction.minBid}</p>
+                  <p>Don't miss out on this opportunity!</p>
+                 
+                  <p>Best regards,<br>The Auqli Team</p>
+                </div>
+              `
+            });
+          } catch (emailError) {
+            console.error(`Failed to send auction notification to ${follower.buyerId.email}:`, emailError.message);
+          }
+        }
       }
     }
-    
+
     // If ending the auction, check for a winner and create an order
     if (newStatus === 'ended') {
       console.log('Auction ended via scheduled job:', productId);
-      
+
       // End the auction through the product method to ensure winner is set
       if (product.auction.status !== 'ended') {
         // Call the product's endAuction method - this will set the winner if there is one
@@ -681,7 +688,7 @@ agenda.define('update-auction-status', async (job) => {
           console.error('Error calling endAuction method:', endError);
         }
       }
-      
+
       // Now schedule the end-auction job to handle notifications and order creation
       try {
         await job.agenda.now('end-auction', { productId });
@@ -718,7 +725,7 @@ agenda.define('create-auction-winner-order', async (job) => {
       console.log('Product not found or not an auction product:', productId);
       return;
     }
-    
+
     if (!product.auction.winner || !product.auction.winner.buyer) {
       console.log('No valid auction winner found for product:', productId);
       return;
@@ -732,7 +739,7 @@ agenda.define('create-auction-winner-order', async (job) => {
         availableStock: product.stock,
         requiredStock: 1
       });
-      
+
       // Reschedule job to retry later or notify admin
       job.schedule('in 12 hours');
       await job.save();
@@ -742,19 +749,19 @@ agenda.define('create-auction-winner-order', async (job) => {
 
     // Get the auction end date to use in the order check
     const auctionEndDate = product.auction.winner.winningDate || product.auction.endDate;
-    
+
     // Create a unique ID for this auction run
     const auctionRunId = `${productId}-${auctionEndDate.getTime()}`;
-    
+
     console.log(`Checking for existing orders for auction run ID: ${auctionRunId}`);
-    
+
     // Check if an order already exists for this specific auction run
-    const existingOrder = await Order.findOne({ 
+    const existingOrder = await Order.findOne({
       channel: 'auction',
       'items.product': productId,
       'metadata.auctionRunId': auctionRunId
     });
-    
+
     if (existingOrder) {
       console.log('Order already exists for this auction run:', {
         productId,
@@ -783,34 +790,34 @@ agenda.define('create-auction-winner-order', async (job) => {
 
     // Get the most up-to-date buyer information
     const freshBuyer = await Buyer.findById(buyer._id);
-    
+
     if (!freshBuyer) {
       console.error('Could not find buyer with ID:', buyer._id);
       return;
     }
 
     let holdRemoved = false;
-    
+
     // Check if there's a hold for this product in the buyer's wallet
     const holdIndex = freshBuyer.wallet.onHoldItems.findIndex(
       item => item.productId.toString() === productId.toString()
     );
-    
+
     // If there's a hold, remove it first
     if (holdIndex !== -1) {
       const holdAmount = freshBuyer.wallet.onHoldItems[holdIndex].amount;
       console.log(`Found hold of ₦${holdAmount} for auction winner ${freshBuyer._id} on product ${productId}`);
-      
+
       // Make sure we don't subtract more than what's actually on hold
       const currentOnHoldAmount = freshBuyer.wallet.onHoldAmount || 0;
       freshBuyer.wallet.onHoldAmount = Math.max(0, currentOnHoldAmount - holdAmount);
-      
+
       // Log the before/after values to help with debugging
       console.log(`Adjusting onHoldAmount from ₦${currentOnHoldAmount} to ₦${freshBuyer.wallet.onHoldAmount} after removing hold for product ${productId}`);
-      
+
       // Remove the hold item from the array
       freshBuyer.wallet.onHoldItems.splice(holdIndex, 1);
-      
+
       await freshBuyer.save();
       console.log(`Released hold of ₦${holdAmount} for auction winner ${freshBuyer._id} on product ${productId}`);
       holdRemoved = true;
@@ -825,7 +832,7 @@ agenda.define('create-auction-winner-order', async (job) => {
         walletBalance: freshBuyer.wallet.balance,
         requiredAmount: totalAmount
       });
-      
+
       // Schedule a retry with a delay if balance is insufficient
       job.schedule('in 1 hour');
       await job.save();
@@ -922,11 +929,11 @@ agenda.define('create-auction-winner-order', async (job) => {
     // Update product stock
     await Product.findByIdAndUpdate(
       product._id,
-      { 
-        $inc: { 
+      {
+        $inc: {
           'stats.soldCount': 1,
           'stock': -1,
-          'inventory.quantity': -1 
+          'inventory.quantity': -1
         }
       }
     );
@@ -941,7 +948,7 @@ agenda.define('create-auction-winner-order', async (job) => {
       }
     );
     console.log('Buyer wallet updated with deduction:', totalAmount);
-    
+
     // Create Fez Delivery shipment
     try {
       console.log('Starting Fez shipment creation for auction order:', {
@@ -949,30 +956,30 @@ agenda.define('create-auction-winner-order', async (job) => {
         orderIdString: order.order_id,
         buyerAddress: order.delivery_address
       });
-      
+
       // Initialize Fez API configuration
       const FEZ_API_URL = process.env.FEZ_API_URL;
       console.log('Using Fez API URL:', FEZ_API_URL);
-      
+
       // Get fresh auth token for Fez
       const getFezAuthToken = async () => {
         try {
-        
+
           const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
           const authData = {
             user_id: process.env.FEZ_USER_ID,
             password: process.env.FEZ_PASSWORD
           };
-          
+
           // console.log(`📤 Auth request to: ${authUrl}`);
           // console.log(`📤 Auth payload: ${JSON.stringify(authData, null, 2)}`);
-          
+
           const response = await axios.post(authUrl, authData);
-          
+
           // console.log(`📥 Auth response status: ${response.status}`);
           // console.log(`📥 Auth response headers: ${JSON.stringify(response.headers, null, 2)}`);
           // console.log(`📥 Auth response data: ${JSON.stringify(response.data, null, 2)}`);
-          
+
           if (response.data && response.data.status === 'Success' && response.data.authDetails) {
             console.log(`✅ Authentication successful! Token: ${response.data.authDetails.authToken.substring(0, 10)}... (expires: ${response.data.authDetails.expireToken})`);
             return response.data.authDetails.authToken;
@@ -983,7 +990,7 @@ agenda.define('create-auction-winner-order', async (job) => {
           }
         } catch (error) {
           console.error('❌ Fez authentication error:', error.message);
-          
+
           if (error.response) {
             console.error(`Response status: ${error.response.status}`);
             console.error(`Response data: ${JSON.stringify(error.response.data, null, 2)}`);
@@ -993,15 +1000,15 @@ agenda.define('create-auction-winner-order', async (job) => {
           } else {
             console.error(`Error details: ${error.stack}`);
           }
-          
+
           throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
         }
       };
-      
+
       console.log('Calling getFezAuthToken()');
       const authToken = await getFezAuthToken();
       console.log('Using fresh token for auction winner order shipment (first 10 chars):', authToken.substring(0, 10) + '...');
-      
+
       // Prepare buyer's delivery address
       const shippingAddress = {
         recipientAddress: order.delivery_address.line1 + (order.delivery_address.line2 ? `, ${order.delivery_address.line2}` : ''),
@@ -1010,9 +1017,9 @@ agenda.define('create-auction-winner-order', async (job) => {
         recipientPhone: order.delivery_address.phone,
         recipientEmail: order.delivery_address.email || freshBuyer.email || ''
       };
-      
+
       console.log('Prepared shipping address:', shippingAddress);
-      
+
       // Prepare seller's information
       const sellerSenderInfo = {
         senderName: `${seller.firstName} ${seller.lastName}`,
@@ -1020,21 +1027,21 @@ agenda.define('create-auction-winner-order', async (job) => {
         senderPhone: seller.phoneNumber || 'Not provided',
         senderEmail: seller.email || ''
       };
-      
+
       console.log('Prepared seller info:', sellerSenderInfo);
-      
+
       // Create unique batch ID for the seller
       const sellerBatchId = `AUCT-${seller._id.toString().substring(0, 8)}-${Date.now()}`;
-      
+
       // Prepare parcel information
       const sellerParcel = {
         valueOfItem: bidAmount.toString(),
         weight: 1, // Default weight of 1kg for auction items
         itemDescription: `Auction item: ${product.name}`
       };
-      
+
       console.log('Prepared parcel info:', sellerParcel);
-      
+
       // Create Fez Delivery request
       const fezRequest = {
         recipientAddress: shippingAddress.recipientAddress,
@@ -1054,50 +1061,50 @@ agenda.define('create-auction-winner-order', async (job) => {
         senderAddress: sellerSenderInfo.senderAddress,
         senderPhone: sellerSenderInfo.senderPhone,
         senderEmail: sellerSenderInfo.senderEmail,
-        pickUpState: sellerSenderInfo.senderAddress.includes(",") ? 
+        pickUpState: sellerSenderInfo.senderAddress.includes(",") ?
           sellerSenderInfo.senderAddress.split(",").pop().trim() : "Lagos",
         pickUpDate: new Date().toISOString().split('T')[0] // Today's date in YYYY-MM-DD format
       };
-      
+
       console.log('Sending Fez shipment request for auction order:', {
         orderUniqueId: order.order_id,
         requestBody: JSON.stringify(fezRequest, null, 2)
       });
-      
+
       // Log request headers
       const requestHeaders = {
         'Authorization': `Bearer ${authToken}`,
         'secret-key': process.env.FEZ_SECRET_KEY,
         'Content-Type': 'application/json'
       };
-      
+
       console.log('Request headers:', {
         Authorization: requestHeaders.Authorization.substring(0, 15) + '...',
         'secret-key': requestHeaders['secret-key'].substring(0, 10) + '...',
         'Content-Type': requestHeaders['Content-Type']
       });
-      
+
       // Make API call to Fez Delivery
       console.log(`Calling Fez API: POST ${FEZ_API_URL}/order`);
       const fezResponse = await axios.post(`${FEZ_API_URL}/order`, [fezRequest], {
         headers: requestHeaders
       });
-      
+
       console.log('Fez API response for auction order:', {
         status: fezResponse.status,
         statusText: fezResponse.statusText,
         data: JSON.stringify(fezResponse.data, null, 2)
       });
-      
+
       // Update order with Fez tracking information
       if (fezResponse.data && fezResponse.data.status === 'Success') {
         const orderNos = fezResponse.data.orderNos || {};
         console.log('orderNos from Fez response:', orderNos);
         console.log('Looking for order_id:', order.order_id);
-        
+
         const fezOrderNo = orderNos[order.order_id];
         console.log('Found fezOrderNo:', fezOrderNo);
-        
+
         if (fezOrderNo) {
           const updateFields = {
             'shipping.tracking.number': fezOrderNo,
@@ -1108,15 +1115,15 @@ agenda.define('create-auction-winner-order', async (job) => {
             'shipping.carrier.reference': fezOrderNo,
             'shipping.shipment_id': fezOrderNo
           };
-          
+
           console.log('Updating order with fields:', updateFields);
-          
+
           const updatedOrder = await Order.findByIdAndUpdate(
             order._id,
             { $set: updateFields },
             { new: true }
           );
-          
+
           console.log('Order updated with Fez tracking information:', {
             orderId: order._id,
             fezOrderNo,
@@ -1142,7 +1149,7 @@ agenda.define('create-auction-winner-order', async (job) => {
         error: fezError.message,
         stack: fezError.stack
       });
-      
+
       if (fezError.response) {
         console.error('Error response:', {
           status: fezError.response.status,
@@ -1150,7 +1157,7 @@ agenda.define('create-auction-winner-order', async (job) => {
         });
       }
     }
-    
+
     // Schedule notification job
     await agenda.now('send-order-notifications', {
       orderId: order._id,
@@ -1161,59 +1168,60 @@ agenda.define('create-auction-winner-order', async (job) => {
     console.log('Order notifications scheduled for auction winner order');
 
     // Send email to the buyer about the purchase
-    const sgMail = require('@sendgrid/mail');
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    
-    await sgMail.send({
-      to: freshBuyer.email,
-      from: 'Auqli Auctions <support@auqli.com>',
-      subject: 'Congratulations on Winning the Auction! - Auqli',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Congratulations on Winning the Auction!</h2>
-          <p>Dear ${freshBuyer.firstName},</p>
-          <p>You've successfully won the auction for "${product.name}".</p>
-          <p>An order has been automatically created and payment has been processed from your wallet.</p>
-          <p><strong>Order Details:</strong></p>
-          <ul>
-            <li>Order ID: ${order.order_id}</li>
-            <li>Product: ${product.name}</li>
-            <li>Winning Bid: ₦${bidAmount.toLocaleString()}</li>
-            <li>Shipping Fee: ₦${shippingFee.toLocaleString()}</li>
-            <li>Total Amount: ₦${totalAmount.toLocaleString()}</li>
-          </ul>
-          <p>The seller will process your order shortly.</p>
-          <p>Thank you for participating in our auction!</p>
-          <p>Best regards,<br>The Auqli Team</p>
-        </div>
-      `
-    });
+    const termiiEmailService = require('../services/termiiEmailService');
 
-    // Send email to the seller about the sale
-    await sgMail.send({
-      to: seller.email,
-      from: 'Auqli Auctions <support@auqli.com>',
-      subject: 'Your Auction Item Has Been Sold! - Auqli',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Your Auction Item Has Been Sold!</h2>
-          <p>Dear ${seller.firstName},</p>
-          <p>Your auction for "${product.name}" has successfully concluded with a winning bid.</p>
-          <p>An order has been automatically created and the buyer has been charged.</p>
-          <p><strong>Order Details:</strong></p>
-          <ul>
-            <li>Order ID: ${order.order_id}</li>
-            <li>Product: ${product.name}</li>
-            <li>Winning Bid: ₦${bidAmount.toLocaleString()}</li>
-            <li>Buyer: ${freshBuyer.firstName} ${freshBuyer.lastName}</li>
-          </ul>
-          <p>Please process this order promptly.</p>
-          <p>Thank you for using our auction platform!</p>
-          <p>Best regards,<br>The Auqli Team</p>
-        </div>
-      `
-    });
-    
+    try {
+      await termiiEmailService.sendRawHTMLEmail({
+        email: freshBuyer.email,
+        subject: 'Congratulations on Winning the Auction! - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Congratulations on Winning the Auction!</h2>
+            <p>Dear ${freshBuyer.firstName},</p>
+            <p>You've successfully won the auction for "${product.name}".</p>
+            <p>An order has been automatically created and payment has been processed from your wallet.</p>
+            <p><strong>Order Details:</strong></p>
+            <ul>
+              <li>Order ID: ${order.order_id}</li>
+              <li>Product: ${product.name}</li>
+              <li>Winning Bid: ₦${bidAmount.toLocaleString()}</li>
+              <li>Shipping Fee: ₦${shippingFee.toLocaleString()}</li>
+              <li>Total Amount: ₦${totalAmount.toLocaleString()}</li>
+            </ul>
+            <p>The seller will process your order shortly.</p>
+            <p>Thank you for participating in our auction!</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      });
+
+      // Send email to the seller about the sale
+      await termiiEmailService.sendRawHTMLEmail({
+        email: seller.email,
+        subject: 'Your Auction Item Has Been Sold! - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Your Auction Item Has Been Sold!</h2>
+            <p>Dear ${seller.firstName},</p>
+            <p>Your auction for "${product.name}" has successfully concluded with a winning bid.</p>
+            <p>An order has been automatically created and the buyer has been charged.</p>
+            <p><strong>Order Details:</strong></p>
+            <ul>
+              <li>Order ID: ${order.order_id}</li>
+              <li>Product: ${product.name}</li>
+              <li>Winning Bid: ₦${bidAmount.toLocaleString()}</li>
+              <li>Buyer: ${freshBuyer.firstName} ${freshBuyer.lastName}</li>
+            </ul>
+            <p>Please process this order promptly.</p>
+            <p>Thank you for using our auction platform!</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      });
+    } catch (emailError) {
+      console.error('Error sending auction emails:', emailError.message);
+    }
+
   } catch (error) {
     console.error('Error in create-auction-winner-order job:', error);
   }
@@ -1223,10 +1231,10 @@ agenda.define('create-auction-winner-order', async (job) => {
 agenda.define('update-order-message-status', async (job) => {
   try {
     const { orderId, newStatus } = job.attrs.data;
-    
+
     const Order = mongoose.model('Order');
     const Message = mongoose.model('Message');
-    
+
     // Find all messages that contain this order
     const messages = await Message.find({
       'order.id': orderId,
@@ -1249,11 +1257,10 @@ agenda.define('update-order-message-status', async (job) => {
 agenda.define('process-pending-message-notifications', async (job) => {
   try {
     console.log('Starting process-pending-message-notifications job');
-    
+
     const Seller = mongoose.model('Seller');
-    const sgMail = require('@sendgrid/mail');
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    
+    const termiiEmailService = require('../services/termiiEmailService');
+
     // Find sellers with pending message notifications
     const sellers = await Seller.find({
       'messageNotifications.pendingCount': { $gt: 0 },
@@ -1263,41 +1270,41 @@ agenda.define('process-pending-message-notifications', async (job) => {
       model: 'Conversation',
       select: 'participants lastMessage'
     });
-    
+
     console.log(`Found ${sellers.length} sellers with pending message notifications`);
-    
+
     // Process each seller
     for (const seller of sellers) {
       try {
         // Check if the cooldown period has passed (5 minutes)
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-        
-        if (!seller.messageNotifications.lastSentAt || 
-            seller.messageNotifications.lastSentAt < fiveMinutesAgo) {
-          
+
+        if (!seller.messageNotifications.lastSentAt ||
+          seller.messageNotifications.lastSentAt < fiveMinutesAgo) {
+
           console.log(`Processing pending notifications for seller ${seller._id}`);
-          
+
           // Skip if seller has opted out of email notifications
           if (seller.notificationPreferences && seller.notificationPreferences.emailNotifications === false) {
             console.log(`Seller ${seller._id} has opted out of email notifications, skipping`);
             continue;
           }
-          
+
           const conversationCount = seller.messageNotifications.conversationsWithNewMessages.length;
           let emailSubject = '';
           let emailContent = '';
-          
+
           // Build email content based on number of conversations
           if (conversationCount === 1) {
             // For a single conversation, get buyer information
             const conversation = seller.messageNotifications.conversationsWithNewMessages[0];
             const buyerParticipant = conversation.participants.find(p => p.model === 'Buyer');
-            
+
             if (!buyerParticipant) {
               console.log(`No buyer participant found for conversation ${conversation._id}, skipping`);
               continue;
             }
-            
+
             // Get buyer name
             const Buyer = mongoose.model('Buyer');
             const buyer = await Buyer.findById(buyerParticipant.id);
@@ -1305,12 +1312,12 @@ agenda.define('process-pending-message-notifications', async (job) => {
               console.log(`Buyer ${buyerParticipant.id} not found, skipping`);
               continue;
             }
-            
+
             const buyerName = `${buyer.firstName} ${buyer.lastName}`;
-            const messagePreview = conversation.lastMessage ? 
-              (conversation.lastMessage.content || `Sent ${conversation.lastMessage.messageType}`) : 
+            const messagePreview = conversation.lastMessage ?
+              (conversation.lastMessage.content || `Sent ${conversation.lastMessage.messageType}`) :
               'New message';
-            
+
             emailSubject = `New message from ${buyerName} - Auqli`;
             emailContent = `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1336,18 +1343,15 @@ agenda.define('process-pending-message-notifications', async (job) => {
               </div>
             `;
           }
-          
+
           // Send the email
-          const msg = {
-            to: seller.email,
-            from: 'Auqli Messages <support@auqli.com>',
+          await termiiEmailService.sendRawHTMLEmail({
+            email: seller.email,
             subject: emailSubject,
             html: emailContent
-          };
-          
-          await sgMail.send(msg);
+          });
           console.log(`Sent pending notification email to seller ${seller._id}`);
-          
+
           // Update the seller's notification status
           seller.messageNotifications.lastSentAt = new Date();
           seller.messageNotifications.pendingCount = 0;
@@ -1361,7 +1365,7 @@ agenda.define('process-pending-message-notifications', async (job) => {
         // Continue to next seller
       }
     }
-    
+
     console.log('Finished process-pending-message-notifications job');
   } catch (error) {
     console.error('Error in process-pending-message-notifications job:', error);
@@ -1373,39 +1377,39 @@ agenda.define('bid_timer', async (job) => {
   try {
     console.log('[BID_TIMER] Starting bid timer job with data:', job.attrs.data);
     const { streamId, productId, sellerId, jobId, activeProductIndex, productName } = job.attrs.data;
-    
+
     if (!streamId || !productId) {
       console.error('[BID_TIMER] Missing required data for bid timer job');
       return;
     }
-    
+
     console.log(`[BID_TIMER] Starting 30-second timer for product "${productName}" in stream ${streamId}`);
-    
+
     // Get socket.io instance directly from the socket module
     const socketManager = require('../socket/socketManager');
     const io = socketManager.getIO();
-    
+
     if (!io) {
       console.error('[BID_TIMER] Socket.io instance not available, cannot emit timer updates');
       // Still continue with the timer, but won't emit updates
     } else {
       console.log('[BID_TIMER] Successfully got socket.io instance');
     }
-    
+
     // Duration in seconds
     const duration = 30;
-    
+
     // Create and format the time for initial message
     const formatTime = (seconds) => {
       const mins = Math.floor(seconds / 60);
       const secs = seconds % 60;
       return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
-    
+
     // Function to emit timer updates
     const emitTimerUpdate = (secondsLeft) => {
       const formattedTime = formatTime(secondsLeft);
-      
+
       if (io) {
         // Create data structure matching frontend expectations
         const updateData = {
@@ -1418,26 +1422,26 @@ agenda.define('bid_timer', async (job) => {
           productName,
           timestamp: new Date()
         };
-        
+
         // Emit to stream-specific room
         const streamRoom = `stream_notifications_${streamId}`;
         io.to(streamRoom).emit('bid_timer_update', updateData);
-        
+
         console.log(`[BID_TIMER] Emitted timer update to ${streamRoom} room: ${formattedTime} seconds left for product "${productName}"`);
       } else {
         console.log(`[BID_TIMER] Timer update: ${formattedTime} seconds left (not emitted - no socket connection)`);
       }
     };
-    
+
     // Start the countdown by emitting the initial value
     emitTimerUpdate(duration);
-    
+
     // Countdown function using setTimeout for each second
     const countdown = (secondsLeft) => {
       if (secondsLeft <= 0) {
         // Timer has reached zero
         console.log(`[BID_TIMER] Timer reached zero for product "${productName}" in stream ${streamId}`);
-        
+
         // Emit final timer update
         if (io) {
           // Create data structure matching frontend expectations
@@ -1449,19 +1453,19 @@ agenda.define('bid_timer', async (job) => {
             productName,
             timestamp: new Date()
           };
-          
+
           // Emit to stream-specific room
           const streamRoom = `stream_notifications_${streamId}`;
           io.to(streamRoom).emit('bid_timer_complete', completeData);
-          
+
           console.log(`[BID_TIMER] Emitted bid_timer_complete event to ${streamRoom} room`);
         }
-        
+
         // Call the endProductBidding endpoint
         callEndProductBidding();
         return;
       }
-      
+
       // Wait one second, then emit the next timer update
       setTimeout(() => {
         secondsLeft -= 1;
@@ -1469,24 +1473,24 @@ agenda.define('bid_timer', async (job) => {
         countdown(secondsLeft);
       }, 1000);
     };
-    
+
     // Start the countdown from duration-1 (since we already emitted the initial value)
     countdown(duration - 1);
-    
+
     // Function to call the endProductBidding endpoint
     const callEndProductBidding = async () => {
       try {
         console.log(`[BID_TIMER] Calling endProductBidding for product "${productName}" in stream ${streamId}`);
-        
+
         // Import stream controller
         const streamController = require('../controllers/streamController');
-        
+
         // Create mock request and response objects with all necessary properties
         const mockReq = {
           params: { streamId },
-          body: { 
-            productId, 
-            sellerId 
+          body: {
+            productId,
+            sellerId
           },
           app: {
             get: (name) => {
@@ -1494,46 +1498,46 @@ agenda.define('bid_timer', async (job) => {
               return null;
             }
           },
-          user: { 
-            id: sellerId 
+          user: {
+            id: sellerId
           },
           get: (name) => {
             if (name === 'host') return 'auqli.com';
             return null;
           }
         };
-        
+
         const mockRes = {
-          status: function(code) {
+          status: function (code) {
             this.statusCode = code;
             return this;
           },
-          json: function(data) {
+          json: function (data) {
             this.data = data;
-            console.log(`[BID_TIMER] endProductBidding completed with status: ${this.statusCode}`, 
-              data?.product ? { 
+            console.log(`[BID_TIMER] endProductBidding completed with status: ${this.statusCode}`,
+              data?.product ? {
                 bidStatus: data.product.bidStatus,
-                hasOrder: !!data.product.orderId 
+                hasOrder: !!data.product.orderId
               } : 'No product data returned');
             return this;
           }
         };
-        
+
         // Call the endProductBidding function
         console.log('[BID_TIMER] Executing endProductBidding with request:', {
           streamId: mockReq.params.streamId,
           productId: mockReq.body.productId,
           sellerId: mockReq.body.sellerId
         });
-        
+
         await streamController.endProductBidding(mockReq, mockRes);
-        
+
         console.log(`[BID_TIMER] Successfully ended bidding for product "${productName}" in stream ${streamId}`);
       } catch (error) {
         console.error(`[BID_TIMER] Error calling endProductBidding:`, error);
       }
     };
-    
+
   } catch (error) {
     console.error('[BID_TIMER] Error in bid_timer job:', error);
   }
@@ -1544,23 +1548,23 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
   try {
     const { orderId } = job.attrs.data;
     console.log(`Checking if order ${orderId} should be marked as stale due to unpaid status`);
-    
+
     const Order = mongoose.model('Order');
-    
+
     // Find the order with populated buyer and seller
     const order = await Order.findById(orderId)
       .populate('buyer', 'email firstName lastName')
       .populate('seller', 'email firstName lastName businessName');
-    
+
     if (!order) {
       console.log(`Order ${orderId} not found, may have been already processed`);
       return;
     }
-    
+
     // Check if order is still unpaid and was created with Paystack
     if (!order.paid && order.paymentInfo.method === 'paystack') {
       console.log(`Marking unpaid Paystack order ${order.order_id} as stale after 30 minutes`);
-      
+
       // Log order payment details for debugging
       console.log(`STALE ORDER PAYMENT DETAILS:`, {
         orderId: order.order_id,
@@ -1572,12 +1576,12 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
         paystackAmount: order.paymentInfo.amount || order.totalAmount,
         paymentStatus: order.paid ? 'PAID' : 'UNPAID'
       });
-      
+
       // If order has Fez shipment, attempt to cancel it
       if (order.shipping && order.shipping.fez_order_number) {
         try {
           console.log(`Attempting to cancel Fez shipment for order ${order.order_id}`);
-          
+
           // Get Fez auth token
           const getFezAuthToken = async () => {
             try {
@@ -1586,9 +1590,9 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
                 user_id: process.env.FEZ_USER_ID,
                 password: process.env.FEZ_PASSWORD
               };
-              
+
               const response = await axios.post(authUrl, authData);
-              
+
               if (response.data && response.data.status === 'Success' && response.data.authDetails) {
                 return response.data.authDetails.authToken;
               } else {
@@ -1599,9 +1603,9 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
               throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
             }
           };
-          
+
           const authToken = await getFezAuthToken();
-          
+
           // Delete the order from Fez
           const deleteResponse = await axios.delete(
             `${process.env.FEZ_API_URL}/order`,
@@ -1617,22 +1621,22 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
             }
           );
 
-          console.log('Fez request cancel shipment',{
-            url:`${process.env.FEZ_API_URL}/order`,
-            payload:{
+          console.log('Fez request cancel shipment', {
+            url: `${process.env.FEZ_API_URL}/order`,
+            payload: {
               orderNo: order.shipping.fez_order_number
             }
           })
-          
+
           console.log(`Fez shipment deletion response for order ${order.order_id}:`, {
             status: deleteResponse.status,
             data: deleteResponse.data
           });
         } catch (fezError) {
           console.error(`Error with Fez operations for order ${order.order_id}:`, fezError.message);
-          console.log('Fez request cancel shipment error',{
-            url:`${process.env.FEZ_API_URL}/order`,
-            payload:{
+          console.log('Fez request cancel shipment error', {
+            url: `${process.env.FEZ_API_URL}/order`,
+            payload: {
               orderNo: order.shipping.fez_order_number
             },
             fezError
@@ -1640,7 +1644,7 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
           // Continue with order stale update even if Fez operations fail
         }
       }
-      
+
       // Restore product stock for unpaid orders
       console.log(`Restoring product stock for unpaid order ${order.order_id}`);
       try {
@@ -1650,34 +1654,34 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
         console.error(`Error restoring stock for unpaid order ${order.order_id}:`, stockError);
         // Continue with order processing even if stock restoration fails
       }
-      
+
       // Check if this was a hybrid payment (wallet + Paystack) and refund wallet amount if needed
       const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
-      
+
       console.log(`HYBRID PAYMENT CHECK for order ${order.order_id}:`, {
         isWalletCredit: order.paymentInfo.isWalletCredit || false,
         walletAmountUsed: order.paymentInfo.walletAmountUsed || 0,
         isHybridPayment: isHybridPayment,
         willAttemptRefund: isHybridPayment ? 'YES' : 'NO'
       });
-      
+
       if (isHybridPayment) {
         try {
           console.log(`Order ${order.order_id} used hybrid payment with wallet amount: ${order.paymentInfo.walletAmountUsed}. Refunding to buyer wallet.`);
-          
+
           const Buyer = mongoose.model('Buyer');
           const buyer = await Buyer.findById(order.buyer);
-          
+
           if (buyer) {
             // Log wallet balance before refund
             console.log(`WALLET REFUND - BEFORE: Buyer ${buyer._id} (${buyer.firstName} ${buyer.lastName}) current wallet balance: ₦${buyer.wallet.balance.toLocaleString()}`);
-            
+
             // Get the wallet amount to refund - use the proportional amount stored in this order
             const refundAmount = order.paymentInfo.walletAmountUsed;
-            
+
             // Check if this order is part of a batch (multiple seller orders from one checkout)
             const isBatchOrder = order.paymentInfo.batchId && order.paymentInfo.batchTotalAmount;
-            
+
             if (isBatchOrder) {
               console.log(`Order ${order.order_id} is part of batch ${order.paymentInfo.batchId}`, {
                 batchTotalAmount: order.paymentInfo.batchTotalAmount,
@@ -1685,7 +1689,7 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
                 thisOrderAmount: order.totalAmount,
                 thisOrderWalletAmount: refundAmount
               });
-              
+
               // Check if other orders in this batch have already been refunded
               // If we don't do this check, we could end up refunding parts of the wallet amount multiple times
               const Order = mongoose.model('Order');
@@ -1694,18 +1698,18 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
                 _id: { $ne: order._id }, // Exclude current order
                 'paymentInfo.refundedWalletAmount': { $exists: true, $gt: 0 } // Look for orders with refunds
               });
-              
+
               if (otherOrdersInBatch && otherOrdersInBatch.length > 0) {
                 // Some orders in this batch have already been refunded
                 console.log(`Found ${otherOrdersInBatch.length} other orders in batch ${order.paymentInfo.batchId} that have already been refunded`, {
-                  refundedOrders: otherOrdersInBatch.map(o => ({ 
-                    orderId: o.order_id, 
-                    refundedAmount: o.paymentInfo.refundedWalletAmount 
+                  refundedOrders: otherOrdersInBatch.map(o => ({
+                    orderId: o.order_id,
+                    refundedAmount: o.paymentInfo.refundedWalletAmount
                   }))
                 });
               }
             }
-            
+
             // Create refund transaction
             const refundTransaction = {
               type: 'credit',
@@ -1714,7 +1718,7 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
               status: 'completed',
               createdAt: new Date()
             };
-            
+
             console.log(`WALLET REFUND - TRANSACTION DETAILS:`, {
               buyerId: buyer._id,
               buyerEmail: buyer.email,
@@ -1724,20 +1728,20 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
               status: refundTransaction.status,
               createdAt: refundTransaction.createdAt
             });
-            
+
             // Update buyer's wallet
             const previousBalance = buyer.wallet.balance;
             buyer.wallet.balance += refundAmount;
             buyer.wallet.transactions.push(refundTransaction);
-            
+
             await buyer.save();
-            
+
             // Mark this order as having refunded its wallet amount to prevent double refunds
             await Order.findByIdAndUpdate(order._id, {
               'paymentInfo.refundedWalletAmount': refundAmount,
               'paymentInfo.walletRefundedAt': new Date()
             });
-            
+
             // Log wallet balance after refund with detailed information
             console.log(`WALLET REFUND - AFTER: Buyer ${buyer._id} wallet balance updated:`);
             console.log(`  - Previous balance: ₦${previousBalance.toLocaleString()}`);
@@ -1745,7 +1749,7 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
             console.log(`  - New balance: ₦${buyer.wallet.balance.toLocaleString()}`);
             console.log(`  - Transaction ID: ${refundTransaction._id}`);
             console.log(`  - Order ID: ${order.order_id}`);
-            
+
             console.log(`Successfully refunded ${refundAmount} to buyer ${buyer._id} wallet for stale order ${order.order_id}`);
           } else {
             console.error(`Could not find buyer ${order.buyer} to refund wallet amount for stale order ${order.order_id}`);
@@ -1772,90 +1776,84 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
           // Continue with order stale update even if refund fails
         }
       }
-      
+
       // Send notification emails to buyer and seller before marking the order as stale
       try {
-        const sgMail = require('@sendgrid/mail');
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-        
+        const termiiEmailService = require('../services/termiiEmailService');
+
         // Format item list for email
-        const itemsList = order.items.map(item => 
+        const itemsList = order.items.map(item =>
           `${item.productName} (Quantity: ${item.quantity}) - ₦${item.price.toLocaleString()}`
         ).join('<br>');
-        
+
         // Add wallet refund info if applicable
-        const walletRefundInfo = isHybridPayment ? 
+        const walletRefundInfo = isHybridPayment ?
           `<p><strong>Note:</strong> Your wallet credit of ₦${order.paymentInfo.walletAmountUsed.toLocaleString()} has been refunded to your wallet.</p>` : '';
-        
+
         // Buyer notification email
-        const buyerEmail = {
-          to: order.buyer.email,
-          from: 'Auqli Orders <support@auqli.com>',
-          subject: 'Order marked as stale - Payment Not Completed - Auqli',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>Order marked as stale</h2>
-              <p>Dear ${order.buyer.firstName},</p>
-              <p>Your order #${order.order_id} has been marked as stale because the payment was not completed within the required time frame.</p>
-              
-              <p><strong>Order Details:</strong></p>
-              <ul>
-                <li>Order ID: ${order.order_id}</li>
-                <li>Seller: ${order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`}</li>
-                <li>Items:<br>${itemsList}</li>
-                <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
-              </ul>
-              
-              ${walletRefundInfo}
-              
-              <p>If you still wish to purchase these items, please place a new order.</p>
-              <p>Thank you for your understanding.</p>
-              <p>Best regards,<br>The Auqli Team</p>
-            </div>
-          `
-        };
-        
+        const buyerEmailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Order marked as stale</h2>
+            <p>Dear ${order.buyer.firstName},</p>
+            <p>Your order #${order.order_id} has been marked as stale because the payment was not completed within the required time frame.</p>
+            
+            <p><strong>Order Details:</strong></p>
+            <ul>
+              <li>Order ID: ${order.order_id}</li>
+              <li>Seller: ${order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`}</li>
+              <li>Items:<br>${itemsList}</li>
+              <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
+            </ul>
+            
+            ${walletRefundInfo}
+            
+            <p>If you still wish to purchase these items, please place a new order.</p>
+            <p>Thank you for your understanding.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `;
+
         // Seller notification email
-        const sellerEmail = {
-          to: order.seller.email,
-          from: 'Auqli Orders <support@auqli.com>',
-          subject: 'Order marked as stale - Payment Not Completed - Auqli',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>Order marked as stale</h2>
-              <p>Dear ${order.seller.firstName},</p>
-              <p>Order #${order.order_id} has been marked as stale because the buyer did not complete the payment within the required time frame.</p>
-              
-              <p><strong>Order Details:</strong></p>
-              <ul>
-                <li>Order ID: ${order.order_id}</li>
-                <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
-                <li>Items:<br>${itemsList}</li>
-                <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
-              </ul>
-              
-              <p>The items have been returned to your inventory.</p>
-              <p>Thank you for your understanding.</p>
-              <p>Best regards,<br>The Auqli Team</p>
-            </div>
-          `
-        };
-        
+        const sellerEmailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Order marked as stale</h2>
+            <p>Dear ${order.seller.firstName},</p>
+            <p>Order #${order.order_id} has been marked as stale because the buyer did not complete the payment within the required time frame.</p>
+            
+            <p><strong>Order Details:</strong></p>
+            <ul>
+              <li>Order ID: ${order.order_id}</li>
+              <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
+              <li>Items:<br>${itemsList}</li>
+              <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
+            </ul>
+            
+            <p>The items have been returned to your inventory.</p>
+            <p>Thank you for your understanding.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `;
+
         // Send both emails
         await Promise.all([
-          sgMail.send(buyerEmail),
-          sgMail.send(sellerEmail)
+          termiiEmailService.sendRawHTMLEmail({
+            email: order.buyer.email,
+            subject: 'Order marked as stale - Payment Not Completed - Auqli',
+            html: buyerEmailHtml
+          }),
+          termiiEmailService.sendRawHTMLEmail({
+            email: order.seller.email,
+            subject: 'Order marked as stale - Payment Not Completed - Auqli',
+            html: sellerEmailHtml
+          })
         ]);
-        
+
         console.log(`Sent stale notification emails for unpaid order ${order.order_id}`);
       } catch (emailError) {
-        console.error(`Error sending stale notification emails for order ${order.order_id}:`, {
-          message: emailError.message,
-          response: emailError.response?.body?.errors
-        });
+        console.error(`Error sending stale notification emails for order ${order.order_id}:`, emailError.message);
         // Continue with marking order as stale even if email sending fails
       }
-      
+
       // Update the order to mark it as stale instead of deleting it
       await Order.findByIdAndUpdate(order._id, { isStale: true });
       console.log(`Successfully marked unpaid Paystack order ${order.order_id} as stale`);
@@ -1872,74 +1870,74 @@ agenda.define('mark_terminal_orders_stale', async (job) => {
   try {
     const { orderId } = job.attrs.data;
     console.log(`Checking if Terminal Africa order ${orderId} should be marked as stale`);
-    
+
     const Order = mongoose.model('Order');
     const Product = mongoose.model('Product');
     const Buyer = mongoose.model('Buyer');
     const terminalAPI = require('../config/terminalAPI');
-    
+
     // Find the order with populated buyer and seller
     const order = await Order.findById(orderId)
       .populate('buyer', 'email firstName lastName')
       .populate('seller', 'email firstName lastName businessName storeName');
-    
+
     if (!order) {
       console.log(`Order ${orderId} not found, may have been already processed`);
       return;
     }
-    
+
     // Check if order is already stale, cancelled, or closed
     if (order.isStale) {
       console.log(`Terminal Africa order ${order.order_id} is already marked as stale, skipping`);
       return;
     }
-    
+
     if (!order.isOpen) {
       console.log(`Terminal Africa order ${order.order_id} is already closed, skipping`);
       return;
     }
-    
+
     // Check if any items are already cancelled
     if (order.items.some(item => item.status === 'cancelled')) {
       console.log(`Terminal Africa order ${order.order_id} has cancelled items, skipping stale marking`);
       return;
     }
-    
+
     // Check if order should be marked as stale based on different criteria
     let shouldMarkStale = false;
     let staleReason = '';
-    
+
     // New criteria: Check if the order is still in 'draft' or 'pending_payment' status.
     if ((order.status === 'draft' || order.status === 'pending_payment') && !order.isStorePickup && !order.isInternational) {
       shouldMarkStale = true;
       staleReason = `Order was not completed and has been marked as stale (status: ${order.status}).`;
       console.log(`Terminal Africa order ${order.order_id} is being marked as stale with status: ${order.status}`);
     }
-    
+
     if (!shouldMarkStale) {
       console.log(`Terminal Africa order ${order.order_id} doesn't meet stale criteria (status: ${order.status}), skipping`);
       return;
     }
-    
+
     console.log(`Marking Terminal Africa order ${order.order_id} as stale - Reason: ${staleReason}`);
-    
+
     // Cancel shipment with Terminal Africa if shipment exists
     const shipmentId = order.shipping?.shipment_id;
-    
+
     if (shipmentId && !shipmentId.startsWith('MANUAL-') && !shipmentId.startsWith('PICKUP-') && !order.isStorePickup) {
       try {
         console.log(`Attempting to cancel Terminal Africa shipment: ${shipmentId} for order ${order.order_id}`);
-        
+
         const cancelResponse = await terminalAPI.post('/shipments/cancel', {
           shipment_id: shipmentId
         });
-        
+
         console.log('Terminal Africa cancellation response:', {
           status: cancelResponse.data.status,
           message: cancelResponse.data.message,
           orderId: order.order_id
         });
-        
+
         if (cancelResponse.data.status) {
           console.log(`Successfully cancelled Terminal Africa shipment ${shipmentId}`);
         } else {
@@ -1953,25 +1951,25 @@ agenda.define('mark_terminal_orders_stale', async (job) => {
         // Continue with order stale update even if Terminal cancellation fails
       }
     }
-    
+
     // Handle wallet refund for hybrid payments
     const isHybridPayment = order.paymentInfo?.isWalletCredit && order.paymentInfo?.walletAmountUsed > 0;
     let walletRefunded = false;
     let walletRefundAmount = 0;
-    
+
     if (isHybridPayment) {
       try {
         console.log(`Terminal Africa order ${order.order_id} used hybrid payment with wallet amount: ${order.paymentInfo.walletAmountUsed}. Refunding to buyer wallet.`);
-        
+
         const buyer = await Buyer.findById(order.buyer);
-        
+
         if (buyer) {
           // Log wallet balance before refund
           console.log(`TERMINAL WALLET REFUND - BEFORE: Buyer ${buyer._id} current wallet balance: ₦${buyer.wallet.balance.toLocaleString()}`);
-          
+
           // Get the wallet amount to refund
           walletRefundAmount = order.paymentInfo.walletAmountUsed;
-          
+
           // Create refund transaction
           const refundTransaction = {
             type: 'credit',
@@ -1980,22 +1978,22 @@ agenda.define('mark_terminal_orders_stale', async (job) => {
             status: 'completed',
             createdAt: new Date()
           };
-          
+
           // Update buyer's wallet
           const previousBalance = buyer.wallet.balance;
           buyer.wallet.balance += walletRefundAmount;
           buyer.wallet.transactions.push(refundTransaction);
-          
+
           await buyer.save();
-          
+
           // Mark this order as having refunded its wallet amount
           await Order.findByIdAndUpdate(order._id, {
             'paymentInfo.refundedWalletAmount': walletRefundAmount,
             'paymentInfo.walletRefundedAt': new Date()
           });
-          
+
           walletRefunded = true;
-          
+
           console.log(`TERMINAL WALLET REFUND - SUCCESS: Refunded ₦${walletRefundAmount.toLocaleString()} to buyer ${buyer._id}`);
           console.log(`  - Previous balance: ₦${previousBalance.toLocaleString()}`);
           console.log(`  - New balance: ₦${buyer.wallet.balance.toLocaleString()}`);
@@ -2007,7 +2005,7 @@ agenda.define('mark_terminal_orders_stale', async (job) => {
         // Continue with order stale update even if refund fails
       }
     }
-    
+
     // Restore product stock for expired Terminal Africa orders
     console.log(`Restoring product stock for expired Terminal Africa order ${order.order_id}`);
     try {
@@ -2017,102 +2015,96 @@ agenda.define('mark_terminal_orders_stale', async (job) => {
       console.error(`Error restoring stock for expired Terminal Africa order ${order.order_id}:`, stockError);
       // Continue with order processing even if stock restoration fails
     }
-    
+
     // Send notification emails to buyer and seller
     try {
-      const sgMail = require('@sendgrid/mail');
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      
+      const termiiEmailService = require('../services/termiiEmailService');
+
       // Format item list for email
-      const itemsList = order.items.map(item => 
+      const itemsList = order.items.map(item =>
         `${item.productName} (Quantity: ${item.quantity}) - ₦${item.price.toLocaleString()}`
       ).join('<br>');
-      
+
       // Add wallet refund info if applicable
-      const walletRefundInfo = walletRefunded ? 
+      const walletRefundInfo = walletRefunded ?
         `<p><strong>Note:</strong> Your wallet credit of ₦${walletRefundAmount.toLocaleString()} has been refunded to your wallet.</p>` : '';
-      
+
       // Buyer notification email
-      const buyerEmail = {
-        to: order.buyer.email,
-        from: 'Auqli Orders <support@auqli.com>',
-        subject: 'Order Expired - Auqli',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Order Expired</h2>
-            <p>Dear ${order.buyer.firstName},</p>
-            <p>Your order #${order.order_id} has expired because ${staleReason.toLowerCase()}.</p>
-            
-            <p><strong>Order Details:</strong></p>
-            <ul>
-              <li>Order ID: ${order.order_id}</li>
-              <li>Seller: ${order.seller.storeName || order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`}</li>
-              <li>Items:<br>${itemsList}</li>
-              <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
-              <li>Reason for expiry: ${staleReason}</li>
-            </ul>
-            
-            ${walletRefundInfo}
-            
-            <p>If you still wish to purchase these items, please place a new order.</p>
-            <p>Thank you for your understanding.</p>
-            <p>Best regards,<br>The Auqli Team</p>
-          </div>
-        `
-      };
-      
+      const buyerEmailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Order Expired</h2>
+          <p>Dear ${order.buyer.firstName},</p>
+          <p>Your order #${order.order_id} has expired because ${staleReason.toLowerCase()}.</p>
+          
+          <p><strong>Order Details:</strong></p>
+          <ul>
+            <li>Order ID: ${order.order_id}</li>
+            <li>Seller: ${order.seller.storeName || order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`}</li>
+            <li>Items:<br>${itemsList}</li>
+            <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
+            <li>Reason for expiry: ${staleReason}</li>
+          </ul>
+          
+          ${walletRefundInfo}
+          
+          <p>If you still wish to purchase these items, please place a new order.</p>
+          <p>Thank you for your understanding.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `;
+
       // Seller notification email
-      const sellerEmail = {
-        to: order.seller.email,
-        from: 'Auqli Orders <support@auqli.com>',
-        subject: 'Order Expired - Stock Restored - Auqli',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Order Expired - Stock Restored</h2>
-            <p>Dear ${order.seller.firstName},</p>
-            <p>Order #${order.order_id} has expired because ${staleReason.toLowerCase()}.</p>
-            
-            <p><strong>Order Details:</strong></p>
-            <ul>
-              <li>Order ID: ${order.order_id}</li>
-              <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
-              <li>Items:<br>${itemsList}</li>
-              <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
-              <li>Reason for expiry: ${staleReason}</li>
-            </ul>
-            
-            <p>The items have been returned to your inventory automatically.</p>
-            ${walletRefunded ? `<p>The buyer's wallet credit of ₦${walletRefundAmount.toLocaleString()} has been refunded.</p>` : ''}
-            <p>Thank you for your understanding.</p>
-            <p>Best regards,<br>The Auqli Team</p>
-          </div>
-        `
-      };
-      
+      const sellerEmailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Order Expired - Stock Restored</h2>
+          <p>Dear ${order.seller.firstName},</p>
+          <p>Order #${order.order_id} has expired because ${staleReason.toLowerCase()}.</p>
+          
+          <p><strong>Order Details:</strong></p>
+          <ul>
+            <li>Order ID: ${order.order_id}</li>
+            <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
+            <li>Items:<br>${itemsList}</li>
+            <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
+            <li>Reason for expiry: ${staleReason}</li>
+          </ul>
+          
+          <p>The items have been returned to your inventory automatically.</p>
+          ${walletRefunded ? `<p>The buyer's wallet credit of ₦${walletRefundAmount.toLocaleString()} has been refunded.</p>` : ''}
+          <p>Thank you for your understanding.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `;
+
       // Send both emails
       await Promise.all([
-        sgMail.send(buyerEmail),
-        sgMail.send(sellerEmail)
+        termiiEmailService.sendRawHTMLEmail({
+          email: order.buyer.email,
+          subject: 'Order Expired - Auqli',
+          html: buyerEmailHtml
+        }),
+        termiiEmailService.sendRawHTMLEmail({
+          email: order.seller.email,
+          subject: 'Order Expired - Stock Restored - Auqli',
+          html: sellerEmailHtml
+        })
       ]);
-      
+
       console.log(`Sent stale notification emails for Terminal Africa order ${order.order_id}`);
     } catch (emailError) {
-      console.error(`Error sending stale notification emails for Terminal Africa order ${order.order_id}:`, {
-        message: emailError.message,
-        response: emailError.response?.body?.errors
-      });
+      console.error(`Error sending stale notification emails for Terminal Africa order ${order.order_id}:`, emailError.message);
       // Continue with marking order as stale even if email sending fails
     }
-    
+
     // Mark the order as stale with additional metadata
-    await Order.findByIdAndUpdate(order._id, { 
+    await Order.findByIdAndUpdate(order._id, {
       isStale: true,
       staleReason: staleReason,
       staleAt: new Date()
     });
-    
+
     console.log(`Successfully marked Terminal Africa order ${order.order_id} as stale - Reason: ${staleReason}`);
-    
+
   } catch (error) {
     console.error('Error in mark_terminal_orders_stale job:', error);
   }
@@ -2161,23 +2153,23 @@ agenda.define('delete_unpaid_orders', async (job) => {
 agenda.define('daily_livestream_analytics', async (job) => {
   try {
     console.log('Starting daily_livestream_analytics job');
-    
+
     // Create yesterday's date (WAT timezone)
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     yesterday.setHours(0, 0, 0, 0);
-    
+
     const formattedDate = yesterday.toISOString().split('T')[0];
     console.log(`Running daily livestream analytics for date: ${formattedDate}`);
-    
+
     // Use axios to call our own API endpoint
     const axios = require('axios');
-    const apiUrl = process.env.NODE_ENV === 'production' 
+    const apiUrl = process.env.NODE_ENV === 'production'
       ? `${process.env.API_BASE_URL || 'https://api.auqli.com'}/api/analytics/livestreams/24h?date=${formattedDate}`
       : `http://localhost:${process.env.PORT || 5000}/api/analytics/livestreams/24h?date=${formattedDate}`;
-    
+
     console.log(`Calling API endpoint: ${apiUrl}`);
-    
+
     // Generate JWT for authentication
     const jwt = require('jsonwebtoken');
     const token = jwt.sign(
@@ -2185,24 +2177,24 @@ agenda.define('daily_livestream_analytics', async (job) => {
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
-    
+
     // Call the API endpoint
     const response = await axios.get(apiUrl, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
     });
-    
+
     console.log('API response:', {
       success: response.data.success,
       date: response.data.data?.date,
       totalLivestreams: response.data.data?.totalLivestreams
     });
-    
+
     console.log('Daily livestream analytics job completed successfully');
   } catch (error) {
     console.error('Error in daily_livestream_analytics job:', error);
-    
+
     // If the error is from the axios request
     if (error.response) {
       console.error('API error response:', {
@@ -2217,28 +2209,28 @@ agenda.define('daily_livestream_analytics', async (job) => {
 agenda.define('weekly_livestream_analytics', async (job) => {
   try {
     console.log('Starting weekly_livestream_analytics job');
-    
+
     // Calculate last week
     const lastWeek = new Date();
     lastWeek.setDate(lastWeek.getDate() - 7);
     const year = lastWeek.getFullYear();
-    
+
     // Get ISO week number
     const startOfYear = new Date(lastWeek.getFullYear(), 0, 1);
     const days = Math.floor((lastWeek - startOfYear) / (24 * 60 * 60 * 1000));
     const weekNumber = Math.ceil((lastWeek.getDay() + 1 + days) / 7);
-    
+
     const formattedWeek = `${year}-W${weekNumber.toString().padStart(2, '0')}`;
     console.log(`Running weekly livestream analytics for week: ${formattedWeek}`);
-    
+
     // Use axios to call our own API endpoint
     const axios = require('axios');
-    const apiUrl = process.env.NODE_ENV === 'production' 
+    const apiUrl = process.env.NODE_ENV === 'production'
       ? `${process.env.API_BASE_URL || 'https://api.auqli.com'}/api/analytics/livestreams/weekly?week=${formattedWeek}`
       : `http://localhost:${process.env.PORT || 5000}/api/analytics/livestreams/weekly?week=${formattedWeek}`;
-    
+
     console.log(`Calling API endpoint: ${apiUrl}`);
-    
+
     // Generate JWT for authentication
     const jwt = require('jsonwebtoken');
     const token = jwt.sign(
@@ -2246,24 +2238,24 @@ agenda.define('weekly_livestream_analytics', async (job) => {
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
-    
+
     // Call the API endpoint
     const response = await axios.get(apiUrl, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
     });
-    
+
     console.log('API response:', {
       success: response.data.success,
       week: response.data.data?.week,
       totalLivestreams: response.data.data?.totalLivestreams
     });
-    
+
     console.log('Weekly livestream analytics job completed successfully');
   } catch (error) {
     console.error('Error in weekly_livestream_analytics job:', error);
-    
+
     if (error.response) {
       console.error('API error response:', {
         status: error.response.status,
@@ -2277,24 +2269,24 @@ agenda.define('weekly_livestream_analytics', async (job) => {
 agenda.define('monthly_livestream_analytics', async (job) => {
   try {
     console.log('Starting monthly_livestream_analytics job');
-    
+
     // Calculate last month
     const lastMonth = new Date();
     lastMonth.setMonth(lastMonth.getMonth() - 1);
     const year = lastMonth.getFullYear();
     const month = lastMonth.getMonth() + 1; // JavaScript months are 0-indexed
-    
+
     const formattedMonth = `${year}-${month.toString().padStart(2, '0')}`;
     console.log(`Running monthly livestream analytics for month: ${formattedMonth}`);
-    
+
     // Use axios to call our own API endpoint
     const axios = require('axios');
-    const apiUrl = process.env.NODE_ENV === 'production' 
+    const apiUrl = process.env.NODE_ENV === 'production'
       ? `${process.env.API_BASE_URL || 'https://api.auqli.com'}/api/analytics/livestreams/monthly?month=${formattedMonth}`
       : `http://localhost:${process.env.PORT || 5000}/api/analytics/livestreams/monthly?month=${formattedMonth}`;
-    
+
     console.log(`Calling API endpoint: ${apiUrl}`);
-    
+
     // Generate JWT for authentication
     const jwt = require('jsonwebtoken');
     const token = jwt.sign(
@@ -2302,25 +2294,25 @@ agenda.define('monthly_livestream_analytics', async (job) => {
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
-    
+
     // Call the API endpoint
     const response = await axios.get(apiUrl, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
     });
-    
+
     console.log('API response:', {
       success: response.data.success,
       month: response.data.data?.month,
       monthName: response.data.data?.monthName,
       totalLivestreams: response.data.data?.totalLivestreams
     });
-    
+
     console.log('Monthly livestream analytics job completed successfully');
   } catch (error) {
     console.error('Error in monthly_livestream_analytics job:', error);
-    
+
     if (error.response) {
       console.error('API error response:', {
         status: error.response.status,
@@ -2334,12 +2326,12 @@ agenda.define('monthly_livestream_analytics', async (job) => {
 agenda.define('daily_coupon_cleanup', async (job) => {
   try {
     console.log('Starting daily coupon cleanup job');
-    
+
     const Coupon = mongoose.model('Coupon');
     const Product = mongoose.model('Product');
-    
+
     const now = new Date();
-    
+
     // Find all coupons that have expired but are still marked as active
     const expiredCoupons = await Coupon.find({
       $or: [
@@ -2347,17 +2339,17 @@ agenda.define('daily_coupon_cleanup', async (job) => {
         { endDate: { $lte: now }, status: 'inactive' }
       ]
     });
-    
+
     console.log(`Found ${expiredCoupons.length} expired coupons to clean up`);
-    
+
     let cleanedCoupons = 0;
     let cleanedProducts = 0;
-    
+
     for (const coupon of expiredCoupons) {
       try {
         // Get all product IDs from the coupon's applicable products
         const productIds = coupon.applicableProducts.map(ap => ap.product);
-        
+
         // Update all products to deactivate the discount and clear expired coupon data
         if (productIds.length > 0) {
           const productUpdateResult = await Product.updateMany(
@@ -2374,10 +2366,10 @@ agenda.define('daily_coupon_cleanup', async (job) => {
               }
             }
           );
-          
+
           cleanedProducts += productUpdateResult.modifiedCount || 0;
         }
-        
+
         // Update the coupon status to expired
         if (coupon.status !== 'expired') {
           coupon.status = 'expired';
@@ -2393,7 +2385,7 @@ agenda.define('daily_coupon_cleanup', async (job) => {
         continue;
       }
     }
-    
+
     console.log(`Daily coupon cleanup completed: ${cleanedCoupons} coupons expired, ${cleanedProducts} products updated`);
   } catch (error) {
     console.error('Error in daily_coupon_cleanup job:', error);
@@ -2405,34 +2397,33 @@ agenda.define('credit_welcome_bonus', async (job) => {
   try {
     const { buyerId } = job.attrs.data;
     console.log(`Starting welcome bonus credit for buyer: ${buyerId}`);
-    
+
     const Buyer = mongoose.model('Buyer');
-    const sgMail = require('@sendgrid/mail');
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    
+    const termiiEmailService = require('../services/termiiEmailService');
+
     // Find the buyer
     const buyer = await Buyer.findById(buyerId);
     if (!buyer) {
       console.error(`Buyer not found for welcome bonus: ${buyerId}`);
       return;
     }
-    
+
     // Check if they're eligible (email is verified)
     if (!buyer.emailVerified) {
       console.log(`Buyer ${buyerId} not eligible for welcome bonus: email not verified`);
       return;
     }
-    
+
     // Check if they already received a welcome bonus
     const hasWelcomeBonus = buyer.wallet.transactions.some(
       t => t.description?.includes('Welcome bonus')
     );
-    
+
     if (hasWelcomeBonus) {
       console.log(`Buyer ${buyerId} already received welcome bonus`);
       return;
     }
-    
+
     // Add the welcome bonus transaction
     const bonusAmount = 500; // 500 NGN
     const transaction = {
@@ -2443,32 +2434,32 @@ agenda.define('credit_welcome_bonus', async (job) => {
       status: 'completed',
       createdAt: new Date()
     };
-    
+
     // Update buyer's wallet
     buyer.wallet.transactions.push(transaction);
     buyer.wallet.balance += bonusAmount;
     await buyer.save();
-    
+
     console.log(`Welcome bonus of ${bonusAmount} NGN credited to buyer ${buyerId}`);
-    
+
     // Send email notification
     const formattedAmount = bonusAmount.toLocaleString('en-NG', {
       style: 'currency',
       currency: 'NGN',
       minimumFractionDigits: 2
     });
-    
+
     const formattedBalance = buyer.wallet.balance.toLocaleString('en-NG', {
       style: 'currency',
       currency: 'NGN',
       minimumFractionDigits: 2
     });
-    
+
     const msg = {
       to: buyer.email,
       from: {
         email: 'support@auqli.com',
-        name: 'Auqli Support'
+        name: 'Auqli'
       },
       subject: 'Welcome Bonus Added to Your Wallet! 🎉',
       html: `
@@ -2553,15 +2544,19 @@ agenda.define('credit_welcome_bonus', async (job) => {
         </div>
       `
     };
-    
-    
+
+
     try {
-      await sgMail.send(msg);
+      await termiiEmailService.sendRawHTMLEmail({
+        email: buyer.email,
+        subject: msg.subject,
+        html: msg.html
+      });
       console.log(`Welcome bonus email sent to: ${buyer.email}`);
     } catch (emailError) {
-      console.error('Error sending welcome bonus email:', emailError);
+      console.error('Error sending welcome bonus email:', emailError.message);
     }
-    
+
   } catch (error) {
     console.error('Error in credit_welcome_bonus job:', error);
   }
@@ -2572,30 +2567,30 @@ agenda.define('send_unpaid_order_warning', async (job) => {
   try {
     const { orderId } = job.attrs.data;
     console.log(`Sending warning notification for unpaid order ${orderId} before it's marked as stale`);
-    
+
     const Order = mongoose.model('Order');
     const { getToken } = require('../../Firebase');
     const { Expo } = require('expo-server-sdk');
     const expo = new Expo();
-    
+
     // Find the order with populated buyer
     const order = await Order.findById(orderId)
       .populate('buyer', 'email firstName lastName')
       .populate('seller', 'email firstName lastName businessName');
-    
+
     if (!order) {
       console.log(`Order ${orderId} not found, may have been already processed`);
       return;
     }
-    
+
     // Check if order is still unpaid and was created with Paystack
     if (!order.paid && order.paymentInfo.method === 'paystack') {
       console.log(`Sending warning notification for unpaid Paystack order ${order.order_id}`);
-      
+
       try {
         // Get the buyer's Expo push token
         const userToken = await getToken(order.buyer._id);
-        
+
         if (userToken && userToken.token) {
           // Send push notification to buyer
           await expo.sendPushNotificationsAsync([{
@@ -2607,7 +2602,7 @@ agenda.define('send_unpaid_order_warning', async (job) => {
               type: 'order_expiring_soon'
             }
           }]);
-          
+
           console.log(`Successfully sent warning notification for unpaid order ${order.order_id}`);
         } else {
           console.log(`No push token found for buyer of order ${order.order_id}`);
@@ -2628,45 +2623,45 @@ agenda.define('send_terminal_order_warning', async (job) => {
   try {
     const { orderId } = job.attrs.data;
     console.log(`Sending warning notification for Terminal Africa order ${orderId} before it's marked as stale`);
-    
+
     const Order = mongoose.model('Order');
     const { getToken } = require('../../Firebase');
     const { Expo } = require('expo-server-sdk');
     const expo = new Expo();
-    
+
     // Find the order with populated buyer
     const order = await Order.findById(orderId)
       .populate('buyer', 'email firstName lastName')
       .populate('seller', 'email firstName lastName businessName storeName');
-    
+
     if (!order) {
       console.log(`Order ${orderId} not found, may have been already processed`);
       return;
     }
-    
+
     // Check if order will be marked as stale based on different criteria
     let shouldWarn = false;
     let warningMessage = '';
-    
+
     // Check for unpaid Paystack orders
     if (!order.paid && order.paymentInfo?.method === 'paystack') {
       shouldWarn = true;
       warningMessage = `Your order #${order.order_id} will expire in 10 minutes if payment is not completed.`;
       console.log(`Terminal Africa order ${order.order_id} is unpaid - sending payment warning`);
     }
-    
+
     // Check for orders that haven't selected a carrier (only for non-store pickup)
     else if (!order.shipping?.rate_id && !order.isStorePickup) {
       shouldWarn = true;
       warningMessage = `Your order #${order.order_id} will expire in 10 minutes if you don't select a shipping carrier.`;
       console.log(`Terminal Africa order ${order.order_id} has no carrier selected - sending carrier warning`);
     }
-    
+
     if (shouldWarn) {
       try {
         // Get the buyer's Expo push token
         const userToken = await getToken(order.buyer._id);
-        
+
         if (userToken && userToken.token) {
           // Send push notification to buyer
           await expo.sendPushNotificationsAsync([{
@@ -2678,7 +2673,7 @@ agenda.define('send_terminal_order_warning', async (job) => {
               type: 'terminal_order_expiring_soon'
             }
           }]);
-          
+
           console.log(`Successfully sent Terminal Africa warning notification for order ${order.order_id}`);
         } else {
           console.log(`No push token found for buyer of Terminal Africa order ${order.order_id}`);
@@ -2698,20 +2693,20 @@ agenda.define('send_terminal_order_warning', async (job) => {
 agenda.define('stream_reminder_sms', async (job) => {
   try {
     const { streamId } = job.attrs.data;
-    
+
     if (!streamId) {
       console.error('No streamId provided for stream_reminder_sms job');
       return;
     }
-    
+
     console.log(`[AGENDA] Running stream reminder SMS job for streamId: ${streamId}`);
-    
+
     // Import the SMS helper function
     const { sendStreamReminderSMS } = require('../modules/orderv2/helpers/sms.helper');
-    
+
     // Send reminder SMS to seller and subscribed buyers
     await sendStreamReminderSMS(streamId);
-    
+
     console.log(`[AGENDA] Stream reminder SMS job completed for streamId: ${streamId}`);
   } catch (error) {
     console.error('Error in stream_reminder_sms job:', error);
@@ -2777,11 +2772,11 @@ agenda.define('stream_auto_end', async (job) => {
     };
 
     const mockRes = {
-      status: function(code) {
+      status: function (code) {
         this.statusCode = code;
         return this;
       },
-      json: function(data) {
+      json: function (data) {
         console.log(`[AGENDA] Stream auto-end response: ${JSON.stringify(data)}`);
         return this;
       }
@@ -2822,39 +2817,39 @@ const isAgendaInitialized = () => {
 const startAgenda = async () => {
   try {
     console.log('Starting Agenda job scheduler...');
-    
+
     if (!agenda) {
       console.error('Agenda instance is null or undefined');
       throw new Error('Agenda instance is not available');
     }
-    
+
     await agenda.start();
     console.log('Agenda started successfully');
 
     // Schedule the pending message notifications job to run every 5 minutes
     await agenda.every('5 minutes', 'process-pending-message-notifications');
     // console.log('Scheduled message notification job to run every 5 minutes');
-    
+
     // Schedule the delete expired streams job to run every 15 minutes
     //! This feature has been suspended to accommodate the reschedule expired stream feature as deleted expired stream defeats the whole purpose of reschedule
     //await agenda.every('15 minutes', 'delete_expired_streams');
     // console.log('Scheduled expired streams cleanup job to run every 15 minutes');
-    
+
     // Schedule daily livestream analytics job to run at midnight WAT
     // Note: WAT is UTC+1, so 11:00 PM UTC
     await agenda.every('0 23 * * *', 'daily_livestream_analytics');
     console.log('Scheduled daily livestream analytics job to run at midnight WAT');
-    
+
     // Schedule weekly livestream analytics job to run at 1:00 AM WAT on Mondays
     // Note: WAT is UTC+1, so 0:00 AM UTC on Mondays (day 1)
     await agenda.every('0 0 * * 1', 'weekly_livestream_analytics');
     console.log('Scheduled weekly livestream analytics job to run at 1:00 AM WAT on Mondays');
-    
+
     // Schedule monthly livestream analytics job to run at 2:00 AM WAT on the 1st day of each month
     // Note: WAT is UTC+1, so 1:00 AM UTC on the 1st
     await agenda.every('0 1 1 * *', 'monthly_livestream_analytics');
     console.log('Scheduled monthly livestream analytics job to run at 2:00 AM WAT on the 1st day of each month');
-    
+
     // Schedule daily coupon cleanup job to run at 3:00 AM WAT every day
     // Note: WAT is UTC+1, so 2:00 AM UTC
     // This ensures expired coupons are cleaned up and product discounts are deactivated
