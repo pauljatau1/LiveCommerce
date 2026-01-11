@@ -95,6 +95,94 @@ router.post('/auth/register', buyerController.register);
 
 /**
  * @swagger
+ * /api/v2/buyers/auth/google-auth:
+ *   post:
+ *     summary: Authenticate buyer using Google OAuth
+ *     description: |
+ *       Authenticates a buyer using Google OAuth ID token. This endpoint handles:
+ *       - New user registration with Google credentials
+ *       - Login for existing Google-linked accounts
+ *       - Account linking for existing email-based accounts
+ *     tags: [Buyer V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: Google ID token from frontend Google Sign-In
+ *                 example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *     responses:
+ *       200:
+ *         description: Google authentication successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Google authentication successful"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         firstName:
+ *                           type: string
+ *                           example: "John"
+ *                         lastName:
+ *                           type: string
+ *                           example: "Doe"
+ *                         email:
+ *                           type: string
+ *                           example: "john.doe@gmail.com"
+ *                         username:
+ *                           type: string
+ *                           example: "johndoe"
+ *                         googleId:
+ *                           type: string
+ *                           example: "123456789012345678901"
+ *                         emailVerified:
+ *                           type: boolean
+ *                           example: true
+ *                     token:
+ *                       type: string
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *       400:
+ *         description: Validation error - Missing or invalid token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Google ID token is required"
+ *       401:
+ *         description: Unauthorized - Invalid Google token
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/auth/google-auth', buyerController.googleAuth);
+
+/**
+ * @swagger
  * /api/v2/buyers/auth/login:
  *   post:
  *     summary: Login a buyer

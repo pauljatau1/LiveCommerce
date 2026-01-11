@@ -1,5 +1,6 @@
 const registerService = require('../services/register.service');
 const loginService = require('../services/login.service');
+const googleAuthService = require('../services/googleAuth.service');
 const profileService = require('../services/profile.service');
 const updateProfileService = require('../services/updateProfile.service');
 const uploadProfileImageService = require('../services/uploadProfileImage.service');
@@ -105,6 +106,33 @@ async function login(req, res, next) {
 }
 
 /**
+ * Authenticate buyer using Google OAuth.
+ *
+ * This controller handles Google OAuth authentication HTTP requests.
+ * It delegates the Google OAuth authentication logic to the service layer,
+ * and sends a success response with user data and JWT token.
+ *
+ * @param {Request} req - Express request object containing Google ID token in `req.body.token`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function googleAuth(req, res, next) {
+  try {
+    // Extract Google ID token from request body
+    const googleAuthData = req.body;
+
+    // Call the service layer to handle Google OAuth authentication
+    const response = await googleAuthService.authenticateWithGoogle(googleAuthData);
+
+    // Send success response with user data and token
+    res.success(response, 'Google authentication successful');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
  * Get buyer profile information.
  *
  * This controller handles the profile retrieval HTTP request.
@@ -144,7 +172,7 @@ async function checkToken(req, res, next) {
   try {
     // Extract token from authorization header
     const token = req.headers['authorization']?.split(' ')[1];
-    
+
     // Call the service layer to handle token validation logic
     const response = await checkTokenService.checkToken(token);
 
@@ -1000,7 +1028,7 @@ async function updateNotificationPreferences(req, res, next) {
   try {
     // Extract buyer ID from request user object
     const buyerId = req.user.id;
-    
+
     // Extract preferences from request body
     const { preferences } = req.body;
 
@@ -1138,15 +1166,15 @@ async function confirmAccountDeletion(req, res, next) {
     // Step 1: Extract buyer ID from authenticated user (JWT token)
     // The verifyToken middleware sets req.user.id from the JWT payload
     const buyerId = req.user.id;
-    
+
     // Step 2: Extract OTP from request body payload
     // Expected format: { "otp": "1234" }
     const { otp } = req.body;
-    
+
     // Step 3: Delegate business logic to service layer
     // Service will handle validation, OTP verification, email sending, and account deletion
     const response = await confirmAccountDeletionService.confirmAccountDeletion(buyerId, otp);
-    
+
     // Step 4: Send success response using standardized response formatter
     // This ensures consistent API response structure across the application
     res.success(response, 'Account deleted successfully');
@@ -1184,15 +1212,15 @@ async function reportUser(req, res, next) {
     // Step 1: Extract reporter ID from authenticated user (JWT token)
     // The verifyToken middleware sets req.user.id from the JWT payload
     const reporterId = req.user.id;
-    
+
     // Step 2: Extract report data from request body
     // Expected format: { "userId": "...", "userType": "buyer|seller", "reason": "...", "description": "..." }
     const reportData = req.body;
-    
+
     // Step 3: Delegate business logic to service layer
     // Service will handle validation, data storage, and admin notifications
     const response = await reportUserService.reportUser(reporterId, reportData);
-    
+
     // Step 4: Send success response using standardized response formatter
     // This ensures consistent API response structure across the application
     res.success(response, response.message, 201);
@@ -1279,10 +1307,10 @@ async function topUpWallet(req, res, next) {
   try {
     // Extract buyer ID from authenticated user
     const buyerId = req.user.id;
-    
+
     // Extract top-up data from request body
     const topUpData = req.body;
-    
+
     // Get user and environment information
     const user = req.user;
     const nodeEnv = process.env.NODE_ENV;
@@ -1600,5 +1628,6 @@ module.exports = {
   getActivityStatus,
   selectMajorCategories,
   updateMajorCategoriesSelection,
-  getSelectedMajorCategories
+  getSelectedMajorCategories,
+  googleAuth
 };
