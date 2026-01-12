@@ -54,6 +54,15 @@ async function findByPhoneNumber(phoneNumber) {
 }
 
 /**
+ * Find a Buyer by Google ID.
+ * @param {string} googleId - Google user ID
+ * @returns {Promise<Buyer|null>}
+ */
+async function findByGoogleId(googleId) {
+  return Buyer.findOne({ googleId });
+}
+
+/**
  * Save a new Buyer.
  * @param {Buyer} buyerInstance
  * @returns {Promise<Buyer>}
@@ -121,8 +130,8 @@ async function findByUsername(username) {
  */
 async function updateById(buyerId, updateData) {
   return Buyer.findByIdAndUpdate(
-    buyerId, 
-    updateData, 
+    buyerId,
+    updateData,
     { new: true, runValidators: true }
   );
 }
@@ -195,7 +204,7 @@ async function updateShippingAddress(buyerId, addressId, updateData) {
   const existingAddress = buyer.shippingAddresses.find(
     addr => addr._id.toString() === addressIdStr
   );
-  
+
   if (!existingAddress) {
     // Return null if address not found (service layer will handle this appropriately)
     // Note: This should typically be caught by validators before reaching here
@@ -207,7 +216,7 @@ async function updateShippingAddress(buyerId, addressId, updateData) {
   // Note: We exclude _id from updateData if present, as it should never change
   const { _id: updateDataId, ...updateDataWithoutId } = updateData;
   const existingAddressObj = existingAddress.toObject(); // Convert mongoose doc to plain object
-  
+
   // Preserve the existing _id (as ObjectId) to ensure proper MongoDB matching
   // The _id must remain as an ObjectId for MongoDB arrayFilters to work correctly
   const mergedAddress = {
@@ -220,8 +229,8 @@ async function updateShippingAddress(buyerId, addressId, updateData) {
   // Step 4: Normalize addressId for arrayFilters
   // MongoDB arrayFilters need the _id in a consistent format (ObjectId or string)
   // Convert addressId to ObjectId if it's a string to ensure proper matching
-  const addressIdForFilter = typeof addressId === 'string' 
-    ? new mongoose.Types.ObjectId(addressId) 
+  const addressIdForFilter = typeof addressId === 'string'
+    ? new mongoose.Types.ObjectId(addressId)
     : addressId;
 
   // Step 5: Update the address in the database
@@ -340,7 +349,7 @@ async function updatePhoneVerification(buyerId, phoneVerificationData) {
 async function findUserById(userId, userType) {
   // Handle both capitalized and lowercase user types
   const normalizedUserType = userType?.toLowerCase();
-  
+
   if (normalizedUserType === 'buyer') {
     return Buyer.findById(userId).select('firstName lastName profileImage');
   } else if (normalizedUserType === 'seller') {
@@ -800,7 +809,7 @@ async function updateWalletTransactionStatus(buyerId, paymentReference, newStatu
  */
 async function getPublicProfileData(buyerId) {
   const postRepository = require('./post.repository');
-  
+
   // Get post count for public posts
   const postCount = await postRepository.countPublicPosts(buyerId);
 
@@ -808,7 +817,7 @@ async function getPublicProfileData(buyerId) {
   const buyer = await Buyer.findById(buyerId)
     .select([
       'firstName',
-      'lastName', 
+      'lastName',
       'username',
       'profileImage',
       'bio',
@@ -1048,6 +1057,7 @@ module.exports = {
   getFollowersCount,
   getFollowingCount,
   findByUsername,
+  findByGoogleId,
   updateById,
   findByIdWithSelectedCategories,
   findByIdWithShippingAddresses,
