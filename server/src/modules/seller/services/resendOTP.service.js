@@ -35,17 +35,13 @@
  */
 
 const Seller = require('../../../models/Seller');
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('../../../services/termiiEmailService');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 const BadRequestException = require('../../../utils/errors/BadRequestException');
 const { validateResendOTPData } = require('../validators/resendOTP.validator');
 const { generateOTP } = require('../../../utils/helpers');
 const fs = require('fs');
 const path = require('path');
-
-// Initialize SendGrid with API key from environment variables
-// This enables email sending functionality for OTP notifications
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 
 
@@ -79,7 +75,7 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 function getEmailContent(email, otp, firstName) {
   // Step 1: Construct the path to the resend OTP email template
   const filePath = path.join(__dirname, '../../../', 'templates', 'resend-otp-email.html');
-  
+
   // Step 2: Read the HTML template file synchronously
   // Using UTF-8 encoding to ensure proper text handling
   let html = fs.readFileSync(filePath, 'utf-8');
@@ -120,10 +116,14 @@ function getEmailContent(email, otp, firstName) {
 async function sendOTPEmail(email, otp, firstName) {
   // Get the email content with processed HTML template
   const msg = getEmailContent(email, otp, firstName);
-  
-  // Send the email using SendGrid service
+
+  // Send the email using Termii email service
   // If sending fails, the error will propagate to the calling function
-  await sgMail.send(msg);
+  await termiiEmailService.sendRawHTMLEmail({
+    email: msg.to,
+    subject: msg.subject,
+    html: msg.html
+  });
 }
 
 /**
@@ -146,7 +146,7 @@ async function sendOTPEmail(email, otp, firstName) {
 async function updateSellerOTP(seller, otp) {
   // Update the OTP field with new value
   seller.otp = otp;
-  
+
   // Save the seller document atomically
   await seller.save();
 }

@@ -2,7 +2,7 @@ const { agenda } = require('../config/agenda');
 const mongoose = require('mongoose');
 const crypto = require('crypto');
 const Order = require('../models/Order');
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('../services/termiiEmailService');
 const {
   getShipmentCreatedEmailTemplate,
   getShipmentInTransitEmailTemplate,
@@ -17,10 +17,10 @@ exports.verifyTerminalWebhookSignature = (signature, secretKey, body) => {
       .createHmac('sha512', secretKey)
       .update(JSON.stringify(body))
       .digest('hex');
-    
+
     const requestValid = signature === manualHashSignature;
     const validMessage = requestValid ? 'Webhook request is valid' : 'Invalid webhook request received';
-    
+
     return {
       status: requestValid,
       message: validMessage
@@ -48,12 +48,12 @@ const handleTerminalWebhook = async (req, res, webhookData) => {
     // Extract tracking number and shipment ID from Terminal webhook
     const trackingNumber = data?.extras?.tracking_number || data?.tracking_number;
     const shipmentId = data?.shipment_id;
-    
+
     console.log('[INFO] Extracted identifiers:', {
       tracking_number: trackingNumber,
       shipment_id: shipmentId
     });
-    
+
     if (!trackingNumber && !shipmentId) {
       console.error('[ERROR] No tracking identifiers found in webhook data');
       return res.status(400).json({
@@ -71,13 +71,13 @@ const handleTerminalWebhook = async (req, res, webhookData) => {
     const Order = mongoose.model('Order');
     let order = null;
     let foundBy = null;
-    
+
     const searchStrategies = [
       { field: 'shipping.tracking.number', value: trackingNumber, name: 'tracking_number' },
       { field: 'shipping.shipment_id', value: shipmentId, name: 'shipment_id' },
       { field: 'shipping.tracking.number', value: shipmentId, name: 'shipment_id_as_tracking' }
     ];
-    
+
     for (const strategy of searchStrategies) {
       if (strategy.value && !order) {
         console.log(`[INFO] Searching by ${strategy.name}: ${strategy.field} = ${strategy.value}`);
@@ -89,7 +89,7 @@ const handleTerminalWebhook = async (req, res, webhookData) => {
         }
       }
     }
-    
+
     if (!order) {
       console.error('[ERROR] Order not found for Terminal shipment. Searched by:', {
         tracking_number: trackingNumber,
@@ -149,7 +149,7 @@ const handleTerminalWebhook = async (req, res, webhookData) => {
 const updateOrderForTerminalEvent = async (order, event, data) => {
   try {
     console.log(`🔄 Updating order ${order.order_id} for Terminal event: ${event}`);
-    
+
     const updateData = {
       'shipping.lastUpdated': new Date(),
       'shipping.status': data.status,
@@ -183,7 +183,7 @@ const updateOrderForTerminalEvent = async (order, event, data) => {
         updateData['shipping.status'] = 'confirmed';
         updateData['shipping.tracking.status'] = 'confirmed';
         updateData['shipping.confirmedAt'] = new Date();
-        
+
         // Store comprehensive Terminal shipment details
         if (data.shipment_id) {
           updateData['shipping.shipment_id'] = data.shipment_id;
@@ -201,46 +201,46 @@ const updateOrderForTerminalEvent = async (order, event, data) => {
         if (data.pickup_date) {
           updateData['shipping.estimatedPickupDate'] = data.pickup_date;
         }
-        
+
         historyEntry.description = `Shipment created and arranged with ${data.carrier || data.metadata?.selected_rate?.carrier_name || 'carrier'}`;
         console.log('✅ Shipment created - Order confirmed');
         break;
-        
+
       case 'shipment.updated':
         // Shipment has been updated (typically picked up)
         updateData['shipping.status'] = 'picked-up';
         updateData['shipping.tracking.status'] = 'picked-up';
         updateData['shipping.pickedUpAt'] = new Date();
-        
+
         historyEntry.description = 'Shipment picked up by carrier';
         console.log('📦 Shipment picked up by carrier');
         break;
-        
+
       case 'shipment.in-transit':
         // Shipment is now in transit
         updateData['status'] = 'shipped';
         updateData['shipping.status'] = 'in-transit';
         updateData['shipping.tracking.status'] = 'in-transit';
         updateData['shipping.inTransitAt'] = new Date();
-        
+
         historyEntry.description = 'Shipment is now in transit to destination';
         console.log('🚚 Shipment is now in transit');
         break;
-        
+
       case 'shipment.delivered':
         // Shipment has been delivere
         updateData['status'] = 'delivered';
         updateData['shipping.status'] = 'delivered';
         updateData['shipping.tracking.status'] = 'delivered';
         updateData['shipping.deliveredAt'] = new Date();
-        
+
         if (data.delivery_date) {
           updateData['shipping.delivery.actualDate'] = new Date(data.delivery_date);
         }
-        
+
         historyEntry.description = 'Shipment delivered successfully';
         console.log('✅ Shipment delivered successfully');
-        
+
         // Schedule the order closure job for 1 day after delivery
         try {
           console.log(`Scheduling order closure for order ${order.order_id} in 1 day.`);
@@ -250,21 +250,21 @@ const updateOrderForTerminalEvent = async (order, event, data) => {
           console.error(`❌ Error scheduling closeOrder job for order ${order.order_id}:`, scheduleError);
         }
         break;
-        
+
       case 'shipment.cancelled':
         // Shipment has been cancelled
         updateData['shipping.status'] = 'cancelled';
         updateData['shipping.tracking.status'] = 'cancelled';
         updateData['shipping.cancelledAt'] = new Date();
-        
+
         if (data.cancellation_reason) {
           updateData['shipping.cancellationReason'] = data.cancellation_reason;
         }
-        
+
         historyEntry.description = `Shipment cancelled: ${data.cancellation_reason || 'No reason provided'}`;
         console.log('❌ Shipment cancelled');
         break;
-        
+
       default:
         console.log('⚠️ Unknown Terminal event:', event);
         // Still update with basic tracking info for unknown events
@@ -283,9 +283,9 @@ const updateOrderForTerminalEvent = async (order, event, data) => {
         'shipping.tracking.history': historyEntry
       }
     });
-    
+
     console.log('📝 Database update result:', updateResult);
-    
+
     // Verify the update by fetching the order again
     const Order = mongoose.model('Order');
     const updatedOrder = await Order.findById(order._id);
@@ -306,11 +306,11 @@ const updateOrderForTerminalEvent = async (order, event, data) => {
       'shipment.delivered': 'delivered',
       'shipment.cancelled': 'cancelled'
     };
-    
+
     if (itemStatusMap[event]) {
       const itemStatus = itemStatusMap[event];
       console.log(`🎯 Updating all items status to: ${itemStatus} for event: ${event}`);
-      
+
       // Update each item's status
       await order.updateOne({
         $set: {
@@ -324,7 +324,7 @@ const updateOrderForTerminalEvent = async (order, event, data) => {
           }
         }
       });
-      
+
       console.log(`✅ All items updated to status: ${itemStatus}`);
     }
 
@@ -337,56 +337,40 @@ const updateOrderForTerminalEvent = async (order, event, data) => {
 
 // Send Terminal event emails to buyer and seller
 const sendTerminalEventEmails = async (buyer, seller, order, event, data) => {
-  const sgMail = require('@sendgrid/mail');
-  
-  // Ensure SendGrid API key is set
-  const apiKey = process.env.SENDGRID_API_KEY;
-  if (!apiKey) {
-    console.error('Cannot send email: SendGrid API key is not configured');
-    return;
-  }
-  sgMail.setApiKey(apiKey);
-
   try {
     console.log(`📧 Preparing ${event} emails for order ${order.order_id}`);
 
     // Get email content based on event type
     const emailContent = getTerminalEventEmailContent(event, order, data, buyer, seller);
-    
+
     if (!emailContent) {
       console.log(`No email template defined for event: ${event}`);
       return;
     }
 
     // Send email to buyer
-    const buyerMsg = {
-      to: buyer.email,
-      from: 'Auqli <support@auqli.com>',
+    console.log(`📧 Sending ${event} email to buyer: ${buyer.email}`);
+    await termiiEmailService.sendRawHTMLEmail({
+      email: buyer.email,
       subject: emailContent.buyer.subject,
       html: emailContent.buyer.html
-    };
-
-    console.log(`📧 Sending ${event} email to buyer: ${buyer.email}`);
-    await sgMail.send(buyerMsg);
+    });
     console.log(`✅ ${event} email sent to buyer successfully`);
 
     // Send email to seller for certain events
     if (emailContent.seller) {
-      const sellerMsg = {
-        to: seller.email,
-        from: 'Auqli Seller <support@auqli.com>',
+      console.log(`📧 Sending ${event} email to seller: ${seller.email}`);
+      await termiiEmailService.sendRawHTMLEmail({
+        email: seller.email,
         subject: emailContent.seller.subject,
         html: emailContent.seller.html
-      };
-
-      console.log(`📧 Sending ${event} email to seller: ${seller.email}`);
-      await sgMail.send(sellerMsg);
+      });
       console.log(`✅ ${event} email sent to seller successfully`);
     }
 
   } catch (error) {
-    console.error(`❌ Error sending ${event} emails:`, error);
-    throw error;
+    console.error(`❌ Error sending ${event} emails:`, error.message);
+    // Don't throw - email failures shouldn't break the webhook flow
   }
 };
 
@@ -397,7 +381,7 @@ const getTerminalEventEmailContent = (event, order, data, buyer, seller) => {
   const orderId = order.order_id;
   const trackingNumber = data.tracking_number || order.shipping?.tracking?.number || 'N/A';
   const carrier = data.carrier || order.shipping?.carrier?.name || 'Carrier';
-  
+
   // Base email styles
   const emailStyles = `
     <style>
@@ -742,15 +726,15 @@ const getTerminalEventEmailContent = (event, order, data, buyer, seller) => {
 const sendNotificationsForTerminalEvent = async (order, event, data) => {
   try {
     console.log(`📧 Sending notifications for Terminal event: ${event}, Order: ${order.order_id}`);
-    
+
     const notificationController = require('../controllers/notificationController');
-    
+
     // Get buyer and seller information
     const Buyer = mongoose.model('Buyer');
     const Seller = mongoose.model('Seller');
-    
+
     console.log(`Looking up buyer ${order.buyer} and seller ${order.seller}`);
-    
+
     const buyer = await Buyer.findById(order.buyer);
     const seller = await Seller.findById(order.seller);
 
@@ -780,28 +764,28 @@ const sendNotificationsForTerminalEvent = async (order, event, data) => {
         notificationType = 'order_status_update';
         notificationData.status = 'Being packaged';
         break;
-        
+
       case 'shipment.created':
         notificationType = 'order_status_update';
         notificationData.status = 'Confirmed';
         break;
-        
+
       case 'shipment.updated':
         notificationType = 'order_picked_up';
         notificationData.status = 'Picked up';
         break;
-        
+
       case 'shipment.in-transit':
         notificationType = 'order_in_transit';
         notificationData.status = 'In transit';
         break;
-        
+
       case 'shipment.delivered':
         notificationType = 'order_delivered';
         notificationData.status = 'Delivered';
         notificationData.deliveryDate = data.delivery_date;
         break;
-        
+
       case 'shipment.cancelled':
         notificationType = 'order_cancelled';
         notificationData.status = 'Cancelled';
@@ -822,7 +806,7 @@ const sendNotificationsForTerminalEvent = async (order, event, data) => {
     // Send notification to seller for certain events
     if (['shipment.delivered', 'shipment.cancelled'].includes(event)) {
       console.log(`📨 Creating seller notification: type=${notificationType}`);
-      
+
       const sellerNotification = await notificationController.createNotification(
         seller._id,
         notificationType,
@@ -834,11 +818,11 @@ const sendNotificationsForTerminalEvent = async (order, event, data) => {
 
     // Send email notifications
     console.log(`📧 Sending email notifications for ${event}...`);
-    
+
     try {
       // Send specific email based on event type
       await sendTerminalEventEmails(buyer, seller, order, event, data);
-      
+
       // Send SMS notifications for delivery events (non-blocking)
       if (event === 'shipment.delivered') {
         try {
@@ -898,7 +882,7 @@ exports.handleTerminalWebhookRoute = async (req, res) => {
     // Verify webhook signature
     const signature = req.headers['x-terminal-signature'];
     const secretKey = process.env.TERMINAL_SECRET_KEY;
-    
+
     if (!signature || !secretKey) {
       return res.status(400).json({
         status: false,

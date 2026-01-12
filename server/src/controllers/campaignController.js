@@ -28,11 +28,11 @@ async function sendCampaignEmails(campaign, seller, recipients) {
       const buyerName = recipient.buyer.firstName || 'Valued Customer';
       const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'support@auqli.com';
       const sellerName = seller.businessName || seller.firstName;
-      
+
       // Generate unique tracking IDs
       const trackingId = uuidv4();
       const pixelTrackingUrl = `${process.env.BACKEND_URL}/api/campaigns/track/open/${trackingId}`;
-      
+
       console.log('Email Configuration:', {
         from: fromEmail,
         fromName: sellerName,
@@ -44,8 +44,8 @@ async function sendCampaignEmails(campaign, seller, recipients) {
       // Add tracking data to recipient
       await Campaign.findOneAndUpdate(
         { _id: campaign._id, 'recipients.buyer': recipient.buyer._id },
-        { 
-          $set: { 
+        {
+          $set: {
             'recipients.$.trackingId': trackingId,
             'recipients.$.status': 'sent'
           }
@@ -135,9 +135,9 @@ async function sendCampaignEmails(campaign, seller, recipients) {
         return { success: true, email: buyerEmail, fromEmail, trackingId };
       } catch (error) {
         console.error(`Failed to send email from ${fromEmail} to ${buyerEmail}:`, error);
-        return { 
-          success: false, 
-          email: buyerEmail, 
+        return {
+          success: false,
+          email: buyerEmail,
           fromEmail,
           error: error.message,
           details: error.response?.body
@@ -196,7 +196,7 @@ async function sendCampaignMessages(campaign, seller, recipients) {
 
         // Create campaign message content with formatting
         let messageContent = `📢 *${campaign.title}*\n\n${campaign.message}\n\n`;
-        
+
         // Add products count if any
         if (campaign.selectedProducts && campaign.selectedProducts.length > 0) {
           messageContent += `🛍️ *Featured Products (${campaign.selectedProducts.length})*\n`;
@@ -260,8 +260,8 @@ async function sendCampaignMessages(campaign, seller, recipients) {
         return { success: true, buyerId: recipient.buyer._id };
       } catch (error) {
         console.error(`Failed to send campaign message to buyer ${recipient.buyer._id}:`, error);
-        return { 
-          success: false, 
+        return {
+          success: false,
           buyerId: recipient.buyer._id,
           error: error.message
         };
@@ -297,13 +297,13 @@ exports.createCampaign = async (req, res) => {
   try {
     const sellerId = req.user.id;
     console.log('Seller ID:', sellerId);
-    
-    const { 
-      title, 
-      message, 
-      audienceType, 
-      scheduledFor, 
-      selectedProducts 
+
+    const {
+      title,
+      message,
+      audienceType,
+      scheduledFor,
+      selectedProducts
     } = req.body;
 
     console.log('Campaign data received:', {
@@ -337,12 +337,12 @@ exports.createCampaign = async (req, res) => {
         path: 'followers.buyerId',
         select: 'email firstName lastName'
       });
-    
+
     if (!seller) {
       console.log('Seller not found');
       return res.status(404).json({ message: 'Seller not found' });
     }
-    
+
     console.log('Total followers found:', seller.followers.length);
 
     let recipients = [];
@@ -359,9 +359,9 @@ exports.createCampaign = async (req, res) => {
         break;
       case 'active':
         recipients = seller.followers
-          .filter(f => 
-            !f.optedOut && 
-            f.lastInteraction && 
+          .filter(f =>
+            !f.optedOut &&
+            f.lastInteraction &&
             new Date(f.lastInteraction) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
           .map(f => ({
             buyer: f.buyerId,
@@ -370,10 +370,10 @@ exports.createCampaign = async (req, res) => {
         break;
       case 'inactive':
         recipients = seller.followers
-          .filter(f => 
-            !f.optedOut && 
-            (!f.lastInteraction || 
-            new Date(f.lastInteraction) <= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))
+          .filter(f =>
+            !f.optedOut &&
+            (!f.lastInteraction ||
+              new Date(f.lastInteraction) <= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))
           .map(f => ({
             buyer: f.buyerId,
             status: 'pending'
@@ -406,18 +406,18 @@ exports.createCampaign = async (req, res) => {
     try {
       seller.campaigns = seller.campaigns || [];
       seller.campaigns.push(campaign._id);
-      
+
       seller.campaignStats = seller.campaignStats || {
         totalCampaigns: 0,
         totalRecipients: 0,
         dailyCampaignCount: 0
       };
-      
+
       seller.campaignStats.totalCampaigns += 1;
       seller.campaignStats.totalRecipients += recipients.length;
       seller.campaignStats.dailyCampaignCount += 1;
       seller.campaignStats.lastCampaignDate = new Date();
-      
+
       console.log('Saving updated seller data...');
       await seller.save();
       console.log('Seller data updated successfully');
@@ -512,7 +512,7 @@ exports.getCampaigns = async (req, res) => {
 
     // Fetch related orders to calculate revenue from campaigns
     const Order = mongoose.model('Order');
-    
+
     // Calculate stats for each campaign
     const campaignsWithStats = await Promise.all(campaigns.map(async (campaign) => {
       // Get orders created after this campaign was sent
@@ -522,37 +522,37 @@ exports.getCampaigns = async (req, res) => {
         'buyer': { $in: campaign.recipients.map(r => r.buyer?._id).filter(id => id) },
         createdAt: { $gt: campaignDate },
         // Looking at orders created within 7 days of campaign
-        $and: [{ 
-          createdAt: { 
-            $lt: new Date(campaignDate.getTime() + 7 * 24 * 60 * 60 * 1000) 
-          } 
+        $and: [{
+          createdAt: {
+            $lt: new Date(campaignDate.getTime() + 7 * 24 * 60 * 60 * 1000)
+          }
         }]
       });
-      
+
       // Calculate campaign metrics
-      const totalRevenue = ordersAfterCampaign.reduce((sum, order) => 
+      const totalRevenue = ordersAfterCampaign.reduce((sum, order) =>
         sum + (order.totalAmount || 0), 0);
-      
-      const conversionRate = campaign.stats.totalRecipients > 0 
+
+      const conversionRate = campaign.stats.totalRecipients > 0
         ? (ordersAfterCampaign.length / campaign.stats.totalRecipients * 100).toFixed(1)
         : 0;
-        
+
       // Unique buyers who made purchases after the campaign
       const uniqueBuyers = [...new Set(ordersAfterCampaign.map(order => order.buyer.toString()))];
-      
+
       // Calculate engagement score (normalized 0-100 scale)
       // Based on opens, clicks, and conversions
       const engagementScore = Math.min(100, Math.round(
-        ((campaign.stats.opened * 1) + 
-         (campaign.stats.clicked * 3) + 
-         (ordersAfterCampaign.length * 10)) / 
+        ((campaign.stats.opened * 1) +
+          (campaign.stats.clicked * 3) +
+          (ordersAfterCampaign.length * 10)) /
         Math.max(1, campaign.stats.totalRecipients) * 20
       ));
 
       // Calculate ROI if we have cost data (simplified version)
       // Assuming a fixed cost per recipient of $0.01
       const estimatedCost = campaign.stats.totalRecipients * 0.01;
-      const roi = estimatedCost > 0 ? 
+      const roi = estimatedCost > 0 ?
         (((totalRevenue - estimatedCost) / estimatedCost) * 100).toFixed(1) : 0;
 
       return {
@@ -640,43 +640,43 @@ exports.getCampaignTrends = async (req, res) => {
 exports.getCampaignStats = async (req, res) => {
   try {
     const sellerId = req.user.id;
-    
+
     // Get seller with followers count
     const seller = await Seller.findById(sellerId);
     const totalFollowers = seller.followers.length;
 
     // Get campaign statistics
     const campaigns = await Campaign.find({ seller: sellerId });
-    
+
     // Calculate total messages sent
-    const totalMessagesSent = campaigns.reduce((sum, campaign) => 
+    const totalMessagesSent = campaigns.reduce((sum, campaign) =>
       sum + campaign.stats.totalRecipients, 0);
 
     // Calculate open rate
-    const totalOpened = campaigns.reduce((sum, campaign) => 
+    const totalOpened = campaigns.reduce((sum, campaign) =>
       sum + campaign.stats.opened, 0);
-    const openRate = totalMessagesSent > 0 
+    const openRate = totalMessagesSent > 0
       ? ((totalOpened / totalMessagesSent) * 100).toFixed(1)
       : 0;
 
     // Calculate click rate
-    const totalClicked = campaigns.reduce((sum, campaign) => 
+    const totalClicked = campaigns.reduce((sum, campaign) =>
       sum + campaign.stats.clicked, 0);
-    const clickRate = totalMessagesSent > 0 
+    const clickRate = totalMessagesSent > 0
       ? ((totalClicked / totalMessagesSent) * 100).toFixed(1)
       : 0;
 
     // Calculate total sales
-    const totalSales = campaigns.reduce((sum, campaign) => 
+    const totalSales = campaigns.reduce((sum, campaign) =>
       sum + campaign.stats.sales, 0);
 
     // Calculate changes (comparing to previous period)
     const previousPeriodStart = new Date();
     previousPeriodStart.setMonth(previousPeriodStart.getMonth() - 1);
-    
+
     const previousCampaigns = await Campaign.find({
       seller: sellerId,
-      createdAt: { 
+      createdAt: {
         $gte: previousPeriodStart,
         $lt: new Date()
       }
@@ -692,21 +692,21 @@ exports.getCampaignStats = async (req, res) => {
 
     const previousPeriodStats = {
       followers: seller.stats?.previousFollowersCount || 0,
-      messagesSent: previousCampaigns.reduce((sum, campaign) => 
+      messagesSent: previousCampaigns.reduce((sum, campaign) =>
         sum + campaign.stats.totalRecipients, 0),
-      openRate: previousCampaigns.length > 0 
-        ? (previousCampaigns.reduce((sum, campaign) => 
-            sum + campaign.stats.opened, 0) / 
-          previousCampaigns.reduce((sum, campaign) => 
+      openRate: previousCampaigns.length > 0
+        ? (previousCampaigns.reduce((sum, campaign) =>
+          sum + campaign.stats.opened, 0) /
+          previousCampaigns.reduce((sum, campaign) =>
             sum + campaign.stats.totalRecipients, 0) * 100)
         : 0,
       clickRate: previousCampaigns.length > 0
-        ? (previousCampaigns.reduce((sum, campaign) => 
-            sum + campaign.stats.clicked, 0) / 
-          previousCampaigns.reduce((sum, campaign) => 
+        ? (previousCampaigns.reduce((sum, campaign) =>
+          sum + campaign.stats.clicked, 0) /
+          previousCampaigns.reduce((sum, campaign) =>
             sum + campaign.stats.totalRecipients, 0) * 100)
         : 0,
-      sales: previousCampaigns.reduce((sum, campaign) => 
+      sales: previousCampaigns.reduce((sum, campaign) =>
         sum + campaign.stats.sales, 0)
     };
 
@@ -752,7 +752,7 @@ exports.getCampaignStats = async (req, res) => {
 exports.trackEmailOpen = async (req, res) => {
   try {
     const { trackingId } = req.params;
-    
+
     // Find campaign and recipient by tracking ID
     const campaign = await Campaign.findOne({
       'recipients.trackingId': trackingId
@@ -775,12 +775,12 @@ exports.trackEmailOpen = async (req, res) => {
     const recipient = campaign.recipients.find(r => r.trackingId === trackingId);
     if (recipient && recipient.status !== 'opened') {
       await Campaign.updateOne(
-        { 
+        {
           _id: campaign._id,
           'recipients.trackingId': trackingId
         },
-        { 
-          $set: { 
+        {
+          $set: {
             'recipients.$.status': 'opened',
             'recipients.$.openedAt': new Date()
           },
@@ -808,7 +808,7 @@ exports.trackEmailClick = async (req, res) => {
   try {
     const { trackingId } = req.params;
     const { url } = req.query;
-    
+
     // Find campaign and recipient by tracking ID
     const campaign = await Campaign.findOne({
       'recipients.trackingId': trackingId
@@ -823,12 +823,12 @@ exports.trackEmailClick = async (req, res) => {
     const recipient = campaign.recipients.find(r => r.trackingId === trackingId);
     if (recipient && recipient.status !== 'clicked') {
       await Campaign.updateOne(
-        { 
+        {
           _id: campaign._id,
           'recipients.trackingId': trackingId
         },
-        { 
-          $set: { 
+        {
+          $set: {
             'recipients.$.status': 'clicked',
             'recipients.$.clickedAt': new Date()
           },
@@ -849,7 +849,7 @@ exports.trackEmailClick = async (req, res) => {
 exports.trackPurchase = async (campaignId, buyerId, orderAmount) => {
   try {
     console.log(`Tracking purchase: Campaign ${campaignId}, Buyer ${buyerId}, Amount ${orderAmount}`);
-    
+
     // Find campaign with this buyer as a recipient
     const campaign = await Campaign.findOne({
       _id: campaignId,
@@ -865,7 +865,7 @@ exports.trackPurchase = async (campaignId, buyerId, orderAmount) => {
     const campaignDate = new Date(campaign.createdAt);
     const now = new Date();
     const daysSinceCampaign = Math.floor((now - campaignDate) / (1000 * 60 * 60 * 24));
-    
+
     if (daysSinceCampaign > 7) {
       console.log('Purchase outside of 7-day attribution window');
       return false;
@@ -874,22 +874,22 @@ exports.trackPurchase = async (campaignId, buyerId, orderAmount) => {
     // Update campaign stats
     await Campaign.updateOne(
       { _id: campaignId },
-      { 
-        $inc: { 
+      {
+        $inc: {
           'stats.sales': orderAmount,
-          'stats.conversions': 1 
+          'stats.conversions': 1
         }
       }
     );
 
     // Update recipient status
     await Campaign.updateOne(
-      { 
+      {
         _id: campaignId,
         'recipients.buyer': buyerId
       },
-      { 
-        $set: { 
+      {
+        $set: {
           'recipients.$.status': 'converted',
           'recipients.$.convertedAt': now,
           'recipients.$.orderAmount': orderAmount
@@ -910,23 +910,23 @@ exports.getCampaignPerformance = async (req, res) => {
   try {
     const sellerId = req.user.id;
     const { period = '30' } = req.query; // Default to 30 days
-    
+
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - parseInt(period));
-    
+
     // Get campaign data for period
     const campaigns = await Campaign.find({
       seller: sellerId,
       createdAt: { $gte: startDate }
     });
-    
+
     // Calculate aggregate performance metrics
     const totalSent = campaigns.reduce((sum, c) => sum + c.stats.totalRecipients, 0);
     const totalOpened = campaigns.reduce((sum, c) => sum + c.stats.opened, 0);
     const totalClicked = campaigns.reduce((sum, c) => sum + c.stats.clicked, 0);
     const totalSales = campaigns.reduce((sum, c) => sum + c.stats.sales, 0);
     const totalConversions = campaigns.reduce((sum, c) => sum + (c.stats.conversions || 0), 0);
-    
+
     // Calculate rates
     const openRate = totalSent > 0 ? (totalOpened / totalSent * 100).toFixed(1) : 0;
     const clickRate = totalSent > 0 ? (totalClicked / totalSent * 100).toFixed(1) : 0;
@@ -940,8 +940,8 @@ exports.getCampaignPerformance = async (req, res) => {
         id: c._id,
         title: c.title,
         revenue: c.stats.sales || 0,
-        conversionRate: c.stats.totalRecipients > 0 
-          ? ((c.stats.conversions || 0) / c.stats.totalRecipients * 100).toFixed(1) + '%' 
+        conversionRate: c.stats.totalRecipients > 0
+          ? ((c.stats.conversions || 0) / c.stats.totalRecipients * 100).toFixed(1) + '%'
           : '0%',
         date: new Date(c.createdAt).toLocaleDateString()
       }));

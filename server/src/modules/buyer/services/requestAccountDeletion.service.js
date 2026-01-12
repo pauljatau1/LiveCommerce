@@ -14,13 +14,9 @@
 const buyerRepository = require('../repositories/buyer.repository');
 const requestAccountDeletionValidator = require('../validators/requestAccountDeletion.validator');
 const { generateOTP } = require('../../../utils/helpers');
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('../../../services/termiiEmailService');
 const fs = require('fs');
 const path = require('path');
-
-// Configure SendGrid with API key from environment variables
-// This enables email sending functionality for account deletion notifications
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 /**
  * Generate a secure deletion OTP for account deletion functionality.
@@ -92,9 +88,13 @@ async function sendDeletionEmail(email, deletionOTP) {
   // Get the email content with processed HTML template
   const emailContent = await getEmailContent(email, deletionOTP);
 
-  // Send the email using SendGrid
+  // Send the email using Termii email service
   // If sending fails, the error will propagate to the calling function
-  await sgMail.send(emailContent);
+  await termiiEmailService.sendRawHTMLEmail({
+    email: emailContent.to,
+    subject: emailContent.subject,
+    html: emailContent.html
+  });
   return true;
 }
 
