@@ -32,7 +32,7 @@ describe('requestAccountDeletion.service', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     await Buyer.deleteMany({});
-    
+
     // Create a test buyer without account deletion request
     testBuyer = new Buyer({
       firstName: 'John',
@@ -155,7 +155,7 @@ describe('requestAccountDeletion.service', () => {
       // Assert
       const updatedBuyer = await Buyer.findById(buyerId);
       const afterRequest = new Date();
-      
+
       expect(updatedBuyer.accountDeletion.expiresAt).toBeInstanceOf(Date);
       expect(updatedBuyer.accountDeletion.expiresAt.getTime()).toBeGreaterThan(beforeRequest.getTime());
       expect(updatedBuyer.accountDeletion.expiresAt.getTime()).toBeLessThanOrEqual(afterRequest.getTime() + 10 * 60 * 1000);
@@ -183,13 +183,13 @@ describe('requestAccountDeletion.service', () => {
       // Assert
       expect(sgMail.send).toHaveBeenCalledTimes(1);
       const emailCall = sgMail.send.mock.calls[0][0];
-      
+
       // Get the actual OTP that was generated and stored
       const updatedBuyer = await Buyer.findById(buyerId);
       const actualOTP = updatedBuyer.accountDeletion.otp;
-      
+
       expect(emailCall.html).toContain(actualOTP); // OTP should be replaced
-      expect(emailCall.html).toContain('2025'); // Year should be replaced
+      expect(emailCall.html).toContain(new Date().getFullYear().toString()); // Year should be replaced
     });
 
     it('should handle SendGrid API errors gracefully', async () => {
