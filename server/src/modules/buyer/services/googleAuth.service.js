@@ -141,10 +141,11 @@ async function generateUniqueUsername(name, email) {
  * 4. If not found at all, create new buyer account
  *
  * @param {Object} payload - Verified Google token payload
+ * @param {string} [expoPushToken] - Optional Expo push token for notifications
  * @returns {Promise<Object>} The buyer object (existing or newly created)
  * @throws {ValidationError} If account linking conflicts occur
  */
-async function findOrCreateBuyer(payload) {
+async function findOrCreateBuyer(payload, expoPushToken) {
     const { sub: googleId, email, name, picture, email_verified } = payload;
 
     try {
@@ -156,6 +157,10 @@ async function findOrCreateBuyer(payload) {
             if (picture) {
                 buyer.profileImage = buyer.profileImage || {};
                 buyer.profileImage.url = picture;
+            }
+            // Update expoPushToken if provided
+            if (expoPushToken) {
+                buyer.expoPushToken = expoPushToken;
             }
             await buyer.save();
             console.log(`Existing Google OAuth buyer logged in: ${email}`);
@@ -186,6 +191,12 @@ async function findOrCreateBuyer(payload) {
                     buyer.profileImage = buyer.profileImage || {};
                     buyer.profileImage.url = picture;
                 }
+
+                // Save expoPushToken if provided
+                if (expoPushToken) {
+                    buyer.expoPushToken = expoPushToken;
+                }
+
                 buyer.emailVerified = true;
                 await buyer.save();
 
@@ -214,7 +225,10 @@ async function findOrCreateBuyer(payload) {
             googleId,
             authProvider: 'google',
             emailVerified: true,
-            profileImage: picture ? { url: picture } : undefined
+            authProvider: 'google',
+            emailVerified: true,
+            profileImage: picture ? { url: picture } : undefined,
+            expoPushToken: expoPushToken // Save optional push token
         });
 
         const savedBuyer = await saveBuyer(newBuyer);
@@ -241,7 +255,8 @@ async function findOrCreateBuyer(payload) {
             if (error.keyPattern?.username) {
                 // Retry with a new username if there's a collision
                 console.log('Username collision detected, retrying...');
-                return await findOrCreateBuyer(payload);
+                // Pass expoPushToken recursively
+                return await findOrCreateBuyer(payload, expoPushToken);
             }
         }
 
@@ -279,7 +294,8 @@ async function authenticateWithGoogle(data) {
     const payload = await verifyGoogleToken(data.token);
 
     // Step 3: Find existing user or create new account
-    const buyer = await findOrCreateBuyer(payload);
+    // Pass expoPushToken from request data
+    const buyer = await findOrCreateBuyer(payload, data.expoPushToken);
 
     // Step 4: Generate JWT token for application session management
     const token = generateToken(buyer._id, 'Buyer', '2w');

@@ -59,13 +59,26 @@ function validateGoogleAuthData(data) {
                     field: 'token',
                     message: 'Google ID token cannot be empty'
                 });
-            } else if (data.token.length < 10) {
-                // Basic length validation (Google ID tokens are typically much longer)
                 errors.push({
                     field: 'token',
                     message: 'Google ID token appears to be invalid (too short)'
                 });
             }
+        }
+    }
+
+    // Validate optional expoPushToken
+    if (data.expoPushToken !== undefined) {
+        if (typeof data.expoPushToken !== 'string') {
+            errors.push({
+                field: 'expoPushToken',
+                message: 'Expo push token must be a string'
+            });
+        } else if (data.expoPushToken.trim() === '') {
+            errors.push({
+                field: 'expoPushToken',
+                message: 'Expo push token cannot be empty if provided'
+            });
         }
     }
 

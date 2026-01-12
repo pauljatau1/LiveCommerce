@@ -117,6 +117,10 @@ router.post('/auth/register', buyerController.register);
  *                 type: string
  *                 description: Google ID token from frontend Google Sign-In
  *                 example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *               expoPushToken:
+ *                 type: string
+ *                 description: Optional Expo push notification token
+ *                 example: "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"
  *     responses:
  *       200:
  *         description: Google authentication successful

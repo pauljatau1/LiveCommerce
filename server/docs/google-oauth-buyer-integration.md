@@ -73,7 +73,8 @@ Authenticates a buyer using Google OAuth ID token.
 #### Request Body
 ```json
 {
-  "token": "google_id_token_from_frontend"
+  "token": "google_id_token_from_frontend",
+  "expoPushToken": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"
 }
 ```
 
