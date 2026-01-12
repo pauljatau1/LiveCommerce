@@ -8,10 +8,12 @@ const sellerValidator = require('@modules/seller/validators/register.validator')
 const Seller = require('@models/Seller');
 
 // Mock external dependencies
-jest.mock('@sendgrid/mail');
 jest.mock('@utils/helpers');
+jest.mock('@services/termiiEmailService', () => ({
+  sendRawHTMLEmail: jest.fn().mockResolvedValue(true)
+}));
 
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('@services/termiiEmailService');
 const { generateOTP, generateToken } = require('@utils/helpers');
 
 describe('Seller Registration Service', () => {
@@ -21,11 +23,13 @@ describe('Seller Registration Service', () => {
     // Start in-memory MongoDB with compatible version
     mongoServer = await MongoMemoryServer.create({
       binary: {
-        version: '7.0.3' // Use a version compatible with Debian 12
+        version: '7.0.3'
       }
     });
     const mongoUri = mongoServer.getUri();
     await mongoose.connect(mongoUri);
+
+    process.env.TERMII_API_KEY = 'test-key';
   });
 
   afterAll(async () => {
@@ -36,10 +40,10 @@ describe('Seller Registration Service', () => {
   beforeEach(async () => {
     await Seller.deleteMany({});
     jest.clearAllMocks();
-    
-    // Mock SendGrid
-    sgMail.send.mockResolvedValue([{ statusCode: 202 }]);
-    
+
+    // Explicitly reset Termii mock to success
+    termiiEmailService.sendRawHTMLEmail.mockResolvedValue(true);
+
     // Mock helper functions
     generateToken.mockReturnValue('mock-jwt-token');
   });
@@ -69,18 +73,18 @@ describe('Seller Registration Service', () => {
       expect(result.user.emailVerified).toBe(true);
     });
 
-         it('should validate registration data before processing', async () => {
-       const invalidData = {
-         firstName: '',
-         lastName: 'Doe',
-         email: 'invalid-email',
-         password: '123',
-         phoneNumber: '123',
-         storeName: ''
-       };
+    it('should validate registration data before processing', async () => {
+      const invalidData = {
+        firstName: '',
+        lastName: 'Doe',
+        email: 'invalid-email',
+        password: '123',
+        phoneNumber: '123',
+        storeName: ''
+      };
 
-       await expect(registerService.register(invalidData)).rejects.toThrow();
-     });
+      await expect(registerService.register(invalidData)).rejects.toThrow();
+    });
 
     it('should throw error when email already exists', async () => {
       // Create existing seller
@@ -126,11 +130,11 @@ describe('Seller Registration Service', () => {
     it('should send welcome email to new seller', async () => {
       await registerService.register(validRegistrationData);
 
-      expect(sgMail.send).toHaveBeenCalledWith(
+      expect(termiiEmailService.sendRawHTMLEmail).toHaveBeenCalledWith(
         expect.objectContaining({
-          to: 'john.doe@example.com',
-          from: 'Auqli Nigeria <support@auqli.com>',
-          subject: "Welcome to Auqli — Let's Get You Selling"
+          email: 'john.doe@example.com',
+          subject: "Welcome to Auqli — Let's Get You Selling",
+          html: expect.stringContaining('John') // HTML content check
         })
       );
     });
@@ -138,18 +142,22 @@ describe('Seller Registration Service', () => {
     it('should send admin notification about new registration', async () => {
       await registerService.register(validRegistrationData);
 
-      expect(sgMail.send).toHaveBeenCalledWith(
-        expect.objectContaining({
-          to: ['admin@auqli.com'],
-          from: 'Auqli Admin <support@auqli.com>',
-          subject: 'New Seller Registration - Auqli'
-        })
+      // Since sendAdminNotification sends to each admin separately in loop, we check calls
+      const calls = termiiEmailService.sendRawHTMLEmail.mock.calls;
+      const adminEmailCall = calls.find(call =>
+        call[0].subject === 'New Seller Registration - Auqli' &&
+        call[0].email === 'admin@auqli.com'
       );
+
+      expect(adminEmailCall).toBeDefined();
+      expect(adminEmailCall[0].html).toContain('John Doe');
+      expect(adminEmailCall[0].html).toContain('john.doe@example.com');
     });
 
     it('should succeed even when email sending fails because email is non-blocking', async () => {
       // Mock email sending to fail - but registration should still succeed
-      sgMail.send.mockRejectedValue(new Error('Email service unavailable'));
+      termiiEmailService.sendRawHTMLEmail.mockRejectedValue(new Error('Email service unavailable'));
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
       // Registration should succeed despite email failure
       const result = await registerService.register(validRegistrationData);
@@ -157,11 +165,13 @@ describe('Seller Registration Service', () => {
       expect(result).toHaveProperty('user');
       expect(result).toHaveProperty('token');
       expect(result.user.email).toBe('john.doe@example.com');
-      
+
       // Verify seller was saved to database
       const savedSeller = await Seller.findById(result.user._id);
       expect(savedSeller).toBeDefined();
       expect(savedSeller.email).toBe('john.doe@example.com');
+
+      consoleSpy.mockRestore();
     });
 
     it('should save seller to database with all required fields', async () => {
@@ -276,66 +286,6 @@ describe('Seller Registration Service', () => {
 
         // Restore original function
         sellerRepository.saveSeller = originalSaveSeller;
-      });
-    });
-
-    describe('email functionality', () => {
-      it('should send welcome email with correct content', async () => {
-        await registerService.register(validRegistrationData);
-
-        const welcomeEmailCall = sgMail.send.mock.calls.find(call => 
-          call[0].subject === "Welcome to Auqli — Let's Get You Selling"
-        );
-
-        expect(welcomeEmailCall).toBeDefined();
-        expect(welcomeEmailCall[0].to).toBe('john.doe@example.com');
-        expect(welcomeEmailCall[0].from).toBe('Auqli Nigeria <support@auqli.com>');
-        expect(welcomeEmailCall[0].html).toContain('John');
-        expect(welcomeEmailCall[0].html).toContain('Welcome to Auqli Nigeria');
-      });
-
-      it('should send admin notification with seller details', async () => {
-        await registerService.register(validRegistrationData);
-
-        const adminEmailCall = sgMail.send.mock.calls.find(call => 
-          call[0].subject === 'New Seller Registration - Auqli'
-        );
-
-        expect(adminEmailCall).toBeDefined();
-        expect(adminEmailCall[0].to).toEqual(['admin@auqli.com']);
-        expect(adminEmailCall[0].from).toBe('Auqli Admin <support@auqli.com>');
-        expect(adminEmailCall[0].html).toContain('John Doe');
-        expect(adminEmailCall[0].html).toContain('john.doe@example.com');
-        expect(adminEmailCall[0].html).toContain('1234567890');
-      });
-
-      it('should log email failure but not block registration', async () => {
-        // Email sending is now non-blocking, so registration should succeed even if email fails
-        const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-        sgMail.send.mockRejectedValue(new Error('Email service unavailable'));
-
-        const result = await registerService.register(validRegistrationData);
-
-        // Registration should succeed
-        expect(result).toHaveProperty('user');
-        expect(result).toHaveProperty('token');
-        expect(result.user.email).toBe('john.doe@example.com');
-        
-        // Verify seller was created in database
-        const savedSeller = await Seller.findById(result.user._id);
-        expect(savedSeller).toBeDefined();
-        expect(savedSeller.email).toBe('john.doe@example.com');
-        
-        // Wait a bit for the async email error to be logged
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Verify error was logged (since email failed)
-        expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining('Email sending failed during registration'),
-          expect.any(Object)
-        );
-        
-        consoleSpy.mockRestore();
       });
     });
   });

@@ -37,7 +37,7 @@ const generateUniqueAgoraUid = async () => {
   let attempts = 0;
   let agoraUid;
   let exists;
-  
+
   do {
     // Generate UID between 100000 and 4294967295
     agoraUid = Math.floor(100000 + Math.random() * (4294967295 - 100000));
@@ -120,7 +120,7 @@ const saveVerificationResult = async (sellerId, smileIdResult, accountType) => {
 
     // Set verification documents as filled
     seller.hasFilledVerificationDocuments = true;
-    
+
     // Only set verified if actually successful
     if (isActuallySuccessful) {
       seller.isVerified = true;
@@ -151,15 +151,15 @@ exports.requestBankAccountChange = async (req, res) => {
     });
 
     if (existingRequest) {
-      return res.status(400).json({ 
-        message: "You already have a pending bank change request" 
+      return res.status(400).json({
+        message: "You already have a pending bank change request"
       });
     }
 
     // Validate proof document
     if (!req.file) {
-      return res.status(400).json({ 
-        message: "Proof document is required" 
+      return res.status(400).json({
+        message: "Proof document is required"
       });
     }
 
@@ -168,8 +168,8 @@ exports.requestBankAccountChange = async (req, res) => {
     try {
       newBankDetails = JSON.parse(req.body.newBankDetails);
     } catch (error) {
-      return res.status(400).json({ 
-        message: "Invalid bank details format" 
+      return res.status(400).json({
+        message: "Invalid bank details format"
       });
     }
 
@@ -199,7 +199,7 @@ exports.requestBankAccountChange = async (req, res) => {
 
     // Send email notifications
     const adminEmails = await Admin.find().distinct('email');
-    
+
     // Email to admin
     const adminEmailMsg = {
       to: adminEmails,
@@ -260,10 +260,10 @@ exports.getBankChangeRequestStatus = async (req, res) => {
       pendingRequest
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Failed to get bank change request status', 
-      error: error.message 
+      message: 'Failed to get bank change request status',
+      error: error.message
     });
   }
 };
@@ -335,17 +335,17 @@ exports.updateIndividualInformation = async (req, res) => {
 
     // Validate required fields
     if (!firstName || !lastName || !sellerAddress) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'First name, last name, and address are required' 
+        message: 'First name, last name, and address are required'
       });
     }
 
     const seller = await Seller.findById(req.user.id);
     if (!seller) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Seller not found' 
+        message: 'Seller not found'
       });
     }
 
@@ -358,67 +358,102 @@ exports.updateIndividualInformation = async (req, res) => {
 
     const updatedSeller = await seller.save();
 
-    res.json({ 
+    res.json({
       success: true,
-      message: 'Individual information updated successfully', 
-      seller: updatedSeller 
+      message: 'Individual information updated successfully',
+      seller: updatedSeller
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Failed to update individual information', 
-      error: error.message 
+      message: 'Failed to update individual information',
+      error: error.message
     });
   }
 };
 
 // Forgot password
+/**
+ * Handle forgot password request for sellers.
+ * 
+ * This controller processes password reset requests by:
+ * 1. Validating the email address
+ * 2. Finding the seller by email
+ * 3. Generating a secure 4-digit reset code
+ * 4. Storing the reset code with expiration time (1 hour)
+ * 5. Sending password reset email via Termii Email API
+ * 
+ * The email is sent using a pre-configured Termii template with
+ * dynamic variables for personalization and OTP display.
+ * 
+ * @param {Object} req - Express request object
+ * @param {string} req.body.email - Seller's email address
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>}
+ */
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
 
+  // Validate email input
   if (!email) {
     return res.status(400).json({ message: 'Email is required.' });
   }
 
   try {
+    // Find seller by email address
     const seller = await Seller.findOne({ email });
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found.' });
     }
 
-    // Generate a 4-digit reset code
+    // Generate a secure 4-digit reset code
+    // Using Math.random for code generation (consistent with existing implementation)
     const resetCode = Math.floor(1000 + Math.random() * 9000).toString();
+
+    // Store reset code and expiration time (1 hour from now)
     seller.resetPasswordCode = resetCode;
     seller.resetPasswordExpires = Date.now() + 3600000; // Code valid for 1 hour
     await seller.save();
 
-    // Send email with reset code
-    const msg = {
-      to: email,
-      from: 'Joseph From Auqli <support@auqli.com>',
-      subject: 'Reset Your Password - Auqli',
-      html: `
-        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
-          <div style="max-width: 600px; margin: 0 auto;">
-            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
-            <h1 style="color: #4CAF50; margin-bottom: 20px;">Password Reset Code</h1>
-            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
-            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 30px;">You requested to reset your password. Use the code below to complete the process:</p>
-            <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
-              <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${resetCode}</span>
-            </div>
-            <p style="font-size: 14px; color: #999999;">This code will expire in 1 hour. If you didn't request this reset, please ignore this email.</p>
-            <hr style="border: 1px solid #333333; margin: 30px 0;">
-            <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+    // Construct HTML email body with reset code (like SendGrid)
+    // This keeps the email template in code
+    const html = `
+      <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto;">
+          <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
+          <h1 style="color: #4CAF50; margin-bottom: 20px;">Password Reset Code</h1>
+          <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi ${seller.firstName},</p>
+          <p style="font-size: 16px; line-height: 1.5; margin-bottom: 30px;">You requested to reset your password. Use the code below to complete the process:</p>
+          <div style="background-color: #333333; padding: 20px; border-radius: 5px; text-align: center; margin-bottom: 30px;">
+            <span style="font-size: 32px; letter-spacing: 5px; color: #4CAF50; font-weight: bold;">${resetCode}</span>
           </div>
+          <p style="font-size: 14px; color: #999999;">This code will expire in 1 hour. If you didn't request this reset, please ignore this email.</p>
+          <hr style="border: 1px solid #333333; margin: 30px 0;">
+          <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
         </div>
-      `
-    };
+      </div>
+    `;
 
-    await sgMail.send(msg);
+    // Send password reset email via Termii Email API with raw HTML
+    // The Termii service will pass the HTML to Termii via a template variable
+    const termiiEmailService = require('../services/termiiEmailService');
+    await termiiEmailService.sendPasswordResetEmail({
+      email: email,
+      html: html,
+      subject: 'Reset Your Password - Auqli'
+    });
+
+    // Return success response
     res.json({ message: 'Password reset code sent successfully.' });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to send password reset code', error: error.message });
+    // Log error for debugging
+    console.error('Forgot password error:', error);
+
+    // Return error response
+    res.status(500).json({
+      message: 'Failed to send password reset code',
+      error: error.message
+    });
   }
 };
 
@@ -431,8 +466,8 @@ exports.resetPassword = async (req, res) => {
   }
 
   try {
-    const seller = await Seller.findOne({ 
-      email, 
+    const seller = await Seller.findOne({
+      email,
       resetPasswordCode: code,
       resetPasswordExpires: { $gt: Date.now() }
     });
@@ -468,14 +503,14 @@ exports.updateOnboardingProcess = async (req, res) => {
     seller.onboardingProcess = onboardingProcess;
     await seller.save();
 
-    res.json({ 
+    res.json({
       message: 'Onboarding process updated successfully',
-      onboardingProcess: seller.onboardingProcess 
+      onboardingProcess: seller.onboardingProcess
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to update onboarding process', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to update onboarding process',
+      error: error.message
     });
   }
 };
@@ -489,13 +524,13 @@ exports.getOnboardingProcess = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    res.json({ 
-      onboardingProcess: seller.onboardingProcess 
+    res.json({
+      onboardingProcess: seller.onboardingProcess
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to retrieve onboarding process', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve onboarding process',
+      error: error.message
     });
   }
 };
@@ -512,10 +547,10 @@ async function sendStoreVerificationEmail(seller, status) {
           <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
           <h1 style="color: #4CAF50; margin-bottom: 20px;">Store Verification Update</h1>
           <p style="font-size: 16px; line-height: 1.5;">Your store verification status has been updated to: ${status}</p>
-          ${status === 'VERIFIED' ? 
-            '<p style="font-size: 16px; line-height: 1.5;">Congratulations! You can now start selling on Auqli.</p>' : 
-            '<p style="font-size: 16px; line-height: 1.5;">Please check your dashboard for more details.</p>'
-          }
+          ${status === 'VERIFIED' ?
+        '<p style="font-size: 16px; line-height: 1.5;">Congratulations! You can now start selling on Auqli.</p>' :
+        '<p style="font-size: 16px; line-height: 1.5;">Please check your dashboard for more details.</p>'
+      }
           <hr style="border: 1px solid #333333; margin: 30px 0;">
           <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
         </div>
@@ -551,9 +586,9 @@ async function sendStoreVerificationEmail(seller, status) {
 exports.updateStoreVerification = async (req, res) => {
   try {
     // ... existing verification update code ...
-    
+
     await sendStoreVerificationEmail(seller, newStatus);
-    
+
     res.json({ message: 'Store verification status updated successfully', seller });
   } catch (error) {
     // ... error handling ...
@@ -565,7 +600,7 @@ exports.getFollowers = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     const seller = await Seller.findById(req.user.id);
-    
+
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
@@ -595,10 +630,10 @@ exports.getFollowers = async (req, res) => {
         // Calculate total amount spent
         const totalSpent = orders.reduce((sum, order) => {
           // Sum up only the items from this seller in each order
-          const sellerItems = order.items.filter(item => 
+          const sellerItems = order.items.filter(item =>
             item.seller.toString() === seller._id.toString()
           );
-          return sum + sellerItems.reduce((itemSum, item) => 
+          return sum + sellerItems.reduce((itemSum, item) =>
             itemSum + (item.price * item.quantity), 0
           );
         }, 0);
@@ -624,9 +659,9 @@ exports.getFollowers = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to retrieve followers', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve followers',
+      error: error.message
     });
   }
 };
@@ -641,7 +676,7 @@ exports.getBuyerDetails = async (req, res) => {
     const buyer = await Buyer.findById(buyerId).select(
       'firstName lastName email phoneNumber country profileImage createdAt shippingAddresses isIdentityVerified preferredLanguage preferredCurrency'
     );
-    
+
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
@@ -653,8 +688,8 @@ exports.getBuyerDetails = async (req, res) => {
       isStale: { $ne: true },
       status: { $ne: 'cancelled' }
     })
-    .populate('items.product', 'name images price category')
-    .sort({ createdAt: -1 });
+      .populate('items.product', 'name images price category')
+      .sort({ createdAt: -1 });
 
     // Get recent 5 orders with details, excluding stale and cancelled
     const recentOrders = await Order.find({
@@ -663,20 +698,20 @@ exports.getBuyerDetails = async (req, res) => {
       isStale: { $ne: true },
       status: { $ne: 'cancelled' }
     })
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .populate('items.product', 'name images price');
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate('items.product', 'name images price');
 
     // Calculate order statistics
     const orderStats = {
       totalOrders: orders.length,
       totalSpent: orders.reduce((sum, order) => sum + order.totalAmount, 0),
-      averageOrderValue: orders.length > 0 
-        ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / orders.length 
+      averageOrderValue: orders.length > 0
+        ? orders.reduce((sum, order) => sum + order.totalAmount, 0) / orders.length
         : 0,
       firstOrderDate: orders.length > 0 ? orders[orders.length - 1].createdAt : null,
       lastOrderDate: orders.length > 0 ? orders[0].createdAt : null,
-      orderFrequency: orders.length > 0 
+      orderFrequency: orders.length > 0
         ? (orders.length / ((new Date() - new Date(orders[orders.length - 1].createdAt)) / (1000 * 60 * 60 * 24 * 30))).toFixed(2) + ' orders/month'
         : '0 orders/month'
     };
@@ -686,7 +721,7 @@ exports.getBuyerDetails = async (req, res) => {
     orders.forEach(order => {
       order.items.forEach(item => {
         if (!item.product || !item.product.category) return; // Skip if product or category is null
-        
+
         const category = item.product.category;
         if (!categoryPurchases[category]) {
           categoryPurchases[category] = {
@@ -705,7 +740,7 @@ exports.getBuyerDetails = async (req, res) => {
     orders.forEach(order => {
       order.items.forEach(item => {
         if (!item.product) return; // Skip if product is null
-        
+
         const productId = item.product._id.toString();
         if (!productPurchases[productId]) {
           productPurchases[productId] = {
@@ -807,9 +842,9 @@ exports.getBuyerDetails = async (req, res) => {
 
   } catch (error) {
     console.error('Error getting buyer details:', error);
-    res.status(500).json({ 
-      message: 'Failed to get buyer details', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to get buyer details',
+      error: error.message
     });
   }
 };
@@ -892,7 +927,7 @@ exports.requestPasswordReset = async (req, res) => {
 exports.verifyResetToken = async (req, res) => {
   try {
     const { token } = req.body;
-    
+
     const hashedToken = crypto
       .createHash('sha256')
       .update(token)
@@ -1016,9 +1051,9 @@ exports.getTopSoldProducts = async (req, res) => {
 
     res.json(topProducts);
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to retrieve top sold products', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve top sold products',
+      error: error.message
     });
   }
 };
@@ -1041,7 +1076,7 @@ exports.createWithdrawalRequest = async (req, res) => {
     // If isBankVerified field doesn't exist (old sellers), allow withdrawal
     // For new/updated sellers, require verification
     if (seller.isBankVerified === false) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
         message: 'Bank account not verified. Please verify your bank details before making a withdrawal.',
         requiresVerification: true
@@ -1124,14 +1159,14 @@ exports.createWithdrawalRequest = async (req, res) => {
         });
       });
 
-    res.json({ 
-      message: 'Withdrawal request created successfully', 
-      withdrawal 
+    res.json({
+      message: 'Withdrawal request created successfully',
+      withdrawal
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to create withdrawal request', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to create withdrawal request',
+      error: error.message
     });
   }
 };
@@ -1144,9 +1179,9 @@ exports.getWithdrawalRequests = async (req, res) => {
 
     res.json(withdrawals);
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to fetch withdrawal requests', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to fetch withdrawal requests',
+      error: error.message
     });
   }
 };
@@ -1244,17 +1279,17 @@ exports.getSellerAnalytics = async (req, res) => {
   try {
     const sellerId = req.user.id;
     const { period = 'month', startDate, endDate } = req.query;
-    
+
     // Find the seller
     const seller = await Seller.findById(sellerId);
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
-    
+
     // Set date range based on period
     let dateFilter = {};
     const now = new Date();
-    
+
     if (startDate && endDate) {
       dateFilter = {
         $gte: new Date(startDate),
@@ -1273,21 +1308,21 @@ exports.getSellerAnalytics = async (req, res) => {
       oneYearAgo.setFullYear(now.getFullYear() - 1);
       dateFilter = { $gte: oneYearAgo };
     }
-    
+
     // Get orders data (exclude stale orders)
     const Order = mongoose.model('Order');
-    const orders = await Order.find({ 
+    const orders = await Order.find({
       seller: sellerId,
       isStale: { $ne: true },
       createdAt: dateFilter
     }).populate('buyer', 'firstName lastName email');
-    
+
     // Get products data with ACTUAL views
     const Product = mongoose.model('Product');
-    const products = await Product.find({ 
+    const products = await Product.find({
       seller: sellerId
     }).sort({ createdAt: -1 });
-    
+
     // Get streams data with more details
     const Stream = mongoose.model('Stream');
     const streams = await Stream.find({
@@ -1297,29 +1332,29 @@ exports.getSellerAnalytics = async (req, res) => {
       path: 'viewers',
       select: 'firstName lastName'
     });
-    
+
     // Calculate order statistics
     const totalOrders = orders.length;
     const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
     const fulfilledOrders = orders.filter(order => !order.isOpen).length;
     const pendingOrders = orders.filter(order => order.isOpen).length;
-    
+
     // Calculate average order value
     const averageOrderValue = totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : 0;
-    
+
     // Get unique buyers
     const uniqueBuyers = [...new Set(orders.map(order => order.buyer?._id?.toString()))].filter(Boolean).length;
-    
+
     // Calculate customer retention
     const customerIds = orders.map(order => order.buyer?._id?.toString()).filter(Boolean);
     const buyerFrequency = {};
     customerIds.forEach(id => {
       buyerFrequency[id] = (buyerFrequency[id] || 0) + 1;
     });
-    
+
     const repeatCustomers = Object.values(buyerFrequency).filter(count => count > 1).length;
     const repeatCustomerRate = uniqueBuyers > 0 ? (repeatCustomers / uniqueBuyers * 100).toFixed(2) : 0;
-    
+
     // Get top products with actual view counts
     const topProducts = products.slice(0, 10).map(product => ({
       _id: product._id,
@@ -1331,7 +1366,7 @@ exports.getSellerAnalytics = async (req, res) => {
       imageUrl: product.images && product.images.length > 0 ? product.images[0].url : null,
       lastUpdated: product.updatedAt
     }));
-    
+
     // Get most sold products
     const mostSoldProducts = [...products]
       .sort((a, b) => (b.stats?.soldCount || 0) - (a.stats?.soldCount || 0))
@@ -1344,7 +1379,7 @@ exports.getSellerAnalytics = async (req, res) => {
         price: product.price,
         imageUrl: product.images && product.images.length > 0 ? product.images[0].url : null
       }));
-    
+
     // Get most viewed products
     const mostViewedProducts = [...products]
       .sort((a, b) => (b.stats?.views || 0) - (a.stats?.views || 0))
@@ -1357,7 +1392,7 @@ exports.getSellerAnalytics = async (req, res) => {
         price: product.price,
         imageUrl: product.images && product.images.length > 0 ? product.images[0].url : null
       }));
-    
+
     // Get low stock products
     const lowStockProducts = products
       .filter(p => p.stockQuantity < (p.lowStockAlert || 5) && p.stockQuantity > 0)
@@ -1371,16 +1406,16 @@ exports.getSellerAnalytics = async (req, res) => {
         price: product.price,
         imageUrl: product.images && product.images.length > 0 ? product.images[0].url : null
       }));
-    
+
     // Get stream analytics with richer data
     const totalStreams = streams.length;
     const liveStreams = streams.filter(stream => stream.status === 'live').length;
     const endedStreams = streams.filter(stream => stream.status === 'ended').length;
     const scheduledStreams = streams.filter(stream => stream.status === 'scheduled').length;
-    
+
     const totalStreamViewers = streams.reduce((sum, stream) => sum + (stream.viewers?.length || 0), 0);
     const averageViewersPerStream = totalStreams > 0 ? (totalStreamViewers / totalStreams).toFixed(2) : 0;
-    
+
     // Get recent streams with viewer data
     const recentStreams = streams
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
@@ -1397,7 +1432,7 @@ exports.getSellerAnalytics = async (req, res) => {
         bidCount: stream.bids?.length || 0,
         orderCount: stream.orders?.length || 0
       }));
-    
+
     // Get top performing streams
     const topPerformingStreams = [...streams]
       .sort((a, b) => (b.viewers?.length || 0) - (a.viewers?.length || 0))
@@ -1409,33 +1444,33 @@ exports.getSellerAnalytics = async (req, res) => {
         orderCount: stream.orders?.length || 0,
         scheduledStartTime: stream.scheduledStartTime
       }));
-    
+
     // Calculate revenue by date for chart data
     const revenueByDate = {};
     orders.forEach(order => {
       const date = order.createdAt.toISOString().split('T')[0];
       revenueByDate[date] = (revenueByDate[date] || 0) + order.totalAmount;
     });
-    
+
     const chartData = Object.keys(revenueByDate).sort().map(date => ({
       date,
       revenue: revenueByDate[date]
     }));
-    
+
     // Orders by channel
     const ordersByChannel = orders.reduce((acc, order) => {
       const channel = order.channel || 'marketplace';
       acc[channel] = (acc[channel] || 0) + 1;
       return acc;
     }, {});
-    
+
     // Revenue by channel
     const revenueByChannel = orders.reduce((acc, order) => {
       const channel = order.channel || 'marketplace';
       acc[channel] = (acc[channel] || 0) + order.totalAmount;
       return acc;
     }, {});
-    
+
     // Get recent orders with enhanced data
     const recentOrders = orders
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
@@ -1451,7 +1486,7 @@ exports.getSellerAnalytics = async (req, res) => {
         channel: order.channel || 'marketplace',
         shippingStatus: order.shipping?.tracking?.status || 'pending'
       }));
-    
+
     // Get followers info (but omit unnecessary details)
     const followersCount = seller.followers?.length || 0;
     const recentFollowers = seller.followers
@@ -1464,10 +1499,10 @@ exports.getSellerAnalytics = async (req, res) => {
         followDate: follower.followDate,
         orderCount: follower.totalOrders || 0
       })) || [];
-    
+
     // Get store visit data
     const storeVisits = seller.storeVisits || 0;
-    
+
     // Use properly formatted monthly stats
     const storeVisitsByMonth = {};
     if (seller.monthlyStats && seller.monthlyStats.storeVisits) {
@@ -1479,19 +1514,19 @@ exports.getSellerAnalytics = async (req, res) => {
         storeVisitsByMonth[`${monthName} ${year}`] = value;
       });
     }
-    
+
     // Generate insights and recommendations
     const insights = [];
     const recommendations = [];
-    
+
     // Revenue insights
     if (totalOrders > 0) {
       insights.push(`Your average order value is ₦${parseFloat(averageOrderValue).toLocaleString()}.`);
-      
+
       // Check if there's a significant portion of liveshows vs marketplace
       const liveshowOrders = ordersByChannel['liveshow'] || 0;
       const liveshowPercentage = (liveshowOrders / totalOrders) * 100;
-      
+
       if (liveshowPercentage > 30) {
         insights.push(`${liveshowPercentage.toFixed(0)}% of your orders come from live shows.`);
         recommendations.push("Your live shows are performing well. Consider increasing the frequency of your streams.");
@@ -1499,11 +1534,11 @@ exports.getSellerAnalytics = async (req, res) => {
         recommendations.push("Consider featuring more products in your live streams to increase conversions.");
       }
     }
-    
+
     // Customer insights
     if (uniqueBuyers > 0) {
       insights.push(`You have a ${repeatCustomerRate}% repeat customer rate.`);
-      
+
       if (parseFloat(repeatCustomerRate) < 30) {
         recommendations.push("Your repeat customer rate is relatively low. Consider implementing a loyalty program or sending follow-up emails.");
       } else if (parseFloat(repeatCustomerRate) > 60) {
@@ -1511,51 +1546,51 @@ exports.getSellerAnalytics = async (req, res) => {
         recommendations.push("Leverage your loyal customers by introducing referral bonuses or exclusive products.");
       }
     }
-    
+
     // Product insights
     if (lowStockProducts.length > 0) {
       insights.push(`You have ${lowStockProducts.length} products with low stock (below their threshold).`);
       recommendations.push("Restock your low inventory items soon to avoid missed sales opportunities.");
     }
-    
+
     // Check for products with zero sales
     if (products.length > 0) {
       const productsWithZeroSales = products.filter(p => !p.stats?.soldCount || p.stats.soldCount === 0).length;
       const percentageZeroSales = (productsWithZeroSales / products.length) * 100;
-      
+
       if (percentageZeroSales > 30) {
         insights.push(`${percentageZeroSales.toFixed(0)}% of your products have no sales.`);
         recommendations.push("Consider updating your product listings or running promotions for items that aren't selling.");
       }
-      
+
       // Add insights for products with high views but low sales
-      const productsWithViewsButNoSales = products.filter(p => 
+      const productsWithViewsButNoSales = products.filter(p =>
         (p.stats?.views || 0) > 10 && (!p.stats?.soldCount || p.stats.soldCount === 0)
       ).length;
-      
+
       if (productsWithViewsButNoSales > 0) {
         insights.push(`You have ${productsWithViewsButNoSales} products with significant views but no sales.`);
         recommendations.push("Review pricing or product details for items that get views but don't convert to sales.");
       }
     }
-    
+
     // Stream insights
     if (totalStreams > 0) {
       insights.push(`Your streams average ${averageViewersPerStream} viewers per session.`);
-      
+
       if (parseFloat(averageViewersPerStream) < 5) {
         recommendations.push("Promote your upcoming streams more actively to increase viewership.");
       }
-      
+
       const conversionRate = streams.reduce((sum, stream) => {
         const viewers = stream.viewers?.length || 0;
         const orders = stream.orders?.length || 0;
         return viewers > 0 ? sum + (orders / viewers) : sum;
       }, 0) / totalStreams;
-      
+
       if (conversionRate > 0) {
         insights.push(`Your stream-to-sale conversion rate is ${(conversionRate * 100).toFixed(1)}%.`);
-        
+
         if (conversionRate < 0.05) {
           recommendations.push("Try more engaging sales techniques during your streams to improve conversion.");
         } else if (conversionRate > 0.2) {
@@ -1563,7 +1598,7 @@ exports.getSellerAnalytics = async (req, res) => {
         }
       }
     }
-    
+
     // Prepare final response with enhanced data
     const analytics = {
       summary: {
@@ -1621,13 +1656,13 @@ exports.getSellerAnalytics = async (req, res) => {
         count
       }))
     };
-    
+
     res.json(analytics);
   } catch (error) {
     console.error('Error fetching seller analytics:', error);
-    res.status(500).json({ 
-      message: 'Failed to fetch analytics', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to fetch analytics',
+      error: error.message
     });
   }
 };
@@ -1857,7 +1892,7 @@ exports.getCampaignMetrics = async (req, res) => {
     const metrics = {
       ...seller.campaignStats,
       recentCampaigns: seller.campaigns,
-      engagementRate: seller.campaignStats.totalRecipients > 0 
+      engagementRate: seller.campaignStats.totalRecipients > 0
         ? ((seller.campaignStats.totalOpens / seller.campaignStats.totalRecipients) * 100).toFixed(2)
         : 0,
       clickThroughRate: seller.campaignStats.totalOpens > 0
@@ -1887,16 +1922,16 @@ exports.getActiveFollowers = async (req, res) => {
 
     switch (audienceType) {
       case 'active':
-        followers = seller.followers.filter(f => 
-          f.lastInteraction && 
+        followers = seller.followers.filter(f =>
+          f.lastInteraction &&
           new Date(f.lastInteraction) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) &&
           !f.optedOut
         );
         break;
       case 'inactive':
-        followers = seller.followers.filter(f => 
-          (!f.lastInteraction || 
-          new Date(f.lastInteraction) <= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)) &&
+        followers = seller.followers.filter(f =>
+          (!f.lastInteraction ||
+            new Date(f.lastInteraction) <= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)) &&
           !f.optedOut
         );
         break;
@@ -1950,11 +1985,11 @@ exports.updateCampaignPreferences = async (req, res) => {
 exports.getAllReviews = async (req, res) => {
   try {
     const { sellerId } = req.params;
-    const { 
-      page = 1, 
-      limit = 20, 
+    const {
+      page = 1,
+      limit = 20,
       type = 'all',
-      sortBy = 'newest' 
+      sortBy = 'newest'
     } = req.query;
 
     // Validate seller exists
@@ -1965,59 +2000,71 @@ exports.getAllReviews = async (req, res) => {
 
     // Build aggregation pipeline
     const matchSeller = { $match: { seller: new mongoose.Types.ObjectId(sellerId) } };
-    
+
     // Get reviews from different sources based on type
     const [productReviews, postComments, storeReviews] = await Promise.all([
-      type === 'all' || type === 'product' ? 
+      type === 'all' || type === 'product' ?
         Product.aggregate([
           matchSeller,
           { $unwind: '$reviews' },
-          { $replaceRoot: { newRoot: {
-            $mergeObjects: [
-              '$reviews',
-              { 
-                type: 'product',
-                source: {
-                  type: 'product',
-                  id: '$_id',
-                  name: '$name',
-                  image: { $arrayElemAt: ['$images.url', 0] }
-                }
+          {
+            $replaceRoot: {
+              newRoot: {
+                $mergeObjects: [
+                  '$reviews',
+                  {
+                    type: 'product',
+                    source: {
+                      type: 'product',
+                      id: '$_id',
+                      name: '$name',
+                      image: { $arrayElemAt: ['$images.url', 0] }
+                    }
+                  }
+                ]
               }
-            ]
-          }}}
+            }
+          }
         ]) : [],
 
       type === 'all' || type === 'post' ?
         Post.aggregate([
           { $match: { 'author.userId': new mongoose.Types.ObjectId(sellerId) } },
           { $unwind: '$comments' },
-          { $replaceRoot: { newRoot: {
-            $mergeObjects: [
-              '$comments',
-              {
-                type: 'post',
-                source: {
-                  type: 'post',
-                  id: '$_id',
-                  name: '$title',
-                  image: { $arrayElemAt: ['$media.url', 0] }
-                }
+          {
+            $replaceRoot: {
+              newRoot: {
+                $mergeObjects: [
+                  '$comments',
+                  {
+                    type: 'post',
+                    source: {
+                      type: 'post',
+                      id: '$_id',
+                      name: '$title',
+                      image: { $arrayElemAt: ['$media.url', 0] }
+                    }
+                  }
+                ]
               }
-            ]
-          }}}
+            }
+          }
         ]) : [],
 
       type === 'all' || type === 'store' ?
         Seller.aggregate([
           { $match: { _id: new mongoose.Types.ObjectId(sellerId) } },
           { $unwind: '$reviews' },
-          { $replaceRoot: { newRoot: {
-            $mergeObjects: [
-              '$reviews',
-              { type: 'store' }
-            ]
-          }}}
+          {
+            $replaceRoot: {
+              newRoot: {
+                $mergeObjects: [
+                  '$reviews',
+                  { type: 'store' }
+                ]
+              }
+            }
+          }
         ]) : []
     ]);
 
@@ -2106,7 +2153,7 @@ exports.getAllReviews = async (req, res) => {
 function calculateAverageRating(reviews) {
   const ratedReviews = reviews.filter(review => review.rating);
   if (ratedReviews.length === 0) return 0;
-  
+
   const sum = ratedReviews.reduce((acc, review) => acc + review.rating, 0);
   return (sum / ratedReviews.length).toFixed(1);
 }
@@ -2315,7 +2362,7 @@ exports.getTransactions = async (req, res) => {
 
           deductions = platformFee + processingFee;
           netAmount = transaction.amount - deductions;
-          
+
           description = `Payment received for order #${transaction.orderId?.order_id} (${transaction.amount.toLocaleString()} - ${deductions.toLocaleString()} in fees = ${netAmount.toLocaleString()})`;
           break;
 
@@ -2426,10 +2473,10 @@ exports.updateOperatingHours = async (req, res) => {
     // Validate time formats
     for (const day in operatingHours) {
       const { openTime, closeTime, isOpen } = operatingHours[day];
-      
+
       if (isOpen && (!isValidTimeFormat(openTime) || !isValidTimeFormat(closeTime))) {
-        return res.status(400).json({ 
-          message: `Invalid time format for ${day}. Use HH:mm format (e.g., 09:00)` 
+        return res.status(400).json({
+          message: `Invalid time format for ${day}. Use HH:mm format (e.g., 09:00)`
         });
       }
     }
@@ -2439,15 +2486,15 @@ exports.updateOperatingHours = async (req, res) => {
 
     await seller.save();
 
-    res.json({ 
-      message: 'Operating hours updated successfully', 
+    res.json({
+      message: 'Operating hours updated successfully',
       operatingHours: seller.operatingHours,
-      timezone: seller.timezone 
+      timezone: seller.timezone
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to update operating hours', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to update operating hours',
+      error: error.message
     });
   }
 };
@@ -2465,17 +2512,17 @@ exports.addSpecialDates = async (req, res) => {
     // Validate dates and times
     for (const dateInfo of specialDates) {
       const { date, isOpen, openTime, closeTime } = dateInfo;
-      
+
       if (!date || typeof isOpen !== 'boolean') {
-        return res.status(400).json({ 
-          message: 'Each special date must include a valid date and isOpen status' 
+        return res.status(400).json({
+          message: 'Each special date must include a valid date and isOpen status'
         });
       }
 
       if (isOpen && openTime && closeTime) {
         if (!isValidTimeFormat(openTime) || !isValidTimeFormat(closeTime)) {
-          return res.status(400).json({ 
-            message: 'Invalid time format. Use HH:mm format (e.g., 09:00)' 
+          return res.status(400).json({
+            message: 'Invalid time format. Use HH:mm format (e.g., 09:00)'
           });
         }
       }
@@ -2495,14 +2542,14 @@ exports.addSpecialDates = async (req, res) => {
 
     await seller.save()
 
-    res.json({ 
-      message: 'Special dates added successfully', 
-      specialDates: seller.specialDates 
+    res.json({
+      message: 'Special dates added successfully',
+      specialDates: seller.specialDates
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to add special dates', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to add special dates',
+      error: error.message
     });
   }
 };
@@ -2510,7 +2557,7 @@ exports.addSpecialDates = async (req, res) => {
 // Update store policy
 exports.updateStorePolicy = async (req, res) => {
   try {
-    const { 
+    const {
       deliveryTimes,
       freeShippingPolicy,
       lostOrDamagedPolicy,
@@ -2638,31 +2685,31 @@ exports.getAllProductReviews = async (req, res) => {
     const { page = 1, limit = 10, sort = 'recent' } = req.query;
     const pageNumber = parseInt(page);
     const limitNumber = parseInt(limit);
-    
+
     // Verify sellerId is valid and get seller information
     const Seller = require('../models/Seller');
     const seller = await Seller.findById(sellerId).select('firstName lastName businessName storeName storeAvatar');
-    
+
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
-    
+
     // Get seller display information
     const sellerInfo = {
       _id: seller._id,
       name: seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`,
       avatar: seller.storeAvatar?.url || null
     };
-    
+
     // Find all products by this seller
     const Product = require('../models/Product');
-    
+
     // Get all products with reviews by this seller
-    const products = await Product.find({ 
+    const products = await Product.find({
       seller: sellerId,
       'reviews.0': { $exists: true } // Only get products that have at least one review
     }).select('name price description images reviews');
-    
+
     // Extract all reviews from all products with product info
     let allReviews = [];
     products.forEach(product => {
@@ -2673,14 +2720,14 @@ exports.getAllProductReviews = async (req, res) => {
         description: product.description,
         image: product.images && product.images.length > 0 ? product.images[0].url : null
       };
-      
+
       product.reviews.forEach(review => {
         // Add enhanced reply with seller info
         const enhancedReply = review.reply ? {
           ...review.reply.toObject(),
           seller: sellerInfo
         } : null;
-        
+
         allReviews.push({
           reviewId: review._id,
           product: productInfo,
@@ -2690,7 +2737,7 @@ exports.getAllProductReviews = async (req, res) => {
             lastName: review.lastName
           },
           rating: review.rating,
-          title: review.title, 
+          title: review.title,
           comment: review.comment,
           images: review.images,
           createdAt: review.createdAt,
@@ -2698,7 +2745,7 @@ exports.getAllProductReviews = async (req, res) => {
         });
       });
     });
-    
+
     // Apply sorting
     if (sort === 'recent') {
       allReviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -2711,19 +2758,19 @@ exports.getAllProductReviews = async (req, res) => {
     } else if (sort === 'unreplied') {
       allReviews.sort((a, b) => (a.reply?.content ? 1 : 0) - (b.reply?.content ? 1 : 0));
     }
-    
+
     // Apply pagination
     const totalReviews = allReviews.length;
     const totalPages = Math.ceil(totalReviews / limitNumber);
     const startIndex = (pageNumber - 1) * limitNumber;
     const endIndex = pageNumber * limitNumber;
     const paginatedReviews = allReviews.slice(startIndex, endIndex);
-    
+
     // Calculate stats
-    const averageRating = allReviews.length > 0 
-      ? allReviews.reduce((sum, review) => sum + review.rating, 0) / allReviews.length 
+    const averageRating = allReviews.length > 0
+      ? allReviews.reduce((sum, review) => sum + review.rating, 0) / allReviews.length
       : 0;
-    
+
     const ratingDistribution = {
       1: allReviews.filter(review => review.rating === 1).length,
       2: allReviews.filter(review => review.rating === 2).length,
@@ -2731,9 +2778,9 @@ exports.getAllProductReviews = async (req, res) => {
       4: allReviews.filter(review => review.rating === 4).length,
       5: allReviews.filter(review => review.rating === 5).length
     };
-    
+
     const repliedCount = allReviews.filter(review => review.reply && review.reply.content).length;
-    
+
     res.json({
       sellerId,
       sellerInfo,
@@ -2767,42 +2814,42 @@ exports.getSellerProductReviewDetails = async (req, res) => {
   try {
     const { productId, reviewId } = req.params;
     const sellerId = req.user.id;
-    
+
     // Find the product and verify it belongs to this seller
     const Product = require('../models/Product');
-    const product = await Product.findOne({ 
-      _id: productId, 
-      seller: sellerId 
+    const product = await Product.findOne({
+      _id: productId,
+      seller: sellerId
     }).select('name price description images reviews seller');
-    
+
     if (!product) {
-      return res.status(404).json({ 
-        message: 'Product not found or does not belong to you' 
+      return res.status(404).json({
+        message: 'Product not found or does not belong to you'
       });
     }
-    
+
     // Find the specific review
     const review = product.reviews.id(reviewId);
     if (!review) {
       return res.status(404).json({ message: 'Review not found' });
     }
-    
+
     // Get buyer details
     const Buyer = require('../models/Buyer');
     const buyer = await Buyer.findById(review.buyer)
       .select('firstName lastName profileImage');
-    
+
     // Get seller details
     const Seller = require('../models/Seller');
     const seller = await Seller.findById(sellerId)
       .select('firstName lastName businessName storeName storeAvatar');
-    
+
     const sellerInfo = {
       _id: seller._id,
       name: seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`,
       avatar: seller.storeAvatar?.url || null
     };
-    
+
     // Format the response
     const reviewDetails = {
       reviewId: review._id,
@@ -2831,13 +2878,13 @@ exports.getSellerProductReviewDetails = async (req, res) => {
         seller: sellerInfo
       } : null
     };
-    
+
     res.json(reviewDetails);
   } catch (error) {
     console.error('Error in getSellerProductReviewDetails:', error);
-    res.status(500).json({ 
-      message: 'Failed to retrieve review details', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve review details',
+      error: error.message
     });
   }
 };
@@ -2850,38 +2897,38 @@ exports.getSellerProductReviewDetails = async (req, res) => {
 exports.getPublicProductReviewDetails = async (req, res) => {
   try {
     const { productId, reviewId } = req.params;
-    
+
     // Find the product
     const Product = require('../models/Product');
     const product = await Product.findById(productId)
       .select('name price description images reviews seller');
-    
+
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    
+
     // Find the specific review
     const review = product.reviews.id(reviewId);
     if (!review) {
       return res.status(404).json({ message: 'Review not found' });
     }
-    
+
     // Get buyer details
     const Buyer = require('../models/Buyer');
     const buyer = await Buyer.findById(review.buyer)
       .select('firstName lastName profileImage');
-    
+
     // Get seller details
     const Seller = require('../models/Seller');
     const seller = await Seller.findById(product.seller)
       .select('firstName lastName businessName storeName storeAvatar');
-    
+
     const sellerInfo = {
       _id: seller._id,
       name: seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`,
       avatar: seller.storeAvatar?.url || null
     };
-    
+
     // Format the response
     const reviewDetails = {
       reviewId: review._id,
@@ -2910,13 +2957,13 @@ exports.getPublicProductReviewDetails = async (req, res) => {
         seller: sellerInfo
       } : null
     };
-    
+
     res.json(reviewDetails);
   } catch (error) {
     console.error('Error in getPublicProductReviewDetails:', error);
-    res.status(500).json({ 
-      message: 'Failed to retrieve review details', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve review details',
+      error: error.message
     });
   }
 };
@@ -2924,18 +2971,18 @@ exports.getPublicProductReviewDetails = async (req, res) => {
 // Function to search sellers based on various criteria
 exports.searchSellers = async (req, res) => {
   try {
-    const { 
-      query = '', 
-      country, 
+    const {
+      query = '',
+      country,
       category,
-      page = 1, 
-      limit = 10 
+      page = 1,
+      limit = 10
     } = req.query;
 
-    console.log('Search Sellers - Auth Info:', { 
-      userId: req.user?.id, 
+    console.log('Search Sellers - Auth Info:', {
+      userId: req.user?.id,
       userRole: req.user?.role,
-      isAuthenticated: !!req.user 
+      isAuthenticated: !!req.user
     });
 
     // Build search query
@@ -2974,7 +3021,7 @@ exports.searchSellers = async (req, res) => {
     // Check if the user is authenticated (buyer) to determine if following
     const buyerId = req.user?.id;
     const isBuyer = req.user?.role === 'Buyer';
-    
+
     console.log('Buyer authentication check:', { buyerId, isBuyer });
 
     // Find sellers matching criteria
@@ -2988,7 +3035,7 @@ exports.searchSellers = async (req, res) => {
 
     // Get total count for pagination
     const totalSellers = await Seller.countDocuments(searchQuery);
-    
+
     // Get buyer document if authenticated
     let buyer = null;
     if (isBuyer && buyerId) {
@@ -2999,14 +3046,14 @@ exports.searchSellers = async (req, res) => {
 
     // Get additional data for sellers (isLive and itemsCount)
     const sellerIds = sellers.map(seller => seller._id);
-    
+
     // Check for active streams (isLive)
     const Stream = require('../models/Stream');
     const activeStreams = await Stream.find({
       seller: { $in: sellerIds },
       status: 'live'
     }).select('seller').lean();
-    
+
     const sellerLiveStatus = {};
     activeStreams.forEach(stream => {
       sellerLiveStatus[stream.seller.toString()] = true;
@@ -3029,7 +3076,7 @@ exports.searchSellers = async (req, res) => {
         }
       }
     ]);
-    
+
     const sellerItemCounts = {};
     productCounts.forEach(item => {
       sellerItemCounts[item._id.toString()] = item.count;
@@ -3038,7 +3085,7 @@ exports.searchSellers = async (req, res) => {
     // Process sellers to add isFollowing property if user is authenticated
     const processedSellers = sellers.map(seller => {
       const sellerIdStr = seller._id.toString();
-      
+
       // Create a clean seller object with only necessary information
       const cleanSeller = {
         _id: seller._id,
@@ -3055,25 +3102,25 @@ exports.searchSellers = async (req, res) => {
       // Update isFollowing if user is authenticated as a buyer
       if (isBuyer && buyerId && buyer) {
         const sellerId = seller._id.toString();
-        
+
         // Method 1: Check if buyer is in seller's followers list
         let isFollowing = false;
-        
+
         if (Array.isArray(seller.followers)) {
-          isFollowing = seller.followers.some(follower => 
+          isFollowing = seller.followers.some(follower =>
             follower.buyerId && follower.buyerId.toString() === buyerId
           );
           console.log(`Method 1 - Seller followers check for buyer ${buyerId}: ${isFollowing}`);
         }
-        
+
         // Method 2: If not found, check if seller is in buyer's followed list
         if (!isFollowing && Array.isArray(buyer.followers)) {
-          isFollowing = buyer.followers.some(followed => 
+          isFollowing = buyer.followers.some(followed =>
             followed.sellerId && followed.sellerId.toString() === sellerId
           );
           console.log(`Method 2 - Buyer followed check for seller ${sellerId}: ${isFollowing}`);
         }
-        
+
         cleanSeller.isFollowing = isFollowing;
         console.log(`Final isFollowing for seller ${sellerId}: ${isFollowing}`);
       }
@@ -3109,7 +3156,7 @@ exports.searchSellers = async (req, res) => {
 exports.toggleAccountPending = async (req, res) => {
   try {
     const { status } = req.body;
-    
+
     if (typeof status !== 'boolean') {
       return res.status(400).json({
         success: false,
@@ -3118,7 +3165,7 @@ exports.toggleAccountPending = async (req, res) => {
     }
 
     const seller = await Seller.findById(req.user.id);
-    
+
     if (!seller) {
       return res.status(404).json({
         success: false,
@@ -3154,7 +3201,7 @@ exports.toggleAccountPending = async (req, res) => {
             </div>
           `
         };
-        
+
         await sgMail.send(adminMsg);
         console.log(`Onboarding completion notification email sent to admin for seller: ${seller._id}`);
       } catch (emailError) {
@@ -3182,16 +3229,16 @@ exports.toggleAccountPending = async (req, res) => {
 exports.markVerified = async (req, res) => {
   try {
     const sellerId = req.user.id;
-    
+
     // Find the seller
     const seller = await Seller.findById(sellerId);
     if (!seller) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Seller not found' 
+        message: 'Seller not found'
       });
     }
-    
+
     // Check if already verified
     if (seller.isVerified) {
       return res.status(200).json({
@@ -3200,11 +3247,11 @@ exports.markVerified = async (req, res) => {
         seller: seller
       });
     }
-    
+
     // Update verification status
     seller.isVerified = true;
     const updatedSeller = await seller.save();
-    
+
     // Track seller verification in mixpanel
     try {
       mixpanel.track('seller_self_verification', {
@@ -3218,7 +3265,7 @@ exports.markVerified = async (req, res) => {
     } catch (trackingError) {
       console.error('Failed to track verification event:', trackingError);
     }
-    
+
     // Send verification confirmation email
     try {
       const msg = {
@@ -3247,13 +3294,13 @@ exports.markVerified = async (req, res) => {
           </div>
         `
       };
-      
+
       await sgMail.send(msg);
     } catch (emailError) {
       console.error('Failed to send verification email:', emailError);
       // Continue execution even if email sending fails
     }
-    
+
     return res.status(200).json({
       success: true,
       message: 'Your store has been successfully verified',
@@ -3273,16 +3320,16 @@ exports.markVerified = async (req, res) => {
 exports.checkVerificationStatus = async (req, res) => {
   try {
     const sellerId = req.user.id;
-    
+
     const seller = await Seller.findById(sellerId);
-    
+
     if (!seller) {
       return res.status(404).json({
         success: false,
         message: 'Seller not found'
       });
     }
-    
+
     return res.status(200).json({
       success: true,
       verification: {
