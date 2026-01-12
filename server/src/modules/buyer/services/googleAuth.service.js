@@ -161,6 +161,12 @@ async function findOrCreateBuyer(payload, expoPushToken) {
             // Update expoPushToken if provided
             if (expoPushToken) {
                 buyer.expoPushToken = expoPushToken;
+                try {
+                    const { saveToken } = require('../../../../Firebase');
+                    await saveToken(buyer._id, expoPushToken);
+                } catch (err) {
+                    console.error('Failed to save push token to Firebase:', err);
+                }
             }
             await buyer.save();
             console.log(`Existing Google OAuth buyer logged in: ${email}`);
@@ -195,6 +201,12 @@ async function findOrCreateBuyer(payload, expoPushToken) {
                 // Save expoPushToken if provided
                 if (expoPushToken) {
                     buyer.expoPushToken = expoPushToken;
+                    try {
+                        const { saveToken } = require('../../../../Firebase');
+                        await saveToken(buyer._id, expoPushToken);
+                    } catch (err) {
+                        console.error('Failed to save push token to Firebase:', err);
+                    }
                 }
 
                 buyer.emailVerified = true;
@@ -232,6 +244,17 @@ async function findOrCreateBuyer(payload, expoPushToken) {
         });
 
         const savedBuyer = await saveBuyer(newBuyer);
+
+        // Save expoPushToken to Firebase if provided
+        if (expoPushToken) {
+            try {
+                const { saveToken } = require('../../../../Firebase');
+                await saveToken(savedBuyer._id, expoPushToken);
+            } catch (err) {
+                console.error('Failed to save push token to Firebase:', err);
+            }
+        }
+
         console.log(`New Google OAuth buyer account created: ${email}`);
         return savedBuyer;
 
