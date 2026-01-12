@@ -1,12 +1,9 @@
-// We'll read the template file in beforeEach instead
-
 // Mock dependencies before importing the service
 jest.mock('@models/Buyer', () => ({
   findOne: jest.fn()
 }));
-jest.mock('@sendgrid/mail', () => ({
-  send: jest.fn(),
-  setApiKey: jest.fn()
+jest.mock('@services/termiiEmailService', () => ({
+  sendRawHTMLEmail: jest.fn().mockResolvedValue(true)
 }));
 jest.mock('fs', () => ({
   readFileSync: jest.fn()
@@ -19,7 +16,7 @@ jest.mock('@modules/buyer/validators/resendOTP.validator', () => ({
 }));
 
 const { resendOTP } = require('@modules/buyer/services/resendOTP.service');
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('@services/termiiEmailService');
 const ValidationError = require('@utils/errors/ValidationError');
 const NotFoundException = require('@utils/errors/NotFoundException');
 
@@ -33,9 +30,16 @@ describe('resendOTP.service', () => {
   let path;
   let mockTemplateContent;
 
+  beforeAll(() => {
+    process.env.TERMII_API_KEY = 'test-key';
+  });
+
   beforeEach(() => {
     // Reset all mocks
     jest.clearAllMocks();
+
+    // Explicitly check that mocked module is reset to success
+    termiiEmailService.sendRawHTMLEmail.mockResolvedValue(true);
 
     // Get the mocked modules
     Buyer = require('@models/Buyer');
@@ -55,32 +59,17 @@ describe('resendOTP.service', () => {
     Buyer.findOne.mockResolvedValue(mockBuyer);
 
     // Read the actual template file from disk
-    const templatePath = path.join(__dirname, '../../../../src/templates/resend-otp-email.html');
-    try {
-      mockTemplateContent = require('fs').readFileSync(templatePath, 'utf-8');
-    } catch (error) {
-      // Fallback to a basic template
-      mockTemplateContent = '<div>{{otp}}</div>';
-    }
+    mockTemplateContent = '<div>{{otp}}</div>';
 
     // Mock fs.readFileSync to return the mock template
-    fs.readFileSync.mockImplementation((filePath, encoding) => {
-      if (filePath.includes('resend-otp-email.html')) {
-        return mockTemplateContent;
-      }
-      return '';
-    });
+    fs.readFileSync.mockReturnValue(mockTemplateContent);
 
     // Mock path.join
     path.join.mockReturnValue('/mock/path/to/template.html');
 
-    // Mock SendGrid
-    sgMail.send.mockResolvedValue(true);
-    sgMail.setApiKey.mockImplementation(() => {});
-
     // Mock validator
     const validator = require('@modules/buyer/validators/resendOTP.validator');
-    validator.validateResendOTPData.mockImplementation(() => {});
+    validator.validateResendOTPData.mockImplementation(() => { });
   });
 
   describe('resendOTP', () => {
@@ -98,7 +87,7 @@ describe('resendOTP.service', () => {
       // Assert
       expect(Buyer.findOne).toHaveBeenCalledWith({ email });
       expect(mockBuyer.save).toHaveBeenCalled();
-      expect(sgMail.send).toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).toHaveBeenCalled();
       expect(result).toEqual({
         message: 'OTP resent successfully'
       });
@@ -113,7 +102,7 @@ describe('resendOTP.service', () => {
       await expect(resendOTP(email)).rejects.toThrow(NotFoundException);
       expect(Buyer.findOne).toHaveBeenCalledWith({ email });
       expect(mockBuyer.save).not.toHaveBeenCalled();
-      expect(sgMail.send).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
     });
 
     it('should throw ValidationError when email is missing', async () => {
@@ -126,7 +115,7 @@ describe('resendOTP.service', () => {
       await expect(resendOTP(email)).rejects.toThrow(ValidationError);
       expect(Buyer.findOne).not.toHaveBeenCalled();
       expect(mockBuyer.save).not.toHaveBeenCalled();
-      expect(sgMail.send).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
     });
 
     it('should throw ValidationError when email is invalid', async () => {
@@ -139,7 +128,7 @@ describe('resendOTP.service', () => {
       await expect(resendOTP(email)).rejects.toThrow(ValidationError);
       expect(Buyer.findOne).not.toHaveBeenCalled();
       expect(mockBuyer.save).not.toHaveBeenCalled();
-      expect(sgMail.send).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
     });
 
     it('should throw ValidationError when email is not a string', async () => {
@@ -152,20 +141,20 @@ describe('resendOTP.service', () => {
       await expect(resendOTP(email)).rejects.toThrow(ValidationError);
       expect(Buyer.findOne).not.toHaveBeenCalled();
       expect(mockBuyer.save).not.toHaveBeenCalled();
-      expect(sgMail.send).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
     });
 
-    it('should handle SendGrid error', async () => {
+    it('should handle Termii error', async () => {
       // Arrange
       const email = 'test@example.com';
-      const sendGridError = new Error('SendGrid API error');
-      sgMail.send.mockRejectedValue(sendGridError);
+      const termiiError = new Error('Termii API error');
+      termiiEmailService.sendRawHTMLEmail.mockRejectedValue(termiiError);
 
       // Act & Assert
-      await expect(resendOTP(email)).rejects.toThrow('SendGrid API error');
+      await expect(resendOTP(email)).rejects.toThrow('Termii API error');
       expect(Buyer.findOne).toHaveBeenCalledWith({ email });
       expect(mockBuyer.save).toHaveBeenCalled();
-      expect(sgMail.send).toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).toHaveBeenCalled();
     });
 
     it('should handle database save error', async () => {
@@ -178,7 +167,7 @@ describe('resendOTP.service', () => {
       await expect(resendOTP(email)).rejects.toThrow('Database save error');
       expect(Buyer.findOne).toHaveBeenCalledWith({ email });
       expect(mockBuyer.save).toHaveBeenCalled();
-      expect(sgMail.send).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
     });
 
     it('should handle database find error', async () => {
@@ -191,7 +180,7 @@ describe('resendOTP.service', () => {
       await expect(resendOTP(email)).rejects.toThrow('Database find error');
       expect(Buyer.findOne).toHaveBeenCalledWith({ email });
       expect(mockBuyer.save).not.toHaveBeenCalled();
-      expect(sgMail.send).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
     });
 
     it('should generate new OTP and update buyer', async () => {
@@ -210,4 +199,4 @@ describe('resendOTP.service', () => {
       expect(mockBuyer.save).toHaveBeenCalled();
     });
   });
-}); 
+});
