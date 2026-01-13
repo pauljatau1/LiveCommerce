@@ -109,10 +109,10 @@ app.use((req, res, next) => {
 
 // Basic route
 app.get('/', (req, res) => {
-   res.json({ 
-       message: 'Welcome to the Auqli API!', 
-       description: 'This API provides a range of functionalities for managing products, orders, and user interactions within the Auqli application. Explore our endpoints for, buyer, seller, and public access to enhance your experience new one' 
-   });
+  res.json({
+    message: 'Welcome to the Auqli API!',
+    description: 'This API provides a range of functionalities for managing products, orders, and user interactions within the Auqli application. Explore our endpoints for, buyer, seller, and public access to enhance your experience new one'
+  });
 });
 
 // Enhanced health check route
@@ -124,7 +124,7 @@ app.get('/health', (req, res) => {
     2: 'connecting',
     3: 'disconnecting'
   };
-  
+
   const status = {
     uptime: process.uptime(),
     timestamp: Date.now(),
@@ -132,7 +132,7 @@ app.get('/health', (req, res) => {
     nodeEnv: process.env.NODE_ENV,
     memoryUsage: process.memoryUsage()
   };
-  
+
   if (dbState === 1) {
     res.status(200).json(status);
   } else {
@@ -184,10 +184,10 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // Basic error handling
 app.use((err, req, res, next) => {
-   console.error(err);
+  console.error(err);
 
-   // Handle JSON parsing errors
-   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+  // Handle JSON parsing errors
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
     return res.status(400).json({
       success: false,
       message: 'Invalid JSON in request body',
@@ -195,7 +195,7 @@ app.use((err, req, res, next) => {
     });
   }
 
-   if (err instanceof ValidationError) {
+  if (err instanceof ValidationError) {
     return res.status(err.status).json({
       success: false,
       message: err.message,
@@ -247,7 +247,7 @@ app.use((err, req, res, next) => {
     });
   }
 
-   res.status(500).json({ error: 'Something went wrong!' });
+  res.status(500).json({ error: 'Something went wrong!' });
 });
 
 // Add passport middleware
