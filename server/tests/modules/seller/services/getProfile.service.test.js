@@ -242,7 +242,7 @@ describe('Get Profile Service', () => {
     it('should successfully retrieve seller profile with all data', async () => {
       // Arrange
       const sellerId = mockSeller._id;
-      
+
       // Mock repository responses
       sellerRepository.findByIdWithFields.mockResolvedValue(mockSeller);
       orderRepository.countOrdersBySeller.mockResolvedValue(mockOrders);
@@ -285,7 +285,7 @@ describe('Get Profile Service', () => {
       // Arrange
       const sellerId = mockSeller._id;
       const sellerWithoutProducts = { ...mockSeller };
-      
+
       // Mock repository responses
       sellerRepository.findByIdWithFields.mockResolvedValue(sellerWithoutProducts);
       orderRepository.countOrdersBySeller.mockResolvedValue(0);
@@ -319,7 +319,7 @@ describe('Get Profile Service', () => {
           ]
         }
       ];
-      
+
       // Mock repository responses
       sellerRepository.findByIdWithFields.mockResolvedValue(mockSeller);
       orderRepository.countOrdersBySeller.mockResolvedValue(5);
@@ -347,7 +347,7 @@ describe('Get Profile Service', () => {
       const originalDate = global.Date;
       global.Date = jest.fn(() => today);
       global.Date.getDay = originalDate.prototype.getDay;
-      
+
       // Mock repository responses
       sellerRepository.findByIdWithFields.mockResolvedValue(mockSeller);
       orderRepository.countOrdersBySeller.mockResolvedValue(10);
@@ -375,7 +375,7 @@ describe('Get Profile Service', () => {
       const sellerId = mockSeller._id;
       const today = new Date('2024-01-15'); // Monday
       const originalDate = global.Date;
-      
+
       // Mock Date constructor to return our specific date
       global.Date = jest.fn((...args) => {
         if (args.length === 0) {
@@ -385,7 +385,7 @@ describe('Get Profile Service', () => {
       });
       global.Date.getDay = originalDate.prototype.getDay;
       global.Date.prototype = originalDate.prototype;
-      
+
       // Mock repository responses
       sellerRepository.findByIdWithFields.mockResolvedValue(mockSeller);
       orderRepository.countOrdersBySeller.mockResolvedValue(10);
@@ -414,7 +414,7 @@ describe('Get Profile Service', () => {
       const sellerWithoutHours = { ...mockSeller };
       delete sellerWithoutHours.operatingHours;
       delete sellerWithoutHours.specialDates;
-      
+
       // Mock repository responses
       sellerRepository.findByIdWithFields.mockResolvedValue(sellerWithoutHours);
       orderRepository.countOrdersBySeller.mockResolvedValue(10);
@@ -436,7 +436,7 @@ describe('Get Profile Service', () => {
     it('should handle repository errors gracefully', async () => {
       // Arrange
       const sellerId = mockSeller._id;
-      
+
       // Mock repository responses with errors
       sellerRepository.findByIdWithFields.mockResolvedValue(mockSeller);
       orderRepository.countOrdersBySeller.mockRejectedValue(new Error('Database error'));
@@ -462,7 +462,7 @@ describe('Get Profile Service', () => {
     it('should throw NotFoundException when seller is not found', async () => {
       // Arrange
       const sellerId = '507f1f77bcf86cd799439032';
-      
+
       // Mock repository to return null
       sellerRepository.findByIdWithFields.mockResolvedValue(null);
 
@@ -477,7 +477,7 @@ describe('Get Profile Service', () => {
       // Arrange
       const sellerId = mockSeller._id;
       const sellerWithoutFollowers = { ...mockSeller, followers: [] };
-      
+
       // Mock repository responses
       sellerRepository.findByIdWithFields.mockResolvedValue(sellerWithoutFollowers);
       orderRepository.countOrdersBySeller.mockResolvedValue(10);
@@ -522,7 +522,7 @@ describe('Get Profile Service', () => {
         offersStorePickup: false,
         isInternational: false
       };
-      
+
       // Mock repository responses
       sellerRepository.findByIdWithFields.mockResolvedValue(sellerWithMinimalData);
       orderRepository.countOrdersBySeller.mockResolvedValue(0);
@@ -551,6 +551,125 @@ describe('Get Profile Service', () => {
       expect(result.categoriesCount).toBe(0);
       expect(result.hasProducts).toBe(false);
       expect(result.hasMoreThan10Blips).toBe(false);
+    });
+
+    /**
+     * Phone Number Format Validation Tests
+     * These tests verify the profile reset logic for sellers with old phone number formats
+     */
+    describe('phone number format validation', () => {
+      it('should reset profile fields when phone number starts with 0', async () => {
+        // Arrange: Mock seller with old phone number format
+        const mockSeller = {
+          _id: 'sellerId123',
+          phoneNumber: '08106430258',
+          storeName: 'Old Store Name',
+          hasFilledAddress: true,
+          hasFilledBusinessAddress: true,
+          followers: []
+        };
+
+        sellerRepository.findByIdWithFields.mockResolvedValue(mockSeller);
+        orderRepository.countOrdersBySeller.mockResolvedValue(5);
+        streamRepository.countStreamsBySeller.mockResolvedValue(2);
+        sellerRepository.getCategoriesCount.mockResolvedValue(3);
+        buyerRepository.countBuyersFollowedBySeller.mockResolvedValue(10);
+        productRepository.findProductsBySeller.mockResolvedValue([]);
+        sellerRepository.save.mockResolvedValue(mockSeller);
+
+        // Act: Call getProfile
+        const result = await getProfile('sellerId123');
+
+        // Assert: Verify profile fields were reset
+        expect(mockSeller.phoneNumber).toBeNull();
+        expect(mockSeller.storeName).toBeNull();
+        expect(mockSeller.hasFilledAddress).toBe(false);
+        expect(mockSeller.hasFilledBusinessAddress).toBe(false);
+        expect(sellerRepository.save).toHaveBeenCalledWith(mockSeller);
+      });
+
+      it('should not reset profile fields for valid phone numbers without leading 0', async () => {
+        // Arrange: Mock seller with correct phone number format
+        const mockSeller = {
+          _id: 'sellerId123',
+          phoneNumber: '8106430258',
+          storeName: 'Valid Store Name',
+          hasFilledAddress: true,
+          hasFilledBusinessAddress: true,
+          followers: []
+        };
+
+        sellerRepository.findByIdWithFields.mockResolvedValue(mockSeller);
+        orderRepository.countOrdersBySeller.mockResolvedValue(5);
+        streamRepository.countStreamsBySeller.mockResolvedValue(2);
+        sellerRepository.getCategoriesCount.mockResolvedValue(3);
+        buyerRepository.countBuyersFollowedBySeller.mockResolvedValue(10);
+        productRepository.findProductsBySeller.mockResolvedValue([]);
+
+        // Act: Call getProfile
+        const result = await getProfile('sellerId123');
+
+        // Assert: Verify profile fields were NOT reset
+        expect(result.phoneNumber).toBe('8106430258');
+        expect(result.storeName).toBe('Valid Store Name');
+        expect(result.hasFilledAddress).toBe(true);
+        expect(result.hasFilledBusinessAddress).toBe(true);
+        expect(sellerRepository.save).not.toHaveBeenCalled();
+      });
+
+      it('should handle sellers with null phone number', async () => {
+        // Arrange: Mock seller with null phone number
+        const mockSeller = {
+          _id: 'sellerId123',
+          phoneNumber: null,
+          storeName: 'Store Name',
+          hasFilledAddress: true,
+          hasFilledBusinessAddress: true,
+          followers: []
+        };
+
+        sellerRepository.findByIdWithFields.mockResolvedValue(mockSeller);
+        orderRepository.countOrdersBySeller.mockResolvedValue(5);
+        streamRepository.countStreamsBySeller.mockResolvedValue(2);
+        sellerRepository.getCategoriesCount.mockResolvedValue(3);
+        buyerRepository.countBuyersFollowedBySeller.mockResolvedValue(10);
+        productRepository.findProductsBySeller.mockResolvedValue([]);
+
+        // Act: Call getProfile
+        const result = await getProfile('sellerId123');
+
+        // Assert: Verify no reset logic was triggered
+        expect(result.phoneNumber).toBeNull();
+        expect(result.storeName).toBe('Store Name');
+        expect(sellerRepository.save).not.toHaveBeenCalled();
+      });
+
+      it('should handle sellers with undefined phone number', async () => {
+        // Arrange: Mock seller with undefined phone number
+        const mockSeller = {
+          _id: 'sellerId123',
+          phoneNumber: undefined,
+          storeName: 'Store Name',
+          hasFilledAddress: true,
+          hasFilledBusinessAddress: true,
+          followers: []
+        };
+
+        sellerRepository.findByIdWithFields.mockResolvedValue(mockSeller);
+        orderRepository.countOrdersBySeller.mockResolvedValue(5);
+        streamRepository.countStreamsBySeller.mockResolvedValue(2);
+        sellerRepository.getCategoriesCount.mockResolvedValue(3);
+        buyerRepository.countBuyersFollowedBySeller.mockResolvedValue(10);
+        productRepository.findProductsBySeller.mockResolvedValue([]);
+
+        // Act: Call getProfile
+        const result = await getProfile('sellerId123');
+
+        // Assert: Verify no reset logic was triggered
+        expect(result.phoneNumber).toBeUndefined();
+        expect(result.storeName).toBe('Store Name');
+        expect(sellerRepository.save).not.toHaveBeenCalled();
+      });
     });
   });
 });

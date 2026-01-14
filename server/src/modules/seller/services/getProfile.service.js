@@ -67,9 +67,9 @@ function getCurrentSchedule(seller) {
   const now = new Date();
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const today = days[now.getDay()];
-  
+
   // Check for special dates first (these override regular hours)
-  const specialDate = seller.specialDates?.find(d => 
+  const specialDate = seller.specialDates?.find(d =>
     new Date(d.date).toDateString() === now.toDateString()
   );
 
@@ -330,6 +330,19 @@ async function getProfile(sellerId) {
   // Step 2: Validate seller existence
   if (!seller) {
     throw new NotFoundException('Seller not found');
+  }
+
+  // Step 2.5: Validate phone number format and reset profile if needed
+  // Check if phone number uses old format (starting with "0")
+  if (seller.phoneNumber && seller.phoneNumber.startsWith('0')) {
+    // Reset profile fields to trigger re-completion with correct phone format
+    seller.hasFilledAddress = false;
+    seller.hasFilledBusinessAddress = false;
+    seller.storeName = null;
+    seller.phoneNumber = null;
+
+    // Save the updated seller record
+    await sellerRepository.save(seller);
   }
 
   // Step 3: Get counts and product-related data in parallel

@@ -24,6 +24,7 @@
 
 const sellerRepository = require('../repositories/seller.repository');
 const addBusinessInformationValidator = require('../validators/addBusinessInformation.validator');
+const { normalizePhoneNumber } = require('../../../helpers/formatters');
 
 /**
  * Update seller business information.
@@ -56,8 +57,9 @@ async function updateSellerBusinessInformation(sellerId, businessInformation) {
 
   // Step 2: Update business contact information
   // This updates the seller's business email and phone number
+  // Normalize phone number to ensure consistent format (without leading 0)
   seller.businessEmail = businessInformation.businessEmail;
-  seller.businessNumber = businessInformation.businessNumber;
+  seller.businessNumber = normalizePhoneNumber(businessInformation.businessNumber);
 
   // Step 3: Update business address information
   // This updates the seller's business address details
@@ -65,8 +67,8 @@ async function updateSellerBusinessInformation(sellerId, businessInformation) {
 
   // Step 4: Update completion flags
   // This maintains the completion status for business address
-  seller.hasFilledBusinessAddress = !!(businessInformation.businessAddress && 
-    businessInformation.businessAddress.addressLine1 && 
+  seller.hasFilledBusinessAddress = !!(businessInformation.businessAddress &&
+    businessInformation.businessAddress.addressLine1 &&
     businessInformation.businessAddress.addressLine1.trim() !== '');
 
   // Step 5: Save the updated seller record

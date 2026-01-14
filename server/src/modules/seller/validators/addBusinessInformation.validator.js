@@ -190,12 +190,12 @@ function isValidEmail(email) {
   // Step 1: Define email validation regex pattern
   // This pattern checks for basic email format requirements and prevents consecutive dots
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  
+
   // Step 2: Additional check for consecutive dots
   if (email.includes('..')) {
     return false;
   }
-  
+
   // Step 3: Test email against regex pattern
   // This returns true if the email matches the valid format
   return emailRegex.test(email);
@@ -206,15 +206,21 @@ function isValidEmail(email) {
  *
  * This function checks if the provided phone number
  * follows a valid phone number format pattern.
+ * Now supports legacy formats with leading zero (e.g., 08106430258),
+ * international formats (e.g., +2348106430258), and standard formats (e.g., 8106430258).
  *
  * @param {string} phoneNumber - The phone number to validate
  * @returns {boolean} True if phone number format is valid, false otherwise
  */
 function isValidPhoneNumber(phoneNumber) {
   // Step 1: Define phone number validation regex pattern
-  // This pattern allows for various international phone number formats
-  const phoneRegex = /^[\+]?[1-9][\d]{7,15}$/;
-  
+  // This pattern allows for:
+  // - Optional country code with + (e.g., +234)
+  // - Optional country code without + (e.g., 234)
+  // - Optional leading 0 for local format (e.g., 0810...)
+  // - At least 7 digits total
+  const phoneRegex = /^(?:\+?[1-9]\d{0,3})?0?[1-9]\d{6,14}$/;
+
   // Step 2: Test phone number against regex pattern
   // This returns true if the phone number matches the valid format
   return phoneRegex.test(phoneNumber);
