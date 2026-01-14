@@ -23,7 +23,7 @@
 const sellerRepository = require('../repositories/seller.repository');
 const saveBusinessSmileIdVerificationValidator = require('../validators/saveBusinessSmileIdVerification.validator');
 const mixpanel = require('../../../config/mixpanel');
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('../../../services/termiiEmailService');
 const fs = require('fs');
 
 /**
@@ -105,8 +105,12 @@ async function sendVerificationEmail(seller, isActuallySuccessful) {
   // Step 1: Get the email content with processed HTML template
   const emailContent = getVerificationEmailContent(seller, isActuallySuccessful);
 
-  // Step 2: Send the email using SendGrid service
-  await sgMail.send(emailContent);
+  // Step 2: Send the email using Termii email service
+  await termiiEmailService.sendRawHTMLEmail({
+    email: emailContent.to,
+    subject: emailContent.subject,
+    html: emailContent.html
+  });
 }
 
 /**
@@ -143,7 +147,7 @@ async function sendVerificationEmail(seller, isActuallySuccessful) {
 function getVerificationEmailContent(seller, isActuallySuccessful) {
   // Step 1: Construct the path to the business verification email template
   const filePath = __dirname + '/../../../templates/business-verification-email.html';
-  
+
   // Step 2: Read the HTML template file synchronously
   // Using UTF-8 encoding to ensure proper text handling
   let html = fs.readFileSync(filePath, 'utf-8');
@@ -152,8 +156,8 @@ function getVerificationEmailContent(seller, isActuallySuccessful) {
   const statusColor = isActuallySuccessful ? '#4CAF50' : '#f44336';
   const statusText = isActuallySuccessful ? 'Successful' : 'Failed';
   const statusMessage = isActuallySuccessful ? 'completed successfully' : 'unsuccessful';
-  const nextStepsMessage = isActuallySuccessful 
-    ? 'You can now continue with your seller onboarding process.' 
+  const nextStepsMessage = isActuallySuccessful
+    ? 'You can now continue with your seller onboarding process.'
     : 'Please try again or contact support for assistance.';
 
   // Step 4: Replace template placeholders with actual data
@@ -226,7 +230,7 @@ async function saveBusinessSmileIdVerification(data, sellerId) {
   // Step 5: Set verification documents as filled
   // This marks that verification documents have been submitted
   seller.hasFilledVerificationDocuments = true;
-  
+
   // Step 6: Only set verified if actually successful
   // This ensures verification status is accurate
   if (isActuallySuccessful) {
