@@ -562,7 +562,7 @@ const PickupAddressVerificationModal = ({
         
         const businessInfo = {
           businessEmail: seller.email || '',
-          businessNumber: seller.phoneNumber || '',
+          businessNumber: seller?.phoneNumber || profileForm?.phoneNumber || '',
           businessAddress: {
             country: formData.country,
             state: formData.state,
