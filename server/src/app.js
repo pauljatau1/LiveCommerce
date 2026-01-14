@@ -78,7 +78,7 @@ app.use((req, res, next) => {
 const { sendRawHTMLEmail } = require('./services/termiiEmailService');
 
 const MONITOR_CONFIG = {
-  RECIPIENTS: ['bolu@auqli.com', 'dan@auqli.com', 'todimu@auqli.com', 'ope@auqli.com'],
+  RECIPIENTS: ['bolu@auqli.com', 'dan@auqli.com', 'todimu@auqli.com', 'ope@auqli.com', 'emmanuel@auqli.com'],
   ERROR_STATUSES: [500, 502, 503, 504, 408, 429],
   TIMEOUT_MS: 7000 // 7 seconds
 };
