@@ -99,42 +99,59 @@ const formatAddressForTerminal = (address) => {
  * Normalize phone number to standard format without leading zero.
  * Converts various phone number formats to a standardized format (e.g., "8106430258").
  * 
+ * This function handles various input formats including:
+ * - Short formats: "81", "081"
+ * - Local 11-digit: "08106430258"
+ * - Local 10-digit: "8106430258"
+ * - International with +: "+2348106430258", "+12345678900"
+ * - International without +: "2348106430258", "12345678900"
+ * - Numbers with spaces/dashes: "081 064 30258", "081-064-30258"
+ * 
  * @param {string} phone - The phone number to normalize
- * @returns {string} Normalized phone number without leading zero
+ * @returns {string} Normalized phone number without leading zero (10 digits)
  * 
  * @example
  * normalizePhoneNumber('08106430258') // returns '8106430258'
  * normalizePhoneNumber('+2348106430258') // returns '8106430258'
  * normalizePhoneNumber('2348106430258') // returns '8106430258'
  * normalizePhoneNumber('8106430258') // returns '8106430258'
+ * normalizePhoneNumber('081') // returns '81' (passes through for validation to catch)
+ * normalizePhoneNumber('+23481') // returns '81'
+ * normalizePhoneNumber('+1-234-567-8900') // returns '2345678900'
  */
 const normalizePhoneNumber = (phone) => {
   if (!phone) return '';
 
-  // Remove spaces and dashes
-  const cleanPhone = phone.replace(/[\s-]/g, '');
+  // Remove spaces, dashes, and other non-numeric characters except +
+  let cleanPhone = phone.replace(/[\s\-()]/g, '');
 
-  // If already in +234 international format, strip prefix
-  if (cleanPhone.startsWith('+234')) {
-    return cleanPhone.substring(4); // Remove '+234'
+  // Remove + if present
+  if (cleanPhone.startsWith('+')) {
+    cleanPhone = cleanPhone.substring(1);
   }
 
-  // If in 234 format without '+', strip prefix
-  if (cleanPhone.startsWith('234') && cleanPhone.length === 13) {
-    return cleanPhone.substring(3); // Remove '234'
+  // Handle various country codes
+  // Nigerian format: 234XXXXXXXXXX (13 digits total)
+  if (cleanPhone.startsWith('234') && cleanPhone.length >= 13) {
+    cleanPhone = cleanPhone.substring(3);
+  }
+  // US/Canada format: 1XXXXXXXXXX (11 digits total)
+  else if (cleanPhone.startsWith('1') && cleanPhone.length === 11) {
+    cleanPhone = cleanPhone.substring(1);
+  }
+  // UK format: 44XXXXXXXXXX (12-13 digits total)
+  else if (cleanPhone.startsWith('44') && cleanPhone.length >= 12) {
+    cleanPhone = cleanPhone.substring(2);
   }
 
-  // If starts with 0 (local format like 08106430258), remove the leading 0
-  if (cleanPhone.startsWith('0') && cleanPhone.length === 11) {
-    return cleanPhone.substring(1); // Remove leading '0'
+  // If starts with 0 (local format), remove the leading 0
+  if (cleanPhone.startsWith('0') && cleanPhone.length > 1) {
+    cleanPhone = cleanPhone.substring(1);
   }
 
-  // If it's already in the correct format (10 digits, no leading 0)
-  if (cleanPhone.length === 10 && !cleanPhone.startsWith('0')) {
-    return cleanPhone;
-  }
-
-  // For any other format, return as-is
+  // Return the normalized number
+  // If it's a valid 10-digit number, it will pass validation
+  // If it's too short or invalid, validation will catch it
   return cleanPhone;
 };
 

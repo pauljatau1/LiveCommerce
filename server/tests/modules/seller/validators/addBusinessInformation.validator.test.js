@@ -337,7 +337,7 @@ describe('Add Business Information Validator', () => {
 
       validEmails.forEach(email => {
         const testData = { ...validBusinessInformation, businessEmail: email };
-        
+
         // Act & Assert: Should not throw error for valid email formats
         expect(() => validateAddBusinessInformationData(testData)).not.toThrow();
       });
@@ -345,16 +345,20 @@ describe('Add Business Information Validator', () => {
 
     it('should validate various valid phone number formats', () => {
       // Arrange: Test different valid phone number formats
+      // These will be normalized before validation
       const validPhones = [
-        '+2348012345678',
-        '+1234567890',
-        '2348012345678',
-        '1234567890'
+        '+2348012345678',      // International with +
+        '2348012345678',       // International without +
+        '08012345678',         // Local with leading 0
+        '8012345678',          // Local without leading 0
+        '+234 801 234 5678',   // International with spaces
+        '0801-234-5678',       // Local with dashes
+        '+234(801)2345678'     // International with parentheses
       ];
 
       validPhones.forEach(phone => {
         const testData = { ...validBusinessInformation, businessNumber: phone };
-        
+
         // Act & Assert: Should not throw error for valid phone number formats
         expect(() => validateAddBusinessInformationData(testData)).not.toThrow();
       });
@@ -374,7 +378,7 @@ describe('Add Business Information Validator', () => {
 
       invalidEmails.forEach(email => {
         const testData = { ...validBusinessInformation, businessEmail: email };
-        
+
         // Act & Assert: Should throw error for invalid email formats
         expect(() => validateAddBusinessInformationData(testData))
           .toThrow(expect.objectContaining({
@@ -388,18 +392,20 @@ describe('Add Business Information Validator', () => {
     it('should throw error for invalid phone number formats', () => {
       // Arrange: Test different invalid phone number formats
       const invalidPhones = [
-        'invalid-phone',
-        'abc123',
-        '+',
-        '123',
-        '123-456-789',
-        '123.456.789',
-        '123 456 789'
+        'invalid-phone',       // Non-numeric
+        'abc123',              // Mixed letters and numbers
+        '+',                   // Just plus sign
+        '123',                 // Too short (after normalization)
+        '081',                 // Too short for Nigerian number
+        '12345',               // Too short
+        '00000000000',         // Invalid leading zeros
+        '1234567',             // Less than 10 digits
+        '12345678901234567'    // Too long
       ];
 
       invalidPhones.forEach(phone => {
         const testData = { ...validBusinessInformation, businessNumber: phone };
-        
+
         // Act & Assert: Should throw error for invalid phone number formats
         expect(() => validateAddBusinessInformationData(testData))
           .toThrow(expect.objectContaining({

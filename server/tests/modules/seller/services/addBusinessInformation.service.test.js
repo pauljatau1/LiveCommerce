@@ -338,8 +338,9 @@ describe('Add Business Information Service', () => {
 
       // Assert: Verify special characters were handled correctly
       expect(mockSeller.businessEmail).toBe(businessInfoWithSpecialChars.businessEmail);
-      // Phone number should be normalized ('+1-234-567-8900' -> '+12345678900')
-      expect(mockSeller.businessNumber).toBe('+12345678900');
+      // Phone number should be normalized ('+1-234-567-8900' -> '2345678900')
+      // The normalization removes country code (+1) and special characters
+      expect(mockSeller.businessNumber).toBe('2345678900');
       expect(mockSeller.businessAddress).toEqual(businessInfoWithSpecialChars.businessAddress);
     });
 

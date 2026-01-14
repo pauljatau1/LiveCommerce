@@ -20,6 +20,7 @@
  */
 
 const ValidationError = require('../../../utils/errors/ValidationError');
+const { normalizePhoneNumber } = require('../../../helpers/formatters');
 
 /**
  * Validates business information data.
@@ -105,6 +106,9 @@ function validateBusinessEmail(businessEmail, errors) {
 
 /**
  * Validates business number field.
+ * 
+ * This function normalizes the phone number before validation to support
+ * various input formats (e.g., "081", "8124634152", "+2348124634152").
  *
  * @param {string} businessNumber - The business number to validate
  * @param {Array} errors - The errors array to append validation errors to
@@ -112,8 +116,13 @@ function validateBusinessEmail(businessEmail, errors) {
 function validateBusinessNumber(businessNumber, errors) {
   if (!businessNumber) {
     errors.push({ field: 'businessNumber', message: 'Business number is required' });
-  } else if (!isValidPhoneNumber(businessNumber)) {
-    errors.push({ field: 'businessNumber', message: 'Business number must be a valid phone number format' });
+  } else {
+    // Normalize the phone number first to support various input formats
+    const normalizedNumber = normalizePhoneNumber(businessNumber);
+
+    if (!isValidPhoneNumber(normalizedNumber)) {
+      errors.push({ field: 'businessNumber', message: 'Business number must be a valid phone number format' });
+    }
   }
 }
 
@@ -204,26 +213,25 @@ function isValidEmail(email) {
 /**
  * Validates phone number format.
  *
- * This function checks if the provided phone number
- * follows a valid phone number format pattern.
- * Now supports legacy formats with leading zero (e.g., 08106430258),
- * international formats (e.g., +2348106430258), and standard formats (e.g., 8106430258).
+ * This function checks if the provided phone number is in the normalized format.
+ * The normalized format is a 10-digit number without leading zero (e.g., 8106430258).
+ * 
+ * Note: Phone numbers should be normalized before calling this function.
+ * Use normalizePhoneNumber() from helpers/formatters.js to normalize first.
  *
- * @param {string} phoneNumber - The phone number to validate
+ * @param {string} phoneNumber - The normalized phone number to validate
  * @returns {boolean} True if phone number format is valid, false otherwise
  */
 function isValidPhoneNumber(phoneNumber) {
-  // Step 1: Define phone number validation regex pattern
-  // This pattern allows for:
-  // - Optional country code with + (e.g., +234)
-  // - Optional country code without + (e.g., 234)
-  // - Optional leading 0 for local format (e.g., 0810...)
-  // - At least 7 digits total
-  const phoneRegex = /^(?:\+?[1-9]\d{0,3})?0?[1-9]\d{6,14}$/;
+  if (!phoneNumber || typeof phoneNumber !== 'string') {
+    return false;
+  }
 
-  // Step 2: Test phone number against regex pattern
-  // This returns true if the phone number matches the valid format
-  return phoneRegex.test(phoneNumber);
+  // Validate normalized format: exactly 10 digits, starts with a digit 7-9
+  // (Nigerian mobile numbers typically start with 7, 8, or 9)
+  const normalizedPhoneRegex = /^[7-9]\d{9}$/;
+
+  return normalizedPhoneRegex.test(phoneNumber);
 }
 
 module.exports = {
