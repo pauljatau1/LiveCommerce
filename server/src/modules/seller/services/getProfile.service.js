@@ -336,13 +336,21 @@ async function getProfile(sellerId) {
   // Check if phone number uses old format (starting with "0")
   if (seller.phoneNumber && seller.phoneNumber.startsWith('0')) {
     // Reset profile fields to trigger re-completion with correct phone format
+    // Update seller object fields for consistency in response
+
+    // Use findByIdAndUpdate since seller is a lean object without .save() method
+    await sellerRepository.findByIdAndUpdate(sellerId, {
+      hasFilledAddress: false,
+      hasFilledBusinessAddress: false,
+      storeName: null,
+      phoneNumber: null
+    });
+
+    // Update local seller object to reflect the database changes
     seller.hasFilledAddress = false;
     seller.hasFilledBusinessAddress = false;
     seller.storeName = null;
     seller.phoneNumber = null;
-
-    // Save the updated seller record
-    await sellerRepository.save(seller);
   }
 
   // Step 3: Get counts and product-related data in parallel

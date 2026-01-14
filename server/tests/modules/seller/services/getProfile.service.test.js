@@ -575,7 +575,7 @@ describe('Get Profile Service', () => {
         sellerRepository.getCategoriesCount.mockResolvedValue(3);
         buyerRepository.countBuyersFollowedBySeller.mockResolvedValue(10);
         productRepository.findProductsBySeller.mockResolvedValue([]);
-        sellerRepository.save.mockResolvedValue(mockSeller);
+        sellerRepository.findByIdAndUpdate.mockResolvedValue(mockSeller);
 
         // Act: Call getProfile
         const result = await getProfile('sellerId123');
@@ -585,7 +585,12 @@ describe('Get Profile Service', () => {
         expect(mockSeller.storeName).toBeNull();
         expect(mockSeller.hasFilledAddress).toBe(false);
         expect(mockSeller.hasFilledBusinessAddress).toBe(false);
-        expect(sellerRepository.save).toHaveBeenCalledWith(mockSeller);
+        expect(sellerRepository.findByIdAndUpdate).toHaveBeenCalledWith('sellerId123', {
+          hasFilledAddress: false,
+          hasFilledBusinessAddress: false,
+          storeName: null,
+          phoneNumber: null
+        });
       });
 
       it('should not reset profile fields for valid phone numbers without leading 0', async () => {
@@ -614,7 +619,7 @@ describe('Get Profile Service', () => {
         expect(result.storeName).toBe('Valid Store Name');
         expect(result.hasFilledAddress).toBe(true);
         expect(result.hasFilledBusinessAddress).toBe(true);
-        expect(sellerRepository.save).not.toHaveBeenCalled();
+        expect(sellerRepository.findByIdAndUpdate).not.toHaveBeenCalled();
       });
 
       it('should handle sellers with null phone number', async () => {
@@ -641,7 +646,7 @@ describe('Get Profile Service', () => {
         // Assert: Verify no reset logic was triggered
         expect(result.phoneNumber).toBeNull();
         expect(result.storeName).toBe('Store Name');
-        expect(sellerRepository.save).not.toHaveBeenCalled();
+        expect(sellerRepository.findByIdAndUpdate).not.toHaveBeenCalled();
       });
 
       it('should handle sellers with undefined phone number', async () => {
@@ -668,7 +673,7 @@ describe('Get Profile Service', () => {
         // Assert: Verify no reset logic was triggered
         expect(result.phoneNumber).toBeUndefined();
         expect(result.storeName).toBe('Store Name');
-        expect(sellerRepository.save).not.toHaveBeenCalled();
+        expect(sellerRepository.findByIdAndUpdate).not.toHaveBeenCalled();
       });
     });
   });
