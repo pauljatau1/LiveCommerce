@@ -11,7 +11,7 @@ const MajorCategory = require('../models/MajorCategory');
 exports.getActivePlatformNotifications = async (req, res) => {
   try {
     const currentDate = new Date();
-    
+
     // Build the filter to get only active notifications
     const filter = {
       isActive: true,
@@ -24,26 +24,26 @@ exports.getActivePlatformNotifications = async (req, res) => {
       // Start date is in the past or present
       startDate: { $lte: currentDate }
     };
-    
+
     // Add type filter if specified
     if (req.query.type) {
       filter.type = req.query.type;
     }
-    
+
     // Get notifications with pagination
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    
+
     const notifications = await PlatformNotification.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .select('-createdBy'); // Exclude the admin reference for security
-    
+
     // Get total count for pagination
     const total = await PlatformNotification.countDocuments(filter);
-    
+
     res.json({
       success: true,
       data: {
@@ -72,7 +72,7 @@ exports.getMajorCategories = async (req, res) => {
         select: 'name image subCategories._id subCategories.name'
       })
       .sort({ createdAt: -1 });
-    
+
     res.json({
       success: true,
       data: majorCategories

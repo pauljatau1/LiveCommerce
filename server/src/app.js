@@ -72,6 +72,126 @@ app.use((req, res, next) => {
   next();
 });
 
+// -----------------------------------------------------------------------------
+// Global Monitoring Middleware
+// -----------------------------------------------------------------------------
+const { sendRawHTMLEmail } = require('./services/termiiEmailService');
+
+const MONITOR_CONFIG = {
+  RECIPIENTS: ['bolu@auqli.com', 'dan@auqli.com', 'todimu@auqli.com', 'ope@auqli.com', 'emmanuel@auqli.com'],
+  ERROR_STATUSES: [500, 502, 503, 504, 408, 429],
+  TIMEOUT_MS: 7000 // 7 seconds
+};
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  let responseBody = null;
+
+  // Intercept response body for logging purposes
+  const originalSend = res.send;
+  res.send = function (body) {
+    responseBody = body;
+    return originalSend.call(this, body);
+  };
+
+  res.on('finish', async () => {
+    const duration = Date.now() - start;
+    const status = res.statusCode;
+
+    const isError = MONITOR_CONFIG.ERROR_STATUSES.includes(status);
+    const isSlow = duration > MONITOR_CONFIG.TIMEOUT_MS;
+
+    if (isError || isSlow) {
+      try {
+        // Determine Environment
+        const host = req.get('host') || '';
+        let environment = 'Local Development';
+        let baseUrl = 'http://localhost:8000';
+
+        if (host.includes('api.staging.auqli.live')) {
+          environment = 'Staging';
+          baseUrl = 'https://api.staging.auqli.live';
+        } else if (host.includes('api.auqli.live')) {
+          environment = 'Production';
+          baseUrl = 'https://api.auqli.live';
+        }
+
+        const fullUrl = `${baseUrl}${req.originalUrl}`;
+        const timestamp = new Date().toISOString();
+        const reason = isError ? `Error Status: ${status}` : `Slow Request (${duration}ms)`;
+
+        // Construct Email HTML
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+            <h2 style="color: #d9534f; border-bottom: 2px solid #d9534f; padding-bottom: 10px;">
+              ⚠️ API Alert: ${reason}
+            </h2>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+              <tr style="background-color: #f9f9f9;">
+                <td style="padding: 10px; font-weight: bold; width: 30%;">Environment:</td>
+                <td style="padding: 10px;">${environment}</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; font-weight: bold;">Timestamp:</td>
+                <td style="padding: 10px;">${timestamp}</td>
+              </tr>
+              <tr style="background-color: #f9f9f9;">
+                <td style="padding: 10px; font-weight: bold;">Endpoint:</td>
+                <td style="padding: 10px;"><a href="${fullUrl}" style="color: #0275d8;">${req.method} ${req.originalUrl}</a></td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; font-weight: bold;">Status Code:</td>
+                <td style="padding: 10px;">${status}</td>
+              </tr>
+              <tr style="background-color: #f9f9f9;">
+                <td style="padding: 10px; font-weight: bold;">Duration:</td>
+                <td style="padding: 10px;">${duration}ms ${isSlow ? '(Exceeded 7000ms)' : ''}</td>
+              </tr>
+            </table>
+
+            <div style="margin-top: 20px;">
+              <h3 style="background-color: #333; color: #fff; padding: 5px 10px; border-radius: 3px;">Request Payload</h3>
+              <pre style="background-color: #f4f4f4; padding: 10px; border-radius: 3px; overflow-x: auto;">${JSON.stringify(req.body, null, 2) || '{}'}</pre>
+            </div>
+
+            <div style="margin-top: 20px;">
+              <h3 style="background-color: #333; color: #fff; padding: 5px 10px; border-radius: 3px;">Response Body</h3>
+              <pre style="background-color: #f4f4f4; padding: 10px; border-radius: 3px; overflow-x: auto; max-height: 300px;">${(() => {
+            try {
+              // responseBody might be a string or object. Safely stringify.
+              return typeof responseBody === 'object' ? JSON.stringify(responseBody, null, 2) : responseBody;
+            } catch (e) { return 'Could not parse response body'; }
+          })()}</pre>
+            </div>
+            
+            <div style="margin-top: 20px; font-size: 12px; color: #777; border-top: 1px solid #e0e0e0; padding-top: 10px;">
+              Automated Alert from Auqli Server Monitoring
+            </div>
+          </div>
+        `;
+
+        // Send Email to all recipients (Fire and forget)
+        MONITOR_CONFIG.RECIPIENTS.forEach(email => {
+          sendRawHTMLEmail({
+            email,
+            subject: `[${environment}] API Alert: ${req.method} ${req.originalUrl} - ${isError ? status : 'Slow Response'}`,
+            html: emailHtml
+          }).catch(err => {
+            console.error(`[Monitor] Failed to send alert to ${email}:`, err.message);
+          });
+        });
+
+      } catch (err) {
+        console.error('[Monitor] Error constructing/sending alert:', err);
+      }
+    }
+  });
+
+  next();
+});
+
+
 // Middleware
 app.use(cors({ origin: '*' }));
 app.use(express.json({
@@ -109,10 +229,10 @@ app.use((req, res, next) => {
 
 // Basic route
 app.get('/', (req, res) => {
-   res.json({ 
-       message: 'Welcome to the Auqli API!', 
-       description: 'This API provides a range of functionalities for managing products, orders, and user interactions within the Auqli application. Explore our endpoints for, buyer, seller, and public access to enhance your experience new one' 
-   });
+  res.json({
+    message: 'Welcome to the Auqli API!',
+    description: 'This API provides a range of functionalities for managing products, orders, and user interactions within the Auqli application. Explore our endpoints for, buyer, seller, and public access to enhance your experience new one'
+  });
 });
 
 // Enhanced health check route
@@ -124,7 +244,7 @@ app.get('/health', (req, res) => {
     2: 'connecting',
     3: 'disconnecting'
   };
-  
+
   const status = {
     uptime: process.uptime(),
     timestamp: Date.now(),
@@ -132,7 +252,7 @@ app.get('/health', (req, res) => {
     nodeEnv: process.env.NODE_ENV,
     memoryUsage: process.memoryUsage()
   };
-  
+
   if (dbState === 1) {
     res.status(200).json(status);
   } else {
@@ -184,10 +304,10 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // Basic error handling
 app.use((err, req, res, next) => {
-   console.error(err);
+  console.error(err);
 
-   // Handle JSON parsing errors
-   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+  // Handle JSON parsing errors
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
     return res.status(400).json({
       success: false,
       message: 'Invalid JSON in request body',
@@ -195,7 +315,7 @@ app.use((err, req, res, next) => {
     });
   }
 
-   if (err instanceof ValidationError) {
+  if (err instanceof ValidationError) {
     return res.status(err.status).json({
       success: false,
       message: err.message,
@@ -247,7 +367,7 @@ app.use((err, req, res, next) => {
     });
   }
 
-   res.status(500).json({ error: 'Something went wrong!' });
+  res.status(500).json({ error: 'Something went wrong!' });
 });
 
 // Add passport middleware
