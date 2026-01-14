@@ -61,7 +61,7 @@ describe('Add Business Information Service', () => {
   describe('addBusinessInformation', () => {
     it('should successfully add business information to seller profile', async () => {
       // Arrange: Mock successful validation and repository operations
-      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => {});
+      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
       sellerRepository.findById.mockResolvedValue(mockSeller);
       sellerRepository.save.mockResolvedValue({
         ...mockSeller,
@@ -97,7 +97,7 @@ describe('Add Business Information Service', () => {
 
     it('should update seller business information fields correctly', async () => {
       // Arrange: Mock successful operations
-      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => {});
+      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
       sellerRepository.findById.mockResolvedValue(mockSeller);
       sellerRepository.save.mockResolvedValue(mockSeller);
 
@@ -106,14 +106,15 @@ describe('Add Business Information Service', () => {
 
       // Assert: Verify seller fields were updated correctly
       expect(mockSeller.businessEmail).toBe(validBusinessInformation.businessEmail);
-      expect(mockSeller.businessNumber).toBe(validBusinessInformation.businessNumber);
+      // Phone number should be normalized ('+2348012345678' -> '8012345678')
+      expect(mockSeller.businessNumber).toBe('8012345678');
       expect(mockSeller.businessAddress).toEqual(validBusinessInformation.businessAddress);
       expect(mockSeller.hasFilledBusinessAddress).toBe(true);
     });
 
     it('should set hasFilledBusinessAddress to true when business address is provided', async () => {
       // Arrange: Mock successful operations
-      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => {});
+      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
       sellerRepository.findById.mockResolvedValue(mockSeller);
       sellerRepository.save.mockResolvedValue(mockSeller);
 
@@ -130,8 +131,8 @@ describe('Add Business Information Service', () => {
         ...validBusinessInformation,
         businessAddress: null
       };
-      
-      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => {});
+
+      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
       sellerRepository.findById.mockResolvedValue(mockSeller);
       sellerRepository.save.mockResolvedValue(mockSeller);
 
@@ -148,8 +149,8 @@ describe('Add Business Information Service', () => {
         ...validBusinessInformation,
         businessAddress: undefined
       };
-      
-      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => {});
+
+      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
       sellerRepository.findById.mockResolvedValue(mockSeller);
       sellerRepository.save.mockResolvedValue(mockSeller);
 
@@ -185,7 +186,7 @@ describe('Add Business Information Service', () => {
 
     it('should throw error when seller is not found', async () => {
       // Arrange: Mock validator success and repository to return null
-      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => {});
+      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
       sellerRepository.findById.mockResolvedValue(null);
 
       // Act & Assert: Should throw error for seller not found
@@ -201,7 +202,7 @@ describe('Add Business Information Service', () => {
 
     it('should throw error when repository findById fails', async () => {
       // Arrange: Mock validator success and repository to throw error
-      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => {});
+      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
       sellerRepository.findById.mockRejectedValue(new Error('Database connection failed'));
 
       // Act & Assert: Should throw database error
@@ -217,7 +218,7 @@ describe('Add Business Information Service', () => {
 
     it('should throw error when repository save fails', async () => {
       // Arrange: Mock successful validation and findById, but save fails
-      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => {});
+      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
       sellerRepository.findById.mockResolvedValue(mockSeller);
       sellerRepository.save.mockRejectedValue(new Error('Save operation failed'));
 
@@ -235,7 +236,7 @@ describe('Add Business Information Service', () => {
       const businessInfoWithoutOptional = { ...validBusinessInformation };
       delete businessInfoWithoutOptional.businessAddress.addressLine2;
 
-      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => {});
+      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
       sellerRepository.findById.mockResolvedValue(mockSeller);
       sellerRepository.save.mockResolvedValue(mockSeller);
 
@@ -264,7 +265,7 @@ describe('Add Business Information Service', () => {
         businessType: 'LLC'
       };
 
-      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => {});
+      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
       sellerRepository.findById.mockResolvedValue(sellerWithExistingData);
       sellerRepository.save.mockResolvedValue(sellerWithExistingData);
 
@@ -281,7 +282,8 @@ describe('Add Business Information Service', () => {
 
       // Assert: Verify business information was updated
       expect(sellerWithExistingData.businessEmail).toBe(validBusinessInformation.businessEmail);
-      expect(sellerWithExistingData.businessNumber).toBe(validBusinessInformation.businessNumber);
+      // Phone number should be normalized ('+2348012345678' -> '8012345678')
+      expect(sellerWithExistingData.businessNumber).toBe('8012345678');
       expect(sellerWithExistingData.businessAddress).toEqual(validBusinessInformation.businessAddress);
     });
 
@@ -299,7 +301,7 @@ describe('Add Business Information Service', () => {
       };
 
       // Mock validator to not throw (simulating bypassed validation)
-      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => {});
+      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
       sellerRepository.findById.mockResolvedValue(mockSeller);
       sellerRepository.save.mockResolvedValue(mockSeller);
 
@@ -327,7 +329,7 @@ describe('Add Business Information Service', () => {
         }
       };
 
-      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => {});
+      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
       sellerRepository.findById.mockResolvedValue(mockSeller);
       sellerRepository.save.mockResolvedValue(mockSeller);
 
@@ -336,8 +338,116 @@ describe('Add Business Information Service', () => {
 
       // Assert: Verify special characters were handled correctly
       expect(mockSeller.businessEmail).toBe(businessInfoWithSpecialChars.businessEmail);
-      expect(mockSeller.businessNumber).toBe(businessInfoWithSpecialChars.businessNumber);
+      // Phone number should be normalized ('+1-234-567-8900' -> '2345678900')
+      // The normalization removes country code (+1) and special characters
+      expect(mockSeller.businessNumber).toBe('2345678900');
       expect(mockSeller.businessAddress).toEqual(businessInfoWithSpecialChars.businessAddress);
+    });
+
+    /**
+     * Phone Number Normalization Tests
+     * These tests verify backward compatibility with legacy phone number formats
+     */
+    describe('phone number normalization', () => {
+      it('should normalize phone numbers starting with 0 (legacy format)', async () => {
+        // Arrange: Phone number in old format with leading 0
+        const businessInfo = {
+          businessEmail: 'test@example.com',
+          businessNumber: '08106430258',
+          businessAddress: {
+            country: 'Nigeria',
+            state: 'Lagos',
+            city: 'Lagos',
+            addressLine1: '123 Test Street',
+            zipCode: '100001'
+          }
+        };
+
+        addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
+        sellerRepository.findById.mockResolvedValue(mockSeller);
+        sellerRepository.save.mockResolvedValue(mockSeller);
+
+        // Act: Call the service function
+        await addBusinessInformation('507f1f77bcf86cd799439011', businessInfo);
+
+        // Assert: Phone number should be normalized to '8106430258'
+        expect(mockSeller.businessNumber).toBe('8106430258');
+      });
+
+      it('should normalize phone numbers in +234 format', async () => {
+        // Arrange: Phone number in international format
+        const businessInfo = {
+          businessEmail: 'test@example.com',
+          businessNumber: '+2348106430258',
+          businessAddress: {
+            country: 'Nigeria',
+            state: 'Lagos',
+            city: 'Lagos',
+            addressLine1: '123 Test Street',
+            zipCode: '100001'
+          }
+        };
+
+        addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
+        sellerRepository.findById.mockResolvedValue(mockSeller);
+        sellerRepository.save.mockResolvedValue(mockSeller);
+
+        // Act: Call the service function
+        await addBusinessInformation('507f1f77bcf86cd799439011', businessInfo);
+
+        // Assert: Phone number should be normalized to '8106430258'
+        expect(mockSeller.businessNumber).toBe('8106430258');
+      });
+
+      it('should normalize phone numbers in 234 format (without +)', async () => {
+        // Arrange: Phone number in 234 format without +
+        const businessInfo = {
+          businessEmail: 'test@example.com',
+          businessNumber: '2348106430258',
+          businessAddress: {
+            country: 'Nigeria',
+            state: 'Lagos',
+            city: 'Lagos',
+            addressLine1: '123 Test Street',
+            zipCode: '100001'
+          }
+        };
+
+        addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
+        sellerRepository.findById.mockResolvedValue(mockSeller);
+        sellerRepository.save.mockResolvedValue(mockSeller);
+
+        // Act: Call the service function
+        await addBusinessInformation('507f1f77bcf86cd799439011', businessInfo);
+
+        // Assert: Phone number should be normalized to '8106430258'
+        expect(mockSeller.businessNumber).toBe('8106430258');
+      });
+
+      it('should leave already-normalized phone numbers unchanged', async () => {
+        // Arrange: Phone number already in correct format
+        const businessInfo = {
+          businessEmail: 'test@example.com',
+          businessNumber: '8106430258',
+          businessAddress: {
+            country: 'Nigeria',
+            state: 'Lagos',
+            city: 'Lagos',
+            addressLine1: '123 Test Street',
+            zipCode: '100001'
+          }
+        };
+
+        addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
+        sellerRepository.findById.mockResolvedValue(mockSeller);
+        sellerRepository.save.mockResolvedValue(mockSeller);
+
+        // Act: Call the service function
+        await addBusinessInformation('507f1f77bcf86cd799439011', businessInfo);
+
+        // Assert: Phone number should remain '8106430258'
+        expect(mockSeller.businessNumber).toBe('8106430258');
+      });
     });
   });
 });
