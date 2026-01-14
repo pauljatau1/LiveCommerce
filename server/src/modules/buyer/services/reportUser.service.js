@@ -34,15 +34,11 @@
 // External dependencies
 const fs = require('fs');           // File system operations for reading email templates
 const path = require('path');       // Path utilities for file system navigation
-const sgMail = require('@sendgrid/mail'); // SendGrid email service for sending notifications
+const termiiEmailService = require('../../../services/termiiEmailService'); // Termii email service for sending notifications
 
 // Internal dependencies
 const buyerRepository = require('../repositories/buyer.repository');
 const reportUserValidator = require('../validators/reportUser.validator');
-
-// Configure SendGrid API key for email service authentication
-// This API key should be set in environment variables for security
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 /**
  * Reads and populates the user report notification email template.
@@ -84,21 +80,21 @@ async function getEmailContent(reportData) {
   // Step 1: Construct the full path to the email template file
   // Template is stored in the templates directory at the project root
   const templatePath = path.join(__dirname, '../../../templates/user-report-notification-email.html');
-  
+
   // Step 2: Read the HTML template file synchronously
   // Using utf8 encoding to ensure proper text handling
   let htmlContent = fs.readFileSync(templatePath, 'utf8');
-  
+
   // Step 3: Replace template variables with actual dynamic values
   // Format reporter name for display
   const reporterName = `${reportData.reporter.firstName} ${reportData.reporter.lastName}`;
-  
+
   // Format submission timestamp
   const submittedAt = new Date().toLocaleString();
-  
+
   // Get current year for copyright
   const currentYear = new Date().getFullYear();
-  
+
   // Step 4: Replace all placeholders with actual data
   htmlContent = htmlContent.replace('{{reporterName}}', reporterName);
   htmlContent = htmlContent.replace('{{reporterEmail}}', reportData.reporter.email);
@@ -109,7 +105,7 @@ async function getEmailContent(reportData) {
   htmlContent = htmlContent.replace('{{reportId}}', reportData.reportId);
   htmlContent = htmlContent.replace('{{submittedAt}}', submittedAt);
   htmlContent = htmlContent.replace('{{year}}', currentYear);
-  
+
   return htmlContent;
 }
 
@@ -137,18 +133,24 @@ async function getEmailContent(reportData) {
 async function sendReportNotificationEmail(reportData) {
   // Step 1: Get the populated HTML email content from template
   const htmlContent = await getEmailContent(reportData);
-  
-  // Step 2: Prepare the email message object with all required fields
-  const msg = {
-    to: ['admin@auqli.com', 'bolu@auqli.com'],              // Admin recipients
-    from: 'Auqli Platform <support@auqli.com>',            // Sender with platform identity
-    subject: `New User Report - ${reportData.reason}`,     // Clear, informative subject line
-    html: htmlContent                                       // Rich HTML content for better presentation
-  };
-  
-  // Step 3: Send the email using SendGrid service
-  // This will throw an error if sending fails, which should be handled by caller
-  await sgMail.send(msg);
+
+  // Step 2: Send emails to admin recipients using Termii email service
+  const adminRecipients = ['admin@auqli.com', 'bolu@auqli.com'];
+  const emailSubject = `New User Report - ${reportData.reason}`;
+
+  // Send to each recipient (Termii doesn't support arrays)
+  for (const recipient of adminRecipients) {
+    try {
+      await termiiEmailService.sendRawHTMLEmail({
+        email: recipient,
+        subject: emailSubject,
+        html: htmlContent
+      });
+    } catch (error) {
+      console.error(`Failed to send report notification to ${recipient}:`, error.message);
+      // Continue sending to other recipients even if one fails
+    }
+  }
 }
 
 /**
@@ -173,10 +175,10 @@ async function sendReportNotificationEmail(reportData) {
 function generateReportId() {
   // Step 1: Create timestamp-based unique identifier
   const timestamp = Date.now();
-  
+
   // Step 2: Add random component for additional uniqueness
   const randomComponent = Math.random().toString(36).substring(2, 8).toUpperCase();
-  
+
   // Step 3: Combine components into readable report ID
   return `RPT-${timestamp}-${randomComponent}`;
 }
@@ -279,12 +281,12 @@ async function reportUser(reporterId, reportData) {
   // Step 1: Validate input data
   // This includes input validation, user existence checks, and self-report prevention
   await reportUserValidator.validateReportUserData(reporterId, reportData);
-  
+
   // Step 2: Get the validated users for email and database operations
   // Since validation passed, we know both users exist
   const reporter = await buyerRepository.findById(reporterId);
   const reportedUser = await buyerRepository.findUserById(reportData.userId, reportData.userType);
-  
+
   // Step 3: Prepare the report data for database storage
   // Format data according to schema requirements
   const formattedReportData = prepareReportData(
@@ -293,18 +295,18 @@ async function reportUser(reporterId, reportData) {
     reportData.reason,
     reportData.description
   );
-  
+
   // Step 4: Save the report to the reporter's account
   // Use repository method to atomically add report to buyer's reports array
   const updatedBuyer = await buyerRepository.addReport(reporterId, formattedReportData);
-  
+
   // Step 5: Generate unique report ID for tracking and reference
   const reportId = generateReportId();
-  
+
   // Step 6: Get the newly added report from the updated buyer document
   // The last report in the array is the one we just added
   const newReport = updatedBuyer.reports[updatedBuyer.reports.length - 1];
-  
+
   // Step 7: Prepare email notification data
   const emailNotificationData = {
     reporter: {
@@ -318,11 +320,11 @@ async function reportUser(reporterId, reportData) {
     description: reportData.description,
     reportId: reportId
   };
-  
+
   // Step 8: Send notification email to administrators
   // This ensures admins are immediately aware of new reports
   await sendReportNotificationEmail(emailNotificationData);
-  
+
   // Step 9: Return success response with report information
   // Match the original API response structure
   return {

@@ -4,21 +4,19 @@ const terminalAPI = require('../../../config/terminalAPI');
 const Product = require('../../../models/Product');
 const Buyer = require('../../../models/Buyer');
 const Seller = require('../../../models/Seller');
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('../../../services/termiiEmailService');
 
 // Set this to true to enable free shipping promo, false to disable
 const FREE_SHIPPING_PROMO = true;
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
 exports.cancelOrderByBuyer = async (orderId, buyerId, reason) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-  
+
   try {
     // Find and validate the order
     const order = await orderRepository.findOrderById(orderId);
-    
+
     if (!order) {
       return { status: 404, data: { message: 'Order not found' } };
     }
@@ -87,7 +85,7 @@ exports.cancelOrderByBuyer = async (orderId, buyerId, reason) => {
       await session.abortTransaction();
     }
     session.endSession();
-    
+
     console.error('Error cancelling order:', error);
     throw error;
   }
@@ -96,23 +94,23 @@ exports.cancelOrderByBuyer = async (orderId, buyerId, reason) => {
 function validateOrderForBuyerCancellation(order) {
   // Check if order is already cancelled
   if (order.items.some(item => item.status === 'cancelled')) {
-    return { 
-      canCancel: false, 
-      message: 'This order has already been cancelled' 
+    return {
+      canCancel: false,
+      message: 'This order has already been cancelled'
     };
   }
 
-  
-const nonCancellableStatuses = ['shipped', 'delivered', 'in-transit', 'in_transit', 'cancelled'];
 
-if (order.items.some(item => nonCancellableStatuses.includes(item.status))) {
-  return {
-    canCancel: false,
-    message: 'Order cannot be cancelled. Orders with shipped, delivered, in-transit, or cancelled statuses cannot be cancelled by buyers.'
-  };
-}
+  const nonCancellableStatuses = ['shipped', 'delivered', 'in-transit', 'in_transit', 'cancelled'];
 
-  
+  if (order.items.some(item => nonCancellableStatuses.includes(item.status))) {
+    return {
+      canCancel: false,
+      message: 'Order cannot be cancelled. Orders with shipped, delivered, in-transit, or cancelled statuses cannot be cancelled by buyers.'
+    };
+  }
+
+
 
   return { canCancel: true };
 }
@@ -126,7 +124,7 @@ async function handleTerminalAfricaCancellation(order) {
 
   // Cancel shipment with Terminal Africa if shipment exists
   const shipmentId = order.shipping?.shipment_id;
-  
+
   if (shipmentId && !shipmentId.startsWith('MANUAL-') && !shipmentId.startsWith('PICKUP-')) {
     const requestBody = { shipment_id: shipmentId };
     console.log(`Attempting to cancel Terminal Africa shipment for order ${order.order_id}`);
@@ -135,9 +133,9 @@ async function handleTerminalAfricaCancellation(order) {
 
     try {
       const cancelResponse = await terminalAPI.post('/shipments/cancel', requestBody);
-      
+
       console.log('Terminal Africa cancellation successful response:', JSON.stringify(cancelResponse.data, null, 2));
-      
+
       if (cancelResponse.data.status) {
         console.log('Terminal Africa shipment cancelled successfully');
       } else {
@@ -151,7 +149,7 @@ async function handleTerminalAfricaCancellation(order) {
       if (error.response) {
         console.error('Terminal API error response:', JSON.stringify(error.response.data, null, 2));
       }
-      
+
       // Decide if we should re-throw or just log
       if (error.response && error.response.data && error.response.data.message === 'Shipment transaction could not be found for shipment') {
         console.warn(`Shipment for order ${order.order_id} not found on Terminal Africa. Proceeding with cancellation in our system.`);
@@ -166,13 +164,13 @@ async function handleWalletRefund(order, session) {
   const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
   let walletRefunded = false;
   let walletRefundAmount = 0;
-  
+
   if (isHybridPayment && order.paymentInfo.walletAmountUsed > 0) {
     try {
       console.log(`Processing wallet refund for hybrid payment in order ${order.order_id}`);
-      
+
       const buyer = await Buyer.findById(order.buyer);
-      
+
       if (buyer) {
         // Refund the wallet amount that was used (excluding shipping if promo is on)
         walletRefundAmount = calculateRefundAmount(order);
@@ -183,14 +181,14 @@ async function handleWalletRefund(order, session) {
           status: 'completed',
           createdAt: new Date()
         };
-        
+
         // Add transaction to wallet
         buyer.wallet.balance += walletRefundAmount;
         buyer.wallet.transactions.push(walletTransaction);
-        
+
         // Save buyer with updated wallet
         await buyer.save({ session });
-        
+
         walletRefunded = true;
         console.log(`Successfully refunded wallet amount: ${walletRefundAmount}`);
       }
@@ -222,11 +220,11 @@ async function updateOrderForCancellation(order, reason, session) {
   if (order.shipping && order.shipping.tracking) {
     order.shipping.tracking.status = 'cancelled';
     order.shipping.tracking.lastUpdate = new Date();
-    
+
     if (!order.shipping.tracking.history) {
       order.shipping.tracking.history = [];
     }
-    
+
     order.shipping.tracking.history.push({
       status: 'cancelled',
       timestamp: new Date(),
@@ -239,11 +237,11 @@ async function restoreProductStock(order, session) {
   for (const item of order.items) {
     await Product.findByIdAndUpdate(
       item.product,
-      { 
-        $inc: { 
+      {
+        $inc: {
           'stats.soldCount': -item.quantity,
           'stock': item.quantity,
-          'inventory.quantity': item.quantity 
+          'inventory.quantity': item.quantity
         }
       },
       { session }
@@ -265,7 +263,7 @@ function handleRefundRequest(order, reason) {
   // Handle refund request for paid orders
   if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
     console.log('Creating refund request for paid order:', order.order_id);
-    
+
     order.refundRequest = {
       requested: true,
       requestedAt: new Date(),
@@ -289,15 +287,27 @@ function handleRefundRequest(order, reason) {
 async function sendCancellationEmails(order, reason, walletRefundResult) {
   try {
     const { buyerEmail, sellerEmail } = generateCancellationEmails(order, reason, walletRefundResult);
-    
-    await sgMail.send([buyerEmail, sellerEmail]);
-    
+
+    // Send buyer email
+    await termiiEmailService.sendRawHTMLEmail({
+      email: buyerEmail.to,
+      subject: buyerEmail.subject,
+      html: buyerEmail.html
+    });
+
+    // Send seller email
+    await termiiEmailService.sendRawHTMLEmail({
+      email: sellerEmail.to,
+      subject: sellerEmail.subject,
+      html: sellerEmail.html
+    });
+
     // Send admin notification if refund is needed
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       await sendAdminRefundNotification(order, reason, walletRefundResult);
     }
   } catch (emailError) {
-    console.error('Error sending cancellation emails:', emailError);
+    console.error('Error sending cancellation emails:', emailError.message);
     // Continue processing even if email sending fails
   }
 }
@@ -311,7 +321,7 @@ function generateCancellationEmails(order, reason, walletRefundResult) {
       <p><strong>Reason:</strong> ${reason || 'No reason provided'}</p>
       <p><strong>Seller:</strong> ${order.seller.storeName || order.seller.businessName}</p>
   `;
-  
+
   // Add refund information if applicable
   if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
     buyerEmailHtml += `
@@ -320,14 +330,14 @@ function generateCancellationEmails(order, reason, walletRefundResult) {
       <p>Refund status: Pending</p>
     `;
   }
-  
+
   // Add wallet refund info if applicable
   if (walletRefundResult.refunded) {
     buyerEmailHtml += `
       <p><strong>Wallet Refund:</strong> Your wallet credit of ₦${walletRefundResult.amount.toLocaleString()} used for this order has been refunded to your wallet.</p>
     `;
   }
-  
+
   buyerEmailHtml += `
       <p>If you have any questions, please contact our support team.</p>
       <p>Best regards,<br>The Auqli Team</p>
@@ -336,14 +346,14 @@ function generateCancellationEmails(order, reason, walletRefundResult) {
 
   const buyerEmail = {
     to: order.buyer.email,
-    from: 'Auqli Orders <support@auqli.com>',
+    from: 'Auqli <support@auqli.com>',
     subject: 'Order Cancellation Confirmation - Auqli',
     html: buyerEmailHtml
   };
 
   const sellerEmail = {
     to: order.seller.email,
-    from: 'Auqli Orders <support@auqli.com>',
+    from: 'Auqli <support@auqli.com>',
     subject: 'Order Cancellation Notice - Auqli',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -367,11 +377,11 @@ async function sendAdminRefundNotification(order, reason, walletRefundResult) {
   try {
     const Admin = mongoose.model('Admin');
     const admins = await Admin.find({});
-    
+
     if (admins && admins.length > 0) {
       const adminEmail = {
         to: admins.map(admin => admin.email).filter(Boolean),
-        from: 'Auqli Orders <support@auqli.com>',
+        from: 'Auqli <support@auqli.com>',
         subject: 'New Refund Request - Order Cancelled by Buyer',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -390,11 +400,22 @@ async function sendAdminRefundNotification(order, reason, walletRefundResult) {
           </div>
         `
       };
-      
-      await sgMail.send(adminEmail);
+
+      // Send to each admin individually
+      for (const adminRecipient of adminEmail.to) {
+        try {
+          await termiiEmailService.sendRawHTMLEmail({
+            email: adminRecipient,
+            subject: adminEmail.subject,
+            html: adminEmail.html
+          });
+        } catch (err) {
+          console.error(`Failed to send admin notification to ${adminRecipient}:`, err.message);
+        }
+      }
     }
   } catch (emailError) {
-    console.error('Error sending admin notification:', emailError);
+    console.error('Error sending admin notification:', emailError.message);
   }
 }
 

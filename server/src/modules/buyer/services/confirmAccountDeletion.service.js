@@ -40,16 +40,12 @@
 // External dependencies
 const fs = require('fs');           // File system operations for reading email templates
 const path = require('path');       // Path utilities for file system navigation
-const sgMail = require('@sendgrid/mail'); // SendGrid email service for sending emails
+const termiiEmailService = require('../../../services/termiiEmailService'); // Termii email service for sending emails
 
 // Internal dependencies
 const ValidationError = require('../../../utils/errors/ValidationError');
 const buyerRepository = require('../repositories/buyer.repository');
 const confirmAccountDeletionValidator = require('../validators/confirmAccountDeletion.validator');
-
-// Configure SendGrid API key for email service authentication
-// This API key should be set in environment variables for security
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 /**
  * Reads and populates the account deletion confirmation email template.
@@ -81,16 +77,16 @@ async function getEmailContent(email) {
   // Step 1: Construct the full path to the email template file
   // Template is stored in the templates directory at the project root
   const templatePath = path.join(__dirname, '../../../templates/account-deletion-confirmation-email.html');
-  
+
   // Step 2: Read the HTML template file synchronously
   // Using utf8 encoding to ensure proper text handling
   let htmlContent = fs.readFileSync(templatePath, 'utf8');
-  
+
   // Step 3: Replace template variables with actual dynamic values
   // Currently only replacing year for copyright, but can be extended for personalization
   const currentYear = new Date().getFullYear();
   htmlContent = htmlContent.replace('{{year}}', currentYear);
-  
+
   return htmlContent;
 }
 
@@ -119,18 +115,14 @@ async function getEmailContent(email) {
 async function sendConfirmationEmail(email) {
   // Step 1: Get the populated HTML email content from template
   const htmlContent = await getEmailContent(email);
-  
-  // Step 2: Prepare the email message object with all required fields
-  const msg = {
-    to: email,                                           // Recipient email address
-    from: 'Joseph From Auqli <support@auqli.com>',     // Sender with professional identity
-    subject: 'Account Deleted Successfully - Auqli',   // Clear, informative subject line
-    html: htmlContent                                   // Rich HTML content for better presentation
-  };
-  
-  // Step 3: Send the email using SendGrid service
+
+  // Step 2: Send the email using Termii email service
   // This will throw an error if sending fails, which should be handled by caller
-  await sgMail.send(msg);
+  await termiiEmailService.sendRawHTMLEmail({
+    email: email,
+    subject: 'Account Deleted Successfully - Auqli',
+    html: htmlContent
+  });
 }
 
 /**
@@ -186,7 +178,7 @@ function isValidOTP(buyer, otp) {
 function calculateRemainingAttempts(currentAttempts) {
   // Maximum attempts allowed before requiring new OTP (security measure)
   const maxAttempts = 5;
-  
+
   // Calculate and return remaining attempts
   // This ensures users know their current status
   return maxAttempts - currentAttempts;
@@ -254,21 +246,21 @@ async function confirmAccountDeletion(buyerId, otp) {
   // Step 1: Validate input data
   // This includes OTP format, buyer existence, and deletion request status validation
   await confirmAccountDeletionValidator.validateConfirmAccountDeletionData(buyerId, otp);
-  
+
   // Step 2: Get the buyer object for OTP verification
   // Since validation passed, we know the buyer exists
   const buyer = await buyerRepository.findById(buyerId);
-  
+
   // Step 3: Verify the provided OTP matches the stored OTP
   if (!isValidOTP(buyer, otp)) {
     // Step 3a: Increment failed attempts counter for security tracking
     // This helps prevent brute force attacks on the OTP
     await buyerRepository.incrementAccountDeletionAttempts(buyerId);
-    
+
     // Step 3b: Calculate remaining attempts for user feedback
     // Adding 1 because we just incremented the attempts above
     const remainingAttempts = calculateRemainingAttempts(buyer.accountDeletion.attempts + 1);
-    
+
     // Step 3c: Throw validation error with detailed feedback
     // Including remaining attempts helps user understand their current status
     throw new ValidationError([{
@@ -277,15 +269,15 @@ async function confirmAccountDeletion(buyerId, otp) {
       remainingAttempts: remainingAttempts
     }]);
   }
-  
+
   // Step 4: Send confirmation email before deletion
   // This provides documentation and professional closure
   await sendConfirmationEmail(buyer.email);
-  
+
   // Step 5: Permanently delete the buyer account from database
   // This is the final irreversible step in the process
   await buyerRepository.deleteById(buyerId);
-  
+
   // Step 6: Return success confirmation to controller
   return {
     message: 'Account deleted successfully'

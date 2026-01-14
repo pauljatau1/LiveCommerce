@@ -4,9 +4,12 @@ const requestAccountDeletionService = require('@modules/buyer/services/requestAc
 const Buyer = require('@models/Buyer');
 const ValidationError = require('@utils/errors/ValidationError');
 
-// Mock SendGrid
-jest.mock('@sendgrid/mail');
-const sgMail = require('@sendgrid/mail');
+// Mock TermiiEmailService
+jest.mock('@services/termiiEmailService', () => ({
+  sendRawHTMLEmail: jest.fn().mockResolvedValue(true)
+}));
+
+const termiiEmailService = require('@services/termiiEmailService');
 
 let mongoServer;
 
@@ -22,6 +25,7 @@ describe('requestAccountDeletion.service', () => {
     });
     const mongoUri = mongoServer.getUri();
     await mongoose.connect(mongoUri);
+    process.env.TERMII_API_KEY = 'test-key';
   });
 
   afterAll(async () => {
@@ -31,6 +35,10 @@ describe('requestAccountDeletion.service', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    // Explicitly reset Termii mock to success
+    termiiEmailService.sendRawHTMLEmail.mockResolvedValue(true);
+
     await Buyer.deleteMany({});
 
     // Create a test buyer without account deletion request
@@ -42,9 +50,6 @@ describe('requestAccountDeletion.service', () => {
       password: 'hashedPassword123'
     });
     await testBuyer.save();
-
-    // Mock SendGrid send method
-    sgMail.send.mockResolvedValue([{ statusCode: 202 }]);
   });
 
   afterEach(async () => {
@@ -73,9 +78,9 @@ describe('requestAccountDeletion.service', () => {
       expect(updatedBuyer.accountDeletion.expiresAt).toBeInstanceOf(Date);
 
       // Verify email was sent
-      expect(sgMail.send).toHaveBeenCalledTimes(1);
-      const emailCall = sgMail.send.mock.calls[0][0];
-      expect(emailCall.to).toBe('john.doe@example.com');
+      expect(termiiEmailService.sendRawHTMLEmail).toHaveBeenCalledTimes(1);
+      const emailCall = termiiEmailService.sendRawHTMLEmail.mock.calls[0][0];
+      expect(emailCall.email).toBe('john.doe@example.com');
       expect(emailCall.subject).toBe('Account Deletion Request - Auqli');
     });
 
@@ -124,12 +129,12 @@ describe('requestAccountDeletion.service', () => {
       // Arrange
       const buyerId = testBuyer._id.toString();
 
-      // Mock SendGrid to throw error
-      sgMail.send.mockRejectedValue(new Error('SendGrid error'));
+      // Mock Termii email sending to throw error
+      termiiEmailService.sendRawHTMLEmail.mockRejectedValue(new Error('Termii error'));
 
       // Act & Assert
       await expect(requestAccountDeletionService.requestAccountDeletion(buyerId))
-        .rejects.toThrow('SendGrid error');
+        .rejects.toThrow('Termii error');
     });
 
     it('should generate unique OTP for each request', async () => {
@@ -181,8 +186,8 @@ describe('requestAccountDeletion.service', () => {
       await requestAccountDeletionService.requestAccountDeletion(buyerId);
 
       // Assert
-      expect(sgMail.send).toHaveBeenCalledTimes(1);
-      const emailCall = sgMail.send.mock.calls[0][0];
+      expect(termiiEmailService.sendRawHTMLEmail).toHaveBeenCalledTimes(1);
+      const emailCall = termiiEmailService.sendRawHTMLEmail.mock.calls[0][0];
 
       // Get the actual OTP that was generated and stored
       const updatedBuyer = await Buyer.findById(buyerId);
@@ -192,28 +197,16 @@ describe('requestAccountDeletion.service', () => {
       expect(emailCall.html).toContain(new Date().getFullYear().toString()); // Year should be replaced
     });
 
-    it('should handle SendGrid API errors gracefully', async () => {
+    it('should handle Termii API errors gracefully', async () => {
       // Arrange
       const buyerId = testBuyer._id.toString();
 
-      // Mock SendGrid API error
-      sgMail.send.mockRejectedValue(new Error('Invalid API key'));
+      // Mock Termii API error
+      termiiEmailService.sendRawHTMLEmail.mockRejectedValue(new Error('Invalid API key'));
 
       // Act & Assert
       await expect(requestAccountDeletionService.requestAccountDeletion(buyerId))
         .rejects.toThrow('Invalid API key');
     });
-
-    it('should handle SendGrid timeout errors', async () => {
-      // Arrange
-      const buyerId = testBuyer._id.toString();
-
-      // Mock SendGrid timeout error
-      sgMail.send.mockRejectedValue(new Error('Request timeout'));
-
-      // Act & Assert
-      await expect(requestAccountDeletionService.requestAccountDeletion(buyerId))
-        .rejects.toThrow('Request timeout');
-    });
   });
-}); 
+});

@@ -2,9 +2,9 @@ const Admin = require('../models/Admin');
 const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 const Product = require('../models/Product');
-const Category = require('../models/Category'); 
+const Category = require('../models/Category');
 const MajorCategory = require('../models/MajorCategory');
-const Banner = require('../models/Banner'); 
+const Banner = require('../models/Banner');
 const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
 const Order = require('../models/Order');
@@ -45,7 +45,7 @@ paystack.interceptors.request.use((config) => {
     authHeader: config.headers.Authorization?.substring(0, 15) + '...',
     baseURL: config.baseURL
   });
-  
+
   if (!process.env.PAYSTACK_SECRET_KEY) {
     console.error('Paystack Secret Key is missing');
     throw new Error('Invalid Paystack configuration: Key missing');
@@ -71,6 +71,7 @@ cloudinary.config({
 const { s3 } = require('../config/awsConfig');
 const { v4: uuidv4 } = require('uuid');
 const emailService = require('../utils/emailService');
+const termiiEmailService = require('../services/termiiEmailService');
 const { sendAdminLoginNotificationEmail } = emailService;
 const rateLimit = require('express-rate-limit');
 
@@ -87,14 +88,14 @@ exports.register = async (req, res) => {
     const ALLOWED_EMAILS = [
       'bolu@auqli.com',
       'support@auqli.com',
-      'joseph@auqli.com', 
+      'joseph@auqli.com',
       'paul@auqli.com',
       'matt@auqli.com',
-     'melissa@auqli.com',
-     'alex@commercejet.com',
-     'matt@auqli.com'
+      'melissa@auqli.com',
+      'alex@commercejet.com',
+      'matt@auqli.com'
     ];
-    
+
     if (!ALLOWED_EMAILS.includes(email.toLowerCase())) {
       return res.status(403).json({
         success: false,
@@ -124,23 +125,23 @@ exports.register = async (req, res) => {
     }
 
     // Create and save the new admin
-    const newAdmin = new Admin({ 
-      username, 
-      email: email.toLowerCase(), 
-      password 
+    const newAdmin = new Admin({
+      username,
+      email: email.toLowerCase(),
+      password
     });
-    
+
     await newAdmin.save();
-    
-    res.status(201).json({ 
+
+    res.status(201).json({
       success: true,
       message: 'Admin registered successfully!'
     });
   } catch (error) {
-    res.status(400).json({ 
+    res.status(400).json({
       success: false,
       message: 'Registration failed',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -166,11 +167,11 @@ exports.login = async (req, res) => {
     // Check if the IP is currently locked out
     const ipKey = `ip_${clientIP}`;
     const ipAttempts = loginAttempts.get(ipKey) || { count: 0, lockUntil: 0 };
-    
+
     if (ipAttempts.lockUntil > Date.now()) {
-      return res.status(429).json({ 
+      return res.status(429).json({
         success: false,
-        message: `Too many failed login attempts. Please try again after ${Math.ceil((ipAttempts.lockUntil - Date.now()) / 60000)} minutes.` 
+        message: `Too many failed login attempts. Please try again after ${Math.ceil((ipAttempts.lockUntil - Date.now()) / 60000)} minutes.`
       });
     }
 
@@ -188,20 +189,20 @@ exports.login = async (req, res) => {
     if (!admin || !(await admin.comparePassword(password))) {
       // Update failed attempts for this IP
       ipAttempts.count += 1;
-      
+
       if (ipAttempts.count >= MAX_FAILED_ATTEMPTS) {
         ipAttempts.lockUntil = Date.now() + LOCKOUT_TIME;
         loginAttempts.set(ipKey, ipAttempts);
-        
+
         return res.status(429).json({
           success: false,
-          message: `Too many failed login attempts. Your IP has been temporarily locked for ${LOCKOUT_TIME/60000} minutes.`
+          message: `Too many failed login attempts. Your IP has been temporarily locked for ${LOCKOUT_TIME / 60000} minutes.`
         });
       }
-      
+
       loginAttempts.set(ipKey, ipAttempts);
-      
-      return res.status(401).json({ 
+
+      return res.status(401).json({
         success: false,
         message: 'Invalid credentials',
         attemptsLeft: MAX_FAILED_ATTEMPTS - ipAttempts.count
@@ -214,11 +215,11 @@ exports.login = async (req, res) => {
     // Update last login timestamp
     admin.lastLogin = new Date();
     await admin.save();
-    
+
     // Generate JWT token with shorter expiration for security
     const token = jwt.sign(
-      { id: admin._id, role: 'admin' }, 
-      process.env.JWT_SECRET, 
+      { id: admin._id, role: 'admin' },
+      process.env.JWT_SECRET,
       { expiresIn: '8h' }
     );
 
@@ -228,14 +229,14 @@ exports.login = async (req, res) => {
       userAgent: userAgent,
       timestamp: new Date()
     };
-    
+
     console.log('Admin login successful for:', admin.username);
     console.log('SENDGRID_API_KEY configured:', !!process.env.SENDGRID_API_KEY);
-    
+
     // Send the notification email asynchronously 
     try {
       console.log(`Attempting to send login notification to admin: ${admin.email}`);
-      
+
       // This is now a fire-and-forget operation, don't await it
       sendAdminLoginNotificationEmail(admin.email, admin.username, loginMetadata)
         .then(success => {
@@ -254,7 +255,7 @@ exports.login = async (req, res) => {
     }
 
     // Return success response
-    res.json({ 
+    res.json({
       success: true,
       token,
       username: admin.username,
@@ -262,10 +263,10 @@ exports.login = async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: 'An error occurred during login',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -291,7 +292,7 @@ exports.getAllUsers = async (req, res) => {
 
     // Build filter object based on query parameters
     const filter = {};
-    
+
     // Filter by name or email
     if (req.query.search) {
       filter.$or = [
@@ -300,7 +301,7 @@ exports.getAllUsers = async (req, res) => {
         { email: { $regex: req.query.search, $options: 'i' } },
       ];
     }
-    
+
     // Filter by account status
     if (req.query.isDisabled !== undefined) {
       filter.isDisabled = req.query.isDisabled === 'true';
@@ -318,9 +319,9 @@ exports.getAllUsers = async (req, res) => {
 
     // Determine sort options
     let sortOptions = { createdAt: -1 }; // Default: newest first
-    
+
     if (req.query.sortBy) {
-      switch(req.query.sortBy) {
+      switch (req.query.sortBy) {
         case 'name_asc':
           sortOptions = { firstName: 1, lastName: 1 };
           break;
@@ -340,7 +341,7 @@ exports.getAllUsers = async (req, res) => {
 
     // Count total number of users for pagination metadata
     const totalUsers = await Buyer.countDocuments(filter);
-    
+
     // Get paginated users
     const users = await Buyer.find(filter)
       .select('-password -refreshToken')
@@ -358,10 +359,10 @@ exports.getAllUsers = async (req, res) => {
       users
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: 'Failed to fetch users',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -375,7 +376,7 @@ exports.getAllSellers = async (req, res) => {
 
     // Build filter object based on query parameters
     const filter = {};
-    
+
     // Filter by name (first name, last name), business name, or store name
     if (req.query.search) {
       filter.$or = [
@@ -385,7 +386,7 @@ exports.getAllSellers = async (req, res) => {
         { storeName: { $regex: req.query.search, $options: 'i' } },
       ];
     }
-    
+
     // Filter by verification status
     if (req.query.isVerified !== undefined) {
       filter.isVerified = req.query.isVerified === 'true';
@@ -412,9 +413,9 @@ exports.getAllSellers = async (req, res) => {
 
     // Determine sort options
     let sortOptions = { createdAt: -1 }; // Default: newest first
-    
+
     if (req.query.sortBy) {
-      switch(req.query.sortBy) {
+      switch (req.query.sortBy) {
         case 'name_asc':
           sortOptions = { firstName: 1, lastName: 1 };
           break;
@@ -437,7 +438,7 @@ exports.getAllSellers = async (req, res) => {
 
     // Count total number of sellers for pagination metadata
     const totalSellers = await Seller.countDocuments(filter);
-    
+
     // Get paginated sellers
     const sellers = await Seller.find(filter)
       .select('-password -refreshToken')
@@ -466,10 +467,10 @@ exports.getAllSellers = async (req, res) => {
       sellers: sellersWithProductCount
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: 'Failed to fetch sellers',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -479,8 +480,8 @@ exports.disableSeller = async (req, res) => {
 
   try {
     const seller = await Seller.findByIdAndUpdate(
-      sellerId, 
-      { isDisabled: true }, 
+      sellerId,
+      { isDisabled: true },
       { new: true }
     );
 
@@ -496,12 +497,12 @@ exports.disableSeller = async (req, res) => {
         { seller: sellerId, status: { $in: ['active', 'offline_auction'] } },
         { $set: { status: 'draft' } }
       );
-      
+
       productStatusUpdate = {
         productsUpdated: productUpdateResult.modifiedCount,
         status: 'success'
       };
-      
+
       console.log(`📦 Set ${productUpdateResult.modifiedCount} products to draft status for disabled seller ${seller.email}`);
     } catch (productError) {
       console.error(`❌ Error setting products to draft for seller ${seller.email}:`, productError);
@@ -516,12 +517,12 @@ exports.disableSeller = async (req, res) => {
     // Check if seller has wallet balance and create automatic withdrawal request safely
     let automaticWithdrawal = null;
     let withdrawalSafetyReport = null;
-    
+
     if (seller.walletBalance > 0) {
       try {
         // Get comprehensive withdrawal safety report
         withdrawalSafetyReport = await getWithdrawalSafetyReport(seller._id);
-        
+
         console.log(`Withdrawal safety report for ${seller.email}:`, {
           canWithdraw: withdrawalSafetyReport.withdrawalCalculation.canWithdraw,
           availableBalance: withdrawalSafetyReport.withdrawalCalculation.availableBalance,
@@ -539,7 +540,7 @@ exports.disableSeller = async (req, res) => {
 
           if (withdrawalResult.success) {
             automaticWithdrawal = withdrawalResult.withdrawal;
-            
+
             // Send email notification about automatic withdrawal
             const withdrawalEmailMsg = {
               to: seller.email,
@@ -604,7 +605,7 @@ exports.disableSeller = async (req, res) => {
           } else if (withdrawalResult.requiresSupportContact) {
             // Handle case where seller has no bank details
             console.log(`📧 Sending no bank details emails for ${seller.email} (Balance: ₦${withdrawalResult.availableBalance.toLocaleString()})`);
-            
+
             // Send no bank details emails asynchronously (non-blocking)
             sendNoBankDetailsEmails(
               withdrawalResult.seller,
@@ -692,7 +693,7 @@ exports.disableSeller = async (req, res) => {
             sgMail.send(invalidBankDetailsAdminMsg).catch(emailError => {
               console.error(`❌ Error sending invalid bank details admin notification:`, emailError);
             });
-            
+
             console.log(`📧 Admin notification sent to bolu@auqli.com for invalid bank details: ${seller.email}`);
           }
         }
@@ -814,8 +815,8 @@ exports.enableSeller = async (req, res) => {
 
   try {
     const seller = await Seller.findByIdAndUpdate(
-      sellerId, 
-      { isDisabled: false }, 
+      sellerId,
+      { isDisabled: false },
       { new: true }
     );
 
@@ -900,22 +901,22 @@ exports.getAllProducts = async (req, res) => {
 
     // Build filter object based on query parameters
     const filter = {};
-    
+
     // Filter by product name (case-insensitive partial match)
     if (req.query.name) {
       filter.name = { $regex: req.query.name, $options: 'i' };
     }
-    
+
     // Filter by category
     if (req.query.category) {
       filter.category = req.query.category;
     }
-    
+
     // Filter by seller ID
     if (req.query.sellerId) {
       filter.seller = req.query.sellerId;
     }
-    
+
     // Filter by status
     if (req.query.status) {
       filter.status = req.query.status;
@@ -923,7 +924,7 @@ exports.getAllProducts = async (req, res) => {
 
     // Count total number of products for pagination metadata
     const totalProducts = await Product.countDocuments(filter);
-    
+
     // Get paginated products with populated seller information
     const products = await Product.find(filter)
       .populate('seller')
@@ -941,10 +942,10 @@ exports.getAllProducts = async (req, res) => {
       products
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: 'Failed to fetch products',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -954,7 +955,7 @@ exports.createCategory = async (req, res) => {
     const { name } = req.body;
     const imageFile = req.file;
     let subCategories = [];
-    
+
     try {
       subCategories = JSON.parse(req.body.subCategories);
     } catch (error) {
@@ -1001,7 +1002,7 @@ exports.getCategories = async (req, res) => {
   try {
     // Get all categories
     const categories = await Category.find({}, null, { session });
-    
+
     // Reset all category statistics
     await Category.updateMany({}, {
       $set: {
@@ -1043,7 +1044,7 @@ exports.getCategories = async (req, res) => {
         if (!item.product || !item.product.category) continue;
 
         const category = item.product.category;
-        
+
         if (!categoryStats[category]) {
           categoryStats[category] = {
             pending: { orders: 0, items: 0 },
@@ -1122,7 +1123,7 @@ exports.updateCategory = async (req, res) => {
     const { name } = req.body;
     const imageFile = req.file;
     let subCategories = [];
-    
+
     try {
       subCategories = JSON.parse(req.body.subCategories);
     } catch (error) {
@@ -1205,7 +1206,7 @@ exports.deleteCategory = async (req, res) => {
 
     // Use deleteOne() instead of remove()
     await Category.deleteOne({ _id: id });
-    
+
     res.json({ message: 'Category deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to delete category', error: error.message });
@@ -1258,8 +1259,8 @@ exports.createBanner = async (req, res) => {
     }
 
     // Find the category
-    const categoryDoc = await Category.findOne({ 
-      name: { $regex: new RegExp(category, 'i') } 
+    const categoryDoc = await Category.findOne({
+      name: { $regex: new RegExp(category, 'i') }
     });
     if (!categoryDoc) {
       return res.status(404).json({ message: 'Category not found' });
@@ -1312,8 +1313,8 @@ exports.updateBanner = async (req, res) => {
 
     // Update category if provided
     if (category) {
-      const categoryDoc = await Category.findOne({ 
-        name: { $regex: new RegExp(category, 'i') } 
+      const categoryDoc = await Category.findOne({
+        name: { $regex: new RegExp(category, 'i') }
       });
       if (!categoryDoc) {
         return res.status(404).json({ message: 'Category not found' });
@@ -1536,11 +1537,11 @@ exports.verifyBusinessAccount = async (req, res) => {
     await seller.save();
 
     // Send verification emails
-const personalEmailMsg = {
-  to: seller.email,
-  from: 'Auqli Nigeria <support@auqli.com>',
-  subject: 'Your Auqli Account Has Been Verified! 🎉',
-  html: `
+    const personalEmailMsg = {
+      to: seller.email,
+      from: 'Auqli Nigeria <support@auqli.com>',
+      subject: 'Your Auqli Account Has Been Verified! 🎉',
+      html: `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2>Hi ${seller.firstName},</h2>
       <p>Your seller account on Auqli Nigeria has been verified successfully.</p>
@@ -1563,15 +1564,15 @@ const personalEmailMsg = {
       <p>Best regards,<br>The Auqli Team</p>
     </div>
   `
-};
+    };
 
-// Send to business email if it exists
-if (seller.businessEmail) {
-  const businessEmailMsg = {
-    to: seller.businessEmail,
-    from: 'Auqli Nigeria <support@auqli.com>',
-    subject: 'Business Account Verification Confirmed - Auqli',
-    html: `
+    // Send to business email if it exists
+    if (seller.businessEmail) {
+      const businessEmailMsg = {
+        to: seller.businessEmail,
+        from: 'Auqli Nigeria <support@auqli.com>',
+        subject: 'Business Account Verification Confirmed - Auqli',
+        html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Business Account Verified</h2>
         <p>Dear ${seller.businessName || seller.firstName},</p>
@@ -1600,24 +1601,24 @@ if (seller.businessEmail) {
         <p>Best regards,<br>Auqli Business Team</p>
       </div>
     `
-  };
-  await sgMail.send(businessEmailMsg);
-}
+      };
+      await sgMail.send(businessEmailMsg);
+    }
 
 
     await sgMail.send(personalEmailMsg);
 
-    res.json({ 
+    res.json({
       success: true,
-      message: 'Account verified successfully', 
-      seller 
+      message: 'Account verified successfully',
+      seller
     });
 
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Failed to verify account', 
-      error: error.message 
+      message: 'Failed to verify account',
+      error: error.message
     });
   }
 };
@@ -1630,13 +1631,13 @@ exports.getOrderStatusOptions = async (req, res) => {
   try {
     // Get all distinct item statuses
     const itemStatuses = await Order.distinct('items.status');
-    
+
     // Get all distinct shipment tracking statuses
     const shipmentStatuses = await Order.distinct('shipping.tracking.status');
-    
+
     // Get all distinct payment methods
     const paymentMethods = await Order.distinct('paymentInfo.method');
-    
+
     res.json({
       itemStatuses,
       shipmentStatuses,
@@ -1658,7 +1659,7 @@ exports.getOrderStatusOptions = async (req, res) => {
 exports.getOrderStats = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    
+
     // Date filter
     const dateFilter = {};
     if (startDate || endDate) {
@@ -1666,23 +1667,25 @@ exports.getOrderStats = async (req, res) => {
       if (startDate) dateFilter.createdAt.$gte = new Date(startDate);
       if (endDate) dateFilter.createdAt.$lte = new Date(endDate);
     }
-    
+
     // Get order counts by status
     const statusCounts = await Order.aggregate([
       { $match: dateFilter },
       { $unwind: '$items' },
-      { $group: {
+      {
+        $group: {
           _id: '$items.status',
           count: { $sum: 1 }
         }
       },
       { $sort: { count: -1 } }
     ]);
-    
+
     // Get order counts by payment method
     const paymentMethodCounts = await Order.aggregate([
       { $match: dateFilter },
-      { $group: {
+      {
+        $group: {
           _id: '$paymentInfo.method',
           count: { $sum: 1 },
           totalAmount: { $sum: '$totalAmount' }
@@ -1690,22 +1693,22 @@ exports.getOrderStats = async (req, res) => {
       },
       { $sort: { count: -1 } }
     ]);
-    
+
     // Get order counts by day for the past 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+
     const ordersByDay = await Order.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           createdAt: { $gte: thirtyDaysAgo },
           ...dateFilter
-        } 
+        }
       },
       {
         $group: {
-          _id: { 
-            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } 
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
           },
           count: { $sum: 1 },
           revenue: { $sum: '$totalAmount' }
@@ -1713,27 +1716,29 @@ exports.getOrderStats = async (req, res) => {
       },
       { $sort: { _id: 1 } }
     ]);
-    
+
     // Get counts for open vs closed orders
     const openClosedCounts = await Order.aggregate([
       { $match: dateFilter },
-      { $group: {
+      {
+        $group: {
           _id: '$isOpen',
           count: { $sum: 1 }
         }
       }
     ]);
-    
+
     // Get counts for stale orders
     const staleCounts = await Order.aggregate([
       { $match: dateFilter },
-      { $group: {
+      {
+        $group: {
           _id: '$isStale',
           count: { $sum: 1 }
         }
       }
     ]);
-    
+
     // Format the response
     const stats = {
       byStatus: statusCounts.reduce((acc, curr) => {
@@ -1764,7 +1769,7 @@ exports.getOrderStats = async (req, res) => {
         return acc;
       }, { stale: 0, active: 0 })
     };
-    
+
     res.json(stats);
   } catch (error) {
     console.error('Error getting order statistics:', error);
@@ -1777,10 +1782,10 @@ exports.getOrderStats = async (req, res) => {
 
 exports.getAllOrders = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      status, 
+    const {
+      page = 1,
+      limit = 10,
+      status,
       isStale,
       isOpen,
       paid,
@@ -1792,7 +1797,7 @@ exports.getAllOrders = async (req, res) => {
       paymentMethod,
       isCashOnDelivery
     } = req.query;
-    
+
     const skip = (page - 1) * limit;
 
     // Build query based on filters
@@ -1937,7 +1942,8 @@ exports.getPlatformAnalytics = async (req, res) => {
     // Aggregate order data
     const orderStats = await Order.aggregate([
       { $match: { ...dateQuery, isStale: { $ne: true } } },
-      { $group: {
+      {
+        $group: {
           _id: null,
           totalOrders: { $sum: 1 },
           totalRevenue: { $sum: '$totalAmount' },
@@ -1956,7 +1962,8 @@ exports.getPlatformAnalytics = async (req, res) => {
     const statusStats = await Order.aggregate([
       { $match: { ...dateQuery, isStale: { $ne: true } } },
       { $unwind: '$items' },
-      { $group: {
+      {
+        $group: {
           _id: '$items.status',
           count: { $sum: 1 }
         }
@@ -1971,7 +1978,8 @@ exports.getPlatformAnalytics = async (req, res) => {
     analytics.sellers.topPerformers = await Order.aggregate([
       { $match: { ...dateQuery, isStale: { $ne: true } } },
       { $unwind: '$items' },
-      { $group: {
+      {
+        $group: {
           _id: '$items.seller',
           totalOrders: { $sum: 1 },
           totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
@@ -1990,7 +1998,8 @@ exports.getPlatformAnalytics = async (req, res) => {
     analytics.products.topSelling = await Order.aggregate([
       { $match: { ...dateQuery, isStale: { $ne: true } } },
       { $unwind: '$items' },
-      { $group: {
+      {
+        $group: {
           _id: '$items.product',
           totalSold: { $sum: '$items.quantity' },
           totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
@@ -2008,7 +2017,8 @@ exports.getPlatformAnalytics = async (req, res) => {
     // Get dispute statistics
     const disputeStats = await Order.aggregate([
       { $match: { 'dispute.status': { $exists: true } } },
-      { $group: {
+      {
+        $group: {
           _id: '$dispute.status',
           count: { $sum: 1 }
         }
@@ -2033,21 +2043,25 @@ exports.getFlaggedOrders = async (req, res) => {
     const flaggedOrders = await Order.find({
       $or: [
         { 'paymentInfo.status': 'failed' },
-        { 'paymentInfo.gateway_response': { $in: [
-          'fraudulent', 
-          'suspicious',
-          'declined',
-          'timeout'
-        ]}}, // Paystack specific responses
+        {
+          'paymentInfo.gateway_response': {
+            $in: [
+              'fraudulent',
+              'suspicious',
+              'declined',
+              'timeout'
+            ]
+          }
+        }, // Paystack specific responses
         { 'dispute.status': 'opened' },
         { 'refund.status': { $in: ['requested', 'approved'] } },
         { 'paymentInfo.attempts': { $gt: 3 } } // Multiple payment attempts
       ]
     })
-    .populate('buyer', 'firstName lastName email phoneNumber')
-    .populate('items.seller', 'firstName lastName businessName email')
-    .populate('items.product', 'name price')
-    .sort({ createdAt: -1 });
+      .populate('buyer', 'firstName lastName email phoneNumber')
+      .populate('items.seller', 'firstName lastName businessName email')
+      .populate('items.product', 'name price')
+      .sort({ createdAt: -1 });
 
     res.json(flaggedOrders);
   } catch (error) {
@@ -2126,32 +2140,32 @@ exports.adminCancelOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { reason } = req.body || {};
-    
+
     // Find order and populate necessary fields
     const order = await Order.findById(orderId)
       .populate('seller', 'email firstName lastName storeName')
       .populate('buyer', 'email firstName lastName');
-      
+
     if (!order) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Order not found' 
+        message: 'Order not found'
       });
     }
 
     // Check if the order is already cancelled
     if (order.shipping && order.shipping.tracking && order.shipping.tracking.status === 'cancelled') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Order has already been cancelled' 
+        message: 'Order has already been cancelled'
       });
     }
 
     // Check if the order is from an auction
     if (order.channel && (order.channel.toLowerCase() === 'auction')) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Orders created from auctions cannot be cancelled' 
+        message: 'Orders created from auctions cannot be cancelled'
       });
     }
 
@@ -2167,9 +2181,9 @@ exports.adminCancelOrder = async (req, res) => {
               user_id: process.env.FEZ_USER_ID,
               password: process.env.FEZ_PASSWORD
             };
-            
+
             const response = await axios.post(authUrl, authData);
-            
+
             if (response.data && response.data.status === 'Success' && response.data.authDetails) {
               return response.data.authDetails.authToken;
             } else {
@@ -2183,7 +2197,7 @@ exports.adminCancelOrder = async (req, res) => {
 
         const authToken = await getFezAuthToken();
         console.log('Admin using fresh token for order cancellation:', authToken.substring(0, 10) + '...');
-        
+
         // Cancel shipment with Fez Delivery
         const cancelResponse = await axios.delete(`${process.env.FEZ_API_URL}/order`, {
           headers: {
@@ -2243,12 +2257,12 @@ exports.adminCancelOrder = async (req, res) => {
     const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
     let walletRefunded = false;
     let walletRefundAmount = 0;
-    
+
     // Process wallet refund for hybrid payments if applicable
     if (isHybridPayment && order.paymentInfo.walletAmountUsed > 0) {
       try {
         const buyer = await Buyer.findById(order.buyer);
-        
+
         if (buyer) {
           // Refund the wallet amount that was used
           walletRefundAmount = order.paymentInfo.walletAmountUsed;
@@ -2259,14 +2273,14 @@ exports.adminCancelOrder = async (req, res) => {
             status: 'completed',
             createdAt: new Date()
           };
-          
+
           // Add transaction to wallet
           buyer.wallet.balance += walletRefundAmount;
           buyer.wallet.transactions.push(walletTransaction);
-          
+
           // Save buyer with updated wallet
           await buyer.save();
-          
+
           walletRefunded = true;
           console.log(`Refunded wallet amount for admin cancelled order: ${walletRefundAmount}`, {
             orderId: order._id,
@@ -2283,14 +2297,14 @@ exports.adminCancelOrder = async (req, res) => {
     // Check if the order was paid and create a refund request if necessary
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       console.log('Creating refund request for admin cancelled paid order:', order.order_id);
-      
+
       shippingUpdate.$set['refundRequest.requested'] = true;
       shippingUpdate.$set['refundRequest.requestedAt'] = new Date();
       shippingUpdate.$set['refundRequest.requestedBy'] = 'admin';
       shippingUpdate.$set['refundRequest.reason'] = reason || 'Order cancelled by admin';
       shippingUpdate.$set['refundRequest.status'] = 'pending';
       shippingUpdate.$set['refundRequest.refundAmount'] = order.totalAmount;
-      
+
       // Also update the order status to indicate it has a refund
       shippingUpdate.$set['orderStatus.hasRefund'] = true;
     }
@@ -2310,7 +2324,7 @@ exports.adminCancelOrder = async (req, res) => {
       shippingUpdate,
       { new: true }
     ).populate('seller', 'email firstName lastName storeName')
-     .populate('buyer', 'email firstName lastName');
+      .populate('buyer', 'email firstName lastName');
 
     // Send cancellation emails
     let buyerEmailHtml = `
@@ -2326,7 +2340,7 @@ exports.adminCancelOrder = async (req, res) => {
           ${reason ? `<li>Reason: ${reason}</li>` : ''}
         </ul>
     `;
-    
+
     // Add refund information if applicable
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       buyerEmailHtml += `
@@ -2335,14 +2349,14 @@ exports.adminCancelOrder = async (req, res) => {
         <p>Refund status: Pending</p>
       `;
     }
-    
+
     // Add wallet refund info if applicable
     if (walletRefunded) {
       buyerEmailHtml += `
         <p><strong>Wallet Refund:</strong> Your wallet credit of ₦${walletRefundAmount.toLocaleString()} used for this order has been refunded to your wallet.</p>
       `;
     }
-    
+
     buyerEmailHtml += `
         <p>If you have any questions about this cancellation, please contact our support team.</p>
         <p>Best regards,<br>The Auqli Team</p>
@@ -2383,10 +2397,10 @@ exports.adminCancelOrder = async (req, res) => {
     // Send admin notification if refund is needed
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       const admins = await Admin.find({});
-      
+
       if (admins && admins.length > 0) {
         const adminEmails = admins.map(admin => admin.email).filter(Boolean);
-        
+
         if (adminEmails.length > 0) {
           const adminEmail = {
             to: adminEmails,
@@ -2410,7 +2424,7 @@ exports.adminCancelOrder = async (req, res) => {
               </div>
             `
           };
-          
+
           try {
             await sgMail.send(adminEmail);
           } catch (emailError) {
@@ -2469,7 +2483,7 @@ exports.adminCancelOrder = async (req, res) => {
       });
     }
 
-    res.json({ 
+    res.json({
       success: true,
       message: 'Order cancelled successfully',
       order: {
@@ -2491,10 +2505,10 @@ exports.adminCancelOrder = async (req, res) => {
 
   } catch (error) {
     console.error('Error in admin cancel order:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Error cancelling order', 
-      error: error.message 
+      message: 'Error cancelling order',
+      error: error.message
     });
   }
 };
@@ -2503,13 +2517,13 @@ exports.adminCancelOrder = async (req, res) => {
 exports.verifyPaystackTransaction = async (req, res) => {
   try {
     const { reference } = req.params;
-    
+
     const verificationResponse = await paystack.get(`/transaction/verify/${reference}`);
-    
+
     if (!verificationResponse.data.status) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Transaction verification failed',
-        data: verificationResponse.data 
+        data: verificationResponse.data
       });
     }
 
@@ -2527,15 +2541,15 @@ exports.verifyPaystackTransaction = async (req, res) => {
 
     await order.save();
 
-    res.json({ 
+    res.json({
       message: 'Transaction verified successfully',
-      order 
+      order
     });
 
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Error verifying transaction', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error verifying transaction',
+      error: error.message
     });
   }
 };
@@ -2545,7 +2559,7 @@ exports.getPaystackTransactionLogs = async (req, res) => {
   try {
     const { startDate, endDate, status } = req.query;
     let url = '/transaction';
-    
+
     const params = new URLSearchParams();
     if (startDate) params.append('from', startDate);
     if (endDate) params.append('to', endDate);
@@ -2556,12 +2570,12 @@ exports.getPaystackTransactionLogs = async (req, res) => {
     }
 
     const response = await paystack.get(url);
-    
+
     res.json(response.data.data);
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Error fetching transaction logs', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error fetching transaction logs',
+      error: error.message
     });
   }
 };
@@ -2575,9 +2589,9 @@ exports.getAllWithdrawals = async (req, res) => {
 
     res.json(withdrawals);
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to fetch withdrawals', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to fetch withdrawals',
+      error: error.message
     });
   }
 };
@@ -2607,7 +2621,7 @@ exports.updateWithdrawalStatus = async (req, res) => {
 
     if (status === 'completed') {
       withdrawal.processedDate = new Date();
-      
+
       // Create withdrawal transaction record
       await Transaction.create({
         seller: withdrawal.seller._id,
@@ -2628,33 +2642,46 @@ exports.updateWithdrawalStatus = async (req, res) => {
     await session.commitTransaction();
 
     // Send email notification
-    const emailMsg = {
-      to: withdrawal.seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
-      subject: 'Withdrawal Request Update',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Withdrawal Request Update</h2>
-          <p>Dear ${withdrawal.seller.firstName},</p>
-          <p>Your withdrawal request (Ref: ${withdrawal.reference}) has been ${status}.</p>
-          <p>Amount: ${withdrawal.amount}</p>
-          ${note ? `<p>Note: ${note}</p>` : ''}
-          <p>Best regards,<br>The Auqli Team</p>
-        </div>
-      `
-    };
+    try {
+      const emailMsg = {
+        to: withdrawal.seller.email,
+        from: 'Auqli <support@auqli.com>',
+        subject: 'Withdrawal Request Update',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Withdrawal Request Update</h2>
+            <p>Dear ${withdrawal.seller.firstName},</p>
+            <p>Your withdrawal request (Ref: ${withdrawal.reference}) has been ${status}.</p>
+            <p>Amount: ${withdrawal.amount}</p>
+            ${note ? `<p>Note: ${note}</p>` : ''}
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      };
 
-    await sgMail.send(emailMsg);
+      await termiiEmailService.sendRawHTMLEmail({
+        email: emailMsg.to,
+        subject: emailMsg.subject,
+        html: emailMsg.html,
+        from: emailMsg.from
+      });
+    } catch (emailError) {
+      console.error('Failed to send withdrawal update email:', emailError);
+    }
 
-    res.json({ 
-      message: 'Withdrawal status updated successfully', 
-      withdrawal 
+    res.json({
+      message: 'Withdrawal status updated successfully',
+      withdrawal
     });
   } catch (error) {
-    await session.abortTransaction();
-    res.status(500).json({ 
-      message: 'Failed to update withdrawal status', 
-      error: error.message 
+    console.error('Error updating withdrawal status:', error);
+    // Only abort transaction if it hasn't been committed yet
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    res.status(500).json({
+      message: 'Failed to update withdrawal status',
+      error: error.message
     });
   } finally {
     session.endSession();
@@ -2705,9 +2732,9 @@ exports.verifyBuyerIdentity = async (req, res) => {
             
             <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
               Your identity verification has been ${status}. 
-              ${status === 'verified' 
-                ? 'You now have full access to all buyer features on Auqli.' 
-                : 'Please review the feedback below and submit a new verification if needed.'}
+              ${status === 'verified'
+          ? 'You now have full access to all buyer features on Auqli.'
+          : 'Please review the feedback below and submit a new verification if needed.'}
             </p>
 
             <div style="background-color: #333333; padding: 20px; border-radius: 5px; margin-bottom: 30px;">
@@ -2745,9 +2772,9 @@ exports.verifyBuyerIdentity = async (req, res) => {
     };
 
     await sgMail.send(emailMsg);
-    
 
-    res.json({ 
+
+    res.json({
       message: 'Identity verification status updated successfully',
       buyer: {
         id: buyer._id,
@@ -2757,9 +2784,9 @@ exports.verifyBuyerIdentity = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to update identity verification status', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to update identity verification status',
+      error: error.message
     });
   }
 };
@@ -2857,7 +2884,7 @@ exports.createResource = async (req, res) => {
 
       // Determine media type
       const mediaType = mediaFile.mimetype.startsWith('image/') ? 'image' :
-                       mediaFile.mimetype.startsWith('video/') ? 'video' : 'file';
+        mediaFile.mimetype.startsWith('video/') ? 'video' : 'file';
 
       resourceData.media = {
         type: mediaType,
@@ -2879,7 +2906,7 @@ exports.getAllResources = async (req, res) => {
   try {
     // Extract query parameters for filtering
     const { resourceType, category } = req.query;
-    
+
     // Build filter object
     const filter = {};
     if (resourceType && ['youtube', 'file'].includes(resourceType)) {
@@ -2888,7 +2915,7 @@ exports.getAllResources = async (req, res) => {
     if (category && ['auqli_university', 'other'].includes(category)) {
       filter.category = category;
     }
-    
+
     const resources = await Resource.find(filter).sort({ createdAt: -1 });
     res.json(resources);
   } catch (error) {
@@ -2949,7 +2976,7 @@ exports.updateResource = async (req, res) => {
       }).promise();
 
       const mediaType = mediaFile.mimetype.startsWith('image/') ? 'image' :
-                       mediaFile.mimetype.startsWith('video/') ? 'video' : 'file';
+        mediaFile.mimetype.startsWith('video/') ? 'video' : 'file';
 
       resource.media = {
         type: mediaType,
@@ -3044,12 +3071,12 @@ exports.rejectBusinessAccount = async (req, res) => {
     seller.isVerified = false;
     seller.hasFilledVerificationDocuments = false;
     seller.onboardingProcess = 'rejected';
-    
+
     // Set accountPending to false if it was true
     if (seller.accountPending) {
       seller.accountPending = false;
     }
-    
+
     // Reset all onboarding progress flags
     seller.hasFilledAddress = false;
     seller.hasFilledWarehouseAddress = false;
@@ -3057,7 +3084,7 @@ exports.rejectBusinessAccount = async (req, res) => {
     seller.hasFilledCategoryDetails = false;
     seller.hasFilledVerificationDocuments = false;
     seller.hasFilledBusinessAddress = false;
-    
+
     // Clear existing verification documents
     if (seller.verificationDocuments && seller.verificationDocuments.documents) {
       seller.verificationDocuments.documents = [];
@@ -3162,8 +3189,8 @@ exports.updateCategoryPlatformFee = async (req, res) => {
 
     // Validate platform fee
     if (typeof platformFee !== 'number' || platformFee < 0) {
-      return res.status(400).json({ 
-        message: 'Platform fee must be a non-negative number' 
+      return res.status(400).json({
+        message: 'Platform fee must be a non-negative number'
       });
     }
 
@@ -3184,9 +3211,9 @@ exports.updateCategoryPlatformFee = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to update platform fee', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to update platform fee',
+      error: error.message
     });
   }
 };
@@ -3276,7 +3303,7 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
       const verifyAccount = await paystack.get(
         `/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode}`
       );
-      
+
       console.log('Account verification:', {
         status: verifyAccount.data.status,
         accountName: verifyAccount.data.data.account_name
@@ -3412,7 +3439,7 @@ exports.verifyTransferStatus = async (req, res) => {
     // Verify with Paystack
     const paystackResponse = await paystack.get(`/transfer/verify/${reference}`);
     const transferData = paystackResponse.data.data;
-    
+
     console.log('Transfer status check:', {
       reference,
       status: transferData.status,
@@ -3422,7 +3449,7 @@ exports.verifyTransferStatus = async (req, res) => {
     // Handle different Paystack transfer statuses
     let newStatus;
     let message;
-    
+
     switch (transferData.status) {
       case 'success':
         newStatus = 'completed';
@@ -3709,7 +3736,7 @@ exports.recalculateCategoryStats = async (req, res) => {
   try {
     // Get all categories
     const categories = await Category.find({}, null, { session });
-    
+
     // Reset all category statistics
     await Category.updateMany({}, {
       $set: {
@@ -3736,7 +3763,7 @@ exports.recalculateCategoryStats = async (req, res) => {
         if (!item.product || !item.product.category) continue;
 
         const category = item.product.category;
-        
+
         if (!categoryStats[category]) {
           categoryStats[category] = {
             pending: { orders: 0, items: 0 },
@@ -3804,9 +3831,9 @@ exports.getAllBankChangeRequests = async (req, res) => {
 
     res.json(requests);
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to fetch bank change requests', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to fetch bank change requests',
+      error: error.message
     });
   }
 };
@@ -3917,16 +3944,16 @@ exports.approveBankChangeRequest = async (req, res) => {
     await sgMail.send(emailMsg);
     await session.commitTransaction();
 
-    res.json({ 
+    res.json({
       message: 'Bank change request approved successfully',
-      request 
+      request
     });
 
   } catch (error) {
     await session.abortTransaction();
-    res.status(500).json({ 
-      message: 'Failed to approve bank change request', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to approve bank change request',
+      error: error.message
     });
   } finally {
     session.endSession();
@@ -3973,15 +4000,15 @@ exports.rejectBankChangeRequest = async (req, res) => {
 
     await sgMail.send(emailMsg);
 
-    res.json({ 
+    res.json({
       message: 'Bank change request rejected successfully',
-      request 
+      request
     });
 
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to reject bank change request', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to reject bank change request',
+      error: error.message
     });
   }
 };
@@ -4168,20 +4195,20 @@ exports.getBankChangeRequestStats = async (req, res) => {
 // Get financial transactions with filtering
 exports.getFinancialTransactions = async (req, res) => {
   try {
-    const { 
-      type, 
-      status, 
-      startDate, 
-      endDate, 
-      sellerId, 
-      reference, 
-      limit = 20, 
-      page = 1 
+    const {
+      type,
+      status,
+      startDate,
+      endDate,
+      sellerId,
+      reference,
+      limit = 20,
+      page = 1
     } = req.query;
 
     // Build query
     const query = {};
-    
+
     // Filter by type
     if (type) {
       if (type === 'inflow') {
@@ -4216,18 +4243,18 @@ exports.getFinancialTransactions = async (req, res) => {
     if (reference) {
       const orders = await Order.find({ order_id: { $regex: reference, $options: 'i' } });
       const orderIds = orders.map(order => order._id);
-      
+
       const withdrawals = await Withdrawal.find({ reference: { $regex: reference, $options: 'i' } });
-      
+
       if (orderIds.length > 0) {
         query.orderId = { $in: orderIds };
       } else if (withdrawals.length > 0) {
         // For withdrawals, we need to map to the related transactions
         const withdrawalSellerIds = withdrawals.map(w => w.seller);
         const withdrawalReferences = withdrawals.map(w => w.reference);
-        
+
         query.$or = [
-          { 
+          {
             seller: { $in: withdrawalSellerIds },
             type: 'withdrawal',
             description: { $regex: withdrawalReferences.join('|'), $options: 'i' }
@@ -4252,7 +4279,7 @@ exports.getFinancialTransactions = async (req, res) => {
 
     // Count total matching transactions
     const total = await Transaction.countDocuments(query);
-    
+
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const pages = Math.ceil(total / parseInt(limit));
@@ -4268,7 +4295,7 @@ exports.getFinancialTransactions = async (req, res) => {
     // Populate buyer information for relevant transactions
     const populatedTransactions = await Promise.all(transactions.map(async transaction => {
       let transactionObj = transaction.toObject();
-      
+
       // Find associated buyer for order_payment transactions
       if (transaction.orderId) {
         const order = transaction.orderId;
@@ -4283,7 +4310,7 @@ exports.getFinancialTransactions = async (req, res) => {
           }
         }
       }
-      
+
       return transactionObj;
     }));
 
@@ -4292,7 +4319,7 @@ exports.getFinancialTransactions = async (req, res) => {
       // Determine type (inflow/outflow) and category
       let type = 'inflow';
       let category = 'other';
-      
+
       if (transaction.type === 'withdrawal') {
         type = 'outflow';
         category = 'withdrawal';
@@ -4306,19 +4333,19 @@ exports.getFinancialTransactions = async (req, res) => {
 
       return {
         id: transaction._id,
-        reference: transaction.orderId ? transaction.orderId.order_id : 
-                 (transaction.reference || `TXN-${transaction._id.toString().slice(-8)}`),
+        reference: transaction.orderId ? transaction.orderId.order_id :
+          (transaction.reference || `TXN-${transaction._id.toString().slice(-8)}`),
         type,
         category,
         amount: transaction.amount,
         status: transaction.status,
-        sender: type === 'inflow' ? 
-                (transaction.buyerInfo ? `${transaction.buyerInfo.name}` : 
-                (transaction.seller ? `${transaction.seller.firstName} ${transaction.seller.lastName}` : 'Unknown')) : 
-                'Auqli Platform',
-        recipient: type === 'outflow' ? 
-                  (transaction.seller ? `${transaction.seller.firstName} ${transaction.seller.lastName}` : 'Unknown') : 
-                  'Auqli Platform',
+        sender: type === 'inflow' ?
+          (transaction.buyerInfo ? `${transaction.buyerInfo.name}` :
+            (transaction.seller ? `${transaction.seller.firstName} ${transaction.seller.lastName}` : 'Unknown')) :
+          'Auqli Platform',
+        recipient: type === 'outflow' ?
+          (transaction.seller ? `${transaction.seller.firstName} ${transaction.seller.lastName}` : 'Unknown') :
+          'Auqli Platform',
         description: transaction.description,
         date: transaction.createdAt
       };
@@ -4350,7 +4377,7 @@ exports.getFinancialTransactions = async (req, res) => {
 exports.getFinancialSummary = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    
+
     // Build date range filter
     const dateFilter = {};
     if (startDate || endDate) {
@@ -4365,52 +4392,52 @@ exports.getFinancialSummary = async (req, res) => {
 
     // Calculate totals
     const inflowTransactions = await Transaction.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           ...dateFilter,
           type: { $in: ['order_payment', 'platform_fee', 'processing_fee'] },
           status: 'completed'
-        } 
+        }
       },
-      { 
-        $group: { 
-          _id: null, 
+      {
+        $group: {
+          _id: null,
           total: { $sum: '$amount' },
           orderPayments: { $sum: { $cond: [{ $eq: ['$type', 'order_payment'] }, '$amount', 0] } },
           platformFees: { $sum: { $cond: [{ $eq: ['$type', 'platform_fee'] }, '$amount', 0] } },
           processingFees: { $sum: { $cond: [{ $eq: ['$type', 'processing_fee'] }, '$amount', 0] } }
-        } 
+        }
       }
     ]);
 
     const outflowTransactions = await Transaction.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           ...dateFilter,
           type: 'withdrawal',
           status: 'completed'
-        } 
+        }
       },
-      { 
-        $group: { 
-          _id: null, 
-          total: { $sum: '$amount' } 
-        } 
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' }
+        }
       }
     ]);
 
     const pendingTransactions = await Transaction.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           ...dateFilter,
           status: 'pending'
-        } 
+        }
       },
-      { 
-        $group: { 
-          _id: '$type', 
-          amount: { $sum: '$amount' } 
-        } 
+      {
+        $group: {
+          _id: '$type',
+          amount: { $sum: '$amount' }
+        }
       }
     ]);
 
@@ -4418,7 +4445,7 @@ exports.getFinancialSummary = async (req, res) => {
     const totalInflow = inflowTransactions.length > 0 ? inflowTransactions[0].total : 0;
     const totalOutflow = outflowTransactions.length > 0 ? outflowTransactions[0].total : 0;
     const netBalance = totalInflow - totalOutflow;
-    
+
     const pendingAmount = pendingTransactions.reduce((sum, item) => sum + item.amount, 0);
 
     // Additional breakdowns
@@ -4433,7 +4460,7 @@ exports.getFinancialSummary = async (req, res) => {
     };
 
     // Get pending withdrawals count
-    const pendingWithdrawals = await Withdrawal.countDocuments({ 
+    const pendingWithdrawals = await Withdrawal.countDocuments({
       status: 'pending',
       ...(dateFilter.createdAt ? { requestDate: dateFilter.createdAt } : {})
     });
@@ -4463,11 +4490,11 @@ exports.getFinancialSummary = async (req, res) => {
 exports.getTransactionDetails = async (req, res) => {
   try {
     const { transactionId } = req.params;
-    
+
     const transaction = await Transaction.findById(transactionId)
       .populate('seller', 'firstName lastName email storeName walletBalance')
       .populate('orderId', 'order_id buyer items totalAmount shipping paymentInfo');
-    
+
     if (!transaction) {
       return res.status(404).json({
         success: false,
@@ -4480,7 +4507,7 @@ exports.getTransactionDetails = async (req, res) => {
     if (transaction.orderId && transaction.orderId.buyer) {
       const buyer = await Buyer.findById(transaction.orderId.buyer)
         .select('firstName lastName email');
-      
+
       if (buyer) {
         buyerInfo = {
           id: buyer._id,
@@ -4493,11 +4520,11 @@ exports.getTransactionDetails = async (req, res) => {
     // Format the transaction for the response
     const formattedTransaction = {
       id: transaction._id,
-      reference: transaction.orderId ? transaction.orderId.order_id : 
-               (transaction.reference || `TXN-${transaction._id.toString().slice(-8)}`),
+      reference: transaction.orderId ? transaction.orderId.order_id :
+        (transaction.reference || `TXN-${transaction._id.toString().slice(-8)}`),
       type: transaction.type === 'withdrawal' ? 'outflow' : 'inflow',
-      category: transaction.type === 'order_payment' ? 'order' : 
-               (transaction.type === 'withdrawal' ? 'withdrawal' : 'fee'),
+      category: transaction.type === 'order_payment' ? 'order' :
+        (transaction.type === 'withdrawal' ? 'withdrawal' : 'fee'),
       amount: transaction.amount,
       status: transaction.status,
       date: transaction.createdAt,
@@ -4539,11 +4566,11 @@ exports.getTransactionDetails = async (req, res) => {
 exports.getFinancialTrends = async (req, res) => {
   try {
     const { year = new Date().getFullYear() } = req.query;
-    
+
     // Get monthly data for the specified year
     const startDate = new Date(parseInt(year), 0, 1); // January 1st
     const endDate = new Date(parseInt(year), 11, 31, 23, 59, 59); // December 31st
-    
+
     // Query for monthly revenue data
     const monthlyRevenue = await Transaction.aggregate([
       {
@@ -4555,7 +4582,7 @@ exports.getFinancialTrends = async (req, res) => {
       },
       {
         $group: {
-          _id: { 
+          _id: {
             month: { $month: '$createdAt' },
             type: '$type'
           },
@@ -4566,7 +4593,7 @@ exports.getFinancialTrends = async (req, res) => {
         $sort: { '_id.month': 1 }
       }
     ]);
-    
+
     // Query for monthly payouts data
     const monthlyPayouts = await Transaction.aggregate([
       {
@@ -4589,13 +4616,13 @@ exports.getFinancialTrends = async (req, res) => {
 
     // Format response data
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
+
     // Initialize data arrays with zeros for all months
     const revenue = Array(12).fill(0);
     const platformFees = Array(12).fill(0);
     const processingFees = Array(12).fill(0);
     const payouts = Array(12).fill(0);
-    
+
     // Fill in actual data
     monthlyRevenue.forEach(item => {
       const monthIndex = item._id.month - 1;
@@ -4607,15 +4634,15 @@ exports.getFinancialTrends = async (req, res) => {
         processingFees[monthIndex] = item.amount;
       }
     });
-    
+
     monthlyPayouts.forEach(item => {
       const monthIndex = item._id.month - 1;
       payouts[monthIndex] = item.amount;
     });
-    
+
     // Calculate net revenue (platform + processing fees)
     const netRevenue = platformFees.map((fee, index) => fee + processingFees[index]);
-    
+
     res.json({
       success: true,
       data: {
@@ -4644,7 +4671,7 @@ exports.getFinancialTrends = async (req, res) => {
 exports.getSellerFinancialSummary = async (req, res) => {
   try {
     const { sellerId } = req.params;
-    
+
     // Verify seller exists
     const seller = await Seller.findById(sellerId);
     if (!seller) {
@@ -4653,7 +4680,7 @@ exports.getSellerFinancialSummary = async (req, res) => {
         message: 'Seller not found'
       });
     }
-    
+
     // Get seller's total revenue
     const revenue = await Transaction.aggregate([
       {
@@ -4671,7 +4698,7 @@ exports.getSellerFinancialSummary = async (req, res) => {
         }
       }
     ]);
-    
+
     // Get seller's total fees paid
     const fees = await Transaction.aggregate([
       {
@@ -4688,7 +4715,7 @@ exports.getSellerFinancialSummary = async (req, res) => {
         }
       }
     ]);
-    
+
     // Get seller's total withdrawals
     const withdrawals = await Transaction.aggregate([
       {
@@ -4706,21 +4733,21 @@ exports.getSellerFinancialSummary = async (req, res) => {
         }
       }
     ]);
-    
+
     // Format the response
     const totalRevenue = revenue.length > 0 ? revenue[0].total : 0;
     const totalSales = revenue.length > 0 ? revenue[0].count : 0;
-    
+
     const platformFees = fees.find(f => f._id === 'platform_fee');
     const processingFees = fees.find(f => f._id === 'processing_fee');
     const totalFees = (platformFees ? platformFees.amount : 0) + (processingFees ? processingFees.amount : 0);
-    
+
     const totalWithdrawals = withdrawals.length > 0 ? withdrawals[0].total : 0;
     const withdrawalCount = withdrawals.length > 0 ? withdrawals[0].count : 0;
-    
+
     const netIncome = totalRevenue - totalFees;
     const currentBalance = seller.walletBalance || 0;
-    
+
     res.json({
       success: true,
       data: {
@@ -4795,7 +4822,7 @@ exports.getAllStreams = async (req, res) => {
           { storeName: { $regex: sellerName, $options: 'i' } }
         ]
       }).select('_id');
-      
+
       if (sellers.length > 0) {
         query.seller = { $in: sellers.map(seller => seller._id) };
       } else {
@@ -4817,7 +4844,7 @@ exports.getAllStreams = async (req, res) => {
 
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     // Determine sort order
     const sort = {};
     sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
@@ -4854,7 +4881,7 @@ exports.getAllStreams = async (req, res) => {
         scheduledStartTime: stream.scheduledStartTime,
         actualStartTime: stream.actualStartTime,
         endTime: stream.endTime,
-        duration: stream.actualStartTime && stream.endTime 
+        duration: stream.actualStartTime && stream.endTime
           ? Math.round((new Date(stream.endTime) - new Date(stream.actualStartTime)) / 60000) // in minutes
           : null,
         createdAt: stream.createdAt,
@@ -4890,13 +4917,13 @@ exports.getAllStreams = async (req, res) => {
 exports.getStreamDetails = async (req, res) => {
   try {
     const { streamId } = req.params;
-    
+
     const stream = await Stream.findById(streamId)
       .populate('seller', 'firstName lastName email storeName')
       .populate('viewers', 'firstName lastName email')
       .populate('bids.buyer', 'firstName lastName email')
       .populate('departedViewers.buyer', 'firstName lastName email');
-    
+
     if (!stream) {
       return res.status(404).json({
         success: false,
@@ -4952,7 +4979,7 @@ exports.getStreamDetails = async (req, res) => {
       scheduledStartTime: stream.scheduledStartTime,
       actualStartTime: stream.actualStartTime,
       endTime: stream.endTime,
-      duration: stream.actualStartTime && stream.endTime 
+      duration: stream.actualStartTime && stream.endTime
         ? Math.round((new Date(stream.endTime) - new Date(stream.actualStartTime)) / 60000) // in minutes
         : null,
       createdAt: stream.createdAt,
@@ -4986,46 +5013,47 @@ exports.getStreamAnalytics = async (req, res) => {
     const liveStreams = await Stream.countDocuments({ status: 'live' });
     const completedStreams = await Stream.countDocuments({ status: 'ended' });
     const scheduledStreams = await Stream.countDocuments({ status: 'scheduled' });
-    
+
     // Get streams with viewer data to calculate average viewers
     const streams = await Stream.find({ status: 'ended' });
-    
+
     let totalViewers = 0;
     let totalDuration = 0;
     let totalBids = 0;
-    
+
     streams.forEach(stream => {
       totalViewers += stream.viewers.length + (stream.departedViewers?.length || 0);
-      
+
       // Calculate duration if both start and end times exist
       if (stream.actualStartTime && stream.endTime) {
         const duration = (new Date(stream.endTime) - new Date(stream.actualStartTime)) / 60000; // in minutes
         totalDuration += duration;
       }
-      
+
       totalBids += stream.bids?.length || 0;
     });
-    
+
     const averageViewers = streams.length > 0 ? Math.round(totalViewers / streams.length) : 0;
     const averageDuration = streams.length > 0 ? Math.round(totalDuration / streams.length) : 0;
     const averageBids = streams.length > 0 ? Math.round(totalBids / streams.length) : 0;
-    
+
     // Category breakdown
     const categoryBreakdown = await Stream.aggregate([
       { $match: { status: { $in: ['live', 'ended'] } } },
-      { $group: {
+      {
+        $group: {
           _id: '$category',
           count: { $sum: 1 }
         }
       },
       { $sort: { count: -1 } }
     ]);
-    
+
     // Monthly stream counts (for the current year)
     const currentYear = new Date().getFullYear();
     const startOfYear = new Date(currentYear, 0, 1);
     const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59);
-    
+
     const monthlyStreamCounts = await Stream.aggregate([
       {
         $match: {
@@ -5040,14 +5068,14 @@ exports.getStreamAnalytics = async (req, res) => {
       },
       { $sort: { '_id': 1 } }
     ]);
-    
+
     // Format monthly data for all months
     const monthlyData = Array(12).fill(0);
     monthlyStreamCounts.forEach(item => {
       const monthIndex = item._id - 1; // Convert 1-based month to 0-based index
       monthlyData[monthIndex] = item.count;
     });
-    
+
     res.json({
       success: true,
       data: {
@@ -5089,31 +5117,31 @@ const { Readable } = require('stream');
 exports.bulkUploadProducts = async (req, res) => {
   try {
     const { sellerId } = req.body;
-    
+
     // Validate seller exists
     const seller = await Seller.findById(sellerId);
     if (!seller) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
         message: 'Seller not found'
       });
     }
-    
+
     if (!req.file) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
         message: 'CSV file is required'
       });
     }
-    
+
     // Create a readable stream from the uploaded file buffer
     const bufferStream = new Readable();
     bufferStream.push(req.file.buffer);
     bufferStream.push(null);
-    
+
     const results = [];
     const errors = [];
-    
+
     // Process the CSV file
     await new Promise((resolve, reject) => {
       bufferStream
@@ -5122,7 +5150,7 @@ exports.bulkUploadProducts = async (req, res) => {
         .on('error', (error) => reject(error))
         .on('end', () => resolve());
     });
-    
+
     if (!results.length) {
       return res.status(400).json({
         success: false,
@@ -5132,16 +5160,16 @@ exports.bulkUploadProducts = async (req, res) => {
 
     // Validate CSV structure
     const requiredColumns = [
-      'product name', 
+      'product name',
       'product main price'
     ];
-    
+
     // Check if the first row has the required columns
     const firstRow = results[0];
-    const missingColumns = requiredColumns.filter(col => 
+    const missingColumns = requiredColumns.filter(col =>
       !Object.keys(firstRow).some(key => key.toLowerCase() === col.toLowerCase())
     );
-    
+
     if (missingColumns.length > 0) {
       return res.status(400).json({
         success: false,
@@ -5152,10 +5180,10 @@ exports.bulkUploadProducts = async (req, res) => {
 
     // Group rows by product name to handle variants
     const productGroups = {};
-    
+
     for (const [index, productData] of results.entries()) {
       const productName = productData['product name'];
-      
+
       if (!productName) {
         errors.push({
           row: index + 1,
@@ -5163,7 +5191,7 @@ exports.bulkUploadProducts = async (req, res) => {
         });
         continue;
       }
-      
+
       if (!productGroups[productName]) {
         productGroups[productName] = {
           baseProduct: productData,
@@ -5185,11 +5213,11 @@ exports.bulkUploadProducts = async (req, res) => {
 
     // Process each product group
     const createdProducts = [];
-    
+
     for (const [productName, group] of Object.entries(productGroups)) {
       try {
         const baseProductData = group.baseProduct;
-        
+
         // Skip rows with empty product name
         if (!baseProductData['product name']) {
           errors.push({
@@ -5203,10 +5231,10 @@ exports.bulkUploadProducts = async (req, res) => {
         const parsedWeight = baseProductData['product weight'] ? parseFloat(baseProductData['product weight']) : 0;
         // Use default weight of 0.5 if weight is 0 or null
         const finalWeight = (!parsedWeight || parsedWeight === 0) ? 0.5 : parsedWeight;
-        
+
         const parsedInventory = baseProductData['product inventory'] ? parseInt(baseProductData['product inventory']) : 1;
         const parsedPrice = baseProductData['product main price'] ? parseFloat(baseProductData['product main price']) : 0;
-        
+
         if (isNaN(parsedPrice) || parsedPrice <= 0) {
           errors.push({
             row: results.indexOf(baseProductData) + 1,
@@ -5215,10 +5243,10 @@ exports.bulkUploadProducts = async (req, res) => {
           });
           continue;
         }
-        
+
         // Check if upload status is 'active'
-        if (baseProductData['upload status'] && 
-            baseProductData['upload status'].toLowerCase() !== 'active') {
+        if (baseProductData['upload status'] &&
+          baseProductData['upload status'].toLowerCase() !== 'active') {
           errors.push({
             row: results.indexOf(baseProductData) + 1,
             productName: baseProductData['product name'],
@@ -5230,17 +5258,17 @@ exports.bulkUploadProducts = async (req, res) => {
         // Prepare variants array if any
         const variants = [];
         let totalStock = parsedInventory;
-        
+
         // Process variants if they exist
         if (group.variants && group.variants.length > 0) {
           // Process main variants (e.g., Color)
           const variantsByType = {};
-          
+
           for (const variantItem of group.variants) {
             const variantData = variantItem.data;
             const variantName = variantData['variant name']; // e.g., "Color"
             const variantValue = variantData['variant value']; // e.g., "Red"
-            
+
             if (!variantName || !variantValue) {
               errors.push({
                 row: variantItem.rowIndex,
@@ -5249,19 +5277,19 @@ exports.bulkUploadProducts = async (req, res) => {
               });
               continue;
             }
-            
+
             const variantPrice = variantData['variant price'] ? parseFloat(variantData['variant price']) : parsedPrice;
             const variantStock = variantData['variant stock'] ? parseInt(variantData['variant stock']) : 1;
             const variantImage = variantData['variant image'] || baseProductData['product main image'] || 'https://static.vecteezy.com/system/resources/thumbnails/044/424/989/small/premium-quality-pure-white-product-package-box-with-natural-light-ultra-clear-digital-render-free-photo.jpeg';
-            
+
             // Add to total stock
             totalStock += variantStock;
-            
+
             // Create or update variant
             if (!variantsByType[variantName]) {
               variantsByType[variantName] = [];
             }
-            
+
             // Check for sub-variants
             const subVariants = [];
             if (variantData['subvariant name'] && variantData['subvariant value']) {
@@ -5270,7 +5298,7 @@ exports.bulkUploadProducts = async (req, res) => {
               const subVariantPrice = variantData['subvariant price'] ? parseFloat(variantData['subvariant price']) : variantPrice;
               const subVariantStock = variantData['subvariant stock'] ? parseInt(variantData['subvariant stock']) : variantStock;
               const subVariantImage = variantData['subvariant image'] || variantImage;
-              
+
               // Check for sub-sub-variants
               const subSubVariants = [];
               if (variantData['subsubvariant name'] && variantData['subsubvariant value']) {
@@ -5279,7 +5307,7 @@ exports.bulkUploadProducts = async (req, res) => {
                 const subSubVariantPrice = variantData['subsubvariant price'] ? parseFloat(variantData['subsubvariant price']) : subVariantPrice;
                 const subSubVariantStock = variantData['subsubvariant stock'] ? parseInt(variantData['subsubvariant stock']) : subVariantStock;
                 const subSubVariantImage = variantData['subsubvariant image'] || subVariantImage;
-                
+
                 subSubVariants.push({
                   name: subSubVariantName,
                   value: subSubVariantValue,
@@ -5292,7 +5320,7 @@ exports.bulkUploadProducts = async (req, res) => {
                   }]
                 });
               }
-              
+
               subVariants.push({
                 name: subVariantName,
                 value: subVariantValue,
@@ -5305,7 +5333,7 @@ exports.bulkUploadProducts = async (req, res) => {
                 subSubVariants: subSubVariants
               });
             }
-            
+
             variantsByType[variantName].push({
               value: variantValue,
               price: variantPrice,
@@ -5317,7 +5345,7 @@ exports.bulkUploadProducts = async (req, res) => {
               subVariants: subVariants
             });
           }
-          
+
           // Convert variantsByType to variants array
           for (const [variantName, variantValues] of Object.entries(variantsByType)) {
             for (const variantValue of variantValues) {
@@ -5363,7 +5391,7 @@ exports.bulkUploadProducts = async (req, res) => {
           },
           variants: variants
         });
-        
+
         await product.save();
         createdProducts.push({
           id: product._id,
@@ -5381,7 +5409,7 @@ exports.bulkUploadProducts = async (req, res) => {
         });
       }
     }
-    
+
     // Update seller's product count and send emails
     if (createdProducts.length > 0 || errors.length > 0) {
       try {
@@ -5390,14 +5418,14 @@ exports.bulkUploadProducts = async (req, res) => {
             $inc: { 'stats.totalProducts': createdProducts.length }
           });
         }
-        
+
         // Send email notification to seller
         await sendBulkUploadEmail(seller, createdProducts, results.length, errors.length, errors);
       } catch (error) {
         console.error('Failed to update seller stats or send email:', error);
       }
     }
-    
+
     return res.status(201).json({
       success: true,
       message: `Successfully processed ${createdProducts.length} products with ${errors.length} errors`,
@@ -5407,7 +5435,7 @@ exports.bulkUploadProducts = async (req, res) => {
         totalProcessed: results.length
       }
     });
-    
+
   } catch (error) {
     console.error('Bulk upload error:', error);
     return res.status(500).json({
@@ -5423,7 +5451,7 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
   try {
     // Get up to 5 products to display in the email
     const productsToDisplay = products.slice(0, 5);
-    
+
     // Create product list HTML
     const productListHTML = productsToDisplay.map(product => `
       <tr>
@@ -5435,10 +5463,10 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
         <td style="padding: 10px; border-bottom: 1px solid #eee;">₦${product.price.toLocaleString()}</td>
       </tr>
     `).join('');
-    
+
     // Create error list HTML (up to 10 errors)
     const errorsToDisplay = errors.slice(0, 10);
-    const errorListHTML = errorsToDisplay.length > 0 
+    const errorListHTML = errorsToDisplay.length > 0
       ? errorsToDisplay.map(error => `
         <tr>
           <td style="padding: 10px; border-bottom: 1px solid #eee;">${error.row}</td>
@@ -5447,9 +5475,9 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
         </tr>
       `).join('')
       : '';
-    
+
     // Error section for admin email
-    const errorSection = errorsCount > 0 
+    const errorSection = errorsCount > 0
       ? `
         <h3 style="margin-top: 20px; color: #333;">Failed Products (${errorsCount} total)</h3>
         <table style="width: 100%; border-collapse: collapse;">
@@ -5467,7 +5495,7 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
         ${errors.length > 10 ? `<p style="text-align: center; font-style: italic; margin-top: 10px;">And ${errors.length - 10} more errors...</p>` : ''}
       `
       : '';
-    
+
     // Error note for seller email (without detailed errors)
     const sellerErrorNote = errorsCount > 0
       ? `
@@ -5476,7 +5504,7 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
         </div>
       `
       : '';
-    
+
     // Email content for seller
     const sellerEmailHTML = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
@@ -5519,7 +5547,7 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
         <p>Best regards,<br>The Auqli Team</p>
       </div>
     `;
-    
+
     // Email content for admin
     const adminEmailHTML = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
@@ -5554,7 +5582,7 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
         ${errorSection}
       </div>
     `;
-    
+
     // Send the email to seller using SendGrid
     const sellerMsg = {
       to: seller.email,
@@ -5562,7 +5590,7 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
       subject: 'Bulk Product Upload Completed - Auqli',
       html: sellerEmailHTML,
     };
-    
+
     // Send the email to admin using SendGrid
     const adminMsg = {
       to: 'admin@auqli.com',
@@ -5570,14 +5598,14 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
       subject: `Bulk Upload Report: ${seller.businessName || seller.firstName} (${products.length} success, ${errorsCount} errors)`,
       html: adminEmailHTML,
     };
-    
+
     await Promise.all([
       sgMail.send(sellerMsg),
       sgMail.send(adminMsg)
     ]);
-    
+
     console.log(`Bulk upload notification emails sent to ${seller.email} and admin@auqli.com`);
-    
+
   } catch (error) {
     console.error('Error sending bulk upload email:', error);
     // Don't throw error to prevent API failure
@@ -5615,7 +5643,7 @@ exports.downloadProductCsvTemplate = async (req, res) => {
       'subvariant stock',
       'subvariant image'
     ].join(',');
-    
+
     // Create sample data rows
     const sampleRows = [
       // Sample 1: Fashion item
@@ -5646,7 +5674,7 @@ exports.downloadProductCsvTemplate = async (req, res) => {
         '',
         ''
       ].join(','),
-      
+
       // Sample 2: Wearable Tech
       [
         'Yellow Wool Jumper',
@@ -5675,21 +5703,21 @@ exports.downloadProductCsvTemplate = async (req, res) => {
         '',
         ''
       ].join(','),
-      
+
       // Add an empty row for users to fill in
       Array(headers.split(',').length).fill('').join(',')
     ];
-    
+
     // Combine headers and sample rows
     const csvContent = [headers, ...sampleRows].join('\n');
-    
+
     // Set response headers for CSV file download
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="product_upload_template.csv"');
-    
+
     // Send the CSV content
     return res.status(200).send(csvContent);
-    
+
   } catch (error) {
     console.error('Error generating CSV template:', error);
     return res.status(500).json({
@@ -5706,7 +5734,7 @@ exports.deleteBuyerAccount = async (req, res) => {
   try {
     // Find the buyer first to make sure they exist and to get their email
     const buyer = await Buyer.findById(buyerId);
-    
+
     if (!buyer) {
       return res.status(404).json({
         success: false,
@@ -5717,10 +5745,10 @@ exports.deleteBuyerAccount = async (req, res) => {
     // Store buyer details for sending email
     const buyerEmail = buyer.email;
     const buyerName = `${buyer.firstName} ${buyer.lastName}`;
-    
+
     // Delete the buyer account
     await Buyer.findByIdAndDelete(buyerId);
-    
+
     // Send email notification to the buyer
     const emailMsg = {
       to: buyerEmail,
@@ -5751,7 +5779,7 @@ exports.deleteBuyerAccount = async (req, res) => {
       success: true,
       message: 'Buyer account deleted successfully'
     });
-    
+
   } catch (error) {
     console.error('Error deleting buyer account:', error);
     res.status(500).json({
@@ -5768,10 +5796,10 @@ exports.getAllBuyerTransactions = async (req, res) => {
     const queryPage = parseInt(page);
     const queryLimit = parseInt(limit);
     const skip = (queryPage - 1) * queryLimit;
-    
+
     // Build filter
     const filter = {};
-    
+
     // Date filter
     if (startDate || endDate) {
       filter['wallet.transactions.createdAt'] = {};
@@ -5782,7 +5810,7 @@ exports.getAllBuyerTransactions = async (req, res) => {
         filter['wallet.transactions.createdAt'].$lte = new Date(endDate);
       }
     }
-    
+
     // Type filter
     if (type && type !== 'all') {
       filter['wallet.transactions.type'] = type;
@@ -5807,7 +5835,7 @@ exports.getAllBuyerTransactions = async (req, res) => {
         }
       }
     ];
-    
+
     // Apply date filter if specified
     if (startDate || endDate) {
       let dateMatch = { $match: { 'transaction.createdAt': {} } };
@@ -5819,14 +5847,14 @@ exports.getAllBuyerTransactions = async (req, res) => {
       }
       aggregation.push(dateMatch);
     }
-    
+
     // Apply type filter if specified
     if (type && type !== 'all') {
       aggregation.push({
         $match: { 'transaction.type': type }
       });
     }
-    
+
     // Count total documents for pagination
     const countPipeline = [...aggregation];
     countPipeline.push({ $count: 'total' });
@@ -5842,7 +5870,7 @@ exports.getAllBuyerTransactions = async (req, res) => {
 
     // Execute query
     const transactions = await Buyer.aggregate(aggregation);
-    
+
     // Format the response with pagination info
     res.json({
       success: true,
@@ -5870,10 +5898,10 @@ exports.getAllSellerTransactions = async (req, res) => {
     const queryPage = parseInt(page);
     const queryLimit = parseInt(limit);
     const skip = (queryPage - 1) * queryLimit;
-    
+
     // Build filter
     const filter = {};
-    
+
     // Date filter
     if (startDate || endDate) {
       filter['wallet.transactions.createdAt'] = {};
@@ -5884,7 +5912,7 @@ exports.getAllSellerTransactions = async (req, res) => {
         filter['wallet.transactions.createdAt'].$lte = new Date(endDate);
       }
     }
-    
+
     // Type filter
     if (type && type !== 'all') {
       filter['wallet.transactions.type'] = type;
@@ -5911,7 +5939,7 @@ exports.getAllSellerTransactions = async (req, res) => {
         }
       }
     ];
-    
+
     // Apply date filter if specified
     if (startDate || endDate) {
       let dateMatch = { $match: { 'transaction.createdAt': {} } };
@@ -5923,14 +5951,14 @@ exports.getAllSellerTransactions = async (req, res) => {
       }
       aggregation.push(dateMatch);
     }
-    
+
     // Apply type filter if specified
     if (type && type !== 'all') {
       aggregation.push({
         $match: { 'transaction.type': type }
       });
     }
-    
+
     // Count total documents for pagination
     const countPipeline = [...aggregation];
     countPipeline.push({ $count: 'total' });
@@ -5946,7 +5974,7 @@ exports.getAllSellerTransactions = async (req, res) => {
 
     // Execute query
     const transactions = await Seller.aggregate(aggregation);
-    
+
     // Format the response with pagination info
     res.json({
       success: true,
@@ -5989,7 +6017,7 @@ exports.getSellerDetails = async (req, res) => {
 
     // Find the seller with all information
     const seller = await Seller.findById(sellerId).lean();
-    
+
     if (!seller) {
       return res.status(404).json({
         success: false,
@@ -6045,19 +6073,19 @@ exports.getSellerDetails = async (req, res) => {
     // Calculate sales by month (for the last 6 months)
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    
+
     const salesByMonth = await Order.aggregate([
-      { 
-        $match: { 
-          seller: new mongoose.Types.ObjectId(sellerId), 
+      {
+        $match: {
+          seller: new mongoose.Types.ObjectId(sellerId),
           paid: true,
           isStale: { $ne: true },
-          createdAt: { $gte: sixMonthsAgo } 
-        } 
+          createdAt: { $gte: sixMonthsAgo }
+        }
       },
       {
         $group: {
-          _id: { 
+          _id: {
             year: { $year: '$createdAt' },
             month: { $month: '$createdAt' }
           },
@@ -6126,7 +6154,7 @@ exports.getSellerDetails = async (req, res) => {
 exports.updateSellerInfo = async (req, res) => {
   try {
     const { sellerId } = req.params;
-    
+
     // Validate sellerId
     if (!mongoose.Types.ObjectId.isValid(sellerId)) {
       return res.status(400).json({
@@ -6134,25 +6162,25 @@ exports.updateSellerInfo = async (req, res) => {
         message: 'Invalid seller ID format'
       });
     }
-    
+
     // Find the seller
     const seller = await Seller.findById(sellerId);
-    
+
     if (!seller) {
       return res.status(404).json({
         success: false,
         message: 'Seller not found'
       });
     }
-    
+
     // Extract update fields from request body
     const {
       // Personal info
-      firstName, 
+      firstName,
       lastName,
       email,
       phoneNumber,
-      
+
       // Business info
       businessName,
       businessType,
@@ -6160,43 +6188,43 @@ exports.updateSellerInfo = async (req, res) => {
       businessNumber,
       taxInformation,
       accountType,
-      
+
       // Business address
       businessAddress,
-      
+
       // Seller address
       sellerAddress,
-      
+
       // Warehouse details
       warehouseDetails,
-      
+
       // Bank details
       bankDetails,
-      
+
       // Store details
       storeName,
       aboutStore,
       socialMedia,
-      
+
       // Store settings
       operatingHours,
       timezone,
       storePolicy,
       offersStorePickup,
-      
+
       // Status flags
       isVerified,
       isFeatured,
       isDisabled,
       accountPending
     } = req.body;
-    
+
     // Update personal information
     if (firstName) seller.firstName = firstName;
     if (lastName) seller.lastName = lastName;
     if (email) seller.email = email;
     if (phoneNumber) seller.phoneNumber = phoneNumber;
-    
+
     // Update business information
     if (businessName) seller.businessName = businessName;
     if (businessType) seller.businessType = businessType;
@@ -6204,44 +6232,44 @@ exports.updateSellerInfo = async (req, res) => {
     if (businessNumber) seller.businessNumber = businessNumber;
     if (taxInformation) seller.taxInformation = taxInformation;
     if (accountType) seller.accountType = accountType;
-    
+
     // Update addresses
     if (businessAddress) seller.businessAddress = businessAddress;
     if (sellerAddress) seller.sellerAddress = sellerAddress;
     if (warehouseDetails) seller.warehouseDetails = warehouseDetails;
-    
+
     // Update bank details
     if (bankDetails) seller.bankDetails = bankDetails;
-    
+
     // Update store details
     if (storeName) seller.storeName = storeName;
     if (aboutStore) seller.aboutStore = aboutStore;
     if (socialMedia) seller.socialMedia = socialMedia;
-    
+
     // Update store settings
     if (operatingHours) seller.operatingHours = operatingHours;
     if (timezone) seller.timezone = timezone;
     if (storePolicy) seller.storePolicy = storePolicy;
     if (offersStorePickup !== undefined) seller.offersStorePickup = offersStorePickup;
-    
+
     // Update status flags
     if (isVerified !== undefined) seller.isVerified = isVerified;
     if (isFeatured !== undefined) seller.isFeatured = isFeatured;
     if (isDisabled !== undefined) seller.isDisabled = isDisabled;
     if (accountPending !== undefined) seller.accountPending = accountPending;
-    
+
     // Update completion flags based on the provided information
     if (sellerAddress) seller.hasFilledAddress = true;
     if (warehouseDetails?.address) seller.hasFilledWarehouseAddress = true;
     if (bankDetails?.accountNumber && bankDetails?.bankName) seller.hasFilledBankDetails = true;
     if (businessAddress) seller.hasFilledBusinessAddress = true;
-    
+
     // Save the updated seller
     const updatedSeller = await seller.save();
-    
+
     // Create admin activity log for this update
     // (If you have an activity logging system)
-    
+
     // Send notification to seller about the account update (optional)
     try {
       const emailMsg = {
@@ -6258,14 +6286,14 @@ exports.updateSellerInfo = async (req, res) => {
           </div>
         `
       };
-      
+
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
       await sgMail.send(emailMsg);
     } catch (emailError) {
       console.error('Failed to send email notification:', emailError);
       // Continue execution despite email error
     }
-    
+
     res.status(200).json({
       success: true,
       message: 'Seller information updated successfully',
@@ -6292,9 +6320,9 @@ exports.revokeSellerVerification = async (req, res) => {
   try {
     const seller = await Seller.findById(sellerId);
     if (!seller) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Seller not found' 
+        message: 'Seller not found'
       });
     }
 
@@ -6345,17 +6373,17 @@ exports.revokeSellerVerification = async (req, res) => {
 
     await sgMail.send(personalEmailMsg);
 
-    res.json({ 
+    res.json({
       success: true,
-      message: 'Seller verification revoked successfully', 
-      seller 
+      message: 'Seller verification revoked successfully',
+      seller
     });
 
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Failed to revoke seller verification', 
-      error: error.message 
+      message: 'Failed to revoke seller verification',
+      error: error.message
     });
   }
 };
@@ -6368,23 +6396,23 @@ exports.revokeSellerVerification = async (req, res) => {
 exports.markSellerAsInternational = async (req, res) => {
   try {
     const { sellerId } = req.params;
-    
+
     if (!mongoose.Types.ObjectId.isValid(sellerId)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid seller ID format'
       });
     }
-    
+
     const seller = await Seller.findById(sellerId);
-    
+
     if (!seller) {
       return res.status(404).json({
         success: false,
         message: 'Seller not found'
       });
     }
-    
+
     // If seller is already marked as international, return success
     if (seller.isInternational) {
       return res.status(200).json({
@@ -6400,15 +6428,15 @@ exports.markSellerAsInternational = async (req, res) => {
         }
       });
     }
-    
+
     // Update seller to international status
     seller.isInternational = true;
     await seller.save();
-    
+
     // Send email notification
     const { sendInternationalSellerEmail } = require('../utils/emailService');
     await sendInternationalSellerEmail(seller);
-    
+
     res.status(200).json({
       success: true,
       message: 'Seller has been marked as international successfully',
@@ -6421,7 +6449,7 @@ exports.markSellerAsInternational = async (req, res) => {
         isInternational: seller.isInternational
       }
     });
-    
+
   } catch (error) {
     console.error('Error marking seller as international:', error);
     res.status(500).json({
@@ -6440,23 +6468,23 @@ exports.markSellerAsInternational = async (req, res) => {
 exports.revokeSellerInternationalStatus = async (req, res) => {
   try {
     const { sellerId } = req.params;
-    
+
     if (!mongoose.Types.ObjectId.isValid(sellerId)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid seller ID format'
       });
     }
-    
+
     const seller = await Seller.findById(sellerId);
-    
+
     if (!seller) {
       return res.status(404).json({
         success: false,
         message: 'Seller not found'
       });
     }
-    
+
     // If seller is not marked as international, return message
     if (!seller.isInternational) {
       return res.status(200).json({
@@ -6472,11 +6500,11 @@ exports.revokeSellerInternationalStatus = async (req, res) => {
         }
       });
     }
-    
+
     // Update seller to revoke international status
     seller.isInternational = false;
     await seller.save();
-    
+
     res.status(200).json({
       success: true,
       message: 'Seller international status has been revoked successfully',
@@ -6489,7 +6517,7 @@ exports.revokeSellerInternationalStatus = async (req, res) => {
         isInternational: seller.isInternational
       }
     });
-    
+
   } catch (error) {
     console.error('Error revoking seller international status:', error);
     res.status(500).json({
@@ -6507,20 +6535,20 @@ exports.revokeSellerInternationalStatus = async (req, res) => {
 exports.deleteFezOrder = async (req, res) => {
   try {
     const { orderNo } = req.params;
-    
+
     if (!orderNo) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Fez order number is required' 
+        message: 'Fez order number is required'
       });
     }
-    
+
     console.log(`🚫 Admin attempting to cancel Fez order: ${orderNo}`);
-    
+
     // Get a fresh authentication token for Fez Delivery
     const axios = require('axios');
     const FEZ_API_URL = process.env.FEZ_API_URL;
-    
+
     // Function to get Fez auth token
     const getFezAuthToken = async () => {
       try {
@@ -6529,9 +6557,9 @@ exports.deleteFezOrder = async (req, res) => {
           user_id: process.env.FEZ_USER_ID,
           password: process.env.FEZ_PASSWORD
         };
-        
+
         const response = await axios.post(authUrl, authData);
-        
+
         if (response.data && response.data.status === 'Success' && response.data.authDetails) {
           return response.data.authDetails.authToken;
         } else {
@@ -6542,17 +6570,17 @@ exports.deleteFezOrder = async (req, res) => {
         throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
       }
     };
-    
+
     const authToken = await getFezAuthToken();
     console.log('Using fresh token for Fez order cancellation:', authToken.substring(0, 10) + '...');
-    
+
     let cancellationSuccessful = false;
     let responseData = null;
-    
+
     // Try the DELETE endpoint first
     try {
       console.log(`Attempting to cancel Fez order using DELETE method: ${orderNo}`);
-      
+
       const deleteResponse = await axios.delete(`${FEZ_API_URL}/order`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -6563,7 +6591,7 @@ exports.deleteFezOrder = async (req, res) => {
           orderNo: orderNo
         }
       });
-      
+
       if (deleteResponse.data && deleteResponse.data.status === 'Success') {
         console.log('Fez order cancellation successful using DELETE method:', deleteResponse.data);
         cancellationSuccessful = true;
@@ -6577,12 +6605,12 @@ exports.deleteFezOrder = async (req, res) => {
         console.log('DELETE Error response data:', deleteError.response.data);
       }
     }
-    
+
     // If DELETE method failed, try the POST endpoint
     if (!cancellationSuccessful) {
       try {
         console.log(`Attempting to cancel Fez order using POST method: ${orderNo}`);
-        
+
         const postResponse = await axios.post(
           `${FEZ_API_URL}/order/cancel/${orderNo}`,
           {},
@@ -6594,7 +6622,7 @@ exports.deleteFezOrder = async (req, res) => {
             }
           }
         );
-        
+
         if (postResponse.data && postResponse.data.status === 'Success') {
           console.log('Fez order cancellation successful using POST method:', postResponse.data);
           cancellationSuccessful = true;
@@ -6609,7 +6637,7 @@ exports.deleteFezOrder = async (req, res) => {
         }
       }
     }
-    
+
     // Look for any orders in our system with this Fez order number
     const Order = require('../models/Order');
     const orders = await Order.find({
@@ -6619,13 +6647,13 @@ exports.deleteFezOrder = async (req, res) => {
         { 'shipping.shipment_id': orderNo }
       ]
     });
-    
+
     // Also check for any return shipments with this order number
     const Return = require('../models/Return');
     const returns = await Return.find({
       'returnShipment.shipment_id': orderNo
     });
-    
+
     // Update our database for found orders
     if (orders.length > 0) {
       for (const order of orders) {
@@ -6635,7 +6663,7 @@ exports.deleteFezOrder = async (req, res) => {
           description: `Shipment cancelled by admin`,
           timestamp: new Date()
         };
-        
+
         // Update order shipping information
         await Order.findByIdAndUpdate(
           order._id,
@@ -6649,11 +6677,11 @@ exports.deleteFezOrder = async (req, res) => {
             }
           }
         );
-        
+
         console.log(`Updated order ${order.order_id} with cancelled shipping status`);
       }
     }
-    
+
     // Update return shipments if found
     if (returns.length > 0) {
       for (const returnDoc of returns) {
@@ -6679,11 +6707,11 @@ exports.deleteFezOrder = async (req, res) => {
             }
           }
         );
-        
+
         console.log(`Updated return request ${returnDoc._id} with cancelled shipping status`);
       }
     }
-    
+
     if (cancellationSuccessful) {
       return res.status(200).json({
         success: true,
@@ -6700,7 +6728,7 @@ exports.deleteFezOrder = async (req, res) => {
         affectedReturns: returns.map(r => ({ id: r._id }))
       });
     }
-    
+
   } catch (error) {
     console.error('Error cancelling Fez order:', error);
     return res.status(500).json({
@@ -6745,14 +6773,14 @@ exports.bulkUpdateProductCondition = async (req, res) => {
     // Normalize condition value (case-insensitive)
     const validConditions = ['new', 'fairly-used'];
     const normalizedCondition = condition.toLowerCase();
-    
+
     if (!validConditions.includes(normalizedCondition)) {
       return res.status(400).json({
         success: false,
         message: 'Condition must be either "New" or "Fairly-Used"'
       });
     }
-    
+
     // Format condition with proper capitalization
     const formattedCondition = normalizedCondition === 'new' ? 'New' : 'Fairly-Used';
 
@@ -6786,7 +6814,7 @@ exports.bulkUpdateProductCondition = async (req, res) => {
 async function sendBulkConditionUpdateEmail(seller, condition, totalProducts) {
   try {
     const subject = `Product Condition Update - ${seller.storeName || seller.businessName || 'Your Store'}`;
-    
+
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Product Condition Update</h2>
@@ -6815,16 +6843,16 @@ exports.searchProducts = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Extract search parameters from query
-    const { 
-      query, 
-      minPrice, 
-      maxPrice, 
-      category, 
-      subCategory, 
-      sellerId, 
-      status, 
-      sortBy, 
-      sortOrder 
+    const {
+      query,
+      minPrice,
+      maxPrice,
+      category,
+      subCategory,
+      sellerId,
+      status,
+      sortBy,
+      sortOrder
     } = req.query;
 
     // Build search filter
@@ -6858,11 +6886,11 @@ exports.searchProducts = async (req, res) => {
 
     // Build sort options
     let sort = { createdAt: -1 }; // Default sort by newest
-    
+
     if (sortBy) {
       sort = {};
       const order = sortOrder === 'asc' ? 1 : -1;
-      
+
       // Map frontend sort fields to MongoDB fields
       switch (sortBy) {
         case 'name':
@@ -6885,7 +6913,7 @@ exports.searchProducts = async (req, res) => {
 
     // Count total matching products for pagination metadata
     const totalProducts = await Product.countDocuments(filter);
-    
+
     // Get paginated products with populated seller information
     const products = await Product.find(filter)
       .populate('seller', 'firstName lastName businessName email storeName storeAvatar isVerified')
@@ -6903,10 +6931,10 @@ exports.searchProducts = async (req, res) => {
       products
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: 'Failed to search products',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -6949,7 +6977,7 @@ exports.getPlatformMetrics = async (req, res) => {
 
     // Get verification stats
     const [
-      verifiedSellers, 
+      verifiedSellers,
       pendingVerificationSellers,
       identityVerifiedBuyers
     ] = await Promise.all([
@@ -7049,11 +7077,13 @@ exports.getPlatformMetrics = async (req, res) => {
     // Top performing sellers by revenue (exclude stale orders)
     const topPerformers = await Order.aggregate([
       { $match: { paid: true, isStale: { $ne: true }, items: { $not: { $elemMatch: { status: 'cancelled' } } } } },
-      { $group: {
-        _id: '$seller',
-        totalRevenue: { $sum: '$totalAmount' },
-        totalOrders: { $sum: 1 }
-      }},
+      {
+        $group: {
+          _id: '$seller',
+          totalRevenue: { $sum: '$totalAmount' },
+          totalOrders: { $sum: 1 }
+        }
+      },
       { $sort: { totalRevenue: -1 } },
       { $limit: 10 }
     ]);
@@ -7064,11 +7094,13 @@ exports.getPlatformMetrics = async (req, res) => {
       { $match: { paid: true, isStale: { $ne: true } } },
       { $unwind: '$items' },
       { $match: { 'items.status': { $ne: 'cancelled' } } },
-      { $group: {
-        _id: '$items.product',
-        totalSold: { $sum: '$items.quantity' },
-        totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
-      }},
+      {
+        $group: {
+          _id: '$items.product',
+          totalSold: { $sum: '$items.quantity' },
+          totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
+        }
+      },
       { $sort: { totalSold: -1 } },
       { $limit: 10 }
     ]);
@@ -7077,11 +7109,13 @@ exports.getPlatformMetrics = async (req, res) => {
     // Top buyers by spend (exclude stale orders)
     const topBuyers = await Order.aggregate([
       { $match: { paid: true, isStale: { $ne: true }, items: { $not: { $elemMatch: { status: 'cancelled' } } } } },
-      { $group: {
-        _id: '$buyer',
-        totalSpent: { $sum: '$totalAmount' },
-        orderCount: { $sum: 1 }
-      }},
+      {
+        $group: {
+          _id: '$buyer',
+          totalSpent: { $sum: '$totalAmount' },
+          orderCount: { $sum: 1 }
+        }
+      },
       { $sort: { totalSpent: -1 } },
       { $limit: 10 }
     ]);
@@ -7099,21 +7133,27 @@ exports.getPlatformMetrics = async (req, res) => {
       { $match: { paid: true, isStale: { $ne: true } } },
       { $unwind: '$items' },
       { $match: { 'items.status': { $ne: 'cancelled' } } },
-      { $group: {
-        _id: '$items.product',
-        count: { $sum: 1 }
-      }},
-      { $lookup: {
-        from: 'products',
-        localField: '_id',
-        foreignField: '_id',
-        as: 'productInfo'
-      }},
+      {
+        $group: {
+          _id: '$items.product',
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'productInfo'
+        }
+      },
       { $unwind: '$productInfo' },
-      { $group: {
-        _id: '$productInfo.category',
-        orderCount: { $sum: '$count' }
-      }},
+      {
+        $group: {
+          _id: '$productInfo.category',
+          orderCount: { $sum: '$count' }
+        }
+      },
       { $sort: { orderCount: -1 } },
       { $limit: 10 }
     ]);
@@ -7207,7 +7247,7 @@ async function sendProductStatusEmail(seller, product, action, reason) {
   try {
     // Ensure SendGrid API key is set
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    
+
     const actionMap = {
       delete: {
         subject: 'Product Deleted by Admin - Auqli',
@@ -7222,7 +7262,7 @@ async function sendProductStatusEmail(seller, product, action, reason) {
     };
 
     const template = actionMap[action];
-    
+
     const emailMsg = {
       to: seller.email,
       from: 'Auqli Admin <support@auqli.com>',
@@ -7244,7 +7284,7 @@ async function sendProductStatusEmail(seller, product, action, reason) {
         </div>
       `
     };
-    
+
     await sgMail.send(emailMsg);
     console.log(`Product ${action} notification email sent to seller: ${seller.email}`);
   } catch (error) {
@@ -7258,30 +7298,30 @@ exports.deleteProduct = async (req, res) => {
   try {
     const { productId } = req.params;
     const { reason } = req.body;
-    
+
     const product = await Product.findById(productId).populate('seller');
-    
+
     if (!product) {
       return res.status(404).json({
         success: false,
         message: 'Product not found'
       });
     }
-    
+
     // Store seller reference before deleting product
     const seller = product.seller;
-    
+
     // Delete the product
     await Product.findByIdAndDelete(productId);
-    
+
     // Send email notification to the seller
     await sendProductStatusEmail(seller, product, 'delete', reason);
-    
+
     return res.status(200).json({
       success: true,
       message: 'Product deleted successfully'
     });
-    
+
   } catch (error) {
     console.error('Error deleting product:', error);
     return res.status(500).json({
@@ -7297,23 +7337,23 @@ exports.disableProduct = async (req, res) => {
   try {
     const { productId } = req.params;
     const { reason } = req.body;
-    
+
     const product = await Product.findById(productId).populate('seller');
-    
+
     if (!product) {
       return res.status(404).json({
         success: false,
         message: 'Product not found'
       });
     }
-    
+
     // Update the product status to draft
     product.status = 'draft';
     await product.save();
-    
+
     // Send email notification to the seller
     await sendProductStatusEmail(product.seller, product, 'disable', reason);
-    
+
     return res.status(200).json({
       success: true,
       message: 'Product disabled successfully',
@@ -7323,7 +7363,7 @@ exports.disableProduct = async (req, res) => {
         status: product.status
       }
     });
-    
+
   } catch (error) {
     console.error('Error disabling product:', error);
     return res.status(500).json({
@@ -7337,10 +7377,10 @@ exports.disableProduct = async (req, res) => {
 exports.getSellerProducts = async (req, res) => {
   try {
     const { sellerId } = req.params;
-    const { 
-      page = 1, 
-      limit = 10, 
-      status, 
+    const {
+      page = 1,
+      limit = 10,
+      status,
       category,
       minPrice,
       maxPrice,
@@ -7356,22 +7396,22 @@ exports.getSellerProducts = async (req, res) => {
 
     // Build query
     const query = { seller: sellerId };
-    
+
     // Add filters if provided
     if (status) {
       query.status = status;
     }
-    
+
     if (category) {
       query.category = category;
     }
-    
+
     if (minPrice || maxPrice) {
       query.price = {};
       if (minPrice) query.price.$gte = Number(minPrice);
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
-    
+
     // Add search functionality
     if (search) {
       query.$or = [
@@ -7466,9 +7506,9 @@ exports.getSellerProducts = async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching seller products:', error);
-    res.status(500).json({ 
-      message: 'Failed to retrieve seller products', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve seller products',
+      error: error.message
     });
   }
 };
@@ -7480,19 +7520,19 @@ async function sendWalletTransactionEmail(seller, amount, type, reason, newBalan
   try {
     // Ensure SendGrid API key is set
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    
+
     const formattedAmount = amount.toLocaleString('en-NG', {
       style: 'currency',
       currency: 'NGN',
       minimumFractionDigits: 2
     });
-    
+
     const formattedBalance = newBalance.toLocaleString('en-NG', {
       style: 'currency',
       currency: 'NGN',
       minimumFractionDigits: 2
     });
-    
+
     const formattedDate = new Date().toLocaleString('en-US', {
       weekday: 'long',
       year: 'numeric',
@@ -7501,9 +7541,9 @@ async function sendWalletTransactionEmail(seller, amount, type, reason, newBalan
       hour: '2-digit',
       minute: '2-digit'
     });
-    
+
     const isCredit = type === 'credit';
-    
+
     const emailMsg = {
       to: seller.email,
       from: 'Auqli Admin <support@auqli.com>',
@@ -7520,9 +7560,9 @@ async function sendWalletTransactionEmail(seller, amount, type, reason, newBalan
             <p style="font-size: 16px; color: #555; margin-bottom: 15px;">Hello ${seller.firstName},</p>
             
             <p style="font-size: 16px; color: #555; margin-bottom: 15px;">
-              ${isCredit 
-                ? `Your wallet has been credited with ${formattedAmount}.` 
-                : `${formattedAmount} has been deducted from your wallet.`}
+              ${isCredit
+          ? `Your wallet has been credited with ${formattedAmount}.`
+          : `${formattedAmount} has been deducted from your wallet.`}
             </p>
             
             <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
@@ -7571,7 +7611,7 @@ async function sendWalletTransactionEmail(seller, amount, type, reason, newBalan
         </div>
       `
     };
-    
+
     await sgMail.send(emailMsg);
     console.log(`Wallet transaction email sent to seller: ${seller.email}`);
     return true;
@@ -7589,32 +7629,32 @@ exports.deductFromSellerWallet = async (req, res) => {
   try {
     const { sellerId } = req.params;
     const { amount, reason } = req.body;
-    
+
     if (!amount || amount <= 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Invalid amount. Please provide a positive number.' 
+        message: 'Invalid amount. Please provide a positive number.'
       });
     }
-    
+
     const seller = await Seller.findById(sellerId).session(session);
-    
+
     if (!seller) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Seller not found' 
+        message: 'Seller not found'
       });
     }
-    
+
     // Check if seller has sufficient balance
     if (seller.walletBalance < amount) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
         message: 'Insufficient wallet balance',
-        currentBalance: seller.walletBalance 
+        currentBalance: seller.walletBalance
       });
     }
-    
+
     // Create transaction record
     const transaction = await Transaction.create([{
       seller: seller._id,
@@ -7627,17 +7667,17 @@ exports.deductFromSellerWallet = async (req, res) => {
         deductionReason: reason
       }
     }], { session });
-    
+
     // Update seller's wallet balance
     const previousBalance = seller.walletBalance;
     seller.walletBalance -= amount;
     await seller.save({ session });
-    
+
     await session.commitTransaction();
-    
+
     // Send email notification
     await sendWalletTransactionEmail(seller, amount, 'debit', reason, seller.walletBalance);
-    
+
     res.status(200).json({
       success: true,
       message: 'Amount deducted from seller wallet successfully',
@@ -7645,7 +7685,7 @@ exports.deductFromSellerWallet = async (req, res) => {
       previousBalance,
       newBalance: seller.walletBalance
     });
-    
+
   } catch (error) {
     await session.abortTransaction();
     console.error('Error deducting from seller wallet:', error);
@@ -7667,23 +7707,23 @@ exports.addToSellerWallet = async (req, res) => {
   try {
     const { sellerId } = req.params;
     const { amount, reason } = req.body;
-    
+
     if (!amount || amount <= 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Invalid amount. Please provide a positive number.' 
+        message: 'Invalid amount. Please provide a positive number.'
       });
     }
-    
+
     const seller = await Seller.findById(sellerId).session(session);
-    
+
     if (!seller) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Seller not found' 
+        message: 'Seller not found'
       });
     }
-    
+
     // Create transaction record
     const transaction = await Transaction.create([{
       seller: seller._id,
@@ -7696,17 +7736,17 @@ exports.addToSellerWallet = async (req, res) => {
         creditReason: reason
       }
     }], { session });
-    
+
     // Update seller's wallet balance
     const previousBalance = seller.walletBalance;
     seller.walletBalance += amount;
     await seller.save({ session });
-    
+
     await session.commitTransaction();
-    
+
     // Send email notification
     await sendWalletTransactionEmail(seller, amount, 'credit', reason, seller.walletBalance);
-    
+
     res.status(200).json({
       success: true,
       message: 'Amount added to seller wallet successfully',
@@ -7714,7 +7754,7 @@ exports.addToSellerWallet = async (req, res) => {
       previousBalance,
       newBalance: seller.walletBalance
     });
-    
+
   } catch (error) {
     await session.abortTransaction();
     console.error('Error adding to seller wallet:', error);
@@ -7735,7 +7775,7 @@ exports.deleteAllSellerProducts = async (req, res) => {
   try {
     const { sellerId } = req.params;
     const { reason } = req.body;
-    
+
     // Check if seller exists
     const seller = await Seller.findById(sellerId);
     if (!seller) {
@@ -7747,7 +7787,7 @@ exports.deleteAllSellerProducts = async (req, res) => {
 
     // Find all products of the seller
     const products = await Product.find({ seller: sellerId });
-    
+
     if (products.length === 0) {
       return res.status(404).json({
         success: false,
@@ -7765,7 +7805,7 @@ exports.deleteAllSellerProducts = async (req, res) => {
 
     // Delete all products of the seller
     const deleteResult = await Product.deleteMany({ seller: sellerId });
-    
+
     // Send email notification to the seller
     const emailMsg = {
       to: seller.email,
@@ -7787,7 +7827,7 @@ exports.deleteAllSellerProducts = async (req, res) => {
         </div>
       `
     };
-    
+
     try {
       // Ensure SendGrid API key is set
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -7797,13 +7837,13 @@ exports.deleteAllSellerProducts = async (req, res) => {
       console.error('Error sending products deletion email:', emailError);
       // Don't throw error to prevent API failure
     }
-    
+
     return res.status(200).json({
       success: true,
       message: `All products of seller ${sellerId} deleted successfully`,
       deletedCount: deleteResult.deletedCount
     });
-    
+
   } catch (error) {
     console.error('Error deleting all seller products:', error);
     return res.status(500).json({
@@ -7824,27 +7864,27 @@ exports.deleteAllSellerProducts = async (req, res) => {
 exports.sendOnboardingReminderEmail = async (req, res) => {
   try {
     const { sellerId } = req.params;
-    
+
     if (!mongoose.Types.ObjectId.isValid(sellerId)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid seller ID format'
       });
     }
-    
+
     const seller = await Seller.findById(sellerId);
-    
+
     if (!seller) {
       return res.status(404).json({
         success: false,
         message: 'Seller not found'
       });
     }
-    
-    
-    
-    
-    
+
+
+
+
+
     const emailMsg = {
       to: seller.email,
       from: 'Joseph From Auqli <support@auqli.com>',
@@ -7901,17 +7941,17 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
         </div>
       `
     };
-    
-    
+
+
     // Send the email
     await sgMail.send(emailMsg);
-    
+
     return res.status(200).json({
       success: true,
       message: 'Onboarding reminder email sent successfully',
-     
+
     });
-    
+
   } catch (error) {
     console.error('Error sending onboarding reminder email:', error);
     return res.status(500).json({
@@ -7935,17 +7975,17 @@ exports.sendBulkOnboardingReminders = async (req, res) => {
       accountType: { $nin: ['individual', 'business'] },
       emailVerified: true
     });
-    
+
     const emailPromises = [];
     const processedSellers = [];
-    
+
     // Process each seller with incomplete onboarding
     for (const seller of incompleteSellers) {
       // Identify incomplete steps for this seller
-     
-      
-     
-      
+
+
+
+
       // Set up email content
       const emailMsg = {
         to: seller.email,
@@ -7989,30 +8029,30 @@ exports.sendBulkOnboardingReminders = async (req, res) => {
           </div>
         `
       };
-      
+
       // Add to email promises array
       emailPromises.push(sgMail.send(emailMsg));
-      
+
       // Add to processed sellers with summary info
       processedSellers.push({
         sellerId: seller._id,
         email: seller.email,
         name: `${seller.firstName} ${seller.lastName}`,
         businessName: seller.businessName || 'N/A',
-       
+
       });
     }
-    
+
     // Send all emails in parallel
     await Promise.allSettled(emailPromises);
-    
+
     return res.status(200).json({
       success: true,
       message: `Onboarding reminder emails sent to ${processedSellers.length} sellers`,
       count: processedSellers.length,
       processedSellers
     });
-    
+
   } catch (error) {
     console.error('Error sending bulk onboarding reminder emails:', error);
     return res.status(500).json({
@@ -8044,14 +8084,14 @@ exports.getBuyerDetails = async (req, res) => {
     // Fetch buyer with selected fields
     const buyer = await Buyer.findById(buyerId)
       .select('-password -resetPasswordToken -resetPasswordExpires -resetPasswordOTP -resetPasswordOTPExpires -otp -phoneVerification.otp');
-    
+
     if (!buyer) {
       return res.status(404).json({
         success: false,
         message: 'Buyer not found'
       });
     }
-    
+
     // Get additional metrics and related data concurrently
     const [
       ordersData,
@@ -8066,16 +8106,16 @@ exports.getBuyerDetails = async (req, res) => {
         .populate('items.product', 'name images')
         .sort({ createdAt: -1 })
         .limit(10),
-      
+
       // Fix: Count buyer's posts with the correct schema structure
       Post.countDocuments({ 'author.userId': buyerId, 'author.userModel': 'Buyer' }),
-      
+
       // Get wishlist items with product details
       Promise.all((buyer.wishlist || []).map(async (item) => {
         const product = await Product.findById(item.product)
           .populate('seller', 'storeName businessName')
           .select('name price images status discountPrice');
-        
+
         if (product) {
           return {
             addedAt: item.addedAt,
@@ -8090,33 +8130,33 @@ exports.getBuyerDetails = async (req, res) => {
         }
         return null;
       })),
-      
+
       // Get conversation threads
-      Conversation.find({ 
-        participants: { 
-          $elemMatch: { 
-            participantId: buyerId, 
-            participantType: 'buyer' 
-          } 
-        } 
+      Conversation.find({
+        participants: {
+          $elemMatch: {
+            participantId: buyerId,
+            participantType: 'buyer'
+          }
+        }
       })
-      .populate({
-        path: 'participants.participantId',
-        select: 'firstName lastName storeName businessName profileImage',
-      })
-      .sort({ updatedAt: -1 })
-      .limit(5),
-      
+        .populate({
+          path: 'participants.participantId',
+          select: 'firstName lastName storeName businessName profileImage',
+        })
+        .sort({ updatedAt: -1 })
+        .limit(5),
+
       // Get wallet transaction statistics
       getWalletTransactionStats(buyer)
     ]);
-    
+
     // Filter out null wishlist items (products that may have been deleted)
     const filteredWishlist = wishlistProducts.filter(item => item !== null);
-    
+
     // Calculate order metrics
     const orderMetrics = calculateOrderMetrics(ordersData);
-    
+
     // Format response data
     const responseData = {
       buyer: {
@@ -8185,7 +8225,7 @@ exports.getBuyerDetails = async (req, res) => {
           const otherParticipant = conversation.participants.find(
             p => p.participantId._id.toString() !== buyerId.toString()
           );
-          
+
           return {
             _id: conversation._id,
             lastUpdated: conversation.updatedAt,
@@ -8193,8 +8233,8 @@ exports.getBuyerDetails = async (req, res) => {
             otherParticipant: otherParticipant ? {
               _id: otherParticipant.participantId._id,
               type: otherParticipant.participantType,
-              name: otherParticipant.participantType === 'seller' 
-                ? (otherParticipant.participantId.storeName || otherParticipant.participantId.businessName) 
+              name: otherParticipant.participantType === 'seller'
+                ? (otherParticipant.participantId.storeName || otherParticipant.participantId.businessName)
                 : `${otherParticipant.participantId.firstName} ${otherParticipant.participantId.lastName}`,
               profileImage: otherParticipant.participantId.profileImage
             } : null
@@ -8202,13 +8242,13 @@ exports.getBuyerDetails = async (req, res) => {
         })
       }
     };
-    
+
     // Return successful response
     res.status(200).json({
       success: true,
       data: responseData
     });
-    
+
   } catch (error) {
     console.error('Error fetching buyer details:', error);
     res.status(500).json({
@@ -8228,7 +8268,7 @@ function calculateOrderMetrics(orders) {
   return orders.reduce((metrics, order) => {
     metrics.totalOrders++;
     metrics.totalSpent += order.totalAmount || 0;
-    
+
     // Count orders by status
     if (order.status === 'delivered') {
       metrics.completedOrders++;
@@ -8237,7 +8277,7 @@ function calculateOrderMetrics(orders) {
     } else {
       metrics.pendingOrders++;
     }
-    
+
     return metrics;
   }, {
     totalOrders: 0,
@@ -8263,10 +8303,10 @@ async function getWalletTransactionStats(buyer) {
       totalDebit: 0
     };
   }
-  
+
   return buyer.wallet.transactions.reduce((stats, transaction) => {
     stats.totalCount++;
-    
+
     if (transaction.type === 'credit') {
       stats.creditCount++;
       stats.totalCredit += transaction.amount || 0;
@@ -8274,7 +8314,7 @@ async function getWalletTransactionStats(buyer) {
       stats.debitCount++;
       stats.totalDebit += transaction.amount || 0;
     }
-    
+
     return stats;
   }, {
     totalCount: 0,
@@ -8293,22 +8333,22 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
       { expoPushToken: { $exists: true, $ne: null, $ne: "" } },
       'expoPushToken email'
     );
-    
+
     if (!buyers || buyers.length === 0) {
       console.log('No buyers with push tokens found');
       return;
     }
-    
+
     console.log(`Sending push notifications to ${buyers.length} buyers`);
-    
+
     // Create messages array
     const messages = [];
     const buyersByToken = {};
-    
+
     // Add message for each buyer with a valid token
     for (const buyer of buyers) {
       if (!buyer.expoPushToken) continue;
-      
+
       // Check if the push token is valid
       if (!Expo.isExpoPushToken(buyer.expoPushToken)) {
         console.error(`Push token ${buyer.expoPushToken} is not a valid Expo push token for buyer ${buyer._id}`);
@@ -8319,7 +8359,7 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
         );
         continue;
       }
-      
+
       // Add the message to the array
       messages.push({
         to: buyer.expoPushToken,
@@ -8330,24 +8370,24 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
         priority: 'high',
         channelId: 'default',
       });
-      
+
       // Store buyer info for error tracking
       buyersByToken[buyer.expoPushToken] = buyer;
     }
-    
+
     if (messages.length === 0) {
       console.log('No valid push tokens found after validation');
       return;
     }
-    
+
     // Chunk the messages array to follow Expo's guidelines
     const chunks = expo.chunkPushNotifications(messages);
-    
+
     // Send each chunk
     const tickets = [];
     let successCount = 0;
     let errorCount = 0;
-    
+
     for (const chunk of chunks) {
       try {
         const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
@@ -8358,15 +8398,15 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
         errorCount += chunk.length;
       }
     }
-    
+
     // Process tickets and handle failed tokens
     const receiptIds = [];
     const tokensToRemove = [];
-    
+
     tickets.forEach((ticket, index) => {
       const targetToken = messages[index]?.to;
       const buyer = buyersByToken[targetToken];
-      
+
       if (ticket.status === 'ok') {
         successCount++;
         if (ticket.id) {
@@ -8375,7 +8415,7 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
       } else if (ticket.status === 'error') {
         errorCount++;
         console.error(`Push notification to ${targetToken} failed:`, ticket.message);
-        
+
         // Check for specific error types that indicate we should remove the token
         if (
           ticket.details?.error === 'DeviceNotRegistered' ||
@@ -8390,7 +8430,7 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
         }
       }
     });
-    
+
     // Remove invalid tokens in bulk
     if (tokensToRemove.length > 0) {
       try {
@@ -8403,7 +8443,7 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
         console.error('Error removing invalid tokens:', error);
       }
     }
-    
+
     // Optionally check for receipts (can be used to confirm delivery)
     // This helps with debugging delivery issues
     if (receiptIds.length > 0 && process.env.CHECK_NOTIFICATION_RECEIPTS === 'true') {
@@ -8419,9 +8459,9 @@ async function sendPushNotificationsToAllBuyers(title, body, data = {}) {
         console.error('Error checking notification receipts:', error);
       }
     }
-    
+
     console.log(`Push notification summary: ${successCount} sent successfully, ${errorCount} failed`);
-    
+
     return {
       success: true,
       totalBuyers: buyers.length,
@@ -8472,7 +8512,7 @@ exports.createPlatformNotification = async (req, res) => {
           type: platformNotification.type
         }
       );
-      
+
       console.log('Push notification result:', notificationResult);
     }
 
@@ -8570,21 +8610,21 @@ exports.getPlatformNotification = async (req, res) => {
 exports.updatePlatformNotification = async (req, res) => {
   try {
     const { title, content, type, isActive, startDate, endDate } = req.body;
-    
+
     // Find the notification to update
     const notification = await PlatformNotification.findById(req.params.id);
-    
+
     if (!notification) {
       return res.status(404).json({
         success: false,
         message: 'Platform notification not found'
       });
     }
-    
+
     // Check if notification is being activated
     const wasInactive = !notification.isActive;
     const willBeActive = isActive !== undefined ? isActive : notification.isActive;
-    
+
     // Update fields if provided
     if (title) notification.title = title;
     if (content) notification.content = content;
@@ -8592,12 +8632,12 @@ exports.updatePlatformNotification = async (req, res) => {
     if (isActive !== undefined) notification.isActive = isActive;
     if (startDate) notification.startDate = startDate;
     if (endDate) notification.endDate = endDate;
-    
+
     // Update the updatedAt timestamp
     notification.updatedAt = Date.now();
-    
+
     await notification.save();
-    
+
     // If notification was inactive and is now being activated, send push notification
     if (wasInactive && willBeActive) {
       const notificationResult = await sendPushNotificationsToAllBuyers(
@@ -8608,10 +8648,10 @@ exports.updatePlatformNotification = async (req, res) => {
           type: notification.type
         }
       );
-      
+
       console.log('Push notification result:', notificationResult);
     }
-    
+
     res.json({
       success: true,
       message: 'Platform notification updated successfully',
@@ -8631,14 +8671,14 @@ exports.updatePlatformNotification = async (req, res) => {
 exports.deletePlatformNotification = async (req, res) => {
   try {
     const notification = await PlatformNotification.findByIdAndDelete(req.params.id);
-    
+
     if (!notification) {
       return res.status(404).json({
         success: false,
         message: 'Platform notification not found'
       });
     }
-    
+
     res.json({
       success: true,
       message: 'Platform notification deleted successfully'
@@ -8660,19 +8700,19 @@ async function sendBuyerWalletTransactionEmail(buyer, amount, type, reason, newB
   try {
     // Ensure SendGrid API key is set
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    
+
     const formattedAmount = amount.toLocaleString('en-NG', {
       style: 'currency',
       currency: 'NGN',
       minimumFractionDigits: 2
     });
-    
+
     const formattedBalance = newBalance.toLocaleString('en-NG', {
       style: 'currency',
       currency: 'NGN',
       minimumFractionDigits: 2
     });
-    
+
     const formattedDate = new Date().toLocaleString('en-US', {
       weekday: 'long',
       year: 'numeric',
@@ -8681,9 +8721,9 @@ async function sendBuyerWalletTransactionEmail(buyer, amount, type, reason, newB
       hour: '2-digit',
       minute: '2-digit'
     });
-    
+
     const isCredit = type === 'credit';
-    
+
     const emailMsg = {
       to: buyer.email,
       from: 'Auqli Admin <support@auqli.com>',
@@ -8700,9 +8740,9 @@ async function sendBuyerWalletTransactionEmail(buyer, amount, type, reason, newB
             <p style="font-size: 16px; color: #555; margin-bottom: 15px;">Hello ${buyer.firstName},</p>
             
             <p style="font-size: 16px; color: #555; margin-bottom: 15px;">
-              ${isCredit 
-                ? `Your wallet has been credited with ${formattedAmount}.` 
-                : `${formattedAmount} has been deducted from your wallet.`}
+              ${isCredit
+          ? `Your wallet has been credited with ${formattedAmount}.`
+          : `${formattedAmount} has been deducted from your wallet.`}
             </p>
             
             <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
@@ -8737,9 +8777,9 @@ async function sendBuyerWalletTransactionEmail(buyer, amount, type, reason, newB
             </div>
             
             <p style="font-size: 16px; color: #555; margin-bottom: 15px;">
-              ${isCredit 
-                ? 'You can now use this balance to make purchases on Auqli.' 
-                : 'If you have any questions regarding this transaction, please contact our support team.'}
+              ${isCredit
+          ? 'You can now use this balance to make purchases on Auqli.'
+          : 'If you have any questions regarding this transaction, please contact our support team.'}
             </p>
           </div>
           
@@ -8771,32 +8811,32 @@ exports.deductFromBuyerWallet = async (req, res) => {
   try {
     const { buyerId } = req.params;
     const { amount, reason } = req.body;
-    
+
     if (!amount || amount <= 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Invalid amount. Please provide a positive number.' 
+        message: 'Invalid amount. Please provide a positive number.'
       });
     }
-    
+
     const buyer = await Buyer.findById(buyerId).session(session);
-    
+
     if (!buyer) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Buyer not found' 
+        message: 'Buyer not found'
       });
     }
-    
+
     // Check if buyer has sufficient balance
     if (!buyer.wallet || buyer.wallet.balance < amount) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
         message: 'Insufficient wallet balance',
         currentBalance: buyer.wallet ? buyer.wallet.balance : 0
       });
     }
-    
+
     // Create transaction record in buyer's wallet
     const transaction = {
       type: 'debit',
@@ -8806,18 +8846,18 @@ exports.deductFromBuyerWallet = async (req, res) => {
       status: 'completed',
       createdAt: new Date()
     };
-    
+
     // Update buyer's wallet balance
     const previousBalance = buyer.wallet.balance;
     buyer.wallet.balance -= amount;
     buyer.wallet.transactions.push(transaction);
     await buyer.save({ session });
-    
+
     await session.commitTransaction();
-    
+
     // Send email notification
     await sendBuyerWalletTransactionEmail(buyer, amount, 'debit', reason, buyer.wallet.balance);
-    
+
     res.status(200).json({
       success: true,
       message: 'Amount deducted from buyer wallet successfully',
@@ -8825,7 +8865,7 @@ exports.deductFromBuyerWallet = async (req, res) => {
       previousBalance,
       newBalance: buyer.wallet.balance
     });
-    
+
   } catch (error) {
     await session.abortTransaction();
     console.error('Error deducting from buyer wallet:', error);
@@ -8847,23 +8887,23 @@ exports.addToBuyerWallet = async (req, res) => {
   try {
     const { buyerId } = req.params;
     const { amount, reason } = req.body;
-    
+
     if (!amount || amount <= 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Invalid amount. Please provide a positive number.' 
+        message: 'Invalid amount. Please provide a positive number.'
       });
     }
-    
+
     const buyer = await Buyer.findById(buyerId).session(session);
-    
+
     if (!buyer) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Buyer not found' 
+        message: 'Buyer not found'
       });
     }
-    
+
     // Ensure the wallet object exists
     if (!buyer.wallet) {
       buyer.wallet = {
@@ -8874,7 +8914,7 @@ exports.addToBuyerWallet = async (req, res) => {
         onHoldItems: []
       };
     }
-    
+
     // Create transaction record
     const transaction = {
       type: 'credit',
@@ -8884,18 +8924,18 @@ exports.addToBuyerWallet = async (req, res) => {
       status: 'completed',
       createdAt: new Date()
     };
-    
+
     // Update buyer's wallet balance
     const previousBalance = buyer.wallet.balance;
     buyer.wallet.balance += amount;
     buyer.wallet.transactions.push(transaction);
     await buyer.save({ session });
-    
+
     await session.commitTransaction();
-    
+
     // Send email notification
     await sendBuyerWalletTransactionEmail(buyer, amount, 'credit', reason, buyer.wallet.balance);
-    
+
     res.status(200).json({
       success: true,
       message: 'Amount added to buyer wallet successfully',
@@ -8903,7 +8943,7 @@ exports.addToBuyerWallet = async (req, res) => {
       previousBalance,
       newBalance: buyer.wallet.balance
     });
-    
+
   } catch (error) {
     await session.abortTransaction();
     console.error('Error adding to buyer wallet:', error);
@@ -8934,9 +8974,9 @@ exports.deleteProductBlip = async (req, res) => {
 
     // Validate IDs
     if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(blipId)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid product or blip ID format' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid product or blip ID format'
       });
     }
 
@@ -8944,18 +8984,18 @@ exports.deleteProductBlip = async (req, res) => {
     const product = await Product.findById(productId);
 
     if (!product) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Product not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
       });
     }
 
     // Find the blip in the product
     const blip = product.blips.id(blipId);
     if (!blip) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Blip not found in the product' 
+      return res.status(404).json({
+        success: false,
+        message: 'Blip not found in the product'
       });
     }
 
@@ -8997,12 +9037,12 @@ exports.deleteBlipComment = async (req, res) => {
     const { productId, blipId, commentId } = req.params;
 
     // Validate IDs
-    if (!mongoose.Types.ObjectId.isValid(productId) || 
-        !mongoose.Types.ObjectId.isValid(blipId) || 
-        !mongoose.Types.ObjectId.isValid(commentId)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid product, blip, or comment ID format' 
+    if (!mongoose.Types.ObjectId.isValid(productId) ||
+      !mongoose.Types.ObjectId.isValid(blipId) ||
+      !mongoose.Types.ObjectId.isValid(commentId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid product, blip, or comment ID format'
       });
     }
 
@@ -9010,27 +9050,27 @@ exports.deleteBlipComment = async (req, res) => {
     const product = await Product.findById(productId);
 
     if (!product) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Product not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
       });
     }
 
     // Find the blip in the product
     const blip = product.blips.id(blipId);
     if (!blip) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Blip not found in the product' 
+      return res.status(404).json({
+        success: false,
+        message: 'Blip not found in the product'
       });
     }
 
     // Find the comment in the blip
     const comment = blip.comments.id(commentId);
     if (!comment) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Comment not found in the blip' 
+      return res.status(404).json({
+        success: false,
+        message: 'Comment not found in the blip'
       });
     }
 
@@ -9045,15 +9085,15 @@ exports.deleteBlipComment = async (req, res) => {
     // Use atomic update to remove the comment and update the count
     // This avoids validation issues with the entire document
     await Product.findOneAndUpdate(
-      { 
+      {
         _id: productId,
-        'blips._id': blipId 
+        'blips._id': blipId
       },
-      { 
+      {
         $pull: { 'blips.$.comments': { _id: commentId } },
         $inc: { 'blips.$.commentsCount': -1 }
       },
-      { 
+      {
         new: true,
         runValidators: false // Skip validation to avoid issues with missing required fields
       }
@@ -9080,7 +9120,7 @@ exports.getAllProductBlips = async (req, res) => {
     // Parse pagination parameters
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
-    
+
     // Parse filters
     const sellerId = req.query.sellerId;
     const category = req.query.category;
@@ -9091,28 +9131,28 @@ exports.getAllProductBlips = async (req, res) => {
     const minLikes = parseInt(req.query.minLikes) || 0;
     const minViews = parseInt(req.query.minViews) || 0;
     const minComments = parseInt(req.query.minComments) || 0;
-    
+
     // Build match criteria
     const matchCriteria = {
       blips: { $exists: true, $ne: [] }
     };
-    
+
     if (sellerId) {
       matchCriteria.seller = new mongoose.Types.ObjectId(sellerId);
     }
-    
+
     if (category) {
       matchCriteria.category = category;
     }
-    
+
     // Aggregation pipeline
     const pipeline = [
       // Match products that have blips
       { $match: matchCriteria },
-      
+
       // Unwind the blips array
       { $unwind: '$blips' },
-      
+
       // Add date filtering if provided
       ...(startDate || endDate ? [{
         $match: {
@@ -9122,7 +9162,7 @@ exports.getAllProductBlips = async (req, res) => {
           }
         }
       }] : []),
-      
+
       // Filter by engagement metrics if provided
       {
         $match: {
@@ -9133,7 +9173,7 @@ exports.getAllProductBlips = async (req, res) => {
           ]
         }
       },
-      
+
       // Lookup seller information
       {
         $lookup: {
@@ -9144,7 +9184,7 @@ exports.getAllProductBlips = async (req, res) => {
         }
       },
       { $unwind: '$sellerInfo' },
-      
+
       // Project needed fields
       {
         $project: {
@@ -9190,18 +9230,18 @@ exports.getAllProductBlips = async (req, res) => {
           status: '$status'
         }
       },
-      
+
       // Sort by the requested field
       { $sort: { [sortBy === 'engagement' ? 'engagement.viewCount' : sortBy]: sortOrder } },
-      
+
       // Skip and limit for pagination
       { $skip: (page - 1) * limit },
       { $limit: limit }
     ];
-    
+
     // Execute the aggregation
     const blips = await Product.aggregate(pipeline);
-    
+
     // Get total count for pagination
     const totalBlipsCount = await Product.aggregate([
       { $match: matchCriteria },
@@ -9225,9 +9265,9 @@ exports.getAllProductBlips = async (req, res) => {
       },
       { $count: 'total' }
     ]);
-    
+
     const totalBlips = totalBlipsCount.length > 0 ? totalBlipsCount[0].total : 0;
-    
+
     // Calculate engagement statistics
     const stats = {
       totalBlips,
@@ -9236,26 +9276,26 @@ exports.getAllProductBlips = async (req, res) => {
         { $unwind: '$blips' },
         { $group: { _id: null, totalViews: { $sum: '$blips.viewCount' } } }
       ]).then(result => result.length > 0 ? result[0].totalViews : 0),
-      
+
       totalLikes: await Product.aggregate([
         { $match: matchCriteria },
         { $unwind: '$blips' },
         { $group: { _id: null, totalLikes: { $sum: '$blips.likesCount' } } }
       ]).then(result => result.length > 0 ? result[0].totalLikes : 0),
-      
+
       totalComments: await Product.aggregate([
         { $match: matchCriteria },
         { $unwind: '$blips' },
         { $group: { _id: null, totalComments: { $sum: '$blips.commentsCount' } } }
       ]).then(result => result.length > 0 ? result[0].totalComments : 0),
-      
+
       averageViews: await Product.aggregate([
         { $match: matchCriteria },
         { $unwind: '$blips' },
         { $group: { _id: null, avgViews: { $avg: '$blips.viewCount' } } }
       ]).then(result => result.length > 0 ? Math.round(result[0].avgViews) : 0)
     };
-    
+
     res.status(200).json({
       success: true,
       blips,
@@ -9269,10 +9309,10 @@ exports.getAllProductBlips = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching product blips:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to retrieve product blips', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve product blips',
+      error: error.message
     });
   }
 };
@@ -9282,7 +9322,7 @@ exports.sendRemindersToSellersWithoutProducts = async (req, res) => {
     // Find sellers who registered more than 7 days ago but have no products
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 7); // 7 days ago
-    
+
     // Find sellers with no products who registered before the cutoff date
     const sellers = await Seller.find({
       createdAt: { $lt: cutoffDate },
@@ -9301,13 +9341,13 @@ exports.sendRemindersToSellersWithoutProducts = async (req, res) => {
     for (const seller of sellers) {
       // Count products for this seller
       const productCount = await Product.countDocuments({ seller: seller._id });
-      
+
       // If seller has no products, send reminder email
       if (productCount === 0) {
         try {
           // Ensure SendGrid API key is set
           sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-          
+
           // Prepare email content
           const emailMsg = {
             to: seller.email,
@@ -9354,11 +9394,11 @@ exports.sendRemindersToSellersWithoutProducts = async (req, res) => {
               </div>
             `
           };
-          
+
           // Send the email
           await sgMail.send(emailMsg);
           results.emailsSent++;
-          
+
           console.log(`Reminder email sent to seller without products: ${seller.email}`);
         } catch (emailError) {
           console.error(`Error sending reminder email to ${seller.email}:`, emailError);
@@ -9370,7 +9410,7 @@ exports.sendRemindersToSellersWithoutProducts = async (req, res) => {
         }
       }
     }
-    
+
     // Return success response with results
     res.json({
       success: true,
@@ -9409,29 +9449,29 @@ exports.sendRemindersToSellersWithoutBlips = async (req, res) => {
     for (const seller of sellers) {
       // Count products for this seller
       const productCount = await Product.countDocuments({ seller: seller._id });
-      
+
       if (productCount > 0) {
         results.sellersWithProducts++;
-        
+
         // Count products with blips for this seller
-        const productsWithBlips = await Product.countDocuments({ 
+        const productsWithBlips = await Product.countDocuments({
           seller: seller._id,
           'blips.0': { $exists: true } // At least one blip exists
         });
-        
+
         // If seller has products but no blips, send reminder email
         if (productsWithBlips === 0) {
           results.sellersWithoutBlips++;
-          
+
           try {
             // Ensure SendGrid API key is set
             sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-            
+
             // Get a sample of the seller's products (up to 3)
             const sellerProducts = await Product.find({ seller: seller._id })
               .select('name images')
               .limit(3);
-            
+
             // Create product list HTML
             const productListHTML = sellerProducts.map(product => `
               <div style="margin-bottom: 10px; padding: 10px; border: 1px solid #eee; border-radius: 5px;">
@@ -9445,7 +9485,7 @@ exports.sendRemindersToSellersWithoutBlips = async (req, res) => {
                 <div style="clear: both;"></div>
               </div>
             `).join('');
-            
+
             // Prepare email content
             const emailMsg = {
               to: seller.email,
@@ -9491,11 +9531,11 @@ exports.sendRemindersToSellersWithoutBlips = async (req, res) => {
                 </div>
               `
             };
-            
+
             // Send the email
             await sgMail.send(emailMsg);
             results.emailsSent++;
-            
+
             console.log(`Reminder email sent to seller without blips: ${seller.email}`);
           } catch (emailError) {
             console.error(`Error sending blip reminder email to ${seller.email}:`, emailError);
@@ -9508,7 +9548,7 @@ exports.sendRemindersToSellersWithoutBlips = async (req, res) => {
         }
       }
     }
-    
+
     // Return success response with results
     res.json({
       success: true,
@@ -9555,12 +9595,12 @@ exports.getBuyerTransactions = async (req, res) => {
     let transactions = [];
     if (buyer.wallet && buyer.wallet.transactions && buyer.wallet.transactions.length > 0) {
       transactions = [...buyer.wallet.transactions];
-      
+
       // Apply filters
       if (startDate || endDate) {
         const startDateTime = startDate ? new Date(startDate) : null;
         const endDateTime = endDate ? new Date(endDate) : null;
-        
+
         transactions = transactions.filter(transaction => {
           const transactionDate = new Date(transaction.createdAt);
           if (startDateTime && endDateTime) {
@@ -9573,18 +9613,18 @@ exports.getBuyerTransactions = async (req, res) => {
           return true;
         });
       }
-      
+
       if (type && type !== 'all') {
         transactions = transactions.filter(transaction => transaction.type === type);
       }
-      
+
       // Sort by most recent first
       transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
 
     // Calculate total for pagination
     const totalTransactions = transactions.length;
-    
+
     // Apply pagination
     const paginatedTransactions = transactions.slice(skip, skip + queryLimit);
 
@@ -9624,24 +9664,24 @@ exports.getBuyerTransactions = async (req, res) => {
 exports.createMajorCategory = async (req, res) => {
   try {
     const { name, categoryIds } = req.body;
-    
+
     // Validate required fields
     if (!name) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Name is required' 
+        message: 'Name is required'
       });
     }
-    
+
     // Check if major category with the same name already exists
     const existingMajorCategory = await MajorCategory.findOne({ name });
     if (existingMajorCategory) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Major category with this name already exists' 
+        message: 'Major category with this name already exists'
       });
     }
-    
+
     // Create image object if file is uploaded
     let image = null;
     if (req.file) {
@@ -9652,16 +9692,16 @@ exports.createMajorCategory = async (req, res) => {
         ContentType: req.file.mimetype,
       };
       const data = await s3.upload(params).promise();
-      
+
       image = {
         url: `https://${process.env.CDN_URL}/${data.Key}`,
         public_id: data.Key,
       };
     }
-    
+
     // Validate and check if categories are already assigned to another major category
     let parsedCategoryIds = categoryIds;
-    
+
     // Check if categoryIds is a string (JSON array) and parse it
     if (categoryIds && typeof categoryIds === 'string') {
       try {
@@ -9674,53 +9714,53 @@ exports.createMajorCategory = async (req, res) => {
         });
       }
     }
-    
+
     if (parsedCategoryIds && parsedCategoryIds.length > 0) {
       // Check if categories exist
       const categories = await Category.find({ _id: { $in: parsedCategoryIds } });
       if (categories.length !== parsedCategoryIds.length) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: 'One or more categories do not exist' 
+          message: 'One or more categories do not exist'
         });
       }
-      
+
       // Check if any of the categories are already assigned to another major category
-      const assignedCategories = await MajorCategory.find({ 
-        categories: { $in: parsedCategoryIds } 
+      const assignedCategories = await MajorCategory.find({
+        categories: { $in: parsedCategoryIds }
       });
-      
+
       if (assignedCategories.length > 0) {
         // Get names of already assigned categories
         const conflictingCategoryIds = [];
         assignedCategories.forEach(majorCat => {
-          const conflicts = majorCat.categories.filter(catId => 
+          const conflicts = majorCat.categories.filter(catId =>
             parsedCategoryIds.includes(catId.toString())
           );
           conflictingCategoryIds.push(...conflicts);
         });
-        
-        const conflictingCategories = await Category.find({ 
-          _id: { $in: conflictingCategoryIds } 
+
+        const conflictingCategories = await Category.find({
+          _id: { $in: conflictingCategoryIds }
         });
-        
-        return res.status(400).json({ 
+
+        return res.status(400).json({
           success: false,
-          message: 'Some categories are already assigned to another major category', 
+          message: 'Some categories are already assigned to another major category',
           conflictingCategories: conflictingCategories.map(c => c.name)
         });
       }
     }
-    
+
     // Create new major category
     const majorCategory = new MajorCategory({
       name,
       image,
       categories: parsedCategoryIds || []
     });
-    
+
     await majorCategory.save();
-    
+
     res.status(201).json({
       success: true,
       message: 'Major category created successfully',
@@ -9742,7 +9782,7 @@ exports.getMajorCategories = async (req, res) => {
     const majorCategories = await MajorCategory.find()
       .populate('categories', 'name image')
       .sort({ createdAt: -1 });
-    
+
     res.json({
       success: true,
       data: majorCategories
@@ -9761,17 +9801,17 @@ exports.getMajorCategories = async (req, res) => {
 exports.getMajorCategoryById = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const majorCategory = await MajorCategory.findById(id)
       .populate('categories', 'name image subCategories');
-    
+
     if (!majorCategory) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Major category not found' 
+        message: 'Major category not found'
       });
     }
-    
+
     res.json({
       success: true,
       data: majorCategory
@@ -9791,27 +9831,27 @@ exports.updateMajorCategory = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, categoryIds, isActive } = req.body;
-    
+
     const majorCategory = await MajorCategory.findById(id);
     if (!majorCategory) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Major category not found' 
+        message: 'Major category not found'
       });
     }
-    
+
     // Check if name is being changed and if it already exists
     if (name && name !== majorCategory.name) {
       const existingMajorCategory = await MajorCategory.findOne({ name });
       if (existingMajorCategory) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: 'Major category with this name already exists' 
+          message: 'Major category with this name already exists'
         });
       }
       majorCategory.name = name;
     }
-    
+
     // Handle image upload if file is provided
     if (req.file) {
       // Delete old image from S3 if it exists
@@ -9821,7 +9861,7 @@ exports.updateMajorCategory = async (req, res) => {
           Key: majorCategory.image.public_id
         }).promise();
       }
-      
+
       // Upload new image
       const params = {
         Bucket: process.env.CDN_S3_BUCKET,
@@ -9830,18 +9870,18 @@ exports.updateMajorCategory = async (req, res) => {
         ContentType: req.file.mimetype,
       };
       const data = await s3.upload(params).promise();
-      
+
       majorCategory.image = {
         url: `https://${process.env.CDN_URL}/${data.Key}`,
         public_id: data.Key,
       };
     }
-    
+
     // Update isActive if provided
     if (isActive !== undefined) {
       majorCategory.isActive = isActive;
     }
-    
+
     // Update categories if provided
     if (categoryIds) {
       // Parse categoryIds if it's a string
@@ -9857,55 +9897,55 @@ exports.updateMajorCategory = async (req, res) => {
           });
         }
       }
-      
+
       // Check if categories exist
       const categories = await Category.find({ _id: { $in: parsedCategoryIds } });
       if (categories.length !== parsedCategoryIds.length) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: 'One or more categories do not exist' 
+          message: 'One or more categories do not exist'
         });
       }
-      
+
       // Find categories that are being added (not in the current list)
       const currentCategoryIds = majorCategory.categories.map(id => id.toString());
       const newCategoryIds = parsedCategoryIds.filter(id => !currentCategoryIds.includes(id));
-      
+
       // Check if any new categories are already assigned to another major category
       if (newCategoryIds.length > 0) {
         const assignedCategories = await MajorCategory.find({
           _id: { $ne: id }, // Exclude the current major category
           categories: { $in: newCategoryIds }
         });
-        
+
         if (assignedCategories.length > 0) {
           // Get names of already assigned categories
           const conflictingCategoryIds = [];
           assignedCategories.forEach(majorCat => {
-            const conflicts = majorCat.categories.filter(catId => 
+            const conflicts = majorCat.categories.filter(catId =>
               newCategoryIds.includes(catId.toString())
             );
             conflictingCategoryIds.push(...conflicts);
           });
-          
-          const conflictingCategories = await Category.find({ 
-            _id: { $in: conflictingCategoryIds } 
+
+          const conflictingCategories = await Category.find({
+            _id: { $in: conflictingCategoryIds }
           });
-          
-          return res.status(400).json({ 
+
+          return res.status(400).json({
             success: false,
-            message: 'Some categories are already assigned to another major category', 
+            message: 'Some categories are already assigned to another major category',
             conflictingCategories: conflictingCategories.map(c => c.name)
           });
         }
       }
-      
+
       majorCategory.categories = parsedCategoryIds;
     }
-    
+
     majorCategory.updatedAt = Date.now();
     await majorCategory.save();
-    
+
     res.json({
       success: true,
       message: 'Major category updated successfully',
@@ -9925,15 +9965,15 @@ exports.updateMajorCategory = async (req, res) => {
 exports.deleteMajorCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const majorCategory = await MajorCategory.findById(id);
     if (!majorCategory) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Major category not found' 
+        message: 'Major category not found'
       });
     }
-    
+
     // Delete image from S3 if it exists
     if (majorCategory.image && majorCategory.image.public_id) {
       await s3.deleteObject({
@@ -9941,12 +9981,12 @@ exports.deleteMajorCategory = async (req, res) => {
         Key: majorCategory.image.public_id
       }).promise();
     }
-    
+
     await MajorCategory.findByIdAndDelete(id);
-    
-    res.json({ 
+
+    res.json({
       success: true,
-      message: 'Major category deleted successfully' 
+      message: 'Major category deleted successfully'
     });
   } catch (error) {
     console.error('Delete major category error:', error);
@@ -9964,16 +10004,16 @@ exports.getUnassignedCategories = async (req, res) => {
     // Find all categories that are assigned to major categories
     const majorCategories = await MajorCategory.find();
     const assignedCategoryIds = [];
-    
+
     majorCategories.forEach(majorCat => {
       assignedCategoryIds.push(...majorCat.categories);
     });
-    
+
     // Find all categories that are not in the assigned list
     const unassignedCategories = await Category.find({
       _id: { $nin: assignedCategoryIds }
     }).select('name image subCategories');
-    
+
     res.json({
       success: true,
       data: unassignedCategories
@@ -10016,7 +10056,7 @@ exports.getSellerTransactions = async (req, res) => {
 
     // Find transactions for this seller
     const filter = { seller: sellerId };
-    
+
     // Apply date filters if provided
     if (startDate || endDate) {
       filter.createdAt = {};
@@ -10027,7 +10067,7 @@ exports.getSellerTransactions = async (req, res) => {
         filter.createdAt.$lte = new Date(endDate);
       }
     }
-    
+
     // Apply type filter if provided
     if (type && type !== 'all') {
       filter.type = type;
@@ -10035,7 +10075,7 @@ exports.getSellerTransactions = async (req, res) => {
 
     // Get total count for pagination
     const totalTransactions = await Transaction.countDocuments(filter);
-    
+
     // Fetch transactions with pagination
     const transactions = await Transaction.find(filter)
       .sort({ createdAt: -1 })
@@ -10046,13 +10086,13 @@ exports.getSellerTransactions = async (req, res) => {
     // Enhance transactions with buyer info where applicable
     const enhancedTransactions = await Promise.all(transactions.map(async (transaction) => {
       const transactionObj = transaction.toObject();
-      
+
       // For order_payment transactions, try to get buyer info
       if (transaction.type === 'order_payment' && transaction.orderId && transaction.orderId.buyer) {
         try {
           const buyer = await Buyer.findById(transaction.orderId.buyer)
             .select('firstName lastName email');
-          
+
           if (buyer) {
             transactionObj.buyerInfo = {
               _id: buyer._id,
@@ -10064,7 +10104,7 @@ exports.getSellerTransactions = async (req, res) => {
           console.error('Error fetching buyer info for transaction:', err);
         }
       }
-      
+
       return transactionObj;
     }));
 
