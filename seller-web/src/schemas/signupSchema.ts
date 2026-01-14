@@ -23,7 +23,7 @@ export const signupSchema = z.object({
   phoneNumber: z
     .string()
     .min(1, "Phone number is required")
-    .regex(/^\d{10}$/, "Phone number must contain exactly 10 digits after country code (+234)"),
+    .regex(/^\d{10}$/, "Phone number must contain exactly 10 digits after country code (+2348123456789)"),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
