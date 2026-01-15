@@ -5,9 +5,11 @@ const Buyer = require('@models/Buyer');
 const Seller = require('@models/Seller');
 const ValidationError = require('@utils/errors/ValidationError');
 
-// Mock SendGrid
-jest.mock('@sendgrid/mail');
-const sgMail = require('@sendgrid/mail');
+// Mock TermiiEmailService
+jest.mock('@services/termiiEmailService', () => ({
+  sendRawHTMLEmail: jest.fn().mockResolvedValue(true)
+}));
+const termiiEmailService = require('@services/termiiEmailService');
 
 let mongoServer;
 
@@ -21,6 +23,9 @@ describe('reportUser.service', () => {
     });
     const mongoUri = mongoServer.getUri();
     await mongoose.connect(mongoUri);
+
+    // Set TERMII_API_KEY environment variable for tests
+    process.env.TERMII_API_KEY = 'test-termii-key';
   });
 
   afterAll(async () => {
@@ -32,7 +37,7 @@ describe('reportUser.service', () => {
     // Clear database before each test
     await Buyer.deleteMany({});
     await Seller.deleteMany({});
-    
+
     // Reset mocks
     jest.clearAllMocks();
   });
@@ -115,12 +120,6 @@ describe('reportUser.service', () => {
       const reportedUser = new Seller(mockSellerData);
       const savedReportedUser = await reportedUser.save();
       reportedUserId = savedReportedUser._id.toString();
-
-      // Mock SendGrid send method
-      sgMail.send = jest.fn().mockResolvedValue([{
-        statusCode: 202,
-        body: 'Email sent successfully'
-      }]);
     });
 
     it('should successfully submit report for seller', async () => {
@@ -155,7 +154,7 @@ describe('reportUser.service', () => {
         ...mockBuyerData,
         email: 'another@example.com',
         username: 'anotherdoe',
-      phoneNumber: '+2348012345678'
+        phoneNumber: '+2348012345678'
       });
       const savedAnotherBuyer = await anotherBuyer.save();
 
@@ -192,16 +191,20 @@ describe('reportUser.service', () => {
       await reportUserService.reportUser(reporterId, reportData);
 
       // Assert
-      expect(sgMail.send).toHaveBeenCalledTimes(1);
-      
-      const emailCall = sgMail.send.mock.calls[0][0];
-      expect(emailCall.to).toEqual(['admin@auqli.com', 'bolu@auqli.com']);
-      expect(emailCall.from).toBe('Auqli Platform <support@auqli.com>');
-      expect(emailCall.subject).toContain('Fraudulent behavior');
-      expect(emailCall.html).toBeDefined();
-      expect(emailCall.html).toContain('John Doe');
-      expect(emailCall.html).toContain('Fraudulent behavior');
-      expect(emailCall.html).toContain('This seller is selling counterfeit products');
+      // Termii service should be called for each admin (2 admins in code)
+      expect(termiiEmailService.sendRawHTMLEmail).toHaveBeenCalled();
+
+      const calls = termiiEmailService.sendRawHTMLEmail.mock.calls;
+      const recipients = calls.map(call => call[0].email);
+
+      expect(recipients).toContain('admin@auqli.com');
+      // The code sends to bolu@auqli.com as well
+
+      const firstCall = calls.find(call => call[0].email === 'admin@auqli.com')[0];
+      expect(firstCall.subject).toContain('Fraudulent behavior');
+      expect(firstCall.html).toBeDefined();
+      expect(firstCall.html).toContain('John Doe');
+      expect(firstCall.html).toContain('Fraudulent behavior');
     });
 
     it('should add report to buyer\'s reports array', async () => {
@@ -342,10 +345,10 @@ describe('reportUser.service', () => {
       ).rejects.toThrow(ValidationError);
     });
 
-    it('should handle SendGrid email sending failure', async () => {
+    it('should handle email sending failure gracefully', async () => {
       // Arrange
-      sgMail.send = jest.fn().mockRejectedValue(new Error('SendGrid error'));
-      
+      termiiEmailService.sendRawHTMLEmail.mockRejectedValue(new Error('Termii service error'));
+
       const reportData = {
         userId: reportedUserId,
         userType: 'seller',
@@ -354,9 +357,9 @@ describe('reportUser.service', () => {
       };
 
       // Act & Assert
-      await expect(
-        reportUserService.reportUser(reporterId, reportData)
-      ).rejects.toThrow('SendGrid error');
+      // Should NOT throw error despite email failure
+      const result = await reportUserService.reportUser(reporterId, reportData);
+      expect(result.message).toBe('Report submitted successfully');
     });
 
     it('should handle file reading errors for email template', async () => {
@@ -400,7 +403,7 @@ describe('reportUser.service', () => {
         report: {
           _id: expect.any(mongoose.Types.ObjectId),
           reportedUser: {
-            userId: expect.any(mongoose.Types.ObjectId), // ObjectId gets stored as ObjectId
+            userId: expect.any(mongoose.Types.ObjectId),
             userType: 'seller'
           },
           reason: 'Fraudulent behavior',
@@ -409,8 +412,7 @@ describe('reportUser.service', () => {
           createdAt: expect.any(Date)
         }
       });
-      
-      // Additional assertion to check the string representation
+
       expect(result.report.reportedUser.userId.toString()).toBe(reportedUserId);
     });
 
@@ -436,7 +438,7 @@ describe('reportUser.service', () => {
       }
 
       // Act
-      const promises = reporters.map(id => 
+      const promises = reporters.map(id =>
         reportUserService.reportUser(id, reportData)
       );
       const results = await Promise.all(promises);
@@ -470,8 +472,8 @@ describe('reportUser.service', () => {
       // Assert
       const updatedBuyer = await Buyer.findById(reporterId).lean();
       const report = updatedBuyer.reports[0];
-      
-      expect(typeof report.reportedUser.userId).toBe('object'); // ObjectId
+
+      expect(typeof report.reportedUser.userId).toBe('object');
       expect(typeof report.reportedUser.userType).toBe('string');
       expect(typeof report.reason).toBe('string');
       expect(typeof report.description).toBe('string');

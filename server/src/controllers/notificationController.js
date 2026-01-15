@@ -1,11 +1,10 @@
 const Notification = require('../models/Notification');
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('../services/termiiEmailService');
 const Order = require('../models/Order');
 const mongoose = require('mongoose');
 const { agenda } = require('../config/agenda');
 const { Expo } = require('expo-server-sdk');
 const expo = new Expo();
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Helper function to get notification title
 const getNotificationTitle = (type) => {
@@ -104,17 +103,17 @@ const getNotificationMessage = (type, data) => {
       } else if (typeof data.items === 'number') {
         itemsText = `${data.items} item${data.items > 1 ? 's' : ''}`;
       }
-      
+
       // Format delivery address
       let deliveryInfo = '';
       if (data.deliveryAddress) {
         const address = data.deliveryAddress;
         deliveryInfo = `Delivery to ${address.recipientName} in ${address.recipientState}.`;
       }
-      
+
       // Include payment method
       const paymentInfo = data.paymentMethod ? `Payment via ${data.paymentMethod}.` : '';
-      
+
       return `You have received a new order #${data.order_id} worth ${data.amount}. ${itemsText} to be fulfilled. ${deliveryInfo} ${paymentInfo}`;
     case 'order_paid':
       return `Payment of ${data.amount} received for order #${data.order_id} via ${data.paymentMethod}.`;
@@ -149,7 +148,7 @@ const getNotificationMessage = (type, data) => {
       return `Your order #${data.order_id} status has been updated to ${data.status}.`;
     case 'order_shipped':
       return `Your order #${data.order_id} has been shipped! Track your package with ${data.carrier}.`;
-    case 'order_picked_up': 
+    case 'order_picked_up':
       return `Your order #${data.order_id} has been picked up and is being processed for delivery.`;
     case 'order_in_transit':
       return `Order #${data.order_id} is now in transit and on its way to the delivery address.`;
@@ -191,18 +190,18 @@ const getNotificationMessage = (type, data) => {
       } else if (typeof data.items === 'number') {
         orderItemsText = `${data.items} item${data.items > 1 ? 's' : ''}`;
       }
-      
+
       // Format delivery address
       let buyerDeliveryInfo = '';
       if (data.deliveryAddress) {
         const address = data.deliveryAddress;
         buyerDeliveryInfo = `Delivery to ${address.recipientAddress}, ${address.recipientState}.`;
       }
-      
+
       // Include payment method and shipping fee
       const buyerPaymentInfo = data.paymentMethod ? `Payment via ${data.paymentMethod}.` : '';
       const shippingInfo = data.shippingFee ? `Shipping fee: ${data.shippingFee}.` : '';
-      
+
       return `Your order #${data.order_id} has been placed successfully for ${data.amount}. ${orderItemsText} from ${data.sellerName || 'seller'}. ${buyerDeliveryInfo} ${buyerPaymentInfo} ${shippingInfo}`;
     case 'new_message':
       return `${data.senderName || 'Someone'} sent you a message: "${data.messagePreview || 'View message for details'}"`;
@@ -214,7 +213,7 @@ const getNotificationMessage = (type, data) => {
       return `${data.userName || 'Someone'} commented on your post "${data.postTitle || ''}": "${data.commentPreview || ''}"`;
     case 'post_comment_reply':
       return `${data.userName || 'Someone'} replied to your comment: "${data.replyPreview || ''}"`;
-    case 'stream_start': 
+    case 'stream_start':
       const streamType = data.streamType === 'auction' ? 'auction' : 'show';
       return `${data.storeName || 'A seller'} has started a live ${streamType}: "${data.streamTitle || 'Live Stream'}". Join now!`;
     case 'blip_like':
@@ -231,7 +230,7 @@ exports.createNotification = async (sellerId, type, data) => {
   console.log('Creating notification:', { sellerId, type, data });
   try {
     const actualSellerId = sellerId._id || sellerId;
-    
+
     const title = getNotificationTitle(type);
     const message = getNotificationMessage(type, data);
 
@@ -247,7 +246,7 @@ exports.createNotification = async (sellerId, type, data) => {
     console.log('Saving notification...');
     await notification.save();
     console.log('Notification saved successfully');
-    
+
     // Send push notification if seller has expo token
     try {
       const Seller = mongoose.model('Seller');
@@ -259,7 +258,7 @@ exports.createNotification = async (sellerId, type, data) => {
       console.error('Error sending push notification to seller:', pushError);
       // Continue execution even if push notification fails
     }
-    
+
     return notification;
   } catch (error) {
     console.error('Error creating notification:', error);
@@ -276,9 +275,9 @@ exports.sendEmailNotification = async (seller, notification) => {
       throw new Error('SendGrid API key not configured');
     }
     sgMail.setApiKey(apiKey);
-    
+
     const orderData = notification.data || {};
-    
+
     // Format the items list if available
     let itemsHtml = '';
     if (orderData.items && Array.isArray(orderData.items)) {
@@ -314,17 +313,16 @@ exports.sendEmailNotification = async (seller, notification) => {
             </tr>
             <tr style="background-color: #f9f9f9;">
               <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;"><strong>Total:</strong></td>
-              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${
-                (() => {
-                  try {
-                    const amount = parseFloat(orderData.amount.replace(/[^\d.-]/g, '')) || 0;
-                    const shipping = parseFloat(orderData.shippingFee.replace(/[^\d.-]/g, '')) || 0;
-                    return (amount + shipping).toLocaleString();
-                  } catch (e) {
-                    return orderData.amount || '0';
-                  }
-                })()
-              }</td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₦${(() => {
+            try {
+              const amount = parseFloat(orderData.amount.replace(/[^\d.-]/g, '')) || 0;
+              const shipping = parseFloat(orderData.shippingFee.replace(/[^\d.-]/g, '')) || 0;
+              return (amount + shipping).toLocaleString();
+            } catch (e) {
+              return orderData.amount || '0';
+            }
+          })()
+          }</td>
             </tr>
             ` : ''}
           </tfoot>
@@ -334,7 +332,7 @@ exports.sendEmailNotification = async (seller, notification) => {
       // Handle case where items is just a number (count)
       itemsHtml = `<p><strong>Number of Items:</strong> ${orderData.items}</p>`;
     }
-    
+
     // Delivery information
     let deliveryInfoHtml = '';
     if (orderData.deliveryAddress) {
@@ -349,7 +347,7 @@ exports.sendEmailNotification = async (seller, notification) => {
         </div>
       `;
     }
-    
+
     const msg = {
       to: seller.email,
       from: 'Auqli Seller <support@auqli.com>',
@@ -387,7 +385,11 @@ exports.sendEmailNotification = async (seller, notification) => {
       `,
     };
 
-    await sgMail.send(msg);
+    await termiiEmailService.sendRawHTMLEmail({
+      email: msg.to,
+      subject: msg.subject,
+      html: msg.html
+    });
   } catch (error) {
     console.error('Email sending failed:', error);
   }
@@ -397,37 +399,37 @@ exports.sendEmailNotification = async (seller, notification) => {
 exports.sendEmailToBuyer = async (buyer, notification) => {
   try {
     console.log(`Sending direct email to buyer: ${buyer.email} for notification: ${notification.type}`);
-    
+
     // Get order data from notification
     const data = notification.data || {};
     const orderId = data.order_id;
     const paymentMethod = data.paymentMethod?.toLowerCase() || '';
-    
+
     // Double-check if this is a Paystack order that might not be paid yet
     if (orderId && paymentMethod.includes('paystack')) {
       // Check the order's payment status in the database
       const Order = mongoose.model('Order');
       const order = await Order.findOne({ order_id: orderId });
-      
+
       if (order && !order.paid) {
         console.log(`FINAL CHECK: Skipping email for unpaid Paystack order ${orderId}`);
         return false;
       }
     }
-    
+
     // Ensure we have a valid API key
     const apiKey = process.env.SENDGRID_API_KEY;
     if (!apiKey) {
       console.error('Cannot send email: SendGrid API key is not configured');
       throw new Error('SendGrid API key not configured');
     }
-    
+
     // Set the API key for safety
     sgMail.setApiKey(apiKey);
-    
+
     // Extract data from notification
     const orderInfo = parseNotificationData(data);
-    
+
     // Generate appropriate subject based on notification type
     let subject = 'Order Update - Auqli';
     if (notification.type === 'order_placed') {
@@ -439,7 +441,7 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
     } else if (notification.type.includes('delivered')) {
       subject = 'Your Order Has Been Delivered - Auqli';
     }
-    
+
     // Format the items table
     let itemsHtml = '';
     if (data.items && Array.isArray(data.items)) {
@@ -454,7 +456,7 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
         `;
       });
     }
-    
+
     const itemsTable = `
       <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
         <thead>
@@ -482,7 +484,7 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
         </tfoot>
       </table>
     `;
-    
+
     // Delivery information
     let deliveryInfoHtml = '';
     if (data.deliveryAddress) {
@@ -497,7 +499,7 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
         </div>
       `;
     }
-    
+
     // Create email HTML
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
@@ -525,7 +527,7 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
         <p>Best regards,<br>The Auqli Team</p>
       </div>
     `;
-    
+
     // Send email
     const msg = {
       to: buyer.email,
@@ -533,11 +535,15 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
       subject,
       html
     };
-    
+
     console.log(`Attempting to send email to buyer ${buyer.email} for order ${data.order_id || 'N/A'}`);
-    await sgMail.send(msg);
+    await termiiEmailService.sendRawHTMLEmail({
+      email: msg.to,
+      subject: msg.subject,
+      html: msg.html
+    });
     console.log(`Email sent successfully to buyer ${buyer.email} for order ${data.order_id || 'N/A'}`);
-    
+
     return true;
   } catch (error) {
     console.error('Error sending email to buyer:', error);
@@ -549,7 +555,7 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
 // Helper function to parse notification data
 const parseNotificationData = (data) => {
   if (!data) return {};
-  
+
   // Extract order ID, amount, etc.
   const orderInfo = {
     order_id: data.order_id || 'N/A',
@@ -559,7 +565,7 @@ const parseNotificationData = (data) => {
     items: data.items || [],
     // Add any other fields needed
   };
-  
+
   return orderInfo;
 };
 
@@ -567,24 +573,24 @@ const parseNotificationData = (data) => {
 exports.handleOrderCreationNotifications = async (order, buyer, seller) => {
   try {
     console.log(`Creating notifications for order: ${order.order_id}`);
-    
+
     // Format the items for notification
     const items = order.items.map(item => ({
       productName: item.productName || 'Product',
       quantity: item.quantity,
       price: item.price
     }));
-    
+
     // Format the shipping fee
     const shippingFee = `₦${(order.shipping?.fee?.amount || 0).toLocaleString()}`;
-    
+
     // Get the payment method
-    const paymentMethod = order.paymentInfo?.isCashOnDelivery 
+    const paymentMethod = order.paymentInfo?.isCashOnDelivery
       ? 'Cash on Delivery'
       : order.paymentInfo?.method
         ? order.paymentInfo.method.charAt(0).toUpperCase() + order.paymentInfo.method.slice(1)
         : 'Online Payment';
-    
+
     // Format delivery address for notification
     const deliveryAddress = {
       recipientName: `${order.delivery_address.first_name} ${order.delivery_address.last_name}`.trim(),
@@ -593,7 +599,7 @@ exports.handleOrderCreationNotifications = async (order, buyer, seller) => {
       recipientPhone: order.delivery_address.phone,
       recipientEmail: order.delivery_address.email
     };
-    
+
     // Create notification for seller
     const sellerNotification = await exports.createNotification(
       seller._id,
@@ -609,10 +615,10 @@ exports.handleOrderCreationNotifications = async (order, buyer, seller) => {
         deliveryAddress: deliveryAddress
       }
     );
-    
+
     // Send email to seller
     await exports.sendEmailNotification(seller, sellerNotification);
-    
+
     // Create notification for buyer
     const buyerNotification = await exports.createBuyerNotification(
       buyer._id,
@@ -628,7 +634,7 @@ exports.handleOrderCreationNotifications = async (order, buyer, seller) => {
         deliveryAddress: deliveryAddress
       }
     );
-    
+
     // Check payment method and status before sending email to buyer
     // Send email immediately for:
     // 1. Cash on Delivery orders
@@ -639,17 +645,17 @@ exports.handleOrderCreationNotifications = async (order, buyer, seller) => {
     const paymentMethodLower = (order.paymentInfo?.method || '').toLowerCase();
     const isPaystack = paymentMethodLower === 'paystack';
     const isPaystackUnpaid = isPaystack && (!order.paid || order.paymentInfo?.status === 'pending');
-    
-    console.log(`Order ${order.order_id} payment details:`, { 
+
+    console.log(`Order ${order.order_id} payment details:`, {
       paymentMethod: order.paymentInfo?.method,
-      isCOD: order.paymentInfo?.isCashOnDelivery === true, 
+      isCOD: order.paymentInfo?.isCashOnDelivery === true,
       isPaid: order.paid,
       paymentStatus: order.paymentInfo?.status,
       isPaystack,
       isPaystackUnpaid,
       willSendEmail: !isPaystackUnpaid
     });
-    
+
     if (isPaystackUnpaid) {
       console.log(`SKIPPING confirmation email for Paystack order ${order.order_id} - payment pending. Status: ${order.paymentInfo?.status}, Paid flag: ${order.paid}`);
     } else {
@@ -657,7 +663,7 @@ exports.handleOrderCreationNotifications = async (order, buyer, seller) => {
       console.log(`SENDING confirmation email for order ${order.order_id} - Payment: ${paymentMethod}, Status: ${order.paymentInfo?.status || 'N/A'}, isPaid: ${order.paid}, isCOD: ${order.paymentInfo?.isCashOnDelivery === true}`);
       await exports.sendEmailToBuyer(buyer, buyerNotification);
     }
-    
+
     console.log(`Order creation notifications sent for order: ${order.order_id}`);
     return { sellerNotification, buyerNotification };
   } catch (error) {
@@ -764,7 +770,7 @@ exports.sendCampaignEmails = async (campaign, seller, recipients) => {
       }
 
       console.log('Preparing email for:', recipient.buyer.email);
-      
+
       const msg = {
         to: recipient.buyer.email,
         from: {
@@ -812,27 +818,29 @@ exports.sendCampaignEmails = async (campaign, seller, recipients) => {
 
       try {
         console.log('Sending email to:', recipient.buyer.email);
-        await sgMail.send(msg);
+        await termiiEmailService.sendRawHTMLEmail({
+          email: msg.to,
+          subject: msg.subject,
+          html: msg.html
+        });
         console.log('Email sent successfully to:', recipient.buyer.email);
         return { success: true, email: recipient.buyer.email };
       } catch (error) {
-        console.error(`Failed to send email to ${recipient.buyer.email}:`, error);
-        console.error('SendGrid error response:', error.response?.body);
-        return { 
-          success: false, 
-          email: recipient.buyer.email, 
-          error: error.message,
-          details: error.response?.body
+        console.error(`Failed to send email to ${recipient.buyer.email}:`, error.message);
+        return {
+          success: false,
+          email: recipient.buyer.email,
+          error: error.message
         };
       }
     });
 
     console.log('Waiting for all emails to be sent...');
     const results = await Promise.all(emailPromises);
-    
+
     const successCount = results.filter(r => r.success).length;
     const failureCount = results.filter(r => !r.success).length;
-    
+
     console.log('Email sending completed:', {
       total: results.length,
       successful: successCount,
@@ -871,13 +879,13 @@ exports.simulateFezWebhook = async (req, res) => {
 
     // Validate status
     const validStatuses = [
-      'Pending Pick-Up', 
-      'Picked-Up', 
-      'Dispatched', 
-      'Delivered', 
+      'Pending Pick-Up',
+      'Picked-Up',
+      'Dispatched',
+      'Delivered',
       'Cancelled'
     ];
-    
+
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
@@ -887,7 +895,7 @@ exports.simulateFezWebhook = async (req, res) => {
     // Find the order by Fez order number
     const Order = mongoose.model('Order');
     const order = await Order.findOne({ 'shipping.fez_order_number': orderNumber });
-    
+
     if (!order) {
       return res.status(404).json({
         message: `Order with Fez order number ${orderNumber} not found`
@@ -896,7 +904,7 @@ exports.simulateFezWebhook = async (req, res) => {
 
     // Always use current timestamp for webhook simulation to reflect real-world behavior
     const simulatedTimestamp = new Date();
-    
+
     console.log(`Simulating ${status} with current timestamp: ${simulatedTimestamp.toISOString()}`);
 
     // Create mock webhook data
@@ -917,25 +925,25 @@ exports.simulateFezWebhook = async (req, res) => {
 
     // Helper function to get descriptive status message
     function getStatusDescription(status) {
-      switch(status) {
-        case 'Pending Pick-Up': 
+      switch (status) {
+        case 'Pending Pick-Up':
           return 'Your package is awaiting pickup from the seller';
-        case 'Picked-Up': 
+        case 'Picked-Up':
           return 'Your package has been picked up from the seller';
-        case 'Dispatched': 
+        case 'Dispatched':
           return 'Your package is on its way to the delivery address';
-        case 'Delivered': 
+        case 'Delivered':
           return 'Your package has been delivered successfully';
-        case 'Cancelled': 
+        case 'Cancelled':
           return 'The delivery has been cancelled';
-        default: 
+        default:
           return 'Status updated';
       }
     }
 
     // Import the handler dynamically to avoid circular dependencies
     const { handleOrderStatusUpdate } = require('../webhooks/fezWebhook');
-    
+
     // Process the webhook
     await handleOrderStatusUpdate(mockWebhookData);
 
@@ -946,9 +954,9 @@ exports.simulateFezWebhook = async (req, res) => {
 
   } catch (error) {
     console.error('Error in simulateFezWebhook:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Failed to simulate Fez webhook event',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -975,14 +983,14 @@ exports.simulateTerminalWebhook = async (req, res) => {
     // Validate event type
     const validEvents = [
       'packaging.created',
-      'packaging.updated', 
+      'packaging.updated',
       'shipment.cancelled',
       'shipment.created',
       'shipment.in_transit',
       'shipment.updated',
       'shipment.delivered'
     ];
-    
+
     if (!validEvents.includes(event)) {
       return res.status(400).json({
         message: `Invalid event type. Must be one of: ${validEvents.join(', ')}`
@@ -992,7 +1000,7 @@ exports.simulateTerminalWebhook = async (req, res) => {
     // Find the order by Terminal shipment ID
     const Order = mongoose.model('Order');
     const order = await Order.findOne({ 'shipping.shipment_id': shipment_id });
-    
+
     if (!order) {
       return res.status(404).json({
         message: `Order with Terminal shipment ID ${shipment_id} not found`
@@ -1001,7 +1009,7 @@ exports.simulateTerminalWebhook = async (req, res) => {
 
     // Always use current timestamp for webhook simulation
     const simulatedTimestamp = new Date();
-    
+
     console.log(`Simulating ${event} with current timestamp: ${simulatedTimestamp.toISOString()}`);
 
     // Create mock webhook data following Terminal Africa's webhook format
@@ -1032,7 +1040,7 @@ exports.simulateTerminalWebhook = async (req, res) => {
 
     // Helper function to get Terminal status
     function getTerminalStatus(event) {
-      switch(event) {
+      switch (event) {
         case 'packaging.created':
           return 'packaging';
         case 'packaging.updated':
@@ -1054,7 +1062,7 @@ exports.simulateTerminalWebhook = async (req, res) => {
 
     // Helper function to get descriptive event message
     function getTerminalEventDescription(event) {
-      switch(event) {
+      switch (event) {
         case 'packaging.created':
           return 'Package has been created and is being prepared for shipment';
         case 'packaging.updated':
@@ -1076,7 +1084,7 @@ exports.simulateTerminalWebhook = async (req, res) => {
 
     // Import the handler dynamically to avoid circular dependencies
     const { handleTerminalWebhook } = require('../webhooks/terminalWebhook');
-    
+
     // Process the webhook
     await handleTerminalWebhook(mockWebhookData);
 
@@ -1087,9 +1095,9 @@ exports.simulateTerminalWebhook = async (req, res) => {
 
   } catch (error) {
     console.error('Error in simulateTerminalWebhook:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Failed to simulate Terminal webhook event',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -1113,10 +1121,10 @@ exports.simulateTerminalWebhook2 = async (req, res) => {
     // Verify webhook signature
     const signature = req.headers['x-terminal-signature'] || req.headers['X-Terminal-Signature'];
     const secretKey = process.env.TERMINAL_SECRET_KEY;
-    
+
     console.log('Signature from header:', signature);
     console.log('Secret key exists:', !!secretKey);
-    
+
     if (!signature || !secretKey) {
       responseData = {
         status: false,
@@ -1135,9 +1143,9 @@ exports.simulateTerminalWebhook2 = async (req, res) => {
     // Import the signature verification and handler from terminalWebhook.js
     const { verifyTerminalWebhookSignature, handleTerminalWebhook } = require('../webhooks/terminalWebhook');
     const verification = verifyTerminalWebhookSignature(signature, secretKey, req.body);
-    
+
     console.log('Signature verification result:', verification);
-    
+
     if (!verification.status) {
       responseData = {
         status: false,
@@ -1154,42 +1162,42 @@ exports.simulateTerminalWebhook2 = async (req, res) => {
 
     // Process the webhook using the full handler
     console.log('Processing webhook with handleTerminalWebhook...');
-    
+
     // handleTerminalWebhook sends its own response, so we need to handle that
     const originalJson = res.json;
     let webhookResponse = null;
-    
+
     // Override res.json to capture the response
-    res.json = function(data) {
+    res.json = function (data) {
       webhookResponse = data;
       return originalJson.call(this, data);
     };
-    
+
     await handleTerminalWebhook(req, res, req.body);
-    
+
     // Restore original res.json
     res.json = originalJson;
-    
+
     // Log the actual response sent by handleTerminalWebhook
     responseData = webhookResponse || { status: true, message: 'Webhook processed successfully' };
     await webhookLogService.logWebhookRequest(req, res, responseData, startTime);
 
-   
+
   } catch (err) {
     error = err;
     console.error('Error in simulateTerminalWebhook2:', err);
-    
+
     responseData = {
       status: false,
       message: 'Failed to process Terminal webhook (simulateTerminalWebhook2)',
       error: err.message,
       stack: err.stack
     };
-    
+
     if (!res.headersSent) {
       res.status(500).json(responseData);
     }
-    
+
     await webhookLogService.logWebhookRequest(req, res, responseData, startTime, error);
   }
 };
@@ -1199,21 +1207,21 @@ exports.debugOrderLookup = async (req, res) => {
   try {
     const { tracking_number, shipment_id } = req.query;
     const Order = require('../models/Order');
-    
+
     console.log('🔍 Debug Order Lookup Request:', {
       tracking_number,
       shipment_id
     });
-    
+
     const searches = [];
-    
+
     // Search strategies matching webhook handler
     const searchStrategies = [
       { field: 'shipping.tracking.number', value: tracking_number, name: 'tracking_number' },
       { field: 'shipping.shipment_id', value: shipment_id, name: 'shipment_id' },
       { field: 'shipping.tracking.number', value: shipment_id, name: 'shipment_id_as_tracking' }
     ];
-    
+
     for (const strategy of searchStrategies) {
       if (strategy.value) {
         const foundOrder = await Order.findOne({ [strategy.field]: strategy.value });
@@ -1231,7 +1239,7 @@ exports.debugOrderLookup = async (req, res) => {
         });
       }
     }
-    
+
     // Also search for recent orders with shipping info
     const recentOrdersWithShipping = await Order.find({
       $or: [
@@ -1239,11 +1247,11 @@ exports.debugOrderLookup = async (req, res) => {
         { 'shipping.shipment_id': { $exists: true } }
       ]
     }).limit(10).sort({ createdAt: -1 });
-    
+
     // Get total counts  
     const totalOrdersWithTracking = await Order.countDocuments({ 'shipping.tracking.number': { $exists: true } });
     const totalOrdersWithShipmentId = await Order.countDocuments({ 'shipping.shipment_id': { $exists: true } });
-    
+
     res.status(200).json({
       status: true,
       message: 'Order lookup debug results',
@@ -1269,7 +1277,7 @@ exports.debugOrderLookup = async (req, res) => {
         }
       }
     });
-    
+
   } catch (error) {
     console.error('Error in debug order lookup:', error);
     res.status(500).json({
@@ -1284,10 +1292,10 @@ exports.debugOrderLookup = async (req, res) => {
 exports.testWebhookLogging = async (req, res) => {
   const startTime = Date.now();
   const webhookLogService = require('../services/webhookLogService');
-  
+
   console.log('=== TEST WEBHOOK LOGGING ===');
   console.log('This should definitely be logged!');
-  
+
   try {
     const responseData = {
       status: true,
@@ -1295,10 +1303,10 @@ exports.testWebhookLogging = async (req, res) => {
       timestamp: new Date().toISOString(),
       testData: req.body
     };
-    
+
     res.status(200).json(responseData);
     await webhookLogService.logWebhookRequest(req, res, responseData, startTime);
-    
+
     console.log('Test logging completed');
   } catch (error) {
     console.error('Error in test webhook logging:', error);
@@ -1307,7 +1315,7 @@ exports.testWebhookLogging = async (req, res) => {
       message: 'Test webhook logging failed',
       error: error.message
     };
-    
+
     res.status(500).json(errorResponse);
     await webhookLogService.logWebhookRequest(req, res, errorResponse, startTime, error);
   }
@@ -1317,7 +1325,7 @@ exports.testWebhookLogging = async (req, res) => {
 exports.getWebhookLogs = async (req, res) => {
   try {
     const webhookLogService = require('../services/webhookLogService');
-    
+
     const {
       endpoint,
       success,
@@ -1341,7 +1349,7 @@ exports.getWebhookLogs = async (req, res) => {
     Object.keys(options).forEach(key => options[key] === undefined && delete options[key]);
 
     const result = await webhookLogService.getWebhookLogs(options);
-    
+
     res.status(200).json({
       status: true,
       message: 'Webhook logs retrieved successfully',
@@ -1361,7 +1369,7 @@ exports.getWebhookLogs = async (req, res) => {
 exports.getWebhookStats = async (req, res) => {
   try {
     const webhookLogService = require('../services/webhookLogService');
-    
+
     const {
       endpoint,
       startDate,
@@ -1375,7 +1383,7 @@ exports.getWebhookStats = async (req, res) => {
     };
 
     const stats = await webhookLogService.getWebhookStats(options);
-    
+
     res.status(200).json({
       status: true,
       message: 'Webhook statistics retrieved successfully',
@@ -1432,7 +1440,7 @@ exports.createBuyerNotification = async (buyerId, type, data) => {
   console.log('Creating buyer notification:', { buyerId, type, data });
   try {
     const actualBuyerId = buyerId._id || buyerId;
-    
+
     const title = getNotificationTitle(type);
     const message = getNotificationMessage(type, data);
 
@@ -1448,7 +1456,7 @@ exports.createBuyerNotification = async (buyerId, type, data) => {
     console.log('Saving buyer notification...');
     await notification.save();
     console.log('Buyer notification saved successfully');
-    
+
     // Send push notification if buyer has expo token (skip for order_placed)
     try {
       // Don't send push notification for initial order creation
@@ -1465,7 +1473,7 @@ exports.createBuyerNotification = async (buyerId, type, data) => {
       console.error('Error sending push notification:', pushError);
       // Continue execution even if push notification fails
     }
-    
+
     return notification;
   } catch (error) {
     console.error('Error creating buyer notification:', error);
@@ -1482,9 +1490,9 @@ exports.getBuyerNotifications = async (req, res) => {
 
     // Define excluded notification types
     const excludedTypes = ['seller_message', 'buyer_message', 'new_message', 'notification'];
-    
+
     // Create the base query
-    let query = { 
+    let query = {
       buyer: req.user.id,
       recipient: 'buyer',
       // Exclude message notifications and default notifications from the list
@@ -1492,13 +1500,13 @@ exports.getBuyerNotifications = async (req, res) => {
       // Ensure the notification has a valid title that's not just 'Notification'
       title: { $ne: 'Notification' }
     };
-    
+
     // Apply additional filtering based on the filter parameter
     if (filter === 'orders') {
       // Order-related notification types
-      query.type = { 
+      query.type = {
         $in: [
-          'order_placed', 'order_paid', 'order_status_update', 
+          'order_placed', 'order_paid', 'order_status_update',
           'order_shipped', 'order_delivered', 'order_cancelled',
           'order_reminder', 'return_created', 'return_approved',
           'return_rejected', 'return_info_needed', 'return_partial_refund',
@@ -1508,7 +1516,7 @@ exports.getBuyerNotifications = async (req, res) => {
       };
     } else if (filter === 'posts') {
       // Post-related notification types
-      query.type = { 
+      query.type = {
         $in: [
           'post_reaction', 'post_comment', 'post_comment_reply'
         ],
@@ -1539,8 +1547,8 @@ exports.getBuyerNotifications = async (req, res) => {
 exports.markBuyerNotificationAsRead = async (req, res) => {
   try {
     const notification = await Notification.findOneAndUpdate(
-      { 
-        _id: req.params.id, 
+      {
+        _id: req.params.id,
         buyer: req.user.id,
         recipient: 'buyer',
         // Add the same type exclusion here to be consistent
@@ -1564,7 +1572,7 @@ exports.markBuyerNotificationAsRead = async (req, res) => {
 exports.markAllBuyerNotificationsAsRead = async (req, res) => {
   try {
     await Notification.updateMany(
-      { 
+      {
         buyer: req.user.id,
         recipient: 'buyer',
         isRead: false,
@@ -1594,7 +1602,7 @@ const createMessagePreview = (content, messageType) => {
 const createMessageNotifications = async (message, senderName, recipientName) => {
   try {
     const messagePreview = createMessagePreview(message.content, message.messageType);
-    
+
     // Populate sender information if not already populated
     let sender;
     if (message.sender.model === 'Buyer') {
@@ -1605,8 +1613,8 @@ const createMessageNotifications = async (message, senderName, recipientName) =>
         senderName = 'a buyer';
       } else {
         // Only use the full name if both firstName and lastName are available
-        senderName = (sender.firstName && sender.lastName) ? 
-          `${sender.firstName} ${sender.lastName}` : 
+        senderName = (sender.firstName && sender.lastName) ?
+          `${sender.firstName} ${sender.lastName}` :
           'a buyer';
       }
     } else {
@@ -1619,7 +1627,7 @@ const createMessageNotifications = async (message, senderName, recipientName) =>
         senderName = sender.businessName || sender.storeName || 'Unknown Seller';
       }
     }
-    
+
     // Create notification based on recipient type
     if (message.recipient.model === 'Seller') {
       await createNotification(message.recipient.id, 'buyer_message', {
@@ -1643,12 +1651,12 @@ const createMessageNotifications = async (message, senderName, recipientName) =>
 // Helper function to verify SendGrid API key
 const verifySendGridConfig = () => {
   const apiKey = process.env.SENDGRID_API_KEY;
-  
+
   if (!apiKey) {
     console.error('SENDGRID_API_KEY is not set in environment variables!');
     return false;
   }
-  
+
   if (apiKey.startsWith('SG.')) {
     // console.log('SendGrid API key appears to be properly formatted');
     return true;
@@ -1662,50 +1670,50 @@ const verifySendGridConfig = () => {
 exports.processBatchOrderNotifications = async (buyerId) => {
   try {
     console.log('Starting batch order notification processing for buyer:', buyerId);
-    
+
     // Verify SendGrid configuration
     const isConfigValid = verifySendGridConfig();
     console.log('SendGrid configuration valid:', isConfigValid);
-    
+
     const Order = mongoose.model('Order');
     const Buyer = mongoose.model('Buyer');
     const Seller = mongoose.model('Seller');
-    
+
     // Get the buyer
     const buyer = await Buyer.findById(buyerId);
     if (!buyer) {
       console.error('Buyer not found for batch processing:', buyerId);
       return;
     }
-    
+
     console.log('Found buyer for batch processing:', {
       buyerId: buyer._id.toString(),
       email: buyer.email,
       name: `${buyer.firstName} ${buyer.lastName}`
     });
-    
+
     // Find all orders for this buyer that haven't had notifications sent
     const orders = await Order.find({
       buyer: buyerId,
       notificationsSent: false,
       createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) } // Orders created in the last 5 minutes
     }).populate('seller').populate('items.product');
-    
+
     if (orders.length === 0) {
       console.log('No orders found for batch processing for buyer:', buyerId);
       return;
     }
-    
+
     console.log(`Found ${orders.length} orders for batch processing for buyer:`, buyerId);
-    
+
     // Deduplicate orders based on order_id to prevent repeats
     const uniqueOrderMap = new Map();
     orders.forEach(order => {
       uniqueOrderMap.set(order.order_id, order);
     });
-    
+
     const uniqueOrders = Array.from(uniqueOrderMap.values());
-    
+
     console.log(`After deduplication: ${uniqueOrders.length} unique orders for buyer:`, buyerId);
     console.log('Order details:', uniqueOrders.map(order => ({
       orderId: order._id.toString(),
@@ -1714,17 +1722,17 @@ exports.processBatchOrderNotifications = async (buyerId) => {
       items: order.items.length,
       notificationsSent: order.notificationsSent
     })));
-    
+
     // Group orders by seller
     const ordersBySeller = {};
     const allSellers = [];
-    
+
     uniqueOrders.forEach(order => {
       if (!order.seller) {
         console.error('Order has no seller:', order._id.toString());
         return;
       }
-      
+
       const sellerId = order.seller._id.toString();
       if (!ordersBySeller[sellerId]) {
         ordersBySeller[sellerId] = [];
@@ -1732,21 +1740,21 @@ exports.processBatchOrderNotifications = async (buyerId) => {
       }
       ordersBySeller[sellerId].push(order);
     });
-    
+
     console.log('Grouped orders by seller:', Object.keys(ordersBySeller).map(sellerId => ({
       sellerId,
       orderCount: ordersBySeller[sellerId].length
     })));
-    
+
     // Send individual notifications to each seller
     for (const seller of allSellers) {
       const sellerOrders = ordersBySeller[seller._id.toString()];
       console.log(`Processing ${sellerOrders.length} orders for seller:`, seller._id.toString());
-      
+
       for (const order of sellerOrders) {
         try {
           console.log(`Creating notification for seller ${seller._id.toString()} for order ${order.order_id}`);
-          
+
           // Create notification for seller
           const sellerNotification = await exports.createNotification(
             seller._id,
@@ -1772,13 +1780,13 @@ exports.processBatchOrderNotifications = async (buyerId) => {
               }
             }
           );
-          
+
           console.log(`Notification created for seller ${seller._id.toString()}, sending email...`);
-          
+
           // Send email to seller for this specific order
           await exports.sendEmailNotification(seller, sellerNotification);
           console.log(`Email sent to seller ${seller.email} for order ${order.order_id}`);
-          
+
           // Mark order as notified
           order.notificationsSent = true;
           await order.save();
@@ -1788,13 +1796,13 @@ exports.processBatchOrderNotifications = async (buyerId) => {
         }
       }
     }
-    
+
     // For single orders, create a dedicated email to buyer
     if (uniqueOrders.length === 1) {
       console.log('Processing single order notification for buyer:', buyer.email);
       const order = uniqueOrders[0];
       const sellerName = order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`;
-      
+
       try {
         // Create notification for buyer
         const buyerNotification = await exports.createBuyerNotification(
@@ -1821,9 +1829,9 @@ exports.processBatchOrderNotifications = async (buyerId) => {
             }
           }
         );
-        
+
         console.log('Successfully created in-app notification for buyer');
-        
+
         // Send direct email to buyer for single order
         await exports.sendEmailToBuyer(buyer, buyerNotification);
         console.log(`Direct email sent to buyer ${buyer.email} for single order ${order.order_id}`);
@@ -1834,7 +1842,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
     // For multiple orders, create a consolidated email for the buyer
     else if (uniqueOrders.length > 1) {
       console.log('Creating consolidated email for buyer with multiple orders:', buyer.email);
-      
+
       // Create in-app notifications for each order first
       console.log('Creating in-app notifications for buyer first');
       const buyerNotifications = [];
@@ -1866,7 +1874,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
           );
           buyerNotifications.push(notification);
           console.log(`In-app notification created for buyer for order ${order.order_id}`);
-          
+
           // Mark order as notified
           order.notificationsSent = true;
           await order.save();
@@ -1875,15 +1883,15 @@ exports.processBatchOrderNotifications = async (buyerId) => {
           console.error(`Error creating in-app notification for order ${order.order_id}:`, notifError);
         }
       }
-      
+
       let totalAmount = 0;
       let allItemsHtml = '';
-      
+
       // Process each order's items for the email
       for (const order of uniqueOrders) {
         const sellerName = order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`;
         totalAmount += order.totalAmount;
-        
+
         allItemsHtml += `
           <tr style="background-color: #f9f9f9;">
             <td colspan="4" style="padding: 10px; text-align: left; border: 1px solid #ddd;">
@@ -1891,7 +1899,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
             </td>
           </tr>
         `;
-        
+
         // Format the items for this order
         if (order.items && Array.isArray(order.items)) {
           order.items.forEach(item => {
@@ -1905,7 +1913,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
             `;
           });
         }
-        
+
         // Add shipping fee if applicable
         if (order.shipping?.fee?.amount) {
           allItemsHtml += `
@@ -1917,7 +1925,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
           totalAmount += order.shipping.fee.amount;
         }
       }
-      
+
       // Create the overall table
       const itemsTable = `
         <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
@@ -1940,7 +1948,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
           </tfoot>
         </table>
       `;
-      
+
       // Get delivery information from the first order
       const firstOrder = uniqueOrders[0];
       const deliveryInfoHtml = `
@@ -1953,7 +1961,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
           <p><strong>Email:</strong> ${maskEmail(firstOrder.delivery_address.email)}</p>
         </div>
       `;
-      
+
       // Send consolidated email to buyer
       const msg = {
         to: buyer.email,
@@ -1999,7 +2007,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
           </div>
         `
       };
-      
+
       try {
         console.log('Sending consolidated email to buyer:', {
           to: buyer.email,
@@ -2008,20 +2016,20 @@ exports.processBatchOrderNotifications = async (buyerId) => {
           orderCount: uniqueOrders.length,
           sellerCount: allSellers.length
         });
-        
+
         // Ensure SendGrid API key is set
         const apiKey = process.env.SENDGRID_API_KEY;
         if (!apiKey) {
           throw new Error('SendGrid API key not configured');
         }
         sgMail.setApiKey(apiKey);
-        
+
         await sgMail.send(msg);
         console.log(`Batch email sent to buyer: ${buyer.email} for ${uniqueOrders.length} orders`);
       } catch (emailError) {
         console.error('Error sending batch email to buyer:', emailError);
         console.error('SendGrid error details:', emailError.response?.body?.errors);
-        
+
         // FALLBACK: If batch email fails, try to send individual emails for each order
         console.log('Attempting to send individual emails as fallback...');
         for (let i = 0; i < buyerNotifications.length; i++) {
@@ -2034,7 +2042,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
         }
       }
     }
-    
+
     console.log(`Batch order notification processing completed for buyer: ${buyerId}`);
     return true;
   } catch (error) {
@@ -2059,50 +2067,50 @@ const maskPhoneNumber = (phone) => {
 exports.processBatchOrderNotifications = async (buyerId) => {
   try {
     console.log('Starting batch order notification processing for buyer:', buyerId);
-    
+
     // Verify SendGrid configuration
     const isConfigValid = verifySendGridConfig();
     console.log('SendGrid configuration valid:', isConfigValid);
-    
+
     const Order = mongoose.model('Order');
     const Buyer = mongoose.model('Buyer');
     const Seller = mongoose.model('Seller');
-    
+
     // Get the buyer
     const buyer = await Buyer.findById(buyerId);
     if (!buyer) {
       console.error('Buyer not found for batch processing:', buyerId);
       return;
     }
-    
+
     console.log('Found buyer for batch processing:', {
       buyerId: buyer._id.toString(),
       email: buyer.email,
       name: `${buyer.firstName} ${buyer.lastName}`
     });
-    
+
     // Find all orders for this buyer that haven't had notifications sent
     const orders = await Order.find({
       buyer: buyerId,
       notificationsSent: false,
       createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) } // Orders created in the last 5 minutes
     }).populate('seller').populate('items.product');
-    
+
     if (orders.length === 0) {
       console.log('No orders found for batch processing for buyer:', buyerId);
       return;
     }
-    
+
     console.log(`Found ${orders.length} orders for batch processing for buyer:`, buyerId);
-    
+
     // Deduplicate orders based on order_id to prevent repeats
     const uniqueOrderMap = new Map();
     orders.forEach(order => {
       uniqueOrderMap.set(order.order_id, order);
     });
-    
+
     const uniqueOrders = Array.from(uniqueOrderMap.values());
-    
+
     console.log(`After deduplication: ${uniqueOrders.length} unique orders for buyer:`, buyerId);
     console.log('Order details:', uniqueOrders.map(order => ({
       orderId: order._id.toString(),
@@ -2111,17 +2119,17 @@ exports.processBatchOrderNotifications = async (buyerId) => {
       items: order.items.length,
       notificationsSent: order.notificationsSent
     })));
-    
+
     // Group orders by seller
     const ordersBySeller = {};
     const allSellers = [];
-    
+
     uniqueOrders.forEach(order => {
       if (!order.seller) {
         console.error('Order has no seller:', order._id.toString());
         return;
       }
-      
+
       const sellerId = order.seller._id.toString();
       if (!ordersBySeller[sellerId]) {
         ordersBySeller[sellerId] = [];
@@ -2129,21 +2137,21 @@ exports.processBatchOrderNotifications = async (buyerId) => {
       }
       ordersBySeller[sellerId].push(order);
     });
-    
+
     console.log('Grouped orders by seller:', Object.keys(ordersBySeller).map(sellerId => ({
       sellerId,
       orderCount: ordersBySeller[sellerId].length
     })));
-    
+
     // Send individual notifications to each seller
     for (const seller of allSellers) {
       const sellerOrders = ordersBySeller[seller._id.toString()];
       console.log(`Processing ${sellerOrders.length} orders for seller:`, seller._id.toString());
-      
+
       for (const order of sellerOrders) {
         try {
           console.log(`Creating notification for seller ${seller._id.toString()} for order ${order.order_id}`);
-          
+
           // Create notification for seller
           const sellerNotification = await exports.createNotification(
             seller._id,
@@ -2161,31 +2169,31 @@ exports.processBatchOrderNotifications = async (buyerId) => {
               shippingFee: order.shipping?.fee?.amount?.toLocaleString() || '0',
               paymentMethod: order.paymentInfo?.method?.charAt(0).toUpperCase() + order.paymentInfo?.method?.slice(1) || 'Online Payment',
               deliveryAddress: {
-                recipientName: order.isStorePickup 
-                  ? `${order.pickup_address?.first_name || ''} ${order.pickup_address?.last_name || ''}` 
+                recipientName: order.isStorePickup
+                  ? `${order.pickup_address?.first_name || ''} ${order.pickup_address?.last_name || ''}`
                   : `${order.delivery_address.first_name} ${order.delivery_address.last_name}`.trim(),
-                recipientAddress: order.isStorePickup 
-                  ? order.pickup_address?.line1 
+                recipientAddress: order.isStorePickup
+                  ? order.pickup_address?.line1
                   : order.delivery_address.line1,
-                recipientState: order.isStorePickup 
-                  ? order.pickup_address?.state 
+                recipientState: order.isStorePickup
+                  ? order.pickup_address?.state
                   : order.delivery_address.state,
-                recipientPhone: order.isStorePickup 
-                  ? order.pickup_address?.phone 
+                recipientPhone: order.isStorePickup
+                  ? order.pickup_address?.phone
                   : order.delivery_address.phone,
-                recipientEmail: order.isStorePickup 
-                  ? order.pickup_address?.email 
+                recipientEmail: order.isStorePickup
+                  ? order.pickup_address?.email
                   : order.delivery_address.email
               }
             }
           );
-          
+
           console.log(`Notification created for seller ${seller._id.toString()}, sending email...`);
-          
+
           // Send email to seller for this specific order
           await exports.sendEmailNotification(seller, sellerNotification);
           console.log(`Email sent to seller ${seller.email} for order ${order.order_id}`);
-          
+
           // Mark order as notified
           order.notificationsSent = true;
           await order.save();
@@ -2195,13 +2203,13 @@ exports.processBatchOrderNotifications = async (buyerId) => {
         }
       }
     }
-    
+
     // For single orders, create a dedicated email to buyer
     if (uniqueOrders.length === 1) {
       console.log('Processing single order notification for buyer:', buyer.email);
       const order = uniqueOrders[0];
       const sellerName = order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`;
-      
+
       try {
         // Create notification for buyer
         const buyerNotification = await exports.createBuyerNotification(
@@ -2220,27 +2228,27 @@ exports.processBatchOrderNotifications = async (buyerId) => {
             shippingFee: order.shipping?.fee?.amount?.toLocaleString() || '0',
             paymentMethod: order.paymentInfo?.method?.charAt(0).toUpperCase() + order.paymentInfo?.method?.slice(1) || 'Online Payment',
             deliveryAddress: {
-              recipientName: order.isStorePickup 
-                ? `${order.pickup_address?.first_name || ''} ${order.pickup_address?.last_name || ''}` 
+              recipientName: order.isStorePickup
+                ? `${order.pickup_address?.first_name || ''} ${order.pickup_address?.last_name || ''}`
                 : `${order.delivery_address.first_name} ${order.delivery_address.last_name}`.trim(),
-              recipientAddress: order.isStorePickup 
-                ? order.pickup_address?.line1 
+              recipientAddress: order.isStorePickup
+                ? order.pickup_address?.line1
                 : order.delivery_address.line1,
-              recipientState: order.isStorePickup 
-                ? order.pickup_address?.state 
+              recipientState: order.isStorePickup
+                ? order.pickup_address?.state
                 : order.delivery_address.state,
-              recipientPhone: order.isStorePickup 
-                ? order.pickup_address?.phone 
+              recipientPhone: order.isStorePickup
+                ? order.pickup_address?.phone
                 : order.delivery_address.phone,
-              recipientEmail: order.isStorePickup 
-                ? order.pickup_address?.email 
+              recipientEmail: order.isStorePickup
+                ? order.pickup_address?.email
                 : order.delivery_address.email
             }
           }
         );
-        
+
         console.log('Successfully created in-app notification for buyer');
-        
+
         // Send direct email to buyer for single order
         await exports.sendEmailToBuyer(buyer, buyerNotification);
         console.log(`Direct email sent to buyer ${buyer.email} for single order ${order.order_id}`);
@@ -2251,7 +2259,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
     // For multiple orders, create a consolidated email for the buyer
     else if (uniqueOrders.length > 1) {
       console.log('Creating consolidated email for buyer with multiple orders:', buyer.email);
-      
+
       // Create in-app notifications for each order first
       console.log('Creating in-app notifications for buyer first');
       const buyerNotifications = [];
@@ -2273,27 +2281,27 @@ exports.processBatchOrderNotifications = async (buyerId) => {
               shippingFee: order.shipping?.fee?.amount?.toLocaleString() || '0',
               paymentMethod: order.paymentInfo?.method?.charAt(0).toUpperCase() + order.paymentInfo?.method?.slice(1) || 'Online Payment',
               deliveryAddress: {
-                recipientName: order.isStorePickup 
-                  ? `${order.pickup_address?.first_name || ''} ${order.pickup_address?.last_name || ''}` 
+                recipientName: order.isStorePickup
+                  ? `${order.pickup_address?.first_name || ''} ${order.pickup_address?.last_name || ''}`
                   : `${order.delivery_address.first_name} ${order.delivery_address.last_name}`.trim(),
-                recipientAddress: order.isStorePickup 
-                  ? order.pickup_address?.line1 
+                recipientAddress: order.isStorePickup
+                  ? order.pickup_address?.line1
                   : order.delivery_address.line1,
-                recipientState: order.isStorePickup 
-                  ? order.pickup_address?.state 
+                recipientState: order.isStorePickup
+                  ? order.pickup_address?.state
                   : order.delivery_address.state,
-                recipientPhone: order.isStorePickup 
-                  ? order.pickup_address?.phone 
+                recipientPhone: order.isStorePickup
+                  ? order.pickup_address?.phone
                   : order.delivery_address.phone,
-                recipientEmail: order.isStorePickup 
-                  ? order.pickup_address?.email 
+                recipientEmail: order.isStorePickup
+                  ? order.pickup_address?.email
                   : order.delivery_address.email
               }
             }
           );
           buyerNotifications.push(notification);
           console.log(`In-app notification created for buyer for order ${order.order_id}`);
-          
+
           // Mark order as notified
           order.notificationsSent = true;
           await order.save();
@@ -2302,15 +2310,15 @@ exports.processBatchOrderNotifications = async (buyerId) => {
           console.error(`Error creating in-app notification for order ${order.order_id}:`, notifError);
         }
       }
-      
+
       let totalAmount = 0;
       let allItemsHtml = '';
-      
+
       // Process each order's items for the email
       for (const order of uniqueOrders) {
         const sellerName = order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`;
         totalAmount += order.totalAmount;
-        
+
         allItemsHtml += `
           <tr style="background-color: #f9f9f9;">
             <td colspan="4" style="padding: 10px; text-align: left; border: 1px solid #ddd;">
@@ -2318,7 +2326,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
             </td>
           </tr>
         `;
-        
+
         // Format the items for this order
         if (order.items && Array.isArray(order.items)) {
           order.items.forEach(item => {
@@ -2332,7 +2340,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
             `;
           });
         }
-        
+
         // Add shipping fee if applicable
         if (order.shipping?.fee?.amount) {
           allItemsHtml += `
@@ -2344,7 +2352,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
           totalAmount += order.shipping.fee.amount;
         }
       }
-      
+
       // Create the overall table
       const itemsTable = `
         <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
@@ -2367,30 +2375,30 @@ exports.processBatchOrderNotifications = async (buyerId) => {
           </tfoot>
         </table>
       `;
-      
+
       // Get delivery information from the first order
       const firstOrder = uniqueOrders[0];
       const deliveryInfoHtml = `
         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
           <h3 style="margin-top: 0;">Delivery Information</h3>
-          <p><strong>Recipient:</strong> ${firstOrder.isStorePickup 
-            ? `${firstOrder.pickup_address?.first_name || ''} ${firstOrder.pickup_address?.last_name || ''}` 
-            : `${firstOrder.delivery_address.first_name} ${firstOrder.delivery_address.last_name}`}</p>
-          <p><strong>Address:</strong> ${firstOrder.isStorePickup 
-            ? firstOrder.pickup_address?.line1 
-            : firstOrder.delivery_address.line1}</p>
-          <p><strong>State:</strong> ${firstOrder.isStorePickup 
-            ? firstOrder.pickup_address?.state 
-            : firstOrder.delivery_address.state}</p>
-          <p><strong>Phone:</strong> ${maskPhoneNumber(firstOrder.isStorePickup 
-            ? firstOrder.pickup_address?.phone 
+          <p><strong>Recipient:</strong> ${firstOrder.isStorePickup
+          ? `${firstOrder.pickup_address?.first_name || ''} ${firstOrder.pickup_address?.last_name || ''}`
+          : `${firstOrder.delivery_address.first_name} ${firstOrder.delivery_address.last_name}`}</p>
+          <p><strong>Address:</strong> ${firstOrder.isStorePickup
+          ? firstOrder.pickup_address?.line1
+          : firstOrder.delivery_address.line1}</p>
+          <p><strong>State:</strong> ${firstOrder.isStorePickup
+          ? firstOrder.pickup_address?.state
+          : firstOrder.delivery_address.state}</p>
+          <p><strong>Phone:</strong> ${maskPhoneNumber(firstOrder.isStorePickup
+            ? firstOrder.pickup_address?.phone
             : firstOrder.delivery_address.phone)}</p>
-          <p><strong>Email:</strong> ${maskEmail(firstOrder.isStorePickup 
-            ? firstOrder.pickup_address?.email 
-            : firstOrder.delivery_address.email)}</p>
+          <p><strong>Email:</strong> ${maskEmail(firstOrder.isStorePickup
+              ? firstOrder.pickup_address?.email
+              : firstOrder.delivery_address.email)}</p>
         </div>
       `;
-      
+
       // Send consolidated email to buyer
       const msg = {
         to: buyer.email,
@@ -2436,7 +2444,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
           </div>
         `
       };
-      
+
       try {
         console.log('Sending consolidated email to buyer:', {
           to: buyer.email,
@@ -2445,20 +2453,20 @@ exports.processBatchOrderNotifications = async (buyerId) => {
           orderCount: uniqueOrders.length,
           sellerCount: allSellers.length
         });
-        
+
         // Ensure SendGrid API key is set
         const apiKey = process.env.SENDGRID_API_KEY;
         if (!apiKey) {
           throw new Error('SendGrid API key not configured');
         }
         sgMail.setApiKey(apiKey);
-        
+
         await sgMail.send(msg);
         console.log(`Batch email sent to buyer: ${buyer.email} for ${uniqueOrders.length} orders`);
       } catch (emailError) {
         console.error('Error sending batch email to buyer:', emailError);
         console.error('SendGrid error details:', emailError.response?.body?.errors);
-        
+
         // FALLBACK: If batch email fails, try to send individual emails for each order
         console.log('Attempting to send individual emails as fallback...');
         for (let i = 0; i < buyerNotifications.length; i++) {
@@ -2471,7 +2479,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
         }
       }
     }
-    
+
     console.log(`Batch order notification processing completed for buyer: ${buyerId}`);
     return true;
   } catch (error) {
@@ -2484,20 +2492,10 @@ exports.processBatchOrderNotifications = async (buyerId) => {
 exports.sendNewFollowerEmail = async (seller, buyerName) => {
   try {
     console.log(`Sending new follower email to seller: ${seller.email} for buyer: ${buyerName}`);
-    
-    // Ensure SendGrid API key is set
-    const apiKey = process.env.SENDGRID_API_KEY;
-    if (!apiKey) {
-      console.error('Cannot send email: SendGrid API key is not configured');
-      throw new Error('SendGrid API key not configured');
-    }
-    
-    // Set the API key for safety
-    sgMail.setApiKey(apiKey);
-    
+
     // Store name or business name
     const storeName = seller.storeName || seller.businessName || 'Your store';
-    
+
     const msg = {
       to: seller.email,
       from: 'Auqli <support@auqli.com>',
@@ -2525,13 +2523,16 @@ exports.sendNewFollowerEmail = async (seller, buyerName) => {
         </div>
       `
     };
-    
-    await sgMail.send(msg);
+
+    await termiiEmailService.sendRawHTMLEmail({
+      email: msg.to,
+      subject: msg.subject,
+      html: msg.html
+    });
     console.log(`New follower email sent successfully to seller: ${seller.email}`);
     return true;
   } catch (error) {
-    console.error('Error sending new follower email to seller:', error);
-    console.error('SendGrid error details:', error.response?.body?.errors);
+    console.error('Error sending new follower email to seller:', error.message);
     return false;
   }
 };
@@ -2540,20 +2541,10 @@ exports.sendNewFollowerEmail = async (seller, buyerName) => {
 exports.sendBlipCommentEmail = async (seller, buyerName, productName, comment) => {
   try {
     console.log(`Sending blip comment email to seller: ${seller.email} for buyer: ${buyerName}`);
-    
-    // Ensure SendGrid API key is set
-    const apiKey = process.env.SENDGRID_API_KEY;
-    if (!apiKey) {
-      console.error('Cannot send email: SendGrid API key is not configured');
-      throw new Error('SendGrid API key not configured');
-    }
-    
-    // Set the API key for safety
-    sgMail.setApiKey(apiKey);
-    
+
     // Store name or business name
     const sellerName = seller.storeName || seller.businessName || seller.firstName || 'Seller';
-    
+
     const msg = {
       to: seller.email,
       from: 'Auqli <support@auqli.com>',
@@ -2584,13 +2575,16 @@ exports.sendBlipCommentEmail = async (seller, buyerName, productName, comment) =
         </div>
       `
     };
-    
-    await sgMail.send(msg);
+
+    await termiiEmailService.sendRawHTMLEmail({
+      email: msg.to,
+      subject: msg.subject,
+      html: msg.html
+    });
     console.log(`Blip comment email sent successfully to seller: ${seller.email}`);
     return true;
   } catch (error) {
-    console.error('Error sending blip comment email to seller:', error);
-    console.error('SendGrid error details:', error.response?.body?.errors);
+    console.error('Error sending blip comment email to seller:', error.message);
     return false;
   }
 };

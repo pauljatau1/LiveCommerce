@@ -28,10 +28,10 @@
  * - Error handling without information leakage
  *
  * Email System:
- * - HTML email templates with dynamic content
- * - SendGrid integration for reliable delivery
+ * - Templated email notifications via Termii Email API
+ * - Dynamic content insertion using template variables
  * - Professional formatting and branding
- * - Template variable replacement
+ * - Reliable email delivery through Termii
  *
  * @module forgotPasswordService
  */
@@ -39,13 +39,7 @@
 const buyerRepository = require('../repositories/buyer.repository');
 const forgotPasswordValidator = require('../validators/forgotPassword.validator');
 const { generateOTP } = require('../../../utils/helpers');
-const sgMail = require('@sendgrid/mail');
-const fs = require('fs');
-const path = require('path');
-
-// Configure SendGrid with API key from environment variables
-// This enables email sending functionality for password reset notifications
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const termiiEmailService = require('../../../services/termiiEmailService');
 
 /**
  * Generate a secure reset OTP for password reset functionality.
@@ -68,72 +62,23 @@ function generateResetOTP() {
 }
 
 /**
- * Constructs the email content for password reset notifications.
- *
- * This function reads the HTML email template from the templates directory,
- * replaces placeholder variables with actual data, and returns a
- * SendGrid-compatible email object ready for sending.
- *
- * Template Processing:
- * - Reads HTML template from file system
- * - Replaces dynamic placeholders with actual values
- * - Handles UTF-8 encoding for proper text display
- * - Creates professional email structure
- *
- * Template Placeholders:
- * - {{otp}}: The generated reset code for user verification
- * - {{year}}: Current year for copyright and branding
- *
- * Email Configuration:
- * - Professional sender identity with platform branding
- * - Clear subject line for user recognition
- * - Rich HTML content for better presentation
- * - Proper recipient addressing
- *
- * @param {string} email - The recipient's email address
- * @param {string} resetOTP - The reset code to embed in the email template
- * @returns {Promise<Object>} SendGrid-compatible email content object with:
- *   - to: recipient email address
- *   - from: sender information with platform branding
- *   - subject: clear email subject line
- *   - html: processed HTML template content
- * @throws {Error} If template file cannot be read or processed
- */
-async function getEmailContent(email, resetOTP) {
-  // Step 1: Construct the path to the password reset email template
-  // Template is located in src/templates/password-reset-email.html
-  const filePath = path.join(__dirname, '../../../', 'templates', 'password-reset-email.html');
-  
-  // Step 2: Read the HTML template file synchronously
-  // Using UTF-8 encoding to ensure proper text handling
-  let html = fs.readFileSync(filePath, 'utf-8');
-
-  // Step 3: Replace template placeholders with actual data
-  html = html.replace('{{otp}}', resetOTP);
-  html = html.replace('{{year}}', new Date().getFullYear());
-
-  // Step 4: Return SendGrid-compatible email object
-  return {
-    to: email,
-    from: 'Joseph From Auqli <support@auqli.com>',
-    subject: 'Password Reset Code - Auqli',
-    html
-  };
-}
-
-/**
- * Send password reset email to the buyer using SendGrid.
+ * Send password reset email to the buyer using Termii Email API.
  * 
  * This function handles the email sending process for password reset notifications.
- * It constructs the email content using the template and sends it via SendGrid
- * service. Errors are allowed to propagate to the calling function for proper
- * error handling and user feedback.
+ * It constructs the HTML email body in code (like SendGrid) and sends it via Termii
+ * Email API using a template with a single {{email_body}} variable.
  *
  * Email Delivery Process:
- * - Constructs email content using template
- * - Sends via SendGrid for reliable delivery
+ * - Constructs HTML email body with OTP and user information
+ * - Sends via Termii Email API using raw HTML mode
  * - Handles delivery errors appropriately
  * - Returns success confirmation
+ *
+ * HTML Email Body:
+ * - Professional email template with Auqli branding
+ * - Displays reset OTP prominently
+ * - Includes security notices and expiration information
+ * - Responsive design with proper styling
  *
  * Error Handling:
  * - Propagates errors to calling function
@@ -142,16 +87,55 @@ async function getEmailContent(email, resetOTP) {
  *
  * @param {string} email - The buyer's email address to send the reset email to
  * @param {string} resetOTP - The reset OTP code to include in the email
+ * @param {string} userName - Optional user name for personalization
  * @returns {Promise<boolean>} True if email sent successfully
- * @throws {Error} If email content construction fails or SendGrid sending fails
+ * @throws {Error} If Termii email sending fails
  */
-async function sendResetEmail(email, resetOTP) {
-  // Step 1: Get the email content with processed HTML template
-  const emailContent = await getEmailContent(email, resetOTP);
+async function sendResetEmail(email, resetOTP, userName = null) {
+  // Step 1: Construct HTML email body with OTP
+  // This keeps the email template in code (like SendGrid)
+  // The HTML will be passed to Termii via a template variable
+  const html = `
+    <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: 'Arial', sans-serif; line-height: 1.6;">
+      <div style="max-width: 600px; margin: 0 auto; border-radius: 8px; overflow: hidden;">
+        <div style="padding: 25px; text-align: center;">
+          <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 180px; margin-bottom: 20px;">
+        </div>
+        
+        <div style="background-color: #242424; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+          <h1 style="color: #4CAF50; margin-bottom: 20px; font-size: 24px; text-align: center;">Password Reset Request</h1>
+          <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">${userName ? `Hi ${userName},` : 'Hi there,'} We received a request to reset your password. Use the code below to create a new password for your Auqli account.</p>
+          
+          <div style="background-color: #333333; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; border-left: 4px solid #4CAF50;">
+            <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px;">Your Reset Code</h3>
+            <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0; color: #4CAF50; background-color: #1a1a1a; padding: 15px; border-radius: 4px; display: inline-block;">${resetOTP}</p>
+            <p style="font-size: 14px; color: #bbbbbb;">This code will expire in 10 minutes</p>
+          </div>
+          
+          <div style="margin: 25px 0; background-color: #1a1a1a; padding: 20px; border-radius: 8px;">
+            <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px; text-align: center;">Security Notice</h3>
+            <p style="font-size: 14px; color: #bbbbbb; text-align: center;">If you didn't request a password reset, please ignore this email or contact our support team immediately. Someone may be trying to access your account.</p>
+          </div>
+        </div>
+        
+        <div style="text-align: center; padding: 0 30px 30px 30px;">
+          <p style="font-size: 14px; color: #999999; margin-bottom: 20px;">Need help? Contact our support team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+          <div style="margin: 20px 0; height: 1px; background-color: #333333;"></div>
+          <p style="font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+        </div>
+      </div>
+    </div>
+  `;
 
-  // Step 2: Send the email using SendGrid
+  // Step 2: Send password reset email using Termii Email API with raw HTML
+  // The service will pass the HTML to Termii via a template variable
   // If sending fails, the error will propagate to the calling function
-  await sgMail.send(emailContent);
+  await termiiEmailService.sendPasswordResetEmail({
+    email: email,
+    html: html,
+    subject: 'Password Reset Code - Auqli'
+  });
+  
   return true;
 }
 
@@ -252,9 +236,10 @@ async function forgotPassword(data) {
     throw new Error('Failed to update buyer with reset OTP');
   }
   
-  // Step 7: Send password reset email with the generated OTP
+  // Step 7: Send password reset email with the generated OTP via Termii
   // If email sending fails, the error will propagate to the controller
-  await sendResetEmail(data.email, resetOTP);
+  // Include buyer's name if available for personalization
+  await sendResetEmail(data.email, resetOTP, buyer.firstName || buyer.name);
   
   // Step 8: Return success response
   // Note: We don't return the OTP in the response for security reasons

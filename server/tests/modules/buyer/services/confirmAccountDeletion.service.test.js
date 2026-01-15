@@ -3,13 +3,12 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const Buyer = require('@models/Buyer');
 const ValidationError = require('@utils/errors/ValidationError');
 
-// Mock SendGrid
-jest.mock('@sendgrid/mail', () => ({
-  setApiKey: jest.fn(),
-  send: jest.fn()
+// Mock TermiiEmailService
+jest.mock('@services/termiiEmailService', () => ({
+  sendRawHTMLEmail: jest.fn().mockResolvedValue(true)
 }));
 
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('@services/termiiEmailService');
 const confirmAccountDeletionService = require('@modules/buyer/services/confirmAccountDeletion.service');
 
 describe('confirmAccountDeletion.service', () => {
@@ -20,6 +19,7 @@ describe('confirmAccountDeletion.service', () => {
     mongoServer = await MongoMemoryServer.create({ binary: { version: '7.0.3' } });
     const mongoUri = mongoServer.getUri();
     await mongoose.connect(mongoUri);
+    process.env.TERMII_API_KEY = 'test-key';
   });
 
   afterAll(async () => {
@@ -31,6 +31,9 @@ describe('confirmAccountDeletion.service', () => {
   beforeEach(() => {
     // Clear all mocks before each test
     jest.clearAllMocks();
+
+    // Explicitly reset Termii mock to success
+    termiiEmailService.sendRawHTMLEmail.mockResolvedValue(true);
   });
 
   afterEach(async () => {
@@ -83,9 +86,6 @@ describe('confirmAccountDeletion.service', () => {
       const mockTemplate = '<html>Account deleted. {{year}}</html>';
       jest.spyOn(require('fs'), 'readFileSync').mockReturnValue(mockTemplate);
 
-      // Mock SendGrid to succeed
-      sgMail.send.mockResolvedValue([{ statusCode: 202 }]);
-
       // Act
       const result = await confirmAccountDeletionService.confirmAccountDeletion(
         savedBuyer._id.toString(),
@@ -98,10 +98,9 @@ describe('confirmAccountDeletion.service', () => {
       });
 
       // Verify that email was sent
-      expect(sgMail.send).toHaveBeenCalledWith(
+      expect(termiiEmailService.sendRawHTMLEmail).toHaveBeenCalledWith(
         expect.objectContaining({
-          to: mockBuyerData.email,
-          from: 'Joseph From Auqli <support@auqli.com>',
+          email: mockBuyerData.email,
           subject: 'Account Deleted Successfully - Auqli',
           html: expect.stringContaining('Account deleted')
         })
@@ -134,7 +133,7 @@ describe('confirmAccountDeletion.service', () => {
       expect(updatedBuyer).not.toBeNull();
 
       // Verify that no email was sent
-      expect(sgMail.send).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
     });
 
     it('should include remaining attempts in error when OTP is invalid', async () => {
@@ -157,7 +156,7 @@ describe('confirmAccountDeletion.service', () => {
       )).rejects.toThrow(ValidationError);
     });
 
-    it('should handle SendGrid email sending failure', async () => {
+    it('should handle Termii email sending failure', async () => {
       // Arrange
       const buyer = new Buyer(mockBuyerData);
       const savedBuyer = await buyer.save();
@@ -167,8 +166,8 @@ describe('confirmAccountDeletion.service', () => {
       const mockTemplate = '<html>Account deleted. {{year}}</html>';
       jest.spyOn(require('fs'), 'readFileSync').mockReturnValue(mockTemplate);
 
-      // Mock SendGrid to fail
-      sgMail.send.mockRejectedValue(new Error('SendGrid error'));
+      // Mock Termii to fail
+      termiiEmailService.sendRawHTMLEmail.mockRejectedValue(new Error('Termii error'));
 
       // Act & Assert
       await expect(
@@ -176,7 +175,7 @@ describe('confirmAccountDeletion.service', () => {
           savedBuyer._id.toString(),
           validOTP
         )
-      ).rejects.toThrow('SendGrid error');
+      ).rejects.toThrow('Termii error');
 
       // Verify that buyer was NOT deleted due to email failure
       const stillExistsBuyer = await Buyer.findById(savedBuyer._id);
@@ -221,7 +220,7 @@ describe('confirmAccountDeletion.service', () => {
       ).rejects.toThrow(ValidationError);
 
       // Verify no email was sent
-      expect(sgMail.send).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
     });
 
     it('should throw ValidationError when no deletion request exists', async () => {
@@ -242,7 +241,7 @@ describe('confirmAccountDeletion.service', () => {
       ).rejects.toThrow(ValidationError);
 
       // Verify no email was sent
-      expect(sgMail.send).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
 
       // Verify buyer still exists
       const stillExistsBuyer = await Buyer.findById(savedBuyer._id);
@@ -271,7 +270,7 @@ describe('confirmAccountDeletion.service', () => {
       ).rejects.toThrow(ValidationError);
 
       // Verify no email was sent
-      expect(sgMail.send).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
 
       // Verify buyer still exists
       const stillExistsBuyer = await Buyer.findById(savedBuyer._id);
@@ -300,7 +299,7 @@ describe('confirmAccountDeletion.service', () => {
       ).rejects.toThrow(ValidationError);
 
       // Verify no email was sent
-      expect(sgMail.send).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
 
       // Verify buyer still exists
       const stillExistsBuyer = await Buyer.findById(savedBuyer._id);

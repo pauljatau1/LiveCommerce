@@ -188,7 +188,7 @@ exports.register = async (req, res) => {
         </div>
       `
     };
-    
+
 
     try {
       await sgMail.send(msg);
@@ -388,7 +388,7 @@ exports.getProfile = async (req, res) => {
         wallet: 1,
         bio: 1,
         notificationPreferences: 1,
-        isActive: 1  
+        isActive: 1
       })
       .lean();
 
@@ -589,14 +589,14 @@ exports.verifyOTP = async (req, res) => {
 
     if (buyer.otp === otp.toString()) {
       buyer.emailVerified = true;
-      buyer.otp = undefined; 
+      buyer.otp = undefined;
       await buyer.save();
 
       // Schedule the welcome bonus to be credited after 10 seconds
       await agenda.schedule('in 10 seconds', 'credit_welcome_bonus', { buyerId: buyer._id });
       console.log(`Scheduled welcome bonus for buyer ${buyer._id} in 10 seconds`);
 
-      return res.json({ 
+      return res.json({
         message: 'Email verified successfully.',
         bonus: {
           coming: true,
@@ -691,20 +691,20 @@ exports.updateSelectedCategories = async (req, res) => {
 
 // Get buyer's orders with filtering
 exports.getOrders = async (req, res) => {
-  const { 
-    trackingStatus, 
-    hasReturn, 
+  const {
+    trackingStatus,
+    hasReturn,
     search,
     page = 1,
     limit = 10,
-    sort = '-createdAt' 
+    sort = '-createdAt'
   } = req.query;
 
   try {
     // Build the base query
-    const query = { 
+    const query = {
       buyer: req.user.id,
-      isStale: { $ne: true } 
+      isStale: { $ne: true }
     };
 
     // Add tracking status filter if provided
@@ -720,23 +720,23 @@ exports.getOrders = async (req, res) => {
         'pending': 'pending',
         'refunded': 'refunded'
       };
-      
+
       // Normalize the provided status (remove hyphens, convert to lowercase)
       const normalizedStatus = trackingStatus.toLowerCase().replace(/[-_\s]/g, '');
-      
+
       // Find the matching internal status by doing a loose case-insensitive match
       let internalStatus = null;
-      
+
       for (const [key, value] of Object.entries(statusMap)) {
         // Normalize the key for comparison (remove hyphens, convert to lowercase)
         const normalizedKey = key.toLowerCase().replace(/[-_\s]/g, '');
-        
+
         if (normalizedKey === normalizedStatus) {
           internalStatus = value;
           break;
         }
       }
-      
+
       // Use the mapped internal status if found
       if (internalStatus) {
         query['shipping.tracking.status'] = internalStatus;
@@ -766,7 +766,7 @@ exports.getOrders = async (req, res) => {
       .limit(limitNum)
       .populate('items.product', 'name images price')
       .populate('items.seller', 'storeName');
-      
+
 
     // Get associated return requests for these orders
     const Return = mongoose.model('Return');
@@ -784,10 +784,10 @@ exports.getOrders = async (req, res) => {
       if (returnInfo) {
         orderObj.returnRequestId = returnInfo.returnId;
         orderObj.returnStatus = returnInfo.status;
-        
+
         // Check for refunded status in a case-insensitive way
-        if (trackingStatus && trackingStatus.toLowerCase().replace(/[-_\s]/g, '') === 'refunded' && 
-            returnInfo.status.toLowerCase() !== 'refunded') {
+        if (trackingStatus && trackingStatus.toLowerCase().replace(/[-_\s]/g, '') === 'refunded' &&
+          returnInfo.status.toLowerCase() !== 'refunded') {
           return null;
         }
       } else if (trackingStatus && trackingStatus.toLowerCase().replace(/[-_\s]/g, '') === 'refunded') {
@@ -808,7 +808,7 @@ exports.getOrders = async (req, res) => {
     // Calculate final count after all filters
     const totalOrders = hasReturn || trackingStatus ? filteredOrders.length : total;
     const totalPages = Math.ceil(totalOrders / limitNum);
-    
+
     res.json({
       orders: filteredOrders,
       pagination: {
@@ -1110,7 +1110,7 @@ exports.followSeller = async (req, res) => {
 
     // Also check if there's already a follow activity in buyer's activityFeed
     const hasFollowActivity = buyer.activityFeed?.some(
-      activity => 
+      activity =>
         activity.type === 'follow' &&
         activity.referenceModel === 'Seller' &&
         activity.reference.toString() === sellerId
@@ -1226,7 +1226,7 @@ exports.unfollowSeller = async (req, res) => {
         activity => !(
           activity.type === 'follow' &&
           activity.referenceModel === 'Seller' &&
-          activity.reference && 
+          activity.reference &&
           activity.reference.toString() === sellerId
         )
       );
@@ -1240,10 +1240,10 @@ exports.unfollowSeller = async (req, res) => {
       activity.referenceModel === 'Seller'
     ).length || 0;
 
-    res.json({ 
-      message: 'Successfully unfollowed seller', 
+    res.json({
+      message: 'Successfully unfollowed seller',
       sellerFollowCount: seller.followers.length,
-      buyerFollowingCount: followingCount 
+      buyerFollowingCount: followingCount
     });
   } catch (error) {
     console.error('Unfollow seller error:', error);
@@ -1390,7 +1390,7 @@ exports.uploadIdentityDocument = async (req, res) => {
 
     // Update buyer document
     buyer.identityDocument = {
-      url: 'https://'+ process.env.CDN_URL + "/" + uploadResult.Key,
+      url: 'https://' + process.env.CDN_URL + "/" + uploadResult.Key,
       public_id: key,
       uploadedAt: new Date(),
       status: 'pending'
@@ -2092,14 +2092,14 @@ exports.reviewSeller = async (req, res) => {
 
     // Check if buyer is a follower of the seller
     const isFollower = buyer.followers.some(follower => follower.sellerId.toString() === sellerId);
-    
+
     // Check if buyer has made a purchase from the seller
     const hasPurchase = await hasVerifiedPurchase(buyerId, sellerId);
 
     // If buyer is neither a follower nor has made a purchase, return error
     if (!hasPurchase) {
-      return res.status(403).json({ 
-        message: 'You must be a follower of this seller or have made a purchase to write a review' 
+      return res.status(403).json({
+        message: 'You must be a follower of this seller or have made a purchase to write a review'
       });
     }
 
@@ -2321,72 +2321,100 @@ exports.updateNotificationPreferences = async (req, res) => {
 };
 
 // Forgot password - send OTP
+/**
+ * Handle forgot password request for buyers (legacy endpoint).
+ * 
+ * This controller processes password reset requests by:
+ * 1. Validating the email address
+ * 2. Finding the buyer by email
+ * 3. Generating a secure 4-digit reset code
+ * 4. Storing the reset code with expiration time (10 minutes)
+ * 5. Sending password reset email via Termii Email API
+ * 
+ * The email is sent using a pre-configured Termii template with
+ * dynamic variables for personalization and OTP display.
+ * 
+ * @param {Object} req - Express request object
+ * @param {string} req.body.email - Buyer's email address
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>}
+ */
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
 
+  // Validate email input
   if (!email) {
     return res.status(400).json({ message: 'Email is required' });
   }
 
   try {
+    // Find buyer by email address
     const buyer = await Buyer.findOne({ email });
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
     // Generate and save OTP
+    // Using the same OTP generation function for consistency
     const resetOTP = generateResetOTP();
     buyer.resetPasswordOTP = resetOTP;
     buyer.resetPasswordOTPExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
     await buyer.save();
 
-    // Send email with OTP
-    const msg = {
-      to: email,
-      from: 'Joseph From Auqli <support@auqli.com>',
-      subject: 'Password Reset Code - Auqli',
-      html: `
-        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: 'Arial', sans-serif; line-height: 1.6;">
-          <div style="max-width: 600px; margin: 0 auto; border-radius: 8px; overflow: hidden;">
-            <div style="padding: 25px; text-align: center;">
-              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 180px; margin-bottom: 20px;">
+    // Construct HTML email body with OTP (like SendGrid)
+    // This keeps the email template in code
+    const html = `
+      <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: 'Arial', sans-serif; line-height: 1.6;">
+        <div style="max-width: 600px; margin: 0 auto; border-radius: 8px; overflow: hidden;">
+          <div style="padding: 25px; text-align: center;">
+            <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 180px; margin-bottom: 20px;">
+          </div>
+          
+          <div style="background-color: #242424; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+            <h1 style="color: #4CAF50; margin-bottom: 20px; font-size: 24px; text-align: center;">Password Reset Request</h1>
+            <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">We received a request to reset your password. Use the code below to create a new password for your Auqli account.</p>
+            
+            <div style="background-color: #333333; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; border-left: 4px solid #4CAF50;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px;">Your Reset Code</h3>
+              <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0; color: #4CAF50; background-color: #1a1a1a; padding: 15px; border-radius: 4px; display: inline-block;">${resetOTP}</p>
+              <p style="font-size: 14px; color: #bbbbbb;">This code will expire in 10 minutes</p>
             </div>
             
-            <div style="background-color: #242424; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-              <h1 style="color: #4CAF50; margin-bottom: 20px; font-size: 24px; text-align: center;">Password Reset Request</h1>
-              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">We received a request to reset your password. Use the code below to create a new password for your Auqli account.</p>
-              
-              <div style="background-color: #333333; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; border-left: 4px solid #4CAF50;">
-                <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px;">Your Reset Code</h3>
-                <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0; color: #4CAF50; background-color: #1a1a1a; padding: 15px; border-radius: 4px; display: inline-block;">${resetOTP}</p>
-                <p style="font-size: 14px; color: #bbbbbb;">This code will expire in 10 minutes</p>
-              </div>
-              
-              <div style="margin: 25px 0; background-color: #1a1a1a; padding: 20px; border-radius: 8px;">
-                <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px; text-align: center;">Security Notice</h3>
-                <p style="font-size: 14px; color: #bbbbbb; text-align: center;">If you didn't request a password reset, please ignore this email or contact our support team immediately. Someone may be trying to access your account.</p>
-              </div>
-            </div>
-            
-            <div style="text-align: center; padding: 0 30px 30px 30px;">
-              <p style="font-size: 14px; color: #999999; margin-bottom: 20px;">Need help? Contact our support team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
-              <div style="margin: 20px 0; height: 1px; background-color: #333333;"></div>
-              <p style="font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            <div style="margin: 25px 0; background-color: #1a1a1a; padding: 20px; border-radius: 8px;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px; text-align: center;">Security Notice</h3>
+              <p style="font-size: 14px; color: #bbbbbb; text-align: center;">If you didn't request a password reset, please ignore this email or contact our support team immediately. Someone may be trying to access your account.</p>
             </div>
           </div>
+          
+          <div style="text-align: center; padding: 0 30px 30px 30px;">
+            <p style="font-size: 14px; color: #999999; margin-bottom: 20px;">Need help? Contact our support team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+            <div style="margin: 20px 0; height: 1px; background-color: #333333;"></div>
+            <p style="font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+          </div>
         </div>
-      `
-    };
+      </div>
+    `;
 
-    await sgMail.send(msg);
+    // Send password reset email via Termii Email API with raw HTML
+    // The Termii service will pass the HTML to Termii via a template variable
+    const termiiEmailService = require('../services/termiiEmailService');
+    await termiiEmailService.sendPasswordResetEmail({
+      email: email,
+      html: html,
+      subject: 'Password Reset Code - Auqli'
+    });
 
+    // Return success response
     res.json({
       message: 'Password reset code sent successfully',
       validFor: '10 minutes'
     });
 
   } catch (error) {
+    // Log error for debugging
     console.error('Forgot password error:', error);
+
+    // Return error response
     res.status(500).json({
       message: 'Failed to process password reset request',
       error: error.message
@@ -2717,13 +2745,13 @@ exports.getWalletBalance = async (req, res) => {
   try {
     const buyer = await Buyer.findById(req.user.id)
       .populate('wallet.onHoldItems.productId', 'name images auction.status auction.endDate');
-    
+
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
     // Filter out ended auctions from on-hold items
-    const filteredOnHoldItems = buyer.wallet.onHoldItems.filter(item => 
+    const filteredOnHoldItems = buyer.wallet.onHoldItems.filter(item =>
       item.productId && item.productId.auction?.status !== 'ended'
     );
 
@@ -2743,7 +2771,7 @@ exports.getWalletBalance = async (req, res) => {
     const formattedOnHoldItems = buyer.wallet.onHoldItems.map(item => ({
       productId: item.productId._id,
       productName: item.productId.name,
-      productImage: item.productId.images && item.productId.images.length > 0 ? 
+      productImage: item.productId.images && item.productId.images.length > 0 ?
         item.productId.images[0].url : null,
       amount: item.amount,
       bidDate: item.bidDate,
@@ -2773,13 +2801,13 @@ exports.sendWalletTopUpEmail = async (buyer, transaction) => {
     currency: 'NGN',
     minimumFractionDigits: 2
   });
-  
+
   const formattedBalance = buyer.wallet.balance.toLocaleString('en-NG', {
     style: 'currency',
     currency: 'NGN',
     minimumFractionDigits: 2
   });
-  
+
   const formattedDate = new Date(transaction.createdAt).toLocaleString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -2877,18 +2905,18 @@ exports.verifyWalletTopUp = async (req, res) => {
 
     // Verify with Paystack
     const verificationResponse = await paystack.get(`/transaction/verify/${reference}`);
-    
+
     // Fix: Paystack returns status as boolean (true) not string ("success")
     if (!verificationResponse.data.status || verificationResponse.data.data.status !== 'success') {
-      return res.status(400).json({ 
-        message: 'Payment verification failed', 
-        error: verificationResponse.data 
+      return res.status(400).json({
+        message: 'Payment verification failed',
+        error: verificationResponse.data
       });
     }
 
     const paymentData = verificationResponse.data.data;
     const metadata = paymentData.metadata;
-    
+
     // For frontend-initiated payments, metadata might not have transactionType
     // So we'll check if buyerId exists and assume it's a wallet top-up
     if (!metadata || !metadata.buyerId) {
@@ -2897,7 +2925,7 @@ exports.verifyWalletTopUp = async (req, res) => {
 
     const buyerId = metadata.buyerId;
     const buyer = await Buyer.findById(buyerId);
-    
+
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
@@ -2917,15 +2945,15 @@ exports.verifyWalletTopUp = async (req, res) => {
       } else if (existingTransaction.status === 'pending') {
         // Update the existing transaction
         existingTransaction.status = 'completed';
-        
+
         // Update wallet balance
         buyer.wallet.balance += existingTransaction.amount;
-        
+
         await buyer.save();
-        
+
         // Send confirmation email
         exports.sendWalletTopUpEmail(buyer, existingTransaction);
-        
+
         return res.status(200).json({
           message: 'Wallet topped up successfully',
           transaction: existingTransaction,
@@ -2936,7 +2964,7 @@ exports.verifyWalletTopUp = async (req, res) => {
 
     // If no transaction found, create a new one
     const amount = paymentData.amount / 100; // Convert from kobo to naira
-    
+
     const newTransaction = {
       type: 'credit',
       amount,
@@ -2948,12 +2976,12 @@ exports.verifyWalletTopUp = async (req, res) => {
 
     buyer.wallet.transactions.push(newTransaction);
     buyer.wallet.balance += amount;
-    
+
     await buyer.save();
-    
+
     // Send confirmation email
     exports.sendWalletTopUpEmail(buyer, newTransaction);
-    
+
     return res.status(200).json({
       message: 'Wallet topped up successfully',
       transaction: newTransaction,
@@ -3011,12 +3039,12 @@ exports.topUpWallet = async (req, res) => {
           // Update the existing transaction
           existingTransaction.status = 'completed';
           buyer.wallet.balance += existingTransaction.amount;
-          
+
           await buyer.save();
-          
+
           // Send confirmation email
           exports.sendWalletTopUpEmail(buyer, existingTransaction);
-          
+
           return res.status(200).json({
             message: 'Wallet topped up successfully',
             transaction: existingTransaction,
@@ -3131,12 +3159,12 @@ exports.getWalletTransactions = async (req, res) => {
 // Get sellers that can be followed
 exports.getSellersToFollow = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      search = '', 
-      category = '', 
-      sort = 'rating' 
+    const {
+      page = 1,
+      limit = 10,
+      search = '',
+      category = '',
+      sort = 'rating'
     } = req.query;
 
     // Build base query
@@ -3162,7 +3190,7 @@ exports.getSellersToFollow = async (req, res) => {
         const followedSellerIds = await Seller.find({
           'followers.buyerId': req.user.id
         }).distinct('_id');
-        
+
         if (followedSellerIds.length > 0) {
           query._id = { $nin: followedSellerIds };
         }
@@ -3189,16 +3217,16 @@ exports.getSellersToFollow = async (req, res) => {
     // Get total count for randomization
     const total = await Seller.countDocuments(query);
     const parsedLimit = parseInt(limit);
-    
+
     // Determine if we should randomize (only if we have more sellers than the limit)
     const shouldRandomize = total > parsedLimit;
-    
+
     let sellers;
     if (shouldRandomize) {
       // Random skip for randomization
       const maxSkip = total - parsedLimit;
       const randomSkip = Math.floor(Math.random() * (maxSkip + 1));
-      
+
       // Execute query with random skip for pagination
       sellers = await Seller.find(query)
         .select(`
@@ -3212,7 +3240,7 @@ exports.getSellersToFollow = async (req, res) => {
     } else {
       // Calculate regular pagination skip
       const skip = (parseInt(page) - 1) * parsedLimit;
-      
+
       // Execute query with regular pagination
       sellers = await Seller.find(query)
         .select(`
@@ -3228,7 +3256,7 @@ exports.getSellersToFollow = async (req, res) => {
 
     // Shuffle the sellers for additional randomization
     const shuffledSellers = [...sellers].sort(() => 0.5 - Math.random());
-    
+
     // Transform seller data
     const transformedSellers = shuffledSellers.map(seller => ({
       _id: seller._id,
@@ -3251,7 +3279,7 @@ exports.getSellersToFollow = async (req, res) => {
     const parsedPage = parseInt(page);
     const pages = Math.ceil(total / parsedLimit);
     const skip = shouldRandomize ? 0 : (parsedPage - 1) * parsedLimit; // For randomized results, skip is conceptually 0
-    
+
     // Return response with pagination
     res.json({
       sellers: transformedSellers,
@@ -3310,7 +3338,7 @@ exports.getPublicProfile = async (req, res) => {
       .populate([
         {
           path: 'activityFeed',
-          options: { 
+          options: {
             sort: { createdAt: -1 },
             limit: 10
           }
@@ -3338,7 +3366,7 @@ exports.getPublicProfile = async (req, res) => {
     });
 
     // Calculate total reviews from activity feed
-    const totalReviews = buyer.activityFeed ? 
+    const totalReviews = buyer.activityFeed ?
       buyer.activityFeed.filter(activity => {
         console.log('Activity type:', activity.type);
         return activity.type === 'product_review';
@@ -3346,7 +3374,7 @@ exports.getPublicProfile = async (req, res) => {
     console.log('Total reviews:', totalReviews);
 
     // Calculate following count (number of follow activities)
-    const totalFollowing = buyer.activityFeed ? 
+    const totalFollowing = buyer.activityFeed ?
       buyer.activityFeed.filter(activity => {
         console.log('Checking follow activity:', activity.type);
         return activity.type === 'follow';
@@ -3501,7 +3529,7 @@ exports.selectMajorCategories = async (req, res) => {
     // Merge with existing categories to avoid duplicates
     const existingCategoryNames = buyer.selectedCategories.map(cat => cat.name);
     const newCategories = formattedCategories.filter(cat => !existingCategoryNames.includes(cat.name));
-    
+
     buyer.selectedCategories = [...buyer.selectedCategories, ...newCategories];
     await buyer.save();
 
@@ -3590,7 +3618,7 @@ exports.updateMajorCategoriesSelection = async (req, res) => {
     const manuallySelectedCategories = buyer.selectedCategories.filter(
       cat => !allMajorCategoryNames.has(cat.name)
     );
-    
+
     // Replace the buyer's selectedCategories with manually selected + new major category selections
     buyer.selectedCategories = [...manuallySelectedCategories, ...formattedCategories];
     await buyer.save();
@@ -3628,12 +3656,12 @@ exports.getSelectedMajorCategories = async (req, res) => {
 
     // Get all buyer's selected category names
     const selectedCategoryNames = buyer.selectedCategories.map(cat => cat.name);
-    
+
     // Find all major categories and their associated categories
     const MajorCategory = mongoose.model('MajorCategory');
     const allMajorCategories = await MajorCategory.find({ isActive: true })
       .populate('categories');
-    
+
     // Filter major categories to find ones that have all their categories selected by the buyer
     const selectedMajorCategories = allMajorCategories.filter(majorCategory => {
       // Check if all categories in this major category are selected by the buyer

@@ -41,7 +41,7 @@ const sellerRepository = require('../repositories/seller.repository');
 const sellerValidator = require('../validators/register.validator');
 const { generateOTP, generateToken } = require('../../../utils/helpers');
 const Seller = require('../../../models/Seller');
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('../../../services/termiiEmailService');
 const ValidationError = require('../../../utils/errors/ValidationError');
 const fs = require('fs');
 const path = require('path');
@@ -60,7 +60,7 @@ async function generateUniqueAgoraUid() {
   let attempts = 0;
   let agoraUid;
   let exists;
-  
+
   do {
     // Generate UID between 100000 and 4294967295
     agoraUid = Math.floor(100000 + Math.random() * (4294967295 - 100000));
@@ -91,8 +91,12 @@ async function sendWelcomeEmail(email, firstName) {
   // Step 1: Get the email content with processed HTML template
   const emailContent = getWelcomeEmailContent(email, firstName);
 
-  // Step 2: Send the email using SendGrid service
-  await sgMail.send(emailContent);
+  // Step 2: Send the email using Termii email service
+  await termiiEmailService.sendRawHTMLEmail({
+    email: emailContent.to,
+    subject: emailContent.subject,
+    html: emailContent.html
+  });
 }
 
 /**
@@ -111,8 +115,19 @@ async function sendAdminNotification(firstName, lastName, email, phoneNumber) {
   // Step 1: Get the email content with processed HTML template
   const emailContent = getAdminNotificationEmailContent(firstName, lastName, email, phoneNumber);
 
-  // Step 2: Send the email using SendGrid service
-  await sgMail.send(emailContent);
+  // Step 2: Send emails to admin recipients using Termii email service
+  const adminRecipients = emailContent.to;
+  for (const recipient of adminRecipients) {
+    try {
+      await termiiEmailService.sendRawHTMLEmail({
+        email: recipient,
+        subject: emailContent.subject,
+        html: emailContent.html
+      });
+    } catch (error) {
+      console.error(`Failed to send admin notification to ${recipient}:`, error.message);
+    }
+  }
 }
 
 /**
@@ -143,7 +158,7 @@ async function sendAdminNotification(firstName, lastName, email, phoneNumber) {
 function getWelcomeEmailContent(email, firstName) {
   // Step 1: Construct the path to the seller welcome email template
   const filePath = path.join(__dirname, '../../../', 'templates', 'seller-welcome-email.html');
-  
+
   // Step 2: Read the HTML template file synchronously
   // Using UTF-8 encoding to ensure proper text handling
   let html = fs.readFileSync(filePath, 'utf-8');
@@ -155,7 +170,7 @@ function getWelcomeEmailContent(email, firstName) {
   // Step 4: Return SendGrid-compatible email object
   return {
     to: email,
-    from: 'Auqli Nigeria <support@auqli.com>',
+    from: 'Auqli <support@auqli.com>',
     subject: "Welcome to Auqli — Let's Get You Selling",
     html
   };
@@ -194,7 +209,7 @@ function getWelcomeEmailContent(email, firstName) {
 function getAdminNotificationEmailContent(firstName, lastName, email, phoneNumber) {
   // Step 1: Construct the path to the admin notification email template
   const filePath = path.join(__dirname, '../../../', 'templates', 'seller-admin-notification-email.html');
-  
+
   // Step 2: Read the HTML template file synchronously
   // Using UTF-8 encoding to ensure proper text handling
   let html = fs.readFileSync(filePath, 'utf-8');
