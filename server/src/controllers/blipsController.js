@@ -1639,46 +1639,71 @@ exports.recordBlipView = async (req, res) => {
   try {
     const { id, blipId } = req.params;
     const userId = req.user.id;
-    const userType = req.user.role === 'seller' ? 'Seller' : 'Buyer';
+    const userRole = req.user.role;
+    const userType = userRole === 'seller' ? 'Seller' : 'Buyer';
 
-    const product = await Product.findById(id);
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+    // Validate IDs
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(blipId)) {
+      return res.status(400).json({ message: 'Invalid product or blip ID format' });
     }
 
-    const blip = product.blips.id(blipId);
-    if (!blip) {
-      return res.status(404).json({ message: 'Blip not found' });
-    }
-
-    // Check if user has viewed this blip before
-    const existingView = blip.viewedBy.find(
-      view => view.user.toString() === userId && view.userType === userType
+    // Find the specific blip to check existing views without loading the whole product
+    const product = await Product.findOne(
+      { _id: id, "blips._id": new mongoose.Types.ObjectId(blipId) },
+      { "blips.$": 1 }
     );
+
+    if (!product || !product.blips || product.blips.length === 0) {
+      return res.status(404).json({ message: 'Product or blip not found' });
+    }
+
+    const blip = product.blips[0];
+    const existingView = blip.viewedBy?.find(
+      view => view.user?.toString() === userId?.toString() && view.userType === userType
+    );
+
+    const now = new Date();
+    let updateQuery;
+    let arrayFilters = [{ "blip._id": new mongoose.Types.ObjectId(blipId) }];
 
     if (existingView) {
       // Update last viewed time if it's been more than 1 hour since last view
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
       if (existingView.lastViewed < oneHourAgo) {
-        existingView.lastViewed = new Date();
-        blip.viewCount += 1;
+        updateQuery = {
+          $set: { "blips.$[blip].viewedBy.$[view].lastViewed": now },
+          $inc: { "blips.$[blip].viewCount": 1 }
+        };
+        arrayFilters.push({ "view.user": new mongoose.Types.ObjectId(userId), "view.userType": userType });
+      } else {
+        // Less than 1 hour ago, skip update but return current count
+        return res.json({
+          message: 'View already recorded recently',
+          viewCount: blip.viewCount
+        });
       }
     } else {
       // Add new view
-      blip.viewedBy.push({
-        user: userId,
-        userType: userType,
-        lastViewed: new Date()
-      });
-      blip.viewCount += 1;
+      updateQuery = {
+        $push: {
+          "blips.$[blip].viewedBy": {
+            user: new mongoose.Types.ObjectId(userId),
+            userType: userType,
+            lastViewed: now
+          }
+        },
+        $inc: { "blips.$[blip].viewCount": 1 }
+      };
     }
 
-    await product.save();
+    // Use atomic update to bypass product-wide validation (like stock: -1 issues)
+    await Product.updateOne({ _id: id }, updateQuery, { arrayFilters });
 
     res.json({
       message: 'View recorded successfully',
-      viewCount: blip.viewCount
+      viewCount: blip.viewCount + 1
     });
+
   } catch (error) {
     console.error('Error recording blip view:', error);
     res.status(500).json({
