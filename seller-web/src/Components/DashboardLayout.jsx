@@ -1,6 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import { useState } from 'react';
-import SideBarNav from '../Components/ui/DashboardHomepageUi/SideBarNav';
+import SideBarNav from '@/Components/ui/DashboardHomepageUi/SidebarNavV2';
 import ScrollToTop from '../Utilities/ScrollToTop';
 import Header from '../Components/ui/Header/Header';
 

@@ -1,15 +1,18 @@
 import { type SVGProps } from "react";
 
-interface IProps extends SVGProps<SVGSVGElement> {}
+interface IProps extends SVGProps<SVGSVGElement> {
+  width?: number;
+  height?: number;
+  color?: string;
+}
 
-export default function AuqliLogo (props: IProps) {
+export default function AuqliLogo ({ height, width, ...props }: IProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="131"
-      height="35"
+      width={width}
+      height={height}
       fill="none"
-      className={props.className}
       viewBox="0 0 131 35"
       {...props}
     >
