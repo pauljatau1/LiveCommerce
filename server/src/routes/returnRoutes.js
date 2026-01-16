@@ -92,89 +92,114 @@ router.post('/request',
  *         description: List of return requests
  */
 router.get('/seller',
-    authMiddleware.verifyToken,
-    authMiddleware.isSeller,
-    returnController.getSellerReturns
-  );
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  returnController.getSellerReturns
+);
 
-  /**
+/**
+* @swagger
+* /api/returns/buyer:
+*   get:
+*     summary: Get all return requests for a buyer
+*     tags: [Returns]
+*     security:
+*       - bearerAuth: []
+*     parameters:
+*       - in: query
+*         name: status
+*         schema:
+*           type: string
+*         description: Filter by return status
+*       - in: query
+*         name: page
+*         schema:
+*           type: integer
+*         description: Page number
+*       - in: query
+*         name: limit
+*         schema:
+*           type: integer
+*         description: Items per page
+*     responses:
+*       200:
+*         description: List of return requests
+*       401:
+*         description: Unauthorized
+*       500:
+*         description: Server error
+*/
+router.get('/buyer',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  authMiddleware.isBuyer,
+  returnController.getBuyerReturns
+);
+
+/**
  * @swagger
- * /api/returns/buyer:
+ * /api/returns/statistics:
  *   get:
- *     summary: Get all return requests for a buyer
- *     tags: [Returns]
+ *     summary: Get return and refund statistics
+ *     tags: [Returns - Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: status
+ *         name: timeframe
  *         schema:
  *           type: string
- *         description: Filter by return status
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *         description: Items per page
+ *           enum: [daily, weekly, monthly, yearly]
  *     responses:
  *       200:
- *         description: List of return requests
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
+ *         description: Return statistics retrieved successfully
  */
-router.get('/buyer',
+router.get('/statistics',
   authMiddleware.verifyToken,
-  authMiddleware.isBuyer,
-  returnController.getBuyerReturns
+  authMiddleware.isAdmin,
+  returnController.getReturnStatistics
 );
-  
-  /**
-   * @swagger
-   * /api/returns/{returnId}/respond:
-   *   post:
-   *     summary: Seller response to return request
-   *     tags: [Returns]
-   *     security:
-   *       - bearerAuth: []
-   *     parameters:
-   *       - in: path
-   *         name: returnId
-   *         required: true
-   *         schema:
-   *           type: string
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             required:
-   *               - action
-   *               - message
-   *             properties:
-   *               action:
-   *                 type: string
-   *                 enum: [approve, reject, need_info, partial_refund]
-   *               message:
-   *                 type: string
-   *               partialRefundAmount:
-   *                 type: number
-   *     responses:
-   *       200:
-   *         description: Response processed successfully
-   */
-  router.post('/:returnId/respond',
-    authMiddleware.verifyToken,
-    authMiddleware.isSeller,
-    returnController.respondToReturn
-  );
+
+/**
+ * @swagger
+ * /api/returns/{returnId}/respond:
+ *   post:
+ *     summary: Seller response to return request
+ *     tags: [Returns]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: returnId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - action
+ *               - message
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [approve, reject, need_info, partial_refund]
+ *               message:
+ *                 type: string
+ *               partialRefundAmount:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Response processed successfully
+ */
+router.post('/:returnId/respond',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  returnController.respondToReturn
+);
 
 /**
  * @swagger
@@ -196,7 +221,7 @@ router.get('/buyer',
  *       404:
  *         description: Return request not found
  */
-router.get('/:returnId', 
+router.get('/:returnId',
   authMiddleware.verifyToken,
   async (req, res, next) => {
     // Check if user is admin before proceeding
@@ -400,29 +425,7 @@ router.post('/:returnId/confirm-refund',
   returnController.confirmRefund
 );
 
-/**
- * @swagger
- * /api/returns/admin/statistics:
- *   get:
- *     summary: Get return and refund statistics
- *     tags: [Returns - Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: timeframe
- *         schema:
- *           type: string
- *           enum: [daily, weekly, monthly, yearly]
- *     responses:
- *       200:
- *         description: Return statistics retrieved successfully
- */
-router.get('/admin/statistics',
-  authMiddleware.verifyToken,
-  authMiddleware.isAdmin,
-  returnController.getReturnStatistics
-);
+
 
 /**
  * @swagger

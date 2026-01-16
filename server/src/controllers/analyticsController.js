@@ -2,264 +2,7 @@ const Stream = require('../models/Stream');
 const Analytics = require('../models/Analytics');
 const mixpanel = require('../config/mixpanel');
 
-/**
- * @desc    Get total number of livestreams in the last 24 hours
- * @route   GET /api/analytics/livestreams/24h
- * @access  Private/Admin
- */
-exports.getTotalNumberOfLivestreamin24Hours = async (req, res) => {
-  try {
-    // Get date parameter (optional)
-    const dateParam = req.query.date;
-    let targetDate;
-    
-    if (dateParam) {
-      // Parse date in YYYY-MM-DD format
-      targetDate = new Date(dateParam);
-      if (isNaN(targetDate.getTime())) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid date format. Expected format: YYYY-MM-DD'
-        });
-      }
-      
-      // Check if requested date is today
-      const today = new Date();
-      const todayString = today.toISOString().split('T')[0];
-      const requestedDateString = targetDate.toISOString().split('T')[0];
-      
-      if (requestedDateString === todayString) {
-        return res.status(400).json({
-          success: false,
-          message: 'Cannot retrieve analytics for today as the 24-hour period is incomplete. Please request data for a previous date.'
-        });
-      }
-    } else {
-      // Use yesterday's date if no date parameter provided
-      targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() - 1);
-    }
-    
-    // Set to beginning of the day
-    const startOfDay = new Date(targetDate);
-    startOfDay.setUTCHours(0, 0, 0, 0);
-    
-    // Set to end of the day
-    const endOfDay = new Date(targetDate);
-    endOfDay.setUTCHours(23, 59, 59, 999);
-    
-    const formattedDate = targetDate.toISOString().split('T')[0];
-    
-    console.log(`Finding livestreams for date ${formattedDate} between ${startOfDay.toISOString()} and ${endOfDay.toISOString()}`);
 
-    // Find all streams that were active during the target date
-    const streams = await Stream.find({
-      $or: [
-        // Live streams that started on this day
-        { 
-          status: 'live', 
-          actualStartTime: { 
-            $gte: startOfDay,
-            $lte: endOfDay
-          }
-        },
-        // Ended streams that started on this day
-        { 
-          status: 'ended',
-          actualStartTime: { 
-            $gte: startOfDay, 
-            $lte: endOfDay 
-          }
-        },
-        // Ended streams that ended on this day
-        {
-          status: 'ended',
-          endTime: {
-            $gte: startOfDay,
-            $lte: endOfDay
-          }
-        },
-        // Streams that were active spanning this entire day (started before, ended after)
-        {
-          status: 'ended',
-          actualStartTime: { $lt: startOfDay },
-          endTime: { $gt: endOfDay }
-        }
-      ]
-    });
-
-    const totalLivestreams = streams.length;
-    console.log(`Total livestreams: ${totalLivestreams}`);
-    const totalAuctionStreams = streams.filter(stream => stream.type === 'auction').length;
-    console.log(`Total auction streams: ${totalAuctionStreams}`);
-    const totalOpenShowStreams = streams.filter(stream => stream.type === 'open_show').length;
-    console.log(`Total open show streams: ${totalOpenShowStreams}`);
-    
-    let analyticsRecord = await Analytics.findOne({
-      type: 'livestream',
-      'metadata.date': formattedDate
-    });
-
-    // If no record exists, create one
-    if (analyticsRecord) {
-      // Calculate total and unique viewers
-      const totalViewers = streams.reduce((acc, stream) => acc + stream.viewers.length, 0);
-      const totalUniqueViewers = [...new Set([
-        ...streams.flatMap(stream => stream.viewers.map(v => v.toString())),
-        ...streams.flatMap(stream => stream.departedViewers.map(v => v.buyer?.toString()).filter(Boolean))
-      ])].length;
-
-      // Calculate hourly breakdown
-      const hourlyData = {};
-      
-      // Initialize hourly data
-      for (let hour = 0; hour < 24; hour++) {
-        const hourStart = new Date(startOfDay);
-        hourStart.setHours(hour, 0, 0, 0);
-        
-        const hourEnd = new Date(startOfDay);
-        hourEnd.setHours(hour, 59, 59, 999);
-        
-        hourlyData[hour] = {
-          total: 0,
-          auction: 0,
-          open_show: 0,
-          start: hourStart.toISOString(),
-          end: hourEnd.toISOString(),
-          formattedHour: `${hour.toString().padStart(2, '0')}:00`
-        };
-      }
-      
-      // Count streams by hour
-      streams.forEach(stream => {
-        // For live streams, use the current time
-        // For ended streams, use the end time
-        const streamTime = stream.status === 'live' ? new Date() : new Date(stream.endTime);
-        
-        // Skip if outside our day range
-        if (streamTime < startOfDay || streamTime > endOfDay) return;
-        
-        const hour = streamTime.getHours();
-        
-        hourlyData[hour].total++;
-        
-        if (stream.type === 'auction') {
-          hourlyData[hour].auction++;
-        } else if (stream.type === 'open_show') {
-          hourlyData[hour].open_show++;
-        }
-      });
-
-      // Calculate averages
-      const avgViewersPerStream = totalLivestreams > 0 ? totalViewers / totalLivestreams : 0;
-      const avgStreamDuration = totalLivestreams > 0 ? 
-        streams.reduce((acc, stream) => {
-          if (stream.endTime && stream.actualStartTime) {
-            return acc + (new Date(stream.endTime) - new Date(stream.actualStartTime)) / (1000 * 60);
-          }
-          return acc;
-        }, 0) / totalLivestreams : 0;
-
-      analyticsRecord = new Analytics({
-        type: 'livestream',
-        date: startOfDay,
-        data: {
-          totalLivestreams,
-          totalAuctionStreams,
-          totalOpenShowStreams,
-          totalViewers,
-          totalUniqueViewers,
-          avgViewersPerStream,
-          avgStreamDuration: `${Math.round(avgStreamDuration)} minutes`,
-          hourlyData,
-          totalOrders: streams.reduce((acc, stream) => acc + stream.orders.length, 0),
-          streams: streams.map(stream => ({
-            id: stream._id,
-            title: stream.title,
-            sellerId: stream.seller,
-            type: stream.type,
-            startTime: stream.actualStartTime,
-            endTime: stream.endTime || null,
-            status: stream.status,
-            viewers: stream.viewers.length,
-            departedViewers: stream.departedViewers.length,
-            ordersAmount: stream.orders.length
-          }))
-        },
-        metadata: {
-          date: formattedDate,
-          timeRange: {
-            start: startOfDay.toISOString(),
-            end: endOfDay.toISOString()
-          }
-        }
-      });
-      
-      await analyticsRecord.save();
-      console.log(`Created new daily analytics record for ${formattedDate} with ${totalLivestreams} livestreams`);
-    } else {
-      console.log(`Daily analytics record already exists for ${formattedDate}`);
-    }
-
-    // Track in Mixpanel if it wasn't already tracked
-    if (!analyticsRecord.trackedInMixpanel) {
-      try {
-        const hourlyBreakdown = Object.entries(analyticsRecord.data.hourlyData).map(([hour, data]) => ({
-          hour: data.formattedHour,
-          total_streams: data.total,
-          auction_streams: data.auction,
-          open_show_streams: data.open_show
-        }));
-
-        // Track daily livestream analytics event
-        mixpanel.track('daily_livestream_analytics', {
-          distinct_id: 'system',
-          total_livestreams: totalLivestreams,
-          total_auction_streams: totalAuctionStreams,
-          total_open_show_streams: totalOpenShowStreams,
-          date: formattedDate,
-          total_viewers: analyticsRecord.data.totalViewers,
-          total_unique_viewers: analyticsRecord.data.totalUniqueViewers,
-          hourly_breakdown: hourlyBreakdown,
-          avg_viewers_per_stream: analyticsRecord.data.avgViewersPerStream,
-          avg_stream_duration_minutes: analyticsRecord.data.avgStreamDuration,
-          total_orders: analyticsRecord.data.totalOrders
-        });
-        
-        // Mark as tracked in Mixpanel
-        analyticsRecord.trackedInMixpanel = true;
-        await analyticsRecord.save();
-        
-        console.log(`Tracked daily livestream analytics in Mixpanel for ${formattedDate}`);
-      } catch (mixpanelError) {
-        console.error('Error tracking daily analytics in Mixpanel:', mixpanelError);
-      }
-    }
-
-    // Return the response
-    return res.status(200).json({
-      success: true,
-      data: {
-        date: formattedDate,
-        timeRange: {
-          start: startOfDay.toISOString(),
-          end: endOfDay.toISOString()
-        },
-        totalLivestreams,
-        totalAuctionStreams,
-        totalOpenShowStreams,
-        ...analyticsRecord.data
-      }
-    });
-  } catch (error) {
-    // console.error('Error in getTotalNumberOfLivestreamin24Hours:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Server Error',
-      error: error.message
-    });
-  }
-};
 
 /**
  * @desc    Get total number of livestreams by date range
@@ -269,20 +12,20 @@ exports.getTotalNumberOfLivestreamin24Hours = async (req, res) => {
 exports.getLivestreamsByDateRange = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    
+
     if (!startDate || !endDate) {
       return res.status(400).json({
         success: false,
         message: 'Please provide startDate and endDate parameters'
       });
     }
-    
+
     const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
-    
+
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
-    
+
     const streams = await Stream.find({
       endTime: {
         $gte: start,
@@ -290,17 +33,17 @@ exports.getLivestreamsByDateRange = async (req, res) => {
       },
       status: 'ended'
     });
-    
+
     // Group streams by date
     const streamsByDate = {};
-    
+
     streams.forEach(stream => {
       const streamDate = new Date(stream.endTime).toISOString().split('T')[0];
-      
+
       if (!streamsByDate[streamDate]) {
         streamsByDate[streamDate] = [];
       }
-      
+
       streamsByDate[streamDate].push({
         id: stream._id,
         title: stream.title,
@@ -312,14 +55,14 @@ exports.getLivestreamsByDateRange = async (req, res) => {
         totalOrders: stream.orders.length
       });
     });
-    
+
     // Transform into array format with totals
     const results = Object.keys(streamsByDate).map(date => ({
       date,
       totalLivestreams: streamsByDate[date].length,
       streams: streamsByDate[date]
     }));
-    
+
     return res.status(200).json({
       success: true,
       data: {
@@ -352,22 +95,22 @@ exports.getWeeklyLivestreamAnalytics = async (req, res) => {
     // Get week parameter (optional) in format YYYY-WW (e.g., 2023-01 for first week of 2023)
     const weekParam = req.query.week;
     let startOfWeek, endOfWeek, weekYear, weekNumber;
-    
+
     if (weekParam) {
       // Parse week in YYYY-WW format using regex
       const weekRegex = /^(\d{4})-(\d{2})$/;
       const match = weekParam.match(weekRegex);
-      
+
       if (!match) {
         return res.status(400).json({
           success: false,
           message: 'Invalid week format. Expected format: YYYY-WW (e.g., 2023-01 for first week of 2023)'
         });
       }
-      
+
       weekYear = parseInt(match[1]);
       weekNumber = parseInt(match[2]);
-      
+
       // Validate week number (1-53)
       if (weekNumber < 1 || weekNumber > 53) {
         return res.status(400).json({
@@ -375,23 +118,23 @@ exports.getWeeklyLivestreamAnalytics = async (req, res) => {
           message: 'Invalid week number. Week number must be between 1 and 53.'
         });
       }
-      
+
       // Get the first day of the year
       const firstDayOfYear = new Date(Date.UTC(weekYear, 0, 1));
-      
+
       // Calculate the first day of the week (ISO weeks start on Monday)
       // Adjust to previous Monday if firstDayOfYear is not Monday
       const dayOfWeek = firstDayOfYear.getDay() || 7; // Convert Sunday (0) to 7
       const daysToAdd = (weekNumber - 1) * 7 + (dayOfWeek === 1 ? 0 : 1 - dayOfWeek);
-      
+
       startOfWeek = new Date(firstDayOfYear);
       startOfWeek.setUTCDate(firstDayOfYear.getUTCDate() + daysToAdd);
       startOfWeek.setUTCHours(0, 0, 0, 0);
-      
+
       endOfWeek = new Date(startOfWeek);
       endOfWeek.setUTCDate(startOfWeek.getUTCDate() + 6);
       endOfWeek.setUTCHours(23, 59, 59, 999);
-      
+
       // Check if the requested week is the current week (incomplete)
       const now = new Date();
       if (now >= startOfWeek && now <= endOfWeek) {
@@ -404,24 +147,24 @@ exports.getWeeklyLivestreamAnalytics = async (req, res) => {
       // Use previous week
       const now = new Date();
       const dayOfWeek = now.getUTCDay() || 7; // Convert Sunday (0) to 7
-      
+
       // Set to previous week's Monday
       startOfWeek = new Date(now);
       startOfWeek.setUTCDate(now.getUTCDate() - dayOfWeek - 6); // Go to Monday of previous week
       startOfWeek.setUTCHours(0, 0, 0, 0);
-      
+
       // Set to previous week's Sunday
       endOfWeek = new Date(startOfWeek);
       endOfWeek.setUTCDate(startOfWeek.getUTCDate() + 6);
       endOfWeek.setUTCHours(23, 59, 59, 999);
-      
+
       // Calculate week number for previous week
       const firstDayOfYear = new Date(Date.UTC(startOfWeek.getUTCFullYear(), 0, 1));
       const daysSinceFirstDay = Math.floor((startOfWeek - firstDayOfYear) / (24 * 60 * 60 * 1000));
       weekNumber = Math.ceil((daysSinceFirstDay + (firstDayOfYear.getDay() || 7) - 1) / 7);
       weekYear = startOfWeek.getUTCFullYear();
     }
-    
+
     // Create array of the 7 days in the week
     const weekDays = [];
     for (let i = 0; i < 7; i++) {
@@ -429,39 +172,39 @@ exports.getWeeklyLivestreamAnalytics = async (req, res) => {
       day.setDate(startOfWeek.getDate() + i);
       weekDays.push(day);
     }
-    
+
     // Format as ISO week string (e.g., 2023-W01)
     const formattedWeek = `${weekYear}-W${weekNumber.toString().padStart(2, '0')}`;
     // Also create YYYY-WW format for backward compatibility
     const legacyWeekFormat = `${weekYear}-${weekNumber.toString().padStart(2, '0')}`;
-    
+
     console.log(`Finding livestreams for week ${formattedWeek} between ${startOfWeek.toISOString()} and ${endOfWeek.toISOString()}`);
 
     // Find all streams that were active during the week
     const streams = await Stream.find({
       $or: [
         // Live streams that started during this week
-        { 
-          status: 'live', 
-          actualStartTime: { 
+        {
+          status: 'live',
+          actualStartTime: {
             $gte: startOfWeek,
             $lte: endOfWeek
           }
         },
         // Ended streams that started during this week
-        { 
+        {
           status: 'ended',
-          actualStartTime: { 
-            $gte: startOfWeek, 
-            $lte: endOfWeek 
+          actualStartTime: {
+            $gte: startOfWeek,
+            $lte: endOfWeek
           }
         },
         // Ended streams that ended during this week
         {
           status: 'ended',
-          endTime: { 
-            $gte: startOfWeek, 
-            $lte: endOfWeek 
+          endTime: {
+            $gte: startOfWeek,
+            $lte: endOfWeek
           }
         },
         // Streams that were active spanning this entire week (started before, ended after)
@@ -476,7 +219,7 @@ exports.getWeeklyLivestreamAnalytics = async (req, res) => {
     const totalLivestreams = streams.length;
     const totalAuctionStreams = streams.filter(stream => stream.type === 'auction').length;
     const totalOpenShowStreams = streams.filter(stream => stream.type === 'open_show').length;
-    
+
     // Check if we already have a weekly analytics record
     let analyticsRecord = await Analytics.findOne({
       type: 'livestream_weekly',
@@ -496,18 +239,18 @@ exports.getWeeklyLivestreamAnalytics = async (req, res) => {
 
       // Calculate daily breakdown
       const dailyData = {};
-      
+
       // Initialize daily data
       weekDays.forEach(day => {
         const dayStart = new Date(day);
         dayStart.setHours(0, 0, 0, 0);
-        
+
         const dayEnd = new Date(day);
         dayEnd.setHours(23, 59, 59, 999);
-        
+
         const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(day);
         const formattedDate = day.toISOString().split('T')[0];
-        
+
         dailyData[formattedDate] = {
           total: 0,
           auction: 0,
@@ -519,24 +262,24 @@ exports.getWeeklyLivestreamAnalytics = async (req, res) => {
           end: dayEnd.toISOString()
         };
       });
-      
+
       // Count streams by day
       streams.forEach(stream => {
         // For active streams, count it for the current day
         // For ended streams, count it for the day it ended
-        const streamDate = stream.status === 'live' ? 
-          new Date() : 
+        const streamDate = stream.status === 'live' ?
+          new Date() :
           new Date(stream.endTime || stream.actualStartTime);
-        
+
         // If stream is outside the week range, skip it
         if (streamDate < startOfWeek || streamDate > endOfWeek) return;
-        
+
         const formattedDate = streamDate.toISOString().split('T')[0];
-        
+
         // Check if the date exists in our daily data
         if (dailyData[formattedDate]) {
           dailyData[formattedDate].total++;
-          
+
           if (stream.type === 'auction') {
             dailyData[formattedDate].auction++;
           } else if (stream.type === 'open_show') {
@@ -552,7 +295,7 @@ exports.getWeeklyLivestreamAnalytics = async (req, res) => {
 
       // Calculate averages
       const avgViewersPerStream = totalLivestreams > 0 ? totalViewers / totalLivestreams : 0;
-      const avgStreamDuration = totalLivestreams > 0 ? 
+      const avgStreamDuration = totalLivestreams > 0 ?
         streams.reduce((acc, stream) => {
           if (stream.endTime && stream.actualStartTime) {
             return acc + (new Date(stream.endTime) - new Date(stream.actualStartTime)) / (1000 * 60);
@@ -597,7 +340,7 @@ exports.getWeeklyLivestreamAnalytics = async (req, res) => {
           }
         }
       });
-      
+
       await analyticsRecord.save();
       console.log(`Created new weekly analytics record for ${formattedWeek} with ${totalLivestreams} livestreams`);
     } else {
@@ -631,11 +374,11 @@ exports.getWeeklyLivestreamAnalytics = async (req, res) => {
           avg_stream_duration_minutes: analyticsRecord.data.avgStreamDuration,
           total_orders: analyticsRecord.data.totalOrders
         });
-        
+
         // Mark as tracked in Mixpanel
         analyticsRecord.trackedInMixpanel = true;
         await analyticsRecord.save();
-        
+
         console.log(`Tracked weekly livestream analytics in Mixpanel for ${formattedWeek}`);
       } catch (mixpanelError) {
         console.error('Error tracking weekly analytics in Mixpanel:', mixpanelError);
@@ -678,11 +421,11 @@ exports.getMonthlyLivestreamAnalytics = async (req, res) => {
   try {
     // Parse the month parameter (optional)
     const monthParam = req.query.month;
-    
+
     // Get current date
     const today = new Date();
     let monthStart, monthEnd, month, year;
-    
+
     if (monthParam) {
       // Format should be YYYY-MM (e.g., 2023-01 for January 2023)
       const match = monthParam.match(/^(\d{4})-(\d{2})$/);
@@ -692,21 +435,21 @@ exports.getMonthlyLivestreamAnalytics = async (req, res) => {
           message: 'Invalid month format. Expected format: YYYY-MM (e.g., 2023-01)'
         });
       }
-      
+
       year = parseInt(match[1]);
       month = parseInt(match[2]) - 1; // JavaScript months are 0-based
-      
+
       // Check if requested month is the current month (incomplete)
       const currentYear = today.getUTCFullYear();
       const currentMonth = today.getUTCMonth();
-      
+
       if (year === currentYear && month === currentMonth) {
         return res.status(400).json({
           success: false,
           message: 'Cannot retrieve analytics for the current month as it is incomplete. Please request data for a previous complete month.'
         });
       }
-      
+
       monthStart = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
       // Last day of month: Get first day of next month, then subtract 1 millisecond
       monthEnd = new Date(Date.UTC(year, month + 1, 1, 0, 0, 0, 0));
@@ -721,44 +464,44 @@ exports.getMonthlyLivestreamAnalytics = async (req, res) => {
         year = today.getUTCFullYear();
         month = today.getUTCMonth() - 1;
       }
-      
+
       monthStart = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
       // Last day of month: Get first day of next month, then subtract 1 millisecond
       monthEnd = new Date(Date.UTC(year, month + 1, 1, 0, 0, 0, 0));
       monthEnd.setUTCMilliseconds(-1); // Set to 23:59:59.999 of last day
     }
-    
+
     // Format for display
     const monthId = `${year}-${(month + 1).toString().padStart(2, '0')}`;
     const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' });
-    
+
     console.log(`Analyzing livestreams for ${monthName} ${year} from ${monthStart.toISOString()} to ${monthEnd.toISOString()}`);
 
     // Find all streams that were active within the target month
     const streams = await Stream.find({
       $or: [
         // Live streams that started during this month
-        { 
-          status: 'live', 
-          actualStartTime: { 
-            $gte: monthStart, 
-            $lte: monthEnd 
+        {
+          status: 'live',
+          actualStartTime: {
+            $gte: monthStart,
+            $lte: monthEnd
           }
         },
         // Ended streams that started during this month
-        { 
+        {
           status: 'ended',
-          actualStartTime: { 
-            $gte: monthStart, 
-            $lte: monthEnd 
+          actualStartTime: {
+            $gte: monthStart,
+            $lte: monthEnd
           }
         },
         // Ended streams that ended during this month
         {
           status: 'ended',
-          endTime: { 
-            $gte: monthStart, 
-            $lte: monthEnd 
+          endTime: {
+            $gte: monthStart,
+            $lte: monthEnd
           }
         },
         // Streams that were active spanning this entire month (started before, ended after)
@@ -773,7 +516,7 @@ exports.getMonthlyLivestreamAnalytics = async (req, res) => {
     const totalLivestreams = streams.length;
     const totalAuctionStreams = streams.filter(stream => stream.type === 'auction').length;
     const totalOpenShowStreams = streams.filter(stream => stream.type === 'open_show').length;
-    
+
     // Check if we already have a monthly analytics record
     let analyticsRecord = await Analytics.findOne({
       type: 'livestream_monthly',
@@ -788,28 +531,28 @@ exports.getMonthlyLivestreamAnalytics = async (req, res) => {
         ...streams.flatMap(stream => stream.viewers.map(v => v.toString())),
         ...streams.flatMap(stream => stream.departedViewers.map(v => v.buyer?.toString()).filter(Boolean))
       ])].length;
-      
+
       // Calculate weekly breakdown
       const weeklyData = {};
-      
+
       // Get number of weeks in the month
       const numWeeks = Math.ceil((monthEnd.getDate() - monthStart.getDate() + 1) / 7);
-      
+
       // Initialize weekly data
       for (let i = 0; i < numWeeks; i++) {
         const weekStart = new Date(monthStart);
         weekStart.setDate(monthStart.getDate() + (i * 7));
-        
+
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 6);
-        
+
         // Adjust if weekEnd goes into next month
         if (weekEnd > monthEnd) {
           weekEnd.setTime(monthEnd.getTime());
         }
-        
+
         const weekKey = `Week ${i + 1}: ${weekStart.toISOString().split('T')[0]} to ${weekEnd.toISOString().split('T')[0]}`;
-        
+
         weeklyData[weekKey] = {
           total: 0,
           auction: 0,
@@ -819,24 +562,24 @@ exports.getMonthlyLivestreamAnalytics = async (req, res) => {
           end: weekEnd.toISOString()
         };
       }
-      
+
       // Count streams by week
       streams.forEach(stream => {
         // For live streams, use the current time
         // For ended streams, use the end time
         const streamTime = stream.status === 'live' ? new Date() : new Date(stream.endTime);
-        
+
         // Skip if outside our month range
         if (streamTime < monthStart || streamTime > monthEnd) return;
-        
+
         // Find which week this stream belongs to
         for (const [weekKey, weekData] of Object.entries(weeklyData)) {
           const weekStart = new Date(weekData.start);
           const weekEnd = new Date(weekData.end);
-          
+
           if (streamTime >= weekStart && streamTime <= weekEnd) {
             weeklyData[weekKey].total++;
-            
+
             if (stream.type === 'auction') {
               weeklyData[weekKey].auction++;
             } else if (stream.type === 'open_show') {
@@ -846,7 +589,7 @@ exports.getMonthlyLivestreamAnalytics = async (req, res) => {
             if (stream.orders.length > 0) {
               weeklyData[weekKey].weekly_orders += stream.orders.length;
             }
-            
+
             break;
           }
         }
@@ -854,7 +597,7 @@ exports.getMonthlyLivestreamAnalytics = async (req, res) => {
 
       // Calculate averages
       const avgViewersPerStream = totalLivestreams > 0 ? totalViewers / totalLivestreams : 0;
-      const avgStreamDuration = totalLivestreams > 0 ? 
+      const avgStreamDuration = totalLivestreams > 0 ?
         streams.reduce((acc, stream) => {
           if (stream.endTime && stream.actualStartTime) {
             return acc + (new Date(stream.endTime) - new Date(stream.actualStartTime)) / (1000 * 60);
@@ -899,7 +642,7 @@ exports.getMonthlyLivestreamAnalytics = async (req, res) => {
           }
         }
       });
-      
+
       await analyticsRecord.save();
       console.log(`Created new monthly analytics record for ${monthId} with ${totalLivestreams} livestreams`);
     } else {
@@ -918,7 +661,7 @@ exports.getMonthlyLivestreamAnalytics = async (req, res) => {
           start_date: data.start.split('T')[0],
           end_date: data.end.split('T')[0]
         }));
-        
+
         // Track monthly livestream analytics event
         mixpanel.track('monthly_livestream_analytics', {
           distinct_id: 'system',
@@ -936,11 +679,11 @@ exports.getMonthlyLivestreamAnalytics = async (req, res) => {
           avg_stream_duration_minutes: analyticsRecord.data.avgStreamDuration,
           total_orders: analyticsRecord.data.totalOrders
         });
-        
+
         // Mark as tracked in Mixpanel
         analyticsRecord.trackedInMixpanel = true;
         await analyticsRecord.save();
-        
+
         console.log(`Tracked monthly livestream analytics in Mixpanel for ${monthId}`);
       } catch (mixpanelError) {
         console.error('Error tracking monthly analytics in Mixpanel:', mixpanelError);

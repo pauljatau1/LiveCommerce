@@ -20,24 +20,24 @@ const baseUrl = process.env.STORE_URL;
 exports.getAllBlips = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
-  
+
   // Check if user is authenticated
   const buyerId = req.user?.id;
   const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
 
   try {
     console.log('Starting getAllBlips aggregation...');
-    
+
     const blips = await Product.aggregate([
       // Match products that have blips, are not draft, and exclude offline_auction products with ended status
-      { 
-        $match: { 
+      {
+        $match: {
           blips: { $exists: true, $ne: [] },
           status: { $ne: 'draft' }, // Exclude draft products
           $nor: [
-            { 
-              status: 'offline_auction', 
-              'auction.status': 'ended' 
+            {
+              status: 'offline_auction',
+              'auction.status': 'ended'
             }
           ]
         }
@@ -69,11 +69,11 @@ exports.getAllBlips = async (req, res) => {
           _id: '$_id', // This is the product ID
           blipId: '$blips._id', // Add this line to include the blip ID
           blipUrl: '$blips.url',
-          thumbnail: { 
+          thumbnail: {
             $ifNull: [
-              '$blips.thumbnail', 
+              '$blips.thumbnail',
               'https://res.cloudinary.com/dljgzevaj/image/upload/v1742758888/sans-affiche_zu6wj4.png'
-            ] 
+            ]
           },
           productId: '$_id',
           productName: '$name',
@@ -224,7 +224,7 @@ exports.getAllBlips = async (req, res) => {
     const processedBlips = blips.map(blip => {
       // Create a new object without the followers array
       const { seller, ...rest } = blip;
-      
+
       // Return the processed blip
       return {
         ...rest,
@@ -238,7 +238,7 @@ exports.getAllBlips = async (req, res) => {
       status: { $ne: 'draft' },
       $nor: [
         {
-          status: 'offline_auction', 
+          status: 'offline_auction',
           'auction.status': 'ended'
         }
       ]
@@ -318,7 +318,7 @@ exports.getSellerBlips = async (req, res) => {
       ...processedFilter,
       $nor: [
         {
-          status: 'offline_auction', 
+          status: 'offline_auction',
           'auction.status': 'ended'
         }
       ]
@@ -326,7 +326,7 @@ exports.getSellerBlips = async (req, res) => {
 
     if (!hasBlips) {
       console.log('No blips found for seller');
-      
+
       // Create seller object with isFollowing property
       const sellerResponse = {
         _id: seller._id,
@@ -339,7 +339,7 @@ exports.getSellerBlips = async (req, res) => {
         totalStoreReviews: seller.stats ? seller.stats.totalReviews : 0,
         isFollowing
       };
-      
+
       return res.json({
         message: 'Seller has no blips',
         seller: sellerResponse,
@@ -352,18 +352,18 @@ exports.getSellerBlips = async (req, res) => {
 
     const blips = await Product.aggregate([
       // Match products from this seller that have blips and exclude offline_auction products with ended status
-      { 
-        $match: { 
+      {
+        $match: {
           seller: new mongoose.Types.ObjectId(sellerId),
           blips: { $exists: true, $ne: [] },
           $nor: [
             {
-              status: 'offline_auction', 
+              status: 'offline_auction',
               'auction.status': 'ended'
             }
           ],
           ...processedFilter
-        } 
+        }
       },
       // Unwind the blips array
       { $unwind: '$blips' },
@@ -392,11 +392,11 @@ exports.getSellerBlips = async (req, res) => {
           _id: '$_id',                    // Product ID
           blipId: '$blips._id',          // Actual blip ID
           blipUrl: '$blips.url',
-          thumbnail: { 
+          thumbnail: {
             $ifNull: [
-              '$blips.thumbnail', 
+              '$blips.thumbnail',
               'https://res.cloudinary.com/dljgzevaj/image/upload/v1742758888/sans-affiche_zu6wj4.png'
-            ] 
+            ]
           },
           productId: '$_id',
           productName: '$name',
@@ -534,7 +534,7 @@ exports.getSellerBlips = async (req, res) => {
       blips: { $exists: true, $ne: [] },
       $nor: [
         {
-          status: 'offline_auction', 
+          status: 'offline_auction',
           'auction.status': 'ended'
         }
       ],
@@ -583,13 +583,13 @@ exports.getSuggestedBlips = async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.max(1, parseInt(req.query.limit) || 20);
     const skip = (page - 1) * limit;
-    
+
     // Check if user is authenticated
     const buyerId = req.user?.id;
     const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
-    
+
     console.log('Starting getSuggestedBlips aggregation...');
-    
+
     // Define match stages
     const primaryMatchStage = {
       blips: { $exists: true, $ne: [] },
@@ -602,19 +602,19 @@ exports.getSuggestedBlips = async (req, res) => {
         }
       ]
     };
-    
+
     const fallbackMatchStage = {
       blips: { $exists: true, $ne: [] },
       status: { $ne: 'draft' } // Exclude draft products in fallback as well
     };
-    
+
     // Get buyer's preferred categories and followed sellers if authenticated
     let buyerCategories = [];
     let followedSellers = [];
     if (isAuthenticated) {
       console.log(`Getting preferences for buyer: ${buyerId}`);
       const buyer = await mongoose.model('Buyer').findById(buyerId).select('selectedCategories following');
-      
+
       if (buyer && buyer.selectedCategories && buyer.selectedCategories.length > 0) {
         buyerCategories = buyer.selectedCategories.reduce((acc, cat) => {
           acc.push(cat.name);
@@ -627,19 +627,19 @@ exports.getSuggestedBlips = async (req, res) => {
       } else {
         console.log('No preferred categories found for buyer');
       }
-      
+
       if (buyer && buyer.following) {
         followedSellers = buyer.following.map(follow => follow.sellerId.toString());
         console.log(`Found followed sellers: ${followedSellers.length}`);
       }
     }
-    
+
     // Get total count for primary match stage
     let total = await mongoose.model('Product').countDocuments(primaryMatchStage);
     const poolSize = Math.max(10, Math.min(total, limit * 3));
-    
+
     const now = new Date();
-    
+
     // Common pipeline stages
     const commonPipeline = [
       {
@@ -685,11 +685,11 @@ exports.getSuggestedBlips = async (req, res) => {
           blipId: '$blips._id',
           blipUrl: '$blips.url',
           processed: '$blips.processed',
-          thumbnail: { 
+          thumbnail: {
             $ifNull: [
-              '$blips.thumbnail', 
+              '$blips.thumbnail',
               'https://res.cloudinary.com/dljgzevaj/image/upload/v1742758888/sans-affiche_zu6wj4.png'
-            ] 
+            ]
           },
           productId: '$_id',
           productName: '$name',
@@ -832,7 +832,7 @@ exports.getSuggestedBlips = async (req, res) => {
         }
       }
     ];
-    
+
     // Primary pipeline
     const primaryPipeline = [
       { $match: primaryMatchStage },
@@ -840,10 +840,10 @@ exports.getSuggestedBlips = async (req, res) => {
       { $match: { 'blips.processed': true } },
       ...commonPipeline
     ];
-    
+
     // Fetch blips with primary criteria
     let allBlips = await mongoose.model('Product').aggregate(primaryPipeline);
-    
+
     // Fallback if no blips are found
     if (allBlips.length === 0) {
       console.log('No processed blips found, falling back to all blips');
@@ -855,7 +855,7 @@ exports.getSuggestedBlips = async (req, res) => {
       ];
       allBlips = await mongoose.model('Product').aggregate(fallbackPipeline);
     }
-    
+
     // Handle case when no blips are found (should be rare with fallback)
     if (allBlips.length === 0) {
       return res.json({
@@ -866,13 +866,13 @@ exports.getSuggestedBlips = async (req, res) => {
         totalBlips: 0
       });
     }
-    
+
     // Process blips with additional metadata for categorization
     const transformedBlips = allBlips.map(blip => {
-      const isInBuyerCategory = buyerCategories.length > 0 && 
+      const isInBuyerCategory = buyerCategories.length > 0 &&
         (buyerCategories.includes(blip.category) || buyerCategories.includes(blip.subCategory));
       const isFollowingSeller = followedSellers.includes(blip.seller._id.toString());
-      
+
       blip._metadata = {
         isInBuyerCategory,
         isFollowingSeller: isFollowingSeller || blip.seller.isFollowing,
@@ -882,13 +882,13 @@ exports.getSuggestedBlips = async (req, res) => {
         isLowView: (blip.blipEngagement.viewCount || 0) < 50,
         sellerId: blip.seller._id.toString()
       };
-      
+
       delete blip.daysSinceCreation;
       delete blip.engagementScore;
-      
+
       return blip;
     });
-    
+
     // Categorize blips
     const categorizedBlips = {
       newInBuyerCategory: [],
@@ -897,11 +897,11 @@ exports.getSuggestedBlips = async (req, res) => {
       undiscovered: [],
       random: []
     };
-    
+
     transformedBlips.forEach(blip => {
       const meta = blip._metadata;
       delete blip._metadata;
-      
+
       if (isAuthenticated && meta.isInBuyerCategory && meta.isNewBlip) {
         categorizedBlips.newInBuyerCategory.push(blip);
       } else if (isAuthenticated && meta.isFollowingSeller) {
@@ -914,7 +914,7 @@ exports.getSuggestedBlips = async (req, res) => {
         categorizedBlips.random.push(blip);
       }
     });
-    
+
     // Shuffle each category
     Object.keys(categorizedBlips).forEach(category => {
       const array = categorizedBlips[category];
@@ -923,27 +923,27 @@ exports.getSuggestedBlips = async (req, res) => {
         [array[i], array[j]] = [array[j], array[i]];
       }
     });
-    
+
     // Distribute blips
     const rearrangedBlips = [];
     const sellerTracker = new Map();
     const productTracker = new Map();
     const minSellerDistance = 3;
-    
+
     const addBlipsFromCategory = (category, count) => {
       let added = 0;
       let index = 0;
-      
+
       while (added < count && index < categorizedBlips[category].length) {
         const blip = categorizedBlips[category][index];
         const sellerId = blip.seller._id.toString();
         const productId = blip.productId.toString();
-        
+
         if (productTracker.has(productId)) {
           index++;
           continue;
         }
-        
+
         const lastPosition = sellerTracker.get(sellerId) || -minSellerDistance;
         if (rearrangedBlips.length - lastPosition >= minSellerDistance) {
           rearrangedBlips.push(blip);
@@ -954,7 +954,7 @@ exports.getSuggestedBlips = async (req, res) => {
         } else {
           index++;
         }
-        
+
         if (index >= categorizedBlips[category].length && added < count && categorizedBlips[category].length > 0) {
           index = 0;
           const blip = categorizedBlips[category][0];
@@ -965,13 +965,13 @@ exports.getSuggestedBlips = async (req, res) => {
           added++;
         }
       }
-      
+
       return added;
     };
-    
+
     const totalNeeded = limit;
     let remaining = totalNeeded;
-    
+
     const categoryOrder = [
       'newInBuyerCategory',
       'highEngagement',
@@ -979,7 +979,7 @@ exports.getSuggestedBlips = async (req, res) => {
       'undiscovered',
       'random'
     ];
-    
+
     for (const category of categoryOrder) {
       if (remaining > 0 && categorizedBlips[category].length > 0) {
         const toAdd = Math.min(1, remaining, categorizedBlips[category].length);
@@ -987,10 +987,10 @@ exports.getSuggestedBlips = async (req, res) => {
         remaining -= added;
       }
     }
-    
+
     while (remaining > 0) {
       let addedAny = false;
-      
+
       for (const category of categoryOrder) {
         if (remaining > 0 && categorizedBlips[category].length > 0) {
           const toAdd = Math.min(5, remaining, categorizedBlips[category].length);
@@ -999,28 +999,28 @@ exports.getSuggestedBlips = async (req, res) => {
           if (added > 0) addedAny = true;
         }
       }
-      
+
       if (!addedAny) break;
     }
-    
+
     if (remaining > 0) {
       const allRemaining = [].concat(...Object.values(categorizedBlips));
       for (let i = allRemaining.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [allRemaining[i], allRemaining[j]] = [allRemaining[j], allRemaining[i]];
       }
-      
+
       let index = 0;
       while (remaining > 0 && index < allRemaining.length) {
         const blip = allRemaining[index];
         const sellerId = blip.seller._id.toString();
         const productId = blip.productId.toString();
-        
+
         if (productTracker.has(productId)) {
           index++;
           continue;
         }
-        
+
         const lastPosition = sellerTracker.get(sellerId) || -minSellerDistance;
         if (rearrangedBlips.length - lastPosition >= minSellerDistance) {
           rearrangedBlips.push(blip);
@@ -1028,9 +1028,9 @@ exports.getSuggestedBlips = async (req, res) => {
           productTracker.set(productId, true);
           remaining--;
         }
-        
+
         index++;
-        
+
         if (index >= allRemaining.length && remaining > 0 && allRemaining.length > 0) {
           for (let i = 0; i < allRemaining.length; i++) {
             const blip = allRemaining[i];
@@ -1044,9 +1044,9 @@ exports.getSuggestedBlips = async (req, res) => {
         }
       }
     }
-    
+
     console.log(`Found ${rearrangedBlips.length} suggested blips with distribution algorithm`);
-    
+
     res.json({
       blips: rearrangedBlips,
       isPersonalized: buyerCategories.length > 0,
@@ -1056,10 +1056,10 @@ exports.getSuggestedBlips = async (req, res) => {
     });
   } catch (error) {
     console.error('Detailed error in getSuggestedBlips:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       status: false,
-      message: 'Failed to retrieve suggested blips', 
-      error: error.message 
+      message: 'Failed to retrieve suggested blips',
+      error: error.message
     });
   }
 };
@@ -1287,6 +1287,12 @@ exports.getBlipComments = async (req, res) => {
   try {
     console.log('Fetching blip comments for product:', req.params.id, 'blip:', req.params.blipId);
     const { id: productId, blipId } = req.params;
+
+    // Validate IDs
+    if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(blipId)) {
+      return res.status(400).json({ message: 'Invalid product or blip ID format' });
+    }
+
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
@@ -1350,13 +1356,13 @@ exports.getBlipComments = async (req, res) => {
       comments.map(async (comment) => {
         console.log('Processing comment ID:', comment._id);
         let populatedComment = comment.toObject();
-        
+
         // Ensure repliesCount is included
         populatedComment.repliesCount = comment.replies ? comment.replies.length : 0;
 
         console.log(`DEBUG: Raw comment structure for ${comment._id}:`, JSON.stringify(comment));
         console.log(`DEBUG: Comment replies count for ${comment._id}:`, populatedComment.repliesCount);
-        
+
         // Add isLiked field for authenticated users
         if (userId && userType) {
           // Debug the likes structure in detail
@@ -1366,15 +1372,15 @@ exports.getBlipComments = async (req, res) => {
             userType: userType,
             likesCount: comment.likes ? comment.likes.length : 0,
           });
-          
+
           // Extra log for detailed view of comment likes
           console.log(`DEBUG: All comment likes for ${comment._id}:`, JSON.stringify(comment.likes));
-          
+
           // Inspect each like object's structure
           if (comment.likes && comment.likes.length > 0) {
             comment.likes.forEach((like, idx) => {
               const likeUserId = like.user ? like.user.toString() : (like._id ? like._id.toString() : 'none');
-              
+
               console.log(`DEBUG: Like #${idx} exact structure:`, JSON.stringify(like));
               console.log(`DEBUG: Like #${idx} comparison:`, {
                 likeUserId,
@@ -1386,16 +1392,16 @@ exports.getBlipComments = async (req, res) => {
               });
             });
           }
-          
+
           // Check all possible like formats in a much more detailed way
           let isLiked = false;
           let matchReason = 'none';
-          
+
           // Loop through each like to find a match with detailed logging
           if (comment.likes && comment.likes.length > 0) {
             for (const like of comment.likes) {
               if (!like) continue;
-              
+
               // Check user/userType format
               if (like.user && like.user.toString && like.userType) {
                 const userMatches = like.user.toString() === userId.toString();
@@ -1406,16 +1412,16 @@ exports.getBlipComments = async (req, res) => {
                   break;
                 }
               }
-              
+
               // Check _id format
               if (like._id && like._id.toString) {
                 if (like._id.toString() === userId.toString()) {
-                  isLiked = true; 
+                  isLiked = true;
                   matchReason = '_id match';
                   break;
                 }
               }
-              
+
               // Check string format
               if (typeof like === 'string') {
                 if (like === userId.toString()) {
@@ -1424,7 +1430,7 @@ exports.getBlipComments = async (req, res) => {
                   break;
                 }
               }
-              
+
               // Check toString format
               if (like.toString && typeof like.toString === 'function') {
                 if (like.toString() === userId.toString()) {
@@ -1435,9 +1441,9 @@ exports.getBlipComments = async (req, res) => {
               }
             }
           }
-          
+
           populatedComment.isLiked = isLiked;
-          
+
           // Detailed debug for isLiked final result
           console.log(`DEBUG: Final isLiked determination for comment ${comment._id}:`, {
             userId: userId.toString(),
@@ -1446,18 +1452,18 @@ exports.getBlipComments = async (req, res) => {
             matchReason: matchReason,
             commentsLikesCount: comment.likes ? comment.likes.length : 0
           });
-          
+
         } else {
           populatedComment.isLiked = false;
         }
-        
+
         // Populate comment author
         if (comment.buyer) {
           console.log('Fetching buyer info for comment:', comment._id);
           try {
             const buyer = await mongoose.model('Buyer').findById(comment.buyer)
               .select('firstName lastName profileImage');
-            
+
             if (buyer) {
               console.log('Found buyer for comment:', buyer.firstName, buyer.lastName);
               populatedComment.buyer = buyer;
@@ -1470,16 +1476,16 @@ exports.getBlipComments = async (req, res) => {
         } else {
           console.log('No buyer ID for comment:', comment._id);
         }
-        
+
         // Populate reply authors
         if (comment.replies && comment.replies.length > 0) {
           console.log('Processing', comment.replies.length, 'replies for comment:', comment._id);
-          
+
           populatedComment.replies = await Promise.all(
             comment.replies.map(async (reply) => {
               console.log('Processing reply ID:', reply._id);
-              let populatedReply = reply.toObject ? reply.toObject() : {...reply};
-              
+              let populatedReply = reply.toObject ? reply.toObject() : { ...reply };
+
               // Add isLiked field for replies for authenticated users
               if (userId && userType) {
                 // Debug the likes structure in detail
@@ -1489,7 +1495,7 @@ exports.getBlipComments = async (req, res) => {
                   userType: userType,
                   likesCount: reply.likes ? reply.likes.length : 0,
                 });
-                
+
                 // Inspect each like object's structure
                 if (reply.likes && reply.likes.length > 0) {
                   reply.likes.forEach((like, idx) => {
@@ -1504,51 +1510,51 @@ exports.getBlipComments = async (req, res) => {
                     });
                   });
                 }
-                
+
                 // Check both formats: new format with user/userType and old format with just _id
                 populatedReply.isLiked = reply.likes && reply.likes.some(like => {
                   // Handle both formats: new structured likes and old format with just _id
                   if (like.user && like.user.toString && like.userType) {
                     const matches = like.user.toString() === userId.toString() && like.userType === userType;
-                    console.log(`DEBUG: Checking reply like with user/userType:`, { 
-                      likeUserId: like.user.toString(), 
-                      userId: userId.toString(), 
+                    console.log(`DEBUG: Checking reply like with user/userType:`, {
+                      likeUserId: like.user.toString(),
+                      userId: userId.toString(),
                       usersMatch: like.user.toString() === userId.toString(),
                       likeUserType: like.userType,
                       userType: userType,
-                      typesMatch: like.userType === userType, 
-                      matches 
+                      typesMatch: like.userType === userType,
+                      matches
                     });
                     return matches;
                   } else if (like._id && like._id.toString) {
                     // Check if buyer is stored directly in the _id field (legacy format)
                     const matches = like._id.toString() === userId.toString();
-                    console.log(`DEBUG: Checking reply like with _id:`, { 
-                      likeId: like._id.toString(), 
-                      userId: userId.toString(), 
-                      matches 
+                    console.log(`DEBUG: Checking reply like with _id:`, {
+                      likeId: like._id.toString(),
+                      userId: userId.toString(),
+                      matches
                     });
                     return matches;
                   } else if (typeof like === 'string') {
                     const matches = like === userId.toString();
-                    console.log(`DEBUG: Checking reply like as string:`, { 
-                      likeString: like, 
-                      userId: userId.toString(), 
-                      matches 
+                    console.log(`DEBUG: Checking reply like as string:`, {
+                      likeString: like,
+                      userId: userId.toString(),
+                      matches
                     });
                     return matches;
                   } else if (like.toString && typeof like.toString === 'function') {
                     const matches = like.toString() === userId.toString();
-                    console.log(`DEBUG: Checking reply like with toString():`, { 
-                      likeString: like.toString(), 
-                      userId: userId.toString(), 
-                      matches 
+                    console.log(`DEBUG: Checking reply like with toString():`, {
+                      likeString: like.toString(),
+                      userId: userId.toString(),
+                      matches
                     });
                     return matches;
                   }
                   return false;
                 });
-                
+
                 // Debug the like checking result
                 console.log(`DEBUG: Reply ${reply._id} isLiked result:`, {
                   userId: userId,
@@ -1557,18 +1563,18 @@ exports.getBlipComments = async (req, res) => {
               } else {
                 populatedReply.isLiked = false;
               }
-              
+
               // Handle both new structure (with user field) and old structure
               const replyUserId = reply.user || reply.buyer; // Try both fields
               const replyUserType = reply.userType || 'Buyer'; // Default to Buyer for old data
-              
+
               if (replyUserId) {
                 console.log('Fetching user info for reply:', reply._id, 'user type:', replyUserType);
                 try {
                   const UserModel = mongoose.model(replyUserType);
                   const user = await UserModel.findById(replyUserId)
                     .select('firstName lastName profileImage storeName');
-                  
+
                   if (user) {
                     console.log('Found user for reply:', user.firstName, user.lastName);
                     populatedReply.user = {
@@ -1577,7 +1583,7 @@ exports.getBlipComments = async (req, res) => {
                       lastName: user.lastName,
                       profileImage: user.profileImage
                     };
-                    
+
                     if (replyUserType === 'Seller' && user.storeName) {
                       populatedReply.user.storeName = user.storeName;
                     }
@@ -1589,7 +1595,7 @@ exports.getBlipComments = async (req, res) => {
                 }
               } else {
                 console.log('No user ID for reply:', reply._id);
-                
+
                 // For existing data without user info, try to add a placeholder
                 populatedReply.user = {
                   _id: null,
@@ -1597,20 +1603,20 @@ exports.getBlipComments = async (req, res) => {
                   lastName: "User"
                 };
               }
-              
+
               return populatedReply;
             })
           );
         } else {
           console.log('No replies for comment:', comment._id);
         }
-        
+
         return populatedComment;
       })
     );
 
     console.log('Successfully processed all comments and replies');
-    
+
     return res.status(200).json({
       productId,
       blipId,
@@ -1688,19 +1694,19 @@ exports.addReplyToBlipComment = async (req, res) => {
     console.log('Adding reply to blip comment, params:', req.params);
     const { productId, blipId, commentId } = req.params;
     const { comment } = req.body;
-    
+
     // Check if user is authenticated
     if (!req.user) {
       console.log('User not authenticated');
       return res.status(401).json({ message: 'Authentication required' });
     }
-    
+
     // Extract user information from the request
     const userId = req.user._id || req.user.id;
-    
+
     // Get user type from role field
     const userType = req.user.role === 'Seller' ? 'Seller' : 'Buyer';
-    
+
     console.log('User info:', { userId, userType, role: req.user.role });
 
     if (!userId) {
@@ -1761,18 +1767,18 @@ exports.addReplyToBlipComment = async (req, res) => {
       likes: [],
       likesCount: 0
     };
-    
+
     blipComment.replies.push(newReply);
-    
+
     // Update replies count immediately
     blipComment.repliesCount = blipComment.replies.length;
-    
+
     // Update total comments count (comments + all replies) for the blip
     const totalReplies = blip.comments.reduce((total, comment) => {
       return total + (comment.replies ? comment.replies.length : 0);
     }, 0);
     blip.commentsCount = blip.comments.length + totalReplies;
-    
+
     console.log('Added new reply:', newReply);
     console.log('Updated replies count to:', blipComment.repliesCount);
     console.log('Updated total comments count to:', blip.commentsCount);
@@ -1796,12 +1802,12 @@ exports.addReplyToBlipComment = async (req, res) => {
       if (blipComment.buyer.toString() !== userId.toString()) {
         const notificationController = require('./notificationController');
         const notificationType = userType === 'Seller' ? 'seller_reply_to_comment' : 'buyer_reply_to_comment';
-        
+
         // Get replier name
-        const replierName = userType === 'Seller' 
-          ? userDetails.storeName 
+        const replierName = userType === 'Seller'
+          ? userDetails.storeName
           : `${userDetails.firstName} ${userDetails.lastName}`;
-        
+
         // Create notification for comment owner
         await notificationController.createNotification(
           blipComment.buyer,
@@ -1816,7 +1822,7 @@ exports.addReplyToBlipComment = async (req, res) => {
             reply: comment.length > 50 ? `${comment.substring(0, 47)}...` : comment
           }
         );
-        
+
         console.log('Comment owner notification created for reply');
       }
     } catch (notificationError) {
@@ -1842,13 +1848,13 @@ exports.addReplyToBlipComment = async (req, res) => {
 exports.likeBlipComment = async (req, res) => {
   try {
     const { productId, blipId, commentId } = req.params;
-    
+
     // Extract user ID from the JWT token - should always use req.user.id set by verifyToken
     const userId = req.user?.id;
-    
+
     // Get userType from role field in the JWT token
     let userType = req.user?.role;
-    
+
     // Print all user token data for debugging
     console.log('DEBUG: User token data in likeBlipComment:', {
       user: req.user,
@@ -1902,19 +1908,19 @@ exports.likeBlipComment = async (req, res) => {
 
     // Check if user already liked the comment by inspecting all the possible formats
     let existingLikeIndex = -1;
-    
+
     // Check both old and new formats
     for (let i = 0; i < comment.likes.length; i++) {
       const like = comment.likes[i];
-      
+
       if (!like) {
         console.log(`DEBUG: Found null or undefined like at index ${i}`);
         continue;
       }
-      
+
       // Debug each like's format
       console.log(`DEBUG: Checking existing like at index ${i}:`, like);
-      
+
       if (like.user && like.user.toString && like.user.toString() === userId.toString() && like.userType === userType) {
         existingLikeIndex = i;
         console.log('DEBUG: Found matching like in user/userType format at index', i);
@@ -1941,12 +1947,12 @@ exports.likeBlipComment = async (req, res) => {
       comment.likes.splice(existingLikeIndex, 1);
       comment.likesCount = comment.likes.length;
       await product.save();
-      
+
       console.log('DEBUG: Like removed, new likes count:', comment.likesCount);
-      return res.json({ 
-        message: 'Comment unliked successfully', 
-        liked: false, 
-        likesCount: comment.likesCount 
+      return res.json({
+        message: 'Comment unliked successfully',
+        liked: false,
+        likesCount: comment.likesCount
       });
     } else {
       // Add like with complete information
@@ -1955,21 +1961,21 @@ exports.likeBlipComment = async (req, res) => {
         userType: userType,
         createdAt: new Date()
       };
-      
+
       console.log('DEBUG: Adding new like:', newLike);
       comment.likes.push(newLike);
       comment.likesCount = comment.likes.length;
-      
+
       // Debug the updated likes array
       console.log('DEBUG: Updated likes array after adding:', JSON.stringify(comment.likes));
-      
+
       await product.save();
-      
+
       console.log('DEBUG: Like added, new likes count:', comment.likesCount);
-      return res.json({ 
-        message: 'Comment liked successfully', 
-        liked: true, 
-        likesCount: comment.likesCount 
+      return res.json({
+        message: 'Comment liked successfully',
+        liked: true,
+        likesCount: comment.likesCount
       });
     }
   } catch (error) {
@@ -1982,13 +1988,13 @@ exports.likeBlipComment = async (req, res) => {
 exports.likeBlipCommentReply = async (req, res) => {
   try {
     const { productId, blipId, commentId, replyId } = req.params;
-    
+
     // Extract user ID from the JWT token - should always use req.user.id set by verifyToken
     const userId = req.user?.id;
-    
+
     // Get userType from role field in the JWT token
     let userType = req.user?.role;
-    
+
     // Print all user token data for debugging
     console.log('DEBUG: User token data in likeBlipCommentReply:', {
       user: req.user,
@@ -2048,19 +2054,19 @@ exports.likeBlipCommentReply = async (req, res) => {
 
     // Check if user already liked the reply with detailed logging
     let existingLikeIndex = -1;
-    
+
     // Check both old and new formats with detailed logging
     for (let i = 0; i < reply.likes.length; i++) {
       const like = reply.likes[i];
-      
+
       if (!like) {
         console.log(`DEBUG: Found null or undefined like at index ${i}`);
         continue;
       }
-      
+
       // Debug each like's format
       console.log(`DEBUG: Checking existing reply like at index ${i}:`, like);
-      
+
       if (like.user && like.user.toString && like.user.toString() === userId.toString() && like.userType === userType) {
         existingLikeIndex = i;
         console.log('DEBUG: Found matching reply like in user/userType format at index', i);
@@ -2087,12 +2093,12 @@ exports.likeBlipCommentReply = async (req, res) => {
       reply.likes.splice(existingLikeIndex, 1);
       reply.likesCount = reply.likes.length;
       await product.save();
-      
+
       console.log('DEBUG: Reply like removed, new likes count:', reply.likesCount);
-      return res.json({ 
-        message: 'Reply unliked successfully', 
-        liked: false, 
-        likesCount: reply.likesCount 
+      return res.json({
+        message: 'Reply unliked successfully',
+        liked: false,
+        likesCount: reply.likesCount
       });
     } else {
       // Add like with complete information
@@ -2101,21 +2107,21 @@ exports.likeBlipCommentReply = async (req, res) => {
         userType: userType,
         createdAt: new Date()
       };
-      
+
       console.log('DEBUG: Adding new reply like:', newLike);
       reply.likes.push(newLike);
       reply.likesCount = reply.likes.length;
-      
+
       // Debug the updated likes array
       console.log('DEBUG: Updated reply likes array after adding:', JSON.stringify(reply.likes));
-      
+
       await product.save();
-      
+
       console.log('DEBUG: Reply like added, new likes count:', reply.likesCount);
-      return res.json({ 
-        message: 'Reply liked successfully', 
-        liked: true, 
-        likesCount: reply.likesCount 
+      return res.json({
+        message: 'Reply liked successfully',
+        liked: true,
+        likesCount: reply.likesCount
       });
     }
   } catch (error) {
@@ -2177,7 +2183,7 @@ exports.getBlipCommentReplies = async (req, res) => {
     if (!comment) {
       return res.status(404).json({ message: 'Comment not found' });
     }
-    
+
     // Initialize replies array if it doesn't exist
     if (!comment.replies) {
       comment.replies = [];
@@ -2214,12 +2220,12 @@ exports.getBlipCommentReplies = async (req, res) => {
     const populatedReplies = await Promise.all(
       replies.map(async (reply) => {
         console.log('DEBUG: Processing reply ID:', reply._id);
-        
+
         // Add isLiked field for authenticated users
         let isLiked = false;
-        
+
         console.log(`DEBUG: Raw reply structure for ${reply._id}:`, JSON.stringify(reply));
-        
+
         if (userId && userType) {
           // Debug the likes structure in detail
           console.log(`DEBUG: Reply ${reply._id} Likes Structure:`, {
@@ -2228,15 +2234,15 @@ exports.getBlipCommentReplies = async (req, res) => {
             userType: userType,
             likesCount: reply.likes ? reply.likes.length : 0
           });
-          
+
           // Extra log for detailed view of reply likes
           console.log(`DEBUG: All reply likes for ${reply._id}:`, JSON.stringify(reply.likes));
-          
+
           // Inspect each like object's structure
           if (reply.likes && reply.likes.length > 0) {
             reply.likes.forEach((like, idx) => {
               const likeUserId = like.user ? like.user.toString() : (like._id ? like._id.toString() : 'none');
-              
+
               console.log(`DEBUG: Reply like #${idx} exact structure:`, JSON.stringify(like));
               console.log(`DEBUG: Reply like #${idx} comparison:`, {
                 likeUserId,
@@ -2248,15 +2254,15 @@ exports.getBlipCommentReplies = async (req, res) => {
               });
             });
           }
-          
+
           // Check all possible like formats in a much more detailed way
           let matchReason = 'none';
-          
+
           // Loop through each like to find a match with detailed logging
           if (reply.likes && reply.likes.length > 0) {
             for (const like of reply.likes) {
               if (!like) continue;
-              
+
               // Check user/userType format
               if (like.user && like.user.toString && like.userType) {
                 const userMatches = like.user.toString() === userId.toString();
@@ -2267,16 +2273,16 @@ exports.getBlipCommentReplies = async (req, res) => {
                   break;
                 }
               }
-              
+
               // Check _id format
               if (like._id && like._id.toString) {
                 if (like._id.toString() === userId.toString()) {
-                  isLiked = true; 
+                  isLiked = true;
                   matchReason = '_id match';
                   break;
                 }
               }
-              
+
               // Check string format
               if (typeof like === 'string') {
                 if (like === userId.toString()) {
@@ -2285,7 +2291,7 @@ exports.getBlipCommentReplies = async (req, res) => {
                   break;
                 }
               }
-              
+
               // Check toString format
               if (like.toString && typeof like.toString === 'function') {
                 if (like.toString() === userId.toString()) {
@@ -2296,7 +2302,7 @@ exports.getBlipCommentReplies = async (req, res) => {
               }
             }
           }
-          
+
           // Detailed debug for isLiked final result
           console.log(`DEBUG: Final isLiked determination for reply ${reply._id}:`, {
             userId: userId.toString(),
@@ -2306,9 +2312,9 @@ exports.getBlipCommentReplies = async (req, res) => {
             replyLikesCount: reply.likes ? reply.likes.length : 0
           });
         }
-        
+
         let userInfo;
-        
+
         // Determine which model to use for populating user info
         if (reply.userType === 'Buyer') {
           try {
@@ -2369,11 +2375,11 @@ exports.getBlipCommentReplies = async (req, res) => {
             console.error(`DEBUG: Error fetching seller for reply:`, err);
             return {
               _id: reply._id,
-                              user: { 
-                  _id: null, 
-                  name: 'Unknown Store',
-                  avatar: null
-                },
+              user: {
+                _id: null,
+                name: 'Unknown Store',
+                avatar: null
+              },
               userType: reply.userType,
               comment: reply.comment,
               createdAt: reply.createdAt,
@@ -2407,7 +2413,7 @@ exports.getBlipCommentReplies = async (req, res) => {
 exports.getBlipDetails = async (req, res) => {
   try {
     const { id, blipId } = req.params;
-    
+
     // Check if user is authenticated
     const buyerId = req.user?.id;
     const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
@@ -2426,8 +2432,8 @@ exports.getBlipDetails = async (req, res) => {
     // Get the specific blip with aggregation to match getAllBlips structure
     const blips = await Product.aggregate([
       // Match the specific product and blip
-      { 
-        $match: { 
+      {
+        $match: {
           _id: new mongoose.Types.ObjectId(id),
           "blips._id": new mongoose.Types.ObjectId(blipId)
         }
@@ -2435,8 +2441,8 @@ exports.getBlipDetails = async (req, res) => {
       // Unwind the blips array
       { $unwind: '$blips' },
       // Match the specific blip
-      { 
-        $match: { 
+      {
+        $match: {
           "blips._id": new mongoose.Types.ObjectId(blipId)
         }
       },
@@ -2466,11 +2472,11 @@ exports.getBlipDetails = async (req, res) => {
           blipId: '$blips._id', // Add this line to include the blip ID
           blipUrl: '$blips.url',
           processed: '$blips.processed',
-          thumbnail: { 
+          thumbnail: {
             $ifNull: [
-              '$blips.thumbnail', 
+              '$blips.thumbnail',
               'https://res.cloudinary.com/dljgzevaj/image/upload/v1742758888/sans-affiche_zu6wj4.png'
-            ] 
+            ]
           },
           productId: '$_id',
           productName: '$name',
@@ -2670,8 +2676,8 @@ exports.getPersonalizedBlips = async (req, res) => {
 
     // Generate or get session ID (use existing session or create new one)
     // For authenticated users, use a more stable session ID
-    const sessionId = req.query.sessionId || 
-                     (req.user?.id ? `user_${req.user.id}_blips` : `anon_${Math.random().toString(36).substr(2, 9)}`);
+    const sessionId = req.query.sessionId ||
+      (req.user?.id ? `user_${req.user.id}_blips` : `anon_${Math.random().toString(36).substr(2, 9)}`);
 
     console.log(`🔍 [BLIPS DEBUG] Session ID: ${sessionId}, Page: ${page}, Limit: ${limit}`);
 
@@ -2689,21 +2695,21 @@ exports.getPersonalizedBlips = async (req, res) => {
         // Remove oldest sessions
         const sortedSessions = Array.from(sessionBlipStore.entries())
           .sort((a, b) => a[1].lastAccess - b[1].lastAccess);
-        
+
         const sessionsToRemove = sortedSessions.slice(0, Math.floor(MAX_SESSIONS * 0.2));
         sessionsToRemove.forEach(([id]) => sessionBlipStore.delete(id));
         console.log(`🧹 [BLIPS DEBUG] Removed ${sessionsToRemove.length} oldest sessions`);
       }
-      
+
       sessionBlipStore.set(sessionId, { seenBlipIds: [], lastAccess: Date.now(), lastPage: 0 });
       console.log(`🆕 [BLIPS DEBUG] Created new session for: ${sessionId}`);
     } else {
       console.log(`♻️ [BLIPS DEBUG] Using existing session: ${sessionId}`);
     }
-    
+
     const sessionData = sessionBlipStore.get(sessionId);
     sessionData.lastAccess = Date.now();
-    
+
     // Check if user is going backwards (lower page than before) - reset session for better UX
     if (sessionData.lastPage && page < sessionData.lastPage) {
       console.log(`⬅️ [BLIPS DEBUG] Backward navigation detected: Page ${sessionData.lastPage} → Page ${page}. Resetting session.`);
@@ -2714,14 +2720,14 @@ exports.getPersonalizedBlips = async (req, res) => {
       sessionData.lastPage = Math.max(sessionData.lastPage || 0, page);
     }
     let seenBlipIds = sessionData.seenBlipIds;
-    
+
     // Limit seen blips per session to prevent performance issues
     if (seenBlipIds.length > MAX_SEEN_BLIPS_PER_SESSION) {
       seenBlipIds = seenBlipIds.slice(-MAX_SEEN_BLIPS_PER_SESSION);
       sessionData.seenBlipIds = seenBlipIds;
       console.log(`✂️ [BLIPS DEBUG] Trimmed session to last ${MAX_SEEN_BLIPS_PER_SESSION} seen blips`);
     }
-    
+
     console.log(`📝 [BLIPS DEBUG] Current seen blips count: ${seenBlipIds.length}`);
     console.log(`📄 [BLIPS DEBUG] Last page visited: ${sessionData.lastPage}, Current page: ${page}`);
     if (seenBlipIds.length > 0) {
@@ -2747,7 +2753,7 @@ exports.getPersonalizedBlips = async (req, res) => {
         }
       ]
     };
-    
+
 
     const fallbackMatchStage = {
       'blips.0': { $exists: true },
@@ -2769,7 +2775,7 @@ exports.getPersonalizedBlips = async (req, res) => {
 
     // Count all products that have at least one blip and are not draft
     let total = await Product.countDocuments({ 'blips.0': { $exists: true }, status: { $ne: 'draft' } });
-    
+
     const poolSize = Math.max(10, Math.min(total, limit * 3));
     const now = new Date();
 
@@ -2866,12 +2872,12 @@ exports.getPersonalizedBlips = async (req, res) => {
       products = await Product.aggregate(simplePipeline).exec();
       console.log(`🔄 [BLIPS DEBUG] Used fallback pipeline without exclusions due to DB error`);
     }
-    
+
     console.log(`📊 [BLIPS DEBUG] Primary pipeline returned: ${products.length} products`);
     if (products.length > 0) {
       const blipIds = products.slice(0, 3).map(p => p.blip._id.toString());
       console.log(`📊 [BLIPS DEBUG] First 3 blip IDs from primary: ${blipIds.join(', ')}`);
-      
+
       // Check if any returned blips were in the exclusion list (this shouldn't happen)
       const duplicates = blipIds.filter(id => seenBlipIds.includes(id));
       if (duplicates.length > 0) {
@@ -2904,11 +2910,11 @@ exports.getPersonalizedBlips = async (req, res) => {
         console.log(`🔄 [BLIPS DEBUG] Used simple fallback without exclusions due to DB error`);
       }
       console.log(`📊 [BLIPS DEBUG] Fallback pipeline returned: ${products.length} products`);
-      
+
       if (products.length > 0) {
         const blipIds = products.slice(0, 3).map(p => p.blip._id.toString());
         console.log(`📊 [BLIPS DEBUG] First 3 blip IDs from fallback: ${blipIds.join(', ')}`);
-        
+
         // Check if any returned blips were in the exclusion list (this shouldn't happen)
         const duplicates = blipIds.filter(id => seenBlipIds.includes(id));
         if (duplicates.length > 0) {
@@ -2934,7 +2940,7 @@ exports.getPersonalizedBlips = async (req, res) => {
     const transformedBlips = products.map(product => {
       const isFollowing = product.seller.followers && buyerId
         ? product.seller.followers.some(follower =>
-            follower.buyerId?.toString() === buyerId.toString())
+          follower.buyerId?.toString() === buyerId.toString())
         : false;
 
       const isLiked = isAuthenticated && product.blip.likes
@@ -3061,12 +3067,12 @@ exports.getPersonalizedBlips = async (req, res) => {
       const seenProducts = new Set();
       let lastUsedSellers = [];
       const maxConsecutiveFromSameSeller = 1;
-      
+
       // Algorithm: Round-robin through sellers to avoid clustering
       while (result.length < totalNeeded && sellerIds.length > 0) {
         // Find sellers that haven't been used recently and still have blips
-        let availableSellers = sellerIds.filter(sellerId => 
-          !lastUsedSellers.includes(sellerId) && 
+        let availableSellers = sellerIds.filter(sellerId =>
+          !lastUsedSellers.includes(sellerId) &&
           blipsBySeller[sellerId].length > 0
         );
 
@@ -3082,10 +3088,10 @@ exports.getPersonalizedBlips = async (req, res) => {
         // Pick a random seller from available ones
         const randomIndex = Math.floor(Math.random() * availableSellers.length);
         const selectedSellerId = availableSellers[randomIndex];
-        
+
         // Get the next blip from this seller
         const blip = blipsBySeller[selectedSellerId].shift();
-        
+
         // Only add if we haven't seen this product before
         if (!seenProducts.has(blip.productId.toString())) {
           result.push(blip);
@@ -3186,23 +3192,23 @@ exports.addBlipToProduct = async (req, res) => {
     // Check if adding these blips would exceed the limit (max 5 total)
     const currentBlipsCount = product.blips ? product.blips.length : 0;
     const newBlipsCount = req.files.length;
-    
+
     if (currentBlipsCount + newBlipsCount > 5) {
-      return res.status(400).json({ 
-        message: `Cannot add ${newBlipsCount} blips. Maximum allowed is 5 and product already has ${currentBlipsCount} blips.` 
+      return res.status(400).json({
+        message: `Cannot add ${newBlipsCount} blips. Maximum allowed is 5 and product already has ${currentBlipsCount} blips.`
       });
     }
 
     // Process each uploaded blip
     const newBlips = []
-    
+
     for (const file of req.files) {
       // Generate unique file names
       const videoKey = productBlips.GenerateUniqueFileName(sellerId, product._id)
-      
+
       // Extract fileName from filename without extension
       const fileName = productBlips.ExtractFilenameFromS3Path(videoKey);
-      
+
       // Upload the video to S3
       const uploadParameters = {
         Bucket: process.env.RAW_BLIPS_S3_BUCKET,
@@ -3211,7 +3217,7 @@ exports.addBlipToProduct = async (req, res) => {
         ContentType: file.mimetype,
       };
       await s3.upload(uploadParameters).promise();
-      
+
       try {
         // Create the new blip object
         const newBlip = {
@@ -3222,32 +3228,32 @@ exports.addBlipToProduct = async (req, res) => {
           processed: false, // initially set to false beecause processing will be done later by Lambda and Amazon MediaConvert
           createdAt: new Date()
         };
-        
+
         // Add the new blip to the product's blips array and our response array
         product.blips.push(newBlip);
         newBlips.push(newBlip);
-        
+
       } catch (err) {
         console.error('Error creating new blip object:', err);
       }
     }
-    
+
     // Save the product with all new blips
     await product.save();
-    
+
     // Return the updated product with the new blips
     return res.status(201).json({
       success: true,
       message: `${newBlips.length} blip videos added successfully`,
       blips: newBlips
     });
-    
+
   } catch (error) {
     console.error('Error adding blips to product:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       success: false,
-      message: 'Failed to add blips to product', 
-      error: error.message 
+      message: 'Failed to add blips to product',
+      error: error.message
     });
   }
 };
@@ -3264,65 +3270,65 @@ exports.getRelatedBlips = async (req, res) => {
   try {
     const { blipId } = req.params;
     const { limit = 10, page = 1 } = req.query;
-    
+
     // Get buyerId and check authentication status
     const buyerId = req.user?.id;
     const isAuthenticated = !!buyerId && req.user?.role === 'Buyer';
 
     // Find the product that contains the reference blip
-    const product = await Product.findOne({ 
+    const product = await Product.findOne({
       'blips._id': blipId,
       blips: { $elemMatch: { _id: blipId, processed: true } },
       status: 'active'
     })
-    .populate({
-      path: 'seller',
-      select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions followers'
-    });
-    
+      .populate({
+        path: 'seller',
+        select: '_id firstName lastName businessName email phoneNumber storeName storeAvatar storeBanner aboutStore stats isVerified createdAt warehouseDetails shippingOptions followers'
+      });
+
     if (!product) {
       return res.status(404).json({ success: false, message: 'Blip not found' });
     }
-    
+
     // Get the source blip
     const sourceBlip = product.blips.id(blipId);
-    
+
     if (!sourceBlip) {
       return res.status(404).json({ success: false, message: 'Blip not found' });
     }
-    
+
     // Find products with blips in the same category
     // Excluding the current product to ensure we don't get the same blips
     const relatedProducts = await Product.find({
       _id: { $ne: product._id },
       category: product.category,
       status: 'active',
-      'blips.processed': true 
+      'blips.processed': true
     })
-    .populate({
-      path: 'seller',
-      select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified followers'
-    })
-    .select('_id name blips category subCategory seo.slug price discount stats images variants stock status');
-    
+      .populate({
+        path: 'seller',
+        select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified followers'
+      })
+      .select('_id name blips category subCategory seo.slug price discount stats images variants stock status');
+
     // Extract all blips from related products
     let relatedBlips = [];
-    
+
     relatedProducts.forEach(prod => {
       if (prod.blips && prod.blips.length > 0) {
         prod.blips.forEach(blip => {
           // Check if the current user has liked this blip
           const isLiked = buyerId && blip.likes ? blip.likes.includes(buyerId) : false;
-          
+
           // Check if the buyer is following the seller
-          const isFollowing = isAuthenticated && prod.seller.followers ? 
-            prod.seller.followers.some(follower => 
+          const isFollowing = isAuthenticated && prod.seller.followers ?
+            prod.seller.followers.some(follower =>
               follower.buyerId && follower.buyerId.toString() === buyerId
             ) : false;
-          
+
           // Get product image URL
           const productImage = prod.images && prod.images.length > 0 ? prod.images[0].url : '';
-          
+
           // Calculate discounted price
           let discountedPrice = prod.price;
           if (prod.discount && prod.discount.isActive) {
@@ -3332,7 +3338,7 @@ exports.getRelatedBlips = async (req, res) => {
               discountedPrice = Math.max(0, prod.price - prod.discount.value);
             }
           }
-          
+
           relatedBlips.push({
             discount: {
               isActive: prod.discount ? prod.discount.isActive : false,
@@ -3354,8 +3360,8 @@ exports.getRelatedBlips = async (req, res) => {
             images: productImage,
             blipEngagement: {
               likesCount: blip.likesCount || blip.likes.length || 0,
-              commentsCount: blip.commentsCount || (blip.comments ? 
-                blip.comments.length + blip.comments.reduce((total, comment) => total + (comment.replies ? comment.replies.length : 0), 0) 
+              commentsCount: blip.commentsCount || (blip.comments ?
+                blip.comments.length + blip.comments.reduce((total, comment) => total + (comment.replies ? comment.replies.length : 0), 0)
                 : 0),
               viewCount: blip.viewCount || 0,
               isLiked: isLiked
@@ -3379,7 +3385,7 @@ exports.getRelatedBlips = async (req, res) => {
         });
       }
     });
-    
+
     // If we don't have enough related blips, fetch random blips
     if (relatedBlips.length < parseInt(limit)) {
       const randomProducts = await Product.find({
@@ -3388,12 +3394,12 @@ exports.getRelatedBlips = async (req, res) => {
         'blips.processed': true, // ensure blips are processed
         status: 'active'
       })
-      .populate({
-        path: 'seller',
-        select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified followers'
-      })
-      .select('_id name blips category subCategory seo.slug price discount stats images variants stock status');
-      
+        .populate({
+          path: 'seller',
+          select: '_id firstName lastName businessName storeName storeAvatar aboutStore stats isVerified followers'
+        })
+        .select('_id name blips category subCategory seo.slug price discount stats images variants stock status');
+
       randomProducts.forEach(prod => {
         if (prod.blips && prod.blips.length > 0) {
           prod.blips.forEach(blip => {
@@ -3401,19 +3407,19 @@ exports.getRelatedBlips = async (req, res) => {
             const exists = relatedBlips.some(
               item => item.blipId.toString() === blip._id.toString()
             );
-            
+
             if (!exists) {
               const isLiked = buyerId && blip.likes ? blip.likes.includes(buyerId) : false;
-              
+
               // Check if the buyer is following the seller
-              const isFollowing = isAuthenticated && prod.seller.followers ? 
-                prod.seller.followers.some(follower => 
+              const isFollowing = isAuthenticated && prod.seller.followers ?
+                prod.seller.followers.some(follower =>
                   follower.buyerId && follower.buyerId.toString() === buyerId
                 ) : false;
-              
+
               // Get product image URL
               const productImage = prod.images && prod.images.length > 0 ? prod.images[0].url : '';
-              
+
               // Calculate discounted price
               let discountedPrice = prod.price;
               if (prod.discount && prod.discount.isActive) {
@@ -3423,7 +3429,7 @@ exports.getRelatedBlips = async (req, res) => {
                   discountedPrice = Math.max(0, prod.price - prod.discount.value);
                 }
               }
-              
+
               relatedBlips.push({
                 discount: {
                   isActive: prod.discount ? prod.discount.isActive : false,
@@ -3445,8 +3451,8 @@ exports.getRelatedBlips = async (req, res) => {
                 images: productImage,
                 blipEngagement: {
                   likesCount: blip.likesCount || blip.likes.length || 0,
-                  commentsCount: blip.commentsCount || (blip.comments ? 
-                    blip.comments.length + blip.comments.reduce((total, comment) => total + (comment.replies ? comment.replies.length : 0), 0) 
+                  commentsCount: blip.commentsCount || (blip.comments ?
+                    blip.comments.length + blip.comments.reduce((total, comment) => total + (comment.replies ? comment.replies.length : 0), 0)
                     : 0),
                   viewCount: blip.viewCount || 0,
                   isLiked: isLiked
@@ -3472,20 +3478,20 @@ exports.getRelatedBlips = async (req, res) => {
         }
       });
     }
-    
+
     // Shuffle the array for better variety
     relatedBlips = relatedBlips.sort(() => 0.5 - Math.random());
-    
+
     // Calculate total number of blips
     const total = relatedBlips.length;
-    
+
     // Calculate pagination
     const startIndex = (parseInt(page) - 1) * parseInt(limit);
     const endIndex = startIndex + parseInt(limit);
-    
+
     // Get paginated blips
     const paginatedBlips = relatedBlips.slice(startIndex, endIndex);
-    
+
     return res.status(200).json({
       success: true,
       blips: paginatedBlips,
@@ -3511,9 +3517,9 @@ exports.getOriginalBlipDownloadUrl = async (req, res) => {
 
     // Validate IDs
     if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(blipId)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid product or blip ID format' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid product or blip ID format'
       });
     }
 
@@ -3600,31 +3606,31 @@ exports.deleteBlipFromProduct = async (req, res) => {
 
     // Validate IDs
     if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(blipId)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid product or blip ID format' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid product or blip ID format'
       });
     }
 
     // Find product and verify seller ownership
-    const product = await Product.findOne({ 
-      _id: productId, 
-      seller: sellerId 
+    const product = await Product.findOne({
+      _id: productId,
+      seller: sellerId
     });
 
     if (!product) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Product not found or you do not have permission to modify it' 
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found or you do not have permission to modify it'
       });
     }
 
     // Find the blip in the product
     const blip = product.blips.id(blipId);
     if (!blip) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Blip not found in the product' 
+      return res.status(404).json({
+        success: false,
+        message: 'Blip not found in the product'
       });
     }
 
@@ -3665,7 +3671,7 @@ exports.deleteBlipFromProduct = async (req, res) => {
 
 function reorderToAvoidSellerClusters(products, maxConsecutive = 1) {
   if (!products.length) return [];
-  
+
   // Group products by seller
   const productsBySeller = {};
   products.forEach(product => {
@@ -3675,42 +3681,42 @@ function reorderToAvoidSellerClusters(products, maxConsecutive = 1) {
     }
     productsBySeller[sellerId].push(product);
   });
-  
+
   const sellerIds = Object.keys(productsBySeller);
   if (sellerIds.length <= 1) return products;
-  
+
   const result = [];
   let lastUsedSellerIndices = [];
-  
+
   // Keep selecting products until we've used them all or reached the limit
   while (result.length < products.length && sellerIds.some(id => productsBySeller[id].length > 0)) {
     // Find sellers that still have products and weren't recently used
-    const availableSellers = sellerIds.filter((id, index) => 
+    const availableSellers = sellerIds.filter((id, index) =>
       productsBySeller[id].length > 0 && !lastUsedSellerIndices.includes(index)
     );
-    
+
     // If no available sellers that weren't recently used, reset the tracking
     if (availableSellers.length === 0) {
       lastUsedSellerIndices = [];
       continue;
     }
-    
+
     // Pick a random available seller
     const randomIndex = Math.floor(Math.random() * availableSellers.length);
     const selectedSellerId = availableSellers[randomIndex];
     const sellerIndex = sellerIds.indexOf(selectedSellerId);
-    
+
     // Add the seller to recently used (keep track of last N sellers)
     lastUsedSellerIndices.push(sellerIndex);
     if (lastUsedSellerIndices.length > sellerIds.length / 2) {
       lastUsedSellerIndices.shift();
     }
-    
+
     // Take a product from this seller
     const product = productsBySeller[selectedSellerId].shift();
     result.push(product);
   }
-  
+
   return result;
 }
 
@@ -3718,20 +3724,20 @@ function reorderToAvoidSellerClusters(products, maxConsecutive = 1) {
 // by interspersing them if possible
 function mixPreferredAndGeneral(products) {
   if (products.length <= 1) return products;
-  
+
   const preferred = products.filter(p => p.isPreferred);
   const general = products.filter(p => !p.isPreferred);
-  
+
   // If we don't have both types, just return the original array
   if (preferred.length === 0 || general.length === 0) return products;
-  
+
   const result = [];
   let preferredIndex = 0;
   let generalIndex = 0;
-  
+
   // Start with preferred if available
   let usePreferred = true;
-  
+
   while (preferredIndex < preferred.length || generalIndex < general.length) {
     if (usePreferred && preferredIndex < preferred.length) {
       result.push(preferred[preferredIndex++]);
@@ -3741,7 +3747,7 @@ function mixPreferredAndGeneral(products) {
       // If we've exhausted general products, add remaining preferred
       result.push(preferred[preferredIndex++]);
     }
-    
+
     // Toggle between preferred and general
     usePreferred = !usePreferred;
   }
