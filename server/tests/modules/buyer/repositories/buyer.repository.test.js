@@ -52,16 +52,16 @@ describe('Buyer Repository', () => {
         ...mockBuyerData,
         email: 'jane.doe@example.com',
         username: 'janedoe',
-      phoneNumber: '+2348012345678',
+        phoneNumber: '+2348012345678',
         firstName: 'Jane',
         lastName: 'Doe'
       });
-      
+
       await buyer1.save();
       await buyer2.save();
 
       const result = await buyerRepository.findAll();
-      
+
       expect(result).toHaveLength(2);
       expect(result[0].password).toBeUndefined();
       expect(result[0].__v).toBeUndefined();
@@ -75,16 +75,16 @@ describe('Buyer Repository', () => {
         ...mockBuyerData,
         email: 'jane.doe@example.com',
         username: 'janedoe',
-      phoneNumber: '+2348012345678',
+        phoneNumber: '+2348012345678',
         firstName: 'Jane',
         lastName: 'Doe'
       });
-      
+
       await buyer1.save();
       await buyer2.save();
 
       const result = await buyerRepository.findAll({ firstName: 'John' });
-      
+
       expect(result).toHaveLength(1);
       expect(result[0].firstName).toBe('John');
     });
@@ -94,13 +94,13 @@ describe('Buyer Repository', () => {
       await buyer1.save();
 
       const result = await buyerRepository.findAll({ firstName: 'NonExistent' });
-      
+
       expect(result).toHaveLength(0);
     });
 
     it('should return empty array when no buyers exist', async () => {
       const result = await buyerRepository.findAll();
-      
+
       expect(result).toHaveLength(0);
     });
 
@@ -114,21 +114,21 @@ describe('Buyer Repository', () => {
         ...mockBuyerData,
         email: 'jane.doe@example.com',
         username: 'janedoe',
-      phoneNumber: '+2348012345678',
+        phoneNumber: '+2348012345678',
         firstName: 'Jane',
         lastName: 'Doe',
         isActive: false,
         emailVerified: true
       });
-      
+
       await buyer1.save();
       await buyer2.save();
 
-      const result = await buyerRepository.findAll({ 
-        isActive: true, 
-        emailVerified: true 
+      const result = await buyerRepository.findAll({
+        isActive: true,
+        emailVerified: true
       });
-      
+
       expect(result).toHaveLength(1);
       expect(result[0].firstName).toBe('John');
     });
@@ -137,9 +137,9 @@ describe('Buyer Repository', () => {
   describe('save', () => {
     it('should save a new buyer', async () => {
       const buyer = new Buyer(mockBuyerData);
-      
+
       const result = await buyerRepository.save(buyer);
-      
+
       expect(result).toBeDefined();
       expect(result._id).toBeDefined();
       expect(result.firstName).toBe('John');
@@ -156,9 +156,9 @@ describe('Buyer Repository', () => {
         country: 'NG',
         phoneNumber: '+2348012345678'
       });
-      
+
       const result = await buyerRepository.save(buyer);
-      
+
       expect(result).toBeDefined();
       expect(result._id).toBeDefined();
       expect(result.firstName).toBe('Test');
@@ -174,9 +174,9 @@ describe('Buyer Repository', () => {
         preferredCurrency: 'USD',
         preferredLanguage: 'es'
       });
-      
+
       const result = await buyerRepository.save(buyer);
-      
+
       expect(result).toBeDefined();
       expect(result.bio).toBe('A test bio');
       expect(result.profileImage.url).toBe('https://example.com/avatar.jpg');
@@ -191,14 +191,14 @@ describe('Buyer Repository', () => {
       await buyer.save();
 
       const result = await buyerRepository.findByEmail('john.doe@example.com');
-      
+
       expect(result).toBeDefined();
       expect(result.email).toBe('john.doe@example.com');
     });
 
     it('should return null when buyer not found', async () => {
       const result = await buyerRepository.findByEmail('nonexistent@example.com');
-      
+
       expect(result).toBeNull();
     });
 
@@ -207,20 +207,20 @@ describe('Buyer Repository', () => {
       await buyer.save();
 
       const result = await buyerRepository.findByEmail('JOHN.DOE@EXAMPLE.COM');
-      
+
       expect(result).toBeDefined();
       expect(result.email).toBe('john.doe@example.com');
     });
 
     it('should handle empty email', async () => {
       const result = await buyerRepository.findByEmail('');
-      
+
       expect(result).toBeNull();
     });
 
     it('should handle null email', async () => {
       const result = await buyerRepository.findByEmail(null);
-      
+
       expect(result).toBeNull();
     });
   });
@@ -228,9 +228,9 @@ describe('Buyer Repository', () => {
   describe('saveBuyer', () => {
     it('should save a buyer instance', async () => {
       const buyer = new Buyer(mockBuyerData);
-      
+
       const result = await buyerRepository.saveBuyer(buyer);
-      
+
       expect(result).toBeDefined();
       expect(result._id).toBeDefined();
       expect(result.firstName).toBe('John');
@@ -239,10 +239,10 @@ describe('Buyer Repository', () => {
     it('should update existing buyer instance', async () => {
       const buyer = new Buyer(mockBuyerData);
       const savedBuyer = await buyer.save();
-      
+
       savedBuyer.firstName = 'Updated';
       const result = await buyerRepository.saveBuyer(savedBuyer);
-      
+
       expect(result).toBeDefined();
       expect(result.firstName).toBe('Updated');
     });
@@ -254,9 +254,9 @@ describe('Buyer Repository', () => {
         profileImage: { url: 'test.jpg' },
         selectedCategories: [{ name: 'Electronics' }]
       });
-      
+
       const result = await buyerRepository.saveBuyer(buyer);
-      
+
       expect(result.bio).toBe('Test bio');
       expect(result.profileImage.url).toBe('test.jpg');
       expect(result.selectedCategories).toHaveLength(1);
@@ -269,7 +269,7 @@ describe('Buyer Repository', () => {
       const savedBuyer = await buyer.save();
 
       const result = await buyerRepository.findById(savedBuyer._id);
-      
+
       expect(result).toBeDefined();
       expect(result._id.toString()).toBe(savedBuyer._id.toString());
     });
@@ -277,7 +277,7 @@ describe('Buyer Repository', () => {
     it('should return null when buyer not found', async () => {
       const nonExistentId = new mongoose.Types.ObjectId();
       const result = await buyerRepository.findById(nonExistentId);
-      
+
       expect(result).toBeNull();
     });
 
@@ -294,7 +294,7 @@ describe('Buyer Repository', () => {
       const savedBuyer = await buyer.save();
 
       const result = await buyerRepository.findById(savedBuyer._id);
-      
+
       expect(result.bio).toBe('Test bio');
       expect(result.profileImage.url).toBe('test.jpg');
       expect(result.firstName).toBe('John');
@@ -308,7 +308,7 @@ describe('Buyer Repository', () => {
       const savedBuyer = await buyer.save();
 
       const result = await buyerRepository.findByIdWithFields(savedBuyer._id, { firstName: 1, email: 1 });
-      
+
       expect(result).toBeDefined();
       expect(result.firstName).toBe('John');
       expect(result.email).toBe('john.doe@example.com');
@@ -320,7 +320,7 @@ describe('Buyer Repository', () => {
       const savedBuyer = await buyer.save();
 
       const result = await buyerRepository.findByIdWithFields(savedBuyer._id, { password: 0, __v: 0 });
-      
+
       expect(result).toBeDefined();
       expect(result.password).toBeUndefined();
       expect(result.__v).toBeUndefined();
@@ -330,7 +330,7 @@ describe('Buyer Repository', () => {
     it('should return null when buyer not found', async () => {
       const nonExistentId = new mongoose.Types.ObjectId();
       const result = await buyerRepository.findByIdWithFields(nonExistentId, { firstName: 1 });
-      
+
       expect(result).toBeNull();
     });
 
@@ -339,7 +339,7 @@ describe('Buyer Repository', () => {
       const savedBuyer = await buyer.save();
 
       const result = await buyerRepository.findByIdWithFields(savedBuyer._id, {});
-      
+
       expect(result).toBeDefined();
       expect(result._id).toBeDefined();
     });
@@ -357,7 +357,7 @@ describe('Buyer Repository', () => {
       const savedBuyer = await buyer.save();
 
       const result = await buyerRepository.getFollowersCount(savedBuyer._id);
-      
+
       expect(result).toBe(2);
     });
 
@@ -366,7 +366,7 @@ describe('Buyer Repository', () => {
       const savedBuyer = await buyer.save();
 
       const result = await buyerRepository.getFollowersCount(savedBuyer._id);
-      
+
       expect(result).toBe(0);
     });
 
@@ -378,13 +378,13 @@ describe('Buyer Repository', () => {
       const savedBuyer = await buyer.save();
 
       const result = await buyerRepository.getFollowersCount(savedBuyer._id);
-      
+
       expect(result).toBe(0);
     });
 
     it('should handle non-existent buyer', async () => {
       const nonExistentId = new mongoose.Types.ObjectId();
-      
+
       await expect(buyerRepository.getFollowersCount(nonExistentId)).rejects.toThrow();
     });
   });
@@ -402,7 +402,7 @@ describe('Buyer Repository', () => {
       const savedBuyer = await buyer.save();
 
       const result = await buyerRepository.getFollowingCount(savedBuyer._id);
-      
+
       expect(result).toBe(2);
     });
 
@@ -411,7 +411,7 @@ describe('Buyer Repository', () => {
       const savedBuyer = await buyer.save();
 
       const result = await buyerRepository.getFollowingCount(savedBuyer._id);
-      
+
       expect(result).toBe(0);
     });
 
@@ -423,7 +423,7 @@ describe('Buyer Repository', () => {
       const savedBuyer = await buyer.save();
 
       const result = await buyerRepository.getFollowingCount(savedBuyer._id);
-      
+
       expect(result).toBe(0);
     });
 
@@ -438,13 +438,13 @@ describe('Buyer Repository', () => {
       const savedBuyer = await buyer.save();
 
       const result = await buyerRepository.getFollowingCount(savedBuyer._id);
-      
+
       expect(result).toBe(0);
     });
 
     it('should handle non-existent buyer', async () => {
       const nonExistentId = new mongoose.Types.ObjectId();
-      
+
       await expect(buyerRepository.getFollowingCount(nonExistentId)).rejects.toThrow();
     });
   });
@@ -455,14 +455,14 @@ describe('Buyer Repository', () => {
       await buyer.save();
 
       const result = await buyerRepository.findByUsername('johndoe');
-      
+
       expect(result).toBeDefined();
       expect(result.username).toBe('johndoe');
     });
 
     it('should return null when buyer not found', async () => {
       const result = await buyerRepository.findByUsername('nonexistent');
-      
+
       expect(result).toBeNull();
     });
 
@@ -471,20 +471,20 @@ describe('Buyer Repository', () => {
       await buyer.save();
 
       const result = await buyerRepository.findByUsername('JOHNDOE');
-      
+
       expect(result).toBeDefined();
       expect(result.username).toBe('johndoe');
     });
 
     it('should handle empty username', async () => {
       const result = await buyerRepository.findByUsername('');
-      
+
       expect(result).toBeNull();
     });
 
     it('should handle null username', async () => {
       const result = await buyerRepository.findByUsername(null);
-      
+
       expect(result).toBeNull();
     });
 
@@ -492,12 +492,12 @@ describe('Buyer Repository', () => {
       const buyer = new Buyer({
         ...mockBuyerData,
         username: 'john_doe123',
-      phoneNumber: '+2348012345678'
+        phoneNumber: '+2348012345678'
       });
       await buyer.save();
 
       const result = await buyerRepository.findByUsername('john_doe123');
-      
+
       expect(result).toBeDefined();
       expect(result.username).toBe('john_doe123');
     });
@@ -747,8 +747,8 @@ describe('Buyer Repository', () => {
       const buyer = new Buyer(mockBuyerData);
       const savedBuyer = await buyer.save();
 
-      const updateData = { 
-        firstName: 'Jane', 
+      const updateData = {
+        firstName: 'Jane',
         lastName: 'Smith',
         bio: 'Updated bio',
         preferredCurrency: 'USD'
@@ -954,7 +954,7 @@ describe('Buyer Repository', () => {
       const savedBuyer = await buyer.save();
       const addressId = savedBuyer.shippingAddresses[0]._id;
 
-      const updateData = { 
+      const updateData = {
         addressLine1: '789 Updated St',
         addressType: 'home',
         city: 'Lagos',
@@ -1642,7 +1642,8 @@ describe('Buyer Repository', () => {
       const result = await buyerRepository.getPublicProfileData(savedBuyer._id);
 
       expect(result).toBeDefined();
-      expect(result.bio).toBe('A passionate buyer');
+      expect(result.buyer).toBeDefined();
+      expect(result.buyer.bio).toBe('A passionate buyer');
       expect(result.postCount).toBeDefined();
     });
 
