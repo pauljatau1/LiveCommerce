@@ -2504,11 +2504,11 @@ exports.requestAccountDeletion = async (req, res) => {
         </div>
       `;
 
-    await termiiEmailService.sendRawHTMLEmail(
-      buyer.email,
-      'Account Deletion Request - Auqli',
-      html
-    );
+    await termiiEmailService.sendRawHTMLEmail({
+      email: buyer.email,
+      subject: 'Account Deletion Request - Auqli',
+      html: html
+    });
 
     res.json({
       message: 'Account deletion verification code sent to your email',
@@ -2578,11 +2578,11 @@ exports.confirmAccountDeletion = async (req, res) => {
         </div>
       `;
 
-    await termiiEmailService.sendRawHTMLEmail(
-      buyer.email,
-      'Account Deleted Successfully - Auqli',
-      html
-    );
+    await termiiEmailService.sendRawHTMLEmail({
+      email: buyer.email,
+      subject: 'Account Deleted Successfully - Auqli',
+      html: html
+    });
 
     // Delete the buyer account
     await Buyer.findByIdAndDelete(req.user.id);
@@ -2711,16 +2711,16 @@ exports.reportUser = async (req, res) => {
 
     // Send to admin emails
     await Promise.all([
-      termiiEmailService.sendRawHTMLEmail(
-        'admin@auqli.com',
-        `New User Report - ${userType.charAt(0).toUpperCase() + userType.slice(1)}`,
-        html
-      ),
-      termiiEmailService.sendRawHTMLEmail(
-        'bolu@auqli.com',
-        `New User Report - ${userType.charAt(0).toUpperCase() + userType.slice(1)}`,
-        html
-      )
+      termiiEmailService.sendRawHTMLEmail({
+        email: 'admin@auqli.com',
+        subject: `New User Report - ${userType.charAt(0).toUpperCase() + userType.slice(1)}`,
+        html: html
+      }),
+      termiiEmailService.sendRawHTMLEmail({
+        email: 'bolu@auqli.com',
+        subject: `New User Report - ${userType.charAt(0).toUpperCase() + userType.slice(1)}`,
+        html: html
+      })
     ]);
 
     res.status(201).json({
@@ -2881,11 +2881,11 @@ exports.sendWalletTopUpEmail = async (buyer, transaction) => {
     `;
 
   try {
-    await termiiEmailService.sendRawHTMLEmail(
-      buyer.email,
-      'Wallet Top-Up Confirmation',
-      html
-    );
+    await termiiEmailService.sendRawHTMLEmail({
+      email: buyer.email,
+      subject: 'Wallet Top-Up Confirmation',
+      html: html
+    });
     console.log('Wallet top-up confirmation email sent to:', buyer.email);
     return true;
   } catch (error) {
