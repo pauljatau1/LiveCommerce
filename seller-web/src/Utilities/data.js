@@ -16,9 +16,9 @@ import ProductImage from '../assets/p-card.png';
 import LiveIcon1 from '../assets/live-icon1.png';
 import LiveIcon2 from '../assets/live-icon2.png';
 import LiveIcon3 from '../assets/live-icon3.png';
-import { 
-    MdDashboard, 
-    MdPeople, 
+import {
+    MdDashboard,
+    MdPeople,
     MdShoppingBag,
     MdInventory2,
     MdCampaign,
@@ -32,14 +32,14 @@ import {
     MdSettings,
     MdLogout
 } from 'react-icons/md';
-import { 
-    BsBoxSeam, 
-    BsFileEarmarkText, 
+import {
+    BsBoxSeam,
+    BsFileEarmarkText,
     BsFileX,
     BsTicketPerforated,
     BsLightning,
     BsInbox,
-    BsShare 
+    BsShare
 } from 'react-icons/bs';
 
 
@@ -206,7 +206,7 @@ export const sideBarNavData = [
 ];
 
 export const sideBarNavData2 = [
-    
+
     {
         id: ObjectID().toHexString(),
         name: 'Analytics & Insights',
@@ -226,10 +226,19 @@ export const sideBarNavData2 = [
 ]
 
 export const sideBarNavData3 = [
-     {
+    {
+        id: ObjectID().toHexString(),
+        name: 'Notifications',
+        icon: 'bi:bell',
+        path: '/dashboard/notifications',
+        subNav: [],
+        hasMessageCount: true
+
+    },
+    {
         id: ObjectID().toHexString(),
         name: 'Auqli Connect',
-        icon: 'system-uicons:chain',
+        icon: 'ri:user-community-line',
         path: '/dashboard/auqli-connect',
         hasMessageCount: false,
         subNav: []
@@ -237,25 +246,43 @@ export const sideBarNavData3 = [
     {
         id: ObjectID().toHexString(),
         name: 'Auqli University',
-        icon: 'carbon:education',
+        icon: 'fluent:learning-app-16-regular',
         path: 'https://www.youtube.com/@auqliapp',
         hasMessageCount: false,
         subNav: []
-    },
+    }
+]
+
+export const sideBarNavData4 = [
     {
         id: ObjectID().toHexString(),
-        name: 'Settings',
-        icon: 'carbon:settings',
-        path: '/dashboard/settings',
+        name: "Shop Manager",
+        icon: "mdi:shop-settings",
+        path: "/dashboard/shop-manager",
         hasMessageCount: false,
-        subNav: []
+        subNav: [
+            {
+                id: ObjectID().toHexString(),
+                name: "Shop Settings",
+                path: "/dashboard/shop-manager/settings"
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: "Manage Reviews",
+                path: "/dashboard/shop-manager/manage-reviews"
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: "View Account/My Shop",
+                path: "/dashboard/shop-manager/view-account"
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: "Refer a Seller & Earn",
+                path: "/dashboard/shop-manager/referral"
+            }
+        ]
     }
-    // {
-    //     id: ObjectID().toHexString(),
-    //     name: 'Shop Manager',
-    //     icon: 'bi:shop',
-    //     path: '/dashboard/shop-manager'
-    // },
 ]
 
 export const homeAnalyticsCardData = [

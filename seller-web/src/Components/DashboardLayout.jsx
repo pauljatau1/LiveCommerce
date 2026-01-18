@@ -48,7 +48,7 @@ const DashboardLayout = () => {
   return (
     <>
       <ScrollToTop />
-      <main className="flex h-screen w-dvh">
+      <main className="flex h-[100dvh] ">
         {/* Sidebar */}
         <SideBarNav
           isSidebarOpen={isSidebarOpen}
