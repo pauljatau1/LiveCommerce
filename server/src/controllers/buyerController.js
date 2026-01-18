@@ -1,6 +1,6 @@
 const Buyer = require('../models/Buyer');
 const jwt = require('jsonwebtoken');
-const sgMail = require('@sendgrid/mail');
+const termiiEmailService = require('../services/termiiEmailService');
 const { v4: uuidv4 } = require('uuid');
 const { s3 } = require('../config/awsConfig');
 const notificationController = require('../controllers/notificationController');
@@ -17,7 +17,6 @@ const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const { agenda } = require('../config/agenda');
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 // Load environment variables from a .env file
 require('dotenv').config();
 
@@ -2481,12 +2480,8 @@ exports.requestAccountDeletion = async (req, res) => {
     };
     await buyer.save();
 
-    // Send email with OTP
-    const msg = {
-      to: buyer.email,
-      from: 'Joseph From Auqli <support@auqli.com>',
-      subject: 'Account Deletion Request - Auqli',
-      html: `
+    // Send email with OTP via Termii
+    const html = `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
           <div style="max-width: 600px; margin: 0 auto;">
             <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
@@ -2507,10 +2502,13 @@ exports.requestAccountDeletion = async (req, res) => {
             <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
           </div>
         </div>
-      `
-    };
+      `;
 
-    await sgMail.send(msg);
+    await termiiEmailService.sendRawHTMLEmail(
+      buyer.email,
+      'Account Deletion Request - Auqli',
+      html
+    );
 
     res.json({
       message: 'Account deletion verification code sent to your email',
@@ -2564,12 +2562,8 @@ exports.confirmAccountDeletion = async (req, res) => {
       });
     }
 
-    // Send confirmation email before deletion
-    const msg = {
-      to: buyer.email,
-      from: 'Joseph From Auqli <support@auqli.com>',
-      subject: 'Account Deleted Successfully - Auqli',
-      html: `
+    // Send confirmation email before deletion via Termii
+    const html = `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
           <div style="max-width: 600px; margin: 0 auto;">
             <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
@@ -2582,10 +2576,13 @@ exports.confirmAccountDeletion = async (req, res) => {
             <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
           </div>
         </div>
-      `
-    };
+      `;
 
-    await sgMail.send(msg);
+    await termiiEmailService.sendRawHTMLEmail(
+      buyer.email,
+      'Account Deleted Successfully - Auqli',
+      html
+    );
 
     // Delete the buyer account
     await Buyer.findByIdAndDelete(req.user.id);
@@ -2674,12 +2671,8 @@ exports.reportUser = async (req, res) => {
 
     await reporter.save();
 
-    // Send email notification
-    const msg = {
-      to: ['admin@auqli.com', 'bolu@auqli.com'],
-      from: 'Joseph From Auqli <support@auqli.com>',
-      subject: `New User Report - ${userType.charAt(0).toUpperCase() + userType.slice(1)}`,
-      html: `
+    // Send email notification via Termii
+    const html = `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
           <div style="max-width: 600px; margin: 0 auto;">
             <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 150px; margin-bottom: 30px;">
@@ -2714,10 +2707,21 @@ exports.reportUser = async (req, res) => {
             <p style="font-size: 12px; color: #999999; text-align: center;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
           </div>
         </div>
-      `
-    };
+      `;
 
-    await sgMail.send(msg);
+    // Send to admin emails
+    await Promise.all([
+      termiiEmailService.sendRawHTMLEmail(
+        'admin@auqli.com',
+        `New User Report - ${userType.charAt(0).toUpperCase() + userType.slice(1)}`,
+        html
+      ),
+      termiiEmailService.sendRawHTMLEmail(
+        'bolu@auqli.com',
+        `New User Report - ${userType.charAt(0).toUpperCase() + userType.slice(1)}`,
+        html
+      )
+    ]);
 
     res.status(201).json({
       message: 'Report submitted successfully',
@@ -2817,14 +2821,7 @@ exports.sendWalletTopUpEmail = async (buyer, transaction) => {
     minute: '2-digit'
   });
 
-  const msg = {
-    to: buyer.email,
-    from: {
-      email: 'support@auqli.com',
-      name: 'Auqli Support'
-    },
-    subject: 'Wallet Top-Up Confirmation',
-    html: `
+  const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
         <div style="text-align: center; margin-bottom: 20px;">
           <img src="https://auqli.com/logo.png" alt="Auqli Logo" style="max-width: 150px;">
@@ -2881,11 +2878,14 @@ exports.sendWalletTopUpEmail = async (buyer, transaction) => {
           </p>
         </div>
       </div>
-    `
-  };
+    `;
 
   try {
-    await sgMail.send(msg);
+    await termiiEmailService.sendRawHTMLEmail(
+      buyer.email,
+      'Wallet Top-Up Confirmation',
+      html
+    );
     console.log('Wallet top-up confirmation email sent to:', buyer.email);
     return true;
   } catch (error) {
