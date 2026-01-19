@@ -183,26 +183,7 @@ export const sideBarNavData = [
         icon: 'icon-park-outline:message',
         path: '/dashboard/messages',
         hasMessageCount: true
-    },
-    {
-        id: ObjectID().toHexString(),
-        name: 'Live Streams',
-        icon: 'mynaui:video',
-        path: '/dashboard/live-streams/live-stream',
-        hasMessageCount: false,
-        subNav: [
-            {
-                id: ObjectID().toHexString(),
-                name: 'Scheduled Shows',
-                path: '/dashboard/live-streams/scheduled-shows'
-            },
-            {
-                id: ObjectID().toHexString(),
-                name: 'Past Shows',
-                path: '/dashboard/live-streams/past-shows'
-            }
-        ]
-    },
+    }
 ];
 
 export const sideBarNavData2 = [
@@ -218,7 +199,7 @@ export const sideBarNavData2 = [
     {
         id: ObjectID().toHexString(),
         name: 'Earnings & Payouts',
-        icon: 'solar:dollar-linear',
+        icon: 'mdi:naira',
         path: '/dashboard/earnings-payouts',
         hasMessageCount: false,
         subNav: []
@@ -283,6 +264,28 @@ export const sideBarNavData4 = [
             }
         ]
     }
+]
+
+export const sideBarNavData5 = [
+    {
+        id: ObjectID().toHexString(),
+        name: 'Live Shows',
+        icon: 'mynaui:video',
+        path: '/dashboard/live-streams/live-stream',
+        hasMessageCount: false,
+        subNav: [
+            {
+                id: ObjectID().toHexString(),
+                name: 'Scheduled Shows',
+                path: '/dashboard/live-streams/scheduled-shows'
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: 'Past Shows',
+                path: '/dashboard/live-streams/past-shows'
+            }
+        ]
+    },
 ]
 
 export const homeAnalyticsCardData = [
