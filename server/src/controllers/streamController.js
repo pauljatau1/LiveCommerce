@@ -235,7 +235,7 @@ exports.createStream = async (req, res) => {
       const { agenda } = require('../config/agenda');
       const reminderTime = new Date(startDate.getTime() - 2 * 60 * 60 * 1000); // 2 hours before
       const now = new Date();
-      
+
       // Only schedule if reminder time is in the future
       if (reminderTime > now) {
         await agenda.schedule(reminderTime, 'stream_reminder_sms', {
@@ -1061,7 +1061,7 @@ exports.endStream = async (req, res) => {
     if (req.app && req.app.get('io')) {
       const io = req.app.get('io');
       const streamRoom = `stream_notifications_${stream._id.toString()}`;
-      
+
       // Emit to stream-specific notification room
       io.to(streamRoom).emit('stream_notification', notificationObj);
     }
@@ -1193,7 +1193,7 @@ exports.joinStream = async (req, res) => {
     }
 
     if (stream.status !== 'live') {
-      return res.status(500).json({ message: `Cannot join stream with status: ${stream.status}` });
+      return res.status(410).json({ message: `Cannot join stream with status: ${stream.status}` });
     }
 
     // Fetch complete buyer details
@@ -1455,8 +1455,8 @@ exports.getSellerStreams = async (req, res) => {
     const { status, page = 1, limit = 10 } = req.query;
 
     // Convert sellerId to ObjectId for proper querying
-    const sellerObjectId = mongoose.Types.ObjectId.isValid(sellerId) 
-      ? new mongoose.Types.ObjectId(sellerId) 
+    const sellerObjectId = mongoose.Types.ObjectId.isValid(sellerId)
+      ? new mongoose.Types.ObjectId(sellerId)
       : sellerId;
 
     // Build query
@@ -1474,9 +1474,9 @@ exports.getSellerStreams = async (req, res) => {
         // Use $or to match either live streams OR scheduled streams with future start time
         // Include seller in each $or condition to ensure proper filtering
         query.$or = [
-          { 
+          {
             seller: sellerObjectId,
-            status: 'live' 
+            status: 'live'
           },
           {
             seller: sellerObjectId,
@@ -1496,9 +1496,9 @@ exports.getSellerStreams = async (req, res) => {
       // Build the match query for aggregation - ensure seller is properly included
       const matchQuery = {
         $or: [
-          { 
+          {
             seller: sellerObjectId,
-            status: 'live' 
+            status: 'live'
           },
           {
             seller: sellerObjectId,
@@ -1571,9 +1571,9 @@ exports.getSellerStreams = async (req, res) => {
       // Get total count for pagination - use the same match query as aggregation
       const countQuery = {
         $or: [
-          { 
+          {
             seller: sellerObjectId,
-            status: 'live' 
+            status: 'live'
           },
           {
             seller: sellerObjectId,
@@ -1920,7 +1920,7 @@ exports.createOpenLiveShow = async (req, res) => {
       const { agenda } = require('../config/agenda');
       const reminderTime = new Date(startDate.getTime() - 2 * 60 * 60 * 1000); // 2 hours before
       const now = new Date();
-      
+
       // Only schedule if reminder time is in the future
       if (reminderTime > now) {
         await agenda.schedule(reminderTime, 'stream_reminder_sms', {
@@ -2319,8 +2319,8 @@ exports.getPopularStreams = async (req, res) => {
       // Convert to plain object first (aggregation results are already plain objects)
       const streamObj = typeof stream.toObject === 'function' ? stream.toObject() : stream;
       // Use viewerCount from aggregation if it exists, otherwise calculate from viewers array
-      streamObj.viewerCount = streamObj.viewerCount !== undefined 
-        ? streamObj.viewerCount 
+      streamObj.viewerCount = streamObj.viewerCount !== undefined
+        ? streamObj.viewerCount
         : (streamObj.viewers ? streamObj.viewers.length : 0);
       // Add isSubscribed for requester
       streamObj.isSubscribed = isBuyerSubscribedToStream(streamObj, req.user);
@@ -4944,15 +4944,15 @@ exports.rescheduleExpiredStream = async (req, res) => {
     // Cancel existing reminder jobs and schedule new one for rescheduled time
     try {
       const { agenda } = require('../config/agenda');
-      
+
       // Cancel any existing reminder jobs for this stream
       await agenda.cancel({ name: 'stream_reminder_sms', 'data.streamId': stream._id.toString() });
       console.log(`Cancelled existing reminder jobs for stream ${stream._id}`);
-      
+
       // Schedule new reminder job 2 hours before new scheduled start time
       const reminderTime = new Date(newStartDate.getTime() - 2 * 60 * 60 * 1000); // 2 hours before
       const now = new Date();
-      
+
       // Only schedule if reminder time is in the future
       if (reminderTime > now) {
         await agenda.schedule(reminderTime, 'stream_reminder_sms', {

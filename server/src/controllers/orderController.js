@@ -4,20 +4,16 @@ const Seller = require('../models/Seller');
 const Notification = require('../models/Notification');
 const Buyer = require('../models/Buyer');
 const axios = require('axios'); // For Paystack API calls
-const sgMail = require('@sendgrid/mail');
-const terminalAPI = require('../config/terminalAPI');
-
-
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const termiiEmailService = require('../services/termiiEmailService');
 const mongoose = require('mongoose');
 const WebhookService = require('../services/WebhookService');
-const { 
-  handleShipmentCreated, 
-  handleShipmentInTransit, 
-  handleShipmentDelivered 
+const {
+  handleShipmentCreated,
+  handleShipmentInTransit,
+  handleShipmentDelivered
 } = require('../webhooks/terminalWebhook');
-const { 
-  createNotification, 
+const {
+  createNotification,
   createBuyerNotification,
   handleOrderCreationNotifications
 } = require('../controllers/notificationController');
@@ -48,19 +44,19 @@ const FEZ_SECRET_KEY = process.env.FEZ_SECRET_KEY;
 const initializeFezWebhook = async () => {
   try {
     console.log('🔄 Initializing Fez Delivery webhook...');
-    
+
     // Get a fresh authentication token
     const authToken = await getFezAuthToken();
-    
+
     // Define the webhook URL based on environment
-    const webhookUrl = process.env.NODE_ENV === 'production' 
+    const webhookUrl = process.env.NODE_ENV === 'production'
       ? `${process.env.BASE_URL}/api/webhooks/fez`
       : `${process.env.WEBHOOK_URL || 'https://auqli.com'}/api/webhooks/fez`;
-    
+
     console.log(`📡 Registering Fez webhook at: ${webhookUrl}`);
-    
+
     // Register the webhook with Fez
-    const response = await axios.post(`${FEZ_API_URL}/webhooks/store`, 
+    const response = await axios.post(`${FEZ_API_URL}/webhooks/store`,
       { webhook: webhookUrl },
       {
         headers: {
@@ -70,7 +66,7 @@ const initializeFezWebhook = async () => {
         }
       }
     );
-    
+
     if (response.data && response.data.status === 'Success') {
       console.log('✅ Fez webhook registered successfully:', {
         webhook: response.data.data.webhook,
@@ -81,7 +77,7 @@ const initializeFezWebhook = async () => {
     }
   } catch (error) {
     console.error('❌ Error initializing Fez webhook:', error.message);
-    
+
     if (error.response) {
       console.error(`Response status: ${error.response.status}`);
       console.error(`Response data: ${JSON.stringify(error.response.data, null, 2)}`);
@@ -97,8 +93,8 @@ initializeFezWebhook();
 
 // For Fez Delivery address validation
 const validateFezAddress = (address) => {
-  if (!address.recipientName || !address.recipientPhone || 
-      !address.recipientAddress || !address.recipientState) {
+  if (!address.recipientName || !address.recipientPhone ||
+    !address.recipientAddress || !address.recipientState) {
     return { valid: false, message: 'Missing required address fields' };
   }
   return { valid: true };
@@ -110,19 +106,19 @@ const validateFezParcel = (parcel) => {
   if (!parcel || Object.keys(parcel).length === 0) {
     return { valid: true };
   }
-  
+
   // Check required fields
   if (!parcel.valueOfItem) {
     return { valid: false, message: 'Parcel value is required' };
   }
-  
+
   // Check itemDescription length (Fez API limit is 200 characters)
   if (parcel.itemDescription && parcel.itemDescription.length > 200) {
     return { valid: false, message: 'Item description must not exceed 200 characters' };
   }
-  
+
   // Weight is optional now as we can get it from items
-  
+
   return { valid: true };
 };
 
@@ -131,13 +127,13 @@ const validateFezItems = (items) => {
   if (!items || !Array.isArray(items) || items.length === 0) {
     return { valid: false, message: 'Items must be a non-empty array' };
   }
-  
+
   for (const item of items) {
     if (!item.productId || !item.quantity || !item.price) {
       return { valid: false, message: 'Each item must have productId, quantity, and price' };
     }
   }
-  
+
   return { valid: true };
 };
 
@@ -173,9 +169,8 @@ exports.createOrder = async (req, res) => {
               </div>
             `;
 
-            await sgMail.send({
-              to: buyerEmail,
-              from: { email: 'support@auqli.com', name: 'Auqli' },
+            await termiiEmailService.sendRawHTMLEmail({
+              email: buyerEmail,
               subject,
               html,
             });
@@ -194,42 +189,42 @@ exports.createOrder = async (req, res) => {
 
   const session = await mongoose.startSession();
   session.startTransaction();
-  
+
   // Create an array to store notification data outside the try block
   const orderNotifications = [];
-  
+
   try {
-    const { 
-      items, 
-      shippingAddress, 
+    const {
+      items,
+      shippingAddress,
       parcel = {}, // Default to empty object if not provided
-      paymentMethod, 
+      paymentMethod,
       isItemCod = false, // Default to false if not provided
       shippingFee,
-      additionalDetails, 
+      additionalDetails,
       pickUpDate,
       senderInfo,
       paidFromWallet = false, // Parameter for wallet payment - DO NOT MODIFY this parameter directly
       isWalletCredit = false, // Parameter for hybrid wallet + Paystack payment
       isStorePickup = false // Parameter for store pickup
     } = req.body;
-    
+
     // Validate store pickup request
     if (isStorePickup) {
       // Check if COD is requested with store pickup
       if (isItemCod) {
-        return res.status(400).json({ 
-          message: 'Cash on Delivery is not available with store pickup' 
+        return res.status(400).json({
+          message: 'Cash on Delivery is not available with store pickup'
         });
       }
 
       // Get all unique seller IDs from items
       const sellerIds = [...new Set(items.map(item => item.seller?.sellerId || productMap[item.productId]?.seller?._id))];
-      
+
       // Check if all sellers offer store pickup
       const sellers = await Seller.find({ _id: { $in: sellerIds } });
       const ineligibleSellers = sellers.filter(seller => !seller.offersStorePickup);
-      
+
       if (ineligibleSellers.length > 0) {
         return res.status(400).json({
           message: 'One or more sellers do not offer store pickup',
@@ -237,35 +232,35 @@ exports.createOrder = async (req, res) => {
         });
       }
     }
-    
+
     // Validate inputs
     const itemsValidation = validateFezItems(items);
     if (!itemsValidation.valid) {
       return res.status(400).json({ message: itemsValidation.message });
     }
-    
+
     // Only validate shipping address if not store pickup
     if (!isStorePickup) {
       const addressValidation = validateFezAddress(shippingAddress);
       if (!addressValidation.valid) {
         return res.status(400).json({ message: addressValidation.message });
       }
-      
+
       // Check for seller information in items
       for (const item of items) {
         if (!item.seller || !item.seller.sellerId) {
-          return res.status(400).json({ 
-            message: 'Seller information is required for each item' 
+          return res.status(400).json({
+            message: 'Seller information is required for each item'
           });
         }
-        
+
         // Find the seller to verify address
         const SellerModelForValidation = mongoose.model('Seller');
         const seller = await SellerModelForValidation.findById(item.seller.sellerId);
         if (!seller) {
           return res.status(400).json({ message: `Seller not found for item with product ID ${item.productId}` });
         }
-        
+
         // Log all seller address info for debugging
         console.log('DEBUG - Validating Seller Address:', {
           sellerId: seller._id.toString(),
@@ -275,23 +270,23 @@ exports.createOrder = async (req, res) => {
           hasWarehouseAddress: !!(seller.warehouseDetails && seller.warehouseDetails.address && seller.warehouseDetails.address.addressLine1),
           hasLegacyAddress: !!seller.address
         });
-        
+
         // Check if we have a valid pickup address source
         const hasSenderInfo = item.seller.senderInfo && item.seller.senderInfo.senderAddress;
         const hasSellerAddress = seller.sellerAddress && seller.sellerAddress.addressLine1;
         const hasBusinessAddress = seller.businessAddress && seller.businessAddress.addressLine1;
         const hasWarehouseAddress = seller.warehouseDetails && seller.warehouseDetails.address && seller.warehouseDetails.address.addressLine1;
         const hasLegacyAddress = !!seller.address;
-        
+
         // Only throw an error if we have absolutely no address information
         if (!hasSenderInfo && !hasSellerAddress && !hasBusinessAddress && !hasWarehouseAddress && !hasLegacyAddress) {
-          return res.status(400).json({ 
+          return res.status(400).json({
             message: `No valid pickup address available for seller: ${seller.storeName || seller.businessName || seller._id}. Please provide sender information or update seller address.`
           });
         }
       }
     }
-    
+
     // Only validate parcel if it's provided and not store pickup
     if (!isStorePickup && Object.keys(parcel).length > 0) {
       const parcelValidation = validateFezParcel(parcel);
@@ -299,73 +294,73 @@ exports.createOrder = async (req, res) => {
         return res.status(400).json({ message: parcelValidation.message });
       }
     }
-    
+
     // Get buyer from token
     const buyerId = req.user.id;
     const Buyer = mongoose.model('Buyer');
     const buyer = await Buyer.findById(buyerId);
-    
+
     console.log('DEBUG - Order Creation - Buyer Info:', {
       buyerId: buyerId,
       buyerFound: !!buyer,
       buyerName: buyer ? `${buyer.firstName} ${buyer.lastName}` : 'N/A'
     });
-    
+
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
     // Get buyer's wallet balance
     const walletBalance = buyer.wallet ? buyer.wallet.balance || 0 : 0;
-    
+
     // Fetch products and calculate total
     const Product = mongoose.model('Product');
     const productIds = items.map(item => item.productId);
     const products = await Product.find({ _id: { $in: productIds } }).populate('seller');
-    
+
     console.log('DEBUG - Order Creation - Products Found:', {
       requestedProducts: productIds.length,
       foundProducts: products.length
     });
-    
+
     if (products.length !== productIds.length) {
       return res.status(400).json({ message: 'One or more products not found' });
     }
-    
+
     // Create a map for quick product lookup
     const productMap = {};
     products.forEach(product => {
       productMap[product._id.toString()] = product;
     });
-    
+
     // Validate that all products have sufficient stock
     for (const item of items) {
       const product = productMap[item.productId];
       if (!product) continue;
-      
+
       if (product.stock < item.quantity) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: `Insufficient stock ${product.name} (${product.stock})`
         });
       }
     }
-    
+
     // Group items by seller
     const sellerItems = {};
     let totalAmount = 0;
-    
+
     // Keep track of unique sellers for adding the buyer to followers
     const uniqueSellers = new Set();
-    
+
     items.forEach(item => {
       const product = productMap[item.productId];
       if (!product) {
         return;
       }
-      
+
       const sellerId = product.seller._id.toString();
       uniqueSellers.add(sellerId);
-      
+
       if (!sellerItems[sellerId]) {
         sellerItems[sellerId] = {
           items: [],
@@ -386,27 +381,27 @@ exports.createOrder = async (req, res) => {
           }
         };
       }
-      
+
       const itemTotal = item.price * item.quantity;
       totalAmount += itemTotal;
       sellerItems[sellerId].totalAmount += itemTotal;
-      
+
       // Add item weight to seller's total weight (default to product weight or a minimum value)
       // Use the weight provided in the item, or fall back to product weight or default
       const itemWeight = (item.weight || product.weight || 0.1) * item.quantity;
       sellerItems[sellerId].totalWeight += itemWeight;
       sellerItems[sellerId].parcelInfo.weight += itemWeight;
-      
+
       // Add item value to seller's parcel value
       sellerItems[sellerId].parcelInfo.valueOfItem += itemTotal;
-      
+
       // Collect item descriptions for the parcel
       if (product.description && !sellerItems[sellerId].parcelInfo.itemDescription.includes(product.name)) {
         // Check if adding the product name would exceed the 200 character limit
         const currentDesc = sellerItems[sellerId].parcelInfo.itemDescription;
         const separator = currentDesc ? ', ' : '';
         const newDesc = currentDesc + separator + product.name;
-        
+
         if (newDesc.length <= 200) {
           // If within limit, add the full product name
           sellerItems[sellerId].parcelInfo.itemDescription = newDesc;
@@ -416,7 +411,7 @@ exports.createOrder = async (req, res) => {
         }
         // If already at or near limit, don't add more to the description
       }
-      
+
       sellerItems[sellerId].items.push({
         product: product._id,
         productImages: product.images,
@@ -428,19 +423,19 @@ exports.createOrder = async (req, res) => {
         specifications: item.specifications || {}
       });
     });
-    
+
     // Calculate how much to charge from wallet vs Paystack
     let walletAmountToUse = 0;
     let paystackAmount = 0;
     let useWalletPayment = false;
     // Create a mutable variable to track if the order will be fully paid from wallet
     let isFullyPaidFromWallet = paidFromWallet;
-    
+
     // Determine payment method and amounts
     if (isWalletCredit && walletBalance > 0) {
       // Use wallet credit (hybrid payment)
       useWalletPayment = true;
-      
+
       if (walletBalance >= totalAmount) {
         // Wallet covers entire amount
         walletAmountToUse = totalAmount;
@@ -460,7 +455,7 @@ exports.createOrder = async (req, res) => {
       // Full Paystack payment
       walletAmountToUse = 0;
       paystackAmount = totalAmount;
-      
+
       // If user tried to use wallet but has insufficient funds
       if ((paidFromWallet || isWalletCredit) && walletBalance < totalAmount) {
         console.log('DEBUG - Order Creation - Insufficient wallet balance:', {
@@ -468,9 +463,9 @@ exports.createOrder = async (req, res) => {
           totalAmount,
           difference: totalAmount - walletBalance
         });
-        
+
         if (paidFromWallet) {
-          return res.status(400).json({ 
+          return res.status(400).json({
             message: 'Insufficient wallet balance for full payment',
             walletBalance,
             totalAmount
@@ -478,7 +473,7 @@ exports.createOrder = async (req, res) => {
         }
       }
     }
-    
+
     console.log('DEBUG - Order Creation - Payment Breakdown:', {
       totalAmount,
       walletBalance,
@@ -488,50 +483,50 @@ exports.createOrder = async (req, res) => {
       paidFromWallet: isFullyPaidFromWallet,
       useWalletPayment
     });
-    
+
     // Process each seller to check if buyer is already a follower
     // and add if not
     for (const sellerId of uniqueSellers) {
       const Seller = mongoose.model('Seller');
       const seller = await Seller.findById(sellerId);
-      
+
       if (!seller) {
         console.log(`DEBUG - Order Creation - Seller not found: ${sellerId}`);
         continue;
       }
-      
+
       // Check if buyer is already a follower
-      const isFollower = seller.followers && 
-                        seller.followers.some(follower => 
-                          follower.buyerId && follower.buyerId.toString() === buyerId);
-      
+      const isFollower = seller.followers &&
+        seller.followers.some(follower =>
+          follower.buyerId && follower.buyerId.toString() === buyerId);
+
       console.log('DEBUG - Order Creation - Follower Check:', {
         sellerId: sellerId,
         sellerName: seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`,
         followerCount: seller.followers ? seller.followers.length : 0,
         isFollower: isFollower
       });
-      
+
       // Add the buyer to the seller's followers if not already following
       if (!isFollower) {
         console.log(`DEBUG - Order Creation - Adding buyer as follower for seller: ${sellerId}`);
-        
+
         // Initialize followers array if it doesn't exist
         if (!seller.followers) {
           seller.followers = [];
         }
-        
+
         // Get buyer's main address
         const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0
           ? {
-              country: buyer.shippingAddresses[0].country,
-              city: buyer.shippingAddresses[0].city,
-              address1: buyer.shippingAddresses[0].addressLine1,
-              address2: buyer.shippingAddresses[0].addressLine2,
-              zipCode: buyer.shippingAddresses[0].zipCode
-            }
+            country: buyer.shippingAddresses[0].country,
+            city: buyer.shippingAddresses[0].city,
+            address1: buyer.shippingAddresses[0].addressLine1,
+            address2: buyer.shippingAddresses[0].addressLine2,
+            zipCode: buyer.shippingAddresses[0].zipCode
+          }
           : null;
-        
+
         // Add buyer as follower
         seller.followers.push({
           buyerId: buyerId,
@@ -544,10 +539,10 @@ exports.createOrder = async (req, res) => {
           lastInteraction: new Date(),
           address: mainAddress
         });
-        
+
         // Save the seller with the new follower
         await seller.save({ session });
-        
+
         // Add to buyer's activity feed if it exists
         if (buyer.activityFeed) {
           buyer.activityFeed.push({
@@ -557,7 +552,7 @@ exports.createOrder = async (req, res) => {
             referenceModel: 'Seller',
             createdAt: new Date()
           });
-          
+
           // Save buyer with updated activity feed
           await buyer.save({ session });
         }
@@ -566,13 +561,13 @@ exports.createOrder = async (req, res) => {
         const followerIndex = seller.followers.findIndex(
           follower => follower.buyerId && follower.buyerId.toString() === buyerId
         );
-        
+
         if (followerIndex !== -1) {
           // Increment order count and update last interaction
-          seller.followers[followerIndex].totalOrders = 
+          seller.followers[followerIndex].totalOrders =
             (seller.followers[followerIndex].totalOrders || 0) + 1;
           seller.followers[followerIndex].lastInteraction = new Date();
-          
+
           // Update main address if it has changed
           if (buyer.shippingAddresses && buyer.shippingAddresses.length > 0) {
             seller.followers[followerIndex].address = {
@@ -583,10 +578,10 @@ exports.createOrder = async (req, res) => {
               zipCode: buyer.shippingAddresses[0].zipCode
             };
           }
-          
+
           // Save the seller with updated follower information
           await seller.save({ session });
-          
+
           console.log(`DEBUG - Order Creation - Updated follower information:`, {
             totalOrders: seller.followers[followerIndex].totalOrders,
             lastInteraction: seller.followers[followerIndex].lastInteraction
@@ -594,23 +589,23 @@ exports.createOrder = async (req, res) => {
         }
       }
     }
-    
+
     // Calculate shipping fee for each seller based on their items' total weight
     // This is a simplified calculation - you may want to use a more sophisticated algorithm
     // or call a shipping rate API for each seller
     let totalShippingFee = 0;
     for (const sellerId in sellerItems) {
       const sellerData = sellerItems[sellerId];
-      
+
       // Calculate shipping fee based on weight
       // This is a simple example - replace with your actual calculation logic
       const baseShippingFee = 0; // Base fee in Naira
       const weightFactor = 0; // Additional fee per kg
-      
+
       // If a specific shipping fee was provided for this seller in the request, use that
       // Check if any of the items from this seller has shipping fee info
       let sellerShippingFeeProvided = false;
-      
+
       // Check all items for this seller to find shipping fee
       for (const itemData of sellerData.items) {
         const productId = itemData.product.toString();
@@ -622,38 +617,38 @@ exports.createOrder = async (req, res) => {
           break;
         }
       }
-      
+
       // If no shipping fee was provided, calculate based on weight
       if (!sellerShippingFeeProvided) {
         sellerData.shippingFee = Math.round(baseShippingFee + (sellerData.totalWeight * weightFactor));
       }
-      
+
       // Add to total shipping fee
       totalShippingFee += sellerData.shippingFee;
     }
-    
+
     // If a global shipping fee was provided, distribute it proportionally among sellers
     // if (shippingFee) {
     //   const totalWeight = Object.values(sellerItems).reduce((sum, seller) => sum + seller.totalWeight, 0);
-      
+
     //   for (const sellerId in sellerItems) {
     //     const sellerData = sellerItems[sellerId];
     //     // Distribute the shipping fee proportionally based on weight
     //     const weightRatio = sellerData.totalWeight / totalWeight;
     //     sellerData.shippingFee = Math.round(shippingFee * weightRatio);
     //   }
-      
+
     //   // Ensure the sum of distributed fees equals the original total
     //   // (might be off by a few naira due to rounding)
     //   const distributedTotal = Object.values(sellerItems).reduce((sum, seller) => sum + seller.shippingFee, 0);
-      
+
     //   // Adjust the first seller's fee to make up any difference
     //   if (distributedTotal !== shippingFee && Object.keys(sellerItems).length > 0) {
     //     const firstSellerId = Object.keys(sellerItems)[0];
     //     sellerItems[firstSellerId].shippingFee += (shippingFee - distributedTotal);
     //   }
     // }
-    
+
     // Calculate grand total (items + shipping)
     // let grandTotal = totalAmount + totalShippingFee;
 
@@ -662,15 +657,15 @@ exports.createOrder = async (req, res) => {
     // Update totalShippingFee to match the provided shippingFee
     totalShippingFee = shippingFee;
 
-    
+
     // Check wallet balance if using wallet payment
     if (isFullyPaidFromWallet) {
       if (buyer.wallet.balance < grandTotal) {
-        return res.status(400).json({ 
-          message: `Insufficient wallet balance. Required: ${grandTotal}, Available: ${buyer.wallet.balance}` 
+        return res.status(400).json({
+          message: `Insufficient wallet balance. Required: ${grandTotal}, Available: ${buyer.wallet.balance}`
         });
       }
-      
+
       // Deduct from buyer's wallet
       const transaction = {
         type: 'debit',
@@ -680,7 +675,7 @@ exports.createOrder = async (req, res) => {
         status: 'completed',
         createdAt: new Date()
       };
-      
+
       await Buyer.findByIdAndUpdate(
         buyerId,
         {
@@ -690,14 +685,14 @@ exports.createOrder = async (req, res) => {
         { session }
       );
     }
-    
+
     // Create a batch ID for Fez Delivery
     const batchId = `AUQLI-${uuidv4().substring(0, 8)}`;
-    
+
     // Create orders for each seller
     const orders = [];
     const fezRequests = [];
-    
+
     for (const sellerId in sellerItems) {
       const sellerData = sellerItems[sellerId];
       const sellerItemsList = sellerData.items;
@@ -712,20 +707,20 @@ exports.createOrder = async (req, res) => {
       const sellerWeight = sellerData.totalWeight;
       // Use seller-specific parcel info
       const sellerParcelInfo = sellerData.parcelInfo;
-      
+
       const sellerTotal = sellerItemsList.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      
+
       // Generate a unique order ID
       const uniqueOrderId = `AUQLI-${uuidv4().substring(0, 8)}`;
-      
+
       // Get fresh seller data with all fields populated to ensure we have the latest address info
       // Use mongoose model to avoid reference issues
       const SellerModel = mongoose.model('Seller');
       const fullSellerData = await SellerModel.findById(sellerId);
-      
+
       // Check if seller is international
       const isInternationalSeller = fullSellerData?.isInternational === true;
-      
+
       // Log all available address data for debugging
       console.log('DEBUG - Seller Address Data:', {
         sellerId: sellerId,
@@ -737,7 +732,7 @@ exports.createOrder = async (req, res) => {
         hasWarehouseAddress: fullSellerData?.warehouseDetails?.address?.addressLine1 ? true : false,
         warehouseAddress: fullSellerData?.warehouseDetails?.address
       });
-      
+
       // Create order in database
       const order = new Order({
         order_id: uniqueOrderId,
@@ -779,7 +774,7 @@ exports.createOrder = async (req, res) => {
         } : (() => {
           // Determine which address to use for pickup based on availability
           let address = null;
-          
+
           // Start with sellerSenderInfo from request
           if (sellerSenderInfo && sellerSenderInfo.senderAddress) {
             // Use the address provided in the request
@@ -793,7 +788,7 @@ exports.createOrder = async (req, res) => {
               country: 'NG'
             };
             console.log('Order using pickup address from request');
-          } 
+          }
           // Then try sellerAddress
           else if (fullSellerData.sellerAddress && fullSellerData.sellerAddress.addressLine1) {
             address = {
@@ -809,7 +804,7 @@ exports.createOrder = async (req, res) => {
               zip: fullSellerData.sellerAddress.zipCode || ''
             };
             console.log('Order using seller address from database');
-          } 
+          }
           // Try businessAddress
           else if (fullSellerData.businessAddress && fullSellerData.businessAddress.addressLine1) {
             address = {
@@ -867,7 +862,7 @@ exports.createOrder = async (req, res) => {
               country: 'NG'
             };
           }
-          
+
           return address;
         })(),
         shipping: {
@@ -888,32 +883,32 @@ exports.createOrder = async (req, res) => {
         paid: (paymentMethod !== 'paystack' || isItemCod || isFullyPaidFromWallet) ? (!isItemCod || isFullyPaidFromWallet) : false,
         paymentInfo: {
           method: isFullyPaidFromWallet ? 'wallet' : paymentMethod,
-          status: isItemCod && !isFullyPaidFromWallet ? 'awaiting_cod' : 
-                 (paymentMethod === 'paystack' && !isItemCod && !isFullyPaidFromWallet) ? 'pending' : 'paid',
+          status: isItemCod && !isFullyPaidFromWallet ? 'awaiting_cod' :
+            (paymentMethod === 'paystack' && !isItemCod && !isFullyPaidFromWallet) ? 'pending' : 'paid',
           isCashOnDelivery: isItemCod && !isFullyPaidFromWallet,
           isWalletCredit: isWalletCredit && walletAmountToUse > 0,
           // Calculate proportional wallet amount for this order based on its total
-          walletAmountUsed: isWalletCredit && walletAmountToUse > 0 ? 
-                            Math.round((sellerTotal / totalAmount) * walletAmountToUse) : 0,
+          walletAmountUsed: isWalletCredit && walletAmountToUse > 0 ?
+            Math.round((sellerTotal / totalAmount) * walletAmountToUse) : 0,
           // Store the batch total and wallet amount to verify refunds
           batchTotalAmount: totalAmount,
           batchWalletAmount: walletAmountToUse,
           batchId: batchId, // Store the batch ID to identify related orders
-          ...(isItemCod && !isFullyPaidFromWallet ? {} : 
-             (paymentMethod === 'paystack' && !isItemCod && !isFullyPaidFromWallet) ? {} : { paidAt: new Date() })
+          ...(isItemCod && !isFullyPaidFromWallet ? {} :
+            (paymentMethod === 'paystack' && !isItemCod && !isFullyPaidFromWallet) ? {} : { paidAt: new Date() })
         },
         // Initialize notification flag
         // We'll set this to false for all orders and handle notifications in batch
         notificationsSent: false
       });
-      
-    
+
+
       await order.save({ session });
       console.log('Order saved successfully:', {
         orderId: order._id.toString(),
         order_id: order.order_id
       });
-      
+
       // Track campaign attribution if campaign ID is provided
       if (req.body.campaignId) {
         try {
@@ -936,29 +931,29 @@ exports.createOrder = async (req, res) => {
           console.error(`Failed to track campaign purchase: ${campaignError.message}`);
         }
       }
-      
+
       // Schedule job to mark order as stale if still unpaid after 30 minutes (for Paystack orders only)
       if (paymentMethod === 'paystack' && !isItemCod && !isFullyPaidFromWallet) {
         // Schedule warning notification 20 minutes after order creation (10 minutes before being marked stale)
         agenda.schedule('in 20 minutes', 'send_unpaid_order_warning', { orderId: order._id });
         console.log(`Scheduled warning notification for unpaid Paystack order ${order.order_id} in 20 minutes`);
-        
+
         // Schedule job to mark as stale after 30 minutes
         agenda.schedule('in 30 minutes', 'mark_unpaid_orders_stale', { orderId: order._id });
         console.log(`Scheduled automatic stale marking for unpaid Paystack order ${order.order_id} in 30 minutes`);
       }
-      
+
       // Add buyer to seller's customers list if not already a customer
       // Use a different variable name to avoid redeclaration
       const SellerModelForCustomer = mongoose.model('Seller');
       const sellerDoc = await SellerModelForCustomer.findById(sellerId);
-      
+
       if (sellerDoc) {
         // Check if buyer is already a customer
         const existingCustomer = sellerDoc.customers.find(
           customer => customer.buyerId && customer.buyerId.toString() === buyerId.toString()
         );
-        
+
         if (!existingCustomer) {
           // Add buyer as a new customer
           await SellerModelForCustomer.findByIdAndUpdate(
@@ -981,11 +976,11 @@ exports.createOrder = async (req, res) => {
         } else {
           // Update existing customer with new order data
           await SellerModelForCustomer.findOneAndUpdate(
-            { 
+            {
               _id: sellerId,
-              'customers.buyerId': buyerId 
+              'customers.buyerId': buyerId
             },
-            { 
+            {
               $inc: {
                 'customers.$.totalOrders': 1,
                 'customers.$.totalSpent': sellerTotal
@@ -996,26 +991,26 @@ exports.createOrder = async (req, res) => {
           console.log(`Updated existing customer record for buyer ${buyerId} and seller ${sellerId}`);
         }
       }
-      
+
       // Stock will be updated when the order is paid
       console.log('Stock update deferred until payment is confirmed');
-      
+
       orders.push(order);
-      
+
       // Add to our local array for processing after transaction
       orderNotifications.push({
         orderId: order._id,
         buyerId: buyerId,
         sellerId: sellerId
       });
-      
+
       // Don't schedule the notification job here - we'll do it once after transaction is committed
       console.log('Adding order to notification queue:', {
         orderId: order._id.toString(),
         buyerId,
         sellerId
       });
-      
+
       // Log all available address data for debugging but don't redeclare fullSellerData
       console.log('DEBUG - Seller Address Data:', {
         sellerId: sellerId,
@@ -1026,24 +1021,24 @@ exports.createOrder = async (req, res) => {
         hasWarehouseAddress: fullSellerData?.warehouseDetails?.address?.addressLine1 ? true : false,
         warehouseAddress: fullSellerData?.warehouseDetails?.address
       });
-      
+
       // Prepare seller-specific parcel details for Fez
       const sellerParcel = {
         valueOfItem: sellerParcelInfo.valueOfItem.toString(),
         weight: sellerWeight,
-        itemDescription: sellerParcelInfo.itemDescription || 
-                        (parcel.itemDescription ? parcel.itemDescription : `Order from ${seller.businessName || 'Seller'}`)
+        itemDescription: sellerParcelInfo.itemDescription ||
+          (parcel.itemDescription ? parcel.itemDescription : `Order from ${seller.businessName || 'Seller'}`)
       };
-      
+
       // Ensure itemDescription doesn't exceed 200 characters (Fez API limit)
       if (sellerParcel.itemDescription && sellerParcel.itemDescription.length > 200) {
         sellerParcel.itemDescription = sellerParcel.itemDescription.substring(0, 197) + '...';
         // console.log(`⚠️ Truncated item description for order ${order.order_id} to fit Fez API limit`);
       }
-      
+
       // Skip Fez Delivery request creation for international sellers
       let fezRequest = null;
-      
+
       // Only create Fez request if seller is not international
       if (!isInternationalSeller && !isStorePickup) {
         // Create Fez Delivery request with sender information and seller-specific parcel details
@@ -1062,7 +1057,7 @@ exports.createOrder = async (req, res) => {
           isItemCod: isItemCod && !isFullyPaidFromWallet,
           thirdparty: "true",
         };
-        
+
         console.log(`Creating Fez request for non-international seller: ${sellerId}`);
       } else if (isInternationalSeller) {
         console.log(`Skipping Fez request for international seller: ${sellerId}`);
@@ -1077,7 +1072,7 @@ exports.createOrder = async (req, res) => {
         } else {
           fezRequest.senderName = `${fullSellerData.firstName} ${fullSellerData.lastName}`;
         }
-  
+
         // Check for sender address in priority order:
         // 1. Request sender info
         // 2. Seller address
@@ -1108,19 +1103,19 @@ exports.createOrder = async (req, res) => {
           fezRequest.senderAddress = 'Not provided';
           console.log('No address found for seller', sellerId);
         }
-  
+
         // Handle phone number
         fezRequest.senderPhone = sellerSenderInfo.senderPhone || fullSellerData.phoneNumber || 'Not provided';
-        
+
         // Handle email
         fezRequest.senderEmail = sellerSenderInfo.senderEmail || fullSellerData.email || '';
-        
+
         // Add cashOnDeliveryAmount for COD orders
         if (isItemCod && !isFullyPaidFromWallet) {
           const orderTotal = order.totalAmount + sellerShippingFee;
           fezRequest.cashOnDeliveryAmount = orderTotal.toString();
         }
-        
+
         // Add optional fields if provided
         if (pickUpDate) {
           fezRequest.pickUpDate = pickUpDate;
@@ -1130,7 +1125,7 @@ exports.createOrder = async (req, res) => {
           tomorrow.setDate(tomorrow.getDate() + 1);
           fezRequest.pickUpDate = tomorrow.toISOString().split('T')[0]; // Format as YYYY-MM-DD
         }
-        
+
         // Handle pickup state in same priority order as address
         if (sellerSenderInfo.pickUpState) {
           fezRequest.pickUpState = sellerSenderInfo.pickUpState;
@@ -1149,28 +1144,28 @@ exports.createOrder = async (req, res) => {
           fezRequest.pickUpState = "Lagos";
           console.log('Using default state (Lagos) for seller', sellerId);
         }
-        
+
         // Add to fezRequests array only if it's not an international seller
         fezRequests.push(fezRequest);
       }
-      
-     
+
+
       const notificationData = {
         orderId: order._id,
         buyerId: buyerId,
         sellerId: sellerId // Ensure this is the correct seller ID
       };
-      
+
       // Add to our local array
       orderNotifications.push(notificationData);
-      
-     
+
+
     }
-    
+
     // Get a fresh authentication token for Fez Delivery
     const authToken = await getFezAuthToken();
     console.log('Using fresh token for order creation:', authToken.substring(0, 10) + '...');
-    
+
     // Skip Fez API call for store pickup orders
     let fezResponse = { data: { status: 'Success', orderNos: {} } };
     if (!isStorePickup) {
@@ -1193,54 +1188,54 @@ exports.createOrder = async (req, res) => {
         }
       });
     }
-    
+
     // Update orders with Fez tracking information (only for non-store pickup and non-international seller orders)
     if (!isStorePickup && fezResponse.data && fezResponse.data.status === 'Success') {
       const orderNos = fezResponse.data.orderNos;
-      
+
       for (const order of orders) {
         // Get the seller to check if they're international
         const SellerModel = mongoose.model('Seller');
         const orderSeller = await SellerModel.findById(order.seller);
         const isInternationalSeller = orderSeller?.isInternational === true;
-        
+
         // Skip updating tracking for international sellers
         if (isInternationalSeller) {
           console.log(`Skipping Fez tracking update for international seller order: ${order.order_id}`);
           continue;
         }
-        
+
         const fezOrderNo = orderNos[order.order_id];
         if (fezOrderNo) {
           await Order.findByIdAndUpdate(
             order._id,
-            { 
-              $set: { 
+            {
+              $set: {
                 'shipping.tracking.number': fezOrderNo,
                 'shipping.fez_order_number': fezOrderNo,
                 'shipping.tracking.carrier': 'Fez Delivery'
-              } 
+              }
             },
             { session }
           );
         }
       }
     }
-    
+
     // When creating the Order object, add the wallet payment information
     // This would be done in the loop where orders are created for each seller
-    
+
     // Create the orders
     const orderSummaries = [];
-    
+
     for (const order of orders) {
       const sellerInfo = sellerItems[order.seller.toString()];
-      
+
       // Get the seller to check if they're international
       const SellerModel = mongoose.model('Seller');
       const orderSeller = await SellerModel.findById(order.seller);
       const isInternationalSeller = orderSeller?.isInternational === true;
-      
+
       orderSummaries.push({
         orderId: order._id,
         order_id: order.order_id,
@@ -1253,7 +1248,7 @@ exports.createOrder = async (req, res) => {
         isInternationalSeller: isInternationalSeller // Add flag to indicate international seller
       });
     }
-    
+
     // Deduct from wallet if needed
     if (useWalletPayment && walletAmountToUse > 0) {
       // Create wallet transaction record
@@ -1263,21 +1258,21 @@ exports.createOrder = async (req, res) => {
         description: `Payment for order(s): ${orders.map(o => o.order_id).join(', ')}`,
         status: 'completed'
       };
-      
+
       // Add transaction to wallet
       buyer.wallet.balance -= walletAmountToUse;
       buyer.wallet.transactions.push(walletTransaction);
-      
+
       // Save buyer with updated wallet
       await buyer.save({ session });
-      
+
       console.log('DEBUG - Order Creation - Wallet Payment:', {
         walletAmountUsed: walletAmountToUse,
         newWalletBalance: buyer.wallet.balance,
         transactionId: buyer.wallet.transactions[buyer.wallet.transactions.length - 1]._id
       });
     }
-    
+
     // After all orders are processed and Fez API call is complete
     await session.commitTransaction();
     session.endSession();
@@ -1299,20 +1294,20 @@ exports.createOrder = async (req, res) => {
     // Track order sales on Mixpanel - one event per order with all items as numbered properties
     try {
       console.log('Starting Mixpanel tracking for sale_made events...');
-      
+
       for (const order of orders) {
         // Get seller details for this order
         const SellerModel = mongoose.model('Seller');
         const orderSeller = await SellerModel.findById(order.seller);
-        
+
         if (!orderSeller) {
           console.warn(`Seller not found for order ${order.order_id}, skipping Mixpanel tracking`);
           continue;
         }
 
         // Get buyer's main address for tracking
-        const buyerMainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0 
-          ? buyer.shippingAddresses[0] 
+        const buyerMainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0
+          ? buyer.shippingAddresses[0]
           : null;
 
         // Create base tracking data for the order
@@ -1331,7 +1326,7 @@ exports.createOrder = async (req, res) => {
           order_channel: req.body.channel || 'marketplace',
           total_items_in_order: order.items.length,
           total_orders_in_batch: orders.length,
-          
+
           // Seller details
           seller_id: orderSeller._id.toString(),
           seller_first_name: orderSeller.firstName,
@@ -1340,21 +1335,21 @@ exports.createOrder = async (req, res) => {
           seller_email: orderSeller.email,
           seller_phone: orderSeller.phoneNumber,
           seller_is_international: orderSeller.isInternational || false,
-          seller_address_line1: orderSeller.sellerAddress?.addressLine1 || 
-                               orderSeller.businessAddress?.addressLine1 || 
-                               orderSeller.warehouseDetails?.address?.addressLine1 || 
-                               orderSeller.address || 'Not provided',
-          seller_city: orderSeller.sellerAddress?.city || 
-                      orderSeller.businessAddress?.city || 
-                      orderSeller.warehouseDetails?.address?.city || '',
-          seller_state: orderSeller.sellerAddress?.state || 
-                       orderSeller.businessAddress?.state || 
-                       orderSeller.warehouseDetails?.address?.state || 
-                       orderSeller.state || '',
-          seller_country: orderSeller.sellerAddress?.country || 
-                         orderSeller.businessAddress?.country || 
-                         orderSeller.warehouseDetails?.address?.country || 'Nigeria',
-          
+          seller_address_line1: orderSeller.sellerAddress?.addressLine1 ||
+            orderSeller.businessAddress?.addressLine1 ||
+            orderSeller.warehouseDetails?.address?.addressLine1 ||
+            orderSeller.address || 'Not provided',
+          seller_city: orderSeller.sellerAddress?.city ||
+            orderSeller.businessAddress?.city ||
+            orderSeller.warehouseDetails?.address?.city || '',
+          seller_state: orderSeller.sellerAddress?.state ||
+            orderSeller.businessAddress?.state ||
+            orderSeller.warehouseDetails?.address?.state ||
+            orderSeller.state || '',
+          seller_country: orderSeller.sellerAddress?.country ||
+            orderSeller.businessAddress?.country ||
+            orderSeller.warehouseDetails?.address?.country || 'Nigeria',
+
           // Buyer details
           buyer_id: buyer._id.toString(),
           buyer_first_name: buyer.firstName,
@@ -1367,38 +1362,38 @@ exports.createOrder = async (req, res) => {
           buyer_state: buyerMainAddress?.state || '',
           buyer_country: buyerMainAddress?.country || 'Nigeria',
           buyer_zip_code: buyerMainAddress?.zipCode || '',
-          
+
           // Delivery details (if not store pickup)
           delivery_address_line1: order.delivery_address?.line1 || '',
           delivery_city: order.delivery_address?.city || '',
           delivery_state: order.delivery_address?.state || '',
           delivery_country: order.delivery_address?.country || '',
-          delivery_recipient_name: order.delivery_address?.first_name && order.delivery_address?.last_name 
-            ? `${order.delivery_address.first_name} ${order.delivery_address.last_name}` 
+          delivery_recipient_name: order.delivery_address?.first_name && order.delivery_address?.last_name
+            ? `${order.delivery_address.first_name} ${order.delivery_address.last_name}`
             : '',
           delivery_recipient_phone: order.delivery_address?.phone || '',
           delivery_recipient_email: order.delivery_address?.email || '',
-          
+
           // Shipping details
           fez_order_number: order.shipping?.fez_order_number || null,
           carrier_name: order.shipping?.carrier?.name || null,
           tracking_number: order.shipping?.tracking?.number || null,
-          
+
           // Timestamps
           order_created_at: order.createdAt || new Date(),
-          
+
           // Campaign attribution (if applicable)
           campaign_id: req.body.campaignId || null,
-          
+
           // Live show details (if applicable)
           stream_id: req.body.streamId || null
         };
 
         // Calculate payment breakdown (same logic as getOrderDetails)
-        const categoryNames = [...new Set(order.items.map(item => 
+        const categoryNames = [...new Set(order.items.map(item =>
           item.productName ? productMap[item.product.toString()]?.category || null : null
         ).filter(Boolean))];
-        
+
         const Category = mongoose.model('Category');
         const categories = await Category.find({ name: { $in: categoryNames } });
         const categoryFeeMap = new Map(categories.map(cat => [
@@ -1443,9 +1438,9 @@ exports.createOrder = async (req, res) => {
           const itemTotal = item.price * item.quantity;
           const itemPlatformFee = itemizedFees[index].platformFeeAmount;
           const auqliItemProfit = itemPlatformFee; // Auqli's profit is the platform fee for that item
-          
+
           auqliTotalProfit += auqliItemProfit;
-          
+
           trackingData[`orderProductId${itemNumber}`] = item.product.toString();
           trackingData[`orderProductName${itemNumber}`] = item.productName;
           trackingData[`orderProductPrice${itemNumber}`] = item.price;
@@ -1464,13 +1459,13 @@ exports.createOrder = async (req, res) => {
 
         // Track single sale_made event for the entire order
         mixpanel.track('sale_made', trackingData);
-        
-        
+
+
         console.log(`Mixpanel sale_made event tracked for order ${order.order_id} with ${order.items.length} items`);
       }
-      
+
       console.log(`Successfully tracked ${orders.length} order events on Mixpanel`);
-      
+
     } catch (mixpanelError) {
       console.error('Error tracking sale_made events on Mixpanel:', mixpanelError);
       // Continue processing even if Mixpanel tracking fails
@@ -1480,15 +1475,15 @@ exports.createOrder = async (req, res) => {
     if (orderNotifications.length > 0) {
       // Get the buyer ID from the first notification
       const buyerId = orderNotifications[0].buyerId;
-      
+
       console.log('Scheduling batch notification processing for buyer:', buyerId);
-      
+
       // Schedule a batch notification job for this buyer
       await agenda.schedule('in 2 seconds', 'send-order-notifications', {
         buyerId: buyerId,
         batchProcess: true
       });
-      
+
       console.log('Batch notification job scheduled for buyer:', buyerId);
     } else {
       console.log('No orders to send notifications for');
@@ -1498,7 +1493,7 @@ exports.createOrder = async (req, res) => {
     try {
       // Check if any orders are paid
       const paidOrders = orders.filter(order => order.paid === true);
-      
+
       if (paidOrders.length > 0) {
         // Get seller names for each paid order
         const orderSellerInfo = await Promise.all(
@@ -1510,7 +1505,7 @@ exports.createOrder = async (req, res) => {
             };
           })
         );
-        
+
         // Send a simple notification to Slack email only for paid orders
         const slackEmailMsg = {
           to: 'orders-aaaaqm2ugmdudvf4jsgf3koetm@auqli.slack.com',
@@ -1525,15 +1520,19 @@ exports.createOrder = async (req, res) => {
               <p>A new paid order has been created on Auqli.</p>
               <p>Paid order count: ${paidOrders.length}</p>
               <p>Buyer: ${buyer.firstName} ${buyer.lastName}</p>
-              ${orderSellerInfo.map(info => 
-                `<p>Order ID: ${info.orderId}, Store: ${info.sellerName}</p>`
-              ).join('')}
+              ${orderSellerInfo.map(info =>
+            `<p>Order ID: ${info.orderId}, Store: ${info.sellerName}</p>`
+          ).join('')}
               <p>Time: ${new Date().toISOString()}</p>
             </div>
           `
         };
 
-        await sgMail.send(slackEmailMsg);
+        await termiiEmailService.sendRawHTMLEmail({
+          email: 'bolu@auqli.com', // fallback for slack notifications
+          subject: slackEmailMsg.subject,
+          html: slackEmailMsg.html,
+        });
         console.log('Slack notification email sent for new paid order');
       } else {
         console.log('No paid orders to send Slack notification for');
@@ -1544,7 +1543,7 @@ exports.createOrder = async (req, res) => {
     }
 
     console.log('Order creation completed');
-    
+
     // Prepare response with detailed order information
     const orderDetails = orderSummaries;
 
@@ -1572,25 +1571,25 @@ exports.createOrder = async (req, res) => {
         createdAt: new Date()
       });
     }
-    
-    
+
+
     // Check if the order is from a liveshow and update the stream with order information
     if (req.body.channel === "liveshow" && req.body.streamId) {
       try {
         const Stream = mongoose.model('Stream');
         const stream = await Stream.findById(req.body.streamId);
-        
+
         if (stream) {
           console.log('Processing liveshow order for stream:', {
             streamId: stream._id,
             title: stream.title
           });
-          
+
           // For each order, create an entry in the stream's orders array
           for (const order of orders) {
             // Get the first product from the order for simplicity
             const firstItem = order.items[0];
-            
+
             // Add to the stream's orders array
             stream.orders.push({
               orderId: order.order_id,
@@ -1611,11 +1610,11 @@ exports.createOrder = async (req, res) => {
               createdAt: new Date()
             });
           }
-          
+
           // Save the stream with updated orders
           await stream.save();
-          
-          
+
+
           // Send a socket notification about the order for the stream
           if (req.app && req.app.get('io')) {
             const io = req.app.get('io');
@@ -1626,7 +1625,7 @@ exports.createOrder = async (req, res) => {
               const words = name.split(' ');
               return words.slice(0, 3).join(' ') + (words.length > 3 ? '...' : '');
             }
-            
+
             // Create notification object for WebSocket
             const notificationObj = {
               id: Date.now().toString(),
@@ -1644,14 +1643,14 @@ exports.createOrder = async (req, res) => {
               },
               timestamp: new Date()
             };
-              
-            
-            
+
+
+
             // Send WebSocket notification
             console.log('Broadcasting liveshow order notification to subscribers');
             const streamRoom = `stream_notifications_${stream._id.toString()}`;
             io.to(streamRoom).emit('stream_notification', notificationObj);
-            
+
             // Add the notification to stream chat interactions
             stream.chatInteractions.push(notificationObj);
             await stream.save();
@@ -1680,7 +1679,7 @@ exports.createOrder = async (req, res) => {
         // Continue with the response even if stream update fails
       }
     }
-    
+
     // Calculate and include totals in response
     const responseTotals = {
       itemsTotal: totalAmount,
@@ -1695,7 +1694,7 @@ exports.createOrder = async (req, res) => {
     };
 
     console.log('normal orders', orderDetails);
-    
+
     return res.status(201).json({
       message: 'Orders created successfully',
       orders: orderDetails,
@@ -1704,14 +1703,14 @@ exports.createOrder = async (req, res) => {
       totals: responseTotals,
       fezResponse: fezResponse.data
     });
-    
+
   } catch (error) {
     // Only abort if the session is still active
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
     session.endSession();
-    
+
     console.error('Error creating order:', error);
     return res.status(500).json({ message: 'Failed to create order', error: error.message });
   }
@@ -1766,18 +1765,18 @@ exports.getAllOrders = async (req, res) => {
 // Get all orders for a buyer
 exports.getOrdersForBuyer = async (req, res) => {
   const { buyerId } = req.params;
-  const { 
-    trackingStatus, 
-    hasReturn, 
+  const {
+    trackingStatus,
+    hasReturn,
     search,
     page = 1,
     limit = 10,
-    sort = '-createdAt' 
+    sort = '-createdAt'
   } = req.query;
 
   try {
     // Build the base query
-    const query = { 
+    const query = {
       buyer: buyerId,
       isStale: { $ne: true } // Exclude stale orders
     };
@@ -1795,23 +1794,23 @@ exports.getOrdersForBuyer = async (req, res) => {
         'pending': 'pending',
         'refunded': 'refunded'
       };
-      
+
       // Normalize the provided status (remove hyphens, convert to lowercase)
       const normalizedStatus = trackingStatus.toLowerCase().replace(/[-_\s]/g, '');
-      
+
       // Find the matching internal status by doing a loose case-insensitive match
       let internalStatus = null;
-      
+
       for (const [key, value] of Object.entries(statusMap)) {
         // Normalize the key for comparison (remove hyphens, convert to lowercase)
         const normalizedKey = key.toLowerCase().replace(/[-_\s]/g, '');
-        
+
         if (normalizedKey === normalizedStatus) {
           internalStatus = value;
           break;
         }
       }
-      
+
       // Use the mapped internal status if found
       if (internalStatus) {
         query['shipping.tracking.status'] = internalStatus;
@@ -1858,10 +1857,10 @@ exports.getOrdersForBuyer = async (req, res) => {
       if (returnInfo) {
         orderObj.returnRequestId = returnInfo.returnId;
         orderObj.returnStatus = returnInfo.status;
-        
+
         // Check for refunded status in a case-insensitive way
-        if (trackingStatus && trackingStatus.toLowerCase().replace(/[-_\s]/g, '') === 'refunded' && 
-            returnInfo.status.toLowerCase() !== 'refunded') {
+        if (trackingStatus && trackingStatus.toLowerCase().replace(/[-_\s]/g, '') === 'refunded' &&
+          returnInfo.status.toLowerCase() !== 'refunded') {
           return null;
         }
       } else if (trackingStatus && trackingStatus.toLowerCase().replace(/[-_\s]/g, '') === 'refunded') {
@@ -1882,7 +1881,7 @@ exports.getOrdersForBuyer = async (req, res) => {
     // Calculate pagination data
     const filteredTotal = filteredOrders.length;
     const totalFiltered = hasReturn || trackingStatus ? filteredTotal : total;
-    
+
     res.json({
       orders: filteredOrders,
       pagination: {
@@ -1901,8 +1900,8 @@ exports.getOrdersForBuyer = async (req, res) => {
 exports.getOrdersForSeller = async (req, res) => {
   try {
     const sellerId = req.user.id;
-    const { 
-      page = 1, 
+    const {
+      page = 1,
       limit = 10,
       status,
       startDate,
@@ -1918,7 +1917,7 @@ exports.getOrdersForSeller = async (req, res) => {
     } = req.query;
 
     // Build query
-    const query = { 
+    const query = {
       seller: sellerId,
       // By default, hide stale/abandoned orders unless explicitly requested via tab or query
     };
@@ -2161,11 +2160,11 @@ exports.updateOrderStatus = async (req, res) => {
 
       const updateResult = await Product.findByIdAndUpdate(
         item.product,
-        { 
-          $inc: { 
+        {
+          $inc: {
             'stats.soldCount': item.quantity,
             'stock': -item.quantity,
-            'inventory.quantity': -item.quantity 
+            'inventory.quantity': -item.quantity
           }
         },
         { new: true } // Return the updated document
@@ -2185,9 +2184,9 @@ exports.updateOrderStatus = async (req, res) => {
 
     console.log('Order status updated successfully');
 
-    res.json({ 
-      message: 'Order status updated successfully', 
-      order 
+    res.json({
+      message: 'Order status updated successfully',
+      order
     });
 
     // After status update, notify both parties
@@ -2221,9 +2220,9 @@ exports.updateOrderStatus = async (req, res) => {
       error: error.message,
       stack: error.stack
     });
-    res.status(500).json({ 
-      message: 'Failed to update order status', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to update order status',
+      error: error.message
     });
   }
 };
@@ -2592,8 +2591,8 @@ exports.updateDispute = async (req, res) => {
 // Get detailed information about a specific order
 exports.getOrderDetails = async (req, res) => {
   try {
-  
-    
+
+
     const order = await Order.findById(req.params.orderId)
       .populate('buyer', 'firstName lastName email phoneNumber')
       .populate('seller', 'firstName lastName email phoneNumber businessName businessAddress sellerAddress storeName')
@@ -2612,21 +2611,21 @@ exports.getOrderDetails = async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
-    
+
     // If pickup_address is null, populate it with seller's address
-    if (!order.pickup_address || Object.keys(order.pickup_address).every(key => 
+    if (!order.pickup_address || Object.keys(order.pickup_address).every(key =>
       key === '_id' || !order.pickup_address[key])) {
-      
+
       // Get the seller's details
       const seller = order.seller;
-      
+
       // Check if we have business address or personal address to use
       if (seller) {
         // Create a new pickup address using seller data
         let pickupAddress = {};
-        
-        if (seller.businessAddress && seller.accountType === 'business' && 
-            seller.businessAddress.addressLine1) {
+
+        if (seller.businessAddress && seller.accountType === 'business' &&
+          seller.businessAddress.addressLine1) {
           // Use business address for business accounts
           pickupAddress = {
             first_name: seller.firstName,
@@ -2655,22 +2654,22 @@ exports.getOrderDetails = async (req, res) => {
             zip: seller.sellerAddress.zipCode
           };
         }
-        
+
         // Only update if we have a valid address to use
         if (pickupAddress.line1) {
           order.pickup_address = pickupAddress;
         }
       }
     }
-    
+
     // Calculate payment breakdown
     let paymentBreakdown = null;
     if (order.paid || !order.isOpen || order.paymentInfo.status === 'awaiting_cod') {  // Calculate if paid or closed
       // Get unique category names
-      const categoryNames = [...new Set(order.items.map(item => 
+      const categoryNames = [...new Set(order.items.map(item =>
         item.product?.category || null
       ).filter(Boolean))];
-      
+
       const Category = mongoose.model('Category');
       // Find categories by name instead of _id
       const categories = await Category.find({ name: { $in: categoryNames } });
@@ -2699,7 +2698,7 @@ exports.getOrderDetails = async (req, res) => {
       // Calculate processing fee (1.5%) on the items subtotal
       const processingFee = itemsSubtotal * 0.015;
       const shippingFeeAmount = order.shipping?.fee?.amount || 0;
-      
+
       // Deductions from seller's earnings from items
       const totalDeductions = totalPlatformFee + processingFee;
       const sellerAmount = itemsSubtotal - totalDeductions;
@@ -2727,7 +2726,7 @@ exports.getOrderDetails = async (req, res) => {
       },
       // ... existing timeline events ...
     ];
-    
+
     // Build augmented shipping tracking history with payment steps after delivery
     // Only include for sellers/admins; hide for buyers
     const baseHistory = Array.isArray(order.shipping?.tracking?.history)
@@ -2780,141 +2779,141 @@ exports.getOrderDetails = async (req, res) => {
       // Fall back to base history silently
       augmentedTrackingHistory = baseHistory;
     }
-       // Get associated return request if it exists
-       const Return = mongoose.model('Return');
-       const returnRequest = await Return.findOne({ order: order._id })
-         .populate('items.product', 'name')
-         .select('_id order status description preferredResolution requestDate items timeline evidence sellerResponse refundDetails');
+    // Get associated return request if it exists
+    const Return = mongoose.model('Return');
+    const returnRequest = await Return.findOne({ order: order._id })
+      .populate('items.product', 'name')
+      .select('_id order status description preferredResolution requestDate items timeline evidence sellerResponse refundDetails');
 
-       const response = {
-         order: {
-           _id: order._id,
-           order_id: order.order_id,
-           channel: order.channel,
-           createdAt: order.createdAt,
-           totalAmount: order.totalAmount,
-           paid: order.paid,
-           isStale: order.isStale,
-           isStorePickup: order.isStorePickup,
-           storePickupStatus: order.isStorePickup ? {
-             state: order.storePickupStatus?.state || 'pending',
-             confirmedAt: order.storePickupStatus?.confirmedAt,
-             approvedAt: order.storePickupStatus?.approvedAt
-           } : null,
-           paymentInfo: {
-             method: order.paymentInfo.method,
-             status: order.paymentInfo.status,
-             transactionId: order.paymentInfo.transactionId,
-             paidAt: order.paymentInfo.paidAt
-           },
-           orderStatus: {
-             isOpen: order.isOpen,
-             closedAt: order.closedAt,
-             closedBy: order.closedBy,
-             closedReason: order.closedReason,
-             hasReturn: !!returnRequest,
-             hasDispute: returnRequest?.status === 'DISPUTED' || false,
-             hasRefund: returnRequest?.status === 'REFUNDED' || false,
-             returnRequestId: returnRequest?._id || null
-           },
-           returnDetails: returnRequest ? {
-             _id: returnRequest._id,
-             status: returnRequest.status,
-             description: returnRequest.description,
-             preferredResolution: returnRequest.preferredResolution,
-             requestDate: returnRequest.requestDate,
-             items: returnRequest.items,
-             timeline: returnRequest.timeline,
-             evidence: returnRequest.evidence,
-             sellerResponse: returnRequest.sellerResponse,
-             refundDetails: returnRequest.refundDetails
-           } : null,
-           paymentBreakdown
-         },
-         buyer: order.buyer,
-         seller: order.seller,
-         items: order.items.map(item => ({
-           product: item.product ? {
-             _id: item.product._id,
-             name: item.product.name,
-             category: item.product.category,
-             description: item.product.description,
-             images: item.product.images,
-             discount: item.product.discount,
-             seller: item.product.seller,
-             brand: item.product.brand,
-             variants: item.product.variants,
-             shippingInfo: item.product.shippingInfo,
-             returnPolicy: item.product.returnPolicy,
-             stock: item.product.stock,
-             sku: item.product.sku,
-             status: item.product.status,
-             condition: item.product.condition
-           } : {
-             _id: null,
-             name: item.productName || 'Product no longer available',
-             images: [],
-             status: 'unavailable'
-           },
-           productName: item.productName,
-           seller: item.seller,
-           quantity: item.quantity,
-           price: item.price,
-           status: item.status,
-           statusHistory: item.statusHistory,
-           specifications: item.specifications || {}
-         })),
-         addresses: {
-           delivery: order.delivery_address,
-           pickup: order.pickup_address
-         },
-         shipping: order.shipping ? {
-           method: order.shipping.method,
-           carrier: order.shipping.carrier,
-           fee: order.shipping.fee,
-           rate_id: order.shipping.rate_id,
-           estimatedDeliveryDate: order.shipping.estimatedDeliveryDate,
-           estimatedPickupDate: order.shipping.estimatedPickupDate,
-           tracking: order.shipping.tracking ? {
-             number: order.shipping.tracking.number,
-             carrier: order.shipping.tracking.carrier,
-             status: order.shipping.tracking.status,
-             lastUpdate: order.shipping.tracking.lastUpdate,
-             history: augmentedTrackingHistory
-           } : {
-             number: null,
-             carrier: null,
-             status: 'unknown',
-             lastUpdate: null,
-             history: []
-           },
-           shipment_id: order.shipping.shipment_id,
-           shipment_purpose: order.shipping.shipment_purpose,
-           documents: order.shipping.documents ? {
-             shippingLabel: order.shipping.documents.shippingLabel,
-             commercialInvoice: order.shipping.documents.commercialInvoice
-           } : {}
-         } : {
-           method: null,
-           carrier: null,
-           fee: null,
-           tracking: {
-             status: 'unknown',
-             history: []
-           }
-         },
-         discount: order.discount || {},
-         notes: order.notes || [],
-         timeline: order.timeline || []
-       };
+    const response = {
+      order: {
+        _id: order._id,
+        order_id: order.order_id,
+        channel: order.channel,
+        createdAt: order.createdAt,
+        totalAmount: order.totalAmount,
+        paid: order.paid,
+        isStale: order.isStale,
+        isStorePickup: order.isStorePickup,
+        storePickupStatus: order.isStorePickup ? {
+          state: order.storePickupStatus?.state || 'pending',
+          confirmedAt: order.storePickupStatus?.confirmedAt,
+          approvedAt: order.storePickupStatus?.approvedAt
+        } : null,
+        paymentInfo: {
+          method: order.paymentInfo.method,
+          status: order.paymentInfo.status,
+          transactionId: order.paymentInfo.transactionId,
+          paidAt: order.paymentInfo.paidAt
+        },
+        orderStatus: {
+          isOpen: order.isOpen,
+          closedAt: order.closedAt,
+          closedBy: order.closedBy,
+          closedReason: order.closedReason,
+          hasReturn: !!returnRequest,
+          hasDispute: returnRequest?.status === 'DISPUTED' || false,
+          hasRefund: returnRequest?.status === 'REFUNDED' || false,
+          returnRequestId: returnRequest?._id || null
+        },
+        returnDetails: returnRequest ? {
+          _id: returnRequest._id,
+          status: returnRequest.status,
+          description: returnRequest.description,
+          preferredResolution: returnRequest.preferredResolution,
+          requestDate: returnRequest.requestDate,
+          items: returnRequest.items,
+          timeline: returnRequest.timeline,
+          evidence: returnRequest.evidence,
+          sellerResponse: returnRequest.sellerResponse,
+          refundDetails: returnRequest.refundDetails
+        } : null,
+        paymentBreakdown
+      },
+      buyer: order.buyer,
+      seller: order.seller,
+      items: order.items.map(item => ({
+        product: item.product ? {
+          _id: item.product._id,
+          name: item.product.name,
+          category: item.product.category,
+          description: item.product.description,
+          images: item.product.images,
+          discount: item.product.discount,
+          seller: item.product.seller,
+          brand: item.product.brand,
+          variants: item.product.variants,
+          shippingInfo: item.product.shippingInfo,
+          returnPolicy: item.product.returnPolicy,
+          stock: item.product.stock,
+          sku: item.product.sku,
+          status: item.product.status,
+          condition: item.product.condition
+        } : {
+          _id: null,
+          name: item.productName || 'Product no longer available',
+          images: [],
+          status: 'unavailable'
+        },
+        productName: item.productName,
+        seller: item.seller,
+        quantity: item.quantity,
+        price: item.price,
+        status: item.status,
+        statusHistory: item.statusHistory,
+        specifications: item.specifications || {}
+      })),
+      addresses: {
+        delivery: order.delivery_address,
+        pickup: order.pickup_address
+      },
+      shipping: order.shipping ? {
+        method: order.shipping.method,
+        carrier: order.shipping.carrier,
+        fee: order.shipping.fee,
+        rate_id: order.shipping.rate_id,
+        estimatedDeliveryDate: order.shipping.estimatedDeliveryDate,
+        estimatedPickupDate: order.shipping.estimatedPickupDate,
+        tracking: order.shipping.tracking ? {
+          number: order.shipping.tracking.number,
+          carrier: order.shipping.tracking.carrier,
+          status: order.shipping.tracking.status,
+          lastUpdate: order.shipping.tracking.lastUpdate,
+          history: augmentedTrackingHistory
+        } : {
+          number: null,
+          carrier: null,
+          status: 'unknown',
+          lastUpdate: null,
+          history: []
+        },
+        shipment_id: order.shipping.shipment_id,
+        shipment_purpose: order.shipping.shipment_purpose,
+        documents: order.shipping.documents ? {
+          shippingLabel: order.shipping.documents.shippingLabel,
+          commercialInvoice: order.shipping.documents.commercialInvoice
+        } : {}
+      } : {
+        method: null,
+        carrier: null,
+        fee: null,
+        tracking: {
+          status: 'unknown',
+          history: []
+        }
+      },
+      discount: order.discount || {},
+      notes: order.notes || [],
+      timeline: order.timeline || []
+    };
 
-       res.json(response);
+    res.json(response);
 
   } catch (error) {
     console.error('Error in getOrderDetails:', error);
-    res.status(500).json({ 
-      message: 'Failed to get order details', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to get order details',
+      error: error.message
     });
   }
 };
@@ -2956,11 +2955,11 @@ exports.addNote = async (req, res) => {
 
   } catch (error) {
     console.error('Add note error:', error);
-    res.status(500).json({ 
-      message: 'Failed to add note', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to add note',
+      error: error.message
     });
-    
+
   }
 };
 
@@ -2989,8 +2988,8 @@ exports.arrangePickup = async (req, res) => {
 
     if (!rate_id) {
       console.log('No rate_id found');
-      return res.status(400).json({ 
-        message: 'No rate_id found for this order' 
+      return res.status(400).json({
+        message: 'No rate_id found for this order'
       });
     }
 
@@ -3124,8 +3123,16 @@ exports.arrangePickup = async (req, res) => {
         };
 
         await Promise.all([
-          sgMail.send(buyerEmail),
-          sgMail.send(sellerEmail)
+          termiiEmailService.sendRawHTMLEmail({
+            email: buyerEmail.to,
+            subject: buyerEmail.subject,
+            html: buyerEmail.html
+          }),
+          termiiEmailService.sendRawHTMLEmail({
+            email: sellerEmail.to,
+            subject: sellerEmail.subject,
+            html: sellerEmail.html
+          })
         ]);
         console.log('Notification emails sent successfully');
       } catch (emailError) {
@@ -3177,7 +3184,7 @@ exports.arrangePickup = async (req, res) => {
 exports.testShipmentWebhook = async (req, res) => {
   try {
     console.log('Starting webhook test...');
-    
+
     // Simulate a webhook event
     const mockShipmentData = {
       shipment_id: "SH-KT355QFI31PZY4GX",
@@ -3199,7 +3206,7 @@ exports.testShipmentWebhook = async (req, res) => {
 
     console.log('Testing shipment.created event...');
     await handleShipmentCreated(mockShipmentData);
-    
+
     // Simulate in-transit after 5 seconds
     setTimeout(async () => {
       console.log('Testing shipment.in-transit event...');
@@ -3216,7 +3223,7 @@ exports.testShipmentWebhook = async (req, res) => {
       await handleShipmentDelivered(mockShipmentData);
     }, 10000);
 
-    res.json({ 
+    res.json({
       message: 'Test webhook events triggered',
       note: 'Check your console for event logs and database for updates'
     });
@@ -3269,7 +3276,7 @@ exports.updateOrderOpenStatus = async (req, res) => {
     const { isOpen, reason } = req.body;
 
     if (typeof isOpen !== 'boolean') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'isOpen must be a boolean value'
       });
     }
@@ -3284,7 +3291,7 @@ exports.updateOrderOpenStatus = async (req, res) => {
 
     // Update order fields
     order.isOpen = isOpen;
-    
+
     if (!isOpen) {
       order.closedAt = new Date();
       order.closedBy = 'admin';
@@ -3311,7 +3318,11 @@ exports.updateOrderOpenStatus = async (req, res) => {
       };
 
       // Send buyer email
-      await sgMail.send(buyerEmail);
+      await termiiEmailService.sendRawHTMLEmail({
+        email: buyerEmail.to,
+        subject: buyerEmail.subject,
+        html: buyerEmail.html
+      });
 
       // Create notifications for both parties
       await Promise.all([
@@ -3339,8 +3350,8 @@ exports.updateOrderOpenStatus = async (req, res) => {
       // ... existing reopening code ...
     }
 
-    res.json({ 
-      message: `Order ${isOpen ? 'reopened' : 'closed'} successfully`, 
+    res.json({
+      message: `Order ${isOpen ? 'reopened' : 'closed'} successfully`,
       order: {
         _id: order._id,
         order_id: order.order_id,
@@ -3353,9 +3364,9 @@ exports.updateOrderOpenStatus = async (req, res) => {
 
   } catch (error) {
     console.error('Error updating order open status:', error);
-    res.status(500).json({ 
-      message: 'Error updating order status', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error updating order status',
+      error: error.message
     });
   }
 };
@@ -3365,28 +3376,28 @@ exports.cancelShipment = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { reason } = req.body || {};
-    
+
     // Find order and check permissions
     const order = await Order.findById(orderId)
       .populate('seller', 'email firstName lastName storeName')
       .populate('buyer', 'email firstName lastName');
-      
+
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
 
     // Check if the order is from an auction
     if (order.channel && (order.channel.toLowerCase() === 'auction')) {
-      return res.status(400).json({ 
-        message: 'Orders created from auctions cannot be cancelled' 
+      return res.status(400).json({
+        message: 'Orders created from auctions cannot be cancelled'
       });
     }
 
     // Check if shipment can be cancelled (only before pickup)
     const allowedStatuses = ['pending', 'confirmed', 'pickup_arranged'];
     if (!allowedStatuses.includes(order.shipping.tracking.status)) {
-      return res.status(400).json({ 
-        message: 'Shipment cannot be cancelled at this stage' 
+      return res.status(400).json({
+        message: 'Shipment cannot be cancelled at this stage'
       });
     }
 
@@ -3396,7 +3407,7 @@ exports.cancelShipment = async (req, res) => {
         // Get a fresh authentication token for Fez Delivery
         const authToken = await getFezAuthToken();
         console.log('Using fresh token for order cancellation:', authToken.substring(0, 10) + '...');
-        
+
         // Cancel shipment with Fez Delivery
         const cancelResponse = await axios.delete(`${FEZ_API_URL}/order`, {
           headers: {
@@ -3446,13 +3457,13 @@ exports.cancelShipment = async (req, res) => {
     const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
     let walletRefunded = false;
     let walletRefundAmount = 0;
-    
+
     // Process wallet refund for hybrid payments if applicable
     if (isHybridPayment && order.paymentInfo.walletAmountUsed > 0) {
       try {
         const Buyer = mongoose.model('Buyer');
         const buyer = await Buyer.findById(order.buyer);
-        
+
         if (buyer) {
           // Refund the wallet amount that was used
           walletRefundAmount = order.paymentInfo.walletAmountUsed;
@@ -3463,14 +3474,14 @@ exports.cancelShipment = async (req, res) => {
             status: 'completed',
             createdAt: new Date()
           };
-          
+
           // Add transaction to wallet
           buyer.wallet.balance += walletRefundAmount;
           buyer.wallet.transactions.push(walletTransaction);
-          
+
           // Save buyer with updated wallet
           await buyer.save();
-          
+
           walletRefunded = true;
           console.log(`Refunded wallet amount for cancelled hybrid payment: ${walletRefundAmount}`, {
             orderId: order._id,
@@ -3487,13 +3498,13 @@ exports.cancelShipment = async (req, res) => {
     // Check if the order was paid and create a refund request if necessary
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       console.log('Creating refund request for paid order:', order.order_id);
-      
+
       shippingUpdate.$set['refundRequest.requested'] = true;
       shippingUpdate.$set['refundRequest.requestedAt'] = new Date();
       shippingUpdate.$set['refundRequest.requestedBy'] = req.user.role || 'buyer';
       shippingUpdate.$set['refundRequest.reason'] = reason || 'Shipment cancelled';
       shippingUpdate.$set['refundRequest.status'] = 'pending';
-      
+
       // Also update the order status to indicate it has a refund
       shippingUpdate.$set['orderStatus.hasRefund'] = true;
     }
@@ -3503,7 +3514,7 @@ exports.cancelShipment = async (req, res) => {
       shippingUpdate,
       { new: true }
     ).populate('seller', 'email firstName lastName storeName')
-     .populate('buyer', 'email firstName lastName');
+      .populate('buyer', 'email firstName lastName');
 
     // Send cancellation emails
     let buyerEmailHtml = `
@@ -3518,7 +3529,7 @@ exports.cancelShipment = async (req, res) => {
           <li>Cancellation Date: ${new Date().toLocaleDateString()}</li>
         </ul>
     `;
-    
+
     // Add refund information if applicable
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       buyerEmailHtml += `
@@ -3527,14 +3538,14 @@ exports.cancelShipment = async (req, res) => {
         <p>Refund status: Pending</p>
       `;
     }
-    
+
     // Add wallet refund info if applicable
     if (walletRefunded) {
       buyerEmailHtml += `
         <p><strong>Wallet Refund:</strong> Your wallet credit of ₦${walletRefundAmount.toLocaleString()} used for this order has been refunded to your wallet.</p>
       `;
     }
-    
+
     buyerEmailHtml += `
         <p>If you have any questions, please contact our support team.</p>
       </div>
@@ -3573,10 +3584,10 @@ exports.cancelShipment = async (req, res) => {
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       const Admin = mongoose.model('Admin');
       const admins = await Admin.find({});
-      
+
       if (admins && admins.length > 0) {
         const adminEmails = admins.map(admin => admin.email).filter(Boolean);
-        
+
         if (adminEmails.length > 0) {
           const adminEmail = {
             to: adminEmails,
@@ -3600,9 +3611,13 @@ exports.cancelShipment = async (req, res) => {
               </div>
             `
           };
-          
+
           try {
-            await sgMail.send(adminEmail);
+            await termiiEmailService.sendRawHTMLEmail({
+              email: adminEmail.to,
+              subject: adminEmail.subject,
+              html: adminEmail.html
+            });
           } catch (emailError) {
             console.error('Error sending admin notification:', emailError);
           }
@@ -3611,8 +3626,16 @@ exports.cancelShipment = async (req, res) => {
     }
 
     await Promise.all([
-      sgMail.send(buyerEmail),
-      sgMail.send(sellerEmail)
+      termiiEmailService.sendRawHTMLEmail({
+        email: buyerEmail.to,
+        subject: buyerEmail.subject,
+        html: buyerEmail.html
+      }),
+      termiiEmailService.sendRawHTMLEmail({
+        email: sellerEmail.to,
+        subject: sellerEmail.subject,
+        html: sellerEmail.html
+      })
     ]);
 
     // Create notifications
@@ -3636,7 +3659,7 @@ exports.cancelShipment = async (req, res) => {
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       // Create refund request
       const refundAmount = order.totalAmount; // Full refund for cancellation
-      
+
       await Order.findByIdAndUpdate(order._id, {
         'refundRequest.requested': true,
         'refundRequest.requestedAt': new Date(),
@@ -3657,7 +3680,7 @@ exports.cancelShipment = async (req, res) => {
       });
     }
 
-    res.json({ 
+    res.json({
       message: 'Shipment cancelled successfully',
       order: updatedOrder,
       walletRefunded: walletRefunded,
@@ -3666,9 +3689,9 @@ exports.cancelShipment = async (req, res) => {
 
   } catch (error) {
     console.error('Error updating order open status:', error);
-    res.status(500).json({ 
-      message: 'Error updating order status', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error updating order status',
+      error: error.message
     });
   }
 };
@@ -3679,23 +3702,23 @@ exports.cancelShipment = async (req, res) => {
  */
 const getFezAuthToken = async () => {
   try {
-   
-    
+
+
     const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
     const authData = {
       user_id: process.env.FEZ_USER_ID,
       password: process.env.FEZ_PASSWORD
     };
-    
+
     // console.log(`📤 Auth request to: ${authUrl}`);
     // console.log(`📤 Auth payload: ${JSON.stringify(authData, null, 2)}`);
-    
+
     const response = await axios.post(authUrl, authData);
-    
+
     // console.log(`📥 Auth response status: ${response.status}`);
     // console.log(`📥 Auth response headers: ${JSON.stringify(response.headers, null, 2)}`);
     // console.log(`📥 Auth response data: ${JSON.stringify(response.data, null, 2)}`);
-    
+
     if (response.data && response.data.status === 'Success' && response.data.authDetails) {
       console.log(`✅ Authentication successful! Token: ${response.data.authDetails.authToken.substring(0, 10)}... (expires: ${response.data.authDetails.expireToken})`);
       return response.data.authDetails.authToken;
@@ -3706,7 +3729,7 @@ const getFezAuthToken = async () => {
     }
   } catch (error) {
     console.error('❌ Fez authentication error:', error.message);
-    
+
     if (error.response) {
       console.error(`Response status: ${error.response.status}`);
       console.error(`Response data: ${JSON.stringify(error.response.data, null, 2)}`);
@@ -3716,7 +3739,7 @@ const getFezAuthToken = async () => {
     } else {
       console.error(`Error details: ${error.stack}`);
     }
-    
+
     throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
   }
 };
@@ -3742,11 +3765,11 @@ exports.getDeliveryCost = async (req, res) => {
     const uniqueSellerIds = [...new Set(sellerIds)];
 
     console.log(`🔍 Fetching data for ${uniqueSellerIds.length} unique sellers`);
-    
+
     // Fetch all sellers in one query for efficiency
     const SellerModel = mongoose.model('Seller');
     const sellers = await SellerModel.find({ _id: { $in: uniqueSellerIds } });
-    
+
     // Create a lookup map for quick access
     const sellerMap = {};
     sellers.forEach(seller => {
@@ -3760,15 +3783,15 @@ exports.getDeliveryCost = async (req, res) => {
     for (const location of pickupLocations) {
       const sellerId = location.sellerId;
       const seller = sellerMap[sellerId];
-      
+
       if (!seller) {
         console.log(`⚠️ Warning: Seller ${sellerId} not found in database`);
         continue;
       }
-      
+
       // Determine pickup state in priority order
       let pickUpState = location.pickUpState;
-      
+
       if (!pickUpState) {
         // Try to get state from seller data in priority order
         if (seller.sellerAddress && seller.sellerAddress.state) {
@@ -3788,9 +3811,9 @@ exports.getDeliveryCost = async (req, res) => {
           console.log(`Using default state (Lagos) for ${sellerId}`);
         }
       }
-      
+
       const key = `${sellerId}_${pickUpState}`;
-      
+
       if (!sellerGroups[key]) {
         sellerGroups[key] = {
           sellerId,
@@ -3809,11 +3832,11 @@ exports.getDeliveryCost = async (req, res) => {
     // Skip the Fez API call entirely in both cases
     if (freeShipping === true || fromCompatibleVersion === true) {
       console.log('🎁 Free shipping or compatible version enabled - skipping Fez API call');
-      
-      const description = fromCompatibleVersion 
-        ? 'Costs Fetched Successfully (Zero Cost Applied)' 
+
+      const description = fromCompatibleVersion
+        ? 'Costs Fetched Successfully (Zero Cost Applied)'
         : 'Free Shipping Applied';
-      
+
       return res.status(200).json({
         status: 'Success',
         description,
@@ -3846,15 +3869,15 @@ exports.getDeliveryCost = async (req, res) => {
     // Step 2: Now send request only once per merged seller group
     const costPromises = mergedPickupLocations.map(async (group) => {
       const { sellerId, pickUpState, totalWeight } = group;
-      
+
       console.log(`📤 Cost request for seller ${sellerId}: ${JSON.stringify({ state, pickUpState, totalWeight }, null, 2)}`);
-      
+
       try {
         const response = await axios.post(url, {
           state,
           pickUpState,
           weight: totalWeight
-        }, { 
+        }, {
           headers,
           timeout: 30000
         });
@@ -3881,10 +3904,10 @@ exports.getDeliveryCost = async (req, res) => {
 
     // Step 3: Sum only successful ones
     const successfulResults = results.filter(r => r.status === 'Success');
-    
+
     // Note: We no longer need to handle fromCompatibleVersion here
     // as we've already handled it before making the API call
-    
+
     // Normal flow - calculate actual costs
     const totalCost = successfulResults.reduce((sum, r) => sum + Number(r.Cost?.cost || 0), 0);
 
@@ -4026,30 +4049,30 @@ exports.calculateDeliveryCostInternal = async (shippingDetails) => {
 exports.trackOrderFez = async (req, res) => {
   try {
     const { orderNo } = req.params;
-    
+
     if (!orderNo) {
-      return res.status(400).json({ 
-        message: 'Order number is required' 
+      return res.status(400).json({
+        message: 'Order number is required'
       });
     }
-    
+
     console.log(`🔍 Tracking order with Fez: ${orderNo}`);
-    
+
     // Get a fresh authentication token for Fez Delivery
     const authToken = await getFezAuthToken();
     console.log('Using fresh token for order tracking:', authToken.substring(0, 10) + '...');
-    
+
     // Track order with Fez Delivery
     const trackingResponse = await axios.get(`${FEZ_API_URL}/order/track/${orderNo}`, {
       headers: {
         'Authorization': `Bearer ${authToken}`,
-        'secret-key': process.env.FEZ_SECRET_KEY 
+        'secret-key': process.env.FEZ_SECRET_KEY
       }
     });
-    
+
     if (trackingResponse.data && trackingResponse.data.status === 'Success') {
       console.log('Fez tracking successful:', trackingResponse.data.description);
-      
+
       // Return the tracking information
       return res.json({
         status: 'success',
@@ -4067,14 +4090,14 @@ exports.trackOrderFez = async (req, res) => {
       });
     } else {
       console.log('Fez tracking failed:', trackingResponse.data);
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Failed to track order',
         details: trackingResponse.data
       });
     }
   } catch (error) {
     console.error('Error tracking order with Fez:', error.message);
-    
+
     if (error.response) {
       console.error('Fez API error response:', error.response.data);
       return res.status(error.response.status).json({
@@ -4082,8 +4105,8 @@ exports.trackOrderFez = async (req, res) => {
         details: error.response.data
       });
     }
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       message: 'Error tracking order',
       error: error.message
     });
@@ -4097,28 +4120,28 @@ exports.trackOrderFez = async (req, res) => {
 exports.getDeliveryTimeEstimate = async (req, res) => {
   try {
     const { delivery_type, pick_up_state, drop_off_state } = req.body;
-    
+
     // Validate required fields
     if (!delivery_type || !pick_up_state || !drop_off_state) {
-      return res.status(400).json({ 
-        message: 'delivery_type, pick_up_state, and drop_off_state are required' 
+      return res.status(400).json({
+        message: 'delivery_type, pick_up_state, and drop_off_state are required'
       });
     }
-    
+
     // Validate delivery_type
     const validDeliveryTypes = ['import', 'export', 'local'];
     if (!validDeliveryTypes.includes(delivery_type)) {
-      return res.status(400).json({ 
-        message: 'delivery_type must be one of: import, export, local' 
+      return res.status(400).json({
+        message: 'delivery_type must be one of: import, export, local'
       });
     }
-    
+
     console.log(`⏱️ Getting delivery time estimate: ${delivery_type} from ${pick_up_state} to ${drop_off_state}`);
-    
+
     // Get a fresh authentication token for Fez Delivery
     const authToken = await getFezAuthToken();
     console.log('Using fresh token for delivery time estimate:', authToken.substring(0, 10) + '...');
-    
+
     // Get delivery time estimate from Fez Delivery
     const estimateResponse = await axios.post(`${FEZ_API_URL}/delivery-time-estimate`, {
       delivery_type,
@@ -4131,10 +4154,10 @@ exports.getDeliveryTimeEstimate = async (req, res) => {
         'Content-Type': 'application/json'
       }
     });
-    
+
     if (estimateResponse.data && estimateResponse.data.status === 'Success') {
       console.log('Fez delivery time estimate successful:', estimateResponse.data.description);
-      
+
       // Return the delivery time estimate
       return res.json({
         status: 'success',
@@ -4142,14 +4165,14 @@ exports.getDeliveryTimeEstimate = async (req, res) => {
       });
     } else {
       console.log('Fez delivery time estimate failed:', estimateResponse.data);
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Failed to get delivery time estimate',
         details: estimateResponse.data
       });
     }
   } catch (error) {
     console.error('Error getting delivery time estimate from Fez:', error.message);
-    
+
     if (error.response) {
       console.error('Fez API error response:', error.response.data);
       return res.status(error.response.status).json({
@@ -4157,8 +4180,8 @@ exports.getDeliveryTimeEstimate = async (req, res) => {
         details: error.response.data
       });
     }
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       message: 'Error getting delivery time estimate',
       error: error.message
     });
@@ -4169,21 +4192,21 @@ exports.getDeliveryTimeEstimate = async (req, res) => {
 exports.handleFezWebhook = async (req, res) => {
   try {
     console.log('📦 Received Fez webhook:', req.body);
-    
+
     // Validate the webhook payload
     const { orderNumber, status } = req.body;
-    
+
     if (!orderNumber || !status) {
       console.error('❌ Invalid webhook payload: Missing required fields');
-      return res.status(400).json({ 
-        message: 'Invalid webhook payload: Missing required fields' 
+      return res.status(400).json({
+        message: 'Invalid webhook payload: Missing required fields'
       });
     }
-    
+
     // Extract timestamp information if available in the payload
     // Fez might send different timestamp formats, so we need to handle them
     let timestamp = null;
-    
+
     if (req.body.timestamp) {
       // Direct timestamp field
       timestamp = req.body.timestamp;
@@ -4198,28 +4221,28 @@ exports.handleFezWebhook = async (req, res) => {
       timestamp = new Date().toISOString();
       console.log('No timestamp provided in webhook, using current time:', timestamp);
     }
-    
+
     // Prepare enhanced webhook data
     const webhookData = {
       ...req.body,
       timestamp: timestamp
     };
-    
+
     // Import the handler dynamically to avoid circular dependencies
     const { handleOrderStatusUpdate } = require('../webhooks/fezWebhook');
-    
+
     // Process the webhook with enhanced data
     await handleOrderStatusUpdate(webhookData);
-    
+
     // Respond to Fez
-    return res.status(200).json({ 
-      message: 'Webhook received and processed successfully' 
+    return res.status(200).json({
+      message: 'Webhook received and processed successfully'
     });
   } catch (error) {
     console.error('❌ Error handling Fez webhook:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: 'Error processing webhook',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -4245,18 +4268,18 @@ const verifyPaystackTransaction = async (reference) => {
 // Helper function to update product stock when an order is paid
 const updateProductStockForPaidOrder = async (order) => {
   console.log(`Updating product stock for paid order ${order.order_id}`);
-  
+
   try {
     // Update product stock for each item in the order
     for (const item of order.items) {
       // Find the product before update to log its current stock
       const productBefore = await Product.findById(item.product);
-      
+
       if (!productBefore) {
         console.error(`Product not found for item in order ${order.order_id}:`, item.product);
         continue;
       }
-      
+
       console.log('Product before stock update:', {
         productId: productBefore._id,
         currentStock: productBefore.stock,
@@ -4267,11 +4290,11 @@ const updateProductStockForPaidOrder = async (order) => {
 
       const updateResult = await Product.findByIdAndUpdate(
         item.product,
-        { 
-          $inc: { 
+        {
+          $inc: {
             'stats.soldCount': item.quantity,
             'stock': -item.quantity,
-            'inventory.quantity': -item.quantity 
+            'inventory.quantity': -item.quantity
           }
         },
         { new: true } // Return the updated document
@@ -4285,7 +4308,7 @@ const updateProductStockForPaidOrder = async (order) => {
         updateSuccessful: !!updateResult
       });
     }
-    
+
     return true;
   } catch (error) {
     console.error(`Error updating product stock for order ${order.order_id}:`, error);
@@ -4296,12 +4319,12 @@ const updateProductStockForPaidOrder = async (order) => {
 // Helper function to send Slack notification for paid orders
 const sendSlackNotificationForPaidOrder = async (order, buyer) => {
   console.log(`Sending Slack notification for paid order ${order.order_id}`);
-  
+
   try {
     // Get seller info
     const seller = await Seller.findById(order.seller);
     const sellerName = seller ? (seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`) : 'Unknown Seller';
-    
+
     // Send a simple notification to Slack email
     const slackEmailMsg = {
       to: 'orders-aaaaqm2ugmdudvf4jsgf3koetm@auqli.slack.com',
@@ -4324,7 +4347,11 @@ const sendSlackNotificationForPaidOrder = async (order, buyer) => {
       `
     };
 
-    await sgMail.send(slackEmailMsg);
+    await termiiEmailService.sendRawHTMLEmail({
+      email: 'bolu@auqli.com', // fallback for slack notifications
+      subject: slackEmailMsg.subject,
+      html: slackEmailMsg.html,
+    });
     console.log('Slack notification email sent for paid order');
     return true;
   } catch (slackEmailError) {
@@ -4338,27 +4365,27 @@ exports.markOrderAsPaid = async (req, res) => {
   try {
     const { id } = req.params;
     const { transactionId, paymentReference, manualNote } = req.body;
-    
+
     if (!transactionId && !paymentReference) {
       return res.status(400).json({ message: 'Either transactionId or paymentReference is required' });
     }
-    
+
     const Order = mongoose.model('Order');
     const order = await Order.findById(id)
       .populate('seller', 'email firstName lastName businessName walletBalance');
-    
+
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
-    
+
     // Verify Paystack transaction if reference is provided
     let verificationResult = null;
     if (paymentReference) {
       verificationResult = await verifyPaystackTransaction(paymentReference);
       if (!verificationResult.success) {
-        return res.status(400).json({ 
-          message: 'Payment verification failed', 
-          details: verificationResult.message 
+        return res.status(400).json({
+          message: 'Payment verification failed',
+          details: verificationResult.message
         });
       }
     }
@@ -4368,22 +4395,22 @@ exports.markOrderAsPaid = async (req, res) => {
       // If this order is already paid, check if there are other unpaid orders from the same purchase
       const buyer = order.buyer;
       const createdAt = order.createdAt;
-      
+
       if (buyer && createdAt) {
         const twoMinutesBefore = new Date(createdAt.getTime() - 2 * 60 * 1000);
         const twoMinutesAfter = new Date(createdAt.getTime() + 2 * 60 * 1000);
-        
+
         // Find other unpaid orders from the same buyer created around the same time
         const otherUnpaidOrders = await Order.find({
           _id: { $ne: order._id }, // Exclude the current order
-          buyer: buyer, 
+          buyer: buyer,
           paid: false,
           createdAt: { $gte: twoMinutesBefore, $lte: twoMinutesAfter }
         }).populate('seller');
-        
+
         if (otherUnpaidOrders.length > 0) {
           console.log(`Found ${otherUnpaidOrders.length} other unpaid orders from the same buyer`);
-          
+
           // Update each order's payment status and save
           const updatePromises = otherUnpaidOrders.map(async (otherOrder) => {
             // Update the payment info
@@ -4393,13 +4420,13 @@ exports.markOrderAsPaid = async (req, res) => {
             otherOrder.paymentInfo.paymentReference = paymentReference || null;
             otherOrder.paymentInfo.paidAt = new Date();
             otherOrder.notificationsSent = true;
-            
+
             // Update product stock for this order too
             await updateProductStockForPaidOrder(otherOrder);
-            
+
             // Check if this is a hybrid payment (wallet + Paystack)
             const isHybridPayment = otherOrder.paymentInfo.isWalletCredit && otherOrder.paymentInfo.walletAmountUsed > 0;
-            
+
             if (isHybridPayment) {
               console.log(`Confirming hybrid payment for order ${otherOrder.order_id}`, {
                 totalAmount: otherOrder.totalAmount,
@@ -4407,26 +4434,26 @@ exports.markOrderAsPaid = async (req, res) => {
                 paystackAmount: otherOrder.totalAmount - otherOrder.paymentInfo.walletAmountUsed
               });
             }
-            
+
             const updatedOtherOrder = await otherOrder.save();
-            
+
             // Cancel any scheduled job to mark this order as stale
             try {
               const agenda = require('../config/agenda');
-              await agenda.cancel({ 
+              await agenda.cancel({
                 name: 'mark_unpaid_orders_stale',
                 'data.orderId': otherOrder._id.toString()
               });
-              
+
               console.log(`Cancelled stale marking job for now-paid order ${otherOrder.order_id}`);
             } catch (jobError) {
               console.error(`Error cancelling stale job for order ${otherOrder.order_id}:`, jobError);
             }
-            
+
             // Get the buyer for notifications
             const Buyer = mongoose.model('Buyer');
             const buyer = await Buyer.findById(otherOrder.buyer);
-            
+
             // Send order confirmation email
             if (buyer && buyer.email) {
               try {
@@ -4436,18 +4463,18 @@ exports.markOrderAsPaid = async (req, res) => {
                 // Continue without failing the request
               }
             }
-            
+
             // Send Slack notification for the paid order
             await sendSlackNotificationForPaidOrder(otherOrder, buyer);
-            
+
             return updatedOtherOrder;
           });
-          
+
           // Wait for all updates to complete
           const updatedOtherOrders = await Promise.all(updatePromises);
-          
-          return res.status(200).json({ 
-            message: `Original order already paid. ${updatedOtherOrders.length} related orders marked as paid.`, 
+
+          return res.status(200).json({
+            message: `Original order already paid. ${updatedOtherOrders.length} related orders marked as paid.`,
             orders: updatedOtherOrders.map(o => ({
               orderId: o._id,
               order_id: o.order_id,
@@ -4456,23 +4483,23 @@ exports.markOrderAsPaid = async (req, res) => {
           });
         }
       }
-      
+
       return res.status(400).json({ message: 'Order is already marked as paid' });
     }
-    
+
     // Check if this is a Paystack order
     if (order.paymentInfo.method !== 'paystack') {
-      return res.status(400).json({ 
-        message: 'Invalid order status. Only unpaid Paystack orders can be marked as paid.' 
+      return res.status(400).json({
+        message: 'Invalid order status. Only unpaid Paystack orders can be marked as paid.'
       });
     }
-    
+
     // Add a flag to track if notifications have been sent
     const notificationsAlreadySent = order.notificationsSent || false;
-    
+
     // Mark notifications as sent
     order.notificationsSent = true;
-    
+
     // Mark order as paid
     order.paid = true;
     order.paymentInfo.status = 'paid';
@@ -4482,25 +4509,25 @@ exports.markOrderAsPaid = async (req, res) => {
 
     // Check if this is a hybrid payment (wallet + Paystack)
     const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
-    
+
     if (isHybridPayment) {
       console.log(`Confirming hybrid payment for order ${order.order_id}`, {
         totalAmount: order.totalAmount,
         walletAmountUsed: order.paymentInfo.walletAmountUsed,
         paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
       });
-      
+
       // The wallet amount should have been deducted during order creation
       // Just confirming the payment here
     }
-    
+
     // Update product stock now that the order is paid
     await updateProductStockForPaidOrder(order);
-    
+
     // Cancel the stale job for this order
     try {
       const agenda = require('../config/agenda');
-      await agenda.cancel({ 
+      await agenda.cancel({
         name: 'mark_unpaid_orders_stale',
         'data.orderId': order._id.toString()
       });
@@ -4511,28 +4538,28 @@ exports.markOrderAsPaid = async (req, res) => {
     }
 
     await order.save();
-    
+
     // Get the buyer for notification
     const Buyer = mongoose.model('Buyer');
     const buyer = await Buyer.findById(order.buyer);
-    
+
     // Only schedule notifications if they haven't been sent yet
     if (!notificationsAlreadySent) {
       console.log(`Scheduling order notifications for order ${order.order_id} after manual payment marking`);
-      
+
       // Create notifications
       const notificationData = {
         orderId: order._id,
         buyerId: order.buyer,
         sellerId: order.seller._id
       };
-      
+
       const agenda = require('../config/agenda').agenda;
       agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
     } else {
       console.log(`Skipping notifications for order ${order.order_id} as they have already been sent`);
     }
-    
+
     // Send order confirmation email
     if (buyer && buyer.email) {
       try {
@@ -4542,29 +4569,29 @@ exports.markOrderAsPaid = async (req, res) => {
         // Continue without failing the request
       }
     }
-    
+
     // Send Slack notification for the paid order
     await sendSlackNotificationForPaidOrder(order, buyer);
 
     // Check for other orders from the same buyer in the same time window
     let otherOrdersUpdated = [];
-    
+
     if (buyer) {
       const createdAt = order.createdAt;
       const twoMinutesBefore = new Date(createdAt.getTime() - 2 * 60 * 1000);
       const twoMinutesAfter = new Date(createdAt.getTime() + 2 * 60 * 1000);
-      
+
       // Find other unpaid orders from the same buyer created around the same time
       const otherOrders = await Order.find({
         _id: { $ne: order._id }, // Exclude the current order
-        buyer: order.buyer, 
+        buyer: order.buyer,
         paid: false,
         createdAt: { $gte: twoMinutesBefore, $lte: twoMinutesAfter }
       }).populate('seller');
-      
+
       if (otherOrders.length > 0) {
         console.log(`Found ${otherOrders.length} other unpaid orders from the same buyer`);
-        
+
         // Update each order's payment status and save
         const updatePromises = otherOrders.map(async (otherOrder) => {
           // Update the payment info
@@ -4574,13 +4601,13 @@ exports.markOrderAsPaid = async (req, res) => {
           otherOrder.paymentInfo.paymentReference = paymentReference || null;
           otherOrder.paymentInfo.paidAt = new Date();
           otherOrder.notificationsSent = true;
-          
+
           // Update product stock for this order too
           await updateProductStockForPaidOrder(otherOrder);
-          
+
           // Check if this is a hybrid payment (wallet + Paystack)
           const isHybridPayment = otherOrder.paymentInfo.isWalletCredit && otherOrder.paymentInfo.walletAmountUsed > 0;
-          
+
           if (isHybridPayment) {
             console.log(`Confirming hybrid payment for order ${otherOrder.order_id}`, {
               totalAmount: otherOrder.totalAmount,
@@ -4588,25 +4615,25 @@ exports.markOrderAsPaid = async (req, res) => {
               paystackAmount: otherOrder.totalAmount - otherOrder.paymentInfo.walletAmountUsed
             });
           }
-          
+
           const updatedOtherOrder = await otherOrder.save();
-          
+
           // Cancel any scheduled job to mark this order as stale
           try {
             const agenda = require('../config/agenda');
-            await agenda.cancel({ 
+            await agenda.cancel({
               name: 'mark_unpaid_orders_stale',
               'data.orderId': otherOrder._id.toString()
             });
-            
+
             console.log(`Cancelled stale marking job for now-paid order ${otherOrder.order_id}`);
           } catch (jobError) {
             console.error(`Error cancelling stale job for order ${otherOrder.order_id}:`, jobError);
           }
-          
+
           // Get the buyer for notifications if needed
           const otherBuyer = await Buyer.findById(otherOrder.buyer);
-          
+
           // Send order confirmation email for this order too
           if (otherBuyer && otherBuyer.email) {
             try {
@@ -4615,22 +4642,22 @@ exports.markOrderAsPaid = async (req, res) => {
               console.error(`Error sending order confirmation email for order ${otherOrder.order_id}:`, emailError);
             }
           }
-          
+
           // Send Slack notification for the paid order
           await sendSlackNotificationForPaidOrder(updatedOtherOrder, otherBuyer);
-          
+
           return updatedOtherOrder;
         });
-        
+
         // Wait for all updates to complete
         otherOrdersUpdated = await Promise.all(updatePromises);
       }
     }
 
     return res.status(200).json({
-      message: 'Order marked as paid successfully', 
+      message: 'Order marked as paid successfully',
       order,
-      otherOrdersUpdated: otherOrdersUpdated.length > 0 ? 
+      otherOrdersUpdated: otherOrdersUpdated.length > 0 ?
         otherOrdersUpdated.map(o => ({
           orderId: o._id,
           order_id: o.order_id,
@@ -4647,18 +4674,18 @@ exports.markOrderAsPaid = async (req, res) => {
 // Verify payment by reference
 exports.verifyPaymentByReference = async (req, res) => {
   try {
-  const { reference, orderId } = req.body;
+    const { reference, orderId } = req.body;
 
-  if (!reference) {
-    return res.status(400).json({ message: 'Payment reference is required' });
-  }
+    if (!reference) {
+      return res.status(400).json({ message: 'Payment reference is required' });
+    }
 
     // Verify with Paystack
     const verificationResult = await verifyPaystackTransaction(reference);
-    
+
     if (!verificationResult.success) {
-      return res.status(400).json({ 
-        message: 'Payment verification failed', 
+      return res.status(400).json({
+        message: 'Payment verification failed',
         details: verificationResult.message
       });
     }
@@ -4668,71 +4695,71 @@ exports.verifyPaymentByReference = async (req, res) => {
       const Order = mongoose.model('Order');
       const order = await Order.findById(orderId)
         .populate('seller', 'email firstName lastName businessName walletBalance');
-      
+
       if (!order) {
         return res.status(404).json({ message: 'Order not found' });
       }
 
       if (order && order.paymentInfo.method === 'paystack' && !order.paid) {
         // Mark order as paid
-      order.paid = true;
-      order.paymentInfo.status = 'paid';
+        order.paid = true;
+        order.paymentInfo.status = 'paid';
         order.paymentInfo.transactionId = verificationResult.data.id;
-      order.paymentInfo.paymentReference = reference;
-      order.paymentInfo.paidAt = new Date();
+        order.paymentInfo.paymentReference = reference;
+        order.paymentInfo.paidAt = new Date();
 
-              // Update product stock now that the order is paid
-      await updateProductStockForPaidOrder(order);
-      
-      // Check if this is a hybrid payment (wallet + Paystack)
+        // Update product stock now that the order is paid
+        await updateProductStockForPaidOrder(order);
+
+        // Check if this is a hybrid payment (wallet + Paystack)
         const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
-        
+
         if (isHybridPayment) {
           console.log(`Confirming hybrid payment for order ${order.order_id}`, {
             totalAmount: order.totalAmount,
             walletAmountUsed: order.paymentInfo.walletAmountUsed,
             paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
           });
-          
+
           // The wallet amount should have been deducted during order creation
           // Just confirming the payment here
         }
-        
+
         await order.save();
-        
+
         // Get the buyer for notification and send Slack email
         const Buyer = mongoose.model('Buyer');
         const buyer = await Buyer.findById(order.buyer);
-        
+
         // Send Slack notification for the paid order
         if (buyer) {
           await sendSlackNotificationForPaidOrder(order, buyer);
         }
-        
+
         // Add a flag to track if notifications have been sent
         const notificationsAlreadySent = order.notificationsSent || false;
-        
+
         // Mark notifications as sent
         order.notificationsSent = true;
         await order.save();
-        
+
         // Only schedule notifications if they haven't been sent yet
         if (!notificationsAlreadySent) {
           console.log(`Scheduling order notifications for order ${order.order_id} after payment verification`);
-          
+
           // Create notifications
           const notificationData = {
             orderId: order._id,
             buyerId: order.buyer,
             sellerId: order.seller._id
           };
-          
+
           const agenda = require('../config/agenda').agenda;
           agenda.schedule('in 5 seconds', 'send-order-notifications', notificationData);
         } else {
           console.log(`Skipping notifications for order ${order.order_id} as they have already been sent`);
         }
-        
+
         // Send order confirmation email
         if (buyer && buyer.email) {
           try {
@@ -4740,10 +4767,10 @@ exports.verifyPaymentByReference = async (req, res) => {
           } catch (emailError) {
             console.error('Error sending order confirmation email:', emailError);
             // Continue without failing the request
+          }
         }
-      }
 
-      return res.status(200).json({
+        return res.status(200).json({
           message: 'Payment verified and order marked as paid',
           order,
           verificationDetails: verificationResult.data
@@ -4751,8 +4778,8 @@ exports.verifyPaymentByReference = async (req, res) => {
       } else {
         return res.status(200).json({
           message: 'Payment verified but order is already paid or not a Paystack order',
-        verificationDetails: verificationResult.data
-      });
+          verificationDetails: verificationResult.data
+        });
       }
     }
 
@@ -4763,9 +4790,9 @@ exports.verifyPaymentByReference = async (req, res) => {
     });
   } catch (error) {
     console.error('Error verifying payment by reference:', error);
-    return res.status(500).json({ 
-      message: 'Error verifying payment', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Error verifying payment',
+      error: error.message
     });
   }
 };
@@ -4774,9 +4801,9 @@ exports.verifyPaymentByReference = async (req, res) => {
 exports.handlePaystackWebhook = async (req, res) => {
   // Verify the event is from Paystack
   const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET_KEY || paystackSecretKey)
-                    .update(JSON.stringify(req.body))
-                    .digest('hex');
-                    
+    .update(JSON.stringify(req.body))
+    .digest('hex');
+
   if (hash !== req.headers['x-paystack-signature']) {
     return res.status(400).json({ message: 'Invalid signature' });
   }
@@ -4791,9 +4818,9 @@ exports.handlePaystackWebhook = async (req, res) => {
       status: event.data.status,
       metadata: event.data.metadata || {}
     });
-    
+
     const metadata = event.data.metadata || {};
-    
+
     // If there's no metadata or orderId, just acknowledge the webhook
     if (!metadata || !metadata.orderId) {
       return res.status(200).json({ message: 'Webhook received, but no order metadata' });
@@ -4803,34 +4830,34 @@ exports.handlePaystackWebhook = async (req, res) => {
       // Find the order
       const Order = mongoose.model('Order');
       const order = await Order.findById(metadata.orderId);
-      
+
       if (!order) {
         console.log(`Order not found for Paystack payment: ${metadata.orderId}`);
         return res.status(200).json({ message: 'Order not found, but acknowledging webhook' });
       }
-      
+
       // Check if this is a Paystack order that's not already paid
       if (order.paymentInfo.method !== 'paystack' || order.paid) {
         console.log(`Order ${order.order_id} is either not a Paystack order or already paid`);
         return res.status(200).json({ message: 'Order already processed or not Paystack order' });
       }
-      
+
       // Mark the order as paid
       order.paid = true;
       order.paymentInfo.status = 'paid';
       order.paymentInfo.transactionId = event.data.id;
       order.paymentInfo.paymentReference = event.data.reference;
       order.paymentInfo.paidAt = new Date();
-      
+
       // Update product stock now that the order is paid
       await updateProductStockForPaidOrder(order);
-      
+
       // Get the buyer for notification and send Slack email
       const webhookBuyer = await Buyer.findById(order.buyer._id);
       if (webhookBuyer) {
         await sendSlackNotificationForPaidOrder(order, webhookBuyer);
       }
-      
+
       // Cancel the stale job for this order
       try {
         const agenda = require('../config/agenda');
@@ -4843,25 +4870,25 @@ exports.handlePaystackWebhook = async (req, res) => {
 
       // Check if this is a hybrid payment (wallet + Paystack)
       const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
-      
+
       if (isHybridPayment) {
         console.log(`Processing hybrid payment for order ${order.order_id}`, {
           totalAmount: order.totalAmount,
           walletAmountUsed: order.paymentInfo.walletAmountUsed,
           paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
         });
-        
+
         // Confirm that the wallet amount was properly deducted
         // In a more robust implementation, you might want to create a pending wallet transaction
         // and only confirm it here, but for now we assume it was already deducted during order creation
       }
-      
+
       await order.save();
-      
+
       // Get the buyer for email notification
       const Buyer = mongoose.model('Buyer');
       const buyer = await Buyer.findById(order.buyer);
-      
+
       // Always send order confirmation email for paid Paystack order, regardless of notification status
       if (buyer && buyer.email) {
         try {
@@ -4872,22 +4899,22 @@ exports.handlePaystackWebhook = async (req, res) => {
           // Continue processing even if email fails
         }
       }
-        
-        // After order payment is processed, check if there are other recent orders from the same buyer
-        // that need notifications, and process them in a batch
-        try {
+
+      // After order payment is processed, check if there are other recent orders from the same buyer
+      // that need notifications, and process them in a batch
+      try {
         const agenda = require('../config/agenda');
         console.log(`Scheduling batch notification processing for buyer: ${order.buyer}`);
-          
+
         agenda.now('process-buyer-order-notifications', {
-              buyerId: order.buyer.toString(),
+          buyerId: order.buyer.toString(),
           excludeOrderId: order._id.toString(),
-              batchProcess: true
-            });
+          batchProcess: true
+        });
       } catch (notifyErr) {
         console.error('Error scheduling notification processing:', notifyErr);
       }
-      
+
       return res.status(200).json({ message: 'Payment processed successfully' });
     } catch (error) {
       console.error('Error processing Paystack webhook:', error);
@@ -4895,7 +4922,7 @@ exports.handlePaystackWebhook = async (req, res) => {
       return res.status(200).json({ message: 'Error processing webhook, but acknowledging receipt' });
     }
   }
-  
+
   // Handle payment failed event
   if (event.event === 'charge.failed') {
     console.log(`Received payment failure event from Paystack:`, {
@@ -4904,14 +4931,14 @@ exports.handlePaystackWebhook = async (req, res) => {
       status: event.data.status,
       metadata: event.data.metadata || {}
     });
-    
+
     const metadata = event.data.metadata || {};
-    
+
     // If there's no metadata or orderId, just acknowledge the webhook
     if (!metadata || !metadata.orderId) {
       return res.status(200).json({ message: 'Webhook received, but no order metadata for failed payment' });
     }
-    
+
     try {
       // Process the failed payment
       const result = await handleFailedPayment(event.data, res);
@@ -4931,10 +4958,10 @@ exports.handlePaystackWebhook = async (req, res) => {
 async function handleWalletTopUp(paymentData, res) {
   const { reference, metadata } = paymentData;
   const buyerId = metadata.buyerId;
-  
+
   const Buyer = mongoose.model('Buyer');
   const buyer = await Buyer.findById(buyerId);
-  
+
   if (!buyer) {
     return res.status(200).json({ message: 'Buyer not found, but acknowledging webhook' });
   }
@@ -4953,7 +4980,7 @@ async function handleWalletTopUp(paymentData, res) {
     existingTransaction.status = 'completed';
     buyer.wallet.balance += existingTransaction.amount;
     await buyer.save();
-    
+
     // Send confirmation email
     try {
       // Import the sendWalletTopUpEmail function from buyerController
@@ -4968,13 +4995,13 @@ async function handleWalletTopUp(paymentData, res) {
       console.error('Error sending wallet top-up email:', emailError);
       // Continue processing even if email fails
     }
-    
+
     return res.status(200).json({ message: 'Wallet topped up successfully via webhook' });
   }
 
   // If no transaction found, create a new one
   const amount = paymentData.amount / 100; // Convert from kobo to naira
-  
+
   const newTransaction = {
     type: 'credit',
     amount,
@@ -4986,9 +5013,9 @@ async function handleWalletTopUp(paymentData, res) {
 
   buyer.wallet.transactions.push(newTransaction);
   buyer.wallet.balance += amount;
-  
+
   await buyer.save();
-  
+
   // Send confirmation email
   try {
     // Import the sendWalletTopUpEmail function from buyerController
@@ -5003,7 +5030,7 @@ async function handleWalletTopUp(paymentData, res) {
     console.error('Error sending wallet top-up email:', emailError);
     // Continue processing even if email fails
   }
-  
+
   return res.status(200).json({ message: 'Wallet topped up successfully via webhook' });
 }
 
@@ -5013,7 +5040,7 @@ async function sendSimpleTopUpEmail(buyer, transaction) {
     style: 'currency',
     currency: 'NGN'
   });
-  
+
   const msg = {
     to: buyer.email,
     from: {
@@ -5034,7 +5061,11 @@ async function sendSimpleTopUpEmail(buyer, transaction) {
   };
 
   try {
-    await sgMail.send(msg);
+    await termiiEmailService.sendRawHTMLEmail({
+      email: msg.to.email,
+      subject: msg.subject,
+      html: msg.html
+    });
     console.log('Simple wallet top-up confirmation email sent to:', buyer.email);
     return true;
   } catch (error) {
@@ -5051,13 +5082,13 @@ exports.sendOrderConfirmationEmail = async (order, buyer) => {
     currency: 'NGN',
     minimumFractionDigits: 2
   });
-  
+
   const formattedShipping = order.shipping.fee.amount.toLocaleString('en-NG', {
     style: 'currency',
     currency: 'NGN',
     minimumFractionDigits: 2
   });
-  
+
   // Create items HTML
   const itemsHtml = order.items.map(item => `
     <tr>
@@ -5067,7 +5098,7 @@ exports.sendOrderConfirmationEmail = async (order, buyer) => {
       <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">₦${(item.price * item.quantity).toLocaleString()}</td>
     </tr>
   `).join('');
-  
+
   const msg = {
     to: buyer.email,
     from: {
@@ -5153,7 +5184,11 @@ exports.sendOrderConfirmationEmail = async (order, buyer) => {
   };
 
   try {
-    await sgMail.send(msg);
+    await termiiEmailService.sendRawHTMLEmail({
+      email: msg.to.email,
+      subject: msg.subject,
+      html: msg.html
+    });
     console.log('Order confirmation email sent to:', buyer.email);
     return true;
   } catch (error) {
@@ -5169,7 +5204,7 @@ exports.simpleMarkPaid = async (req, res) => {
 
   try {
     const order = await Order.findById(id);
-    
+
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
@@ -5222,15 +5257,15 @@ exports.cancelOrderBySeller = async (req, res) => {
 
     // Check if order is already cancelled
     if (order.items.some(item => item.status === 'cancelled')) {
-      return res.status(400).json({ 
-        message: 'This order has already been cancelled' 
+      return res.status(400).json({
+        message: 'This order has already been cancelled'
       });
     }
 
     // Check if order is in pending status
     if (!order.items.every(item => item.status === 'pending')) {
-      return res.status(400).json({ 
-        message: 'Only pending orders can be cancelled' 
+      return res.status(400).json({
+        message: 'Only pending orders can be cancelled'
       });
     }
 
@@ -5238,14 +5273,14 @@ exports.cancelOrderBySeller = async (req, res) => {
     const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
     let walletRefunded = false;
     let walletRefundAmount = 0;
-    
+
     if (isHybridPayment && order.paymentInfo.walletAmountUsed > 0) {
       try {
         console.log(`Processing wallet refund for hybrid payment in order ${order.order_id}`);
-        
+
         const Buyer = mongoose.model('Buyer');
         const buyer = await Buyer.findById(order.buyer);
-        
+
         if (buyer) {
           // Refund the wallet amount that was used
           walletRefundAmount = order.paymentInfo.walletAmountUsed;
@@ -5256,14 +5291,14 @@ exports.cancelOrderBySeller = async (req, res) => {
             status: 'completed',
             createdAt: new Date()
           };
-          
+
           // Add transaction to wallet
           buyer.wallet.balance += walletRefundAmount;
           buyer.wallet.transactions.push(walletTransaction);
-          
+
           // Save buyer with updated wallet
           await buyer.save();
-          
+
           walletRefunded = true;
           console.log(`Successfully refunded wallet amount for cancelled hybrid payment: ${walletRefundAmount}`, {
             orderId: order._id,
@@ -5305,7 +5340,7 @@ exports.cancelOrderBySeller = async (req, res) => {
     // Check if the order was paid and create a refund request if necessary
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       console.log('Creating refund request for paid order:', order.order_id);
-      
+
       order.refundRequest = {
         requested: true,
         requestedAt: new Date(),
@@ -5314,7 +5349,7 @@ exports.cancelOrderBySeller = async (req, res) => {
         status: 'pending',
         refundAmount: order.totalAmount
       };
-      
+
       // The order will be closed automatically after refund is processed
     } else {
       // For unpaid orders, close the order immediately
@@ -5325,31 +5360,31 @@ exports.cancelOrderBySeller = async (req, res) => {
     }
 
     // Only attempt to cancel with Fez if order has tracking number
-if (order.shipping && order.shipping.tracking && order.shipping.tracking.number) {
-  try {
-    // Get a fresh authentication token for Fez
-    const authToken = await getFezAuthToken();
+    if (order.shipping && order.shipping.tracking && order.shipping.tracking.number) {
+      try {
+        // Get a fresh authentication token for Fez
+        const authToken = await getFezAuthToken();
 
-    // Cancel the shipment with Fez using DELETE method
-    const response = await axios.delete(
-      `${FEZ_API_URL}/order`,
-      {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'secret-key': process.env.FEZ_SECRET_KEY
-        },
-        data: {
-          orderNo: order.shipping.tracking.number
-        }
+        // Cancel the shipment with Fez using DELETE method
+        const response = await axios.delete(
+          `${FEZ_API_URL}/order`,
+          {
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+              'secret-key': process.env.FEZ_SECRET_KEY
+            },
+            data: {
+              orderNo: order.shipping.tracking.number
+            }
+          }
+        );
+
+        console.log('Fez cancellation response:', response.data);
+      } catch (fezError) {
+        console.error(`Error cancelling Fez shipment for order ${order.order_id}:`, fezError);
+        // Continue with order cancellation even if Fez cancellation fails
       }
-    );
-
-    console.log('Fez cancellation response:', response.data);
-  } catch (fezError) {
-    console.error(`Error cancelling Fez shipment for order ${order.order_id}:`, fezError);
-    // Continue with order cancellation even if Fez cancellation fails
-  }
-}
+    }
 
 
     // Fix for buyerDetails validation error
@@ -5358,7 +5393,7 @@ if (order.shipping && order.shipping.tracking && order.shipping.tracking.number)
         order.buyerDetails = {};
       }
       order.buyerDetails._id = order.buyer._id;
-      
+
       // Optionally populate other buyerDetails fields if they're empty
       if (!order.buyerDetails.firstName) {
         order.buyerDetails.firstName = order.buyer.firstName;
@@ -5380,7 +5415,7 @@ if (order.shipping && order.shipping.tracking && order.shipping.tracking.number)
         <p><strong>Reason:</strong> ${reason || 'No reason provided'}</p>
         <p><strong>Seller:</strong> ${order.seller.businessName}</p>
     `;
-    
+
     // Add refund information if applicable
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       buyerEmailHtml += `
@@ -5389,14 +5424,14 @@ if (order.shipping && order.shipping.tracking && order.shipping.tracking.number)
         <p>Refund status: Pending</p>
       `;
     }
-    
+
     // Add wallet refund info if applicable
     if (walletRefunded) {
       buyerEmailHtml += `
         <p><strong>Wallet Refund:</strong> Your wallet credit of ₦${walletRefundAmount.toLocaleString()} used for this order has been refunded to your wallet.</p>
       `;
     }
-    
+
     buyerEmailHtml += `
         <p>If you have any questions, please contact our support team.</p>
         <p>Best regards,<br>The Auqli Team</p>
@@ -5433,7 +5468,7 @@ if (order.shipping && order.shipping.tracking && order.shipping.tracking.number)
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       const Admin = mongoose.model('Admin');
       const admins = await Admin.find({});
-      
+
       if (admins && admins.length > 0) {
         const adminEmail = {
           to: admins.map(admin => admin.email),
@@ -5456,19 +5491,34 @@ if (order.shipping && order.shipping.tracking && order.shipping.tracking.number)
             </div>
           `
         };
-        
-        await sgMail.send(adminEmail);
+
+        await termiiEmailService.sendRawHTMLEmail({
+          email: adminEmail.to,
+          subject: adminEmail.subject,
+          html: adminEmail.html
+        });
       }
     }
 
     try {
-      await sgMail.send([buyerEmail, sellerEmail]);
+      await Promise.all([
+        termiiEmailService.sendRawHTMLEmail({
+          email: buyerEmail.to,
+          subject: buyerEmail.subject,
+          html: buyerEmail.html
+        }),
+        termiiEmailService.sendRawHTMLEmail({
+          email: sellerEmail.to,
+          subject: sellerEmail.subject,
+          html: sellerEmail.html
+        })
+      ]);
     } catch (emailError) {
       console.error('Error sending cancellation emails:', emailError);
       // Continue processing even if email sending fails
     }
 
-    res.json({ 
+    res.json({
       message: 'Order cancelled successfully',
       order: {
         _id: order._id,
@@ -5492,9 +5542,9 @@ if (order.shipping && order.shipping.tracking && order.shipping.tracking.number)
 
   } catch (error) {
     console.error('Error cancelling order:', error);
-    res.status(500).json({ 
-      message: 'Error cancelling order', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error cancelling order',
+      error: error.message
     });
   }
 };
@@ -5516,31 +5566,31 @@ function calculateRefundAmount(order) {
 exports.getRefundRequests = async (req, res) => {
   try {
     const { status, page = 1, limit = 10, search } = req.query;
-    
+
     // Build query filters
     const query = {
       'refundRequest.requested': true
     };
-    
+
     // Filter by status if provided
     if (status) {
       query['refundRequest.status'] = status;
     }
-    
+
     // Search by order ID or buyer/seller name
     if (search) {
       query.$or = [
         { order_id: { $regex: search, $options: 'i' } }
       ];
     }
-    
+
     // Count total matching documents
     const totalRefundRequests = await Order.countDocuments(query);
-    
+
     // Calculate pagination
     const totalPages = Math.ceil(totalRefundRequests / limit);
     const skip = (page - 1) * limit;
-    
+
     // Get orders with refund requests
     const orders = await Order.find(query)
       .populate('buyer', 'firstName lastName email')
@@ -5548,7 +5598,7 @@ exports.getRefundRequests = async (req, res) => {
       .sort({ 'refundRequest.requestedAt': -1 })
       .skip(skip)
       .limit(parseInt(limit));
-    
+
     // Format the response
     const refundRequests = orders.map(order => ({
       orderId: order._id,
@@ -5570,7 +5620,7 @@ exports.getRefundRequests = async (req, res) => {
       isCashOnDelivery: order.paymentInfo?.isCashOnDelivery || false,
       createdAt: order.createdAt
     }));
-    
+
     res.json({
       refundRequests,
       pagination: {
@@ -5580,12 +5630,12 @@ exports.getRefundRequests = async (req, res) => {
         limit: parseInt(limit)
       }
     });
-    
+
   } catch (error) {
     console.error('Error fetching refund requests:', error);
-    res.status(500).json({ 
-      message: 'Error fetching refund requests', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error fetching refund requests',
+      error: error.message
     });
   }
 };
@@ -5595,70 +5645,70 @@ exports.processRefundRequest = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { status, notes } = req.body;
-    
+
     if (!['approved', 'rejected'].includes(status)) {
-      return res.status(400).json({ 
-        message: 'Status must be either "approved" or "rejected"' 
+      return res.status(400).json({
+        message: 'Status must be either "approved" or "rejected"'
       });
     }
-    
+
     // Find the order with all necessary data
     const order = await Order.findById(orderId)
       .populate('buyer', 'email firstName lastName expoPushToken')
       .populate('seller', 'email firstName lastName businessName walletBalance');
-    
+
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
-    
+
     // Check if order has a refund request
     if (!order.refundRequest || !order.refundRequest.requested) {
       return res.status(400).json({ message: 'No refund request found for this order' });
     }
-    
+
     // Check if refund request is already processed
     if (order.refundRequest.status !== 'pending') {
-      return res.status(400).json({ 
-        message: `Refund request has already been ${order.refundRequest.status}` 
+      return res.status(400).json({
+        message: `Refund request has already been ${order.refundRequest.status}`
       });
     }
-    
+
     // Update the refund request
     order.refundRequest.status = status;
     order.refundRequest.processedAt = new Date();
     order.refundRequest.processedBy = 'admin';
     order.refundRequest.notes = notes;
-    
+
     // Add a note to the order
     order.notes.push({
       type: 'admin',
       content: `Refund request ${status}. ${notes ? `Notes: ${notes}` : ''}`,
       createdAt: new Date()
     });
-    
+
     let refundAmount = 0;
     let refundDetails = {};
-    
+
     // Process the refund if approved
     if (status === 'approved') {
       try {
         // Get the buyer to update their wallet
         const Buyer = mongoose.model('Buyer');
         const buyer = await Buyer.findById(order.buyer._id);
-        
+
         if (!buyer) {
           throw new Error(`Buyer not found with ID: ${order.buyer._id}`);
         }
-        
+
         // Check if this is a hybrid payment
         const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
-        
+
         // For hybrid payments, only refund the wallet amount that was used
         // For non-hybrid payments, refund the full order amount
         if (isHybridPayment) {
           // Check if this order is part of a batch
           const isBatchOrder = order.paymentInfo.batchId && order.paymentInfo.batchTotalAmount;
-          
+
           // Check if this order has already had its wallet portion refunded
           if (order.paymentInfo.refundedWalletAmount && order.paymentInfo.refundedWalletAmount > 0) {
             console.log(`Order ${order.order_id} has already had its wallet portion refunded (₦${order.paymentInfo.refundedWalletAmount})`);
@@ -5667,7 +5717,7 @@ exports.processRefundRequest = async (req, res) => {
           } else {
             // Use the proportional wallet amount for this order
             refundAmount = Math.min(order.paymentInfo.walletAmountUsed, calculateRefundAmount(order));
-            
+
             if (isBatchOrder) {
               console.log(`Processing refund for batch order ${order.order_id} (batch ${order.paymentInfo.batchId}):`, {
                 batchTotalAmount: order.paymentInfo.batchTotalAmount,
@@ -5675,7 +5725,7 @@ exports.processRefundRequest = async (req, res) => {
                 thisOrderAmount: order.totalAmount,
                 thisOrderWalletAmount: refundAmount
               });
-              
+
               // Check if other orders in this batch have already been refunded
               const Order = mongoose.model('Order');
               const otherOrdersInBatch = await Order.find({
@@ -5683,19 +5733,19 @@ exports.processRefundRequest = async (req, res) => {
                 _id: { $ne: order._id }, // Exclude current order
                 'paymentInfo.refundedWalletAmount': { $exists: true, $gt: 0 }
               });
-              
+
               if (otherOrdersInBatch && otherOrdersInBatch.length > 0) {
                 // Some orders in this batch have already been refunded
                 console.log(`Found ${otherOrdersInBatch.length} other orders in batch ${order.paymentInfo.batchId} that have already been refunded:`, {
-                  refundedOrders: otherOrdersInBatch.map(o => ({ 
-                    orderId: o.order_id, 
-                    refundedAmount: o.paymentInfo.refundedWalletAmount 
+                  refundedOrders: otherOrdersInBatch.map(o => ({
+                    orderId: o.order_id,
+                    refundedAmount: o.paymentInfo.refundedWalletAmount
                   }))
                 });
               }
             }
           }
-          
+
           console.log(`Processing hybrid payment refund for order ${order.order_id}:`, {
             totalAmount: order.totalAmount,
             walletAmountUsed: order.paymentInfo.walletAmountUsed,
@@ -5706,20 +5756,20 @@ exports.processRefundRequest = async (req, res) => {
           // Refund the full order amount (do not deduct shipping fee)
           refundAmount = calculateRefundAmount(order);
         }
-        
+
         refundDetails = {
           originalAmount: order.totalAmount,
           refundAmount: refundAmount,
           isHybridPayment: isHybridPayment
         };
-        
+
         console.log(`Processing refund for order ${order.order_id}:`, refundDetails);
-        
+
         // If refund amount is 0 (already refunded), skip the wallet update
         if (refundAmount > 0) {
           // Generate a unique payment reference for the wallet transaction
           const paymentReference = `REF-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-          
+
           // Add the refund amount to buyer's wallet
           if (!buyer.wallet) {
             buyer.wallet = {
@@ -5728,15 +5778,15 @@ exports.processRefundRequest = async (req, res) => {
               transactions: []
             };
           }
-          
+
           // Update wallet balance
           buyer.wallet.balance += refundAmount;
-          
+
           // Add transaction record
-          const transactionDescription = isHybridPayment 
+          const transactionDescription = isHybridPayment
             ? `Refund of wallet portion for cancelled order #${order.order_id} (credit payment)`
             : `Refund for cancelled order #${order.order_id}`;
-            
+
           buyer.wallet.transactions.push({
             type: 'credit',
             amount: refundAmount,
@@ -5745,26 +5795,26 @@ exports.processRefundRequest = async (req, res) => {
             status: 'completed',
             createdAt: new Date()
           });
-          
+
           // Save the buyer with updated wallet
           await buyer.save();
-          
+
           console.log(`Refund processed successfully. Buyer wallet updated:`, {
             buyerId: buyer._id,
             newBalance: buyer.wallet.balance,
             refundAmount: refundAmount,
             isHybridPayment: isHybridPayment
           });
-          
+
           // Also save the refund details in the order for reference
           order.refundRequest.refundAmount = refundAmount;
           order.refundRequest.paymentReference = paymentReference;
-          
+
           // Mark this order as having had its wallet portion refunded
           if (isHybridPayment) {
             order.paymentInfo.refundedWalletAmount = refundAmount;
             order.paymentInfo.walletRefundedAt = new Date();
-            
+
             // For hybrid payments, add a note about refunding only the wallet portion
             order.notes.push({
               type: 'admin',
@@ -5774,7 +5824,7 @@ exports.processRefundRequest = async (req, res) => {
           }
         } else {
           console.log(`Skipping wallet refund for order ${order.order_id} as it has already been refunded.`);
-          
+
           // Add a note about the already refunded wallet portion
           order.notes.push({
             type: 'admin',
@@ -5800,30 +5850,30 @@ exports.processRefundRequest = async (req, res) => {
         });
       }
     }
-    
+
     // Ensure all required buyerDetails fields are set before saving
     if (!order.buyerDetails || !order.buyerDetails._id) {
       if (!order.buyerDetails) {
         order.buyerDetails = {};
       }
       order.buyerDetails._id = order.buyer._id;
-      
+
       // Set other buyerDetails fields
       if (order.buyer) {
         order.buyerDetails.firstName = order.buyer.firstName || '';
         order.buyerDetails.lastName = order.buyer.lastName || '';
         order.buyerDetails.username = order.buyer.username || '';
         if (order.buyer.profileImage && order.buyer.profileImage.url) {
-          order.buyerDetails.profileImage = [{url: order.buyer.profileImage.url}];
+          order.buyerDetails.profileImage = [{ url: order.buyer.profileImage.url }];
         } else {
           order.buyerDetails.profileImage = [];
         }
       }
     }
-    
+
     // Save the order
     await order.save();
-    
+
     // Prepare email based on status
     let emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -5831,7 +5881,7 @@ exports.processRefundRequest = async (req, res) => {
         <p>Dear ${order.buyer.firstName},</p>
         <p>Your refund request for order #${order.order_id} has been ${status}.</p>
     `;
-    
+
     if (status === 'approved') {
       if (refundDetails.isHybridPayment) {
         emailHtml += `
@@ -5858,7 +5908,7 @@ exports.processRefundRequest = async (req, res) => {
         <p>If you believe this decision was made in error or have any questions, please contact our support team.</p>
       `;
     }
-    
+
     emailHtml += `
         <p><strong>Order Details:</strong></p>
         <ul>
@@ -5870,20 +5920,24 @@ exports.processRefundRequest = async (req, res) => {
         <p>Best regards,<br>The Auqli Team</p>
       </div>
     `;
-    
+
     const buyerEmail = {
       to: order.buyer.email,
       from: 'Auqli Refunds <support@auqli.com>',
       subject: `Refund Request ${status === 'approved' ? 'Approved' : 'Rejected'} - Order #${order.order_id}`,
       html: emailHtml
     };
-    
+
     try {
-      await sgMail.send(buyerEmail);
+      await termiiEmailService.sendRawHTMLEmail({
+        email: buyerEmail.to,
+        subject: buyerEmail.subject,
+        html: buyerEmail.html
+      });
     } catch (emailError) {
       console.error('Error sending email to buyer:', emailError);
     }
-    
+
     // Send notification to buyer
     try {
       await createNotification(order.buyer._id, 'refund_request_processed', {
@@ -5892,24 +5946,24 @@ exports.processRefundRequest = async (req, res) => {
         orderNumber: order.order_id,
         refundAmount: status === 'approved' ? refundAmount : 0
       });
-      
+
       // Send push notification if buyer has an expo push token
       if (order.buyer.expoPushToken) {
         const notificationController = require('./notificationController');
         await notificationController.sendPushNotification(
           order.buyer.expoPushToken,
           `Refund Request ${status === 'approved' ? 'Approved' : 'Rejected'}`,
-          status === 'approved' 
+          status === 'approved'
             ? (refundDetails.isHybridPayment
-               ? `Your wallet refund of ₦${refundAmount.toLocaleString()} for order #${order.order_id} has been processed.`
-               : `Your refund of ₦${refundAmount.toLocaleString()} for order #${order.order_id} has been processed and added to your wallet.`)
+              ? `Your wallet refund of ₦${refundAmount.toLocaleString()} for order #${order.order_id} has been processed.`
+              : `Your refund of ₦${refundAmount.toLocaleString()} for order #${order.order_id} has been processed and added to your wallet.`)
             : `Your refund request for order #${order.order_id} has been rejected. Reason: ${notes || 'No specific reason provided.'}`
         );
       }
     } catch (notifError) {
       console.error('Error sending notification to buyer:', notifError);
     }
-    
+
     res.json({
       message: `Refund request ${status} successfully`,
       order: {
@@ -5922,12 +5976,12 @@ exports.processRefundRequest = async (req, res) => {
         addedToWallet: true
       } : undefined
     });
-    
+
   } catch (error) {
     console.error('Error processing refund request:', error);
-    res.status(500).json({ 
-      message: 'Error processing refund request', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error processing refund request',
+      error: error.message
     });
   }
 };
@@ -5937,37 +5991,37 @@ exports.getBuyerRefundRequests = async (req, res) => {
   try {
     const buyerId = req.params.buyerId || req.user.id;
     const { status, page = 1, limit = 10 } = req.query;
-    
+
     // Ensure the requesting user can only access their own refund requests
     if (req.user.role !== 'admin' && req.user.id !== buyerId) {
       return res.status(403).json({ message: 'You are not authorized to view these refund requests' });
     }
-    
+
     // Build query filters
     const query = {
       buyer: buyerId,
       'refundRequest.requested': true
     };
-    
+
     // Filter by status if provided
     if (status) {
       query['refundRequest.status'] = status;
     }
-    
+
     // Count total matching documents
     const totalRefundRequests = await Order.countDocuments(query);
-    
+
     // Calculate pagination
     const totalPages = Math.ceil(totalRefundRequests / limit);
     const skip = (page - 1) * limit;
-    
+
     // Get orders with refund requests
     const orders = await Order.find(query)
       .populate('seller', 'firstName lastName email businessName storeName')
       .sort({ 'refundRequest.requestedAt': -1 })
       .skip(skip)
       .limit(parseInt(limit));
-    
+
     // Format the response
     const refundRequests = orders.map(order => ({
       orderId: order._id,
@@ -5987,7 +6041,7 @@ exports.getBuyerRefundRequests = async (req, res) => {
       reason: order.refundRequest.reason,
       createdAt: order.createdAt
     }));
-    
+
     res.json({
       refundRequests,
       pagination: {
@@ -5997,12 +6051,12 @@ exports.getBuyerRefundRequests = async (req, res) => {
         limit: parseInt(limit)
       }
     });
-    
+
   } catch (error) {
     console.error('Error fetching buyer refund requests:', error);
-    res.status(500).json({ 
-      message: 'Error fetching refund requests', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error fetching refund requests',
+      error: error.message
     });
   }
 };
@@ -6013,19 +6067,19 @@ exports.getBuyerRefundRequests = async (req, res) => {
 exports.getManifestUrl = async (req, res) => {
   try {
     const { orderNo } = req.params;
-    
+
     if (!orderNo) {
-      return res.status(400).json({ 
-        message: 'Order number is required' 
+      return res.status(400).json({
+        message: 'Order number is required'
       });
     }
-    
+
     console.log(`📄 Getting manifest URL for order: ${orderNo}`);
-    
+
     // Get a fresh authentication token for Fez Delivery
     const authToken = await getFezAuthToken();
     console.log('Using fresh token for manifest URL request:', authToken.substring(0, 10) + '...');
-    
+
     // Log request details
     console.log('Making request to Fez API:', {
       url: `${FEZ_API_URL}/orders/${orderNo}/manifest-url`,
@@ -6039,10 +6093,10 @@ exports.getManifestUrl = async (req, res) => {
     const manifestResponse = await axios.get(`${FEZ_API_URL}/orders/${orderNo}/manifest-url`, {
       headers: {
         'Authorization': `Bearer ${authToken}`,
-        'secret-key': process.env.FEZ_SECRET_KEY 
+        'secret-key': process.env.FEZ_SECRET_KEY
       }
     });
-    
+
     // Log full response from Fez
     console.log('📥 Full Fez API Response:', {
       status: manifestResponse.status,
@@ -6057,7 +6111,7 @@ exports.getManifestUrl = async (req, res) => {
         description: manifestResponse.data.description,
         data: manifestResponse.data.data
       });
-      
+
       // Return the exact Fez response format
       return res.json({
         status: manifestResponse.data.status,
@@ -6071,7 +6125,7 @@ exports.getManifestUrl = async (req, res) => {
         response: manifestResponse.data,
         orderNo
       });
-      return res.status(400).json({ 
+      return res.status(400).json({
         status: 'Error',
         description: manifestResponse.data.description || 'Failed to get manifest URL',
         data: {} // Return empty data object on error to match Fez format
@@ -6082,7 +6136,7 @@ exports.getManifestUrl = async (req, res) => {
       message: error.message,
       orderNo: req.params.orderNo
     });
-    
+
     if (error.response) {
       console.error('Fez API error details:', {
         status: error.response.status,
@@ -6096,8 +6150,8 @@ exports.getManifestUrl = async (req, res) => {
         data: {} // Return empty data object on error to match Fez format
       });
     }
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       status: 'Error',
       description: 'Error getting manifest URL',
       data: {} // Return empty data object on error to match Fez format
@@ -6108,46 +6162,46 @@ exports.getManifestUrl = async (req, res) => {
 // Helper function to handle failed payments
 async function handleFailedPayment(paymentData, res) {
   const { reference, metadata } = paymentData;
-  
+
   if (!metadata || !metadata.orderId) {
     return res.status(200).json({ message: 'No order metadata found in failed payment' });
   }
-  
+
   try {
-  const Order = mongoose.model('Order');
+    const Order = mongoose.model('Order');
     const order = await Order.findById(metadata.orderId);
-  
-  if (!order) {
+
+    if (!order) {
       return res.status(200).json({ message: 'Order not found for failed payment' });
     }
-    
+
     // Check if this order has already been processed (paid or cancelled)
     if (order.paid || !order.isOpen) {
       return res.status(200).json({ message: 'Order already processed, ignoring failed payment' });
     }
-    
+
     console.log(`Processing failed payment for order ${order.order_id}`, {
       reference,
       orderStatus: order.paymentInfo.status,
       isOpen: order.isOpen,
       paymentMethod: order.paymentInfo.method
     });
-    
+
     // Check if this is a hybrid payment (wallet + Paystack)
     const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
-    
+
     if (isHybridPayment) {
       console.log(`Failed payment was hybrid for order ${order.order_id}`, {
         totalAmount: order.totalAmount,
         walletAmountUsed: order.paymentInfo.walletAmountUsed,
         paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
       });
-      
+
       // If wallet was already used, we need to refund it
       if (order.paymentInfo.walletAmountUsed > 0) {
         const Buyer = mongoose.model('Buyer');
         const buyer = await Buyer.findById(order.buyer);
-        
+
         if (buyer) {
           // Refund the wallet amount that was used
           const walletTransaction = {
@@ -6157,14 +6211,14 @@ async function handleFailedPayment(paymentData, res) {
             status: 'completed',
             createdAt: new Date()
           };
-          
+
           // Add transaction to wallet
           buyer.wallet.balance += order.paymentInfo.walletAmountUsed;
           buyer.wallet.transactions.push(walletTransaction);
-          
+
           // Save buyer with updated wallet
           await buyer.save();
-          
+
           console.log(`Refunded wallet amount for failed hybrid payment: ${order.paymentInfo.walletAmountUsed}`, {
             orderId: order._id,
             buyer: buyer._id,
@@ -6175,13 +6229,13 @@ async function handleFailedPayment(paymentData, res) {
         }
       }
     }
-    
+
     // Mark order as closed with appropriate reason
     order.isOpen = false;
     order.closedAt = new Date();
     order.closedBy = 'auto';
     order.closedReason = `Payment failed: ${paymentData.gateway_response || 'Unknown payment failure'}`;
-    
+
     // Also update items status to cancelled
     order.items.forEach(item => {
       item.status = 'cancelled';
@@ -6191,19 +6245,19 @@ async function handleFailedPayment(paymentData, res) {
         note: 'Payment failed'
       });
     });
-    
+
     await order.save();
-    
+
     // Notify the buyer about the failed payment
     const Buyer = mongoose.model('Buyer');
     const buyer = await Buyer.findById(order.buyer);
-    
+
     if (buyer && buyer.email) {
       try {
-      // Send email notification about failed payment
-      const sgMail = require('@sendgrid/mail');
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      
+        // Send email notification about failed payment
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
         // Prepare email content
         let emailContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -6217,36 +6271,35 @@ async function handleFailedPayment(paymentData, res) {
               <li>Amount: ₦${order.totalAmount.toLocaleString()}</li>
             </ul>
         `;
-        
+
         // Add wallet refund info if applicable
         if (isHybridPayment && order.paymentInfo.walletAmountUsed > 0) {
           emailContent += `
             <p><strong>Wallet Refund:</strong> Your wallet credit of ₦${order.paymentInfo.walletAmountUsed.toLocaleString()} used for this order has been refunded to your wallet.</p>
           `;
         }
-        
+
         emailContent += `
             <p>If you would still like to purchase these items, please place a new order.</p>
             <p>If you believe this is an error, please contact our support team.</p>
             <p>Best regards,<br>The Auqli Team</p>
           </div>
         `;
-        
+
         // Send the email
-        await sgMail.send({
-          to: buyer.email,
-          from: 'Auqli Payment <support@auqli.com>',
+        await termiiEmailService.sendRawHTMLEmail({
+          email: buyer.email,
           subject: 'Payment Failed - Auqli',
           html: emailContent
         });
-        
+
         console.log(`Sent failed payment email to ${buyer.email} for order ${order.order_id}`);
-  } catch (emailError) {
+      } catch (emailError) {
         console.error('Error sending failed payment email:', emailError);
       }
-  }
-  
-  return res.status(200).json({ 
+    }
+
+    return res.status(200).json({
       message: 'Failed payment processed, order cancelled',
       order: {
         _id: order._id,
@@ -6264,23 +6317,23 @@ async function handleFailedPayment(paymentData, res) {
 // Helper function to format address for Fez API
 function formatAddressForFez(addressObj) {
   const addressParts = [];
-  
+
   if (addressObj.addressLine1) {
     addressParts.push(addressObj.addressLine1);
   }
-  
+
   if (addressObj.addressLine2) {
     addressParts.push(addressObj.addressLine2);
   }
-  
+
   if (addressObj.city) {
     addressParts.push(addressObj.city);
   }
-  
+
   if (addressObj.state) {
     addressParts.push(addressObj.state);
   }
-  
+
   return addressParts.join(', ');
 }
 
@@ -6352,15 +6405,8 @@ exports.updateInternationalOrderTracking = async (req, res) => {
     try {
       const buyer = await Buyer.findById(order.buyer);
       if (buyer && buyer.email) {
-        const sgMail = require('@sendgrid/mail');
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-        
-        await sgMail.send({
-          to: buyer.email,
-          from: {
-            email: 'support@auqli.com',
-            name: 'Auqli Orders'
-          },
+        await termiiEmailService.sendRawHTMLEmail({
+          email: buyer.email,
           subject: `Order #${order.order_id} - Tracking Information Updated`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -6375,7 +6421,7 @@ exports.updateInternationalOrderTracking = async (req, res) => {
             </div>
           `
         });
-        
+
         console.log(`Tracking update notification email sent to buyer ${buyer.email}`);
       }
     } catch (emailError) {
@@ -6500,30 +6546,23 @@ exports.updateInternationalOrderStatus = async (req, res) => {
     try {
       const buyer = await Buyer.findById(order.buyer);
       if (buyer && buyer.email) {
-        const sgMail = require('@sendgrid/mail');
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-        
-        await sgMail.send({
-          to: buyer.email,
-          from: {
-            email: 'support@auqli.com',
-            name: 'Auqli Orders'
-          },
+        await termiiEmailService.sendRawHTMLEmail({
+          email: buyer.email,
           subject: `Order #${order.order_id} - Status Updated to ${status}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2>Order Status Updated</h2>
               <p>Dear ${buyer.firstName},</p>
               <p>The status of your order #${order.order_id} has been updated to <strong>${status}</strong>.</p>
-              ${status === 'Delivered' ? 
-                '<p>Your order has been delivered! If you have any issues with your order, please contact the seller or our support team.</p>' : ''}
-              ${status === 'Cancelled' ? 
-                '<p>Your order has been cancelled by the seller. If you have any questions, please contact our support team.</p>' : ''}
+              ${status === 'Delivered' ?
+              '<p>Your order has been delivered! If you have any issues with your order, please contact the seller or our support team.</p>' : ''}
+              ${status === 'Cancelled' ?
+              '<p>Your order has been cancelled by the seller. If you have any questions, please contact our support team.</p>' : ''}
               <p>Best regards,<br>The Auqli Team</p>
             </div>
           `
         });
-        
+
         console.log(`Status update notification email sent to buyer ${buyer.email}`);
       }
     } catch (emailError) {

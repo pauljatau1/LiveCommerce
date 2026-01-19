@@ -4,6 +4,7 @@ const Seller = require('../../../models/Seller');
 const Withdrawal = require('../../../models/Withdrawal');
 const adminBuyerService = require('../services/adminBuyer.service');
 const emailService = require('../../../utils/emailService');
+const termiiEmailService = require('../../../services/termiiEmailService');
 const { toggleSellerVacationMode } = require('../services/adminVacation.service');
 const ErrorLog = require('../../../models/ErrorLog');
 const { getNonLagosSellerNotificationEmail } = require('../helpers/email.helper');
@@ -187,18 +188,18 @@ const updateProductSoldCount = async (req, res, next) => {
 
     // Validate input
     if (typeof soldCount !== 'number' || soldCount < 0) {
-      return res.status(400).json({ 
-        status: false, 
-        message: 'soldCount must be a non-negative number' 
+      return res.status(400).json({
+        status: false,
+        message: 'soldCount must be a non-negative number'
       });
     }
 
     // Find the product
     const product = await Product.findById(productId);
     if (!product) {
-      return res.status(404).json({ 
-        status: false, 
-        message: 'Product not found' 
+      return res.status(404).json({
+        status: false,
+        message: 'Product not found'
       });
     }
 
@@ -210,10 +211,10 @@ const updateProductSoldCount = async (req, res, next) => {
     await product.save();
 
     // Log the change
-   
 
-    res.status(200).json({ 
-      status: true, 
+
+    res.status(200).json({
+      status: true,
       message: 'Product sold count updated successfully',
       product: {
         _id: product._id,
@@ -300,12 +301,12 @@ const disableNonLagosSellers = async (req, res, next) => {
         { seller: { $in: sellersToDisable.map(s => s._id) }, status: { $in: ['active', 'offline_auction'] } },
         { $set: { status: 'draft' } }
       );
-      
+
       productStatusUpdate = {
         productsUpdated: productUpdateResult.modifiedCount,
         status: 'success'
       };
-      
+
       console.log(`📦 Set ${productUpdateResult.modifiedCount} products to draft status for ${sellersToDisable.length} disabled sellers`);
     } catch (productError) {
       console.error(`❌ Error setting products to draft for disabled sellers:`, productError);
@@ -321,9 +322,9 @@ const disableNonLagosSellers = async (req, res, next) => {
     const automaticWithdrawals = [];
     const withdrawalSafetyReports = [];
     const sellersWithBalance = sellersToDisable.filter(seller => seller.walletBalance > 0);
-    
+
     console.log(`🔍 Processing ${sellersWithBalance.length} sellers with wallet balance for safe automatic withdrawals`);
-    
+
     for (const seller of sellersWithBalance) {
       try {
         // Get comprehensive withdrawal safety report
@@ -361,7 +362,7 @@ const disableNonLagosSellers = async (req, res, next) => {
           } else if (withdrawalResult.requiresSupportContact) {
             // Handle case where seller has no bank details
             console.log(`📧 Sending no bank details emails for ${seller.email} (Balance: ₦${withdrawalResult.availableBalance.toLocaleString()})`);
-            
+
             // Send no bank details emails asynchronously (non-blocking)
             sendNoBankDetailsEmails(
               withdrawalResult.seller,
@@ -375,7 +376,7 @@ const disableNonLagosSellers = async (req, res, next) => {
                 status: 'no_bank_details',
                 reason: 'No bank details - emails sent to seller and admin'
               });
-              
+
               console.log(`✅ No bank details emails sent for ${seller.email}`);
             }).catch(emailError => {
               console.error(`❌ Error sending no bank details emails for ${seller.email}:`, emailError);
@@ -409,11 +410,7 @@ const disableNonLagosSellers = async (req, res, next) => {
 
           // Send admin notification for invalid bank details case
           if (!safetyReport.bankDetails.isValid && safetyReport.withdrawalCalculation.canWithdraw) {
-            const invalidBankDetailsAdminMsg = {
-              to: 'bolu@auqli.com',
-              from: 'Auqli System <support@auqli.com>',
-              subject: `Action Required: Seller ${seller.firstName} ${seller.lastName} Has Invalid Bank Details (Bulk Disable)`,
-              html: `
+            const invalidBankDetailsHtml = `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                   <h2>⚠️ Seller Disabled - Invalid Bank Details (Bulk Operation)</h2>
                   <p>A seller account has been disabled in a bulk operation but cannot receive automatic withdrawal due to invalid bank details.</p>
@@ -466,13 +463,16 @@ const disableNonLagosSellers = async (req, res, next) => {
                     </p>
                   </div>
                 </div>
-              `
-            };
+              `;
 
-            sgMail.send(invalidBankDetailsAdminMsg).catch(emailError => {
+            termiiEmailService.sendRawHTMLEmail(
+              'bolu@auqli.com',
+              `Action Required: Seller ${seller.firstName} ${seller.lastName} Has Invalid Bank Details (Bulk Disable)`,
+              invalidBankDetailsHtml
+            ).catch(emailError => {
               console.error(`❌ Error sending invalid bank details admin notification:`, emailError);
             });
-            
+
             console.log(`📧 Admin notification sent to bolu@auqli.com for invalid bank details: ${seller.email}`);
           }
         }
@@ -496,28 +496,28 @@ const disableNonLagosSellers = async (req, res, next) => {
         try {
           // Check if this seller has an automatic withdrawal
           const sellerWithdrawal = automaticWithdrawals.find(w => w.sellerEmail === seller.email);
-          
+
           // Get email content from helper
           const emailContent = getNonLagosSellerNotificationEmail(seller, sellerWithdrawal);
-          
+
           // Send to primary email
           await emailService.sendEmail(
-            seller.email, 
-            emailContent.subject, 
-            emailContent.text, 
+            seller.email,
+            emailContent.subject,
+            emailContent.text,
             emailContent.html
           );
-          
+
           // Also send to business email if it exists and is different
           if (seller.businessEmail && seller.businessEmail !== seller.email) {
             await emailService.sendEmail(
-              seller.businessEmail, 
-              emailContent.subject, 
-              emailContent.text, 
+              seller.businessEmail,
+              emailContent.subject,
+              emailContent.text,
               emailContent.html
             );
           }
-          
+
           console.log(`✅ Notification email sent to ${seller.email}`);
         } catch (emailError) {
           console.error(`❌ Failed to send notification email to ${seller.email}:`, emailError);

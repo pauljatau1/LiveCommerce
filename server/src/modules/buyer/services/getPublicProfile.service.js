@@ -49,7 +49,7 @@ function calculateTotalReviews(activityFeed) {
   if (!activityFeed || !Array.isArray(activityFeed)) {
     return 0;
   }
-  
+
   // Filter activities by type and count reviews
   return activityFeed.filter(activity => activity.type === 'product_review').length;
 }
@@ -74,7 +74,7 @@ function calculateTotalFollowing(activityFeed) {
   if (!activityFeed || !Array.isArray(activityFeed)) {
     return 0;
   }
-  
+
   // Filter activities by type and count follows
   return activityFeed.filter(activity => activity.type === 'follow').length;
 }
@@ -98,7 +98,7 @@ function calculateTotalFollowers(followers) {
   if (!followers || !Array.isArray(followers)) {
     return 0;
   }
-  
+
   // Return the length of the followers array
   return followers.length;
 }
@@ -124,12 +124,12 @@ function formatRecentActivity(activityFeed) {
   if (!activityFeed || !Array.isArray(activityFeed)) {
     return [];
   }
-  
+
   // Sort by createdAt in descending order and limit to 10 items
   const sortedActivityFeed = activityFeed
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .slice(0, 10);
-  
+
   // Format activities for public display
   return sortedActivityFeed.map(activity => ({
     type: activity.type,
@@ -159,7 +159,7 @@ function formatSelectedCategories(selectedCategories) {
   if (!selectedCategories || !Array.isArray(selectedCategories)) {
     return [];
   }
-  
+
   // Format categories with hierarchical structure
   return selectedCategories.map(category => ({
     name: category.name,
@@ -307,6 +307,11 @@ async function getPublicProfile(buyerId) {
   }
 
   const { buyer, postCount } = profileData;
+
+  if (!buyer) {
+    console.error(`[getPublicProfile] Profile data retrieved but 'buyer' object is missing for ID: ${buyerId}`);
+    throw new NotFoundException('Buyer details not found');
+  }
 
   // Step 4: Calculate statistics from various data sources
   const totalReviews = calculateTotalReviews(buyer.activityFeed);
