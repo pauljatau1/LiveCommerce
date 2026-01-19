@@ -845,7 +845,7 @@ async function getPublicProfileData(buyerId) {
   }
 
   return {
-    ...buyer.toObject(),
+    buyer,
     postCount
   };
 }
