@@ -1,23 +1,100 @@
-const axios = require('axios');
 require('dotenv').config();
 
-const base = process.env.TERMINAL_API_URL + '/v1';
+const BASE_URL_V1 = process.env.TERMINAL_API_URL + '/v1';
+const BASE_URL_V2 = process.env.TERMINAL_API_URL + '/v2';
+const SECRET_KEY = process.env.TERMINAL_SECRET_KEY;
 
-// Terminal Africa axios client
-const terminalAPI = axios.create({
-  baseURL: base,
-  headers: {
-    Authorization: `Bearer ${process.env.TERMINAL_SECRET_KEY}`,
-    'Content-Type': 'application/json'
+// Logging helper
+// Logging helper
+const logRequest = (method, url, body) => {
+  console.log(`[Terminal API] REQUEST: ${method} ${url}`);
+  if (body) console.log('Request Data:', JSON.stringify(body, null, 2));
+};
+
+const logResponse = (method, url, duration, status) => {
+  console.log(`[Terminal API] RESPONSE: ${method} ${url} | Duration: ${duration.toFixed(3)} seconds | Status: ${status}`);
+};
+
+const customFetch = async (baseUrl, endpoint, options = {}) => {
+  const url = `${baseUrl}${endpoint}`;
+  const method = options.method || 'GET';
+
+  const headers = {
+    'Authorization': `Bearer ${SECRET_KEY}`,
+    'Content-Type': 'application/json',
+    ...(options.headers || {})
+  };
+
+  const config = {
+    method,
+    headers,
+    ...(options.body && { body: JSON.stringify(options.body) })
+  };
+
+  const startTime = Date.now();
+  logRequest(method, url, options.body);
+
+  try {
+    const response = await fetch(url, config);
+    const endTime = Date.now();
+    const duration = (endTime - startTime) / 1000;
+
+    // Attempt to parse JSON response
+    let data = {};
+    const text = await response.text();
+    try {
+      if (text) data = JSON.parse(text);
+    } catch (e) {
+      console.warn('Failed to parse response JSON', e);
+    }
+
+    logResponse(method, url, duration, response.status);
+
+    if (!response.ok) {
+      // Create an error object that mimics axios error structure
+      const error = new Error(`Request failed with status ${response.status}`);
+      error.response = {
+        status: response.status,
+        statusText: response.statusText,
+        data: data,
+        headers: response.headers
+      };
+      error.config = { method, url, headers, data: options.body };
+      throw error;
+    }
+
+    // Mimic axios response object
+    return {
+      data: data,
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      config: { method, url, headers, data: options.body },
+      request: {} // Placeholder to avoid crashes if accessed
+    };
+
+  } catch (error) {
+    // If it's the error we already formatted, rethrow it
+    if (error.response) throw error;
+
+    // Network or other errors
+    const endTime = Date.now();
+    const duration = (endTime - startTime) / 1000;
+    console.log(`[Terminal API] ERROR: ${method} ${url} | Duration: ${duration.toFixed(3)} seconds | Error: ${error.message}`);
+    throw error;
   }
+};
+
+const createClient = (baseUrl) => ({
+  get: (endpoint, config = {}) => customFetch(baseUrl, endpoint, { ...config, method: 'GET' }),
+  post: (endpoint, data, config = {}) => customFetch(baseUrl, endpoint, { ...config, method: 'POST', body: data }),
+  // Implement other methods if needed
+  put: (endpoint, data, config = {}) => customFetch(baseUrl, endpoint, { ...config, method: 'PUT', body: data }),
+  delete: (endpoint, config = {}) => customFetch(baseUrl, endpoint, { ...config, method: 'DELETE' }),
+  patch: (endpoint, data, config = {}) => customFetch(baseUrl, endpoint, { ...config, method: 'PATCH', body: data }),
 });
 
-terminalAPI.v2 = axios.create({
-  baseURL: base.replace('/v1', '/v2'),
-  headers: {
-    Authorization: `Bearer ${process.env.TERMINAL_SECRET_KEY}`,
-    'Content-Type': 'application/json'
-  }
-});
+const terminalAPI = createClient(BASE_URL_V1);
+terminalAPI.v2 = createClient(BASE_URL_V2);
 
-module.exports = terminalAPI; 
+module.exports = terminalAPI;
