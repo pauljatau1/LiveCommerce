@@ -596,6 +596,129 @@ exports.startStream = async (req, res) => {
         }
       }
 
+      // GLOBAL NOTIFICATION: Send push notifications to ALL buyers when a seller goes live.
+      // This ensures every buyer with an Expo push token gets notified about the new live stream.
+      // We exclude buyers who were already notified above (followers and subscribers) to avoid duplicates.
+      try {
+        // Collect IDs of buyers already notified (followers + subscribers)
+        const alreadyNotifiedBuyerIds = new Set();
+
+        // Add follower IDs
+        if (seller.followers && seller.followers.length > 0) {
+          seller.followers.forEach((follower) => {
+            if (follower.buyerId) {
+              alreadyNotifiedBuyerIds.add(follower.buyerId.toString());
+            }
+          });
+        }
+
+        // Add subscriber IDs
+        if (stream.subscribers && stream.subscribers.length > 0) {
+          stream.subscribers.forEach((sub) => {
+            if (sub.buyer) {
+              alreadyNotifiedBuyerIds.add(sub.buyer.toString());
+            }
+          });
+        }
+
+        // Build query to find all buyers with expo push tokens, excluding already notified ones
+        const allBuyersQuery = {
+          expoPushToken: { $exists: true, $ne: null, $ne: '' }
+        };
+
+        // Exclude already notified buyers if any exist
+        if (alreadyNotifiedBuyerIds.size > 0) {
+          allBuyersQuery._id = { $nin: Array.from(alreadyNotifiedBuyerIds) };
+        }
+
+        // Fetch all buyers with valid expo push tokens (excluding already notified)
+        const allBuyers = await Buyer.find(allBuyersQuery)
+          .select('_id expoPushToken notificationPreferences')
+          .lean();
+
+        if (allBuyers && allBuyers.length > 0) {
+          const globalNotifications = [];
+
+          for (const buyer of allBuyers) {
+            // Skip if no valid Expo push token
+            if (!buyer.expoPushToken || !Expo.isExpoPushToken(buyer.expoPushToken)) {
+              continue;
+            }
+
+            // Respect buyer notification preferences for live shows
+            const livePrefs = buyer.notificationPreferences?.liveShows || {};
+            const wantsLiveShowNotifications = livePrefs.allShows !== false;
+
+            if (!wantsLiveShowNotifications) continue;
+
+            globalNotifications.push({
+              to: buyer.expoPushToken,
+              sound: 'default',
+              title: `🔴 ${seller.storeName || 'A Seller'} is Now Live!`,
+              body: `${seller.storeName || 'A seller'} just started a live ${stream.type === 'auction' ? 'auction' : 'show'}: "${stream.title}". Join now and don't miss out!`,
+              data: {
+                streamId: stream._id.toString(),
+                streamType: stream.type,
+                sellerId: seller._id.toString(),
+                action: 'open_stream',
+                type: 'seller_live'
+              },
+              priority: 'high',
+              channelId: 'live_streams'
+            });
+          }
+
+          // Send notifications in batches using Expo's chunking
+          if (globalNotifications.length > 0) {
+            const chunks = expo.chunkPushNotifications(globalNotifications);
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const chunk of chunks) {
+              try {
+                const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+                ticketChunk.forEach((ticket) => {
+                  if (ticket.status === 'ok') {
+                    successCount++;
+                  } else {
+                    errorCount++;
+                  }
+                });
+              } catch (chunkError) {
+                console.error('[Stream] Error sending global notification chunk:', chunkError);
+                errorCount += chunk.length;
+              }
+            }
+
+            console.log('[Stream] Sent global live stream push notifications to all buyers', {
+              streamId: stream._id?.toString(),
+              sellerId: seller._id?.toString(),
+              storeName: seller.storeName,
+              totalBuyers: allBuyers.length,
+              notificationsSent: globalNotifications.length,
+              successCount,
+              errorCount,
+              excludedAlreadyNotified: alreadyNotifiedBuyerIds.size
+            });
+          } else {
+            console.log('[Stream] No global push notifications sent (all opted out or no valid tokens)', {
+              streamId: stream._id?.toString(),
+              sellerId: seller._id?.toString(),
+              totalBuyers: allBuyers.length
+            });
+          }
+        } else {
+          console.log('[Stream] No additional buyers to notify globally', {
+            streamId: stream._id?.toString(),
+            sellerId: seller._id?.toString(),
+            excludedCount: alreadyNotifiedBuyerIds.size
+          });
+        }
+      } catch (globalNotifError) {
+        // Log error but don't fail the stream start
+        console.error('[Stream] Error sending global buyer notifications:', globalNotifError);
+      }
+
     } catch (error) {
       console.error('Failed to save chat interaction or send notifications:', error);
       // Continue with the response even if saving the chat interaction fails
