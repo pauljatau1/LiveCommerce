@@ -18,7 +18,7 @@
  * @module appleAuthService
  */
 
-const jose = require('jose');
+// Note: jose is ESM-only, so we use dynamic import() instead of require()
 const crypto = require('crypto');
 const { generateToken } = require('../../../utils/helpers');
 const { findByEmail, findByAppleId, saveBuyer } = require('../repositories/buyer.repository');
@@ -26,7 +26,21 @@ const Buyer = require('../../../models/Buyer');
 const ValidationError = require('../../../utils/errors/ValidationError');
 
 // Apple's JWKS endpoint for public key verification
-const APPLE_JWKS_URL = new URL('https://appleid.apple.com/auth/keys');
+const APPLE_JWKS_URL = 'https://appleid.apple.com/auth/keys';
+
+// Cache for jose module (loaded dynamically)
+let joseModule = null;
+
+/**
+ * Dynamically loads the jose module (ESM-only package)
+ * @returns {Promise<Object>} The jose module
+ */
+async function getJose() {
+    if (!joseModule) {
+        joseModule = await import('jose');
+    }
+    return joseModule;
+}
 
 /**
  * Verifies an Apple ID token and extracts user information.
@@ -45,8 +59,11 @@ async function verifyAppleToken(token, rawNonce, fromDev = false) {
         console.log('Verifying Apple token for buyer...');
         console.log('Token length:', token.length);
 
+        // Dynamically import jose (ESM-only package)
+        const jose = await getJose();
+
         // Get Apple's public keys from their JWKS endpoint
-        const JWKS = jose.createRemoteJWKSet(APPLE_JWKS_URL);
+        const JWKS = jose.createRemoteJWKSet(new URL(APPLE_JWKS_URL));
 
         // Determine the expected audience based on environment
         const expectedAudience = fromDev ? 'com.auqli.auqliappdev' : 'com.auqli.auqliapp';
