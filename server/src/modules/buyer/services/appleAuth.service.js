@@ -119,6 +119,9 @@ async function verifyAppleToken(token, rawNonce, fromDev = false) {
         return payload;
     } catch (error) {
         console.error('Apple token verification error:', error);
+        console.error('Error name:', error.name);
+        console.error('Error code:', error.code);
+        console.error('Error message:', error.message);
 
         // Re-throw ValidationError as-is
         if (error instanceof ValidationError) {
@@ -144,6 +147,24 @@ async function verifyAppleToken(token, rawNonce, fromDev = false) {
             throw new ValidationError([{
                 field: 'token',
                 message: 'Invalid Apple ID token signature. Please try signing in again.'
+            }]);
+        }
+
+        // Handle dynamic import errors
+        if (error.message && error.message.includes('import')) {
+            console.error('Dynamic import failed for jose module');
+            throw new ValidationError([{
+                field: 'token',
+                message: 'Server configuration error. Please try again later.'
+            }]);
+        }
+
+        // Handle network errors when fetching JWKS
+        if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+            console.error('Network error fetching Apple JWKS');
+            throw new ValidationError([{
+                field: 'token',
+                message: 'Unable to connect to Apple servers. Please try again.'
             }]);
         }
 
