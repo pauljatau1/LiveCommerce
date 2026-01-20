@@ -168,9 +168,10 @@ async function verifyAppleToken(token, rawNonce, fromDev = false) {
             }]);
         }
 
+        // TEMPORARY DEBUG: Include error details in response for staging diagnosis
         throw new ValidationError([{
             field: 'token',
-            message: 'Invalid Apple ID token. Unable to verify with Apple. Please try signing in again.'
+            message: `Invalid Apple ID token. Debug info: ${error.name || 'Unknown'} - ${error.code || 'No code'} - ${error.message || 'No message'}`
         }]);
     }
 }
