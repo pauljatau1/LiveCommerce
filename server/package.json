@@ -89,6 +89,9 @@
             "**/tests/**/*.test.js"
         ],
         "maxWorkers": 1,
+        "transformIgnorePatterns": [
+            "node_modules/(?!(jose)/)"
+        ],
         "moduleNameMapper": {
             "^@/(.*)$": "<rootDir>/src/$1",
             "^@modules/(.*)$": "<rootDir>/src/modules/$1",
