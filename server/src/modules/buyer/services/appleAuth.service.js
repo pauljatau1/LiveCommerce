@@ -19,7 +19,8 @@
  */
 
 // Note: jose is ESM-only, so we use dynamic import() instead of require()
-const crypto = require('crypto');
+// Use node: prefix for explicit Node.js core module (avoids bundling issues)
+const crypto = require('node:crypto');
 const { generateToken } = require('../../../utils/helpers');
 const { findByEmail, findByAppleId, saveBuyer } = require('../repositories/buyer.repository');
 const Buyer = require('../../../models/Buyer');
