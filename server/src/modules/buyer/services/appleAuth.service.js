@@ -218,6 +218,39 @@ async function generateUniqueUsername(name, email) {
 }
 
 /**
+ * Normalizes expoPushToken which may be sent as an object or string.
+ * Mobile apps sometimes send it as { type: 'expo', data: 'ExponentPushToken[...]' }
+ * 
+ * @param {string|Object} token - The expo push token (string or object)
+ * @returns {string|null} The normalized token string or null
+ */
+function normalizeExpoPushToken(token) {
+    if (!token) return null;
+
+    // If it's already a string, return it
+    if (typeof token === 'string') {
+        return token;
+    }
+
+    // If it's an object with a data property, extract the token
+    if (typeof token === 'object' && token.data) {
+        return String(token.data);
+    }
+
+    // If it's an object with a token property, extract it
+    if (typeof token === 'object' && token.token) {
+        return String(token.token);
+    }
+
+    // Try to stringify if it's some other format
+    try {
+        return String(token);
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Finds or creates a buyer based on Apple OAuth data.
  *
  * Business Logic Flow:
@@ -243,17 +276,20 @@ async function findOrCreateBuyer(payload, expoPushToken, firstName, lastName, em
     const userEmail = email || tokenEmail; // Prefer explicitly passed email
     const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || null;
 
+    // Normalize expoPushToken - it may be sent as object { type, data } or string
+    const normalizedPushToken = normalizeExpoPushToken(expoPushToken);
+
     try {
         // Step 1: Check if user exists by Apple ID (primary lookup)
         let buyer = await findByAppleId(appleId);
 
         if (buyer) {
             // Update expoPushToken if provided
-            if (expoPushToken) {
-                buyer.expoPushToken = expoPushToken;
+            if (normalizedPushToken) {
+                buyer.expoPushToken = normalizedPushToken;
                 try {
                     const { saveToken } = require('../../../../Firebase');
-                    await saveToken(buyer._id, expoPushToken);
+                    await saveToken(buyer._id, normalizedPushToken);
                 } catch (err) {
                     console.error('Failed to save push token to Firebase:', err);
                 }
@@ -295,11 +331,11 @@ async function findOrCreateBuyer(payload, expoPushToken, firstName, lastName, em
                     }
 
                     // Save expoPushToken if provided
-                    if (expoPushToken) {
-                        buyer.expoPushToken = expoPushToken;
+                    if (normalizedPushToken) {
+                        buyer.expoPushToken = normalizedPushToken;
                         try {
                             const { saveToken } = require('../../../../Firebase');
-                            await saveToken(buyer._id, expoPushToken);
+                            await saveToken(buyer._id, normalizedPushToken);
                         } catch (err) {
                             console.error('Failed to save push token to Firebase:', err);
                         }
@@ -332,16 +368,16 @@ async function findOrCreateBuyer(payload, expoPushToken, firstName, lastName, em
             appleId,
             authProvider: 'apple',
             emailVerified: true,
-            expoPushToken: expoPushToken
+            expoPushToken: normalizedPushToken
         });
 
         const savedBuyer = await saveBuyer(newBuyer);
 
         // Save expoPushToken to Firebase if provided
-        if (expoPushToken) {
+        if (normalizedPushToken) {
             try {
                 const { saveToken } = require('../../../../Firebase');
-                await saveToken(savedBuyer._id, expoPushToken);
+                await saveToken(savedBuyer._id, normalizedPushToken);
             } catch (err) {
                 console.error('Failed to save push token to Firebase:', err);
             }
