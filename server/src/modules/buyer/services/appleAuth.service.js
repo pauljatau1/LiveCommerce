@@ -2,7 +2,7 @@
  * Apple OAuth Authentication Service for Buyers
  *
  * This service handles Apple Sign-In authentication for buyers, providing secure
- * integration with Apple ID. It verifies Apple ID tokens using the jose library,
+ * integration with Apple ID. It verifies Apple ID tokens using jsonwebtoken and jwks-rsa,
  * manages user registration/login, and maintains session security.
  *
  * Authentication Flow:
@@ -18,7 +18,8 @@
  * @module appleAuthService
  */
 
-// Note: jose is ESM-only, so we use dynamic import() instead of require()
+const jwt = require('jsonwebtoken');
+const jwksClient = require('jwks-rsa');
 const crypto = require('crypto');
 const { generateToken } = require('../../../utils/helpers');
 const { findByEmail, findByAppleId, saveBuyer } = require('../repositories/buyer.repository');
@@ -28,24 +29,36 @@ const ValidationError = require('../../../utils/errors/ValidationError');
 // Apple's JWKS endpoint for public key verification
 const APPLE_JWKS_URL = 'https://appleid.apple.com/auth/keys';
 
-// Cache for jose module (loaded dynamically)
-let joseModule = null;
+// Create JWKS client for Apple's public keys
+const client = jwksClient({
+    jwksUri: APPLE_JWKS_URL,
+    cache: true,
+    cacheMaxEntries: 5,
+    cacheMaxAge: 600000, // 10 minutes
+});
 
 /**
- * Dynamically loads the jose module (ESM-only package)
- * @returns {Promise<Object>} The jose module
+ * Gets the signing key from Apple's JWKS endpoint
+ * @param {Object} header - JWT header containing kid
+ * @returns {Promise<string>} The public key
  */
-async function getJose() {
-    if (!joseModule) {
-        joseModule = await import('jose');
-    }
-    return joseModule;
+function getAppleSigningKey(header) {
+    return new Promise((resolve, reject) => {
+        client.getSigningKey(header.kid, (err, key) => {
+            if (err) {
+                reject(err);
+            } else {
+                const signingKey = key.getPublicKey();
+                resolve(signingKey);
+            }
+        });
+    });
 }
 
 /**
  * Verifies an Apple ID token and extracts user information.
  *
- * This function uses the jose library to verify the authenticity
+ * This function uses jsonwebtoken and jwks-rsa to verify the authenticity
  * of the Apple ID token received from the frontend.
  *
  * @param {string} token - The Apple ID token from frontend
@@ -59,32 +72,30 @@ async function verifyAppleToken(token, rawNonce, fromDev = false) {
         console.log('Verifying Apple token for buyer...');
         console.log('Token length:', token.length);
 
-        // Dynamically import jose (ESM-only package)
-        const jose = await getJose();
+        // Decode the token header to get the kid
+        const decodedHeader = jwt.decode(token, { complete: true });
+        if (!decodedHeader || !decodedHeader.header) {
+            throw new ValidationError([{
+                field: 'token',
+                message: 'Invalid Apple ID token format'
+            }]);
+        }
 
-        // Get Apple's public keys from their JWKS endpoint
-        const JWKS = jose.createRemoteJWKSet(new URL(APPLE_JWKS_URL));
+        // Get the signing key from Apple's JWKS
+        const signingKey = await getAppleSigningKey(decodedHeader.header);
 
         // Determine the expected audience based on environment
         const expectedAudience = fromDev ? 'com.auqli.auqliappdev' : 'com.auqli.auqliapp';
         console.log('Expected audience:', expectedAudience);
 
-        // Verify the token signature and claims
-        const { payload } = await jose.jwtVerify(token, JWKS, {
+        // Verify the token
+        const payload = jwt.verify(token, signingKey, {
             issuer: 'https://appleid.apple.com',
             audience: expectedAudience,
+            algorithms: ['RS256'],
         });
 
         console.log('Apple token basic verification successful');
-
-        // Verify token hasn't expired
-        const currentTimestamp = Math.floor(Date.now() / 1000);
-        if (payload.exp && payload.exp < currentTimestamp) {
-            throw new ValidationError([{
-                field: 'token',
-                message: 'Apple ID token has expired'
-            }]);
-        }
 
         // Verify required claims are present
         if (!payload.sub || !payload.iss || !payload.aud) {
@@ -119,37 +130,49 @@ async function verifyAppleToken(token, rawNonce, fromDev = false) {
         return payload;
     } catch (error) {
         console.error('Apple token verification error:', error);
+        console.error('Error name:', error.name);
+        console.error('Error code:', error.code);
+        console.error('Error message:', error.message);
 
         // Re-throw ValidationError as-is
         if (error instanceof ValidationError) {
             throw error;
         }
 
-        // Handle specific JWT errors
-        if (error.code === 'ERR_JWT_EXPIRED') {
+        // Handle jsonwebtoken specific errors
+        if (error.name === 'TokenExpiredError') {
             throw new ValidationError([{
                 field: 'token',
                 message: 'Apple ID token has expired. Please try signing in again.'
             }]);
         }
 
-        if (error.code === 'ERR_JWT_CLAIM_VALIDATION_FAILED') {
+        if (error.name === 'JsonWebTokenError') {
             throw new ValidationError([{
                 field: 'token',
-                message: 'Apple ID token validation failed. Please try signing in again.'
+                message: `Apple ID token validation failed: ${error.message}`
             }]);
         }
 
-        if (error.code === 'ERR_JWKS_NO_MATCHING_KEY') {
+        if (error.name === 'NotBeforeError') {
+            throw new ValidationError([{
+                field: 'token',
+                message: 'Apple ID token is not yet valid. Please try signing in again.'
+            }]);
+        }
+
+        // Handle jwks-rsa errors
+        if (error.message && error.message.includes('Unable to find')) {
             throw new ValidationError([{
                 field: 'token',
                 message: 'Invalid Apple ID token signature. Please try signing in again.'
             }]);
         }
 
+        // TEMPORARY DEBUG: Include error details in response for staging diagnosis
         throw new ValidationError([{
             field: 'token',
-            message: 'Invalid Apple ID token. Unable to verify with Apple. Please try signing in again.'
+            message: `Invalid Apple ID token. Debug info: ${error.name || 'Unknown'} - ${error.code || 'No code'} - ${error.message || 'No message'}`
         }]);
     }
 }
