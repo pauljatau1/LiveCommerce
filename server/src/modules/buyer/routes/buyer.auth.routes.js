@@ -187,6 +187,122 @@ router.post('/auth/google-auth', buyerController.googleAuth);
 
 /**
  * @swagger
+ * /api/v2/buyers/auth/apple-auth:
+ *   post:
+ *     summary: Authenticate buyer using Apple Sign-In
+ *     description: |
+ *       Authenticates a buyer using Apple Sign-In ID token. This endpoint handles:
+ *       - New user registration with Apple credentials
+ *       - Login for existing Apple-linked accounts
+ *       - Account linking for existing email-based accounts
+ *       
+ *       Note: Apple only provides user info (name, email) on the FIRST sign-in.
+ *       Subsequent sign-ins only include the Apple ID (sub claim).
+ *     tags: [Buyer V2]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - rawNonce
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: Apple ID token from frontend Apple Sign-In
+ *                 example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *               rawNonce:
+ *                 type: string
+ *                 description: The raw nonce used during Apple Sign-In for security verification
+ *                 example: "abc123xyz"
+ *               firstName:
+ *                 type: string
+ *                 description: User's first name (only available on first sign-in)
+ *                 example: "John"
+ *               lastName:
+ *                 type: string
+ *                 description: User's last name (only available on first sign-in)
+ *                 example: "Doe"
+ *               email:
+ *                 type: string
+ *                 description: User's email (only available on first sign-in, may be private relay)
+ *                 example: "john.doe@icloud.com"
+ *               fromDev:
+ *                 type: boolean
+ *                 description: Whether request is from dev environment (uses different bundle ID)
+ *                 example: false
+ *               expoPushToken:
+ *                 type: string
+ *                 description: Optional Expo push notification token
+ *                 example: "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"
+ *     responses:
+ *       200:
+ *         description: Apple authentication successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Apple authentication successful"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           example: "507f1f77bcf86cd799439011"
+ *                         firstName:
+ *                           type: string
+ *                           example: "John"
+ *                         lastName:
+ *                           type: string
+ *                           example: "Doe"
+ *                         email:
+ *                           type: string
+ *                           example: "john.doe@icloud.com"
+ *                         username:
+ *                           type: string
+ *                           example: "johndoe"
+ *                         appleId:
+ *                           type: string
+ *                           example: "001234.abcdef123456.7890"
+ *                         emailVerified:
+ *                           type: boolean
+ *                           example: true
+ *                     token:
+ *                       type: string
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *       400:
+ *         description: Validation error - Missing or invalid token/nonce
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Apple ID token is required"
+ *       401:
+ *         description: Unauthorized - Invalid Apple token
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/auth/apple-auth', buyerController.appleAuth);
+
+/**
+ * @swagger
  * /api/v2/buyers/auth/login:
  *   post:
  *     summary: Login a buyer

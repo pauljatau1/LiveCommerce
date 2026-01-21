@@ -22,7 +22,7 @@ const { Expo } = require('expo-server-sdk');
 const axios = require('axios');
 const { createSafeAutomaticWithdrawal, getWithdrawalSafetyReport, sendNoBankDetailsEmails } = require('../utils/withdrawalSafety');
 
-const sgMail = require('@sendgrid/mail');
+// const sgMail = require('@sendgrid/mail'); // Migrated to Termii
 const mongoose = require('mongoose');
 
 // Initialize Expo SDK client
@@ -59,7 +59,7 @@ paystack.interceptors.request.use((config) => {
   return config;
 });
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+// // Removed - using Termii
 
 // Configure Cloudinary
 cloudinary.config({
@@ -566,7 +566,7 @@ exports.disableSeller = async (req, res) => {
             };
 
             // Send emails asynchronously (non-blocking)
-            sgMail.send(withdrawalEmailMsg).catch(emailError => {
+            termiiEmailService.sendRawHTMLEmail({ email: withdrawalEmailMsg.to, subject: withdrawalEmailMsg.subject, html: withdrawalEmailMsg.html }).catch(emailError => {
               console.error(`❌ Error sending withdrawal email to ${seller.email}:`, emailError);
             });
 
@@ -597,7 +597,7 @@ exports.disableSeller = async (req, res) => {
               `
             };
 
-            sgMail.send(adminNotificationMsg).catch(emailError => {
+            termiiEmailService.sendRawHTMLEmail({ email: adminNotificationMsg.to, subject: adminNotificationMsg.subject, html: adminNotificationMsg.html }).catch(emailError => {
               console.error(`❌ Error sending admin notification email:`, emailError);
             });
 
@@ -690,7 +690,7 @@ exports.disableSeller = async (req, res) => {
               `
             };
 
-            sgMail.send(invalidBankDetailsAdminMsg).catch(emailError => {
+            termiiEmailService.sendRawHTMLEmail({ email: invalidBankDetailsAdminMsg.to, subject: invalidBankDetailsAdminMsg.subject, html: invalidBankDetailsAdminMsg.html }).catch(emailError => {
               console.error(`❌ Error sending invalid bank details admin notification:`, emailError);
             });
 
@@ -749,10 +749,10 @@ exports.disableSeller = async (req, res) => {
           </div>
         `
       };
-      await sgMail.send(businessEmailMsg);
+      await termiiEmailService.sendRawHTMLEmail({ email: businessEmailMsg.to, subject: businessEmailMsg.subject, html: businessEmailMsg.html });
     }
 
-    await sgMail.send(emailMsg);
+    await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
 
     res.json({
       success: true,
@@ -870,10 +870,10 @@ exports.enableSeller = async (req, res) => {
           </div>
         `
       };
-      await sgMail.send(businessEmailMsg);
+      await termiiEmailService.sendRawHTMLEmail({ email: businessEmailMsg.to, subject: businessEmailMsg.subject, html: businessEmailMsg.html });
     }
 
-    await sgMail.send(emailMsg);
+    await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
 
     res.json({
       success: true,
@@ -1533,15 +1533,19 @@ exports.verifyBusinessAccount = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
+    // Check if seller has an email before verification
+    if (!seller.email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Seller does not have a valid email address'
+      });
+    }
+
     seller.isVerified = true;
     await seller.save();
 
     // Send verification emails
-    const personalEmailMsg = {
-      to: seller.email,
-      from: 'Auqli Nigeria <support@auqli.com>',
-      subject: 'Your Auqli Account Has Been Verified! 🎉',
-      html: `
+    const personalEmailHtml = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2>Hi ${seller.firstName},</h2>
       <p>Your seller account on Auqli Nigeria has been verified successfully.</p>
@@ -1563,16 +1567,11 @@ exports.verifyBusinessAccount = async (req, res) => {
       <p>Let's go live.</p>
       <p>Best regards,<br>The Auqli Team</p>
     </div>
-  `
-    };
+  `;
 
     // Send to business email if it exists
     if (seller.businessEmail) {
-      const businessEmailMsg = {
-        to: seller.businessEmail,
-        from: 'Auqli Nigeria <support@auqli.com>',
-        subject: 'Business Account Verification Confirmed - Auqli',
-        html: `
+      const businessEmailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Business Account Verified</h2>
         <p>Dear ${seller.businessName || seller.firstName},</p>
@@ -1600,13 +1599,12 @@ exports.verifyBusinessAccount = async (req, res) => {
         <p>Let's go live.</p>
         <p>Best regards,<br>Auqli Business Team</p>
       </div>
-    `
-      };
-      await sgMail.send(businessEmailMsg);
+    `;
+      await termiiEmailService.sendRawHTMLEmail({ email: seller.businessEmail, subject: 'Business Account Verification Confirmed - Auqli', html: businessEmailHtml });
     }
 
 
-    await sgMail.send(personalEmailMsg);
+    await termiiEmailService.sendRawHTMLEmail({ email: seller.email, subject: 'Your Auqli Account Has Been Verified! 🎉', html: personalEmailHtml });
 
     res.json({
       success: true,
@@ -2426,7 +2424,7 @@ exports.adminCancelOrder = async (req, res) => {
           };
 
           try {
-            await sgMail.send(adminEmail);
+            await termiiEmailService.sendRawHTMLEmail({ email: adminEmail.to, subject: adminEmail.subject, html: adminEmail.html });
           } catch (emailError) {
             console.error('Error sending admin notification:', emailError);
           }
@@ -2437,8 +2435,8 @@ exports.adminCancelOrder = async (req, res) => {
     // Send emails to buyer and seller
     try {
       await Promise.all([
-        sgMail.send(buyerEmail),
-        sgMail.send(sellerEmail)
+        termiiEmailService.sendRawHTMLEmail({ email: buyerEmail.to, subject: buyerEmail.subject, html: buyerEmail.html }),
+        termiiEmailService.sendRawHTMLEmail({ email: sellerEmail.to, subject: sellerEmail.subject, html: sellerEmail.html })
       ]);
     } catch (emailError) {
       console.error('Error sending cancellation emails:', emailError);
@@ -2771,7 +2769,7 @@ exports.verifyBuyerIdentity = async (req, res) => {
       `
     };
 
-    await sgMail.send(emailMsg);
+    await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
 
 
     res.json({
@@ -3162,10 +3160,10 @@ exports.rejectBusinessAccount = async (req, res) => {
           </div>
         `
       };
-      await sgMail.send(businessEmailMsg);
+      await termiiEmailService.sendRawHTMLEmail({ email: businessEmailMsg.to, subject: businessEmailMsg.subject, html: businessEmailMsg.html });
     }
 
-    await sgMail.send(personalEmailMsg);
+    await termiiEmailService.sendRawHTMLEmail({ email: personalEmailMsg.to, subject: personalEmailMsg.subject, html: personalEmailMsg.html });
 
     res.json({
       success: true,
@@ -3575,12 +3573,11 @@ async function sendStatusUpdateEmail(withdrawal) {
 
   const template = emailContent[withdrawal.status];
   if (template) {
-    await sgMail.send({
-      to: withdrawal.seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
-      subject: template.subject,
-      html: template.html
-    });
+    await termiiEmailService.sendRawHTMLEmail(
+      withdrawal.seller.email,
+      template.subject,
+      template.html
+    );
   }
 }
 
@@ -3941,7 +3938,7 @@ exports.approveBankChangeRequest = async (req, res) => {
       `
     };
 
-    await sgMail.send(emailMsg);
+    await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
     await session.commitTransaction();
 
     res.json({
@@ -3998,7 +3995,7 @@ exports.rejectBankChangeRequest = async (req, res) => {
       `
     };
 
-    await sgMail.send(emailMsg);
+    await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
 
     res.json({
       message: 'Bank change request rejected successfully',
@@ -4066,11 +4063,10 @@ exports.processBankChangeRequest = async (req, res) => {
       await request.save({ session });
 
       // Send approval email to seller
-      await sgMail.send({
-        to: request.seller.email,
-        from: process.env.SENDGRID_FROM_EMAIL || 'Auqli Admin <support@auqli.com>',
-        subject: 'Bank Account Change Request Approved',
-        html: `
+      await termiiEmailService.sendRawHTMLEmail(
+        request.seller.email,
+        'Bank Account Change Request Approved',
+        `
           <h2>Bank Account Change Request Approved</h2>
           <p>Dear ${request.seller.firstName},</p>
           <p>Your request to change your bank account details has been approved.</p>
@@ -4082,7 +4078,7 @@ exports.processBankChangeRequest = async (req, res) => {
           </ul>
           <p>If you did not request this change, please contact our support team immediately.</p>
         `
-      });
+      );
 
     } else {
       // Rejection
@@ -4101,18 +4097,17 @@ exports.processBankChangeRequest = async (req, res) => {
       await request.save({ session });
 
       // Send rejection email to seller
-      await sgMail.send({
-        to: request.seller.email,
-        from: process.env.SENDGRID_FROM_EMAIL || 'Auqli Admin <support@auqli.com>',
-        subject: 'Bank Account Change Request Rejected',
-        html: `
+      await termiiEmailService.sendRawHTMLEmail(
+        request.seller.email,
+        'Bank Account Change Request Rejected',
+        `
           <h2>Bank Account Change Request Rejected</h2>
           <p>Dear ${request.seller.firstName},</p>
           <p>Your request to change your bank account details has been rejected.</p>
           <p>Reason: ${rejectionReason}</p>
           <p>If you would like to submit a new request, please ensure you address the reason for rejection.</p>
         `
-      });
+      );
     }
 
     await session.commitTransaction();
@@ -5600,8 +5595,8 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
     };
 
     await Promise.all([
-      sgMail.send(sellerMsg),
-      sgMail.send(adminMsg)
+      termiiEmailService.sendRawHTMLEmail({ email: sellerMsg.to, subject: sellerMsg.subject, html: sellerMsg.html }),
+      termiiEmailService.sendRawHTMLEmail({ email: adminMsg.to, subject: adminMsg.subject, html: adminMsg.html })
     ]);
 
     console.log(`Bulk upload notification emails sent to ${seller.email} and admin@auqli.com`);
@@ -5772,7 +5767,7 @@ exports.deleteBuyerAccount = async (req, res) => {
       `
     };
 
-    await sgMail.send(emailMsg);
+    await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
 
     // Send successful response
     res.status(200).json({
@@ -6286,9 +6281,7 @@ exports.updateSellerInfo = async (req, res) => {
           </div>
         `
       };
-
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      await sgMail.send(emailMsg);
+      await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
     } catch (emailError) {
       console.error('Failed to send email notification:', emailError);
       // Continue execution despite email error
@@ -6368,10 +6361,10 @@ exports.revokeSellerVerification = async (req, res) => {
           </div>
         `
       };
-      await sgMail.send(businessEmailMsg);
+      await termiiEmailService.sendRawHTMLEmail({ email: businessEmailMsg.to, subject: businessEmailMsg.subject, html: businessEmailMsg.html });
     }
 
-    await sgMail.send(personalEmailMsg);
+    await termiiEmailService.sendRawHTMLEmail({ email: personalEmailMsg.to, subject: personalEmailMsg.subject, html: personalEmailMsg.html });
 
     res.json({
       success: true,
@@ -7246,7 +7239,6 @@ exports.getPlatformMetrics = async (req, res) => {
 async function sendProductStatusEmail(seller, product, action, reason) {
   try {
     // Ensure SendGrid API key is set
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
     const actionMap = {
       delete: {
@@ -7285,7 +7277,7 @@ async function sendProductStatusEmail(seller, product, action, reason) {
       `
     };
 
-    await sgMail.send(emailMsg);
+    await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
     console.log(`Product ${action} notification email sent to seller: ${seller.email}`);
   } catch (error) {
     console.error(`Error sending product ${action} email:`, error);
@@ -7519,7 +7511,6 @@ exports.getSellerProducts = async (req, res) => {
 async function sendWalletTransactionEmail(seller, amount, type, reason, newBalance) {
   try {
     // Ensure SendGrid API key is set
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
     const formattedAmount = amount.toLocaleString('en-NG', {
       style: 'currency',
@@ -7612,7 +7603,7 @@ async function sendWalletTransactionEmail(seller, amount, type, reason, newBalan
       `
     };
 
-    await sgMail.send(emailMsg);
+    await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
     console.log(`Wallet transaction email sent to seller: ${seller.email}`);
     return true;
   } catch (error) {
@@ -7830,8 +7821,7 @@ exports.deleteAllSellerProducts = async (req, res) => {
 
     try {
       // Ensure SendGrid API key is set
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      await sgMail.send(emailMsg);
+      await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
       console.log(`Products deletion notification email sent to seller: ${seller.email}`);
     } catch (emailError) {
       console.error('Error sending products deletion email:', emailError);
@@ -7944,7 +7934,7 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
 
 
     // Send the email
-    await sgMail.send(emailMsg);
+    await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
 
     return res.status(200).json({
       success: true,
@@ -8031,7 +8021,7 @@ exports.sendBulkOnboardingReminders = async (req, res) => {
       };
 
       // Add to email promises array
-      emailPromises.push(sgMail.send(emailMsg));
+      emailPromises.push(termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html }));
 
       // Add to processed sellers with summary info
       processedSellers.push({
@@ -8699,7 +8689,6 @@ exports.deletePlatformNotification = async (req, res) => {
 async function sendBuyerWalletTransactionEmail(buyer, amount, type, reason, newBalance) {
   try {
     // Ensure SendGrid API key is set
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
     const formattedAmount = amount.toLocaleString('en-NG', {
       style: 'currency',
@@ -8794,7 +8783,7 @@ async function sendBuyerWalletTransactionEmail(buyer, amount, type, reason, newB
       `
     };
 
-    await sgMail.send(emailMsg);
+    await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
     console.log(`Wallet ${type} email sent to buyer: ${buyer.email}`);
     return true;
   } catch (error) {
@@ -9346,7 +9335,6 @@ exports.sendRemindersToSellersWithoutProducts = async (req, res) => {
       if (productCount === 0) {
         try {
           // Ensure SendGrid API key is set
-          sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
           // Prepare email content
           const emailMsg = {
@@ -9396,7 +9384,7 @@ exports.sendRemindersToSellersWithoutProducts = async (req, res) => {
           };
 
           // Send the email
-          await sgMail.send(emailMsg);
+          await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
           results.emailsSent++;
 
           console.log(`Reminder email sent to seller without products: ${seller.email}`);
@@ -9465,7 +9453,6 @@ exports.sendRemindersToSellersWithoutBlips = async (req, res) => {
 
           try {
             // Ensure SendGrid API key is set
-            sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
             // Get a sample of the seller's products (up to 3)
             const sellerProducts = await Product.find({ seller: seller._id })
@@ -9533,7 +9520,7 @@ exports.sendRemindersToSellersWithoutBlips = async (req, res) => {
             };
 
             // Send the email
-            await sgMail.send(emailMsg);
+            await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
             results.emailsSent++;
 
             console.log(`Reminder email sent to seller without blips: ${seller.email}`);

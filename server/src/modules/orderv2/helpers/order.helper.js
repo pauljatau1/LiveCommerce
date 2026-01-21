@@ -18,6 +18,39 @@ const paystack = require('axios').create({
   }
 });
 
+// Add logging interceptors to Paystack client
+paystack.interceptors.request.use(
+  (config) => {
+    config.metadata = { startTime: Date.now() };
+    const fullUrl = `${config.baseURL}${config.url}`;
+    console.log(`[Paystack API] REQUEST: ${config.method.toUpperCase()} ${fullUrl}`);
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+paystack.interceptors.response.use(
+  (response) => {
+    const endTime = Date.now();
+    const duration = (endTime - response.config.metadata.startTime) / 1000;
+    const fullUrl = `${response.config.baseURL}${response.config.url}`;
+    console.log(`[Paystack API] RESPONSE: ${response.config.method.toUpperCase()} ${fullUrl} | Duration: ${duration.toFixed(3)} seconds`);
+    return response;
+  },
+  (error) => {
+    if (error.config && error.config.metadata) {
+      const endTime = Date.now();
+      const duration = (endTime - error.config.metadata.startTime) / 1000;
+      const fullUrl = `${error.config.baseURL}${error.config.url}`;
+      console.log(`[Paystack API] ERROR: ${error.config.method.toUpperCase()} ${fullUrl} | Duration: ${duration.toFixed(3)} seconds | Status: ${error.response?.status || 'N/A'}`);
+    }
+    return Promise.reject(error);
+  }
+);
+
+
 // Helper validation functions
 exports.validateItems = (items) => {
   if (!items || items.length === 0) {

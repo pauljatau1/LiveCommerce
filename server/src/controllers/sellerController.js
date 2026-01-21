@@ -1,8 +1,7 @@
 const Seller = require('../models/Seller');
 const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
-const sgMail = require('@sendgrid/mail');
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const termiiEmailService = require('../services/termiiEmailService');
 const Category = require('../models/Category');
 const { s3 } = require('../config/awsConfig')
 const { v4: uuidv4 } = require('uuid');
@@ -229,8 +228,16 @@ exports.requestBankAccountChange = async (req, res) => {
 
     // Send both emails
     await Promise.all([
-      sgMail.send(adminEmailMsg),
-      sgMail.send(sellerEmailMsg)
+      termiiEmailService.sendRawHTMLEmail({
+        email: adminEmails[0] || 'support@auqli.com', // Termii service currently expects single string, using first admin or fallback
+        subject: adminEmailMsg.subject,
+        html: adminEmailMsg.html
+      }),
+      termiiEmailService.sendRawHTMLEmail({
+        email: seller.email,
+        subject: sellerEmailMsg.subject,
+        html: sellerEmailMsg.html
+      })
     ]);
 
     res.status(200).json({
@@ -578,8 +585,16 @@ async function sendStoreVerificationEmail(seller, status) {
   };
 
   await Promise.all([
-    sgMail.send(sellerMsg),
-    sgMail.send(adminMsg)
+    termiiEmailService.sendRawHTMLEmail({
+      email: sellerMsg.to,
+      subject: sellerMsg.subject,
+      html: sellerMsg.html
+    }),
+    termiiEmailService.sendRawHTMLEmail({
+      email: adminMsg.to,
+      subject: adminMsg.subject,
+      html: adminMsg.html
+    })
   ]);
 }
 
@@ -907,7 +922,11 @@ exports.requestPasswordReset = async (req, res) => {
       `
     };
 
-    await sgMail.send(msg);
+    await termiiEmailService.sendRawHTMLEmail({
+      email: msg.to,
+      subject: msg.subject,
+      html: msg.html
+    });
 
     res.json({
       message: 'Password reset link sent successfully',
@@ -1024,7 +1043,11 @@ exports.resetPasswordWithToken = async (req, res) => {
       `
     };
 
-    await sgMail.send(msg);
+    await termiiEmailService.sendRawHTMLEmail({
+      email: msg.to,
+      subject: msg.subject,
+      html: msg.html
+    });
 
     res.json({
       message: 'Password reset successful'
@@ -1144,8 +1167,16 @@ exports.createWithdrawalRequest = async (req, res) => {
 
     // Send emails without blocking the response (non-blocking)
     Promise.all([
-      sgMail.send(emailMsg),
-      sgMail.send(slackPayoutMsg)
+      termiiEmailService.sendRawHTMLEmail({
+        email: emailMsg.to,
+        subject: emailMsg.subject,
+        html: emailMsg.html
+      }),
+      termiiEmailService.sendRawHTMLEmail({
+        email: 'bolu@auqli.com', // fallback or intended recipient for slack payouts
+        subject: slackPayoutMsg.subject,
+        html: slackPayoutMsg.html
+      })
     ])
       .then(() => {
         console.log(`✅ Withdrawal notification emails sent successfully for withdrawal ${withdrawal.reference}`);
@@ -1217,31 +1248,40 @@ exports.toggleVacationMode = async (req, res) => {
   try {
     const { isOn } = req.body;
     const sellerId = req.user.id;
+    console.log('[VacationMode] Request:', { sellerId, isOn });
 
     if (typeof isOn !== 'boolean') {
+      console.log('[VacationMode] isOn is not boolean');
       return res.status(400).json({ message: 'isOn must be a boolean value.' });
     }
 
     const seller = await Seller.findById(sellerId);
     if (!seller) {
+      console.log('[VacationMode] Seller not found');
       return res.status(404).json({ message: 'Seller not found.' });
     }
+
+    console.log('[VacationMode] Found seller, updating status...');
 
     // Update seller's vacation mode status
     seller.vacationMode.isOn = isOn;
     if (isOn) {
       seller.vacationMode.enabledAt = new Date();
       // Set all products to draft
+      console.log('[VacationMode] Setting products to draft...');
       await Product.updateMany({ seller: sellerId }, { $set: { status: 'draft' } });
     } else {
       seller.vacationMode.disabledAt = new Date();
       // Set all products back to active
+      console.log('[VacationMode] Setting products to active...');
       await Product.updateMany({ seller: sellerId, status: 'draft' }, { $set: { status: 'active' } });
     }
 
+    console.log('[VacationMode] Saving seller...');
     await seller.save();
 
     // Send email notification
+    console.log('[VacationMode] Sending email...');
     const msg = {
       to: seller.email,
       from: 'Auqli Nigeria <support@auqli.com>',
@@ -1263,13 +1303,19 @@ exports.toggleVacationMode = async (req, res) => {
       `
     };
 
-    await sgMail.send(msg);
+    await termiiEmailService.sendRawHTMLEmail({
+      email: msg.to,
+      subject: msg.subject,
+      html: msg.html
+    });
+    console.log('[VacationMode] Email sent.');
 
     res.json({
       message: `Vacation mode successfully ${isOn ? 'enabled' : 'disabled'}.`,
       vacationMode: seller.vacationMode
     });
   } catch (error) {
+    console.error('[VacationMode] Error:', error);
     res.status(500).json({ message: 'Failed to toggle vacation mode.', error: error.message });
   }
 };
@@ -3202,7 +3248,11 @@ exports.toggleAccountPending = async (req, res) => {
           `
         };
 
-        await sgMail.send(adminMsg);
+        await termiiEmailService.sendRawHTMLEmail({
+          email: adminMsg.to,
+          subject: adminMsg.subject,
+          html: adminMsg.html
+        });
         console.log(`Onboarding completion notification email sent to admin for seller: ${seller._id}`);
       } catch (emailError) {
         console.error('Error sending onboarding notification email:', emailError);
@@ -3295,7 +3345,11 @@ exports.markVerified = async (req, res) => {
         `
       };
 
-      await sgMail.send(msg);
+      await termiiEmailService.sendRawHTMLEmail({
+        email: msg.to,
+        subject: msg.subject,
+        html: msg.html
+      });
     } catch (emailError) {
       console.error('Failed to send verification email:', emailError);
       // Continue execution even if email sending fails

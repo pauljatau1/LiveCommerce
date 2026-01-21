@@ -1,6 +1,7 @@
 const registerService = require('../services/register.service');
 const loginService = require('../services/login.service');
 const googleAuthService = require('../services/googleAuth.service');
+const appleAuthService = require('../services/appleAuth.service');
 const profileService = require('../services/profile.service');
 const updateProfileService = require('../services/updateProfile.service');
 const uploadProfileImageService = require('../services/uploadProfileImage.service');
@@ -126,6 +127,33 @@ async function googleAuth(req, res, next) {
 
     // Send success response with user data and token
     res.success(response, 'Google authentication successful');
+  } catch (err) {
+    // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Authenticate buyer using Apple Sign-In.
+ *
+ * This controller handles Apple OAuth authentication HTTP requests.
+ * It delegates the Apple OAuth authentication logic to the service layer,
+ * and sends a success response with user data and JWT token.
+ *
+ * @param {Request} req - Express request object containing Apple ID token and nonce in `req.body`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function appleAuth(req, res, next) {
+  try {
+    // Extract Apple auth data from request body
+    const appleAuthData = req.body;
+
+    // Call the service layer to handle Apple OAuth authentication
+    const response = await appleAuthService.authenticateWithApple(appleAuthData);
+
+    // Send success response with user data and token
+    res.success(response, 'Apple authentication successful');
   } catch (err) {
     // Forward any error to the error-handling middleware
     next(err);
@@ -1629,5 +1657,6 @@ module.exports = {
   selectMajorCategories,
   updateMajorCategoriesSelection,
   getSelectedMajorCategories,
-  googleAuth
+  googleAuth,
+  appleAuth
 };
