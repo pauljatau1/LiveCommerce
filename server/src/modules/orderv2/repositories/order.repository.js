@@ -130,3 +130,67 @@ exports.findOrderById = async (orderId, session) => {
 exports.findUnpaidOrders = async (searchCriteria) => {
   return await Order.find(searchCriteria).populate('seller', 'email firstName lastName businessName storeName');
 };
+
+// Batch operations for improved performance
+exports.findSellersByIds = async (sellerIds, session) => {
+  const query = Seller.find({ _id: { $in: sellerIds } });
+  if (session) {
+    query.session(session);
+  }
+  return await query;
+};
+
+exports.findBuyersByIds = async (buyerIds, session) => {
+  const query = Buyer.find({ _id: { $in: buyerIds } });
+  if (session) {
+    query.session(session);
+  }
+  return await query;
+};
+
+exports.bulkUpdateOrders = async (updates, session) => {
+  const bulkOps = updates.map(update => ({
+    updateOne: {
+      filter: { _id: update.orderId },
+      update: update.data
+    }
+  }));
+  
+  const options = session ? { session } : {};
+  return await Order.bulkWrite(bulkOps, options);
+};
+
+// Optimized follower operations
+exports.upsertFollower = async (sellerId, buyerId, followerData, session) => {
+  // Try to add as new follower
+  const result = await Seller.findOneAndUpdate(
+    { 
+      _id: sellerId,
+      'followers.buyerId': { $ne: buyerId }
+    },
+    {
+      $push: { followers: followerData }
+    },
+    { session, new: true }
+  );
+
+  // If no document was updated, follower exists, so update them
+  if (!result) {
+    return await Seller.findOneAndUpdate(
+      {
+        _id: sellerId,
+        'followers.buyerId': buyerId
+      },
+      {
+        $inc: { 'followers.$.totalOrders': 1 },
+        $set: {
+          'followers.$.lastInteraction': followerData.lastInteraction,
+          'followers.$.address': followerData.address
+        }
+      },
+      { session, new: true }
+    );
+  }
+
+  return result;
+};

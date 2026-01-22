@@ -63,6 +63,15 @@ async function findByGoogleId(googleId) {
 }
 
 /**
+ * Find a Buyer by Apple ID.
+ * @param {string} appleId - Apple user ID (sub claim from Apple ID token)
+ * @returns {Promise<Buyer|null>}
+ */
+async function findByAppleId(appleId) {
+  return Buyer.findOne({ appleId });
+}
+
+/**
  * Save a new Buyer.
  * @param {Buyer} buyerInstance
  * @returns {Promise<Buyer>}
@@ -1058,6 +1067,7 @@ module.exports = {
   getFollowingCount,
   findByUsername,
   findByGoogleId,
+  findByAppleId,
   updateById,
   findByIdWithSelectedCategories,
   findByIdWithShippingAddresses,

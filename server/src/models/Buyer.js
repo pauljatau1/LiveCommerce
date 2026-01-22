@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 
 const addressSchema = new mongoose.Schema({
   // Address type is optional and can be any string value
-  addressType: { 
+  addressType: {
     type: String
   },
   // Optional recipient/contact details to associate with this address
@@ -20,7 +20,7 @@ const addressSchema = new mongoose.Schema({
   zipCode: { type: String, required: true },
   // Active address indicator for checkout purposes
   isActive: { type: Boolean, default: false }
-}, { _id: true });  
+}, { _id: true });
 
 const subCategorySchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -32,32 +32,32 @@ const categorySchema = new mongoose.Schema({
 });
 
 const transactionSchema = new mongoose.Schema({
-  type: { 
-    type: String, 
-    enum: ['credit', 'debit'],
-    required: true 
-  },
-  amount: { 
-    type: Number, 
-    required: true 
-  },
-  paymentReference: { 
+  type: {
     type: String,
-    sparse: true, 
-    index: true   
+    enum: ['credit', 'debit'],
+    required: true
   },
-  description: { 
-    type: String, 
-    required: true 
+  amount: {
+    type: Number,
+    required: true
+  },
+  paymentReference: {
+    type: String,
+    sparse: true,
+    index: true
+  },
+  description: {
+    type: String,
+    required: true
   },
   status: {
     type: String,
     enum: ['pending', 'completed', 'failed'],
     default: 'completed'
   },
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
 });
 
@@ -70,7 +70,7 @@ const buyerSchema = new mongoose.Schema({
   phoneNumber: { type: String, required: false },
   password: {
     type: String,
-    required: function() {
+    required: function () {
       return this.authProvider === 'local'; // Only required for local auth
     }
   },
@@ -100,7 +100,7 @@ const buyerSchema = new mongoose.Schema({
   otp: { type: String },
   selectedCategories: [categorySchema],
   isDisabled: { type: Boolean, default: false },
- 
+
   activityFeed: [{
     type: { type: String, enum: ['post', 'product_review', 'product_purchase', 'follow'] },
     content: { type: String },
@@ -122,8 +122,8 @@ const buyerSchema = new mongoose.Schema({
     url: { type: String },
     public_id: { type: String },
     uploadedAt: { type: Date },
-    status: { 
-      type: String, 
+    status: {
+      type: String,
       enum: ['pending', 'verified', 'rejected'],
       default: 'pending'
     }
@@ -187,12 +187,16 @@ const buyerSchema = new mongoose.Schema({
   },
   authProvider: {
     type: String,
-    enum: ['local', 'google'],
+    enum: ['local', 'google', 'apple'],
     default: 'local'
   },
   googleId: {
     type: String,
     sparse: true // Allows null/undefined values
+  },
+  appleId: {
+    type: String,
+    sparse: true // Allows null/undefined values for Apple Sign-In
   },
   reports: [{
     reportedUser: {
@@ -209,10 +213,10 @@ const buyerSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
   }],
   wallet: {
-    balance: { 
-      type: Number, 
+    balance: {
+      type: Number,
       default: 0,
-      min: 0 
+      min: 0
     },
     onHoldAmount: {
       type: Number,
@@ -220,30 +224,30 @@ const buyerSchema = new mongoose.Schema({
       min: 0
     },
     onHoldItems: [{
-      productId: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Product', 
-        required: true 
+      productId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product',
+        required: true
       },
-      amount: { 
-        type: Number, 
-        required: true 
+      amount: {
+        type: Number,
+        required: true
       },
-      bidDate: { 
-        type: Date, 
-        default: Date.now 
+      bidDate: {
+        type: Date,
+        default: Date.now
       }
     }],
-    currency: { 
-      type: String, 
-      default: 'NGN' 
+    currency: {
+      type: String,
+      default: 'NGN'
     },
     transactions: [transactionSchema]
   },
 });
 
 // Middleware to update isNew property after 3 days
-buyerSchema.pre('save', async function(next) {
+buyerSchema.pre('save', async function (next) {
   // First handle the isNew check
   if (this.isNewBuyer && this.createdAt) {
     const createdAt = new Date(this.createdAt);
@@ -259,12 +263,12 @@ buyerSchema.pre('save', async function(next) {
   if (this.isModified('password') && this.password) {
     this.password = await bcrypt.hash(this.password, 10);
   }
-  
+
   next();
 });
 
 // Compare passwords
-buyerSchema.methods.comparePassword = function(password) {
+buyerSchema.methods.comparePassword = function (password) {
   if (!this.password) {
     return false; // OAuth users won't have a password
   }
