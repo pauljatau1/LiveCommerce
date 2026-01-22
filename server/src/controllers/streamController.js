@@ -237,6 +237,14 @@ exports.createStream = async (req, res) => {
 
     // GLOBAL NOTIFICATION: Send push notifications AND emails to ALL buyers when a stream is scheduled
     // This notifies all buyers about the upcoming live stream they can join
+    console.log('========================================');
+    console.log('[Stream Notifications] Starting notification process for SCHEDULED stream');
+    console.log('[Stream Notifications] Stream ID:', stream._id?.toString());
+    console.log('[Stream Notifications] Title:', title);
+    console.log('[Stream Notifications] Store:', storeName);
+    console.log('[Stream Notifications] Scheduled Time:', startDate.toISOString());
+    console.log('========================================');
+
     try {
       // Fetch all buyers (with emails or push tokens)
       const allBuyers = await Buyer.find({
@@ -247,6 +255,8 @@ exports.createStream = async (req, res) => {
       })
         .select('_id email firstName expoPushToken notificationPreferences')
         .lean();
+
+      console.log('[Stream Notifications] Found buyers to notify:', allBuyers?.length || 0);
 
       if (allBuyers && allBuyers.length > 0) {
         const scheduleNotifications = [];
@@ -789,6 +799,14 @@ exports.startStream = async (req, res) => {
       // GLOBAL NOTIFICATION: Send push notifications to ALL buyers when a seller goes live.
       // This ensures every buyer with an Expo push token gets notified about the new live stream.
       // We exclude buyers who were already notified above (followers and subscribers) to avoid duplicates.
+      console.log('========================================');
+      console.log('[Stream Notifications] Starting notification process for LIVE stream');
+      console.log('[Stream Notifications] Stream ID:', stream._id?.toString());
+      console.log('[Stream Notifications] Title:', stream.title);
+      console.log('[Stream Notifications] Store:', seller.storeName || seller.businessName);
+      console.log('[Stream Notifications] Stream Type:', stream.type);
+      console.log('========================================');
+
       try {
         // Collect IDs of buyers already notified (followers + subscribers)
         const alreadyNotifiedBuyerIds = new Set();
@@ -811,9 +829,12 @@ exports.startStream = async (req, res) => {
           });
         }
 
-        // Build query to find all buyers with expo push tokens, excluding already notified ones
+        // Build query to find all buyers with expo push tokens OR emails, excluding already notified ones
         const allBuyersQuery = {
-          expoPushToken: { $exists: true, $ne: null, $ne: '' }
+          $or: [
+            { expoPushToken: { $exists: true, $ne: null, $ne: '' } },
+            { email: { $exists: true, $ne: null, $ne: '' } }
+          ]
         };
 
         // Exclude already notified buyers if any exist
@@ -821,44 +842,95 @@ exports.startStream = async (req, res) => {
           allBuyersQuery._id = { $nin: Array.from(alreadyNotifiedBuyerIds) };
         }
 
-        // Fetch all buyers with valid expo push tokens (excluding already notified)
+        // Fetch all buyers with valid expo push tokens or emails (excluding already notified)
         const allBuyers = await Buyer.find(allBuyersQuery)
-          .select('_id expoPushToken notificationPreferences')
+          .select('_id email firstName expoPushToken notificationPreferences')
           .lean();
+
+        console.log('[Stream Notifications] Found additional buyers to notify:', allBuyers?.length || 0);
+        console.log('[Stream Notifications] Already notified (followers/subscribers):', alreadyNotifiedBuyerIds.size);
 
         if (allBuyers && allBuyers.length > 0) {
           const globalNotifications = [];
+          const emailPromises = [];
+          const storeNameDisplay = seller.storeName || seller.businessName || 'A Seller';
 
           for (const buyer of allBuyers) {
-            // Skip if no valid Expo push token
-            if (!buyer.expoPushToken || !Expo.isExpoPushToken(buyer.expoPushToken)) {
-              continue;
-            }
-
             // Respect buyer notification preferences for live shows
             const livePrefs = buyer.notificationPreferences?.liveShows || {};
             const wantsLiveShowNotifications = livePrefs.allShows !== false;
 
             if (!wantsLiveShowNotifications) continue;
 
-            globalNotifications.push({
-              to: buyer.expoPushToken,
-              sound: 'default',
-              title: `🔴 ${seller.storeName || 'A Seller'} is Now Live!`,
-              body: `${seller.storeName || 'A seller'} just started a live ${stream.type === 'auction' ? 'auction' : 'show'}: "${stream.title}". Join now and don't miss out!`,
-              data: {
-                streamId: stream._id.toString(),
-                streamType: stream.type,
-                sellerId: seller._id.toString(),
-                action: 'open_stream',
-                type: 'seller_live'
-              },
-              priority: 'high',
-              channelId: 'live_streams'
-            });
+            // Add push notification if valid token exists
+            if (buyer.expoPushToken && Expo.isExpoPushToken(buyer.expoPushToken)) {
+              globalNotifications.push({
+                to: buyer.expoPushToken,
+                sound: 'default',
+                title: `🔴 ${storeNameDisplay} is Now Live!`,
+                body: `${storeNameDisplay} just started a live ${stream.type === 'auction' ? 'auction' : 'show'}: "${stream.title}". Join now and don't miss out!`,
+                data: {
+                  streamId: stream._id.toString(),
+                  streamType: stream.type,
+                  sellerId: seller._id.toString(),
+                  action: 'open_stream',
+                  type: 'seller_live'
+                },
+                priority: 'high',
+                channelId: 'live_streams'
+              });
+            }
+
+            // Add email notification if email exists
+            if (buyer.email) {
+              const emailHtml = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                  <div style="text-align: center; margin-bottom: 20px;">
+                    <h1 style="color: #E53935; margin: 0;">🔴 ${storeNameDisplay} is NOW LIVE!</h1>
+                  </div>
+                  
+                  <p style="font-size: 16px; color: #333;">Hi ${buyer.firstName || 'there'},</p>
+                  
+                  <p style="font-size: 16px; color: #333;">
+                    <strong>${storeNameDisplay}</strong> just started a live ${stream.type === 'auction' ? 'auction' : 'show'}!
+                  </p>
+                  
+                  <div style="background-color: #FFEBEE; border-radius: 10px; padding: 20px; margin: 20px 0; border-left: 4px solid #E53935;">
+                    <h2 style="color: #333; margin-top: 0;">${stream.title}</h2>
+                    <p style="font-size: 18px; color: #E53935; margin: 10px 0;">
+                      🔴 <strong>LIVE NOW</strong>
+                    </p>
+                  </div>
+                  
+                  <p style="font-size: 16px; color: #333;">
+                    Don't miss out! Join now to participate in the ${stream.type === 'auction' ? 'auction' : 'live show'}.
+                  </p>
+                  
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="https://auqli.live/streams/${stream._id}" style="background-color: #E53935; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold;">Join the Stream Now</a>
+                  </div>
+                  
+                  <p style="font-size: 14px; color: #999; text-align: center; margin-top: 30px;">
+                    You're receiving this because you have an account on Auqli.
+                    <br>To manage your notification preferences, visit your account settings.
+                  </p>
+                </div>
+              `;
+
+              emailPromises.push(
+                termiiEmailService.sendRawHTMLEmail({
+                  email: buyer.email,
+                  subject: `🔴 ${storeNameDisplay} is NOW LIVE: "${stream.title}"`,
+                  html: emailHtml
+                }).catch(err => {
+                  console.error(`[Stream] Failed to send live stream email to ${buyer.email}:`, err.message);
+                  return null;
+                })
+              );
+            }
           }
 
-          // Send notifications in batches using Expo's chunking
+          // Send push notifications in batches using Expo's chunking
           if (globalNotifications.length > 0) {
             const chunks = expo.chunkPushNotifications(globalNotifications);
             let successCount = 0;
@@ -880,7 +952,7 @@ exports.startStream = async (req, res) => {
               }
             }
 
-            console.log('[Stream] Sent global live stream push notifications to all buyers', {
+            console.log('[Stream Notifications] Sent LIVE stream push notifications to all buyers', {
               streamId: stream._id?.toString(),
               sellerId: seller._id?.toString(),
               storeName: seller.storeName,
@@ -891,14 +963,28 @@ exports.startStream = async (req, res) => {
               excludedAlreadyNotified: alreadyNotifiedBuyerIds.size
             });
           } else {
-            console.log('[Stream] No global push notifications sent (all opted out or no valid tokens)', {
+            console.log('[Stream Notifications] No global push notifications sent (all opted out or no valid tokens)', {
               streamId: stream._id?.toString(),
               sellerId: seller._id?.toString(),
               totalBuyers: allBuyers.length
             });
           }
+
+          // Send emails in parallel (non-blocking)
+          if (emailPromises.length > 0) {
+            Promise.allSettled(emailPromises).then((results) => {
+              const successfulEmails = results.filter(r => r.status === 'fulfilled' && r.value).length;
+              const failedEmails = results.filter(r => r.status === 'rejected' || !r.value).length;
+              console.log('[Stream Notifications] Sent LIVE stream emails to buyers', {
+                streamId: stream._id?.toString(),
+                totalEmails: emailPromises.length,
+                successfulEmails,
+                failedEmails
+              });
+            });
+          }
         } else {
-          console.log('[Stream] No additional buyers to notify globally', {
+          console.log('[Stream Notifications] No additional buyers to notify globally', {
             streamId: stream._id?.toString(),
             sellerId: seller._id?.toString(),
             excludedCount: alreadyNotifiedBuyerIds.size
@@ -906,7 +992,7 @@ exports.startStream = async (req, res) => {
         }
       } catch (globalNotifError) {
         // Log error but don't fail the stream start
-        console.error('[Stream] Error sending global buyer notifications:', globalNotifError);
+        console.error('[Stream Notifications] Error sending global buyer notifications:', globalNotifError);
       }
 
     } catch (error) {
@@ -2235,6 +2321,14 @@ exports.createOpenLiveShow = async (req, res) => {
 
     // GLOBAL NOTIFICATION: Send push notifications AND emails to ALL buyers when a stream is scheduled
     // This notifies all buyers about the upcoming live stream they can join
+    console.log('========================================');
+    console.log('[Stream Notifications] Starting notification process for SCHEDULED OPEN SHOW');
+    console.log('[Stream Notifications] Stream ID:', stream._id?.toString());
+    console.log('[Stream Notifications] Title:', title);
+    console.log('[Stream Notifications] Store:', storeName);
+    console.log('[Stream Notifications] Scheduled Time:', startDate.toISOString());
+    console.log('========================================');
+
     try {
       // Fetch all buyers (with emails or push tokens)
       const allBuyers = await Buyer.find({
@@ -2245,6 +2339,8 @@ exports.createOpenLiveShow = async (req, res) => {
       })
         .select('_id email firstName expoPushToken notificationPreferences')
         .lean();
+
+      console.log('[Stream Notifications] Found buyers to notify:', allBuyers?.length || 0);
 
       if (allBuyers && allBuyers.length > 0) {
         const scheduleNotifications = [];
