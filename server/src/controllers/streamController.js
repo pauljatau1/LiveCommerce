@@ -304,50 +304,18 @@ exports.createStream = async (req, res) => {
 
           // Add email notification if email exists
           if (buyer.email) {
-            // Build simple product list (text only, no images to avoid promo filters)
-            const productList = stream.products && stream.products.length > 0
-              ? stream.products.slice(0, 3).map(p => {
-                const prod = p.product;
-                const productName = prod?.name || 'Product';
-                const price = prod?.price ? ` - ₦${prod.price.toLocaleString()}` : '';
-                return `• ${productName}${price}`;
-              }).join('<br>')
-              : '';
-
-            const productCount = stream.products?.length || 0;
-            const moreProducts = productCount > 3 ? `<br>• ...and ${productCount - 3} more items` : '';
-
             const emailHtml = `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-                <p style="font-size: 15px; margin: 0 0 15px 0;">Hi ${buyer.firstName || 'there'},</p>
-                
-                <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
-                  <strong>${storeName}</strong> just scheduled a live ${stream.type === 'auction' ? 'auction' : 'show'} that you might be interested in.
-                </p>
-                
-                <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 0 0 20px 0;">
-                  <p style="margin: 0 0 10px 0; font-size: 16px;"><strong>${title}</strong></p>
-                  <p style="margin: 0 0 5px 0; font-size: 14px; color: #555;">
-                    When: ${formattedDate} at ${formattedTime}
-                  </p>
-                  <p style="margin: 0; font-size: 14px; color: #555;">
-                    By: ${storeName}
-                  </p>
-                </div>
-                
-                ${productList ? `
-                <p style="font-size: 14px; margin: 0 0 5px 0;"><strong>Products featured:</strong></p>
-                <p style="font-size: 14px; color: #555; margin: 0 0 20px 0; line-height: 1.8;">
-                  ${productList}${moreProducts}
-                </p>
-                ` : ''}
-                
-                <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
-                  To join, open the Auqli app and go to Live Shows when the stream starts.
-                </p>
-                
-                <p style="font-size: 13px; color: #888; margin: 20px 0 0 0;">
-                  This is an automated notification from Auqli. You can manage your preferences in the app settings.
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+                <h2 style="color: #333;">📅 New Live Show Scheduled!</h2>
+                <p>Hi ${buyer.firstName || 'there'},</p>
+                <p>Great news! <strong>${storeName}</strong> has scheduled a new live ${stream.type === 'auction' ? 'auction' : 'show'}:</p>
+                <p style="font-size: 16px; font-weight: bold;">${title}</p>
+                <p>📆 ${formattedDate} at ${formattedTime}</p>
+                ${description ? `<p>${description}</p>` : ''}
+                <p>Don't miss out on this exciting live show! Mark your calendar and be ready to join when it goes live.</p>
+                <p style="color: #666; font-size: 12px; margin-top: 20px;">
+                  You're receiving this because you have an account on Auqli.<br>
+                  To manage your notification preferences, visit your account settings.
                 </p>
               </div>
             `;
@@ -355,7 +323,7 @@ exports.createStream = async (req, res) => {
             emailPromises.push(
               termiiEmailService.sendRawHTMLEmail({
                 email: buyer.email,
-                subject: `${storeName} scheduled a live ${stream.type === 'auction' ? 'auction' : 'show'}: ${title}`,
+                subject: `📅 ${storeName} Scheduled a Live ${stream.type === 'auction' ? 'Auction' : 'Show'}: "${title}"`,
                 html: emailHtml
               }).catch(err => {
                 console.error(`[Stream] Failed to send scheduled stream email to ${buyer.email}:`, err.message);
@@ -896,47 +864,16 @@ exports.startStream = async (req, res) => {
 
             // Add email notification if email exists
             if (buyer.email) {
-              // Build simple product list (text only, no images to avoid promo filters)
-              const productList = stream.products && stream.products.length > 0
-                ? stream.products.slice(0, 3).map(p => {
-                  const prod = p.product;
-                  const productName = prod?.name || 'Product';
-                  const price = prod?.price ? ` - ₦${prod.price.toLocaleString()}` : '';
-                  return `• ${productName}${price}`;
-                }).join('<br>')
-                : '';
-
-              const productCount = stream.products?.length || 0;
-              const moreProducts = productCount > 3 ? `<br>• ...and ${productCount - 3} more items` : '';
-
               const emailHtml = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-                  <p style="font-size: 15px; margin: 0 0 15px 0;">Hi ${buyer.firstName || 'there'},</p>
-                  
-                  <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
-                    <strong>${storeNameDisplay}</strong> just went live with a ${stream.type === 'auction' ? 'live auction' : 'live show'}.
-                  </p>
-                  
-                  <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 0 0 20px 0;">
-                    <p style="margin: 0 0 10px 0; font-size: 16px;"><strong>${stream.title}</strong></p>
-                    <p style="margin: 0; font-size: 14px; color: #555;">
-                      By: ${storeNameDisplay} - Streaming now
-                    </p>
-                  </div>
-                  
-                  ${productList ? `
-                  <p style="font-size: 14px; margin: 0 0 5px 0;"><strong>Products available:</strong></p>
-                  <p style="font-size: 14px; color: #555; margin: 0 0 20px 0; line-height: 1.8;">
-                    ${productList}${moreProducts}
-                  </p>
-                  ` : ''}
-                  
-                  <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
-                    To join, open the Auqli app and go to Live Shows.
-                  </p>
-                  
-                  <p style="font-size: 13px; color: #888; margin: 20px 0 0 0;">
-                    This is an automated notification from Auqli. You can manage your preferences in the app settings.
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+                  <h2 style="color: #E53935;">🔴 LIVE NOW: ${storeNameDisplay} is Streaming!</h2>
+                  <p>Hi ${buyer.firstName || 'there'},</p>
+                  <p><strong>${storeNameDisplay}</strong> just went live with an exciting ${stream.type === 'auction' ? 'auction' : 'shopping show'}!</p>
+                  <p style="font-size: 16px; font-weight: bold;">${stream.title}</p>
+                  <p>Join now to watch the stream and shop amazing products.</p>
+                  <p style="color: #666; font-size: 12px; margin-top: 20px;">
+                    You're receiving this because you have an account on Auqli.<br>
+                    To manage your notification preferences, visit your account settings.
                   </p>
                 </div>
               `;
@@ -944,7 +881,7 @@ exports.startStream = async (req, res) => {
               emailPromises.push(
                 termiiEmailService.sendRawHTMLEmail({
                   email: buyer.email,
-                  subject: `${storeNameDisplay} is now live: ${stream.title}`,
+                  subject: `🔴 LIVE NOW: ${storeNameDisplay} is streaming "${stream.title}"`,
                   html: emailHtml
                 }).catch(err => {
                   console.error(`[Stream] Failed to send live stream email to ${buyer.email}:`, err.message);

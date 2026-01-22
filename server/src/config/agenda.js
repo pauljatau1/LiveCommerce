@@ -2741,47 +2741,16 @@ agenda.define('stream_reminder_push', async (job) => {
 
       // Add email notification if email exists
       if (buyer.email) {
-        // Build simple product list (text only, no images to avoid promo filters)
-        const productList = stream.products && stream.products.length > 0
-          ? stream.products.slice(0, 3).map(p => {
-            const prod = p.product;
-            const productName = prod?.name || 'Product';
-            const price = prod?.price ? ` - ₦${prod.price.toLocaleString()}` : '';
-            return `• ${productName}${price}`;
-          }).join('<br>')
-          : '';
-
-        const productCount = stream.products?.length || 0;
-        const moreProducts = productCount > 3 ? `<br>• ...and ${productCount - 3} more items` : '';
-
         const emailHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-            <p style="font-size: 15px; margin: 0 0 15px 0;">Hi ${buyer.firstName || 'there'},</p>
-            
-            <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
-              Reminder: <strong>${actualStoreName}</strong>'s live ${stream.type === 'auction' ? 'auction' : 'show'} starts in 15 minutes.
-            </p>
-            
-            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 0 0 20px 0;">
-              <p style="margin: 0 0 10px 0; font-size: 16px;"><strong>${streamTitle}</strong></p>
-              <p style="margin: 0; font-size: 14px; color: #555;">
-                By: ${actualStoreName} - Starting in 15 minutes
-              </p>
-            </div>
-            
-            ${productList ? `
-            <p style="font-size: 14px; margin: 0 0 5px 0;"><strong>Products featured:</strong></p>
-            <p style="font-size: 14px; color: #555; margin: 0 0 20px 0; line-height: 1.8;">
-              ${productList}${moreProducts}
-            </p>
-            ` : ''}
-            
-            <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
-              To join, open the Auqli app and go to Live Shows.
-            </p>
-            
-            <p style="font-size: 13px; color: #888; margin: 20px 0 0 0;">
-              This is an automated notification from Auqli. You can manage your preferences in the app settings.
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+            <h2 style="color: #333;">⏰ Starting Soon!</h2>
+            <p>Hi ${buyer.firstName || 'there'},</p>
+            <p>This is a reminder that <strong>${actualStoreName}</strong>'s live ${stream.type === 'auction' ? 'auction' : 'show'} is starting in 15 minutes:</p>
+            <p style="font-size: 16px; font-weight: bold;">${streamTitle}</p>
+            <p>Be ready to join when it starts!</p>
+            <p style="color: #666; font-size: 12px; margin-top: 20px;">
+              You're receiving this because you have an account on Auqli.<br>
+              To manage your notification preferences, visit your account settings.
             </p>
           </div>
         `;
@@ -2789,7 +2758,7 @@ agenda.define('stream_reminder_push', async (job) => {
         emailPromises.push(
           termiiEmailService.sendRawHTMLEmail({
             email: buyer.email,
-            subject: `Reminder: ${actualStoreName}'s live ${stream.type === 'auction' ? 'auction' : 'show'} starts in 15 minutes`,
+            subject: `⏰ Reminder: ${actualStoreName}'s live show starts soon`,
             html: emailHtml
           }).catch(err => {
             console.error(`[AGENDA] Failed to send 15-min reminder email to ${buyer.email}:`, err.message);
