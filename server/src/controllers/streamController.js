@@ -2229,24 +2229,212 @@ exports.createOpenLiveShow = async (req, res) => {
 
     await stream.save();
 
-    // Schedule SMS reminder job 2 hours before scheduled start time
+    // Get seller details for push notifications
+    const sellerDetails = await Seller.findById(req.user.id).select('storeName businessName storeAvatar');
+    const storeName = sellerDetails?.storeName || sellerDetails?.businessName || 'A Seller';
+
+    // GLOBAL NOTIFICATION: Send push notifications AND emails to ALL buyers when a stream is scheduled
+    // This notifies all buyers about the upcoming live stream they can join
+    try {
+      // Fetch all buyers (with emails or push tokens)
+      const allBuyers = await Buyer.find({
+        $or: [
+          { expoPushToken: { $exists: true, $ne: null, $ne: '' } },
+          { email: { $exists: true, $ne: null, $ne: '' } }
+        ]
+      })
+        .select('_id email firstName expoPushToken notificationPreferences')
+        .lean();
+
+      if (allBuyers && allBuyers.length > 0) {
+        const scheduleNotifications = [];
+        const emailPromises = [];
+
+        // Format the scheduled time for display
+        const scheduledDate = new Date(startDate);
+        const formattedDate = scheduledDate.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric'
+        });
+        const formattedTime = scheduledDate.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+
+        for (const buyer of allBuyers) {
+          // Respect buyer notification preferences for live shows
+          const livePrefs = buyer.notificationPreferences?.liveShows || {};
+          const wantsLiveShowNotifications = livePrefs.allShows !== false;
+
+          if (!wantsLiveShowNotifications) continue;
+
+          // Add push notification if valid token exists
+          if (buyer.expoPushToken && Expo.isExpoPushToken(buyer.expoPushToken)) {
+            scheduleNotifications.push({
+              to: buyer.expoPushToken,
+              sound: 'default',
+              title: `📅 ${storeName} Scheduled a Live Show!`,
+              body: `"${title}" is starting on ${formattedDate} at ${formattedTime}. Set a reminder so you don't miss it!`,
+              data: {
+                streamId: stream._id.toString(),
+                streamType: stream.type,
+                sellerId: req.user.id.toString(),
+                scheduledStartTime: startDate.toISOString(),
+                action: 'view_scheduled_stream',
+                type: 'stream_scheduled'
+              },
+              priority: 'high',
+              channelId: 'live_streams'
+            });
+          }
+
+          // Add email notification if email exists
+          if (buyer.email) {
+            const emailHtml = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                  <h1 style="color: #4CAF50; margin: 0;">📅 New Live Show Scheduled!</h1>
+                </div>
+                
+                <p style="font-size: 16px; color: #333;">Hi ${buyer.firstName || 'there'},</p>
+                
+                <p style="font-size: 16px; color: #333;">
+                  Great news! <strong>${storeName}</strong> has scheduled a new live show:
+                </p>
+                
+                <div style="background-color: #f9f9f9; border-radius: 10px; padding: 20px; margin: 20px 0; border-left: 4px solid #4CAF50;">
+                  <h2 style="color: #333; margin-top: 0;">${title}</h2>
+                  <p style="font-size: 18px; color: #666; margin: 10px 0;">
+                    📆 <strong>${formattedDate}</strong> at <strong>${formattedTime}</strong>
+                  </p>
+                  ${description ? `<p style="color: #666;">${description.substring(0, 150)}${description.length > 150 ? '...' : ''}</p>` : ''}
+                </div>
+                
+                <p style="font-size: 16px; color: #333;">
+                  Don't miss out on this exciting live show! Mark your calendar and be ready to join when it goes live.
+                </p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="https://auqli.live/streams/${stream._id}" style="background-color: #4CAF50; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold;">View Stream Details</a>
+                </div>
+                
+                <p style="font-size: 14px; color: #999; text-align: center; margin-top: 30px;">
+                  You're receiving this because you have an account on Auqli. 
+                  <br>To manage your notification preferences, visit your account settings.
+                </p>
+              </div>
+            `;
+
+            emailPromises.push(
+              termiiEmailService.sendRawHTMLEmail({
+                email: buyer.email,
+                subject: `📅 ${storeName} Scheduled a Live Show: "${title}"`,
+                html: emailHtml
+              }).catch(err => {
+                console.error(`[Stream] Failed to send scheduled stream email to ${buyer.email}:`, err.message);
+                return null;
+              })
+            );
+          }
+        }
+
+        // Send push notifications in batches using Expo's chunking
+        if (scheduleNotifications.length > 0) {
+          const chunks = expo.chunkPushNotifications(scheduleNotifications);
+          let successCount = 0;
+          let errorCount = 0;
+
+          for (const chunk of chunks) {
+            try {
+              const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+              ticketChunk.forEach((ticket) => {
+                if (ticket.status === 'ok') {
+                  successCount++;
+                } else {
+                  errorCount++;
+                }
+              });
+            } catch (chunkError) {
+              console.error('[Stream] Error sending schedule notification chunk:', chunkError);
+              errorCount += chunk.length;
+            }
+          }
+
+          console.log('[Stream] Sent scheduled stream push notifications to all buyers', {
+            streamId: stream._id?.toString(),
+            sellerId: req.user.id,
+            storeName,
+            title,
+            scheduledStartTime: startDate.toISOString(),
+            totalBuyers: allBuyers.length,
+            notificationsSent: scheduleNotifications.length,
+            successCount,
+            errorCount
+          });
+        } else {
+          console.log('[Stream] No schedule push notifications sent (all opted out or no valid tokens)', {
+            streamId: stream._id?.toString(),
+            totalBuyers: allBuyers.length
+          });
+        }
+
+        // Send emails in parallel (non-blocking)
+        if (emailPromises.length > 0) {
+          Promise.allSettled(emailPromises).then((results) => {
+            const successfulEmails = results.filter(r => r.status === 'fulfilled' && r.value).length;
+            const failedEmails = results.filter(r => r.status === 'rejected' || !r.value).length;
+            console.log('[Stream] Sent scheduled stream emails to buyers', {
+              streamId: stream._id?.toString(),
+              totalEmails: emailPromises.length,
+              successfulEmails,
+              failedEmails
+            });
+          });
+        }
+      } else {
+        console.log('[Stream] No buyers to notify about scheduled stream', {
+          streamId: stream._id?.toString()
+        });
+      }
+    } catch (scheduleNotifError) {
+      // Log error but don't fail stream creation
+      console.error('[Stream] Error sending scheduled stream notifications:', scheduleNotifError);
+    }
+
+    // Schedule reminder jobs
     try {
       const { agenda } = require('../config/agenda');
-      const reminderTime = new Date(startDate.getTime() - 2 * 60 * 60 * 1000); // 2 hours before
       const now = new Date();
 
-      // Only schedule if reminder time is in the future
-      if (reminderTime > now) {
-        await agenda.schedule(reminderTime, 'stream_reminder_sms', {
+      // Schedule SMS reminder job 2 hours before scheduled start time
+      const smsReminderTime = new Date(startDate.getTime() - 2 * 60 * 60 * 1000); // 2 hours before
+      if (smsReminderTime > now) {
+        await agenda.schedule(smsReminderTime, 'stream_reminder_sms', {
           streamId: stream._id.toString()
         });
-        console.log(`Scheduled stream reminder SMS for stream ${stream._id} at ${reminderTime}`);
+        console.log(`Scheduled stream reminder SMS for stream ${stream._id} at ${smsReminderTime}`);
       } else {
-        console.log(`Skipping stream reminder SMS for stream ${stream._id}: Reminder time (${reminderTime}) is in the past`);
+        console.log(`Skipping stream reminder SMS for stream ${stream._id}: Reminder time (${smsReminderTime}) is in the past`);
+      }
+
+      // Schedule push notification reminder 15 minutes before scheduled start time
+      const pushReminderTime = new Date(startDate.getTime() - 15 * 60 * 1000); // 15 minutes before
+      if (pushReminderTime > now) {
+        await agenda.schedule(pushReminderTime, 'stream_reminder_push', {
+          streamId: stream._id.toString(),
+          sellerId: req.user.id.toString(),
+          storeName,
+          title
+        });
+        console.log(`Scheduled stream reminder push notification for stream ${stream._id} at ${pushReminderTime}`);
+      } else {
+        console.log(`Skipping stream reminder push for stream ${stream._id}: Reminder time (${pushReminderTime}) is in the past`);
       }
     } catch (reminderError) {
       // Log error but don't fail stream creation
-      console.error(`Error scheduling stream reminder SMS for stream ${stream._id}:`, reminderError);
+      console.error(`Error scheduling stream reminders for stream ${stream._id}:`, reminderError);
     }
 
     const populatedStream = await Stream.findById(stream._id)
