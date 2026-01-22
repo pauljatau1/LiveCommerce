@@ -304,38 +304,104 @@ exports.createStream = async (req, res) => {
 
           // Add email notification if email exists
           if (buyer.email) {
+            // Build product showcase HTML (up to 4 products with images)
+            const productShowcase = stream.products && stream.products.length > 0
+              ? stream.products.slice(0, 4).map(p => {
+                const prod = p.product;
+                const imageUrl = prod?.images?.[0]?.url || prod?.images?.[0] || '';
+                const productName = prod?.name || 'Product';
+                const price = prod?.price ? `₦${prod.price.toLocaleString()}` : '';
+                return `
+                    <div style="display: inline-block; width: 48%; margin: 1%; vertical-align: top; text-align: center;">
+                      ${imageUrl ? `<img src="${imageUrl}" alt="${productName}" style="width: 100%; max-width: 150px; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid #eee;">` : ''}
+                      <p style="margin: 8px 0 2px 0; font-size: 13px; color: #333; font-weight: 500;">${productName.length > 25 ? productName.substring(0, 25) + '...' : productName}</p>
+                      ${price ? `<p style="margin: 0; font-size: 14px; color: #4CAF50; font-weight: bold;">${price}</p>` : ''}
+                    </div>
+                  `;
+              }).join('')
+              : '';
+
+            const productCount = stream.products?.length || 0;
+            const moreProductsNote = productCount > 4 ? `<p style="text-align: center; color: #666; font-size: 14px; margin-top: 15px;">...and ${productCount - 4} more amazing products!</p>` : '';
+
             const emailHtml = `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <div style="text-align: center; margin-bottom: 20px;">
-                  <h1 style="color: #4CAF50; margin: 0;">📅 New Live Stream Scheduled!</h1>
+              <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 3px; border-radius: 15px;">
+                <div style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                  
+                  <!-- Header -->
+                  <div style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); padding: 30px 20px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">📅 Don't Miss This!</h1>
+                    <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">A new live ${stream.type === 'auction' ? 'auction' : 'show'} is coming up!</p>
+                  </div>
+                  
+                  <!-- Main Content -->
+                  <div style="padding: 30px 25px;">
+                    <p style="font-size: 16px; color: #333; margin: 0 0 20px 0;">Hi ${buyer.firstName || 'there'} 👋,</p>
+                    
+                    <p style="font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 25px 0;">
+                      Great news! <strong style="color: #4CAF50;">${storeName}</strong> has scheduled a new live ${stream.type === 'auction' ? 'auction' : 'show'} and you're invited!
+                    </p>
+                    
+                    <!-- Stream Info Card -->
+                    <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 25px; margin: 20px 0; border-left: 5px solid #4CAF50;">
+                      <h2 style="color: #333; margin: 0 0 15px 0; font-size: 20px;">${title}</h2>
+                      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                        <span style="font-size: 24px; margin-right: 10px;">📆</span>
+                        <span style="font-size: 18px; color: #333;"><strong>${formattedDate}</strong> at <strong>${formattedTime}</strong></span>
+                      </div>
+                      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                        <span style="font-size: 24px; margin-right: 10px;">🏪</span>
+                        <span style="font-size: 16px; color: #666;">Hosted by <strong>${storeName}</strong></span>
+                      </div>
+                      ${description ? `<p style="color: #555; margin: 15px 0 0 0; line-height: 1.5;">${description.substring(0, 200)}${description.length > 200 ? '...' : ''}</p>` : ''}
+                    </div>
+                    
+                    ${productShowcase ? `
+                    <!-- Products Preview -->
+                    <div style="margin: 30px 0;">
+                      <h3 style="color: #333; text-align: center; margin-bottom: 20px; font-size: 18px;">🛍️ Products You'll See</h3>
+                      <div style="text-align: center;">
+                        ${productShowcase}
+                      </div>
+                      ${moreProductsNote}
+                    </div>
+                    ` : ''}
+                    
+                    <!-- Why Join Section -->
+                    <div style="background: #fff3e0; border-radius: 10px; padding: 20px; margin: 25px 0;">
+                      <h3 style="color: #e65100; margin: 0 0 15px 0; font-size: 16px;">🔥 Why You Should Join:</h3>
+                      <ul style="margin: 0; padding-left: 20px; color: #333; line-height: 1.8;">
+                        <li>Get exclusive deals and discounts</li>
+                        <li>Chat directly with the seller</li>
+                        <li>Be the first to grab limited items</li>
+                        ${stream.type === 'auction' ? '<li>Bid on amazing products in real-time</li>' : '<li>Shop products live with real-time demos</li>'}
+                      </ul>
+                    </div>
+                    
+                    <!-- CTA Button -->
+                    <div style="text-align: center; margin: 35px 0;">
+                      <p style="color: #666; margin-bottom: 15px; font-size: 15px;">Ready to shop? Open the Auqli app when the show starts!</p>
+                      <div style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; padding: 16px 35px; border-radius: 30px; font-size: 16px; font-weight: bold; display: inline-block;">
+                        📲 Open Auqli App → Live Shows
+                      </div>
+                    </div>
+                    
+                    <!-- Reminder Note -->
+                    <div style="background: #e3f2fd; border-radius: 8px; padding: 15px; text-align: center; margin-top: 20px;">
+                      <p style="margin: 0; color: #1565c0; font-size: 14px;">
+                        ⏰ <strong>We'll send you a reminder 15 minutes before the show starts!</strong>
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <!-- Footer -->
+                  <div style="background: #f5f5f5; padding: 20px; text-align: center; border-top: 1px solid #eee;">
+                    <p style="font-size: 13px; color: #999; margin: 0;">
+                      You're receiving this because you have an account on Auqli.<br>
+                      To manage your notification preferences, visit your account settings.
+                    </p>
+                  </div>
                 </div>
-                
-                <p style="font-size: 16px; color: #333;">Hi ${buyer.firstName || 'there'},</p>
-                
-                <p style="font-size: 16px; color: #333;">
-                  Great news! <strong>${storeName}</strong> has scheduled a new live ${stream.type === 'auction' ? 'auction' : 'show'}:
-                </p>
-                
-                <div style="background-color: #f9f9f9; border-radius: 10px; padding: 20px; margin: 20px 0; border-left: 4px solid #4CAF50;">
-                  <h2 style="color: #333; margin-top: 0;">${title}</h2>
-                  <p style="font-size: 18px; color: #666; margin: 10px 0;">
-                    📆 <strong>${formattedDate}</strong> at <strong>${formattedTime}</strong>
-                  </p>
-                  ${description ? `<p style="color: #666;">${description.substring(0, 150)}${description.length > 150 ? '...' : ''}</p>` : ''}
-                </div>
-                
-                <p style="font-size: 16px; color: #333;">
-                  Don't miss out on this exciting ${stream.type === 'auction' ? 'auction' : 'live show'}! Mark your calendar and be ready to join when it goes live.
-                </p>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="https://auqli.live/streams/${stream._id}" style="background-color: #4CAF50; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold;">View Stream Details</a>
-                </div>
-                
-                <p style="font-size: 14px; color: #999; text-align: center; margin-top: 30px;">
-                  You're receiving this because you have an account on Auqli. 
-                  <br>To manage your notification preferences, visit your account settings.
-                </p>
               </div>
             `;
 
@@ -883,44 +949,102 @@ exports.startStream = async (req, res) => {
 
             // Add email notification if email exists
             if (buyer.email) {
+              // Build product showcase HTML (up to 4 products with images)
+              const productShowcase = stream.products && stream.products.length > 0
+                ? stream.products.slice(0, 4).map(p => {
+                  const prod = p.product;
+                  const imageUrl = prod?.images?.[0]?.url || prod?.images?.[0] || '';
+                  const productName = prod?.name || 'Product';
+                  const price = prod?.price ? `₦${prod.price.toLocaleString()}` : '';
+                  return `
+                      <div style="display: inline-block; width: 48%; margin: 1%; vertical-align: top; text-align: center;">
+                        ${imageUrl ? `<img src="${imageUrl}" alt="${productName}" style="width: 100%; max-width: 150px; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid #eee;">` : ''}
+                        <p style="margin: 8px 0 2px 0; font-size: 13px; color: #333; font-weight: 500;">${productName.length > 25 ? productName.substring(0, 25) + '...' : productName}</p>
+                        ${price ? `<p style="margin: 0; font-size: 14px; color: #E53935; font-weight: bold;">${price}</p>` : ''}
+                      </div>
+                    `;
+                }).join('')
+                : '';
+
+              const productCount = stream.products?.length || 0;
+              const moreProductsNote = productCount > 4 ? `<p style="text-align: center; color: #666; font-size: 14px; margin-top: 15px;">...and ${productCount - 4} more products available!</p>` : '';
+
               const emailHtml = `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                  <div style="text-align: center; margin-bottom: 20px;">
-                    <h1 style="color: #E53935; margin: 0;">🔴 ${storeNameDisplay} is NOW LIVE!</h1>
+                <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #E53935 0%, #C62828 100%); padding: 3px; border-radius: 15px;">
+                  <div style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                    
+                    <!-- Header with LIVE Badge -->
+                    <div style="background: linear-gradient(135deg, #E53935 0%, #C62828 100%); padding: 30px 20px; text-align: center;">
+                      <div style="display: inline-block; background: #ffffff; color: #E53935; padding: 8px 20px; border-radius: 20px; font-weight: bold; font-size: 14px; margin-bottom: 15px; animation: pulse 1.5s infinite;">
+                        🔴 LIVE NOW
+                      </div>
+                      <h1 style="color: #ffffff; margin: 10px 0 0 0; font-size: 24px;">${storeNameDisplay} is Streaming!</h1>
+                    </div>
+                    
+                    <!-- Main Content -->
+                    <div style="padding: 30px 25px;">
+                      <p style="font-size: 16px; color: #333; margin: 0 0 20px 0;">Hi ${buyer.firstName || 'there'} 👋,</p>
+                      
+                      <p style="font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 25px 0;">
+                        <strong style="color: #E53935;">${storeNameDisplay}</strong> just went live with an exciting ${stream.type === 'auction' ? 'auction' : 'shopping show'}! Join now before you miss out on the best deals!
+                      </p>
+                      
+                      <!-- Stream Info Card -->
+                      <div style="background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%); border-radius: 12px; padding: 25px; margin: 20px 0; border-left: 5px solid #E53935;">
+                        <h2 style="color: #333; margin: 0 0 15px 0; font-size: 20px;">${stream.title}</h2>
+                        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                          <span style="font-size: 24px; margin-right: 10px;">🏪</span>
+                          <span style="font-size: 16px; color: #666;">Hosted by <strong>${storeNameDisplay}</strong></span>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                          <span style="font-size: 24px; margin-right: 10px;">🎬</span>
+                          <span style="font-size: 16px; color: #E53935; font-weight: bold;">Streaming Right Now!</span>
+                        </div>
+                      </div>
+                      
+                      ${productShowcase ? `
+                      <!-- Products Available -->
+                      <div style="margin: 30px 0;">
+                        <h3 style="color: #333; text-align: center; margin-bottom: 20px; font-size: 18px;">🛍️ Products Being Featured</h3>
+                        <div style="text-align: center;">
+                          ${productShowcase}
+                        </div>
+                        ${moreProductsNote}
+                      </div>
+                      ` : ''}
+                      
+                      <!-- Urgency Section -->
+                      <div style="background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%); border-radius: 10px; padding: 20px; margin: 25px 0; text-align: center;">
+                        <h3 style="color: #E65100; margin: 0 0 10px 0; font-size: 18px;">⚡ Don't Miss Out!</h3>
+                        <p style="color: #333; margin: 0; line-height: 1.6;">
+                          ${stream.type === 'auction' ? 'Bids are going fast! Join now to place your bid before the auction ends.' : 'Products are selling out! Get yours before they\'re gone.'}
+                        </p>
+                      </div>
+                      
+                      <!-- CTA Button -->
+                      <div style="text-align: center; margin: 35px 0;">
+                        <p style="color: #666; margin-bottom: 15px; font-size: 15px;">Quick! Open the app and join the live show!</p>
+                        <div style="background: linear-gradient(135deg, #E53935 0%, #C62828 100%); color: white; padding: 18px 40px; border-radius: 30px; font-size: 18px; font-weight: bold; display: inline-block;">
+                          📲 Open Auqli App → Live Shows
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- Footer -->
+                    <div style="background: #f5f5f5; padding: 20px; text-align: center; border-top: 1px solid #eee;">
+                      <p style="font-size: 13px; color: #999; margin: 0;">
+                        You're receiving this because you have an account on Auqli.<br>
+                        To manage your notification preferences, visit your account settings.
+                      </p>
+                    </div>
                   </div>
-                  
-                  <p style="font-size: 16px; color: #333;">Hi ${buyer.firstName || 'there'},</p>
-                  
-                  <p style="font-size: 16px; color: #333;">
-                    <strong>${storeNameDisplay}</strong> just started a live ${stream.type === 'auction' ? 'auction' : 'show'}!
-                  </p>
-                  
-                  <div style="background-color: #FFEBEE; border-radius: 10px; padding: 20px; margin: 20px 0; border-left: 4px solid #E53935;">
-                    <h2 style="color: #333; margin-top: 0;">${stream.title}</h2>
-                    <p style="font-size: 18px; color: #E53935; margin: 10px 0;">
-                      🔴 <strong>LIVE NOW</strong>
-                    </p>
-                  </div>
-                  
-                  <p style="font-size: 16px; color: #333;">
-                    Don't miss out! Join now to participate in the ${stream.type === 'auction' ? 'auction' : 'live show'}.
-                  </p>
-                  
-                  <div style="text-align: center; margin: 30px 0;">
-                    <a href="https://auqli.live/streams/${stream._id}" style="background-color: #E53935; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold;">Join the Stream Now</a>
-                  </div>
-                  
-                  <p style="font-size: 14px; color: #999; text-align: center; margin-top: 30px;">
-                    You're receiving this because you have an account on Auqli.
-                    <br>To manage your notification preferences, visit your account settings.
-                  </p>
                 </div>
               `;
 
               emailPromises.push(
                 termiiEmailService.sendRawHTMLEmail({
                   email: buyer.email,
-                  subject: `🔴 ${storeNameDisplay} is NOW LIVE: "${stream.title}"`,
+                  subject: `🔴 LIVE NOW: ${storeNameDisplay} is streaming "${stream.title}"`,
                   html: emailHtml
                 }).catch(err => {
                   console.error(`[Stream] Failed to send live stream email to ${buyer.email}:`, err.message);
@@ -2388,38 +2512,104 @@ exports.createOpenLiveShow = async (req, res) => {
 
           // Add email notification if email exists
           if (buyer.email) {
+            // Build product showcase HTML (up to 4 products with images)
+            const productShowcase = stream.products && stream.products.length > 0
+              ? stream.products.slice(0, 4).map(p => {
+                const prod = p.product;
+                const imageUrl = prod?.images?.[0]?.url || prod?.images?.[0] || '';
+                const productName = prod?.name || 'Product';
+                const price = prod?.price ? `₦${prod.price.toLocaleString()}` : '';
+                return `
+                    <div style="display: inline-block; width: 48%; margin: 1%; vertical-align: top; text-align: center;">
+                      ${imageUrl ? `<img src="${imageUrl}" alt="${productName}" style="width: 100%; max-width: 150px; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid #eee;">` : ''}
+                      <p style="margin: 8px 0 2px 0; font-size: 13px; color: #333; font-weight: 500;">${productName.length > 25 ? productName.substring(0, 25) + '...' : productName}</p>
+                      ${price ? `<p style="margin: 0; font-size: 14px; color: #4CAF50; font-weight: bold;">${price}</p>` : ''}
+                    </div>
+                  `;
+              }).join('')
+              : '';
+
+            const productCount = stream.products?.length || 0;
+            const moreProductsNote = productCount > 4 ? `<p style="text-align: center; color: #666; font-size: 14px; margin-top: 15px;">...and ${productCount - 4} more amazing products!</p>` : '';
+
             const emailHtml = `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <div style="text-align: center; margin-bottom: 20px;">
-                  <h1 style="color: #4CAF50; margin: 0;">📅 New Live Show Scheduled!</h1>
+              <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 3px; border-radius: 15px;">
+                <div style="background: #ffffff; border-radius: 12px; overflow: hidden;">
+                  
+                  <!-- Header -->
+                  <div style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); padding: 30px 20px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">📅 Don't Miss This!</h1>
+                    <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">A new live show is coming up!</p>
+                  </div>
+                  
+                  <!-- Main Content -->
+                  <div style="padding: 30px 25px;">
+                    <p style="font-size: 16px; color: #333; margin: 0 0 20px 0;">Hi ${buyer.firstName || 'there'} 👋,</p>
+                    
+                    <p style="font-size: 16px; color: #333; line-height: 1.6; margin: 0 0 25px 0;">
+                      Great news! <strong style="color: #4CAF50;">${storeName}</strong> has scheduled a new live show and you're invited!
+                    </p>
+                    
+                    <!-- Stream Info Card -->
+                    <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 25px; margin: 20px 0; border-left: 5px solid #4CAF50;">
+                      <h2 style="color: #333; margin: 0 0 15px 0; font-size: 20px;">${title}</h2>
+                      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                        <span style="font-size: 24px; margin-right: 10px;">📆</span>
+                        <span style="font-size: 18px; color: #333;"><strong>${formattedDate}</strong> at <strong>${formattedTime}</strong></span>
+                      </div>
+                      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                        <span style="font-size: 24px; margin-right: 10px;">🏪</span>
+                        <span style="font-size: 16px; color: #666;">Hosted by <strong>${storeName}</strong></span>
+                      </div>
+                      ${description ? `<p style="color: #555; margin: 15px 0 0 0; line-height: 1.5;">${description.substring(0, 200)}${description.length > 200 ? '...' : ''}</p>` : ''}
+                    </div>
+                    
+                    ${productShowcase ? `
+                    <!-- Products Preview -->
+                    <div style="margin: 30px 0;">
+                      <h3 style="color: #333; text-align: center; margin-bottom: 20px; font-size: 18px;">🛍️ Products You'll See</h3>
+                      <div style="text-align: center;">
+                        ${productShowcase}
+                      </div>
+                      ${moreProductsNote}
+                    </div>
+                    ` : ''}
+                    
+                    <!-- Why Join Section -->
+                    <div style="background: #fff3e0; border-radius: 10px; padding: 20px; margin: 25px 0;">
+                      <h3 style="color: #e65100; margin: 0 0 15px 0; font-size: 16px;">🔥 Why You Should Join:</h3>
+                      <ul style="margin: 0; padding-left: 20px; color: #333; line-height: 1.8;">
+                        <li>Get exclusive deals and discounts</li>
+                        <li>Chat directly with the seller</li>
+                        <li>Be the first to grab limited items</li>
+                        <li>Shop products live with real-time demos</li>
+                      </ul>
+                    </div>
+                    
+                    <!-- CTA Button -->
+                    <div style="text-align: center; margin: 35px 0;">
+                      <p style="color: #666; margin-bottom: 15px; font-size: 15px;">Ready to shop? Open the Auqli app when the show starts!</p>
+                      <div style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; padding: 16px 35px; border-radius: 30px; font-size: 16px; font-weight: bold; display: inline-block;">
+                        📲 Open Auqli App → Live Shows
+                      </div>
+                    </div>
+                    
+                    <!-- Reminder Note -->
+                    <div style="background: #e3f2fd; border-radius: 8px; padding: 15px; text-align: center; margin-top: 20px;">
+                      <p style="margin: 0; color: #1565c0; font-size: 14px;">
+                        ⏰ <strong>We'll send you a reminder 15 minutes before the show starts!</strong>
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <!-- Footer -->
+                  <div style="background: #f5f5f5; padding: 20px; text-align: center; border-top: 1px solid #eee;">
+                    <p style="font-size: 13px; color: #999; margin: 0;">
+                      You're receiving this because you have an account on Auqli.<br>
+                      To manage your notification preferences, visit your account settings.
+                    </p>
+                  </div>
                 </div>
-                
-                <p style="font-size: 16px; color: #333;">Hi ${buyer.firstName || 'there'},</p>
-                
-                <p style="font-size: 16px; color: #333;">
-                  Great news! <strong>${storeName}</strong> has scheduled a new live show:
-                </p>
-                
-                <div style="background-color: #f9f9f9; border-radius: 10px; padding: 20px; margin: 20px 0; border-left: 4px solid #4CAF50;">
-                  <h2 style="color: #333; margin-top: 0;">${title}</h2>
-                  <p style="font-size: 18px; color: #666; margin: 10px 0;">
-                    📆 <strong>${formattedDate}</strong> at <strong>${formattedTime}</strong>
-                  </p>
-                  ${description ? `<p style="color: #666;">${description.substring(0, 150)}${description.length > 150 ? '...' : ''}</p>` : ''}
-                </div>
-                
-                <p style="font-size: 16px; color: #333;">
-                  Don't miss out on this exciting live show! Mark your calendar and be ready to join when it goes live.
-                </p>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="https://auqli.live/streams/${stream._id}" style="background-color: #4CAF50; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold;">View Stream Details</a>
-                </div>
-                
-                <p style="font-size: 14px; color: #999; text-align: center; margin-top: 30px;">
-                  You're receiving this because you have an account on Auqli. 
-                  <br>To manage your notification preferences, visit your account settings.
-                </p>
               </div>
             `;
 
