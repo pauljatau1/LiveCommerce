@@ -9,44 +9,16 @@ const mixpanel = require('../../../config/mixpanel');
 const { agenda } = require('../../../config/agenda');
 
 
-const createDraftOrders = async (req, session) => {
-  const {
-    items,
-    shippingAddress,
-    isStorePickup = false,
-  } = req.body;
-
+const createDraftOrders = async (req, session, sellerItems) => {
   const buyerId = req.user.id;
   const buyer = await orderRepository.findBuyerById(buyerId, session);
 
-  // ... (rest of the logic from createOrder)
-
-  const productIds = items.map(item => item.productId);
-  const products = await orderRepository.findProductsByIds(productIds, session);
-
-  // ... (validation logic)
-  if (products.length !== productIds.length) {
-    throw new Error('One or more products not found');
-  }
-
-  if (products.length > 0) {
-    const uniqueSellerIds = [...new Set(products.map((p) => p.seller._id.toString()))];
-    if (uniqueSellerIds.length > 1) {
-      throw new Error('All items in an order must belong to a single seller.');
-    }
-  }
-
-  const { sellerItems } = await groupItemsBySeller(items, products, buyerId, session);
-
   const orders = [];
+  
+  // Create draft orders for each seller
   for (const sellerId in sellerItems) {
     const sellerData = sellerItems[sellerId];
     const seller = sellerData.seller;
-
-    // VALIDATION 1: Check if store pickup is requested for a seller who doesn't offer it
-    if (isStorePickup && !seller.offersStorePickup) {
-      throw new Error(`Seller ${seller.businessName} does not offer store pickup.`);
-    }
 
     // Automatically flag orders from international sellers
     if (seller.isInternational) {
@@ -102,7 +74,9 @@ exports.createOrder = async (req) => {
     const products = await orderRepository.findProductsByIds(productIds, session);
 
     if (products.length !== productIds.length) {
-      throw new Error('One or more products not found');
+      const foundIds = products.map(p => p._id.toString());
+      const missingIds = productIds.filter(id => !foundIds.includes(id.toString()));
+      throw new Error(`Products not found: ${missingIds.join(', ')}`);
     }
 
     // Ensure all items are from the same seller
@@ -113,47 +87,34 @@ exports.createOrder = async (req) => {
       }
     }
 
-    // Group items by seller
-    const { sellerItems, totalAmount } = await groupItemsBySeller(items, products, buyerId, session);
+    // Group items by seller (this now includes seller validation and fetching)
+    const { sellerItems, totalAmount } = await groupItemsBySeller(items, products, buyerId, session, isStorePickup);
 
-    const orders = await createDraftOrders(req, session);
-
-    for (const order of orders) {
-      const sellerId = order.seller;
-      const seller = await orderRepository.findSellerById(sellerId, session);
-      if (!seller) continue;
-
-      // VALIDATION 1: Check if store pickup is requested for a seller who doesn't offer it
-      if (isStorePickup && !seller.offersStorePickup) {
-        throw new Error(`Seller ${seller.businessName} does not offer store pickup.`);
-      }
-
-      // Automatically flag orders from international sellers
-      if (seller.isInternational) {
-        order.isInternational = true;
-      }
-    }
+    const orders = await createDraftOrders(req, session, sellerItems);
 
     await session.commitTransaction();
+    session.endSession();
 
-    // Schedule job to mark orders as stale if not processed
+    // Parallelize agenda job scheduling - significant performance improvement
+    const jobPromises = [];
     for (const order of orders) {
-      await agenda.schedule('in 30 minutes', 'mark_terminal_orders_stale', { orderId: order._id.toString() });
+      jobPromises.push(
+        agenda.schedule('in 30 minutes', 'mark_terminal_orders_stale', { orderId: order._id.toString() })
+      );
 
       // Schedule job to expire order if not paid in 30 minutes
-      // This should only apply to non-pickup and non-international orders that require rate selection
       if (!order.isStorePickup && !order.isInternational) {
-        console.log(`Scheduling expiration for order ${order.order_id}`);
-        await agenda.schedule('in 30 minutes', 'expire-order', { orderId: order._id });
+        jobPromises.push(
+          agenda.schedule('in 30 minutes', 'expire-order', { orderId: order._id })
+        );
       }
     }
+    await Promise.all(jobPromises);
 
-    const liveShowOrders = [];
-
-    for (const order of orders) {
+    // Combined data transformation loop - optimize by doing both operations in one pass
+    const liveShowOrders = orders.map(order => {
       const firstItem = order.items[0];
-
-      liveShowOrders.push({
+      return {
         orderId: order.order_id,
         buyer: order.buyerDetails,
         orderDetails: {
@@ -169,113 +130,15 @@ exports.createOrder = async (req) => {
         product: firstItem.product,
         amount: order.totalAmount,
         createdAt: new Date()
-      });
-    }
+      };
+    });
 
-    // Check if the order is from a liveshow and update the stream with order information
+    // Move livestream processing to background to not block response
     if (req.body.channel === "livestream" && req.body.streamId) {
-      try {
-        const Stream = mongoose.model('Stream');
-        const stream = await Stream.findById(req.body.streamId);
-
-        if (stream) {
-          console.log('Processing liveshow order for stream:', {
-            streamId: stream._id,
-            title: stream.title
-          });
-
-          // For each order, create an entry in the stream's orders array
-          for (const order of orders) {
-            // Get the first product from the order for simplicity
-            const firstItem = order.items[0];
-
-            // Add to the stream's orders array
-            stream.orders.push({
-              orderId: order.order_id,
-              buyer: order.buyerDetails,
-              orderDetails: {
-                _id: order._id,
-                order_id: order.order_id,
-                itemsCount: order.items.length,
-                totalAmount: order.totalAmount,
-                shippingFee: sellerItems[order.seller.toString()].shippingFee,
-                orderTotal: order.totalAmount + sellerItems[order.seller.toString()].shippingFee,
-                seller: order.seller,
-                items: order.items
-              },
-              product: firstItem.product,
-              amount: order.totalAmount,
-              createdAt: new Date()
-            });
-          }
-
-          // Save the stream with updated orders
-          await stream.save();
-
-
-          // Send a socket notification about the order for the stream
-          if (req.app && req.app.get('io')) {
-            const io = req.app.get('io');
-
-            // Helper function to format product name to only 3 words
-            function formatProductName(name) {
-              if (!name) return 'an item';
-              const words = name.split(' ');
-              return words.slice(0, 3).join(' ') + (words.length > 3 ? '...' : '');
-            }
-
-            // Create notification object for WebSocket
-            const notificationObj = {
-              id: Date.now().toString(),
-              type: 'liveshow_order',
-              user: buyer.username || 'Anonymous User',
-              avatar: buyer.profileImage?.url || '',
-              content: `purchased ${formatProductName(orders[0]?.items[0]?.productName || 'an item')} 🎉🎉`,
-              data: {
-                message: `New order placed during the liveshow`,
-                streamId: stream._id.toString(),
-                sellerId: stream.seller._id.toString(),
-                storeName: stream.seller.storeName || 'Unknown Store',
-                orders: orders,
-                streamOrders: stream.orders
-              },
-              timestamp: new Date()
-            };
-
-
-
-            // Send WebSocket notification
-            console.log('Broadcasting liveshow order notification to subscribers');
-            const streamRoom = `stream_notifications_${stream._id.toString()}`;
-            io.to(streamRoom).emit('stream_notification', notificationObj);
-
-            // Add the notification to stream chat interactions
-            stream.chatInteractions.push(notificationObj);
-            await stream.save();
-          } else {
-            console.warn('Could not send socket notification - io not available');
-          }
-
-          // track live show order event on mixpanel
-          mixpanel.track('live_show_order', {
-            streamId: stream._id,
-            buyerId: buyer.id,
-            productId: orders[0].items[0].product,
-            productName: orders[0].items[0].productName,
-            buyerName: buyer.firstName + " " + buyer.lastName,
-            buyerUsername: buyer.username,
-            orderId: orders[0].order_id,
-            orderTotal: orders[0].totalAmount,
-            orderDate: orders[0].createdAt,
-          });
-
-        } else {
-          console.warn('Stream not found for liveshow order:', req.body.streamId);
-        }
-      } catch (streamError) {
-        console.error('Error updating stream with order information:', streamError);
-        // Continue with the response even if stream update fails
-      }
+      setImmediate(() => {
+        processLiveStreamOrder(req.body.streamId, orders, liveShowOrders, sellerItems, buyer, req.app)
+          .catch(err => console.error('Background livestream processing error:', err));
+      });
     }
 
     // Return only the essential order data for the controller to process
@@ -300,26 +163,49 @@ exports.createOrder = async (req) => {
   }
 };
 
-async function groupItemsBySeller(items, products, buyerId, session) {
+async function groupItemsBySeller(items, products, buyerId, session, isStorePickup) {
   const sellerItems = {};
   let totalAmount = 0;
-  const uniqueSellers = new Set();
+  const uniqueSellerIds = new Set();
 
   const productMap = products.reduce((map, product) => {
     map[product._id.toString()] = product;
     return map;
   }, {});
 
+  // Extract unique seller IDs first
+  for (const item of items) {
+    const product = productMap[item.productId];
+    if (product) {
+      uniqueSellerIds.add(product.seller._id.toString());
+    }
+  }
+
+  // Batch fetch all sellers at once - eliminates N+1 query problem
+  const Seller = require('../../../models/Seller');
+  const sellers = await Seller.find({ _id: { $in: Array.from(uniqueSellerIds) } }).session(session);
+  const sellerMap = sellers.reduce((map, seller) => {
+    map[seller._id.toString()] = seller;
+    return map;
+  }, {});
+
+  // Validate sellers early
+  for (const [sellerId, seller] of Object.entries(sellerMap)) {
+    if (isStorePickup && !seller.offersStorePickup) {
+      throw new Error(`Seller ${seller.businessName} does not offer store pickup.`);
+    }
+  }
+
+  // Group items by seller
   for (const item of items) {
     const product = productMap[item.productId];
     if (!product) continue;
 
     const sellerId = product.seller._id.toString();
-    uniqueSellers.add(sellerId);
+    const seller = sellerMap[sellerId];
+    if (!seller) continue;
 
     if (!sellerItems[sellerId]) {
-      const seller = await orderRepository.findSellerById(sellerId, session);
-      if (!seller) continue; // Skip if seller not found
       sellerItems[sellerId] = initializeSellerData(seller, sellerId);
     }
 
@@ -328,7 +214,8 @@ async function groupItemsBySeller(items, products, buyerId, session) {
     updateSellerItems(sellerItems[sellerId], item, product, itemTotal);
   }
 
-  await updateSellerFollowers(uniqueSellers, buyerId, session);
+  // Optimize follower updates - use upsert to avoid read-before-write
+  await updateSellerFollowersOptimized(uniqueSellerIds, buyerId, session);
 
   return { sellerItems, totalAmount };
 }
@@ -385,18 +272,92 @@ function createOrderItem(product, item, itemWeight) {
   };
 }
 
-async function updateSellerFollowers(uniqueSellers, buyerId, session) {
-  for (const sellerId of uniqueSellers) {
-    const seller = await orderRepository.findSellerById(sellerId, session);
-    if (!seller) continue;
+// Optimized follower update using single upsert operation per seller
+async function updateSellerFollowersOptimized(uniqueSellerIds, buyerId, session) {
+  const Buyer = require('../../../models/Buyer');
+  const Seller = require('../../../models/Seller');
+  
+  // Fetch buyer once for all operations
+  const buyer = await Buyer.findById(buyerId).session(session);
+  if (!buyer) return;
 
-    const isFollower = seller.followers?.some(follower => follower.buyerId?.toString() === buyerId);
+  const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0 
+    ? {
+        country: buyer.shippingAddresses[0].country,
+        city: buyer.shippingAddresses[0].city,
+        address1: buyer.shippingAddresses[0].addressLine1,
+        address2: buyer.shippingAddresses[0].addressLine2,
+        zipCode: buyer.shippingAddresses[0].zipCode
+      }
+    : null;
 
-    if (!isFollower) {
-      await orderRepository.addFollower(sellerId, buyerId, session);
-    } else {
-      await orderRepository.updateFollower(sellerId, buyerId, session);
+  const updatePromises = [];
+  
+  for (const sellerId of uniqueSellerIds) {
+    // Use upsert with conditional operators for optimal performance
+    const updatePromise = Seller.findOneAndUpdate(
+      { 
+        _id: sellerId,
+        'followers.buyerId': { $ne: buyerId } // Only if not already a follower
+      },
+      {
+        $push: {
+          followers: {
+            buyerId,
+            firstName: buyer.firstName,
+            lastName: buyer.lastName,
+            username: buyer.username,
+            profileImage: buyer.profileImage,
+            email: buyer.email,
+            followDate: new Date(),
+            lastInteraction: new Date(),
+            totalOrders: 0,
+            address: mainAddress
+          }
+        }
+      },
+      { session }
+    ).catch(() => {
+      // If push fails (follower exists), update existing follower
+      return Seller.findOneAndUpdate(
+        {
+          _id: sellerId,
+          'followers.buyerId': buyerId
+        },
+        {
+          $inc: { 'followers.$.totalOrders': 1 },
+          $set: {
+            'followers.$.lastInteraction': new Date(),
+            'followers.$.address': mainAddress
+          }
+        },
+        { session }
+      );
+    });
+
+    updatePromises.push(updatePromise);
+
+    // Update buyer activity feed if applicable
+    if (buyer.activityFeed) {
+      const activityPromise = Seller.findById(sellerId).session(session).then(seller => {
+        if (seller && !buyer.activityFeed.some(a => a.reference?.toString() === sellerId)) {
+          buyer.activityFeed.push({
+            type: 'follow',
+            content: `Started following ${seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`}`,
+            reference: seller._id,
+            referenceModel: 'Seller',
+            createdAt: new Date()
+          });
+        }
+      });
+      updatePromises.push(activityPromise);
     }
+  }
+
+  await Promise.all(updatePromises);
+  
+  if (buyer.isModified()) {
+    await buyer.save({ session });
   }
 }
 
@@ -471,4 +432,87 @@ function getBuyerDetails(buyer) {
     username: buyer.username,
     profileImage: buyer.profileImage
   };
+}
+
+// Background processing for livestream orders - moved out of critical path
+async function processLiveStreamOrder(streamId, orders, liveShowOrders, sellerItems, buyer, app) {
+  try {
+    const Stream = mongoose.model('Stream');
+    const stream = await Stream.findById(streamId);
+
+    if (!stream) {
+      console.warn('Stream not found for liveshow order:', streamId);
+      return;
+    }
+
+    console.log('Processing liveshow order for stream:', {
+      streamId: stream._id,
+      title: stream.title
+    });
+
+    // Helper function to format product name to only 3 words
+    function formatProductName(name) {
+      if (!name) return 'an item';
+      const words = name.split(' ');
+      return words.slice(0, 3).join(' ') + (words.length > 3 ? '...' : '');
+    }
+
+    // Prepare notification object
+    const notificationObj = {
+      id: Date.now().toString(),
+      type: 'liveshow_order',
+      user: buyer.username || 'Anonymous User',
+      avatar: buyer.profileImage?.url || '',
+      content: `purchased ${formatProductName(orders[0]?.items[0]?.productName || 'an item')} 🎉🎉`,
+      data: {
+        message: `New order placed during the liveshow`,
+        streamId: stream._id.toString(),
+        sellerId: stream.seller._id.toString(),
+        storeName: stream.seller.storeName || 'Unknown Store',
+        orders: orders,
+        streamOrders: stream.orders
+      },
+      timestamp: new Date()
+    };
+
+    // Combine both updates into a single database operation
+    const ordersToAdd = liveShowOrders;
+    await Stream.findByIdAndUpdate(
+      streamId,
+      {
+        $push: {
+          orders: { $each: ordersToAdd },
+          chatInteractions: notificationObj
+        }
+      }
+    );
+
+    // Send WebSocket notification (non-blocking)
+    if (app && app.get('io')) {
+      const io = app.get('io');
+      const streamRoom = `stream_notifications_${stream._id.toString()}`;
+      io.to(streamRoom).emit('stream_notification', notificationObj);
+      console.log('Broadcasting liveshow order notification to subscribers');
+    } else {
+      console.warn('Could not send socket notification - io not available');
+    }
+
+    // Track live show order event on mixpanel (non-blocking)
+    setImmediate(() => {
+      mixpanel.track('live_show_order', {
+        streamId: stream._id,
+        buyerId: buyer.id,
+        productId: orders[0].items[0].product,
+        productName: orders[0].items[0].productName,
+        buyerName: buyer.firstName + " " + buyer.lastName,
+        buyerUsername: buyer.username,
+        orderId: orders[0].order_id,
+        orderTotal: orders[0].totalAmount,
+        orderDate: orders[0].createdAt,
+      });
+    });
+
+  } catch (streamError) {
+    console.error('Error updating stream with order information:', streamError);
+  }
 }
