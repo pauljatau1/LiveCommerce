@@ -2742,13 +2742,31 @@ agenda.define('stream_reminder_push', async (job) => {
       // Add email notification if email exists
       if (buyer.email) {
         const emailHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-            <h2 style="color: #333;">⏰ Starting Soon!</h2>
-            <p>Hi ${buyer.firstName || 'there'},</p>
-            <p>This is a reminder that <strong>${actualStoreName}</strong>'s live ${stream.type === 'auction' ? 'auction' : 'show'} is starting in 15 minutes:</p>
-            <p style="font-size: 16px; font-weight: bold;">${streamTitle}</p>
-            <p>Be ready to join when it starts!</p>
-            <p style="color: #666; font-size: 12px; margin-top: 20px;">
+          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; background-color: #ffffff; padding: 24px;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli" style="width: 100px; height: auto;">
+            </div>
+            <h2 style="color: #10b981; margin-top: 0; text-align: center;">⏰ Starting Soon!</h2>
+            <p style="font-size: 16px; line-height: 1.6;">Hi ${buyer.firstName || 'there'},</p>
+            <p style="font-size: 16px; line-height: 1.6;">This is a reminder that <strong>${actualStoreName}</strong>'s live ${stream.type === 'auction' ? 'auction' : 'show'} is starting in 15 minutes.</p>
+            <div style="background-color: #f9fafb; border-left: 4px solid #10b981; padding: 16px; margin: 24px 0;">
+              <p style="font-size: 18px; font-weight: bold; margin: 0; color: #111;">${streamTitle}</p>
+            </div>
+            <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">Be ready to join when it starts!</p>
+            
+            <div style="margin-bottom: 24px;">
+              <p style="font-size: 15px; font-weight: bold; color: #333; margin-bottom: 12px;">Why join?</p>
+              <ul style="list-style: none; padding: 0; margin: 0;">
+                <li style="margin-bottom: 8px; font-size: 14px; color: #555;">✨ Interactive shopping experience</li>
+                <li style="margin-bottom: 8px; font-size: 14px; color: #555;">🏷️ Exclusive live-only deals</li>
+                <li style="margin-bottom: 8px; font-size: 14px; color: #555;">💬 Chat directly with the host</li>
+              </ul>
+            </div>
+
+            <div style="text-align: center; margin-bottom: 32px;">
+              <span style="font-size: 16px; color: #10b981; font-weight: bold;">Open Auqli App → Live Shows</span>
+            </div>
+            <p style="color: #9ca3af; font-size: 12px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 24px;">
               You're receiving this because you have an account on Auqli.<br>
               To manage your notification preferences, visit your account settings.
             </p>
