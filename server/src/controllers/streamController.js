@@ -275,12 +275,18 @@ exports.createStream = async (req, res) => {
           hour12: true
         });
 
+        let skippedNoToken = 0;
+        let skippedPreferences = 0;
+
         for (const buyer of allBuyers) {
           // Respect buyer notification preferences for live shows
           const livePrefs = buyer.notificationPreferences?.liveShows || {};
           const wantsLiveShowNotifications = livePrefs.allShows !== false;
 
-          if (!wantsLiveShowNotifications) continue;
+          if (!wantsLiveShowNotifications) {
+            skippedPreferences++;
+            continue;
+          }
 
           // Add push notification if valid token exists
           if (buyer.expoPushToken && Expo.isExpoPushToken(buyer.expoPushToken)) {
@@ -300,6 +306,8 @@ exports.createStream = async (req, res) => {
               priority: 'high',
               channelId: 'live_streams'
             });
+          } else {
+            skippedNoToken++;
           }
 
           // Add email notification if email exists
@@ -329,7 +337,9 @@ exports.createStream = async (req, res) => {
                 </div>
 
                 <div style="text-align: center; margin-bottom: 32px;">
-                  <span style="font-size: 16px; color: #10b981; font-weight: bold;">Open Auqli App → Live Shows</span>
+                  <a href="https://app.auqli.live/live" style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; padding: 12px 24px; border-radius: 8px;">
+                    Join Now
+                  </a>
                 </div>
                 <p style="color: #9ca3af; font-size: 12px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 24px;">
                   You're receiving this because you have an account on Auqli.<br>
@@ -351,6 +361,14 @@ exports.createStream = async (req, res) => {
           }
         }
 
+        console.log(`[Stream Notifications] Stats:
+          - Total Buyers: ${allBuyers.length}
+          - Push Notifications Queued: ${scheduleNotifications.length}
+          - Skipped (No Token): ${skippedNoToken}
+          - Skipped (Preferences): ${skippedPreferences}
+          - Emails Queued: ${emailPromises.length}
+        `);
+
         // Send push notifications in batches using Expo's chunking
         if (scheduleNotifications.length > 0) {
           const chunks = expo.chunkPushNotifications(scheduleNotifications);
@@ -365,6 +383,7 @@ exports.createStream = async (req, res) => {
                   successCount++;
                 } else {
                   errorCount++;
+                  console.error(`[Stream] Push notification error details:`, ticket);
                 }
               });
             } catch (chunkError) {
@@ -372,6 +391,7 @@ exports.createStream = async (req, res) => {
               errorCount += chunk.length;
             }
           }
+          console.log(`[Stream] Push Delivery Results: Success: ${successCount}, Errors: ${errorCount}`);
 
           console.log('[Stream] Sent scheduled stream push notifications to all buyers', {
             streamId: stream._id?.toString(),
@@ -381,6 +401,8 @@ exports.createStream = async (req, res) => {
             scheduledStartTime: startDate.toISOString(),
             totalBuyers: allBuyers.length,
             notificationsSent: scheduleNotifications.length,
+            skippedNoToken,
+            skippedPreferences,
             successCount,
             errorCount
           });
@@ -853,13 +875,18 @@ exports.startStream = async (req, res) => {
           const globalNotifications = [];
           const emailPromises = [];
           const storeNameDisplay = seller.storeName || seller.businessName || 'A Seller';
+          let skippedNoToken = 0;
+          let skippedPreferences = 0;
 
           for (const buyer of allBuyers) {
             // Respect buyer notification preferences for live shows
             const livePrefs = buyer.notificationPreferences?.liveShows || {};
             const wantsLiveShowNotifications = livePrefs.allShows !== false;
 
-            if (!wantsLiveShowNotifications) continue;
+            if (!wantsLiveShowNotifications) {
+              skippedPreferences++;
+              continue;
+            }
 
             // Add push notification if valid token exists
             if (buyer.expoPushToken && Expo.isExpoPushToken(buyer.expoPushToken)) {
@@ -878,6 +905,8 @@ exports.startStream = async (req, res) => {
                 priority: 'high',
                 channelId: 'live_streams'
               });
+            } else {
+              skippedNoToken++;
             }
 
             // Add email notification if email exists
@@ -905,7 +934,9 @@ exports.startStream = async (req, res) => {
                   </div>
 
                   <div style="text-align: center; margin-bottom: 32px;">
-                    <span style="font-size: 16px; color: #ef4444; font-weight: bold;">Open Auqli App → Live Shows</span>
+                    <a href="https://app.auqli.live/live" style="display: inline-block; background-color: #ef4444; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; padding: 12px 24px; border-radius: 8px;">
+                      Join Now
+                    </a>
                   </div>
                   <p style="color: #9ca3af; font-size: 12px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 24px;">
                     You're receiving this because you have an account on Auqli.<br>
@@ -927,6 +958,15 @@ exports.startStream = async (req, res) => {
             }
           }
 
+
+          console.log(`[Stream Notifications] GLOBAL Stats:
+            - Total Buyers: ${allBuyers.length}
+            - Push Notifications Queued: ${globalNotifications.length}
+            - Skipped (No Token): ${skippedNoToken}
+            - Skipped (Preferences): ${skippedPreferences}
+            - Emails Queued: ${emailPromises.length}
+          `);
+
           // Send push notifications in batches using Expo's chunking
           if (globalNotifications.length > 0) {
             const chunks = expo.chunkPushNotifications(globalNotifications);
@@ -941,6 +981,7 @@ exports.startStream = async (req, res) => {
                     successCount++;
                   } else {
                     errorCount++;
+                    console.error(`[Stream] Global Push notification error details:`, ticket);
                   }
                 });
               } catch (chunkError) {
@@ -955,6 +996,8 @@ exports.startStream = async (req, res) => {
               storeName: seller.storeName,
               totalBuyers: allBuyers.length,
               notificationsSent: globalNotifications.length,
+              skippedNoToken,
+              skippedPreferences,
               successCount,
               errorCount,
               excludedAlreadyNotified: alreadyNotifiedBuyerIds.size
@@ -2356,15 +2399,23 @@ exports.createOpenLiveShow = async (req, res) => {
           hour12: true
         });
 
+        let skippedNoToken = 0;
+        let skippedPreferences = 0;
+        const tokenToBuyerMap = {};
+
         for (const buyer of allBuyers) {
           // Respect buyer notification preferences for live shows
           const livePrefs = buyer.notificationPreferences?.liveShows || {};
           const wantsLiveShowNotifications = livePrefs.allShows !== false;
 
-          if (!wantsLiveShowNotifications) continue;
+          if (!wantsLiveShowNotifications) {
+            skippedPreferences++;
+            continue;
+          }
 
           // Add push notification if valid token exists
           if (buyer.expoPushToken && Expo.isExpoPushToken(buyer.expoPushToken)) {
+            tokenToBuyerMap[buyer.expoPushToken] = { email: buyer.email, id: buyer._id, firstName: buyer.firstName };
             scheduleNotifications.push({
               to: buyer.expoPushToken,
               sound: 'default',
@@ -2381,6 +2432,8 @@ exports.createOpenLiveShow = async (req, res) => {
               priority: 'high',
               channelId: 'live_streams'
             });
+          } else {
+            skippedNoToken++;
           }
 
           // Add email notification if email exists
@@ -2423,7 +2476,9 @@ exports.createOpenLiveShow = async (req, res) => {
                 </div>
 
                 <div style="text-align: center; margin-bottom: 32px;">
-                  <span style="font-size: 16px; color: #10b981; font-weight: bold;">Open Auqli App → Live Shows</span>
+                  <a href="https://app.auqli.live/live" style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; padding: 12px 24px; border-radius: 8px;">
+                    Join Now
+                  </a>
                 </div>
                 <p style="color: #9ca3af; font-size: 12px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 24px;">
                   You're receiving this because you have an account on Auqli.<br>
@@ -2454,11 +2509,14 @@ exports.createOpenLiveShow = async (req, res) => {
           for (const chunk of chunks) {
             try {
               const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-              ticketChunk.forEach((ticket) => {
+              ticketChunk.forEach((ticket, index) => {
                 if (ticket.status === 'ok') {
                   successCount++;
                 } else {
                   errorCount++;
+                  const token = chunk[index].to;
+                  const buyerDetails = tokenToBuyerMap[token];
+                  console.error(`[Stream] Push notification error for buyer ${buyerDetails?.email || 'unknown'} (ID: ${buyerDetails?.id}):`, ticket);
                 }
               });
             } catch (chunkError) {
@@ -2475,6 +2533,8 @@ exports.createOpenLiveShow = async (req, res) => {
             scheduledStartTime: startDate.toISOString(),
             totalBuyers: allBuyers.length,
             notificationsSent: scheduleNotifications.length,
+            skippedNoToken: skippedNoToken,
+            skippedPreferences: skippedPreferences,
             successCount,
             errorCount
           });

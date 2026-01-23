@@ -2764,7 +2764,9 @@ agenda.define('stream_reminder_push', async (job) => {
             </div>
 
             <div style="text-align: center; margin-bottom: 32px;">
-              <span style="font-size: 16px; color: #10b981; font-weight: bold;">Open Auqli App → Live Shows</span>
+              <a href="https://app.auqli.live/live" style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; padding: 12px 24px; border-radius: 8px;">
+                Join Now
+              </a>
             </div>
             <p style="color: #9ca3af; font-size: 12px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 24px;">
               You're receiving this because you have an account on Auqli.<br>
