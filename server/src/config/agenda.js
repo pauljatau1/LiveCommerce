@@ -2660,6 +2660,191 @@ agenda.define('stream_reminder_sms', async (job) => {
   }
 });
 
+// Define the job for sending push notification and email reminders 15 minutes before stream starts
+agenda.define('stream_reminder_push', async (job) => {
+  try {
+    const { streamId, sellerId, storeName, title } = job.attrs.data;
+
+    if (!streamId) {
+      console.error('[AGENDA] No streamId provided for stream_reminder_push job');
+      return;
+    }
+
+    console.log(`[AGENDA] Running stream reminder (push + email) job for streamId: ${streamId}`);
+
+    // Import required models and services
+    const Stream = mongoose.model('Stream');
+    const Buyer = mongoose.model('Buyer');
+    const { Expo } = require('expo-server-sdk');
+    const expo = new Expo();
+    const termiiEmailService = require('../services/termiiEmailService');
+
+    // Fetch the stream to ensure it's still scheduled and hasn't been cancelled
+    const stream = await Stream.findById(streamId);
+
+    if (!stream) {
+      console.log(`[AGENDA] Stream ${streamId} not found, skipping reminder`);
+      return;
+    }
+
+    // Only send reminder if stream is still scheduled (not cancelled, ended, or already live)
+    if (stream.status !== 'scheduled') {
+      console.log(`[AGENDA] Stream ${streamId} is no longer scheduled (status: ${stream.status}), skipping reminder`);
+      return;
+    }
+
+    // Fetch all buyers (with emails or push tokens)
+    const allBuyers = await Buyer.find({
+      $or: [
+        { expoPushToken: { $exists: true, $ne: null, $ne: '' } },
+        { email: { $exists: true, $ne: null, $ne: '' } }
+      ]
+    })
+      .select('_id email firstName expoPushToken notificationPreferences')
+      .lean();
+
+    if (!allBuyers || allBuyers.length === 0) {
+      console.log(`[AGENDA] No buyers to notify for stream ${streamId}`);
+      return;
+    }
+
+    const reminderNotifications = [];
+    const emailPromises = [];
+    const actualStoreName = storeName || 'A Seller';
+    const streamTitle = title || stream.title || 'Live Stream';
+
+    for (const buyer of allBuyers) {
+      // Respect buyer notification preferences for live shows
+      const livePrefs = buyer.notificationPreferences?.liveShows || {};
+      const wantsLiveShowNotifications = livePrefs.allShows !== false;
+
+      if (!wantsLiveShowNotifications) continue;
+
+      // Add push notification if valid token exists
+      if (buyer.expoPushToken && Expo.isExpoPushToken(buyer.expoPushToken)) {
+        reminderNotifications.push({
+          to: buyer.expoPushToken,
+          sound: 'default',
+          title: `⏰ ${actualStoreName} is Going Live in 15 Minutes!`,
+          body: `"${streamTitle}" is about to start! Get ready to join the ${stream.type === 'auction' ? 'auction' : 'live show'}!`,
+          data: {
+            streamId: stream._id.toString(),
+            streamType: stream.type,
+            sellerId: sellerId || stream.seller.toString(),
+            action: 'view_scheduled_stream',
+            type: 'stream_reminder_15min'
+          },
+          priority: 'high',
+          channelId: 'live_streams'
+        });
+      }
+
+      // Add email notification if email exists
+      if (buyer.email) {
+        const emailHtml = `
+          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; background-color: #ffffff; padding: 24px;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli" style="width: 100px; height: auto;">
+            </div>
+            <h2 style="color: #10b981; margin-top: 0; text-align: center;">⏰ Starting Soon!</h2>
+            <p style="font-size: 16px; line-height: 1.6;">Hi ${buyer.firstName || 'there'},</p>
+            <p style="font-size: 16px; line-height: 1.6;">This is a reminder that <strong>${actualStoreName}</strong>'s live ${stream.type === 'auction' ? 'auction' : 'show'} is starting in 15 minutes.</p>
+            <div style="background-color: #f9fafb; border-left: 4px solid #10b981; padding: 16px; margin: 24px 0;">
+              <p style="font-size: 18px; font-weight: bold; margin: 0; color: #111;">${streamTitle}</p>
+            </div>
+            <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">Be ready to join when it starts!</p>
+            
+            <div style="margin-bottom: 24px;">
+              <p style="font-size: 15px; font-weight: bold; color: #333; margin-bottom: 12px;">Why join?</p>
+              <ul style="list-style: none; padding: 0; margin: 0;">
+                <li style="margin-bottom: 8px; font-size: 14px; color: #555;">✨ Interactive shopping experience</li>
+                <li style="margin-bottom: 8px; font-size: 14px; color: #555;">🏷️ Exclusive live-only deals</li>
+                <li style="margin-bottom: 8px; font-size: 14px; color: #555;">💬 Chat directly with the host</li>
+              </ul>
+            </div>
+
+            <div style="text-align: center; margin-bottom: 32px;">
+              <a href="https://app.auqli.live/live" style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; padding: 12px 24px; border-radius: 8px;">
+                Join Now
+              </a>
+            </div>
+            <p style="color: #9ca3af; font-size: 12px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 24px;">
+              You're receiving this because you have an account on Auqli.<br>
+              To manage your notification preferences, visit your account settings.
+            </p>
+          </div>
+        `;
+
+        emailPromises.push(
+          termiiEmailService.sendRawHTMLEmail({
+            email: buyer.email,
+            subject: `⏰ Reminder: ${actualStoreName}'s live show starts soon`,
+            html: emailHtml
+          }).catch(err => {
+            console.error(`[AGENDA] Failed to send 15-min reminder email to ${buyer.email}:`, err.message);
+            return null;
+          })
+        );
+      }
+    }
+
+    // Send push notifications in batches using Expo's chunking
+    if (reminderNotifications.length > 0) {
+      const chunks = expo.chunkPushNotifications(reminderNotifications);
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const chunk of chunks) {
+        try {
+          const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+          ticketChunk.forEach((ticket) => {
+            if (ticket.status === 'ok') {
+              successCount++;
+            } else {
+              errorCount++;
+            }
+          });
+        } catch (chunkError) {
+          console.error('[AGENDA] Error sending reminder push notification chunk:', chunkError);
+          errorCount += chunk.length;
+        }
+      }
+
+      console.log(`[AGENDA] Sent 15-minute reminder push notifications for stream ${streamId}`, {
+        streamId,
+        storeName: actualStoreName,
+        title: streamTitle,
+        totalBuyers: allBuyers.length,
+        notificationsSent: reminderNotifications.length,
+        successCount,
+        errorCount
+      });
+    } else {
+      console.log(`[AGENDA] No reminder push notifications sent for stream ${streamId} (all opted out or no valid tokens)`, {
+        streamId,
+        totalBuyers: allBuyers.length
+      });
+    }
+
+    // Send emails in parallel
+    if (emailPromises.length > 0) {
+      const emailResults = await Promise.allSettled(emailPromises);
+      const successfulEmails = emailResults.filter(r => r.status === 'fulfilled' && r.value).length;
+      const failedEmails = emailResults.filter(r => r.status === 'rejected' || !r.value).length;
+      console.log(`[AGENDA] Sent 15-minute reminder emails for stream ${streamId}`, {
+        streamId,
+        totalEmails: emailPromises.length,
+        successfulEmails,
+        failedEmails
+      });
+    }
+
+    console.log(`[AGENDA] Stream reminder (push + email) job completed for streamId: ${streamId}`);
+  } catch (error) {
+    console.error('[AGENDA] Error in stream_reminder_push job:', error);
+  }
+});
+
 // Define the job for stream auto end
 agenda.define('stream_auto_end', async (job) => {
   let streamId;
