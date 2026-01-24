@@ -203,15 +203,22 @@ describe('Resend OTP Service', () => {
       expect(Seller.findOne).toHaveBeenCalledWith({ email: validEmail });
     });
 
-    it('should throw error when email is already verified', async () => {
+    it('should successfully resend OTP even when email is already verified', async () => {
       // Arrange
-      const verifiedSeller = { ...mockSeller, emailVerified: true };
+      const verifiedSeller = { ...mockSeller, emailVerified: true, save: jest.fn().mockResolvedValue(true) };
       Seller.findOne.mockResolvedValue(verifiedSeller);
 
-      // Act & Assert
-      await expect(resendOTPService.resendOTP(validEmail))
-        .rejects.toThrow('Email is already verified');
+      // Act
+      const result = await resendOTPService.resendOTP(validEmail);
+
+      // Assert
+      expect(result).toEqual({
+        message: 'OTP resent successfully'
+      });
       expect(Seller.findOne).toHaveBeenCalledWith({ email: validEmail });
+      expect(verifiedSeller.otp).toMatch(/^\d{4}$/);
+      expect(verifiedSeller.save).toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).toHaveBeenCalled();
     });
 
     it('should handle database save errors', async () => {

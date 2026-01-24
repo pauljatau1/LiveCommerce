@@ -13,7 +13,6 @@ const resendOTPService = require('@modules/seller/services/resendOTP.service');
 
 const ValidationError = require('@utils/errors/ValidationError');
 const NotFoundException = require('@utils/errors/NotFoundException');
-const BadRequestException = require('@utils/errors/BadRequestException');
 
 describe('Seller Controller - Resend OTP', () => {
   beforeEach(() => {
@@ -116,25 +115,6 @@ describe('Seller Controller - Resend OTP', () => {
       expect(response.body).toEqual({
         success: false,
         message: 'Seller not found'
-      });
-      expect(resendOTPService.resendOTP).toHaveBeenCalledWith(validResendOTPData.email);
-    });
-
-    it('should return 400 when email is already verified', async () => {
-      // Arrange
-      const alreadyVerifiedError = new BadRequestException('Email is already verified');
-      resendOTPService.resendOTP.mockRejectedValue(alreadyVerifiedError);
-
-      // Act
-      const response = await request(app)
-        .post('/api/v2/sellers/resend-otp')
-        .send(validResendOTPData);
-
-      // Assert
-      expect(response.status).toBe(400);
-      expect(response.body).toEqual({
-        success: false,
-        message: 'Email is already verified'
       });
       expect(resendOTPService.resendOTP).toHaveBeenCalledWith(validResendOTPData.email);
     });
