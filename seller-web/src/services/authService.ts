@@ -22,7 +22,7 @@ const AUTH_ENDPOINTS = {
   forgotPassword: "/seller/forgot-password",
   resetPassword: "/seller/reset-password",
   verifyOtp: "/sellers/verify-otp",
-  requestOtp: "/sellers/request-otp",
+  requestOtp: "/sellers/resend-otp",
   checkTokenValidity: "/sellers/check-token",
   googleAuth: "/sellers/google-auth",
   getTop3SellingProducts: "/sellers/top-3-selling-products",
