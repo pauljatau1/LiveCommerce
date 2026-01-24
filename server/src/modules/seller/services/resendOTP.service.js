@@ -217,12 +217,6 @@ async function resendOTP(email) {
     throw new NotFoundException('Seller not found');
   }
 
-  // Step 3: Check if email is already verified
-  // This prevents unnecessary OTP generation for verified emails
-  if (seller.emailVerified) {
-    throw new BadRequestException('Email is already verified');
-  }
-
   // Step 4: Generate a secure 4-digit OTP
   // This OTP will be sent to the user's email for verification
   const otp = generateOTP();
