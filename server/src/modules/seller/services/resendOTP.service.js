@@ -37,7 +37,6 @@
 const Seller = require('../../../models/Seller');
 const termiiEmailService = require('../../../services/termiiEmailService');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
-const BadRequestException = require('../../../utils/errors/BadRequestException');
 const { validateResendOTPData } = require('../validators/resendOTP.validator');
 const { generateOTP } = require('../../../utils/helpers');
 const fs = require('fs');
@@ -161,11 +160,10 @@ async function updateSellerOTP(seller, otp) {
  * Business Logic Flow:
  * 1. Validates the input data (email format and requirements)
  * 2. Finds the seller by email address
- * 3. Checks if email is already verified
- * 4. Generates a secure 4-digit OTP
- * 5. Updates the seller's OTP in the database
- * 6. Sends OTP email notification
- * 7. Returns success confirmation
+ * 3. Generates a secure 4-digit OTP
+ * 4. Updates the seller's OTP in the database
+ * 5. Sends OTP email notification
+ * 6. Returns success confirmation
  *
  * Security Features:
  * - Comprehensive input validation before processing
@@ -192,7 +190,6 @@ async function updateSellerOTP(seller, otp) {
  *   - message: {string} - Success message confirming OTP sent
  * @throws {Error} If input validation fails (invalid email)
  * @throws {NotFoundException} If seller is not found
- * @throws {Error} If email is already verified
  * @throws {Error} If database operations or email sending fails
  *
  * @example
@@ -217,19 +214,19 @@ async function resendOTP(email) {
     throw new NotFoundException('Seller not found');
   }
 
-  // Step 4: Generate a secure 4-digit OTP
+  // Step 3: Generate a secure 4-digit OTP
   // This OTP will be sent to the user's email for verification
   const otp = generateOTP();
 
-  // Step 5: Update seller's OTP in the database
+  // Step 4: Update seller's OTP in the database
   // This stores the new OTP for later verification
   await updateSellerOTP(seller, otp);
 
-  // Step 6: Send OTP email notification
+  // Step 5: Send OTP email notification
   // This ensures the user receives the verification code
   await sendOTPEmail(email, otp, seller.firstName);
 
-  // Step 7: Return success response
+  // Step 6: Return success response
   // Note: We don't return the OTP in the response for security reasons
   return {
     message: 'OTP resent successfully'
