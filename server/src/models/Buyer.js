@@ -244,6 +244,12 @@ const buyerSchema = new mongoose.Schema({
     },
     transactions: [transactionSchema]
   },
+  agoraToken: {
+    type: String
+  },
+  agoraUid: {
+    type: Number
+  }
 });
 
 // Middleware to update isNew property after 3 days

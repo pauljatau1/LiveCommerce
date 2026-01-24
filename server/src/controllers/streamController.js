@@ -1586,6 +1586,77 @@ exports.getStreamDetails = async (req, res) => {
   }
 };
 
+exports.getBuyerStreamDetails = async (req, res) => {
+  console.log(`[DEBUG] getBuyerStreamDetails called with streamId: ${req.params.streamId}`);
+  try {
+    let stream = await Stream.findById(req.params.streamId)
+      .populate('seller', 'storeName businessName storeAvatar rating followers')
+      .populate('products.product', 'name description images price stock sku variants')
+      .populate('products.currentBidder', 'firstName lastName username email')
+      .populate('viewers', 'firstName lastName username avatarUrl')
+      .lean(); // Convert to plain JavaScript object
+
+    if (!stream) {
+      return res.status(404).json({ message: 'Stream not found' });
+    }
+
+    // Calculate expiration times for scheduled streams
+    const now = new Date();
+    const ONE_HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
+
+    if (stream.status === 'scheduled' && stream.scheduledStartTime) {
+      const expirationTime = new Date(stream.scheduledStartTime.getTime() + ONE_HOUR);
+      if (now > expirationTime) {
+        stream.status = 'expired';
+        await Stream.findByIdAndUpdate(stream._id, { status: 'expired' });
+      }
+    }
+
+    // Get all viewers with detailed information
+    const detailedViewers = await Buyer.find(
+      { _id: { $in: stream.viewers || [] } }
+    ).select('_id firstName lastName username profileImage avatarUrl').lean();
+
+    // Fetch buyer's agoraToken and agoraUid
+    const buyer = await Buyer.findById(req.user.id).select('agoraToken agoraUid').lean();
+
+    // Remove sensitive fields
+    const { __v, agoraToken, ...streamData } = stream;
+
+    // Get total product count before limiting
+    const totalProductCount = stream.products ? stream.products.length : 0;
+
+    res.json({
+      message: 'Successfully fetched stream details',
+      success: true,
+      channelName: stream.channelName,
+      token: buyer?.agoraToken || null,
+      uid: buyer?.agoraUid || null,
+      stream: {
+        ...streamData,
+        viewerCount: stream.viewers ? stream.viewers.length : 0,
+        isLive: stream.status === 'live',
+        products: stream.products ? stream.products.slice(0, 70).map(product => ({
+          ...product,
+          currentBid: product.currentBid,
+          minBid: product.minBid,
+          maxBid: product.maxBid,
+          currentBidder: product.currentBidder
+        })) : [],
+        totalProductCount,
+        viewers: detailedViewers,
+        sellerFollowers: stream.seller?.followers?.length || 0
+      }
+    });
+  } catch (error) {
+    console.error(`[DEBUG] Error in getBuyerStreamDetails:`, error);
+    res.status(500).json({
+      message: 'Failed to fetch stream details',
+      error: error.message
+    });
+  }
+};
+
 exports.joinStream = async (req, res) => {
   try {
     // First check if the stream exists (regardless of status)
@@ -1655,6 +1726,16 @@ exports.joinStream = async (req, res) => {
       RtcRole.SUBSCRIBER
     );
 
+    // Update buyer's agoraToken and agoraUid
+    await Buyer.findByIdAndUpdate(
+      req.user.id,
+      {
+        $set: {
+          agoraToken: token,
+          agoraUid: tokenUid
+        }
+      }
+    );
 
     // Add user to viewers if not already there and remove from departedViewers if they rejoin
     // Important: Update database first before continuing
