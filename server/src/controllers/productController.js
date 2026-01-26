@@ -1354,8 +1354,20 @@ exports.searchProducts = async (req, res) => {
       .skip(skip)
       .limit(limit);
 
+    // Clamp soldCount
+    const productsWithStats = products.map(product => {
+      const productObj = product.toObject();
+      return {
+        ...productObj,
+        stats: {
+          ...productObj.stats,
+          soldCount: Math.max(0, productObj.stats?.soldCount || 0)
+        }
+      };
+    });
+
     res.json({
-      products,
+      products: productsWithStats,
       pagination: {
         total: totalProducts,
         page,
@@ -1630,8 +1642,16 @@ exports.deepSearchProducts = async (req, res) => {
         .limit(limit);
     }
 
+    const productsWithStats = searchResults.map(product => {
+      const productObj = product.toObject ? product.toObject() : product;
+      if (productObj.stats) {
+        productObj.stats.soldCount = Math.max(0, productObj.stats.soldCount || 0);
+      }
+      return productObj;
+    });
+
     return res.json({
-      products: searchResults,
+      products: productsWithStats,
       pagination: {
         total,
         page,
@@ -1728,7 +1748,18 @@ exports.getBestSellingProducts = async (req, res) => {
       { $project: { 'seller.password': 0 } },
     ]);
 
-    res.json(products);
+    // Clamp soldCount
+    const productsWithStats = products.map(product => {
+      return {
+        ...product, // Aggregation result is POJO, not Mongoose doc
+        stats: {
+          ...product.stats,
+          soldCount: Math.max(0, product.stats?.soldCount || 0)
+        }
+      };
+    });
+
+    res.json(productsWithStats);
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve best selling products', error: error.message });
   }
@@ -1746,7 +1777,19 @@ exports.getProductsBySelectedCategories = async (req, res) => {
       .populate('seller', 'name avatarUrl about')
       .populate('reviews.buyer', 'firstName lastName');
 
-    res.json(products);
+    // Clamp soldCount
+    const productsWithStats = products.map(product => {
+      const productObj = product.toObject();
+      return {
+        ...productObj,
+        stats: {
+          ...productObj.stats,
+          soldCount: Math.max(0, productObj.stats?.soldCount || 0)
+        }
+      };
+    });
+
+    res.json(productsWithStats);
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve products', error: error.message });
   }
@@ -1776,7 +1819,19 @@ exports.getBuyerFeedProducts = async (req, res) => {
       .populate('seller', 'name avatarUrl about offersStorePickup')
       .populate('reviews.buyer', 'firstName lastName');
 
-    res.json(products);
+    // Clamp soldCount
+    const productsWithStats = products.map(product => {
+      const productObj = product.toObject();
+      return {
+        ...productObj,
+        stats: {
+          ...productObj.stats,
+          soldCount: Math.max(0, productObj.stats?.soldCount || 0)
+        }
+      };
+    });
+
+    res.json(productsWithStats);
   } catch (error) {
     res.status(500).json({ message: 'Failed to retrieve feed products', error: error.message });
   }
@@ -1834,7 +1889,8 @@ exports.getTrendingProducts = async (req, res) => {
       return {
         ...productObj,
         averageRating: productObj.stats?.averageRating || null,
-        reviewCount: productObj.stats?.totalReviews || 0
+        reviewCount: productObj.stats?.totalReviews || 0,
+        soldCount: Math.max(0, productObj.stats?.soldCount || 0)
       };
     });
 
@@ -1935,8 +1991,20 @@ exports.getProductsByCategory = async (req, res) => {
 
     const total = await Product.countDocuments(query);
 
+    // Clamp soldCount
+    const productsWithStats = products.map(product => {
+      const productObj = product.toObject();
+      return {
+        ...productObj,
+        stats: {
+          ...productObj.stats,
+          soldCount: Math.max(0, productObj.stats?.soldCount || 0)
+        }
+      };
+    });
+
     res.json({
-      products,
+      products: productsWithStats,
       currentPage: parseInt(page),
       totalPages: Math.ceil(total / limit),
       totalProducts: total,
@@ -2203,6 +2271,10 @@ exports.getSellerProducts = async (req, res) => {
           discountedPrice: product.discountedPrice,
           blips: blipsWithLinks,
           stock: product.stock,
+          stats: {
+            ...product.stats,
+            soldCount: Math.max(0, product.stats?.soldCount || 0)
+          },
           // Add product and blip links
           productLink: `${baseUrl}/products/${product._id}`,
           blipLink: firstBlip ? `${baseUrl}/products/${product._id}/blips/${firstBlip._id}` : null,
