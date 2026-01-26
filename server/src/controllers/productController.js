@@ -20,11 +20,11 @@ const baseUrl = process.env.STORE_URL;
 exports.createProduct = async (req, res) => {
   try {
     const sellerId = req.user.id;
-    
+
     // Validate required fields
     const requiredFields = ['name', 'description', 'price', 'category', 'stock',];
     const missingFields = requiredFields.filter(field => !req.body[field]);
-    
+
     if (missingFields.length > 0) {
       return res.status(400).json({
         message: `Missing required fields: ${missingFields.join(', ')}`
@@ -68,8 +68,8 @@ exports.createProduct = async (req, res) => {
         sub => sub.name === parsedBody.subCategory
       );
       if (!validSubCategory) {
-        return res.status(400).json({ 
-          message: 'Invalid subcategory for the selected category' 
+        return res.status(400).json({
+          message: 'Invalid subcategory for the selected category'
         });
       }
     }
@@ -81,7 +81,7 @@ exports.createProduct = async (req, res) => {
       imagesToProcess = req.body.images;
     }
 
-        // Process variant images - will be processed after product is saved
+    // Process variant images - will be processed after product is saved
     let variantsToProcess = [];
     if (req.body.variants && Array.isArray(req.body.variants)) {
       variantsToProcess = req.body.variants;
@@ -94,7 +94,7 @@ exports.createProduct = async (req, res) => {
       images: imagesLinks,
     });
 
-    await newProduct.save();    
+    await newProduct.save();
 
     // Process main product images with resizing after product is saved
     if (imagesToProcess.length > 0) {
@@ -105,58 +105,128 @@ exports.createProduct = async (req, res) => {
           console.error('Invalid base64 data for main product image:', image);
           throw new Error('Invalid base64 data');
         }
-        
+
         const buffer = Buffer.from(base64Data, 'base64');
         const fileName = uuidv4();
         const basePath = `sellers/${sellerId}/products/${newProduct._id}/images`;
-        
+
         // Upload original and resized versions using the utility function
         const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
-        
+
         return {
           url: uploadResults.original.url,
           resizedImages: uploadResults.resizedImages
         };
       });
-      
+
       imagesLinks = await Promise.all(imageProcessingPromises);
-      
+
       // Update product with processed image URLs
       newProduct.images = imagesLinks;
       await newProduct.save();
     }
 
-            // Process variant images with resizing after product is saved
-        if (variantsToProcess.length > 0) {
-          // Save variants to get their auto-generated IDs
-          newProduct.variants = variantsToProcess;
-          await newProduct.save();
-          
-          // Now process images with the auto-generated variant IDs
-          const processedVariants = await Promise.all(newProduct.variants.map(async (variant) => {
-            // Process main variant images
-            let variantImages = [];
-            if (variant?.images?.length > 0 && Array.isArray(variant.images)) {
-              const variantImagePromises = variant.images.map(async (image) => {
+    // Process variant images with resizing after product is saved
+    if (variantsToProcess.length > 0) {
+      // Save variants to get their auto-generated IDs
+      newProduct.variants = variantsToProcess;
+      await newProduct.save();
+
+      // Now process images with the auto-generated variant IDs
+      const processedVariants = await Promise.all(newProduct.variants.map(async (variant) => {
+        // Process main variant images
+        let variantImages = [];
+        if (variant?.images?.length > 0 && Array.isArray(variant.images)) {
+          const variantImagePromises = variant.images.map(async (image) => {
+            if (!image?.data) {
+              console.log('Skipping variant image processing - no image data');
+              return null;
+            }
+
+            // Handle base64 data with optional prefix
+            const base64Data = image.data.split(',')[1] || image.data;
+            if (!base64Data) {
+              console.error('Invalid base64 data for variant image:', image);
+              return null;
+            }
+
+            const buffer = Buffer.from(base64Data, 'base64');
+            const fileName = uuidv4();
+            const basePath = `sellers/${sellerId}/products/${newProduct._id}/variants/${variant._id}/images`;
+
+            // Upload original and resized versions using the utility function
+            const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
+
+            return {
+              data: uploadResults.original.url,
+              contentType: image.contentType,
+              isDefault: image.isDefault || false,
+              resizedImages: uploadResults.resizedImages
+            };
+          });
+
+          variantImages = (await Promise.all(variantImagePromises)).filter(img => img !== null);
+        }
+
+        // Process subvariants
+        const processedSubVariants = await Promise.all((variant.subVariants || []).map(async (subVariant) => {
+
+          let subVariantImages = [];
+          if (subVariant?.images?.length > 0 && Array.isArray(subVariant.images)) {
+            const subVariantImagePromises = subVariant.images.map(async (image) => {
+              if (!image?.data) {
+                console.log('Skipping subvariant image processing - no image data');
+                return null;
+              }
+
+              const base64Data = image.data.split(',')[1] || image.data;
+              if (!base64Data) {
+                console.error('Invalid base64 data for subvariant image:', image);
+                return null;
+              }
+
+              const buffer = Buffer.from(base64Data, 'base64');
+              const fileName = uuidv4();
+              const basePath = `sellers/${sellerId}/products/${newProduct._id}/variants/${subVariant._id}/images`;
+
+              // Upload original and resized versions using the utility function
+              const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
+
+              return {
+                data: uploadResults.original.url,
+                contentType: image.contentType,
+                isDefault: image.isDefault || false,
+                resizedImages: uploadResults.resizedImages
+              };
+            });
+
+            subVariantImages = (await Promise.all(subVariantImagePromises)).filter(img => img !== null);
+          }
+
+          // Process subsubvariants
+          const processedSubSubVariants = await Promise.all((subVariant.subSubVariants || []).map(async (subSubVariant) => {
+
+            let subSubVariantImages = [];
+            if (subSubVariant?.images?.length > 0 && Array.isArray(subSubVariant.images)) {
+              const subSubVariantImagePromises = subSubVariant.images.map(async (image) => {
                 if (!image?.data) {
-                  console.log('Skipping variant image processing - no image data');
+                  console.log('Skipping subsubvariant image processing - no image data');
                   return null;
                 }
-    
-                // Handle base64 data with optional prefix
+
                 const base64Data = image.data.split(',')[1] || image.data;
                 if (!base64Data) {
-                  console.error('Invalid base64 data for variant image:', image);
+                  console.error('Invalid base64 data for subsubvariant image:', image);
                   return null;
                 }
-    
+
                 const buffer = Buffer.from(base64Data, 'base64');
                 const fileName = uuidv4();
-                const basePath = `sellers/${sellerId}/products/${newProduct._id}/variants/${variant._id}/images`;
-                
+                const basePath = `sellers/${sellerId}/products/${newProduct._id}/variants/${subSubVariant._id}/images`;
+
                 // Upload original and resized versions using the utility function
                 const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
-                
+
                 return {
                   data: uploadResults.original.url,
                   contentType: image.contentType,
@@ -164,104 +234,34 @@ exports.createProduct = async (req, res) => {
                   resizedImages: uploadResults.resizedImages
                 };
               });
-              
-              variantImages = (await Promise.all(variantImagePromises)).filter(img => img !== null);
+
+              subSubVariantImages = (await Promise.all(subSubVariantImagePromises)).filter(img => img !== null);
             }
-      
-                                    // Process subvariants
-              const processedSubVariants = await Promise.all((variant.subVariants || []).map(async (subVariant) => {
-                
-                let subVariantImages = [];
-              if (subVariant?.images?.length > 0 && Array.isArray(subVariant.images)) {
-                const subVariantImagePromises = subVariant.images.map(async (image) => {
-                  if (!image?.data) {
-                    console.log('Skipping subvariant image processing - no image data');
-                    return null;
-                  }
-    
-                  const base64Data = image.data.split(',')[1] || image.data;
-                  if (!base64Data) {
-                    console.error('Invalid base64 data for subvariant image:', image);
-                    return null;
-                  }
-    
-                  const buffer = Buffer.from(base64Data, 'base64');
-                  const fileName = uuidv4();
-                  const basePath = `sellers/${sellerId}/products/${newProduct._id}/variants/${subVariant._id}/images`;
-                  
-                  // Upload original and resized versions using the utility function
-                  const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
-                  
-                  return {
-                    data: uploadResults.original.url,
-                    contentType: image.contentType,
-                    isDefault: image.isDefault || false,
-                    resizedImages: uploadResults.resizedImages
-                  };
-                });
-                
-                subVariantImages = (await Promise.all(subVariantImagePromises)).filter(img => img !== null);
-              }
-      
-              // Process subsubvariants
-              const processedSubSubVariants = await Promise.all((subVariant.subSubVariants || []).map(async (subSubVariant) => {
-                
-                let subSubVariantImages = [];
-                if (subSubVariant?.images?.length > 0 && Array.isArray(subSubVariant.images)) {
-                  const subSubVariantImagePromises = subSubVariant.images.map(async (image) => {
-                    if (!image?.data) {
-                      console.log('Skipping subsubvariant image processing - no image data');
-                      return null;
-                    }
-    
-                    const base64Data = image.data.split(',')[1] || image.data;
-                    if (!base64Data) {
-                      console.error('Invalid base64 data for subsubvariant image:', image);
-                      return null;
-                    }
-    
-                    const buffer = Buffer.from(base64Data, 'base64');
-                    const fileName = uuidv4();
-                    const basePath = `sellers/${sellerId}/products/${newProduct._id}/variants/${subSubVariant._id}/images`;
-                    
-                    // Upload original and resized versions using the utility function
-                    const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
-                    
-                    return {
-                      data: uploadResults.original.url,
-                      contentType: image.contentType,
-                      isDefault: image.isDefault || false,
-                      resizedImages: uploadResults.resizedImages
-                    };
-                  });
-                  
-                  subSubVariantImages = (await Promise.all(subSubVariantImagePromises)).filter(img => img !== null);
-                }
-      
-                return {
-                  ...subSubVariant,
-                  images: subSubVariantImages
-                };
-              }));
-      
-              return {
-                ...subVariant,
-                images: subVariantImages,
-                subSubVariants: processedSubSubVariants
-              };
-            }));
-      
+
             return {
-              ...variant,
-              images: variantImages,
-              subVariants: processedSubVariants
+              ...subSubVariant,
+              images: subSubVariantImages
             };
           }));
-      
-          // Update product with processed variants
-          newProduct.variants = processedVariants;
-          await newProduct.save();
-        }
+
+          return {
+            ...subVariant,
+            images: subVariantImages,
+            subSubVariants: processedSubSubVariants
+          };
+        }));
+
+        return {
+          ...variant,
+          images: variantImages,
+          subVariants: processedSubVariants
+        };
+      }));
+
+      // Update product with processed variants
+      newProduct.variants = processedVariants;
+      await newProduct.save();
+    }
 
     // Populate seller details
     const populatedProduct = await Product.findById(newProduct._id)
@@ -270,7 +270,7 @@ exports.createProduct = async (req, res) => {
     // Schedule auction end if it's an auction product
     if (newProduct.status === 'offline_auction') {
       const agenda = require('../config/agenda').agenda;
-      
+
       // Schedule auction start
       await agenda.schedule(newProduct.auction.startDate, 'update-auction-status', {
         productId: newProduct._id,
@@ -282,7 +282,7 @@ exports.createProduct = async (req, res) => {
         productId: newProduct._id,
         newStatus: 'ended'
       });
-      
+
       // Also schedule the order creation job to run a minute after the auction ends
       // This ensures the auction is fully ended and the winner is saved before creating the order
       const orderCreationTime = new Date(newProduct.auction.endDate.getTime() + 60000); // 1 minute after end
@@ -294,14 +294,14 @@ exports.createProduct = async (req, res) => {
     res.status(201).json(populatedProduct);
   } catch (error) {
     console.error('Product creation error:', error);
-    
+
     if (error.message.includes('Invalid JSON format')) {
       return res.status(400).json({
         message: 'Data format error',
         error: error.message
       });
     }
-    
+
     if (error.name === 'ValidationError') {
       return res.status(400).json({
         message: 'Validation error',
@@ -309,10 +309,10 @@ exports.createProduct = async (req, res) => {
       });
     }
 
-    res.status(500).json({ 
-      message: 'Failed to create product', 
+    res.status(500).json({
+      message: 'Failed to create product',
       error: error.message,
-      details: error.stack 
+      details: error.stack
     });
   }
 };
@@ -325,7 +325,7 @@ function generateVariantSKU(...parts) {
   const processedParts = parts
     .filter(Boolean)
     .map(part => part.toLowerCase().replace(/\s+/g, '-'));
-  
+
   return `${processedParts.join('-')}-${timestamp}`;
 }
 
@@ -341,10 +341,10 @@ const sellerPopulationFields = [
   'isVerified',
   'email',
   'phoneNumber',
-  'businessAddress',      
-  'warehouseDetails',    
+  'businessAddress',
+  'warehouseDetails',
   'sellerAddress',
-  'offersStorePickup'       
+  'offersStorePickup'
 ];
 
 exports.getAllProducts = async (req, res) => {
@@ -361,7 +361,7 @@ exports.getAllProducts = async (req, res) => {
     } = req.query;
 
     // Build query - start with base query that excludes offline_auction and draft products, and out of stock products
-    let query = { 
+    let query = {
       status: { $nin: ['offline_auction', 'draft'] },
       stock: { $gt: 0 } // Only fetch products with stock greater than 0
     };
@@ -424,7 +424,8 @@ exports.getAllProducts = async (req, res) => {
       return {
         ...productObj,
         averageRating: productObj.stats?.averageRating || null,
-        reviewCount: productObj.stats?.totalReviews || 0
+        reviewCount: productObj.stats?.totalReviews || 0,
+        soldCount: Math.max(0, productObj.stats?.soldCount || 0)
       };
     });
     res.json({
@@ -483,8 +484,8 @@ exports.getDiscountedProducts = async (req, res) => {
       stock: { $gt: 0 },
       $and: [
         { 'discount.isActive': true },
-        { $or: [ { 'discount.startDate': { $exists: false } }, { 'discount.startDate': { $lte: now } } ] },
-        { $or: [ { 'discount.endDate': { $exists: false } }, { 'discount.endDate': { $gte: now } } ] }
+        { $or: [{ 'discount.startDate': { $exists: false } }, { 'discount.startDate': { $lte: now } }] },
+        { $or: [{ 'discount.endDate': { $exists: false } }, { 'discount.endDate': { $gte: now } }] }
       ],
       status: { $ne: 'offline_auction' }
     };
@@ -546,7 +547,8 @@ exports.getDiscountedProducts = async (req, res) => {
       return {
         ...productObj,
         averageRating: productObj.stats?.averageRating || null,
-        reviewCount: productObj.stats?.totalReviews || 0
+        reviewCount: productObj.stats?.totalReviews || 0,
+        soldCount: Math.max(0, productObj.stats?.soldCount || 0)
       };
     });
 
@@ -590,11 +592,11 @@ exports.getProduct = async (req, res) => {
 
     // First find the product to check if it's an auction
     const productCheck = await Product.findById(req.params.id);
-    
+
     if (!productCheck) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    
+
     // If it's an auction product, we need to populate the buyer fields
     if (productCheck.status === 'offline_auction') {
       const product = await Product.findById(req.params.id)
@@ -626,14 +628,14 @@ exports.getProduct = async (req, res) => {
           path: 'auction.winner.buyer',
           select: 'firstName lastName profileImage'
         });
-      
+
       if (!product) {
         return res.status(404).json({ message: 'Product not found' });
       }
-      
+
       // Format the product for response
       const formattedProduct = product.toObject();
-      
+
       // Format seller information
       if (formattedProduct.seller) {
         formattedProduct.seller = {
@@ -694,7 +696,7 @@ exports.getProduct = async (req, res) => {
           }
         };
       }
-      
+
       // Format auction data
       if (formattedProduct.auction) {
         // Format bids
@@ -712,7 +714,7 @@ exports.getProduct = async (req, res) => {
             createdAt: bid.createdAt
           }));
         }
-        
+
         // Format current highest bid
         if (formattedProduct.auction.currentHighestBid && formattedProduct.auction.currentHighestBid.buyer) {
           formattedProduct.auction.currentHighestBid = {
@@ -725,7 +727,7 @@ exports.getProduct = async (req, res) => {
             }
           };
         }
-        
+
         // Format winner
         if (formattedProduct.auction.winner && formattedProduct.auction.winner.buyer) {
           formattedProduct.auction.winner = {
@@ -740,7 +742,7 @@ exports.getProduct = async (req, res) => {
           };
         }
       }
-      
+
       // Add inventory information
       formattedProduct.inventory = {
         currentStock: formattedProduct.stock,
@@ -749,7 +751,7 @@ exports.getProduct = async (req, res) => {
         quantity: formattedProduct.inventory?.quantity || 0,
         lowStockThreshold: formattedProduct.inventory?.lowStockThreshold || 5
       };
-      
+
       // Add pricing information
       formattedProduct.pricing = {
         originalPrice: formattedProduct.price,
@@ -757,41 +759,41 @@ exports.getProduct = async (req, res) => {
         taxable: formattedProduct.pricing?.taxable || true,
         taxRate: formattedProduct.pricing?.taxRate || 0
       };
-      
+
       // Add shipping information
       formattedProduct.shippingDetails = {
         weight: formattedProduct.shippingInfo?.weight || null,
         dimensions: formattedProduct.shippingInfo?.dimensions || null,
         methods: formattedProduct.shippingInfo?.shippingMethods || []
       };
-      
+
       // Increment view count
       await Product.findByIdAndUpdate(req.params.id, {
         $inc: { 'stats.views': 1 },
         $set: { 'stats.lastViewed': new Date() }
       });
-      
+
       // // Update seller stats
       // const seller = await Seller.findById(formattedProduct.seller._id);
       // if (seller) {
       //   // Increment total store visits
       //   seller.storeVisits = (seller.storeVisits || 0) + 0;
-  
+
       //   // Update monthly stats for store visits
       //   const currentDate = new Date();
       //   const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`;
-  
+
       //   // Get current month's visits or initialize to 0
       //   const currentMonthVisits = seller.monthlyStats.storeVisits.get(monthKey) || 0;
       //   seller.monthlyStats.storeVisits.set(monthKey, currentMonthVisits + 1);
-  
+
       //   await seller.save();
       // }
-      
+
       console.log('Auction product retrieved successfully');
       return res.json(formattedProduct);
     }
-    
+
     // For non-auction products, use the existing aggregation pipeline
     const product = await Product.aggregate([
       {
@@ -893,7 +895,7 @@ exports.getProduct = async (req, res) => {
               }
             },
             viewCount: '$stats.views',
-            soldCount: '$stats.soldCount',
+            soldCount: { $max: [0, { $ifNull: ['$stats.soldCount', 0] }] },
             lastViewed: '$stats.lastViewed',
             lastRestocked: '$stats.lastRestocked'
           },
@@ -1020,11 +1022,11 @@ exports.updateProduct = async (req, res) => {
           const buffer = Buffer.from(image.data, 'base64');
           const fileName = uuidv4();
           const basePath = `sellers/${sellerId}/products/${id}/images`;
-          
+
           // Upload original and resized versions using the utility function
           const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
-          
-          imagesLinks.push({ 
+
+          imagesLinks.push({
             url: uploadResults.original.url,
             resizedImages: uploadResults.resizedImages
           });
@@ -1103,10 +1105,10 @@ exports.updateProduct = async (req, res) => {
               const buffer = Buffer.from(base64Data, 'base64');
               const fileName = uuidv4();
               const basePath = `sellers/${sellerId}/products/${id}/variants/${variant._id}/images`;
-              
+
               // Upload original and resized versions using the utility function
               const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
-              
+
               variantImages.push({
                 data: uploadResults.original.url,
                 contentType: image.contentType,
@@ -1138,11 +1140,11 @@ exports.updateProduct = async (req, res) => {
 
                 const buffer = Buffer.from(base64Data, 'base64');
                 const fileName = uuidv4();
-                                    const basePath = `sellers/${sellerId}/products/${id}/variants/${subVariant._id}/images`;
-                
+                const basePath = `sellers/${sellerId}/products/${id}/variants/${subVariant._id}/images`;
+
                 // Upload original and resized versions using the utility function
                 const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
-                
+
                 subVariantImages.push({
                   data: uploadResults.original.url,
                   contentType: image.contentType,
@@ -1174,11 +1176,11 @@ exports.updateProduct = async (req, res) => {
 
                   const buffer = Buffer.from(base64Data, 'base64');
                   const fileName = uuidv4();
-                                        const basePath = `sellers/${sellerId}/products/${id}/variants/${subSubVariant._id}/images`;
-                  
+                  const basePath = `sellers/${sellerId}/products/${id}/variants/${subSubVariant._id}/images`;
+
                   // Upload original and resized versions using the utility function
                   const uploadResults = await uploadResizedImages(buffer, basePath, fileName);
-                  
+
                   subSubVariantImages.push({
                     data: uploadResults.original.url,
                     contentType: image.contentType,
@@ -1217,7 +1219,7 @@ exports.updateProduct = async (req, res) => {
     protectedFields.forEach(field => {
       delete updates[field];
     });
-    
+
     // If blips aren't being updated, remove it from updates to preserve existing blips
     if (!updates.blips) {
       delete updates.blips;
@@ -1258,8 +1260,8 @@ exports.updateProduct = async (req, res) => {
 
   } catch (error) {
     console.error('Update Product Error:', error);
-    res.status(500).json({ 
-      message: 'Failed to update product', 
+    res.status(500).json({
+      message: 'Failed to update product',
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
@@ -1288,7 +1290,7 @@ exports.deleteProduct = async (req, res) => {
     const existingProductImageUrls = (product.images || []).map(img => img.url);
     // Get existing product variatn image URLs
     const existingProductVariantImageUrls = ExtractAllImageUrlsFromVariants(product.variants || []);
-    
+
     const allExistingImageUrls = [
       ...existingProductImageUrls,
       ...existingProductVariantImageUrls
@@ -1344,7 +1346,7 @@ exports.searchProducts = async (req, res) => {
 
     // Get total count for pagination info
     const totalProducts = await Product.countDocuments(queryFilter);
-    
+
     // Get paginated results
     const products = await Product.find(queryFilter)
       .populate('seller', 'name avatarUrl about')
@@ -1419,9 +1421,9 @@ exports.updateProductStock = async (req, res) => {
 
     res.json(populatedProduct);
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to update product stock', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to update product stock',
+      error: error.message
     });
   }
 };
@@ -1759,7 +1761,7 @@ exports.getBuyerFeedProducts = async (req, res) => {
     }
 
     // Extract all subcategory names from buyer's selected categories
-    const subcategoryNames = buyer.selectedCategories.flatMap(category => 
+    const subcategoryNames = buyer.selectedCategories.flatMap(category =>
       category.subCategories.map(sub => sub.name)
     );
 
@@ -1770,9 +1772,9 @@ exports.getBuyerFeedProducts = async (req, res) => {
         { subCategory: { $in: subcategoryNames } }
       ]
     })
-    .sort({ createdAt: -1 })
-    .populate('seller', 'name avatarUrl about offersStorePickup')
-    .populate('reviews.buyer', 'firstName lastName');
+      .sort({ createdAt: -1 })
+      .populate('seller', 'name avatarUrl about offersStorePickup')
+      .populate('reviews.buyer', 'firstName lastName');
 
     res.json(products);
   } catch (error) {
@@ -1812,11 +1814,11 @@ exports.getTrendingProducts = async (req, res) => {
 
     // Limit to max 20 products
     const limit = Math.min(20, productCount);
-    
+
     // Skip a random number of documents for randomization
-    const skip = productCount > limit ? 
+    const skip = productCount > limit ?
       Math.floor(Math.random() * (productCount - limit)) : 0;
-    
+
     // Fetch the products
     const products = await Product.find(queryToUse)
       .skip(skip)
@@ -1825,7 +1827,7 @@ exports.getTrendingProducts = async (req, res) => {
 
     // Shuffle the results for additional randomization
     const shuffledProducts = products.sort(() => 0.5 - Math.random());
-    
+
     // Add review stats data to each product
     const productsWithStats = shuffledProducts.map(product => {
       const productObj = product.toObject();
@@ -1856,7 +1858,7 @@ exports.getTrendingProductsByCategory = async (req, res) => {
   try {
     const products = await Product.aggregate([
       { $match: { category } },
-      { 
+      {
         $addFields: {
           reviewCount: { $size: "$reviews" },
           averageRating: { $avg: "$reviews.rating" }
@@ -1889,19 +1891,19 @@ exports.getProductsByCategory = async (req, res) => {
 
   try {
     // Build query object
-    const query = { 
+    const query = {
       category,
       status: 'active',
       visibility: 'visible'
     };
-    
+
     // Add price filter if min or max price is provided
     if (minPrice !== undefined || maxPrice !== undefined) {
       query.price = {};
       if (minPrice !== undefined) query.price.$gte = Number(minPrice);
       if (maxPrice !== undefined) query.price.$lte = Number(maxPrice);
     }
-    
+
     // Add condition filter if provided (case-insensitive)
     if (condition) {
       query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
@@ -1923,7 +1925,7 @@ exports.getProductsByCategory = async (req, res) => {
       default:
         sortOptions = { createdAt: -1 };
     }
-    
+
     const products = await Product.find(query)
       .sort(sortOptions)
       .skip((page - 1) * limit)
@@ -1964,13 +1966,13 @@ exports.addToWishlist = async (req, res) => {
     const product = await Product.findById(productId);
 
     if (!buyer || !product) {
-      return res.status(404).json({ 
-        message: !buyer ? 'Buyer not found' : 'Product not found' 
+      return res.status(404).json({
+        message: !buyer ? 'Buyer not found' : 'Product not found'
       });
     }
 
     // Check if product is already in wishlist
-    const isInWishlist = buyer.wishlist.some(item => 
+    const isInWishlist = buyer.wishlist.some(item =>
       item.product.toString() === productId
     );
 
@@ -1984,9 +1986,9 @@ exports.addToWishlist = async (req, res) => {
 
     res.json({ message: 'Product added to wishlist successfully' });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to add product to wishlist', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to add product to wishlist',
+      error: error.message
     });
   }
 };
@@ -2003,16 +2005,16 @@ exports.removeFromWishlist = async (req, res) => {
     }
 
     // Remove from wishlist
-    buyer.wishlist = buyer.wishlist.filter(item => 
+    buyer.wishlist = buyer.wishlist.filter(item =>
       item.product.toString() !== productId
     );
     await buyer.save();
 
     res.json({ message: 'Product removed from wishlist successfully' });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to remove product from wishlist', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to remove product from wishlist',
+      error: error.message
     });
   }
 };
@@ -2038,9 +2040,9 @@ exports.getWishlist = async (req, res) => {
 
     res.json(buyer.wishlist);
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to retrieve wishlist', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve wishlist',
+      error: error.message
     });
   }
 };
@@ -2050,23 +2052,23 @@ exports.getWishlist = async (req, res) => {
 exports.getSellerProducts = async (req, res) => {
   try {
     const { sellerId } = req.params;
-    const { 
-      page = 1, 
-      limit = 10, 
-      status, 
+    const {
+      page = 1,
+      limit = 10,
+      status,
       visibility,
       minPrice,
       maxPrice,
       condition,
-      sortBy = 'newest' 
+      sortBy = 'newest'
     } = req.query;
 
     // Build query with base condition to exclude offline_auction products
-    const query = { 
+    const query = {
       seller: sellerId,
       status: { $ne: 'offline_auction' }
     };
-    
+
     // Add additional status filter if provided
     if (status) {
       query.status = status;
@@ -2074,14 +2076,14 @@ exports.getSellerProducts = async (req, res) => {
     if (visibility) {
       query.visibility = visibility;
     }
-    
+
     // Add price filter if min or max price is provided
     if (minPrice !== undefined || maxPrice !== undefined) {
       query.price = {};
       if (minPrice !== undefined) query.price.$gte = Number(minPrice);
       if (maxPrice !== undefined) query.price.$lte = Number(maxPrice);
     }
-    
+
     // Add condition filter if provided (case-insensitive)
     if (condition) {
       query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
@@ -2135,7 +2137,7 @@ exports.getSellerProducts = async (req, res) => {
     const totalProducts = await Product.countDocuments(query);
 
     // Calculate additional statistics based on base query (seller products excluding offline_auction)
-    const baseQuery = { 
+    const baseQuery = {
       seller: sellerId,
       status: { $ne: 'offline_auction' }
     };
@@ -2150,13 +2152,13 @@ exports.getSellerProducts = async (req, res) => {
     ] = await Promise.all([
       // Total number of products (excluding offline_auction)
       Product.countDocuments(baseQuery),
-      
+
       // Number of products with blips
       Product.countDocuments({
         ...baseQuery,
         blips: { $exists: true, $not: { $size: 0 } }
       }),
-      
+
       // Number of products without blips
       Product.countDocuments({
         ...baseQuery,
@@ -2165,13 +2167,13 @@ exports.getSellerProducts = async (req, res) => {
           { blips: { $size: 0 } }
         ]
       }),
-      
+
       // Number of active products
       Product.countDocuments({
         ...baseQuery,
         status: 'active'
       }),
-      
+
       // Number of draft products
       Product.countDocuments({
         ...baseQuery,
@@ -2187,7 +2189,7 @@ exports.getSellerProducts = async (req, res) => {
       products: products.map(product => {
         // Get the first blip if available
         const firstBlip = product.blips && product.blips.length > 0 ? product.blips[0] : null;
-        
+
         // Add blip links to each blip in the array
         const blipsWithLinks = product.blips ? product.blips.map(blip => ({
           ...blip.toObject(),
@@ -2238,13 +2240,13 @@ exports.getSellerProducts = async (req, res) => {
         visibility,
         sortBy
       },
-      sellerVacationMode: isSellerOnVacation 
+      sellerVacationMode: isSellerOnVacation
     });
 
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to retrieve seller products', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve seller products',
+      error: error.message
     });
   }
 };
@@ -2279,7 +2281,7 @@ exports.updateInventory = async (req, res) => {
   try {
     const { productId } = req.params;
     const { quantity, operation = 'set' } = req.body;
-    
+
     console.log('Update Inventory Debug:', {
       productId,
       requestUserId: req.user.id,
@@ -2317,7 +2319,7 @@ exports.updateInventory = async (req, res) => {
 
     // Update the stock
     await product.updateStock(parseInt(quantity), operation);
-    
+
     // Check if low stock notification needed
     if (product.isLowStock()) {
       // Notify seller (if you have notification system)
@@ -2331,9 +2333,9 @@ exports.updateInventory = async (req, res) => {
     }
 
     await session.commitTransaction();
-    
-    res.json({ 
-      message: 'Inventory updated successfully', 
+
+    res.json({
+      message: 'Inventory updated successfully',
       product: {
         id: product._id,
         name: product.name,
@@ -2346,9 +2348,9 @@ exports.updateInventory = async (req, res) => {
   } catch (error) {
     console.error('Update Inventory Error:', error);
     await session.abortTransaction();
-    res.status(400).json({ 
-      message: 'Failed to update inventory', 
-      error: error.message 
+    res.status(400).json({
+      message: 'Failed to update inventory',
+      error: error.message
     });
   } finally {
     session.endSession();
@@ -2429,7 +2431,7 @@ exports.getProductAnalytics = async (req, res) => {
   try {
     const { startDate, endDate, productId } = req.query;
     const query = { seller: req.user.id };
-    
+
     if (productId) {
       query._id = productId;
     }
@@ -2448,12 +2450,12 @@ exports.getProductAnalytics = async (req, res) => {
     });
 
     const analytics = products.map(product => {
-      const productOrders = orders.filter(order => 
+      const productOrders = orders.filter(order =>
         order.items.some(item => item.product.toString() === product._id.toString())
       );
 
       const revenue = productOrders.reduce((sum, order) => {
-        const item = order.items.find(item => 
+        const item = order.items.find(item =>
           item.product.toString() === product._id.toString()
         );
         return sum + (item ? item.price * item.quantity : 0);
@@ -2467,7 +2469,7 @@ exports.getProductAnalytics = async (req, res) => {
         revenue,
         averageRating: product.stats.averageRating,
         reviewCount: product.stats.reviewCount,
-        conversionRate: product.stats.views ? 
+        conversionRate: product.stats.views ?
           ((product.soldCount / product.stats.views) * 100).toFixed(2) : 0
       };
     });
@@ -2656,8 +2658,8 @@ exports.addReview = async (req, res) => {
 
     // Validate required fields
     if (!rating || !title || !comment) {
-      return res.status(400).json({ 
-        message: 'Rating, title and comment are required' 
+      return res.status(400).json({
+        message: 'Rating, title and comment are required'
       });
     }
 
@@ -2713,7 +2715,7 @@ exports.addReview = async (req, res) => {
 
     // Add review and update product stats
     product.reviews.push(review);
-    
+
     // Update product stats
     const allRatings = product.reviews.map(r => r.rating);
     product.stats.averageRating = allRatings.reduce((a, b) => a + b, 0) / allRatings.length;
@@ -2727,9 +2729,9 @@ exports.addReview = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in addReview:', error);
-    res.status(500).json({ 
-      message: 'Failed to add review', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to add review',
+      error: error.message
     });
   }
 };
@@ -2770,9 +2772,9 @@ exports.getProductReviews = async (req, res) => {
       totalReviews: product.reviews.length
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to get product reviews', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to get product reviews',
+      error: error.message
     });
   }
 };
@@ -2899,7 +2901,7 @@ exports.bulkUpdateProducts = async (req, res) => {
 
     for (const { id, updates } of products) {
       const product = await Product.findById(id).session(session);
-      
+
       if (!product || product.seller.toString() !== req.user.id) {
         continue;
       }
@@ -2957,9 +2959,9 @@ exports.getProductSoldCount = async (req, res) => {
 
     res.json({ soldCount: product.stats.soldCount });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to get product sold count', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to get product sold count',
+      error: error.message
     });
   }
 };
@@ -2967,7 +2969,7 @@ exports.getProductSoldCount = async (req, res) => {
 
 function reorderToAvoidSellerClusters(products, maxConsecutive = 1) {
   if (!products.length) return [];
-  
+
   // Group products by seller
   const productsBySeller = {};
   products.forEach(product => {
@@ -2977,42 +2979,42 @@ function reorderToAvoidSellerClusters(products, maxConsecutive = 1) {
     }
     productsBySeller[sellerId].push(product);
   });
-  
+
   const sellerIds = Object.keys(productsBySeller);
   if (sellerIds.length <= 1) return products;
-  
+
   const result = [];
   let lastUsedSellerIndices = [];
-  
+
   // Keep selecting products until we've used them all or reached the limit
   while (result.length < products.length && sellerIds.some(id => productsBySeller[id].length > 0)) {
     // Find sellers that still have products and weren't recently used
-    const availableSellers = sellerIds.filter((id, index) => 
+    const availableSellers = sellerIds.filter((id, index) =>
       productsBySeller[id].length > 0 && !lastUsedSellerIndices.includes(index)
     );
-    
+
     // If no available sellers that weren't recently used, reset the tracking
     if (availableSellers.length === 0) {
       lastUsedSellerIndices = [];
       continue;
     }
-    
+
     // Pick a random available seller
     const randomIndex = Math.floor(Math.random() * availableSellers.length);
     const selectedSellerId = availableSellers[randomIndex];
     const sellerIndex = sellerIds.indexOf(selectedSellerId);
-    
+
     // Add the seller to recently used (keep track of last N sellers)
     lastUsedSellerIndices.push(sellerIndex);
     if (lastUsedSellerIndices.length > sellerIds.length / 2) {
       lastUsedSellerIndices.shift();
     }
-    
+
     // Take a product from this seller
     const product = productsBySeller[selectedSellerId].shift();
     result.push(product);
   }
-  
+
   return result;
 }
 
@@ -3020,20 +3022,20 @@ function reorderToAvoidSellerClusters(products, maxConsecutive = 1) {
 // by interspersing them if possible
 function mixPreferredAndGeneral(products) {
   if (products.length <= 1) return products;
-  
+
   const preferred = products.filter(p => p.isPreferred);
   const general = products.filter(p => !p.isPreferred);
-  
+
   // If we don't have both types, just return the original array
   if (preferred.length === 0 || general.length === 0) return products;
-  
+
   const result = [];
   let preferredIndex = 0;
   let generalIndex = 0;
-  
+
   // Start with preferred if available
   let usePreferred = true;
-  
+
   while (preferredIndex < preferred.length || generalIndex < general.length) {
     if (usePreferred && preferredIndex < preferred.length) {
       result.push(preferred[preferredIndex++]);
@@ -3043,7 +3045,7 @@ function mixPreferredAndGeneral(products) {
       // If we've exhausted general products, add remaining preferred
       result.push(preferred[preferredIndex++]);
     }
-    
+
     // Toggle between preferred and general
     usePreferred = !usePreferred;
   }
@@ -3073,29 +3075,29 @@ function shuffleArray(array) {
 async function getGeneralProducts(req, res) {
   try {
     const { page = 1, limit = 20 } = req.query;
-    
+
     // Build base query for active and visible products
     const baseQuery = {
       status: { $nin: ['offline_auction', 'draft'] },
       visibility: 'visible',
       stock: { $gt: 0 }
     };
-    
+
     // Get total count of all available products
     const totalProducts = await Product.countDocuments(baseQuery);
-    
+
     // Calculate how many products to skip for random sampling
     // Using a random skip value to ensure different products each time
     const maxSkip = Math.max(0, totalProducts - parseInt(limit));
     const randomSkip = Math.floor(Math.random() * (maxSkip + 1));
-    
+
     // Get a random sample of products
     let products = await Product.find(baseQuery)
       .skip(randomSkip)
       .limit(parseInt(limit))
       .populate('seller', sellerPopulationFields)
       .populate('reviews.buyer', 'firstName lastName');
-    
+
     // If we didn't get enough products (edge case), get the remaining from the beginning
     if (products.length < parseInt(limit) && randomSkip > 0) {
       const remainingLimit = parseInt(limit) - products.length;
@@ -3103,16 +3105,16 @@ async function getGeneralProducts(req, res) {
         .limit(remainingLimit)
         .populate('seller', sellerPopulationFields)
         .populate('reviews.buyer', 'firstName lastName');
-      
+
       products = [...products, ...remainingProducts];
     }
-    
+
     // Shuffle the products for extra randomization
     products = shuffleArray(products);
-    
+
     // Apply the reordering algorithm to avoid seller clusters
     products = reorderToAvoidSellerClusters(products);
-    
+
     // Add review stats data to each product
     const productsWithStats = products.map(product => {
       const productObj = product.toObject();
@@ -3122,7 +3124,7 @@ async function getGeneralProducts(req, res) {
         reviewCount: productObj.stats?.totalReviews || 0
       };
     });
-    
+
     res.json({
       products: productsWithStats,
       currentPage: parseInt(page),
@@ -3143,13 +3145,13 @@ async function getGeneralProducts(req, res) {
 exports.getPersonalizedProducts = async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
-    
+
     // Check if user is authenticated
     if (!req.user) {
       // If not authenticated, return general products instead of personalized
       return await getGeneralProducts(req, res);
     }
-    
+
     const buyerId = req.user.id;
     console.log('Buyer ID:', buyerId);
     if (!mongoose.Types.ObjectId.isValid(buyerId)) {
@@ -3159,29 +3161,29 @@ exports.getPersonalizedProducts = async (req, res) => {
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
-    
+
     // Build base query for active and visible products
     const baseQuery = {
       status: { $nin: ['offline_auction', 'draft'] },
       visibility: 'visible',
       stock: { $gt: 0 }
     };
-    
+
     // Get total count of all available products
     const totalProducts = await Product.countDocuments(baseQuery);
-    
+
     // Calculate how many products to skip for random sampling
     // Using a random skip value to ensure different products each time
     const maxSkip = Math.max(0, totalProducts - parseInt(limit));
     const randomSkip = Math.floor(Math.random() * (maxSkip + 1));
-    
+
     // Get a random sample of products
     let products = await Product.find(baseQuery)
       .skip(randomSkip)
       .limit(parseInt(limit))
       .populate('seller', sellerPopulationFields)
       .populate('reviews.buyer', 'firstName lastName');
-    
+
     // If we didn't get enough products (edge case), get the remaining from the beginning
     if (products.length < parseInt(limit) && randomSkip > 0) {
       const remainingLimit = parseInt(limit) - products.length;
@@ -3189,16 +3191,16 @@ exports.getPersonalizedProducts = async (req, res) => {
         .limit(remainingLimit)
         .populate('seller', sellerPopulationFields)
         .populate('reviews.buyer', 'firstName lastName');
-      
+
       products = [...products, ...remainingProducts];
     }
-    
+
     // Shuffle the products for extra randomization
     products = shuffleArray(products);
-    
+
     // Apply the reordering algorithm to avoid seller clusters
     products = reorderToAvoidSellerClusters(products);
-    
+
     // Add review stats data to each product
     const productsWithStats = products.map(product => {
       const productObj = product.toObject();
@@ -3208,7 +3210,7 @@ exports.getPersonalizedProducts = async (req, res) => {
         reviewCount: productObj.stats?.totalReviews || 0
       };
     });
-    
+
     res.json({
       products: productsWithStats,
       currentPage: parseInt(page),
@@ -3253,9 +3255,9 @@ exports.updateProductDiscount = async (req, res) => {
 
     res.json(populatedProduct);
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Failed to update product discount', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to update product discount',
+      error: error.message
     });
   }
 };
@@ -3289,7 +3291,7 @@ exports.getProductById = async (req, res) => {
     // Check if seller is populated
     if (!product.seller || typeof product.seller === 'string') {
       console.error('Seller not properly populated:', product.seller);
-      return res.status(500).json({ 
+      return res.status(500).json({
         message: 'Failed to load seller details',
         sellerId: product.seller
       });
@@ -3344,9 +3346,9 @@ exports.getProductById = async (req, res) => {
     res.json(formattedProduct);
   } catch (error) {
     console.error('Error in getProductById:', error);
-    res.status(500).json({ 
-      message: 'Failed to retrieve product', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve product',
+      error: error.message
     });
   }
 };
@@ -3361,14 +3363,14 @@ exports.getProductById = async (req, res) => {
 exports.getProductsBySellerAndCategory = async (req, res) => {
   try {
     const { sellerId, category } = req.params;
-    
+
     // Validate sellerId
     if (!mongoose.Types.ObjectId.isValid(sellerId)) {
       return res.status(400).json({ success: false, message: 'Invalid seller ID format' });
     }
-    
+
     // Find products that match both seller and category (case insensitive)
-    const products = await Product.find({ 
+    const products = await Product.find({
       seller: sellerId,
       category: { $regex: new RegExp(`^${category}$`, 'i') }
     }).sort({ createdAt: -1 });
@@ -3377,7 +3379,7 @@ exports.getProductsBySellerAndCategory = async (req, res) => {
     if (!seller) {
       return res.status(404).json({ success: false, message: 'Seller not found' });
     }
-    
+
     return res.status(200).json({
       success: true,
       count: products.length,
@@ -3397,24 +3399,24 @@ exports.getProductsBySellerAndCategory = async (req, res) => {
 exports.getSellerProductCategories = async (req, res) => {
   try {
     const { sellerId } = req.params;
-    
+
     if (!mongoose.Types.ObjectId.isValid(sellerId)) {
       return res.status(400).json({ message: 'Invalid seller ID format' });
     }
 
     // Find all products by this seller
     const products = await Product.find({ seller: sellerId });
-    
+
     if (!products || products.length === 0) {
       return res.status(404).json({ message: 'No products found for this seller' });
     }
 
     // Extract unique categories from the products
     const categories = [...new Set(products.map(product => product.category))];
-    
+
     // Get full category details from the Category model
     const categoryDetails = await Category.find({ name: { $in: categories } });
-    
+
     return res.status(200).json({
       success: true,
       count: categoryDetails.length,
@@ -3422,9 +3424,9 @@ exports.getSellerProductCategories = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching seller product categories:', error);
-    return res.status(500).json({ 
-      message: 'Server error', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Server error',
+      error: error.message
     });
   }
 };
@@ -3451,7 +3453,7 @@ exports.placeBid = async (req, res) => {
 
     // Get product information first
     const product = await Product.findById(productId);
-    
+
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
@@ -3473,17 +3475,17 @@ exports.placeBid = async (req, res) => {
 
     // Check minimum bid
     if (amount < product.auction.minBid) {
-      return res.status(400).json({ 
-        message: `Bid amount must be at least ${product.auction.minBid}` 
+      return res.status(400).json({
+        message: `Bid amount must be at least ${product.auction.minBid}`
       });
     }
 
     // Check if bid is higher than current highest bid
-    if (product.auction.currentHighestBid && 
-        product.auction.currentHighestBid.amount && 
-        amount <= product.auction.currentHighestBid.amount) {
-      return res.status(400).json({ 
-        message: `Bid amount must be higher than current highest bid of ${product.auction.currentHighestBid.amount}` 
+    if (product.auction.currentHighestBid &&
+      product.auction.currentHighestBid.amount &&
+      amount <= product.auction.currentHighestBid.amount) {
+      return res.status(400).json({
+        message: `Bid amount must be higher than current highest bid of ${product.auction.currentHighestBid.amount}`
       });
     }
 
@@ -3498,16 +3500,16 @@ exports.placeBid = async (req, res) => {
     // Calculate shipping fee for the check
     const shippingFee = 1000; // Default shipping fee
     const totalRequired = amount + shippingFee;
-    
+
     // Check if buyer has enough balance including what's already on hold
     // Ensure we handle cases where wallet might not be fully initialized
     const walletBalance = buyer.wallet && typeof buyer.wallet.balance === 'number' ? buyer.wallet.balance : 0;
     const onHoldAmount = buyer.wallet && typeof buyer.wallet.onHoldAmount === 'number' ? buyer.wallet.onHoldAmount : 0;
     const buyerAvailableBalance = walletBalance - onHoldAmount;
-    
+
     if (buyerAvailableBalance < totalRequired) {
-      return res.status(400).json({ 
-        message: `Insufficient funds. You need ₦${totalRequired.toLocaleString()} in your wallet to place this bid. You have ₦${buyerAvailableBalance.toLocaleString()} available.` 
+      return res.status(400).json({
+        message: `Insufficient funds. You need ₦${totalRequired.toLocaleString()} in your wallet to place this bid. You have ₦${buyerAvailableBalance.toLocaleString()} available.`
       });
     }
 
@@ -3531,7 +3533,7 @@ exports.placeBid = async (req, res) => {
         // Ensure onHoldAmount never goes below zero
         buyer.wallet.onHoldAmount = Math.max(0, buyer.wallet.onHoldAmount - oldHoldAmount);
         buyer.wallet.onHoldItems.splice(existingHoldIndex, 1);
-        
+
         // Save buyer immediately after releasing the hold
         await buyer.save();
         console.log(`Released previous hold of ₦${oldHoldAmount} for buyer ${buyerId} on product ${productId}`);
@@ -3540,28 +3542,28 @@ exports.placeBid = async (req, res) => {
 
     // Step 2: Handle previous highest bidder if it's a different buyer
     let previousBuyerId = null;
-    
-    if (product.auction.currentHighestBid && 
-        product.auction.currentHighestBid.buyer &&
-        product.auction.currentHighestBid.buyer.toString() !== buyerObjectId.toString()) {
-      
+
+    if (product.auction.currentHighestBid &&
+      product.auction.currentHighestBid.buyer &&
+      product.auction.currentHighestBid.buyer.toString() !== buyerObjectId.toString()) {
+
       previousBuyerId = product.auction.currentHighestBid.buyer;
-      
+
       // Get the previous bidder
       const previousBidder = await Buyer.findById(previousBuyerId);
-      
+
       if (previousBidder) {
         // Find and remove the hold
         const prevHoldIndex = previousBidder.wallet.onHoldItems.findIndex(
           item => item.productId && item.productId.toString() === productId
         );
-        
+
         if (prevHoldIndex !== -1) {
           const prevHoldAmount = previousBidder.wallet.onHoldItems[prevHoldIndex].amount;
           // Ensure onHoldAmount never goes below zero
           previousBidder.wallet.onHoldAmount = Math.max(0, previousBidder.wallet.onHoldAmount - prevHoldAmount);
           previousBidder.wallet.onHoldItems.splice(prevHoldIndex, 1);
-          
+
           // Save previous bidder immediately
           await previousBidder.save();
           console.log(`Released hold of ₦${prevHoldAmount} for previous bidder ${previousBuyerId} on product ${productId}`);
@@ -3576,7 +3578,7 @@ exports.placeBid = async (req, res) => {
         bid.status = 'outbid';
       }
     });
-    
+
     // Add new bid
     const newBid = {
       buyer: buyerObjectId,
@@ -3584,26 +3586,26 @@ exports.placeBid = async (req, res) => {
       status: 'active',
       createdAt: new Date()
     };
-    
+
     // Add the bid to the array first
     product.auction.bids.push(newBid);
-    
+
     // Update current highest bid
     product.auction.currentHighestBid = {
       amount: amount,
       buyer: buyerObjectId
     };
-    
+
     // Track if this is the winning bid
     let isWinningBid = false;
-    
+
     console.log('Debug - Before max bid check:', {
       endOnMaxBid: product.auction.endOnMaxBid,
       maxBid: product.auction.maxBid,
       bidAmount: amount,
       currentStatus: product.auction.status
     });
-    
+
     // Check if auction should end (max bid reached and endOnMaxBid is true)
     if (product.auction.endOnMaxBid && amount >= product.auction.maxBid) {
       console.log('Debug - Max bid condition met:', {
@@ -3679,7 +3681,7 @@ exports.placeBid = async (req, res) => {
     if (isWinningBid) {
       // If auction ended with this bid, no need to put a hold, just prepare for order creation
       console.log(`Auction ended with winning bid of ₦${amount} from buyer ${buyerId}`);
-      
+
       // Schedule order creation after everything else is done
       try {
         setTimeout(async () => {
@@ -3702,17 +3704,17 @@ exports.placeBid = async (req, res) => {
       buyer.wallet.onHoldItems.push({
         productId: product._id,
         productName: product.name,
-        productImage: product.images && product.images.length > 0 ? 
+        productImage: product.images && product.images.length > 0 ?
           product.images[0].url : null,
         amount: totalRequired,
         bidDate: new Date(),
         auctionStatus: product.auction.status,
         auctionEndDate: product.auction.endDate
       });
-      
+
       // Update total hold amount
       buyer.wallet.onHoldAmount += totalRequired;
-      
+
       // Save buyer with new hold
       await buyer.save();
       console.log(`Added hold of ₦${totalRequired} for buyer ${buyerId} on product ${productId}`);
@@ -3763,7 +3765,7 @@ exports.placeBid = async (req, res) => {
     // Step 7: Emit bid update to all users in the auction room via WebSocket
     if (req.app.get('io')) {
       req.app.get('io').to(`auction_${productId}`).emit('bid_update', bidData);
-      
+
       // If auction ended, emit additional event
       if (isWinningBid) {
         req.app.get('io').to(`auction_${productId}`).emit('auction_ended', {
@@ -3793,9 +3795,9 @@ exports.placeBid = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in placeBid:', error);
-    res.status(500).json({ 
-      message: 'Error placing bid', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error placing bid',
+      error: error.message
     });
   }
 };
@@ -3807,17 +3809,17 @@ exports.getAuctionBids = async (req, res) => {
     // First check if the auction should be ended
     const now = new Date();
     await Product.updateMany(
-      { 
+      {
         _id: productId,
-        status: 'offline_auction', 
+        status: 'offline_auction',
         'auction.status': 'ongoing',
-        'auction.endDate': { $lt: now } 
+        'auction.endDate': { $lt: now }
       },
-      { 
-        $set: { 
+      {
+        $set: {
           'auction.status': 'ended',
           'auction.daysLeft': 0
-        } 
+        }
       }
     );
 
@@ -3845,7 +3847,7 @@ exports.getAuctionBids = async (req, res) => {
       daysLeft = Math.ceil((product.auction.startDate - now) / (1000 * 60 * 60 * 24));
     } else if (product.auction.status === 'ongoing') {
       daysLeft = Math.ceil((product.auction.endDate - now) / (1000 * 60 * 60 * 24));
-      
+
       // Double-check if this auction should be ended (defensive check)
       if (product.auction.endDate < now) {
         await product.endAuction();
@@ -3897,9 +3899,9 @@ exports.getAuctionBids = async (req, res) => {
 
   } catch (error) {
     console.error('Error in getAuctionBids:', error);
-    res.status(500).json({ 
-      message: 'Error retrieving auction bids', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error retrieving auction bids',
+      error: error.message
     });
   }
 };
@@ -3907,46 +3909,46 @@ exports.getAuctionBids = async (req, res) => {
 exports.getBuyerBids = async (req, res) => {
   try {
     const buyerId = req.user._id;
-    
+
     // First, update any auctions that should be ended
     const now = new Date();
     await Product.updateMany(
-      { 
-        status: 'offline_auction', 
+      {
+        status: 'offline_auction',
         'auction.status': 'ongoing',
-        'auction.endDate': { $lt: now } 
+        'auction.endDate': { $lt: now }
       },
-      { 
-        $set: { 
+      {
+        $set: {
           'auction.status': 'ended',
           'auction.daysLeft': 0
-        } 
+        }
       }
     );
-    
+
     const products = await Product.find({
       status: 'offline_auction',
       'auction.bids.buyer': buyerId
     })
-    .populate('seller', 'businessName storeName')
-    .select('name auction.bids auction.currentHighestBid auction.winner auction.status auction.daysLeft auction.endDate images');
+      .populate('seller', 'businessName storeName')
+      .select('name auction.bids auction.currentHighestBid auction.winner auction.status auction.daysLeft auction.endDate images');
 
     const bids = products.map(product => {
       const buyerBids = product.auction.bids.filter(
         bid => bid.buyer.toString() === buyerId.toString()
       );
-      
+
       // Double-check if this auction should be ended (defensive check)
       let auctionStatus = product.auction.status;
       let daysLeft = product.auction.daysLeft;
-      
+
       if (auctionStatus === 'ongoing' && product.auction.endDate < now) {
         auctionStatus = 'ended';
         daysLeft = 0;
       } else if (auctionStatus === 'ongoing') {
         daysLeft = Math.ceil((product.auction.endDate - now) / (1000 * 60 * 60 * 24));
       }
-      
+
       return {
         productId: product._id,
         productName: product.name,
@@ -3971,7 +3973,7 @@ agenda.define('end-auction', async (job) => {
   try {
     const { productId } = job.attrs.data;
     console.log(`Starting end-auction job for product: ${productId}`);
-    
+
     const Product = mongoose.model('Product');
     const Buyer = mongoose.model('Buyer');
     const sgMail = require('@sendgrid/mail');
@@ -3986,16 +3988,16 @@ agenda.define('end-auction', async (job) => {
       console.log('Product not found for end-auction job:', productId);
       return;
     }
-    
+
     console.log(`Found product for end-auction job: ${productId}`, {
       productName: product.name,
       auctionStatus: product.auction.status,
       hasCurrentHighestBid: !!product.auction.currentHighestBid?.buyer,
       hasWinner: !!product.auction.winner?.buyer
     });
-    
+
     let winner;
-    
+
     // Only call endAuction if the auction is still ongoing
     if (product.auction.status === 'ongoing') {
       console.log(`Ending ongoing auction for product: ${productId}`);
@@ -4014,11 +4016,11 @@ agenda.define('end-auction', async (job) => {
     const bidderIds = product.auction.bids
       .filter(bid => !winner || bid.buyer._id.toString() !== winner.buyer.toString())
       .map(bid => bid.buyer._id.toString());
-    
+
     // Remove duplicates
     const uniqueBidderIds = [...new Set(bidderIds)];
     console.log(`Found ${uniqueBidderIds.length} non-winning bidders to release holds for`);
-    
+
     // Release holds for all non-winning bidders
     for (const bidderId of uniqueBidderIds) {
       try {
@@ -4028,14 +4030,14 @@ agenda.define('end-auction', async (job) => {
           const holdIndex = bidder.wallet.onHoldItems.findIndex(
             item => item.productId.toString() === productId
           );
-          
+
           if (holdIndex !== -1) {
             const holdAmount = bidder.wallet.onHoldItems[holdIndex].amount;
             // Ensure onHoldAmount never goes below zero
             bidder.wallet.onHoldAmount = Math.max(0, bidder.wallet.onHoldAmount - holdAmount);
             bidder.wallet.onHoldItems.splice(holdIndex, 1);
             await bidder.save();
-            
+
             console.log(`Released hold of ₦${holdAmount} for bidder ${bidderId} on product ${productId}`);
           }
         }
@@ -4047,7 +4049,7 @@ agenda.define('end-auction', async (job) => {
 
     if (winner) {
       console.log(`Preparing to send emails and create order for auction winner: ${productId}`);
-      
+
       // Send winner notification
       const winnerEmail = {
         to: product.auction.currentHighestBid.buyer.email,
@@ -4095,31 +4097,31 @@ agenda.define('end-auction', async (job) => {
       } catch (emailError) {
         console.error(`Error sending auction emails: ${emailError.message}`, emailError);
       }
-      
+
       // Check if an order already exists for this auction
       try {
         const Order = mongoose.model('Order');
-    const existingOrder = await Order.findOne({ 
-      channel: 'auction',
+        const existingOrder = await Order.findOne({
+          channel: 'auction',
           'items.product': productId
-    });
-    
-    if (existingOrder) {
+        });
+
+        if (existingOrder) {
           console.log('Order already exists for auction product:', {
-        productId,
-        orderId: existingOrder._id,
+            productId,
+            orderId: existingOrder._id,
             orderStatus: existingOrder.items[0].status
           });
         } else {
           // Schedule order creation (do this after the emails to ensure the order doesn't exist yet when sending emails)
           console.log(`Scheduling create-auction-winner-order job for product: ${productId}`);
-          
+
           // Check if agenda is properly initialized
           if (!job.agenda) {
             console.error('Agenda instance is not available in job object');
             return;
           }
-          
+
           await job.agenda.now('create-auction-winner-order', { productId: product._id });
           console.log('Successfully scheduled auction winner order creation after auction end:', product._id);
         }
@@ -4166,16 +4168,16 @@ exports.getAuctionProducts = async (req, res) => {
     // First, update any auctions that should be ended
     const now = new Date();
     await Product.updateMany(
-      { 
-        status: 'offline_auction', 
+      {
+        status: 'offline_auction',
         'auction.status': 'ongoing',
-        'auction.endDate': { $lt: now } 
+        'auction.endDate': { $lt: now }
       },
-      { 
-        $set: { 
+      {
+        $set: {
           'auction.status': 'ended',
           'auction.daysLeft': 0
-        } 
+        }
       }
     );
 
@@ -4291,7 +4293,7 @@ exports.getSellerAuctionProducts = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Build query
-    const query = { 
+    const query = {
       status: 'offline_auction',
       seller: sellerId
     };
@@ -4318,17 +4320,17 @@ exports.getSellerAuctionProducts = async (req, res) => {
     // First, update any auctions that should be ended
     const now = new Date();
     await Product.updateMany(
-      { 
+      {
         status: 'offline_auction',
         seller: sellerId,
         'auction.status': 'ongoing',
-        'auction.endDate': { $lt: now } 
+        'auction.endDate': { $lt: now }
       },
-      { 
-        $set: { 
+      {
+        $set: {
           'auction.status': 'ended',
           'auction.daysLeft': 0
-        } 
+        }
       }
     );
 
@@ -4444,27 +4446,27 @@ exports.getProductsByCategoryAndSubcategory = async (req, res) => {
   try {
     const { category, subcategory } = req.params;
     const { page = 1, limit = 20, sortBy = 'createdAt', order = 'desc', minPrice, maxPrice, condition } = req.query;
-    
+
     // Build query
-    const query = { 
-      category, 
+    const query = {
+      category,
       subCategory: subcategory,
       status: 'active',
       visibility: 'visible'
     };
-    
+
     // Add price filter if min or max price is provided
     if (minPrice !== undefined || maxPrice !== undefined) {
       query.price = {};
       if (minPrice !== undefined) query.price.$gte = Number(minPrice);
       if (maxPrice !== undefined) query.price.$lte = Number(maxPrice);
     }
-    
+
     // Add condition filter if provided (case-insensitive)
     if (condition) {
       query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
     }
-    
+
     // Build sort options
     let sortOptions = {};
     switch (sortBy) {
@@ -4490,7 +4492,7 @@ exports.getProductsByCategoryAndSubcategory = async (req, res) => {
       default:
         sortOptions = { createdAt: order === 'asc' ? 1 : -1 };
     }
-    
+
     // Find products with pagination
     const products = await Product.find(query)
       .sort(sortOptions)
@@ -4498,10 +4500,10 @@ exports.getProductsByCategoryAndSubcategory = async (req, res) => {
       .limit(parseInt(limit))
       .populate('seller', sellerPopulationFields)
       .select('-__v');
-    
+
     // Get total count for pagination
     const total = await Product.countDocuments(query);
-    
+
     return res.status(200).json({
       success: true,
       count: products.length,
@@ -4536,26 +4538,26 @@ exports.getProductsByCategory = async (req, res) => {
   try {
     const { category } = req.params;
     const { page = 1, limit = 20, sortBy = 'createdAt', order = 'desc', minPrice, maxPrice, condition } = req.query;
-    
+
     // Build query - filter by category only, no subcategory filter
-    const query = { 
-      category, 
+    const query = {
+      category,
       status: 'active',
       visibility: 'visible'
     };
-    
+
     // Add price filter if min or max price is provided
     if (minPrice !== undefined || maxPrice !== undefined) {
       query.price = {};
       if (minPrice !== undefined) query.price.$gte = Number(minPrice);
       if (maxPrice !== undefined) query.price.$lte = Number(maxPrice);
     }
-    
+
     // Add condition filter if provided (case-insensitive)
     if (condition) {
       query.condition = { $regex: new RegExp(`^${condition}$`, 'i') };
     }
-    
+
     // Build sort options
     let sortOptions = {};
     switch (sortBy) {
@@ -4581,7 +4583,7 @@ exports.getProductsByCategory = async (req, res) => {
       default:
         sortOptions = { createdAt: order === 'asc' ? 1 : -1 };
     }
-    
+
     // Find products with pagination
     const products = await Product.find(query)
       .sort(sortOptions)
@@ -4589,10 +4591,10 @@ exports.getProductsByCategory = async (req, res) => {
       .limit(parseInt(limit))
       .populate('seller', sellerPopulationFields)
       .select('-__v');
-    
+
     // Get total count for pagination
     const total = await Product.countDocuments(query);
-    
+
     return res.status(200).json({
       success: true,
       count: products.length,
@@ -4625,28 +4627,28 @@ exports.getProductsByCategory = async (req, res) => {
 exports.getSubcategoriesWithProducts = async (req, res) => {
   try {
     const { category } = req.params;
-    
+
     // Find all products with this category
-    const products = await Product.find({ 
+    const products = await Product.find({
       category,
       status: 'active',
       visibility: 'visible',
       status: { $ne: 'offline_auction' }
     });
-    
+
     if (!products || products.length === 0) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'No products found for this category' 
+        message: 'No products found for this category'
       });
     }
-    
+
     // Extract unique categories from the products
     const categories = [...new Set(products.map(product => product.category))];
-    
+
     // Get full category details from the Category model
     const categoryDetails = await Category.find({ name: { $in: categories } });
-    
+
     return res.status(200).json({
       success: true,
       count: categoryDetails.length,
@@ -4654,9 +4656,9 @@ exports.getSubcategoriesWithProducts = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching seller product categories:', error);
-    return res.status(500).json({ 
-      message: 'Server error', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Server error',
+      error: error.message
     });
   }
 };
@@ -4666,20 +4668,20 @@ exports.getProductsBySellerCategoryAndSubcategory = async (req, res) => {
   try {
     const { sellerId, category, subcategory } = req.params;
     const { page = 1, limit = 20, sortBy = 'createdAt', order = 'desc' } = req.query;
-    
+
     // Validate sellerId
     if (!mongoose.Types.ObjectId.isValid(sellerId)) {
       return res.status(400).json({ success: false, message: 'Invalid seller ID format' });
     }
-    
+
     // Build query
-    const query = { 
+    const query = {
       seller: sellerId,
       category,
       subCategory: subcategory,
       status: 'active'
     };
-    
+
     // Build sort options
     let sortOptions = {};
     switch (sortBy) {
@@ -4705,13 +4707,13 @@ exports.getProductsBySellerCategoryAndSubcategory = async (req, res) => {
       default:
         sortOptions = { createdAt: order === 'asc' ? 1 : -1 };
     }
-    
+
     // Check if seller exists
     const seller = await mongoose.model('Seller').findById(sellerId);
     if (!seller) {
       return res.status(404).json({ success: false, message: 'Seller not found' });
     }
-    
+
     // Find products with pagination
     const products = await Product.find(query)
       .sort(sortOptions)
@@ -4719,10 +4721,10 @@ exports.getProductsBySellerCategoryAndSubcategory = async (req, res) => {
       .limit(parseInt(limit))
       .populate('seller', sellerPopulationFields)
       .select('-__v');
-    
+
     // Get total count for pagination
     const total = await Product.countDocuments(query);
-    
+
     return res.status(200).json({
       success: true,
       count: products.length,
@@ -4745,31 +4747,31 @@ exports.getProductsBySellerCategoryAndSubcategory = async (req, res) => {
 exports.getSellerSubcategoriesWithProducts = async (req, res) => {
   try {
     const { sellerId, category } = req.params;
-    
+
     // Validate sellerId
     if (!mongoose.Types.ObjectId.isValid(sellerId)) {
       return res.status(400).json({ success: false, message: 'Invalid seller ID format' });
     }
-    
+
     // Check if seller exists
     const seller = await mongoose.model('Seller').findById(sellerId);
     if (!seller) {
       return res.status(404).json({ success: false, message: 'Seller not found' });
     }
-    
+
     // Find all products with this seller and category
-    const products = await Product.find({ 
+    const products = await Product.find({
       seller: sellerId,
       category
     });
-    
+
     if (!products || products.length === 0) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'No products found for this seller and category' 
+        message: 'No products found for this seller and category'
       });
     }
-    
+
     // Extract unique subcategories and count products in each
     const subcategories = {};
     products.forEach(product => {
@@ -4780,13 +4782,13 @@ exports.getSellerSubcategoriesWithProducts = async (req, res) => {
         subcategories[product.subCategory]++;
       }
     });
-    
+
     // Convert to array format with counts
     const result = Object.keys(subcategories).map(subcat => ({
       name: subcat,
       productCount: subcategories[subcat]
     }));
-    
+
     return res.status(200).json({
       success: true,
       count: result.length,
@@ -4925,8 +4927,8 @@ exports.rerunOfflineAuction = async (req, res) => {
 
   } catch (error) {
     console.error('Error rerunning auction:', error);
-    res.status(500).json({ 
-      message: 'Error rerunning auction', 
+    res.status(500).json({
+      message: 'Error rerunning auction',
       error: error.message,
       details: error.errors ? Object.keys(error.errors).map(key => ({
         field: key,
@@ -4954,38 +4956,38 @@ exports.getBuyerAuctionProducts = async (req, res) => {
     // First, update any auctions that should be ended
     const now = new Date();
     await Product.updateMany(
-      { 
-        status: 'offline_auction', 
+      {
+        status: 'offline_auction',
         'auction.status': 'ongoing',
-        'auction.endDate': { $lt: now } 
+        'auction.endDate': { $lt: now }
       },
-      { 
-        $set: { 
+      {
+        $set: {
           'auction.status': 'ended',
           'auction.daysLeft': 0
-        } 
+        }
       }
     );
 
     // Get all offline auction products
-    const allAuctionProducts = await Product.find({ 
+    const allAuctionProducts = await Product.find({
       status: 'offline_auction',
       ...(status ? { 'auction.status': status } : {})
     })
-    .populate('seller', 'businessName storeName storeAvatar storeBanner stats firstName lastName email phoneNumber isVerified createdAt aboutStore')
-    .populate({
-      path: 'auction.bids.buyer',
-      select: 'firstName lastName country profileImage _id'
-    })
-    .populate({
-      path: 'auction.currentHighestBid.buyer',
-      select: 'firstName lastName country profileImage _id'
-    })
-    .populate({
-      path: 'auction.winner.buyer',
-      select: 'firstName lastName country profileImage _id'
-    })
-    .select('name description images auction seller');
+      .populate('seller', 'businessName storeName storeAvatar storeBanner stats firstName lastName email phoneNumber isVerified createdAt aboutStore')
+      .populate({
+        path: 'auction.bids.buyer',
+        select: 'firstName lastName country profileImage _id'
+      })
+      .populate({
+        path: 'auction.currentHighestBid.buyer',
+        select: 'firstName lastName country profileImage _id'
+      })
+      .populate({
+        path: 'auction.winner.buyer',
+        select: 'firstName lastName country profileImage _id'
+      })
+      .select('name description images auction seller');
 
     console.log(`Found ${allAuctionProducts.length} total auction products`);
 
@@ -4994,7 +4996,7 @@ exports.getBuyerAuctionProducts = async (req, res) => {
       if (!product.auction || !product.auction.bids || !Array.isArray(product.auction.bids)) {
         return false;
       }
-      
+
       return product.auction.bids.some(bid => {
         return bid && bid.buyer && bid.buyer._id && bid.buyer._id.toString() === buyerId;
       });
@@ -5017,16 +5019,16 @@ exports.getBuyerAuctionProducts = async (req, res) => {
             // Get buyer's bids for both products
             const aBuyerBids = a.auction.bids.filter(bid => bid && bid.buyer && bid.buyer._id && bid.buyer._id.toString() === buyerId);
             const bBuyerBids = b.auction.bids.filter(bid => bid && bid.buyer && bid.buyer._id && bid.buyer._id.toString() === buyerId);
-            
+
             // Get highest bid amounts (or 0 if no bids)
-            const aHighestBid = aBuyerBids.length > 0 
-              ? Math.max(...aBuyerBids.map(bid => bid.amount)) 
+            const aHighestBid = aBuyerBids.length > 0
+              ? Math.max(...aBuyerBids.map(bid => bid.amount))
               : 0;
-            
-            const bHighestBid = bBuyerBids.length > 0 
-              ? Math.max(...bBuyerBids.map(bid => bid.amount)) 
+
+            const bHighestBid = bBuyerBids.length > 0
+              ? Math.max(...bBuyerBids.map(bid => bid.amount))
               : 0;
-            
+
             return bHighestBid - aHighestBid;
           default:
             return new Date(a.auction.endDate) - new Date(b.auction.endDate);
@@ -5057,24 +5059,24 @@ exports.getBuyerAuctionProducts = async (req, res) => {
       }
 
       // Add flag to indicate if the current buyer is the highest bidder
-      cleanedProduct.isHighestBidder = 
+      cleanedProduct.isHighestBidder =
         product.auction.currentHighestBid &&
-        product.auction.currentHighestBid.buyer && 
-        product.auction.currentHighestBid.buyer._id && 
+        product.auction.currentHighestBid.buyer &&
+        product.auction.currentHighestBid.buyer._id &&
         product.auction.currentHighestBid.buyer._id.toString() === buyerId;
-      
+
       // Add flag to indicate if the current buyer is the winner
-      cleanedProduct.isWinner = 
+      cleanedProduct.isWinner =
         product.auction.winner &&
-        product.auction.winner.buyer && 
-        product.auction.winner.buyer._id && 
+        product.auction.winner.buyer &&
+        product.auction.winner.buyer._id &&
         product.auction.winner.buyer._id.toString() === buyerId;
-      
+
       // Add the buyer's highest bid
       const buyerBids = product.auction.bids.filter(
         bid => bid && bid.buyer && bid.buyer._id && bid.buyer._id.toString() === buyerId
       );
-      
+
       if (buyerBids.length > 0) {
         // Sort bids by amount (descending) to get the highest
         const highestBid = [...buyerBids].sort((a, b) => b.amount - a.amount)[0];
@@ -5164,8 +5166,8 @@ exports.replyToProductReview = async (req, res) => {
     // Find the product and check if it belongs to the seller
     const product = await Product.findOne({ _id: productId, seller: sellerId });
     if (!product) {
-      return res.status(404).json({ 
-        message: 'Product not found or you are not authorized to reply to reviews for this product' 
+      return res.status(404).json({
+        message: 'Product not found or you are not authorized to reply to reviews for this product'
       });
     }
 
@@ -5210,9 +5212,9 @@ exports.replyToProductReview = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in replyToProductReview:', error);
-    res.status(500).json({ 
-      message: 'Failed to add reply', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to add reply',
+      error: error.message
     });
   }
 };
@@ -5225,33 +5227,33 @@ exports.replyToProductReview = async (req, res) => {
 exports.getReviewDetails = async (req, res) => {
   try {
     const { productId, reviewId } = req.params;
-    
+
     // Find the product
     const product = await Product.findById(productId)
       .select('name price description images reviews');
-    
+
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    
+
     // Find the specific review
     const review = product.reviews.id(reviewId);
     if (!review) {
       return res.status(404).json({ message: 'Review not found' });
     }
-    
+
     // Get buyer details
     const Buyer = require('../models/Buyer');
     const buyer = await Buyer.findById(review.buyer)
       .select('firstName lastName profileImage');
-    
+
     // Get seller details if review has a reply
     let sellerInfo = null;
     if (review.reply && review.reply.content) {
       const Seller = require('../models/Seller');
       const seller = await Seller.findById(product.seller)
         .select('firstName lastName businessName storeName storeAvatar');
-      
+
       if (seller) {
         sellerInfo = {
           _id: seller._id,
@@ -5260,7 +5262,7 @@ exports.getReviewDetails = async (req, res) => {
         };
       }
     }
-    
+
     // Format the response
     const reviewDetails = {
       reviewId: review._id,
@@ -5289,13 +5291,13 @@ exports.getReviewDetails = async (req, res) => {
         seller: sellerInfo
       } : null
     };
-    
+
     res.json(reviewDetails);
   } catch (error) {
     console.error('Error in getReviewDetails:', error);
-    res.status(500).json({ 
-      message: 'Failed to retrieve review details', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Failed to retrieve review details',
+      error: error.message
     });
   }
 };
@@ -5311,23 +5313,23 @@ exports.getReviewDetails = async (req, res) => {
 exports.searchSellerProducts = async (req, res) => {
   try {
     const { sellerId } = req.params;
-    const { 
-      query, 
+    const {
+      query,
       category,
-      minPrice, 
+      minPrice,
       maxPrice,
       condition,
       sortBy = 'createdAt',
       order = 'desc',
-      page = 1, 
-      limit = 20 
+      page = 1,
+      limit = 20
     } = req.query;
 
     // Validate sellerId
     if (!mongoose.Types.ObjectId.isValid(sellerId)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid seller ID format' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid seller ID format'
       });
     }
 
@@ -5439,17 +5441,17 @@ exports.bulkUpdatePrices = async (req, res) => {
     const multiplier = 1 + (percentage / 100);
 
     if (multiplier < 0) {
-        return res.status(400).json({ message: 'Percentage decrease cannot be more than 100%.' });
+      return res.status(400).json({ message: 'Percentage decrease cannot be more than 100%.' });
     }
 
     // Using updateMany with aggregation pipeline for update
     const result = await Product.updateMany(
-        { seller: sellerId },
-        [{ $set: { price: { $multiply: ['$price', multiplier] } } }]
+      { seller: sellerId },
+      [{ $set: { price: { $multiply: ['$price', multiplier] } } }]
     );
 
     if (result.matchedCount === 0) {
-        return res.status(404).json({ message: 'No products found for this seller.' });
+      return res.status(404).json({ message: 'No products found for this seller.' });
     }
 
     res.json({
