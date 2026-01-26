@@ -1229,6 +1229,62 @@ router.get('/:streamId', (req, res, next) => {
 
 /**
  * @swagger
+ * /api/streams/{streamId}/buyer-details:
+ *   get:
+ *     summary: Get detailed stream information for buyers (similar to joinStream response structure)
+ *     description: Returns stream details with the same response format as joinStream but without joining the stream or generating tokens
+ *     tags: [Streams]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: streamId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the stream
+ *     responses:
+ *       200:
+ *         description: Detailed stream information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 success:
+ *                   type: boolean
+ *                 channelName:
+ *                   type: string
+ *                 stream:
+ *                   type: object
+ *                   properties:
+ *                     viewerCount:
+ *                       type: integer
+ *                     isLive:
+ *                       type: boolean
+ *                     products:
+ *                       type: array
+ *                     totalProductCount:
+ *                       type: integer
+ *                     viewers:
+ *                       type: array
+ *                     sellerFollowers:
+ *                       type: integer
+ *       404:
+ *         description: Stream not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/:streamId/buyer-details',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  streamController.getBuyerStreamDetails
+);
+
+/**
+ * @swagger
  * /api/streams/seller/{sellerId}:
  *   get:
  *     summary: Get all streams for a specific seller
