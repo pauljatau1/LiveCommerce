@@ -7,7 +7,7 @@ import { useAuthContext } from "@/Hooks/useAuthContextV2"
 import { useEffect, useState } from "react"
 import { Dialog, DialogTrigger } from "../../ui/dialog"
 import PropTypes from "prop-types"
-import NotificationsDialog from "../../NotificationsDialog"
+import NotificationsDialog from "../../NotificationsDialog";
 
 const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, showBackButton, fullScreenMode }) => {
   const { token, seller } = useAuthContext()
@@ -279,18 +279,16 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
   return (
     <header className={`${fullScreenMode
       ? 'hidden'
-      : `block bg-white border-b border-[#EDF2F7] fixed top-0 z-50 
-           ${isSidebarOpen ? 'left-[257px]' : 'left-0'} right-0 
-           md:left-[257px] xl:left-[307px] 
-           w-full md:w-[calc(100%-257px)] xl:w-[calc(100%-307px)]`
+      : ` bg-white border-b border-[#EDF2F7] absolute top-0 left-0 right-0 z-20
+          `
       }`}>
-      <div className="py-3 px-5 md:px-8">
+      <div className="py-3 px-5 xl:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             {!isSidebarOpen && (
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-2 rounded-md md:hidden text-gray-400 hover:text-gray-500 hover:bg-gray-100 lg:hidden"
+                className="p-2 rounded-md  text-gray-400 hover:text-gray-500 hover:bg-gray-100 xl:hidden"
               >
                 <Icon icon="pepicons-pencil:menu" className="h-6 w-6" />
               </button>
@@ -298,7 +296,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
             <div className="flex flex-col xl:flex-row xl:gap-10 xl:items-center">
               <div className="flex gap-2 items-center">
                 {showBackButton && (
-                  <button onClick={() => navigate(-1)} className="p-2 rounded-full md:block hidden text-[#272D30] hover:text-[#272D30]/80 transition-all duration-300 ease-in-out hover:bg-[#272D30]/10">
+                  <button onClick={() => navigate(-1)} className="p-2 rounded-full xl:block hidden text-[#272D30] hover:text-[#272D30]/80 transition-all duration-300 ease-in-out hover:bg-[#272D30]/10">
                     <Icon icon="ep:back" className="h-6 w-6" />
                   </button>
                 )}

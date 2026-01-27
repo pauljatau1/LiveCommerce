@@ -1,6 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import { useState } from 'react';
-import SideBarNav from '../Components/ui/DashboardHomepageUi/SideBarNav';
+import SideBarNav from '@/Components/ui/DashboardHomepageUi/SidebarNavV2';
 import ScrollToTop from '../Utilities/ScrollToTop';
 import Header from '../Components/ui/Header/Header';
 
@@ -41,14 +41,14 @@ const DashboardLayout = () => {
     if (fullScreenMode) {
       return "scroll-container relative h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden";
     } else {
-      return "scroll-container relative bg-[#F7FAFC] h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-gray-600";
+      return "scroll-container relative bg-[#F7FAFC] w-full ";
     }
   }
 
   return (
     <>
       <ScrollToTop />
-      <main className="flex h-screen w-dvh">
+      <main className="flex h-screen overflow-y-hidden ">
         {/* Sidebar */}
         <SideBarNav
           isSidebarOpen={isSidebarOpen}
@@ -57,7 +57,7 @@ const DashboardLayout = () => {
         />
 
         {/* Main Content */}
-        <div className={`flex-1 ${displayScreenMode()}`}>
+        <div className={`flex-1 ${displayScreenMode()} `}>
           <Header
             isSidebarOpen={isSidebarOpen}
             setIsSidebarOpen={setIsSidebarOpen}
@@ -66,7 +66,7 @@ const DashboardLayout = () => {
             showBackButton={showBackButton}
             fullScreenMode={fullScreenMode}
           />
-          <div className={`${fullScreenMode ? isLiveStreamPage ? '' : 'mt-[88px]' : isMessagesPage ? 'mt-[90px]' : 'mt-[88px] px-5 md:px-8'}`}>
+          <div className={` ${fullScreenMode ? isLiveStreamPage ? '' : 'mt-[88px]' : isMessagesPage ? 'mt-[90px]' : 'h-full mt-[88px] overflow-y-scroll [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-gray-600 px-5 md:px-8'}`}>
             <Outlet context={outletContext} />
           </div>
         </div>

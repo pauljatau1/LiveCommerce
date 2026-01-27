@@ -16,9 +16,9 @@ import ProductImage from '../assets/p-card.png';
 import LiveIcon1 from '../assets/live-icon1.png';
 import LiveIcon2 from '../assets/live-icon2.png';
 import LiveIcon3 from '../assets/live-icon3.png';
-import { 
-    MdDashboard, 
-    MdPeople, 
+import {
+    MdDashboard,
+    MdPeople,
     MdShoppingBag,
     MdInventory2,
     MdCampaign,
@@ -32,14 +32,14 @@ import {
     MdSettings,
     MdLogout
 } from 'react-icons/md';
-import { 
-    BsBoxSeam, 
-    BsFileEarmarkText, 
+import {
+    BsBoxSeam,
+    BsFileEarmarkText,
     BsFileX,
     BsTicketPerforated,
     BsLightning,
     BsInbox,
-    BsShare 
+    BsShare
 } from 'react-icons/bs';
 
 
@@ -76,53 +76,22 @@ export const sideBarNavData = [
         name: 'Dashboard',
         icon: 'bi:house',
         path: '/dashboard/home',
-    },
-    {
-        id: ObjectID().toHexString(),
-        name: 'Customers',
-        icon: 'eva:people-outline',
-        path: '/dashboard/customers'
+        hasMessageCount: false,
+        hasNotificationCount: false
     },
     {
         id: ObjectID().toHexString(),
         name: 'KYC Verification',
         icon: 'uiw:verification',
-        path: '/dashboard/kyc-verification'
+        path: '/dashboard/kyc-verification',
+        hasMessageCount: false
     },
-    {
-        id: ObjectID().toHexString(),
-        name: 'Orders',
-        icon: 'heroicons:shopping-bag',
-        path: '/dashboard/orders'
-    },
-    /*{
-        //id: ObjectID().toHexString(),
-        //name: 'Returns Center',
-        icon: 'heroicons:arrow-path',
-        path: '/dashboard/returns',
-        // subNav: [
-        //     {
-        //         id: ObjectID().toHexString(),
-        //         name: 'Pending Returns',
-        //         path: 'pending'
-        //     },
-        //     {
-        //         id: ObjectID().toHexString(),
-        //         name: 'Approved Returns',
-        //         path: 'approved'
-        //     },
-        //     {
-        //         id: ObjectID().toHexString(),
-        //         name: 'Rejected Returns',
-        //         path: 'rejected'
-        //     }
-        // ]
-    },*/
     {
         id: ObjectID().toHexString(),
         name: 'Products',
         icon: 'iconoir:box-iso',
         path: '/dashboard/products',
+        hasMessageCount: false,
         subNav: [
             {
                 id: ObjectID().toHexString(),
@@ -143,9 +112,48 @@ export const sideBarNavData = [
     },
     {
         id: ObjectID().toHexString(),
+        name: 'Orders',
+        icon: 'heroicons:shopping-bag',
+        path: '/dashboard/orders',
+        hasMessageCount: false
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Returns Center',
+        icon: 'heroicons:arrow-path',
+        path: '/dashboard/returns',
+        hasMessageCount: false,
+        // subNav: [
+        //     {
+        //         id: ObjectID().toHexString(),
+        //         name: 'Pending Returns',
+        //         path: 'pending'
+        //     },
+        //     {
+        //         id: ObjectID().toHexString(),
+        //         name: 'Approved Returns',
+        //         path: 'approved'
+        //     },
+        //     {
+        //         id: ObjectID().toHexString(),
+        //         name: 'Rejected Returns',
+        //         path: 'rejected'
+        //     }
+        // ]
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Customers',
+        icon: 'eva:people-outline',
+        path: '/dashboard/customers',
+        hasMessageCount: false
+    },
+    {
+        id: ObjectID().toHexString(),
         name: 'Marketing',
         icon: 'mage:megaphone-a',
         path: '/dashboard/marketing',
+        hasMessageCount: false,
         subNav: [
             {
                 id: ObjectID().toHexString(),
@@ -172,14 +180,99 @@ export const sideBarNavData = [
     {
         id: ObjectID().toHexString(),
         name: 'Messages',
-        icon: 'token:chat',
-        path: '/dashboard/messages'
+        icon: 'icon-park-outline:message',
+        path: '/dashboard/messages',
+        hasMessageCount: true
+    }
+];
+
+export const sideBarNavData2 = [
+
+    {
+        id: ObjectID().toHexString(),
+        name: 'Analytics & Insights',
+        icon: 'mage:chart-up',
+        path: '/dashboard/analytics-insights',
+        hasMessageCount: false,
+        subNav: []
     },
     {
         id: ObjectID().toHexString(),
-        name: 'Live Streams',
+        name: 'Earnings & Payouts',
+        icon: 'mdi:naira',
+        path: '/dashboard/earnings-payouts',
+        hasMessageCount: false,
+        subNav: []
+    }
+]
+
+export const sideBarNavData3 = [
+    {
+        id: ObjectID().toHexString(),
+        name: 'Notifications',
+        icon: 'bi:bell',
+        path: '/dashboard/notifications',
+        subNav: [],
+        hasMessageCount: true
+
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Auqli Connect',
+        icon: 'ri:user-community-line',
+        path: '/dashboard/auqli-connect',
+        hasMessageCount: false,
+        subNav: []
+    },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Auqli University',
+        icon: 'fluent:learning-app-16-regular',
+        path: 'https://www.youtube.com/@auqliapp',
+        hasMessageCount: false,
+        subNav: []
+    }
+]
+
+export const sideBarNavData4 = [
+    {
+        id: ObjectID().toHexString(),
+        name: "Shop Manager",
+        icon: "mdi:shop-settings",
+        path: "/dashboard/shop-manager",
+        hasMessageCount: false,
+        subNav: [
+            {
+                id: ObjectID().toHexString(),
+                name: "Shop Settings",
+                path: "/dashboard/shop-manager/settings"
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: "Manage Reviews",
+                path: "/dashboard/shop-manager/manage-reviews"
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: "View Account/My Shop",
+                path: "/dashboard/shop-manager/view-account"
+            },
+            {
+                id: ObjectID().toHexString(),
+                name: "Refer a Seller & Earn",
+                path: "/dashboard/shop-manager/referral"
+            }
+        ]
+    }
+]
+
+export const sideBarNavData5 = [
+    {
+        id: ObjectID().toHexString(),
+        name: 'Live Shows',
         icon: 'mynaui:video',
         path: '/dashboard/live-streams/live-stream',
+        hasMessageCount: false,
         subNav: [
             {
                 id: ObjectID().toHexString(),
@@ -193,43 +286,7 @@ export const sideBarNavData = [
             }
         ]
     },
-    {
-        id: ObjectID().toHexString(),
-        name: 'Analytics & Insights',
-        icon: 'mage:chart-up',
-        path: '/dashboard/analytics-insights'
-    },
-    {
-        id: ObjectID().toHexString(),
-        name: 'Earnings & Payouts',
-        icon: 'solar:dollar-linear',
-        path: '/dashboard/earnings-payouts'
-    },
-    // {
-    //     id: ObjectID().toHexString(),
-    //     name: 'Auqli Connect',
-    //     icon: 'system-uicons:chain',
-    //     path: '/dashboard/auqli-connect'
-    // },
-    {
-        id: ObjectID().toHexString(),
-        name: 'Auqli University',
-        icon: 'carbon:education',
-        path: 'https://www.youtube.com/@auqliapp',
-    },
-    {
-        id: ObjectID().toHexString(),
-        name: 'Settings',
-        icon: 'carbon:settings',
-        path: '/dashboard/settings'
-    }
-    // {
-    //     id: ObjectID().toHexString(),
-    //     name: 'Shop Manager',
-    //     icon: 'bi:shop',
-    //     path: '/dashboard/shop-manager'
-    // },
-];
+]
 
 export const homeAnalyticsCardData = [
     {
