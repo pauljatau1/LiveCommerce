@@ -113,7 +113,6 @@ const Blips = () => {
     setIsLoadingProducts(true);
     try {
       // Fetch active products for the seller
-      const seller = seller;
       const response = await axios.get(`${BASE_URL}/products/seller/${seller._id}`, {
         params: {
           status: 'active',
