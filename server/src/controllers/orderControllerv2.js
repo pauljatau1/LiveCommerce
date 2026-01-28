@@ -287,7 +287,6 @@ exports.createOrder = async (req, res) => {
     products.forEach(product => {
       productMap[product._id.toString()] = product;
     });
-
     // Validate that all products have sufficient stock
     for (const item of items) {
       const product = productMap[item.productId];
@@ -295,7 +294,7 @@ exports.createOrder = async (req, res) => {
 
       if (product.stock <= 0 || product.stock < item.quantity) {
         return res.status(400).json({
-          message: `Insufficient stock for ${product.name} (${product.stock} available)`
+          message: 'This product is out of stock'
         });
       }
     }

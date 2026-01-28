@@ -202,7 +202,7 @@ async function groupItemsBySeller(items, products, buyerId, session, isStorePick
     if (!product) continue;
 
     if (product.stock <= 0 || product.stock < item.quantity) {
-      throw new Error(`Insufficient stock for ${product.name} (${product.stock} available)`);
+      throw new Error('This product is out of stock');
     }
 
     const sellerId = product.seller._id.toString();
