@@ -3,7 +3,7 @@ import { BASE_URL } from "../Constants/Server";
 import { trackEvent } from "../util/analytics";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import { useLivestreamSocket } from "./LivestreamSocketContext";
-import { createContext, useReducer, useEffect } from "react";
+import { createContext, useReducer, useEffect, useCallback } from "react";
 import PropTypes from 'prop-types';
 import axios from "axios";
 
@@ -36,7 +36,13 @@ export const LivestreamProvider = ({ children }) => {
         hasLiveStreamStarted: false,
         hasLiveStreamEnded: false,
         joinLiveStreamData: null,
-        isActivatingBid: false
+        isActivatingBid: false,
+        streamsPagination: {
+            currentPage: 1,
+            totalPages: 1,
+            totalStreams: 0,
+            limit: 10
+        }
     };
 
     const [state, dispatch] = useReducer((state, action) => {
@@ -101,6 +107,14 @@ export const LivestreamProvider = ({ children }) => {
                 return {
                     ...state,
                     fetchedLiveStreams: action.payload
+                }
+            case 'SET_STREAMS_PAGINATION':
+                return {
+                    ...state,
+                    streamsPagination: {
+                        ...state.streamsPagination,
+                        ...action.payload
+                    }
                 }
             case 'SET_ERROR':
                 return {
@@ -262,25 +276,76 @@ export const LivestreamProvider = ({ children }) => {
         }
     }
 
-    const getAllSellerActiveStreams = async () => {
+    const getAllSellerActiveStreams = useCallback(async (page = 1, limit = 10, status = null) => {
         try {
             dispatch({ type: 'RESET_API_STATE' });
             dispatch({ type: 'SET_LOADING', payload: true });
             const sellerToken = token?.data;
-            const response = await axios.get(`${BASE_URL}/streams/seller/${seller?._id}`, {
+            
+            if (!seller?._id) {
+                dispatch({ type: 'SET_LOADING', payload: false });
+                return;
+            }
+            
+            // Build query parameters
+            const params = {
+                page,
+                limit
+            };
+            
+            // Add status filter if provided
+            if (status) {
+                params.status = status;
+            }
+            
+            const response = await axios.get(`${BASE_URL}/streams/seller/${seller._id}`, {
+                params,
                 headers: {
                     Authorization: `Bearer ${sellerToken}`,
                     'Content-Type': 'application/json'
                 }
             });
+            
             console.log('active streams', response);
-            dispatch({ type: 'SET_FETCHED_LIVE_STREAMS', payload: response.data.streams });
+            
+            // Update streams data
+            dispatch({ type: 'SET_FETCHED_LIVE_STREAMS', payload: response.data.streams || [] });
+            
+            // Update pagination metadata - map API response structure (pages, total) to internal state
+            if (response.data.pagination) {
+                dispatch({
+                    type: 'SET_STREAMS_PAGINATION',
+                    payload: {
+                        currentPage: response.data.pagination.currentPage || page,
+                        // Map 'pages' from API to 'totalPages' in state
+                        totalPages: response.data.pagination.pages || response.data.pagination.totalPages || 1,
+                        // Map 'total' from API to 'totalStreams' in state
+                        totalStreams: response.data.pagination.total || response.data.pagination.totalStreams || response.data.streams?.length || 0,
+                        limit: limit
+                    }
+                });
+            } else {
+                // Fallback if pagination data is not in expected format
+                dispatch({
+                    type: 'SET_STREAMS_PAGINATION',
+                    payload: {
+                        currentPage: response.data.currentPage || page,
+                        totalPages: response.data.pages || response.data.totalPages || 1,
+                        totalStreams: response.data.total || response.data.totalStreams || response.data.streams?.length || 0,
+                        limit: limit
+                    }
+                });
+            }
         } catch (error) {
             console.error(error);
+            dispatch({
+                type: 'SET_ERROR',
+                payload: error.response?.data?.message || 'Failed to fetch streams'
+            });
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
         }
-    }
+    }, [token, seller]);
 
     const startLiveStream = async (streamId) => {
         try {
