@@ -14,7 +14,7 @@ const createDraftOrders = async (req, session, sellerItems) => {
   const buyer = await orderRepository.findBuyerById(buyerId, session);
 
   const orders = [];
-  
+
   // Create draft orders for each seller
   for (const sellerId in sellerItems) {
     const sellerData = sellerItems[sellerId];
@@ -201,6 +201,10 @@ async function groupItemsBySeller(items, products, buyerId, session, isStorePick
     const product = productMap[item.productId];
     if (!product) continue;
 
+    if (product.stock <= 0 || product.stock < item.quantity) {
+      throw new Error(`Insufficient stock for ${product.name} (${product.stock} available)`);
+    }
+
     const sellerId = product.seller._id.toString();
     const seller = sellerMap[sellerId];
     if (!seller) continue;
@@ -276,27 +280,27 @@ function createOrderItem(product, item, itemWeight) {
 async function updateSellerFollowersOptimized(uniqueSellerIds, buyerId, session) {
   const Buyer = require('../../../models/Buyer');
   const Seller = require('../../../models/Seller');
-  
+
   // Fetch buyer once for all operations
   const buyer = await Buyer.findById(buyerId).session(session);
   if (!buyer) return;
 
-  const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0 
+  const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0
     ? {
-        country: buyer.shippingAddresses[0].country,
-        city: buyer.shippingAddresses[0].city,
-        address1: buyer.shippingAddresses[0].addressLine1,
-        address2: buyer.shippingAddresses[0].addressLine2,
-        zipCode: buyer.shippingAddresses[0].zipCode
-      }
+      country: buyer.shippingAddresses[0].country,
+      city: buyer.shippingAddresses[0].city,
+      address1: buyer.shippingAddresses[0].addressLine1,
+      address2: buyer.shippingAddresses[0].addressLine2,
+      zipCode: buyer.shippingAddresses[0].zipCode
+    }
     : null;
 
   const updatePromises = [];
-  
+
   for (const sellerId of uniqueSellerIds) {
     // Use upsert with conditional operators for optimal performance
     const updatePromise = Seller.findOneAndUpdate(
-      { 
+      {
         _id: sellerId,
         'followers.buyerId': { $ne: buyerId } // Only if not already a follower
       },
@@ -355,7 +359,7 @@ async function updateSellerFollowersOptimized(uniqueSellerIds, buyerId, session)
   }
 
   await Promise.all(updatePromises);
-  
+
   if (buyer.isModified()) {
     await buyer.save({ session });
   }
