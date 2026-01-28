@@ -1565,17 +1565,6 @@ exports.getStreamDetails = async (req, res) => {
       return res.status(404).json({ message: 'Stream not found' });
     }
 
-    // Calculate expiration times
-    const now = new Date();
-    const ONE_HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
-
-    if (stream.status === 'scheduled' && stream.scheduledStartTime) {
-      const expirationTime = new Date(stream.scheduledStartTime.getTime() + ONE_HOUR);
-      if (now > expirationTime) {
-        stream.status = 'expired';
-        await stream.save();
-      }
-    }
     res.json(stream);
   } catch (error) {
     console.error(`[DEBUG] Error in getStreamDetails:`, error);
@@ -1598,18 +1587,6 @@ exports.getBuyerStreamDetails = async (req, res) => {
 
     if (!stream) {
       return res.status(404).json({ message: 'Stream not found' });
-    }
-
-    // Calculate expiration times for scheduled streams
-    const now = new Date();
-    const ONE_HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
-
-    if (stream.status === 'scheduled' && stream.scheduledStartTime) {
-      const expirationTime = new Date(stream.scheduledStartTime.getTime() + ONE_HOUR);
-      if (now > expirationTime) {
-        stream.status = 'expired';
-        await Stream.findByIdAndUpdate(stream._id, { status: 'expired' });
-      }
     }
 
     // Get all viewers with detailed information
@@ -2073,11 +2050,6 @@ exports.getSellerStreams = async (req, res) => {
           if (now > expirationTime) {
             needsUpdate = true;
           }
-        } else if (stream.status === 'live' && stream.actualStartTime && !stream.endTime) {
-          const expirationTime = new Date(stream.actualStartTime.getTime());
-          if (now > expirationTime) {
-            needsUpdate = true;
-          }
         }
 
         if (needsUpdate) {
@@ -2133,7 +2105,6 @@ exports.getSellerStreams = async (req, res) => {
       .limit(parseInt(limit));
 
     // Check and update expiration status for each stream
-    const ONE_HOUR = 60 * 60 * 1000;
     const now = new Date();
 
     for (const stream of streams) {
@@ -2142,11 +2113,6 @@ exports.getSellerStreams = async (req, res) => {
 
       if (stream.status === 'scheduled' && stream.scheduledStartTime) {
         const expirationTime = new Date(stream.scheduledStartTime.getTime());
-        if (now > expirationTime) {
-          needsUpdate = true;
-        }
-      } else if (stream.status === 'live' && stream.actualStartTime && !stream.endTime) {
-        const expirationTime = new Date(stream.actualStartTime.getTime());
         if (now > expirationTime) {
           needsUpdate = true;
         }
