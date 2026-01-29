@@ -1311,12 +1311,16 @@ exports.toggleVacationMode = async (req, res) => {
       `
     };
 
-    await termiiEmailService.sendRawHTMLEmail({
+    // Send email notification (Non-blocking)
+    termiiEmailService.sendRawHTMLEmail({
       email: msg.to,
       subject: msg.subject,
       html: msg.html
+    }).then(() => {
+      console.log('[VacationMode] Email sent successfully.');
+    }).catch(err => {
+      console.error('[VacationMode] Failed to send email (Non-blocking):', err.message);
     });
-    console.log('[VacationMode] Email sent.');
 
     res.json({
       message: `Vacation mode successfully ${isOn ? 'enabled' : 'disabled'}.`,
