@@ -19,7 +19,7 @@ export default function App() {
           <Suspense fallback={<Loader />}>
             <AppRouter />
           </Suspense>
-          <Toaster />
+          <Toaster position="top-right" />
           <CookieConsentWithAnalytics />
         </IntercomWrapper>
       </QueryClientProvider>
