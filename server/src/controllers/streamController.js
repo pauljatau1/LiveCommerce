@@ -5376,10 +5376,10 @@ exports.rescheduleExpiredStream = async (req, res) => {
       });
     }
 
-    // Validate that the stream status is "expired"
-    if (stream.status !== 'expired' || stream.status !== 'scheduled' ) {
+    // Validate that the stream status is "expired" or "scheduled"
+    if (stream.status !== 'expired' && stream.status !== 'scheduled') {
       return res.status(400).json({
-        message: `Cannot reschedule stream. Stream status is "${stream.status}" but must be "expired" to reschedule`
+        message: `Cannot reschedule stream. Stream status is "${stream.status}" but must be "expired" or "scheduled" to reschedule`
       });
     }
 
