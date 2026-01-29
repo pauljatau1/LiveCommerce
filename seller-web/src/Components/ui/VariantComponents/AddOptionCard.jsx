@@ -2,6 +2,7 @@ import { memo, useState, useCallback } from 'react';
 import { Icon } from "@iconify/react";
 import { useVariants } from '../../../Contexts/VariantContext';
 import PropTypes from 'prop-types';
+import ObjectID from 'bson-objectid';
 
 const AddOptionCard = memo(({ onDone, initialName, initialValues, variantId }) => {
     const [optionName, setOptionName] = useState(initialName || '');
@@ -32,7 +33,8 @@ const AddOptionCard = memo(({ onDone, initialName, initialValues, variantId }) =
         const validValues = optionValues.filter(value => value.trim() !== '');
         if (optionName && validValues.length > 0) {
             const optionPayload = {
-                id: variantId || crypto.randomUUID(),
+                // Use bson-objectid for broad browser support (avoids relying on crypto.randomUUID)
+                id: variantId || ObjectID().toHexString(),
                 name: optionName,
                 values: validValues
             };
