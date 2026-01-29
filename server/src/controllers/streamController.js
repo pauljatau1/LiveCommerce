@@ -598,6 +598,32 @@ exports.startStream = async (req, res) => {
     // Save stream first with basic updates
     await stream.save();
 
+    // Expire all other scheduled streams for this seller whose scheduledStartTime has elapsed
+    try {
+      const now = new Date();
+      const scheduledStreams = await Stream.find({
+        seller: req.user.id,
+        status: 'scheduled',
+        _id: { $ne: req.params.streamId } // Exclude the stream that was just started
+      });
+
+      for (const scheduledStream of scheduledStreams) {
+        if (scheduledStream.scheduledStartTime) {
+          const expirationTime = new Date(scheduledStream.scheduledStartTime.getTime());
+          if (now > expirationTime) {
+            await Stream.updateOne(
+              { _id: scheduledStream._id },
+              { $set: { status: 'expired' } },
+              { runValidators: false }  // Bypass validation for status updates
+            );
+          }
+        }
+      }
+    } catch (expirationError) {
+      // Log error but don't fail stream start
+      console.error('Error expiring scheduled streams:', expirationError);
+    }
+
     // Create notification object
     const notificationObj = {
       id: Date.now().toString(),
@@ -1445,7 +1471,6 @@ exports.endStream = async (req, res) => {
     const stream = await Stream.findOne({
       _id: req.params.streamId,
       seller: req.user.id,
-      status: 'live'
     });
 
     if (!stream) {
@@ -2037,30 +2062,6 @@ exports.getSellerStreams = async (req, res) => {
         { path: 'products.currentBidder', select: 'firstName lastName username' }
       ]);
 
-      // Check and update expiration status for each stream
-      const ONE_HOUR = 60 * 60 * 1000;
-      const now = new Date();
-
-      for (const stream of streams) {
-        let needsUpdate = false;
-        const update = { status: 'expired' };
-
-        if (stream.status === 'scheduled' && stream.scheduledStartTime) {
-          const expirationTime = new Date(stream.scheduledStartTime.getTime());
-          if (now > expirationTime) {
-            needsUpdate = true;
-          }
-        }
-
-        if (needsUpdate) {
-          await Stream.updateOne(
-            { _id: stream._id },
-            { $set: update },
-            { runValidators: false }  // Bypass validation for status updates
-          );
-        }
-      }
-
       // Get total count for pagination - use the same match query as aggregation
       const countQuery = {
         $or: [
@@ -2103,29 +2104,6 @@ exports.getSellerStreams = async (req, res) => {
       .sort(sortOrder)
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
-
-    // Check and update expiration status for each stream
-    const now = new Date();
-
-    for (const stream of streams) {
-      let needsUpdate = false;
-      const update = { status: 'expired' };
-
-      if (stream.status === 'scheduled' && stream.scheduledStartTime) {
-        const expirationTime = new Date(stream.scheduledStartTime.getTime());
-        if (now > expirationTime) {
-          needsUpdate = true;
-        }
-      }
-
-      if (needsUpdate) {
-        await Stream.updateOne(
-          { _id: stream._id },
-          { $set: update },
-          { runValidators: false }  // Bypass validation for status updates
-        );
-      }
-    }
 
     // Get total count for pagination
     const total = await Stream.countDocuments(query);
