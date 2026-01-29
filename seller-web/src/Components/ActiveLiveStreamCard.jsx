@@ -85,7 +85,7 @@ const ActiveLiveStreamCard = ({
                     <span className="text-xs text-white font-medium">Ended</span>
                 </div>
             )
-        } else if (isLiveStatus === 'expired') {
+        } else if (isLiveStatus === 'expired' || !isStreamAvailableToEnter) {
             return (
                 <div className="bg-gray-500 px-2 py-1 rounded-md flex items-center gap-1">
                     <span className="text-xs text-white font-medium">Expired</span>
