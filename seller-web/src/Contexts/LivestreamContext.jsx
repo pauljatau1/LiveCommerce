@@ -438,13 +438,22 @@ export const LivestreamProvider = ({ children }) => {
                 type: 'SET_ERROR',
                 payload: error.response?.data?.message || error.message
             });
-            toast.error('Error starting livestream', {
-                description: error.response?.data?.message || 'Something went wrong',
-                style: {
-                    background: '#161A1E',
-                    color: '#fff',
-                }
-            });
+            
+            // Don't show toast for 404 "Stream not found" errors - let the modal handle it
+            const isStreamNotFound = error.response?.status === 404 &&
+                (error.response?.data?.message === 'Stream not found' ||
+                 error.response?.data?.error === 'Stream not found' ||
+                 error.message?.includes('Stream not found'));
+            
+            if (!isStreamNotFound) {
+                toast.error('Error starting livestream', {
+                    description: error.response?.data?.message || 'Something went wrong',
+                    style: {
+                        background: '#161A1E',
+                        color: '#fff',
+                    }
+                });
+            }
             throw error;
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useLivestreamSocket } from '@/Contexts/LivestreamSocketContext';
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
 import { Icon } from '@iconify/react';
+import StreamNotFoundModal from '../../Components/ui/StreamNotFoundModal';
 
 // Split UI components using React's lazy loading for code splitting
 const PreStreamDesktopUi = lazy(() => import('../../Components/preStreamDesktopUi/preStreamDesktopUi'));
@@ -152,6 +153,7 @@ const LivestreamStudio = () => {
     const [isVideoSettingsModalOpen, setIsVideoSettingsModalOpen] = useState(false);
     const [videoSettings, setVideoSettings] = useState(DEFAULT_VIDEO_SETTINGS);
     const [streamQualityInfo, setStreamQualityInfo] = useState(null);
+    const [showStreamNotFoundModal, setShowStreamNotFoundModal] = useState(false);
 
     // Tracking state - fixed totalShares to avoid linter error
     const [totalShares] = useState(0);
@@ -463,14 +465,27 @@ const LivestreamStudio = () => {
             }
         } catch (error) {
             console.error('Failed to start stream:', error);
-            toast.error('Failed to start stream: ' + error.message, {
-                style: {
-                    background: '#161A1E',
-                    color: '#fff',
-                }
-            });
+            
+            // Check if it's a 404 error with "Stream not found" message
+            if (
+                error.response?.status === 404 &&
+                (error.response?.data?.message === 'Stream not found' || 
+                 error.message?.includes('Stream not found') ||
+                 error.response?.data?.error === 'Stream not found')
+            ) {
+                // Show the stream not found modal
+                setShowStreamNotFoundModal(true);
+            } else {
+                // Show regular error toast for other errors
+                toast.error('Failed to start stream: ' + (error.response?.data?.message || error.message), {
+                    style: {
+                        background: '#161A1E',
+                        color: '#fff',
+                    }
+                });
+            }
         }
-    }, [_id, startLiveStream]);
+    }, [_id, startLiveStream, subscribeToStreamNotifications, id]);
 
     const initializeStream = async (freshStreamData) => {
         try {
@@ -2431,6 +2446,10 @@ const LivestreamStudio = () => {
             {videoSettingsModal}
             {showStreamEndedModal && streamEndedModal}
             {closeWarningModal}
+            <StreamNotFoundModal
+                open={showStreamNotFoundModal}
+                onClose={() => setShowStreamNotFoundModal(false)}
+            />
         </div>
     );
 };
