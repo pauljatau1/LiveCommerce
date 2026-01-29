@@ -487,6 +487,39 @@ const LivestreamStudio = () => {
         }
     }, [_id, startLiveStream, subscribeToStreamNotifications, id]);
 
+    // Optimize join stream as host handling with useCallback
+    const handleJoinStreamAsHost = useCallback(async (streamId) => {
+        try {
+            if (!streamId) return null;
+
+            const freshData = await joinLiveStreamAsHost(streamId);
+            return freshData;
+        } catch (error) {
+            console.error('Failed to join stream as host:', error);
+            
+            // Check if it's a 404 error with "Active stream not found or you do not have permission" message
+            if (
+                error.response?.status === 404 &&
+                (error.response?.data?.message === 'Active stream not found or you do not have permission' || 
+                 error.message?.includes('Active stream not found or you do not have permission') ||
+                 error.response?.data?.error === 'Active stream not found or you do not have permission')
+            ) {
+                // Show the stream not found modal
+                setShowStreamNotFoundModal(true);
+                return null;
+            } else {
+                // Show regular error toast for other errors
+                toast.error('Failed to join stream: ' + (error.response?.data?.message || error.message), {
+                    style: {
+                        background: '#161A1E',
+                        color: '#fff',
+                    }
+                });
+                return null;
+            }
+        }
+    }, [joinLiveStreamAsHost]);
+
     const initializeStream = async (freshStreamData) => {
         try {
             // Set initialization lock to prevent concurrent cleanup
@@ -1563,7 +1596,7 @@ const LivestreamStudio = () => {
             // Get fresh stream data
             console.log('🔄 [RECONNECT 9/18] Fetching fresh stream data from server');
             const streamId = mostRecentStream.streamId;
-            const freshData = await joinLiveStreamAsHost(streamId);
+            const freshData = await handleJoinStreamAsHost(streamId);
             console.log('🔄 [RECONNECT 9/18] Fresh stream data:', freshData);
 
             if (!freshData) {
