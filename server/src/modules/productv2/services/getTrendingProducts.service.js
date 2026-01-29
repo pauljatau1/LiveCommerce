@@ -36,7 +36,8 @@ class GetTrendingProductsService {
       return {
         ...o,
         averageRating: o.stats?.averageRating || null,
-        reviewCount: o.stats?.totalReviews || 0
+        reviewCount: o.stats?.totalReviews || 0,
+        soldCount: Math.max(0, o.stats?.soldCount || 0)
       };
     });
 

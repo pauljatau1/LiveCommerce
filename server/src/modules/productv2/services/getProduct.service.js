@@ -10,7 +10,8 @@ class GetProductService {
 
     if (productCheck.status === 'offline_auction') {
       const product = await productRepository.findByIdPopulate(id, [
-        { path: 'seller', select: `
+        {
+          path: 'seller', select: `
             firstName lastName email phoneNumber businessName 
             businessType businessEmail businessNumber businessAddress 
             storeName aboutStore storeAvatar storeBanner 
@@ -199,7 +200,7 @@ class GetProductService {
               }
             },
             viewCount: '$stats.views',
-            soldCount: '$stats.soldCount',
+            soldCount: { $max: [0, { $ifNull: ['$stats.soldCount', 0] }] },
             lastViewed: '$stats.lastViewed',
             lastRestocked: '$stats.lastRestocked'
           },
