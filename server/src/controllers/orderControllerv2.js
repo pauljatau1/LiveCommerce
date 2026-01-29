@@ -45,10 +45,10 @@ const verifyPaystackTransaction = async (reference) => {
 const updateProductStockForPaidOrder = async (order) => {
   try {
     console.log(`Updating product stock for paid Terminal Africa order: ${order.order_id}`);
-    
+
     for (const item of order.items) {
       const productBefore = await Product.findById(item.product);
-      
+
       if (productBefore) {
         console.log(`Product ${item.product} before stock update:`, {
           currentStock: productBefore.stock,
@@ -61,7 +61,7 @@ const updateProductStockForPaidOrder = async (order) => {
         console.log(`Stock already updated for product ${item.product} during order creation`);
       }
     }
-    
+
     console.log(`✅ Product stock verification completed for order: ${order.order_id}`);
   } catch (error) {
     console.error(`Error updating product stock for order ${order.order_id}:`, error);
@@ -74,7 +74,7 @@ const sendSlackNotificationForPaidOrder = async (order, buyer) => {
     // Get seller names for the order
     const seller = await Seller.findById(order.seller);
     const sellerName = seller ? (seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`) : 'Unknown Seller';
-    
+
     // Send notification to Slack email
     const slackEmailMsg = {
       to: 'orders-aaaaqm2ugmdudvf4jsgf3koetm@auqli.slack.com',
@@ -110,7 +110,7 @@ const sendOrderConfirmationEmail = async (buyer, order) => {
   try {
     const seller = await Seller.findById(order.seller);
     const sellerName = seller ? (seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`) : 'Unknown Seller';
-    
+
     const emailMsg = {
       to: buyer.email,
       from: {
@@ -149,42 +149,42 @@ const sendOrderConfirmationEmail = async (buyer, order) => {
 exports.createOrder = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-  
+
   // Create an array to store notification data outside the try block
   const orderNotifications = [];
-  
+
   try {
-    const { 
-      items, 
-      shippingAddress, 
+    const {
+      items,
+      shippingAddress,
       parcel = {}, // Default to empty object if not provided
-      paymentMethod, 
+      paymentMethod,
       isItemCod = false, // Default to false if not provided
-      additionalDetails, 
+      additionalDetails,
       pickUpDate,
       senderInfo,
-      paidFromWallet = false, 
+      paidFromWallet = false,
       isWalletCredit = false, // Parameter for hybrid wallet + Paystack payment
       isStorePickup = false, // Parameter for store pickup
       shipmentPurpose = 'commercial' // Default shipment purpose for Terminal Africa
     } = req.body;
-    
+
     // Validate store pickup request
     if (isStorePickup) {
       // Check if COD is requested with store pickup
       if (isItemCod) {
-        return res.status(400).json({ 
-          message: 'Cash on Delivery is not available with store pickup' 
+        return res.status(400).json({
+          message: 'Cash on Delivery is not available with store pickup'
         });
       }
 
       // Get all unique seller IDs from items
       const sellerIds = [...new Set(items.map(item => item.seller?.sellerId))];
-      
+
       // Check if all sellers offer store pickup
       const sellers = await Seller.find({ _id: { $in: sellerIds } });
       const ineligibleSellers = sellers.filter(seller => !seller.offersStorePickup);
-      
+
       if (ineligibleSellers.length > 0) {
         return res.status(400).json({
           message: 'One or more sellers do not offer store pickup',
@@ -192,13 +192,13 @@ exports.createOrder = async (req, res) => {
         });
       }
     }
-    
+
     // Validate inputs
     const itemsValidation = validateItems(items);
     if (!itemsValidation.valid) {
       return res.status(400).json({ message: itemsValidation.message });
     }
-    
+
     // Only validate shipping address if not store pickup
     if (!isStorePickup) {
       // Format shipping address to Terminal Africa format for validation
@@ -206,26 +206,26 @@ exports.createOrder = async (req, res) => {
         ...shippingAddress,
         country: 'NG' // Ensure country is set to Nigeria
       });
-      
+
       const addressValidation = validateAddress(deliveryAddress);
       if (!addressValidation.valid) {
         return res.status(400).json({ message: addressValidation.message });
       }
-      
+
       // Check for seller information in items
       for (const item of items) {
         if (!item.seller || !item.seller.sellerId) {
-          return res.status(400).json({ 
-            message: 'Seller information is required for each item' 
+          return res.status(400).json({
+            message: 'Seller information is required for each item'
           });
         }
-        
+
         // Find the seller to verify address
         const seller = await Seller.findById(item.seller.sellerId);
         if (!seller) {
           return res.status(400).json({ message: `Seller not found for item with product ID ${item.productId}` });
         }
-        
+
         // Log all seller address info for debugging
         console.log('DEBUG - Validating Seller Address:', {
           sellerId: seller._id.toString(),
@@ -235,67 +235,66 @@ exports.createOrder = async (req, res) => {
           hasWarehouseAddress: !!(seller.warehouseDetails && seller.warehouseDetails.address && seller.warehouseDetails.address.addressLine1),
           hasLegacyAddress: !!seller.address
         });
-        
+
         // Check if we have a valid pickup address source
         const hasSenderInfo = item.seller.senderInfo && item.seller.senderInfo.senderAddress;
         const hasSellerAddress = seller.sellerAddress && seller.sellerAddress.addressLine1;
         const hasBusinessAddress = seller.businessAddress && seller.businessAddress.addressLine1;
         const hasWarehouseAddress = seller.warehouseDetails && seller.warehouseDetails.address && seller.warehouseDetails.address.addressLine1;
         const hasLegacyAddress = !!seller.address;
-        
+
         // Only throw an error if we have absolutely no address information
         if (!hasSenderInfo && !hasSellerAddress && !hasBusinessAddress && !hasWarehouseAddress && !hasLegacyAddress) {
-          return res.status(400).json({ 
+          return res.status(400).json({
             message: `No valid pickup address available for seller: ${seller.storeName || seller.businessName || seller._id}. Please provide sender information or update seller address.`
           });
         }
       }
     }
-    
+
     // Get buyer from token
     const buyerId = req.user.id;
     const buyer = await Buyer.findById(buyerId);
-    
+
     console.log('DEBUG - Order Creation - Buyer Info:', {
       buyerId: buyerId,
       buyerFound: !!buyer,
       buyerName: buyer ? `${buyer.firstName} ${buyer.lastName}` : 'N/A'
     });
-    
+
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
 
     // Get buyer's wallet balance
     const walletBalance = buyer.wallet ? buyer.wallet.balance || 0 : 0;
-    
+
     // Fetch products and calculate total
     const productIds = items.map(item => item.productId);
     const products = await Product.find({ _id: { $in: productIds } }).populate('seller');
-    
+
     console.log('DEBUG - Order Creation - Products Found:', {
       requestedProducts: productIds.length,
       foundProducts: products.length
     });
-    
+
     if (products.length !== productIds.length) {
       return res.status(400).json({ message: 'One or more products not found' });
     }
-    
+
     // Create a map for quick product lookup
     const productMap = {};
     products.forEach(product => {
       productMap[product._id.toString()] = product;
     });
-    
     // Validate that all products have sufficient stock
     for (const item of items) {
       const product = productMap[item.productId];
       if (!product) continue;
-      
-      if (product.stock < item.quantity) {
-        return res.status(400).json({ 
-          message: `Insufficient stock for ${product.name} (${product.stock} available)`
+
+      if (product.stock <= 0 || product.stock < item.quantity) {
+        return res.status(400).json({
+          message: 'This product is out of stock'
         });
       }
     }
@@ -303,19 +302,19 @@ exports.createOrder = async (req, res) => {
     // Group items by seller
     const sellerItems = {};
     let totalAmount = 0;
-    
+
     // Keep track of unique sellers for adding the buyer to followers
     const uniqueSellers = new Set();
-    
+
     items.forEach(item => {
       const product = productMap[item.productId];
       if (!product) {
         return;
       }
-      
+
       const sellerId = product.seller._id.toString();
       uniqueSellers.add(sellerId);
-      
+
       if (!sellerItems[sellerId]) {
         sellerItems[sellerId] = {
           items: [],
@@ -332,16 +331,16 @@ exports.createOrder = async (req, res) => {
           parcelItems: []
         };
       }
-      
+
       const itemTotal = item.price * item.quantity;
       totalAmount += itemTotal;
       sellerItems[sellerId].totalAmount += itemTotal;
-      
+
       // Add item weight to seller's total weight (default to product weight or a minimum value)
       // Use the weight provided in the item, or fall back to product weight or default
       const itemWeight = (item.weight || product.weight || 0.1) * item.quantity;
       sellerItems[sellerId].totalWeight += itemWeight;
-      
+
       // Add item to seller's parcel items for Terminal Africa
       sellerItems[sellerId].parcelItems.push({
         description: product.description?.substring(0, 100) || product.name,
@@ -356,7 +355,7 @@ exports.createOrder = async (req, res) => {
           specifications: item.specifications || {}
         }
       });
-      
+
       sellerItems[sellerId].items.push({
         product: product._id,
         productImages: product.images,
@@ -368,19 +367,19 @@ exports.createOrder = async (req, res) => {
         specifications: item.specifications || {}
       });
     });
-    
+
     // Calculate how much to charge from wallet vs Paystack
     let walletAmountToUse = 0;
     let paystackAmount = 0;
     let useWalletPayment = false;
     // Create a mutable variable to track if the order will be fully paid from wallet
     let isFullyPaidFromWallet = paidFromWallet;
-    
+
     // Determine payment method and amounts
     if (isWalletCredit && walletBalance > 0) {
       // Use wallet credit (hybrid payment)
       useWalletPayment = true;
-      
+
       if (walletBalance >= totalAmount) {
         // Wallet covers entire amount
         walletAmountToUse = totalAmount;
@@ -400,7 +399,7 @@ exports.createOrder = async (req, res) => {
       // Full Paystack payment
       walletAmountToUse = 0;
       paystackAmount = totalAmount;
-      
+
       // If user tried to use wallet but has insufficient funds
       if ((paidFromWallet || isWalletCredit) && walletBalance < totalAmount) {
         console.log('DEBUG - Order Creation - Insufficient wallet balance:', {
@@ -408,9 +407,9 @@ exports.createOrder = async (req, res) => {
           totalAmount,
           difference: totalAmount - walletBalance
         });
-        
+
         if (paidFromWallet) {
-          return res.status(400).json({ 
+          return res.status(400).json({
             message: 'Insufficient wallet balance for full payment',
             walletBalance,
             totalAmount
@@ -418,7 +417,7 @@ exports.createOrder = async (req, res) => {
         }
       }
     }
-    
+
     console.log('DEBUG - Order Creation - Payment Breakdown:', {
       totalAmount,
       walletBalance,
@@ -433,44 +432,44 @@ exports.createOrder = async (req, res) => {
     // and add if not
     for (const sellerId of uniqueSellers) {
       const seller = await Seller.findById(sellerId);
-      
+
       if (!seller) {
         console.log(`DEBUG - Order Creation - Seller not found: ${sellerId}`);
         continue;
       }
-      
+
       // Check if buyer is already a follower
-      const isFollower = seller.followers && 
-                        seller.followers.some(follower => 
-                          follower.buyerId && follower.buyerId.toString() === buyerId);
-      
+      const isFollower = seller.followers &&
+        seller.followers.some(follower =>
+          follower.buyerId && follower.buyerId.toString() === buyerId);
+
       console.log('DEBUG - Order Creation - Follower Check:', {
         sellerId: sellerId,
         sellerName: seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`,
         followerCount: seller.followers ? seller.followers.length : 0,
         isFollower: isFollower
       });
-      
+
       // Add the buyer to the seller's followers if not already following
       if (!isFollower) {
         console.log(`DEBUG - Order Creation - Adding buyer as follower for seller: ${sellerId}`);
-        
+
         // Initialize followers array if it doesn't exist
         if (!seller.followers) {
           seller.followers = [];
         }
-        
+
         // Get buyer's main address
         const mainAddress = buyer.shippingAddresses && buyer.shippingAddresses.length > 0
           ? {
-              country: buyer.shippingAddresses[0].country,
-              city: buyer.shippingAddresses[0].city,
-              address1: buyer.shippingAddresses[0].addressLine1,
-              address2: buyer.shippingAddresses[0].addressLine2,
-              zipCode: buyer.shippingAddresses[0].zipCode
-            }
+            country: buyer.shippingAddresses[0].country,
+            city: buyer.shippingAddresses[0].city,
+            address1: buyer.shippingAddresses[0].addressLine1,
+            address2: buyer.shippingAddresses[0].addressLine2,
+            zipCode: buyer.shippingAddresses[0].zipCode
+          }
           : null;
-        
+
         // Add buyer as follower
         seller.followers.push({
           buyerId: buyerId,
@@ -483,10 +482,10 @@ exports.createOrder = async (req, res) => {
           lastInteraction: new Date(),
           address: mainAddress
         });
-        
+
         // Save the seller with the new follower
         await seller.save({ session });
-        
+
         // Add to buyer's activity feed if it exists
         if (buyer.activityFeed) {
           buyer.activityFeed.push({
@@ -496,7 +495,7 @@ exports.createOrder = async (req, res) => {
             referenceModel: 'Seller',
             createdAt: new Date()
           });
-          
+
           // Save buyer with updated activity feed
           await buyer.save({ session });
         }
@@ -505,13 +504,13 @@ exports.createOrder = async (req, res) => {
         const followerIndex = seller.followers.findIndex(
           follower => follower.buyerId && follower.buyerId.toString() === buyerId
         );
-        
+
         if (followerIndex !== -1) {
           // Increment order count and update last interaction
-          seller.followers[followerIndex].totalOrders = 
+          seller.followers[followerIndex].totalOrders =
             (seller.followers[followerIndex].totalOrders || 0) + 1;
           seller.followers[followerIndex].lastInteraction = new Date();
-          
+
           // Update main address if it has changed
           if (buyer.shippingAddresses && buyer.shippingAddresses.length > 0) {
             seller.followers[followerIndex].address = {
@@ -522,10 +521,10 @@ exports.createOrder = async (req, res) => {
               zipCode: buyer.shippingAddresses[0].zipCode
             };
           }
-          
+
           // Save the seller with updated follower information
           await seller.save({ session });
-          
+
           console.log(`DEBUG - Order Creation - Updated follower information:`, {
             totalOrders: seller.followers[followerIndex].totalOrders,
             lastInteraction: seller.followers[followerIndex].lastInteraction
@@ -533,29 +532,29 @@ exports.createOrder = async (req, res) => {
         }
       }
     }
-    
+
     // Calculate shipping fee for each seller based on their items' total weight
     let totalShippingFee = 0;
-    
+
     // Calculate grand total (items + shipping)
     let grandTotal = totalAmount + totalShippingFee;
-    
+
     // Check wallet balance if using wallet payment
     if (isFullyPaidFromWallet) {
       if (buyer.wallet.balance < grandTotal) {
-        return res.status(400).json({ 
-          message: `Insufficient wallet balance. Required: ${grandTotal}, Available: ${buyer.wallet.balance}` 
+        return res.status(400).json({
+          message: `Insufficient wallet balance. Required: ${grandTotal}, Available: ${buyer.wallet.balance}`
         });
       }
     }
-    
+
     // Create a batch ID for all orders
     const batchId = `AUQLI-${uuidv4().substring(0, 8)}`;
-    
+
     // Create orders for each seller
     const orders = [];
     const terminalShipments = [];
-    
+
     for (const sellerId in sellerItems) {
       const sellerData = sellerItems[sellerId];
       const sellerItemsList = sellerData.items;
@@ -568,15 +567,15 @@ exports.createOrder = async (req, res) => {
       const sellerWeight = sellerData.totalWeight;
       // Use seller-specific parcel items
       const sellerParcelItems = sellerData.parcelItems;
-      
+
       const sellerTotal = sellerItemsList.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      
+
       // Generate a unique order ID
       const uniqueOrderId = `AUQLI-${uuidv4().substring(0, 8)}`;
-      
+
       // Get fresh seller data with all fields populated to ensure we have the latest address info
       const fullSellerData = await Seller.findById(sellerId);
-      
+
       // Log all available address data for debugging
       console.log('DEBUG - Seller Address Data:', {
         sellerId: sellerId,
@@ -587,16 +586,16 @@ exports.createOrder = async (req, res) => {
         hasWarehouseAddress: fullSellerData?.warehouseDetails?.address?.addressLine1 ? true : false,
         warehouseAddress: fullSellerData?.warehouseDetails?.address
       });
-      
+
       // Format delivery address for Terminal Africa
       const deliveryAddress = formatAddressForTerminal({
         ...shippingAddress,
         country: 'NG' // Ensure country is set to Nigeria
       });
-      
+
       // Determine which address to use for pickup based on availability
       let pickupAddress = null;
-      
+
       // Start with sellerSenderInfo from request
       if (sellerSenderInfo && sellerSenderInfo.senderAddress) {
         // Use the address provided in the request
@@ -612,7 +611,7 @@ exports.createOrder = async (req, res) => {
           country: 'NG'
         });
         console.log('Order using pickup address from request');
-      } 
+      }
       // Then try sellerAddress
       else if (fullSellerData.sellerAddress && fullSellerData.sellerAddress.addressLine1) {
         // Use the seller address
@@ -625,7 +624,7 @@ exports.createOrder = async (req, res) => {
           country: 'NG'
         });
         console.log('Order using seller address from database');
-      } 
+      }
       // Try businessAddress
       else if (fullSellerData.businessAddress && fullSellerData.businessAddress.addressLine1) {
         // Use the business address
@@ -682,7 +681,7 @@ exports.createOrder = async (req, res) => {
           country: 'NG'
         });
       }
-      
+
       // Log the formatted addresses for debugging
       console.log('Formatted Addresses for Terminal Africa:', {
         pickup: {
@@ -694,11 +693,11 @@ exports.createOrder = async (req, res) => {
           phone_formatted: deliveryAddress.phone
         }
       });
-      
+
       // Skip Terminal Africa API call for store pickup orders
       let terminalResponse = null;
       let terminalShipmentCreated = false;
-      
+
       if (!isStorePickup) {
         // Create Terminal Africa shipment request
         const terminalShipmentRequest = {
@@ -712,24 +711,24 @@ exports.createOrder = async (req, res) => {
             weight_unit: "kg"
           }
         };
-        
+
         console.log('Terminal Africa Shipment Request:', JSON.stringify(terminalShipmentRequest, null, 2));
-        
+
         // Call Terminal Africa API to create shipment
         try {
           terminalResponse = await terminalAPI.post('/shipments/quick', terminalShipmentRequest);
-          
+
           // Add detailed logging of the full Terminal Africa response
           console.log('TERMINAL AFRICA FULL RESPONSE:', JSON.stringify(terminalResponse.data, null, 2));
-          
+
           // Check if the shipment was created successfully
           if (!terminalResponse.data.status || !terminalResponse.data.data) {
             throw new Error(terminalResponse.data.message || 'Failed to create shipment with Terminal Africa');
           }
-          
+
           // Mark as successful
           terminalShipmentCreated = true;
-          
+
           console.log('Terminal Africa Shipment Response:', {
             status: terminalResponse.data.status,
             shipmentId: terminalResponse.data.data?.shipment_id || terminalResponse.data.data?._id,
@@ -741,13 +740,13 @@ exports.createOrder = async (req, res) => {
             message: terminalError.message,
             response: terminalError.response?.data
           });
-          
+
           // Abort the transaction and return error to client
           if (session.inTransaction()) {
             await session.abortTransaction();
           }
           session.endSession();
-          
+
           // Return meaningful error to client
           return res.status(400).json({
             message: 'Failed to create shipment with Terminal Africa',
@@ -755,7 +754,7 @@ exports.createOrder = async (req, res) => {
             details: terminalError.response?.data || {}
           });
         }
-        
+
         // Store the shipment request for later use
         terminalShipments.push({
           orderId: uniqueOrderId,
@@ -766,15 +765,15 @@ exports.createOrder = async (req, res) => {
       } else {
         // For store pickup, we don't need Terminal Africa
         terminalShipmentCreated = true;
-        terminalResponse = { 
-          data: { 
-            status: true, 
+        terminalResponse = {
+          data: {
+            status: true,
             message: "Store pickup - no shipment required",
-            data: { 
+            data: {
               _id: `PICKUP-${uniqueOrderId}`,
               shipment_id: `PICKUP-${uniqueOrderId}`
-            } 
-          } 
+            }
+          }
         };
       }
 
@@ -785,14 +784,14 @@ exports.createOrder = async (req, res) => {
           await session.abortTransaction();
         }
         session.endSession();
-        return res.status(400).json({ 
-          message: 'Failed to create shipment with Terminal Africa' 
+        return res.status(400).json({
+          message: 'Failed to create shipment with Terminal Africa'
         });
       }
 
       // Extract the Terminal Africa shipment ID - prefer shipment_id over _id
       const terminalShipmentId = terminalResponse.data?.data?.shipment_id || terminalResponse.data?.data?._id || `MANUAL-${uniqueOrderId}`;
-      
+
       // Log the extracted shipment ID for debugging
       console.log('EXTRACTED TERMINAL SHIPMENT ID:', {
         shipment_id: terminalResponse.data?.data?.shipment_id,
@@ -836,30 +835,30 @@ exports.createOrder = async (req, res) => {
         paid: (paymentMethod !== 'paystack' || isItemCod || isFullyPaidFromWallet) ? (!isItemCod || isFullyPaidFromWallet) : false,
         paymentInfo: {
           method: isFullyPaidFromWallet ? 'wallet' : paymentMethod,
-          status: isItemCod && !isFullyPaidFromWallet ? 'awaiting_cod' : 
-                 (paymentMethod === 'paystack' && !isItemCod && !isFullyPaidFromWallet) ? 'pending' : 'paid',
+          status: isItemCod && !isFullyPaidFromWallet ? 'awaiting_cod' :
+            (paymentMethod === 'paystack' && !isItemCod && !isFullyPaidFromWallet) ? 'pending' : 'paid',
           isCashOnDelivery: isItemCod && !isFullyPaidFromWallet,
           isWalletCredit: isWalletCredit && walletAmountToUse > 0,
           // Calculate proportional wallet amount for this order based on its total
-          walletAmountUsed: isWalletCredit && walletAmountToUse > 0 ? 
-                            Math.round((sellerTotal / totalAmount) * walletAmountToUse) : 0,
+          walletAmountUsed: isWalletCredit && walletAmountToUse > 0 ?
+            Math.round((sellerTotal / totalAmount) * walletAmountToUse) : 0,
           // Store the batch total and wallet amount to verify refunds
           batchTotalAmount: totalAmount,
           batchWalletAmount: walletAmountToUse,
           batchId: batchId, // Store the batch ID to identify related orders
-          ...(isItemCod && !isFullyPaidFromWallet ? {} : 
-             (paymentMethod === 'paystack' && !isItemCod && !isFullyPaidFromWallet) ? {} : { paidAt: new Date() })
+          ...(isItemCod && !isFullyPaidFromWallet ? {} :
+            (paymentMethod === 'paystack' && !isItemCod && !isFullyPaidFromWallet) ? {} : { paidAt: new Date() })
         },
         // Initialize notification flag
         notificationsSent: false
       });
-      
+
       await order.save({ session });
       console.log('Order saved successfully:', {
         orderId: order._id.toString(),
         order_id: order.order_id
       });
-      
+
       // Track campaign attribution if campaign ID is provided
       if (req.body.campaignId) {
         try {
@@ -882,22 +881,22 @@ exports.createOrder = async (req, res) => {
           console.error(`Failed to track campaign purchase: ${campaignError.message}`);
         }
       }
-      
+
       // Schedule Terminal Africa warning notification 20 minutes after order creation
       // This covers both payment and carrier selection issues
       agenda.schedule('in 20 minutes', 'send_terminal_order_warning', { orderId: order._id });
       console.log(`Scheduled Terminal Africa warning notification for order ${order.order_id} in 20 minutes`);
-      
+
       // Schedule Terminal Africa stale job for all orders after 30 minutes
       // This will check for both payment completion and carrier selection
       agenda.schedule('in 30 minutes', 'mark_terminal_orders_stale', { orderId: order._id });
       console.log(`Scheduled Terminal Africa stale check for order ${order.order_id} in 30 minutes`);
-      
+
       // Add buyer to seller's customers list if not already a customer
       const existingCustomer = fullSellerData.customers.find(
         customer => customer.buyerId && customer.buyerId.toString() === buyerId.toString()
       );
-      
+
       if (!existingCustomer) {
         // Add buyer as a new customer
         await Seller.findByIdAndUpdate(
@@ -920,11 +919,11 @@ exports.createOrder = async (req, res) => {
       } else {
         // Update existing customer with new order data
         await Seller.findOneAndUpdate(
-          { 
+          {
             _id: sellerId,
-            'customers.buyerId': buyerId 
+            'customers.buyerId': buyerId
           },
-          { 
+          {
             $inc: {
               'customers.$.totalOrders': 1,
               'customers.$.totalSpent': sellerTotal
@@ -934,7 +933,7 @@ exports.createOrder = async (req, res) => {
         );
         console.log(`Updated existing customer record for buyer ${buyerId} and seller ${sellerId}`);
       }
-      
+
       // Update product stock for each item in the order
       for (const item of sellerItemsList) {
         // Find the product before update to log its current stock
@@ -949,11 +948,11 @@ exports.createOrder = async (req, res) => {
 
         const updateResult = await Product.findByIdAndUpdate(
           item.product,
-          { 
-            $inc: { 
+          {
+            $inc: {
               'stats.soldCount': item.quantity,
               'stock': -item.quantity,
-              'inventory.quantity': -item.quantity 
+              'inventory.quantity': -item.quantity
             }
           },
           { new: true, session } // Return the updated document and use the transaction session
@@ -967,9 +966,9 @@ exports.createOrder = async (req, res) => {
           updateSuccessful: !!updateResult
         });
       }
-      
+
       orders.push(order);
-      
+
       // Add to our local array for processing after transaction
       orderNotifications.push({
         orderId: order._id,
@@ -977,7 +976,7 @@ exports.createOrder = async (req, res) => {
         sellerId: sellerId
       });
     }
-    
+
     // Deduct from wallet if needed
     if (useWalletPayment && walletAmountToUse > 0) {
       // Create wallet transaction record
@@ -987,21 +986,21 @@ exports.createOrder = async (req, res) => {
         description: `Payment for order(s): ${orders.map(o => o.order_id).join(', ')}`,
         status: 'completed'
       };
-      
+
       // Add transaction to wallet
       buyer.wallet.balance -= walletAmountToUse;
       buyer.wallet.transactions.push(walletTransaction);
-      
+
       // Save buyer with updated wallet
       await buyer.save({ session });
-      
+
       console.log('DEBUG - Order Creation - Wallet Payment:', {
         walletAmountUsed: walletAmountToUse,
         newWalletBalance: buyer.wallet.balance,
         transactionId: buyer.wallet.transactions[buyer.wallet.transactions.length - 1]._id
       });
     }
-    
+
     // After all orders are processed and Terminal API calls are complete
     await session.commitTransaction();
     session.endSession();
@@ -1012,15 +1011,15 @@ exports.createOrder = async (req, res) => {
     if (orderNotifications.length > 0) {
       // Get the buyer ID from the first notification
       const buyerId = orderNotifications[0].buyerId;
-      
+
       console.log('Scheduling batch notification processing for buyer:', buyerId);
-      
+
       // Schedule a batch notification job for this buyer
       await agenda.schedule('in 2 seconds', 'send-order-notifications', {
         buyerId: buyerId,
         batchProcess: true
       });
-      
+
       console.log('Batch notification job scheduled for buyer:', buyerId);
     } else {
       console.log('No orders to send notifications for');
@@ -1038,7 +1037,7 @@ exports.createOrder = async (req, res) => {
           };
         })
       );
-      
+
       // Send a simple notification to Slack email
       const slackEmailMsg = {
         to: 'orders-aaaaqm2ugmdudvf4jsgf3koetm@auqli.slack.com',
@@ -1053,9 +1052,9 @@ exports.createOrder = async (req, res) => {
             <p>A new order has been created on Auqli using Terminal Africa shipping.</p>
             <p>Order count: ${orders.length}</p>
             <p>Buyer: ${buyer.firstName} ${buyer.lastName}</p>
-            ${orderSellerInfo.map(info => 
-              `<p>Order ID: ${info.orderId}, Store: ${info.sellerName}</p>`
-            ).join('')}
+            ${orderSellerInfo.map(info =>
+          `<p>Order ID: ${info.orderId}, Store: ${info.sellerName}</p>`
+        ).join('')}
             <p>Time: ${new Date().toISOString()}</p>
           </div>
         `
@@ -1069,10 +1068,10 @@ exports.createOrder = async (req, res) => {
     }
 
     console.log('Order creation completed');
-    
+
     // Prepare response with detailed order information
     const orderSummaries = [];
-    
+
     for (const order of orders) {
       const sellerInfo = sellerItems[order.seller.toString()];
       orderSummaries.push({
@@ -1086,7 +1085,7 @@ exports.createOrder = async (req, res) => {
         terminalShipmentId: order.shipping.shipment_id
       });
     }
-    
+
     // Log the terminal shipments array for debugging
     console.log('TERMINAL SHIPMENTS FOR RESPONSE:', terminalShipments.map(ts => ({
       orderId: ts.orderId,
@@ -1095,24 +1094,24 @@ exports.createOrder = async (req, res) => {
       responseDataKeys: ts.response ? Object.keys(ts.response) : [],
       dataKeys: ts.response.data ? Object.keys(ts.response.data) : []
     })));
-    
+
     // Check if the order is from a liveshow and update the stream with order information
     if (req.body.channel === "livestream" && req.body.streamId) {
       try {
         const Stream = mongoose.model('Stream');
         const stream = await Stream.findById(req.body.streamId);
-        
+
         if (stream) {
           console.log('Processing liveshow order for stream:', {
             streamId: stream._id,
             title: stream.title
           });
-          
+
           // For each order, create an entry in the stream's orders array
           for (const order of orders) {
             // Get the first product from the order for simplicity
             const firstItem = order.items[0];
-            
+
             // Add to the stream's orders array
             stream.orders.push({
               orderId: order.order_id,
@@ -1133,10 +1132,10 @@ exports.createOrder = async (req, res) => {
               createdAt: new Date()
             });
           }
-          
+
           // Save the stream with updated orders
           await stream.save();
-          
+
           // Send a socket notification about the order for the stream
           if (req.app && req.app.get('io')) {
             const io = req.app.get('io');
@@ -1147,7 +1146,7 @@ exports.createOrder = async (req, res) => {
               const words = name.split(' ');
               return words.slice(0, 3).join(' ') + (words.length > 3 ? '...' : '');
             }
-            
+
             // Create notification object for WebSocket
             const notificationObj = {
               id: Date.now().toString(),
@@ -1165,12 +1164,12 @@ exports.createOrder = async (req, res) => {
               },
               timestamp: new Date()
             };
-            
+
             // Send WebSocket notification
             console.log('Broadcasting liveshow order notification to subscribers');
             const streamRoom = `stream_notifications_${stream._id.toString()}`;
             io.to(streamRoom).emit('stream_notification', notificationObj);
-            
+
             // Add the notification to stream chat interactions
             stream.chatInteractions.push(notificationObj);
             await stream.save();
@@ -1198,7 +1197,7 @@ exports.createOrder = async (req, res) => {
         // Continue with the response even if stream update fails
       }
     }
-    
+
     // Calculate and include totals in response
     const responseTotals = {
       itemsTotal: totalAmount,
@@ -1211,7 +1210,7 @@ exports.createOrder = async (req, res) => {
       paystackAmount: paystackAmount || 0,
       isWalletCredit: isWalletCredit && walletAmountToUse > 0
     };
-    
+
     return res.status(201).json({
       message: 'Orders created successfully with Terminal Africa shipping',
       orders: orderSummaries,
@@ -1222,14 +1221,14 @@ exports.createOrder = async (req, res) => {
         status: ts.response.status
       }))
     });
-    
+
   } catch (error) {
     // Only abort if the session is still active
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
     session.endSession();
-    
+
     console.error('Error creating order:', error);
     return res.status(500).json({ message: 'Failed to create order', error: error.message });
   }
@@ -1239,66 +1238,66 @@ exports.createOrder = async (req, res) => {
 exports.getOrderRates = async (req, res) => {
   try {
     const { orderId } = req.params;
-    
+
     // Validate orderId
     if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
-      return res.status(400).json({ 
-        message: 'Invalid order ID format' 
+      return res.status(400).json({
+        message: 'Invalid order ID format'
       });
     }
-    
+
     // Find the order
     const order = await Order.findById(orderId);
-    
+
     if (!order) {
-      return res.status(404).json({ 
-        message: 'Order not found' 
+      return res.status(404).json({
+        message: 'Order not found'
       });
     }
-    
+
     // Check if this is a store pickup order
     if (order.isStorePickup) {
       return res.status(400).json({
         message: 'Store pickup orders do not have shipping rates'
       });
     }
-    
+
     // Get the shipment ID from the order
     const shipmentId = order.shipping?.shipment_id;
-    
+
     if (!shipmentId) {
-      return res.status(400).json({ 
-        message: 'No shipment ID found for this order' 
+      return res.status(400).json({
+        message: 'No shipment ID found for this order'
       });
     }
-    
+
     // Check if the shipment ID is a manually generated one
     if (shipmentId.startsWith('MANUAL-') || shipmentId.startsWith('PICKUP-')) {
       return res.status(400).json({
         message: 'This order does not have a valid Terminal Africa shipment'
       });
     }
-    
+
     console.log(`Fetching rates for shipment ID: ${shipmentId}`);
-    
+
     // Call Terminal Africa API to get rates for this shipment
     try {
       const ratesResponse = await terminalAPI.get(`/rates/shipment?shipment_id=${shipmentId}`);
-      
+
       // Log the response for debugging
       console.log('Terminal Africa Rates Response:', {
         status: ratesResponse.data.status,
         message: ratesResponse.data.message,
         ratesCount: ratesResponse.data.data?.length || 0
       });
-      
+
       if (!ratesResponse.data.status) {
         return res.status(400).json({
           message: 'Failed to retrieve rates from Terminal Africa',
           error: ratesResponse.data.message
         });
       }
-      
+
       // Return the rates data
       return res.status(200).json({
         message: 'Shipping rates retrieved successfully',
@@ -1306,24 +1305,24 @@ exports.getOrderRates = async (req, res) => {
         shipment_id: shipmentId,
         rates: ratesResponse.data.data || []
       });
-      
+
     } catch (terminalError) {
       console.error('Terminal Africa API Error:', {
         message: terminalError.message,
         response: terminalError.response?.data
       });
-      
+
       return res.status(500).json({
         message: 'Failed to retrieve rates from Terminal Africa',
         error: terminalError.response?.data?.message || terminalError.message
       });
     }
-    
+
   } catch (error) {
     console.error('Error getting order rates:', error);
-    return res.status(500).json({ 
-      message: 'Failed to get shipping rates', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Failed to get shipping rates',
+      error: error.message
     });
   }
 };
@@ -1332,61 +1331,61 @@ exports.getOrderRates = async (req, res) => {
 const arrangeShipmentHelper = async (order, rateId, session = null) => {
   try {
     console.log(`Arranging pickup for order: ${order.order_id}, shipment: ${order.shipping?.shipment_id}, rate: ${rateId}`);
-    
+
     // Call Terminal Africa API to arrange pickup
     const arrangePickupResponse = await terminalAPI.post('/shipments/pickup', {
       rate_id: rateId
     });
-    
+
     console.log('Terminal Africa Arrange Pickup Response:', {
       status: arrangePickupResponse.data.status,
       message: arrangePickupResponse.data.message
     });
-    
+
     if (!arrangePickupResponse.data.status) {
       throw new Error(arrangePickupResponse.data.message || 'Failed to arrange shipment with Terminal Africa');
     }
-    
+
     // Extract tracking information from the response
     const responseData = arrangePickupResponse.data.data;
     const extras = responseData.extras || {};
-    
+
     // Update the order with tracking information
     if (extras.tracking_number) {
       order.shipping.tracking.number = extras.tracking_number;
     }
-    
+
     if (extras.tracking_url) {
       order.shipping.tracking.url = extras.tracking_url;
     }
-    
+
     // Update shipping documents
     if (!order.shipping.documents) {
       order.shipping.documents = {};
     }
-    
+
     if (extras.shipping_label_url) {
       order.shipping.documents.shippingLabel = extras.shipping_label_url;
     }
-    
+
     if (extras.commercial_invoice_url) {
       order.shipping.documents.commercialInvoice = extras.commercial_invoice_url;
     }
-    
+
     // Update carrier tracking URL
     if (extras.carrier_tracking_url && order.shipping.carrier) {
       order.shipping.carrier.trackingUrl = extras.carrier_tracking_url;
     }
-    
+
     // Update tracking status
     order.shipping.tracking.status = 'confirmed';
     order.shipping.tracking.lastUpdate = new Date();
-    
+
     // Add to tracking history
     if (!order.shipping.tracking.history) {
       order.shipping.tracking.history = [];
     }
-    
+
     // Add event to tracking history
     if (responseData.events && responseData.events.length > 0) {
       for (const event of responseData.events) {
@@ -1405,14 +1404,14 @@ const arrangeShipmentHelper = async (order, rateId, session = null) => {
         description: 'Shipment arranged'
       });
     }
-    
+
     // Save the updated order
     if (session) {
       await order.save({ session });
     } else {
       await order.save();
     }
-    
+
     return {
       success: true,
       tracking: {
@@ -1425,7 +1424,7 @@ const arrangeShipmentHelper = async (order, rateId, session = null) => {
         commercial_invoice: extras.commercial_invoice_url
       }
     };
-    
+
   } catch (error) {
     console.error('Error in arrangeShipmentHelper:', error);
     return {
@@ -1439,56 +1438,56 @@ const arrangeShipmentHelper = async (order, rateId, session = null) => {
 exports.selectCarrier = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-  
+
   try {
     const { orderId } = req.params;
-    const { 
-      rate_id, 
-      amount, 
-      carrier_name, 
-      carrier_reference, 
+    const {
+      rate_id,
+      amount,
+      carrier_name,
+      carrier_reference,
       carrier_logo,
       carrier_rate_description,
-      delivery_time, 
+      delivery_time,
       pickup_time,
       delivery_eta,
       pickup_eta,
       delivery_date,
       pickup_date
     } = req.body;
-    
+
     // Validate required fields
     if (!rate_id || !amount || !carrier_name || !carrier_reference) {
-      return res.status(400).json({ 
-        message: 'Missing required carrier information' 
+      return res.status(400).json({
+        message: 'Missing required carrier information'
       });
     }
-    
+
     // Validate orderId
     if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
-      return res.status(400).json({ 
-        message: 'Invalid order ID format' 
+      return res.status(400).json({
+        message: 'Invalid order ID format'
       });
     }
-    
+
     // Find the order
     const order = await Order.findById(orderId);
-    
+
     if (!order) {
-      return res.status(404).json({ 
-        message: 'Order not found' 
+      return res.status(404).json({
+        message: 'Order not found'
       });
     }
-    
+
     // Check if this is a store pickup order
     if (order.isStorePickup) {
       return res.status(400).json({
         message: 'Cannot select carrier for store pickup orders'
       });
     }
-    
+
     console.log(`Updating order ${order.order_id} with carrier information: ${carrier_name}, rate: ${rate_id}`);
-    
+
     // Update the order with the selected carrier information
     order.shipping.carrier = {
       name: carrier_name,
@@ -1496,13 +1495,13 @@ exports.selectCarrier = async (req, res) => {
       logo: carrier_logo,
       rate_description: carrier_rate_description
     };
-    
+
     // Update shipping fee with the selected rate amount
     order.shipping.fee = {
       amount: amount,
       currency: 'NGN'
     };
-    
+
     // Update delivery and pickup estimates
     if (delivery_date) {
       order.shipping.delivery = {
@@ -1510,31 +1509,31 @@ exports.selectCarrier = async (req, res) => {
         estimatedDate: new Date(delivery_date)
       };
     }
-    
+
     if (delivery_time) {
       order.shipping.estimatedDeliveryDate = delivery_time;
     }
-    
+
     if (pickup_time) {
       order.shipping.estimatedPickupDate = pickup_time;
     }
-    
+
     // Add rate information to the order
     order.shipping.rate_id = rate_id;
     order.shipping.delivery_eta = delivery_eta;
     order.shipping.pickup_eta = pickup_eta;
-    
+
     // Calculate new order total with shipping
     const newOrderTotal = order.totalAmount + amount;
-    
+
     // Save the updated order
     await order.save({ session });
-    
+
     console.log(`Carrier selected successfully for order ${order.order_id}. Now automatically arranging shipment...`);
-    
+
     // Automatically arrange shipment after successful carrier selection
     const arrangementResult = await arrangeShipmentHelper(order, rate_id, session);
-    
+
     if (!arrangementResult.success) {
       console.error(`Failed to automatically arrange shipment for order ${order.order_id}:`, arrangementResult.error);
       // Don't fail the carrier selection if shipment arrangement fails
@@ -1542,11 +1541,11 @@ exports.selectCarrier = async (req, res) => {
     } else {
       console.log(`✅ Shipment automatically arranged for order ${order.order_id}`);
     }
-    
+
     // Commit the transaction
     await session.commitTransaction();
     session.endSession();
-    
+
     // Prepare response
     const response = {
       message: 'Carrier selected successfully',
@@ -1566,7 +1565,7 @@ exports.selectCarrier = async (req, res) => {
         orderTotal: newOrderTotal
       }
     };
-    
+
     // Add shipment arrangement details if successful
     if (arrangementResult.success) {
       response.shipment_arranged = true;
@@ -1578,20 +1577,20 @@ exports.selectCarrier = async (req, res) => {
       response.arrangement_error = arrangementResult.error;
       response.message = 'Carrier selected successfully, but shipment arrangement failed. You can try arranging shipment manually.';
     }
-    
+
     return res.status(200).json(response);
-    
+
   } catch (error) {
     // Abort the transaction if it's still active
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
     session.endSession();
-    
+
     console.error('Error selecting carrier:', error);
-    return res.status(500).json({ 
-      message: 'Failed to select carrier', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Failed to select carrier',
+      error: error.message
     });
   }
 };
@@ -1600,75 +1599,75 @@ exports.selectCarrier = async (req, res) => {
 exports.arrangeShipment = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-  
+
   try {
     const { orderId } = req.params;
     const { rate_id } = req.body;
-    
+
     // Validate required fields
     if (!rate_id) {
-      return res.status(400).json({ 
-        message: 'Rate ID is required' 
+      return res.status(400).json({
+        message: 'Rate ID is required'
       });
     }
-    
+
     // Validate orderId
     if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
-      return res.status(400).json({ 
-        message: 'Invalid order ID format' 
+      return res.status(400).json({
+        message: 'Invalid order ID format'
       });
     }
-    
+
     // Find the order
     const order = await Order.findById(orderId);
-    
+
     if (!order) {
-      return res.status(404).json({ 
-        message: 'Order not found' 
+      return res.status(404).json({
+        message: 'Order not found'
       });
     }
-    
+
     // Check if this is a store pickup order
     if (order.isStorePickup) {
       return res.status(400).json({
         message: 'Cannot arrange shipment for store pickup orders'
       });
     }
-    
+
     // Get the shipment ID from the order
     const shipmentId = order.shipping?.shipment_id;
-    
+
     if (!shipmentId) {
-      return res.status(400).json({ 
-        message: 'No shipment ID found for this order' 
+      return res.status(400).json({
+        message: 'No shipment ID found for this order'
       });
     }
-    
+
     // Check if the shipment ID is a manually generated one
     if (shipmentId.startsWith('MANUAL-') || shipmentId.startsWith('PICKUP-')) {
       return res.status(400).json({
         message: 'This order does not have a valid Terminal Africa shipment'
       });
     }
-    
+
     // Use the helper function to arrange shipment
     const arrangementResult = await arrangeShipmentHelper(order, rate_id, session);
-    
+
     if (!arrangementResult.success) {
       // Abort the transaction
       await session.abortTransaction();
       session.endSession();
-      
+
       return res.status(500).json({
         message: 'Failed to arrange shipment with Terminal Africa',
         error: arrangementResult.error
       });
     }
-    
+
     // Commit the transaction
     await session.commitTransaction();
     session.endSession();
-    
+
     return res.status(200).json({
       message: 'Shipment arranged successfully',
       order_id: order.order_id,
@@ -1676,18 +1675,18 @@ exports.arrangeShipment = async (req, res) => {
       tracking: arrangementResult.tracking,
       documents: arrangementResult.documents
     });
-    
+
   } catch (error) {
     // Abort the transaction if it's still active
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
     session.endSession();
-    
+
     console.error('Error arranging shipment:', error);
-    return res.status(500).json({ 
-      message: 'Failed to arrange shipment', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Failed to arrange shipment',
+      error: error.message
     });
   }
 };
@@ -1696,7 +1695,7 @@ exports.arrangeShipment = async (req, res) => {
 exports.cancelOrderBySeller = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-  
+
   try {
     const { orderId } = req.params;
     const { reason } = req.body;
@@ -1718,16 +1717,16 @@ exports.cancelOrderBySeller = async (req, res) => {
 
     // Check if order is already cancelled
     if (order.items.some(item => item.status === 'cancelled')) {
-      return res.status(400).json({ 
-        message: 'This order has already been cancelled' 
+      return res.status(400).json({
+        message: 'This order has already been cancelled'
       });
     }
 
     // Check if order is in cancellable status
     const cancellableStatuses = ['pending', 'confirmed', 'processing'];
     if (!order.items.every(item => cancellableStatuses.includes(item.status || 'pending'))) {
-      return res.status(400).json({ 
-        message: 'Order cannot be cancelled at this stage' 
+      return res.status(400).json({
+        message: 'Order cannot be cancelled at this stage'
       });
     }
 
@@ -1737,20 +1736,20 @@ exports.cancelOrderBySeller = async (req, res) => {
     } else {
       // Cancel shipment with Terminal Africa if shipment exists
       const shipmentId = order.shipping?.shipment_id;
-      
+
       if (shipmentId && !shipmentId.startsWith('MANUAL-') && !shipmentId.startsWith('PICKUP-')) {
         try {
           console.log(`Cancelling Terminal Africa shipment: ${shipmentId}`);
-          
+
           const cancelResponse = await terminalAPI.post('/shipments/cancel', {
             shipment_id: shipmentId
           });
-          
+
           console.log('Terminal Africa cancellation response:', {
             status: cancelResponse.data.status,
             message: cancelResponse.data.message
           });
-          
+
           if (cancelResponse.data.status) {
             console.log('Terminal Africa shipment cancelled successfully');
           } else {
@@ -1771,13 +1770,13 @@ exports.cancelOrderBySeller = async (req, res) => {
     const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
     let walletRefunded = false;
     let walletRefundAmount = 0;
-    
+
     if (isHybridPayment && order.paymentInfo.walletAmountUsed > 0) {
       try {
         console.log(`Processing wallet refund for hybrid payment in order ${order.order_id}`);
-        
+
         const buyer = await Buyer.findById(order.buyer);
-        
+
         if (buyer) {
           // Refund the wallet amount that was used
           walletRefundAmount = order.paymentInfo.walletAmountUsed;
@@ -1788,14 +1787,14 @@ exports.cancelOrderBySeller = async (req, res) => {
             status: 'completed',
             createdAt: new Date()
           };
-          
+
           // Add transaction to wallet
           buyer.wallet.balance += walletRefundAmount;
           buyer.wallet.transactions.push(walletTransaction);
-          
+
           // Save buyer with updated wallet
           await buyer.save({ session });
-          
+
           walletRefunded = true;
           console.log(`Successfully refunded wallet amount: ${walletRefundAmount}`);
         }
@@ -1822,11 +1821,11 @@ exports.cancelOrderBySeller = async (req, res) => {
     if (order.shipping && order.shipping.tracking) {
       order.shipping.tracking.status = 'cancelled';
       order.shipping.tracking.lastUpdate = new Date();
-      
+
       if (!order.shipping.tracking.history) {
         order.shipping.tracking.history = [];
       }
-      
+
       order.shipping.tracking.history.push({
         status: 'cancelled',
         timestamp: new Date(),
@@ -1838,11 +1837,11 @@ exports.cancelOrderBySeller = async (req, res) => {
     for (const item of order.items) {
       await Product.findByIdAndUpdate(
         item.product,
-        { 
-          $inc: { 
+        {
+          $inc: {
             'stats.soldCount': -item.quantity,
             'stock': item.quantity,
-            'inventory.quantity': item.quantity 
+            'inventory.quantity': item.quantity
           }
         },
         { session }
@@ -1852,7 +1851,7 @@ exports.cancelOrderBySeller = async (req, res) => {
     // Handle refund request for paid orders
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       console.log('Creating refund request for paid order:', order.order_id);
-      
+
       order.refundRequest = {
         requested: true,
         requestedAt: new Date(),
@@ -1885,7 +1884,7 @@ exports.cancelOrderBySeller = async (req, res) => {
         <p><strong>Reason:</strong> ${reason || 'No reason provided'}</p>
         <p><strong>Seller:</strong> ${order.seller.storeName || order.seller.businessName}</p>
     `;
-    
+
     // Add refund information if applicable
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       buyerEmailHtml += `
@@ -1894,14 +1893,14 @@ exports.cancelOrderBySeller = async (req, res) => {
         <p>Refund status: Pending</p>
       `;
     }
-    
+
     // Add wallet refund info if applicable
     if (walletRefunded) {
       buyerEmailHtml += `
         <p><strong>Wallet Refund:</strong> Your wallet credit of ₦${walletRefundAmount.toLocaleString()} used for this order has been refunded to your wallet.</p>
       `;
     }
-    
+
     buyerEmailHtml += `
         <p>If you have any questions, please contact our support team.</p>
         <p>Best regards,<br>The Auqli Team</p>
@@ -1938,7 +1937,7 @@ exports.cancelOrderBySeller = async (req, res) => {
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       const Admin = mongoose.model('Admin');
       const admins = await Admin.find({});
-      
+
       if (admins && admins.length > 0) {
         const adminEmail = {
           to: admins.map(admin => admin.email).filter(Boolean),
@@ -1961,7 +1960,7 @@ exports.cancelOrderBySeller = async (req, res) => {
             </div>
           `
         };
-        
+
         try {
           await sgMail.send(adminEmail);
         } catch (emailError) {
@@ -1977,7 +1976,7 @@ exports.cancelOrderBySeller = async (req, res) => {
       // Continue processing even if email sending fails
     }
 
-    res.json({ 
+    res.json({
       message: 'Order cancelled successfully',
       order: {
         _id: order._id,
@@ -2005,11 +2004,11 @@ exports.cancelOrderBySeller = async (req, res) => {
       await session.abortTransaction();
     }
     session.endSession();
-    
+
     console.error('Error cancelling order:', error);
-    res.status(500).json({ 
-      message: 'Error cancelling order', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error cancelling order',
+      error: error.message
     });
   }
 };
@@ -2018,7 +2017,7 @@ exports.cancelOrderBySeller = async (req, res) => {
 exports.cancelOrderByBuyer = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-  
+
   try {
     const { orderId } = req.params;
     const { reason } = req.body;
@@ -2040,15 +2039,15 @@ exports.cancelOrderByBuyer = async (req, res) => {
 
     // Check if order is already cancelled
     if (order.items.some(item => item.status === 'cancelled')) {
-      return res.status(400).json({ 
-        message: 'This order has already been cancelled' 
+      return res.status(400).json({
+        message: 'This order has already been cancelled'
       });
     }
 
     // Check if order is in cancellable status (buyers can only cancel pending orders)
     if (!order.items.every(item => (item.status || 'pending') === 'pending')) {
-      return res.status(400).json({ 
-        message: 'Order cannot be cancelled. Only pending orders can be cancelled by buyers.' 
+      return res.status(400).json({
+        message: 'Order cannot be cancelled. Only pending orders can be cancelled by buyers.'
       });
     }
 
@@ -2058,20 +2057,20 @@ exports.cancelOrderByBuyer = async (req, res) => {
     } else {
       // Cancel shipment with Terminal Africa if shipment exists
       const shipmentId = order.shipping?.shipment_id;
-      
+
       if (shipmentId && !shipmentId.startsWith('MANUAL-') && !shipmentId.startsWith('PICKUP-')) {
         try {
           console.log(`Cancelling Terminal Africa shipment: ${shipmentId}`);
-          
+
           const cancelResponse = await terminalAPI.post('/shipments/cancel', {
             shipment_id: shipmentId
           });
-          
+
           console.log('Terminal Africa cancellation response:', {
             status: cancelResponse.data.status,
             message: cancelResponse.data.message
           });
-          
+
           if (cancelResponse.data.status) {
             console.log('Terminal Africa shipment cancelled successfully');
           } else {
@@ -2092,13 +2091,13 @@ exports.cancelOrderByBuyer = async (req, res) => {
     const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
     let walletRefunded = false;
     let walletRefundAmount = 0;
-    
+
     if (isHybridPayment && order.paymentInfo.walletAmountUsed > 0) {
       try {
         console.log(`Processing wallet refund for hybrid payment in order ${order.order_id}`);
-        
+
         const buyer = await Buyer.findById(order.buyer);
-        
+
         if (buyer) {
           // Refund the wallet amount that was used
           walletRefundAmount = order.paymentInfo.walletAmountUsed;
@@ -2109,14 +2108,14 @@ exports.cancelOrderByBuyer = async (req, res) => {
             status: 'completed',
             createdAt: new Date()
           };
-          
+
           // Add transaction to wallet
           buyer.wallet.balance += walletRefundAmount;
           buyer.wallet.transactions.push(walletTransaction);
-          
+
           // Save buyer with updated wallet
           await buyer.save({ session });
-          
+
           walletRefunded = true;
           console.log(`Successfully refunded wallet amount: ${walletRefundAmount}`);
         }
@@ -2143,11 +2142,11 @@ exports.cancelOrderByBuyer = async (req, res) => {
     if (order.shipping && order.shipping.tracking) {
       order.shipping.tracking.status = 'cancelled';
       order.shipping.tracking.lastUpdate = new Date();
-      
+
       if (!order.shipping.tracking.history) {
         order.shipping.tracking.history = [];
       }
-      
+
       order.shipping.tracking.history.push({
         status: 'cancelled',
         timestamp: new Date(),
@@ -2159,11 +2158,11 @@ exports.cancelOrderByBuyer = async (req, res) => {
     for (const item of order.items) {
       await Product.findByIdAndUpdate(
         item.product,
-        { 
-          $inc: { 
+        {
+          $inc: {
             'stats.soldCount': -item.quantity,
             'stock': item.quantity,
-            'inventory.quantity': item.quantity 
+            'inventory.quantity': item.quantity
           }
         },
         { session }
@@ -2173,7 +2172,7 @@ exports.cancelOrderByBuyer = async (req, res) => {
     // Handle refund request for paid orders
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       console.log('Creating refund request for paid order:', order.order_id);
-      
+
       order.refundRequest = {
         requested: true,
         requestedAt: new Date(),
@@ -2206,7 +2205,7 @@ exports.cancelOrderByBuyer = async (req, res) => {
         <p><strong>Reason:</strong> ${reason || 'No reason provided'}</p>
         <p><strong>Seller:</strong> ${order.seller.storeName || order.seller.businessName}</p>
     `;
-    
+
     // Add refund information if applicable
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       buyerEmailHtml += `
@@ -2215,14 +2214,14 @@ exports.cancelOrderByBuyer = async (req, res) => {
         <p>Refund status: Pending</p>
       `;
     }
-    
+
     // Add wallet refund info if applicable
     if (walletRefunded) {
       buyerEmailHtml += `
         <p><strong>Wallet Refund:</strong> Your wallet credit of ₦${walletRefundAmount.toLocaleString()} used for this order has been refunded to your wallet.</p>
       `;
     }
-    
+
     buyerEmailHtml += `
         <p>If you have any questions, please contact our support team.</p>
         <p>Best regards,<br>The Auqli Team</p>
@@ -2259,7 +2258,7 @@ exports.cancelOrderByBuyer = async (req, res) => {
     if (order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet')) {
       const Admin = mongoose.model('Admin');
       const admins = await Admin.find({});
-      
+
       if (admins && admins.length > 0) {
         const adminEmail = {
           to: admins.map(admin => admin.email).filter(Boolean),
@@ -2282,7 +2281,7 @@ exports.cancelOrderByBuyer = async (req, res) => {
             </div>
           `
         };
-        
+
         try {
           await sgMail.send(adminEmail);
         } catch (emailError) {
@@ -2298,7 +2297,7 @@ exports.cancelOrderByBuyer = async (req, res) => {
       // Continue processing even if email sending fails
     }
 
-    res.json({ 
+    res.json({
       message: 'Order cancelled successfully',
       order: {
         _id: order._id,
@@ -2326,11 +2325,11 @@ exports.cancelOrderByBuyer = async (req, res) => {
       await session.abortTransaction();
     }
     session.endSession();
-    
+
     console.error('Error cancelling order:', error);
-    res.status(500).json({ 
-      message: 'Error cancelling order', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error cancelling order',
+      error: error.message
     });
   }
 };
@@ -2340,29 +2339,29 @@ exports.markOrderAsPaid = async (req, res) => {
   try {
     const { id } = req.params;
     const { transactionId, paymentReference, manualNote } = req.body;
-    
+
     if (!transactionId && !paymentReference) {
       return res.status(400).json({ message: 'Either transactionId or paymentReference is required' });
     }
-    
+
     const order = await Order.findById(id).populate('seller', 'email firstName lastName businessName storeName');
-    
+
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
-    
+
     // Verify Paystack transaction if reference is provided
     let verificationResult = null;
     if (paymentReference) {
       verificationResult = await verifyPaystackTransaction(paymentReference);
       if (!verificationResult.success) {
-        return res.status(400).json({ 
-          message: 'Payment verification failed', 
-          details: verificationResult.error 
+        return res.status(400).json({
+          message: 'Payment verification failed',
+          details: verificationResult.error
         });
       }
     }
-    
+
     // Check if order is already paid
     if (order.paid) {
       // Look for other unpaid orders from the same buyer with the same payment reference or transaction ID
@@ -2372,26 +2371,26 @@ exports.markOrderAsPaid = async (req, res) => {
         'paymentInfo.method': 'paystack',
         $or: []
       };
-      
+
       if (paymentReference) {
         searchCriteria.$or.push({ 'paymentInfo.paymentReference': paymentReference });
       }
-      
+
       if (transactionId) {
         searchCriteria.$or.push({ 'paymentInfo.transactionId': transactionId });
       }
-      
+
       if (verificationResult && verificationResult.data && verificationResult.data.id) {
         searchCriteria.$or.push({ 'paymentInfo.transactionId': verificationResult.data.id });
       }
-      
+
       if (searchCriteria.$or.length > 0) {
         const otherUnpaidOrders = await Order.find(searchCriteria)
           .populate('seller', 'email firstName lastName businessName storeName');
-        
+
         if (otherUnpaidOrders.length > 0) {
           console.log(`Found ${otherUnpaidOrders.length} other unpaid Terminal Africa orders from the same buyer`);
-          
+
           // Update each order's payment status
           const updatePromises = otherUnpaidOrders.map(async (otherOrder) => {
             otherOrder.paid = true;
@@ -2400,13 +2399,13 @@ exports.markOrderAsPaid = async (req, res) => {
             otherOrder.paymentInfo.paymentReference = paymentReference || null;
             otherOrder.paymentInfo.paidAt = new Date();
             otherOrder.notificationsSent = true;
-            
+
             // Update product stock verification for this order
             await updateProductStockForPaidOrder(otherOrder);
-            
+
             // Check if this is a hybrid payment (wallet + Paystack)
             const isHybridPayment = otherOrder.paymentInfo.isWalletCredit && otherOrder.paymentInfo.walletAmountUsed > 0;
-            
+
             if (isHybridPayment) {
               console.log(`Confirming hybrid payment for Terminal Africa order ${otherOrder.order_id}`, {
                 totalAmount: otherOrder.totalAmount,
@@ -2414,24 +2413,24 @@ exports.markOrderAsPaid = async (req, res) => {
                 paystackAmount: otherOrder.totalAmount - otherOrder.paymentInfo.walletAmountUsed
               });
             }
-            
+
             const updatedOtherOrder = await otherOrder.save();
-            
+
             // Cancel any scheduled job to mark this order as stale
             try {
-              await agenda.cancel({ 
+              await agenda.cancel({
                 name: 'mark_terminal_orders_stale',
                 'data.orderId': otherOrder._id.toString()
               });
-              
+
               console.log(`Cancelled stale marking job for now-paid Terminal Africa order ${otherOrder.order_id}`);
             } catch (jobError) {
               console.error(`Error cancelling stale job for order ${otherOrder.order_id}:`, jobError);
             }
-            
+
             // Get the buyer for notifications
             const buyer = await Buyer.findById(otherOrder.buyer);
-            
+
             // Send order confirmation email
             if (buyer && buyer.email) {
               try {
@@ -2440,17 +2439,17 @@ exports.markOrderAsPaid = async (req, res) => {
                 console.error(`Error sending order confirmation email for order ${otherOrder.order_id}:`, emailError);
               }
             }
-            
+
             // Send Slack notification for the paid order
             await sendSlackNotificationForPaidOrder(otherOrder, buyer);
-            
+
             return updatedOtherOrder;
           });
-          
+
           const updatedOtherOrders = await Promise.all(updatePromises);
-          
-          return res.status(200).json({ 
-            message: `Original order already paid. ${updatedOtherOrders.length} related Terminal Africa orders marked as paid.`, 
+
+          return res.status(200).json({
+            message: `Original order already paid. ${updatedOtherOrders.length} related Terminal Africa orders marked as paid.`,
             orders: updatedOtherOrders.map(o => ({
               orderId: o._id,
               order_id: o.order_id,
@@ -2459,20 +2458,20 @@ exports.markOrderAsPaid = async (req, res) => {
           });
         }
       }
-      
+
       return res.status(400).json({ message: 'Order is already marked as paid' });
     }
-    
+
     // Check if this is a Paystack order
     if (order.paymentInfo.method !== 'paystack') {
-      return res.status(400).json({ 
-        message: 'Invalid order status. Only unpaid Paystack orders can be marked as paid.' 
+      return res.status(400).json({
+        message: 'Invalid order status. Only unpaid Paystack orders can be marked as paid.'
       });
     }
-    
+
     // Mark notifications as sent
     order.notificationsSent = true;
-    
+
     // Mark order as paid
     order.paid = true;
     order.paymentInfo.status = 'paid';
@@ -2482,7 +2481,7 @@ exports.markOrderAsPaid = async (req, res) => {
 
     // Check if this is a hybrid payment (wallet + Paystack)
     const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
-    
+
     if (isHybridPayment) {
       console.log(`Confirming hybrid payment for Terminal Africa order ${order.order_id}`, {
         totalAmount: order.totalAmount,
@@ -2490,13 +2489,13 @@ exports.markOrderAsPaid = async (req, res) => {
         paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
       });
     }
-    
+
     // Update product stock verification
     await updateProductStockForPaidOrder(order);
-    
+
     // Cancel the stale job for this order
     try {
-      await agenda.cancel({ 
+      await agenda.cancel({
         name: 'mark_terminal_orders_stale',
         'data.orderId': order._id.toString()
       });
@@ -2506,10 +2505,10 @@ exports.markOrderAsPaid = async (req, res) => {
     }
 
     await order.save();
-    
+
     // Get the buyer for notification
     const buyer = await Buyer.findById(order.buyer);
-    
+
     // Send order confirmation email
     if (buyer && buyer.email) {
       try {
@@ -2518,12 +2517,12 @@ exports.markOrderAsPaid = async (req, res) => {
         console.error('Error sending order confirmation email:', emailError);
       }
     }
-    
+
     // Send Slack notification
     await sendSlackNotificationForPaidOrder(order, buyer);
-    
-    return res.status(200).json({ 
-      message: 'Terminal Africa order marked as paid successfully', 
+
+    return res.status(200).json({
+      message: 'Terminal Africa order marked as paid successfully',
       order: {
         _id: order._id,
         order_id: order.order_id,
@@ -2531,12 +2530,12 @@ exports.markOrderAsPaid = async (req, res) => {
         paymentInfo: order.paymentInfo
       }
     });
-    
+
   } catch (error) {
     console.error('Error marking Terminal Africa order as paid:', error);
-    return res.status(500).json({ 
-      message: 'Failed to mark order as paid', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Failed to mark order as paid',
+      error: error.message
     });
   }
 };
@@ -2552,10 +2551,10 @@ exports.verifyPaymentByReference = async (req, res) => {
 
     // Verify with Paystack
     const verificationResult = await verifyPaystackTransaction(reference);
-    
+
     if (!verificationResult.success) {
-      return res.status(400).json({ 
-        message: 'Payment verification failed', 
+      return res.status(400).json({
+        message: 'Payment verification failed',
         details: verificationResult.error
       });
     }
@@ -2563,7 +2562,7 @@ exports.verifyPaymentByReference = async (req, res) => {
     // If orderId is provided, mark the order as paid
     if (orderId) {
       const order = await Order.findById(orderId).populate('seller', 'email firstName lastName businessName storeName');
-      
+
       if (!order) {
         return res.status(404).json({ message: 'Order not found' });
       }
@@ -2578,10 +2577,10 @@ exports.verifyPaymentByReference = async (req, res) => {
 
         // Update product stock verification
         await updateProductStockForPaidOrder(order);
-        
+
         // Check if this is a hybrid payment (wallet + Paystack)
         const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
-        
+
         if (isHybridPayment) {
           console.log(`Confirming hybrid payment for Terminal Africa order ${order.order_id}`, {
             totalAmount: order.totalAmount,
@@ -2589,21 +2588,21 @@ exports.verifyPaymentByReference = async (req, res) => {
             paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
           });
         }
-        
+
         await order.save();
-        
+
         // Get the buyer for notification and send Slack email
         const buyer = await Buyer.findById(order.buyer);
-        
+
         // Send Slack notification for the paid order
         if (buyer) {
           await sendSlackNotificationForPaidOrder(order, buyer);
         }
-        
+
         // Mark notifications as sent
         order.notificationsSent = true;
         await order.save();
-        
+
         // Send order confirmation email
         if (buyer && buyer.email) {
           try {
@@ -2633,9 +2632,9 @@ exports.verifyPaymentByReference = async (req, res) => {
     });
   } catch (error) {
     console.error('Error verifying payment by reference:', error);
-    return res.status(500).json({ 
-      message: 'Error verifying payment', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Error verifying payment',
+      error: error.message
     });
   }
 };
@@ -2644,9 +2643,9 @@ exports.verifyPaymentByReference = async (req, res) => {
 exports.handlePaystackWebhook = async (req, res) => {
   // Verify the event is from Paystack
   const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET_KEY || paystackSecretKey)
-                    .update(JSON.stringify(req.body))
-                    .digest('hex');
-                    
+    .update(JSON.stringify(req.body))
+    .digest('hex');
+
   if (hash !== req.headers['x-paystack-signature']) {
     return res.status(400).json({ message: 'Invalid signature' });
   }
@@ -2661,14 +2660,14 @@ exports.handlePaystackWebhook = async (req, res) => {
       status: event.data.status,
       metadata: event.data.metadata || {}
     });
-    
+
     const metadata = event.data.metadata || {};
-    
+
     // Check if this is a wallet top-up
     if (metadata.type === 'wallet_topup') {
       return await handleWalletTopUp(event.data, res);
     }
-    
+
     // If there's no metadata or orderId, just acknowledge the webhook
     if (!metadata || !metadata.orderId) {
       return res.status(200).json({ message: 'Webhook received, but no order metadata' });
@@ -2677,39 +2676,39 @@ exports.handlePaystackWebhook = async (req, res) => {
     try {
       // Find the order
       const order = await Order.findById(metadata.orderId);
-      
+
       if (!order) {
         console.log(`Order not found for Terminal Africa Paystack payment: ${metadata.orderId}`);
         return res.status(200).json({ message: 'Order not found, but acknowledging webhook' });
       }
-      
+
       // Check if this is a Paystack order that's not already paid
       if (order.paymentInfo.method !== 'paystack' || order.paid) {
         console.log(`Terminal Africa order ${order.order_id} is either not a Paystack order or already paid`);
         return res.status(200).json({ message: 'Order already processed or not Paystack order' });
       }
-      
+
       // Mark the order as paid
       order.paid = true;
       order.paymentInfo.status = 'paid';
       order.paymentInfo.transactionId = event.data.id;
       order.paymentInfo.paymentReference = event.data.reference;
       order.paymentInfo.paidAt = new Date();
-      
+
       // Update product stock verification
       await updateProductStockForPaidOrder(order);
-      
+
       // Get the buyer for notification and send Slack email
       const webhookBuyer = await Buyer.findById(order.buyer);
       if (webhookBuyer) {
         await sendSlackNotificationForPaidOrder(order, webhookBuyer);
       }
-      
+
       // Cancel the stale job for this order
       try {
-        await agenda.cancel({ 
-          name: 'mark_terminal_orders_stale', 
-          'data.orderId': order._id.toString() 
+        await agenda.cancel({
+          name: 'mark_terminal_orders_stale',
+          'data.orderId': order._id.toString()
         });
         console.log(`Cancelled stale job for Terminal Africa order ${order.order_id}`);
       } catch (jobErr) {
@@ -2718,7 +2717,7 @@ exports.handlePaystackWebhook = async (req, res) => {
 
       // Check if this is a hybrid payment (wallet + Paystack)
       const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
-      
+
       if (isHybridPayment) {
         console.log(`Processing hybrid payment for Terminal Africa order ${order.order_id}`, {
           totalAmount: order.totalAmount,
@@ -2726,9 +2725,9 @@ exports.handlePaystackWebhook = async (req, res) => {
           paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
         });
       }
-      
+
       await order.save();
-      
+
       // Send order confirmation email
       if (webhookBuyer && webhookBuyer.email) {
         try {
@@ -2738,14 +2737,14 @@ exports.handlePaystackWebhook = async (req, res) => {
           console.error('Error sending order confirmation email for paid Terminal Africa order:', emailError);
         }
       }
-      
+
       return res.status(200).json({ message: 'Terminal Africa payment processed successfully' });
     } catch (error) {
       console.error('Error processing Terminal Africa Paystack webhook:', error);
       return res.status(200).json({ message: 'Error processing webhook, but acknowledging receipt' });
     }
   }
-  
+
   // Handle payment failed event
   if (event.event === 'charge.failed') {
     console.log(`Received payment failure event from Paystack for Terminal Africa:`, {
@@ -2754,14 +2753,14 @@ exports.handlePaystackWebhook = async (req, res) => {
       status: event.data.status,
       metadata: event.data.metadata || {}
     });
-    
+
     const metadata = event.data.metadata || {};
-    
+
     // If there's no metadata or orderId, just acknowledge the webhook
     if (!metadata || !metadata.orderId) {
       return res.status(200).json({ message: 'Webhook received, but no order metadata for failed payment' });
     }
-    
+
     try {
       // Process the failed payment
       const result = await handleFailedPayment(event.data, res);
@@ -2780,9 +2779,9 @@ exports.handlePaystackWebhook = async (req, res) => {
 async function handleWalletTopUp(paymentData, res) {
   const { reference, metadata } = paymentData;
   const buyerId = metadata.buyerId;
-  
+
   const buyer = await Buyer.findById(buyerId);
-  
+
   if (!buyer) {
     return res.status(200).json({ message: 'Buyer not found, but acknowledging webhook' });
   }
@@ -2801,20 +2800,20 @@ async function handleWalletTopUp(paymentData, res) {
     existingTransaction.status = 'completed';
     buyer.wallet.balance += existingTransaction.amount;
     await buyer.save();
-    
+
     // Send confirmation email
     try {
       await sendSimpleTopUpEmail(buyer, existingTransaction);
     } catch (emailError) {
       console.error('Error sending wallet top-up email:', emailError);
     }
-    
+
     return res.status(200).json({ message: 'Wallet topped up successfully via webhook' });
   }
 
   // If no transaction found, create a new one
   const amount = paymentData.amount / 100;
-  
+
   const newTransaction = {
     type: 'credit',
     amount,
@@ -2826,16 +2825,16 @@ async function handleWalletTopUp(paymentData, res) {
 
   buyer.wallet.transactions.push(newTransaction);
   buyer.wallet.balance += amount;
-  
+
   await buyer.save();
-  
+
   // Send confirmation email
   try {
     await sendSimpleTopUpEmail(buyer, newTransaction);
   } catch (emailError) {
     console.error('Error sending wallet top-up email:', emailError);
   }
-  
+
   return res.status(200).json({ message: 'Wallet topped up successfully via webhook' });
 }
 
@@ -2845,7 +2844,7 @@ async function sendSimpleTopUpEmail(buyer, transaction) {
     style: 'currency',
     currency: 'NGN'
   });
-  
+
   const msg = {
     to: buyer.email,
     from: {
@@ -2878,44 +2877,44 @@ async function sendSimpleTopUpEmail(buyer, transaction) {
 // Helper function to handle failed payments
 async function handleFailedPayment(paymentData, res) {
   const { reference, metadata } = paymentData;
-  
+
   if (!metadata || !metadata.orderId) {
     return res.status(200).json({ message: 'No order metadata found in failed payment' });
   }
-  
+
   try {
     const order = await Order.findById(metadata.orderId);
-  
+
     if (!order) {
       return res.status(200).json({ message: 'Order not found for failed payment' });
     }
-    
+
     // Check if this order has already been processed (paid or cancelled)
     if (order.paid || !order.isOpen) {
       return res.status(200).json({ message: 'Order already processed, ignoring failed payment' });
     }
-    
+
     console.log(`Processing failed payment for Terminal Africa order ${order.order_id}`, {
       reference,
       orderStatus: order.paymentInfo.status,
       isOpen: order.isOpen,
       paymentMethod: order.paymentInfo.method
     });
-    
+
     // Check if this is a hybrid payment (wallet + Paystack)
     const isHybridPayment = order.paymentInfo && order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
-    
+
     if (isHybridPayment) {
       console.log(`Failed payment was hybrid for Terminal Africa order ${order.order_id}`, {
         totalAmount: order.totalAmount,
         walletAmountUsed: order.paymentInfo.walletAmountUsed,
         paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
       });
-      
+
       // If wallet was already used, we need to refund it
       if (order.paymentInfo.walletAmountUsed > 0) {
         const buyer = await Buyer.findById(order.buyer);
-        
+
         if (buyer) {
           // Refund the wallet amount that was used
           const walletTransaction = {
@@ -2925,14 +2924,14 @@ async function handleFailedPayment(paymentData, res) {
             status: 'completed',
             createdAt: new Date()
           };
-          
+
           // Add transaction to wallet
           buyer.wallet.balance += order.paymentInfo.walletAmountUsed;
           buyer.wallet.transactions.push(walletTransaction);
-          
+
           // Save buyer with updated wallet
           await buyer.save();
-          
+
           console.log(`Refunded wallet amount for failed hybrid payment: ${order.paymentInfo.walletAmountUsed}`, {
             orderId: order._id,
             buyer: buyer._id,
@@ -2943,13 +2942,13 @@ async function handleFailedPayment(paymentData, res) {
         }
       }
     }
-    
+
     // Mark order as closed with appropriate reason
     order.isOpen = false;
     order.closedAt = new Date();
     order.closedBy = 'auto';
     order.closedReason = `Payment failed: ${paymentData.gateway_response || 'Unknown payment failure'}`;
-    
+
     // Also update items status to cancelled
     order.items.forEach(item => {
       item.status = 'cancelled';
@@ -2962,12 +2961,12 @@ async function handleFailedPayment(paymentData, res) {
         note: 'Payment failed'
       });
     });
-    
+
     await order.save();
-    
+
     // Notify the buyer about the failed payment
     const buyer = await Buyer.findById(order.buyer);
-    
+
     if (buyer && buyer.email) {
       try {
         // Prepare email content
@@ -2983,21 +2982,21 @@ async function handleFailedPayment(paymentData, res) {
               <li>Amount: ₦${order.totalAmount.toLocaleString()}</li>
             </ul>
         `;
-        
+
         // Add wallet refund info if applicable
         if (isHybridPayment && order.paymentInfo.walletAmountUsed > 0) {
           emailContent += `
             <p><strong>Wallet Refund:</strong> Your wallet credit of ₦${order.paymentInfo.walletAmountUsed.toLocaleString()} used for this order has been refunded to your wallet.</p>
           `;
         }
-        
+
         emailContent += `
             <p>If you would still like to purchase these items, please place a new order.</p>
             <p>If you believe this is an error, please contact our support team.</p>
             <p>Best regards,<br>The Auqli Team</p>
           </div>
         `;
-        
+
         const failedPaymentEmail = {
           to: buyer.email,
           from: {
@@ -3007,14 +3006,14 @@ async function handleFailedPayment(paymentData, res) {
           subject: 'Payment Failed - Terminal Africa Order',
           html: emailContent
         };
-        
+
         await sgMail.send(failedPaymentEmail);
         console.log('Failed payment notification email sent to buyer');
       } catch (emailError) {
         console.error('Error sending failed payment notification email:', emailError);
       }
     }
-    
+
     return res.status(200).json({ message: 'Failed payment processed successfully' });
   } catch (error) {
     console.error('Error processing failed payment:', error);
@@ -3041,7 +3040,7 @@ exports.handleTerminalWebhook = async (req, res) => {
 exports.createTerminalWebhook = async (req, res) => {
   try {
     const { name, active, events, live, url } = req.body;
-    
+
     // Validate required fields
     if (!name || typeof active !== 'boolean' || !events || !Array.isArray(events) || typeof live !== 'boolean' || !url) {
       return res.status(400).json({
@@ -3049,7 +3048,7 @@ exports.createTerminalWebhook = async (req, res) => {
         message: 'Missing required fields: name, active, events, live, and url are required'
       });
     }
-    
+
     // Validate events
     const validEvents = [
       'packaging.created',
@@ -3060,7 +3059,7 @@ exports.createTerminalWebhook = async (req, res) => {
       'shipment.updated',
       'shipment.delivered'
     ];
-    
+
     const invalidEvents = events.filter(event => !validEvents.includes(event));
     if (invalidEvents.length > 0) {
       return res.status(400).json({
@@ -3068,7 +3067,7 @@ exports.createTerminalWebhook = async (req, res) => {
         message: `Invalid event types: ${invalidEvents.join(', ')}. Valid events: ${validEvents.join(', ')}`
       });
     }
-    
+
     // Validate URL format
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       return res.status(400).json({
@@ -3076,7 +3075,7 @@ exports.createTerminalWebhook = async (req, res) => {
         message: 'URL must start with http:// or https://'
       });
     }
-    
+
     // If live is true, URL must be HTTPS
     if (live && !url.startsWith('https://')) {
       return res.status(400).json({
@@ -3084,7 +3083,7 @@ exports.createTerminalWebhook = async (req, res) => {
         message: 'Live webhooks must use HTTPS URLs'
       });
     }
-    
+
     // Check if Terminal API is configured
     if (!process.env.TERMINAL_SECRET_KEY) {
       return res.status(500).json({
@@ -3092,7 +3091,7 @@ exports.createTerminalWebhook = async (req, res) => {
         message: 'Terminal Africa API key not configured'
       });
     }
-    
+
     // Use the existing terminalAPI client
     const response = await terminalAPI.post('/webhooks', {
       name,
@@ -3101,18 +3100,18 @@ exports.createTerminalWebhook = async (req, res) => {
       live,
       url
     });
-    
+
     console.log('Terminal webhook created successfully:', response.data);
-    
+
     res.status(201).json({
       status: true,
       message: 'Webhook created successfully',
       data: response.data.data
     });
-    
+
   } catch (error) {
     console.error('Error creating Terminal webhook:', error);
-    
+
     if (error.response) {
       // Terminal Africa API error
       return res.status(error.response.status).json({
@@ -3121,7 +3120,7 @@ exports.createTerminalWebhook = async (req, res) => {
         error: error.response.data
       });
     }
-    
+
     res.status(500).json({
       status: false,
       message: 'Failed to create webhook',
@@ -3134,7 +3133,7 @@ exports.createTerminalWebhook = async (req, res) => {
 exports.getTerminalWebhooks = async (req, res) => {
   try {
     const { page = 1, perPage = 10 } = req.query;
-    
+
     // Check if Terminal API is configured
     if (!process.env.TERMINAL_SECRET_KEY) {
       return res.status(500).json({
@@ -3142,7 +3141,7 @@ exports.getTerminalWebhooks = async (req, res) => {
         message: 'Terminal Africa API key not configured'
       });
     }
-    
+
     // Use the existing terminalAPI client
     const response = await terminalAPI.get('/webhooks', {
       params: {
@@ -3150,18 +3149,18 @@ exports.getTerminalWebhooks = async (req, res) => {
         perPage: parseInt(perPage)
       }
     });
-    
+
     console.log('Terminal webhooks retrieved successfully');
-    
+
     res.status(200).json({
       status: true,
       message: 'Webhooks retrieved successfully',
       data: response.data.data
     });
-    
+
   } catch (error) {
     console.error('Error retrieving Terminal webhooks:', error);
-    
+
     if (error.response) {
       // Terminal Africa API error
       return res.status(error.response.status).json({
@@ -3170,7 +3169,7 @@ exports.getTerminalWebhooks = async (req, res) => {
         error: error.response.data
       });
     }
-    
+
     res.status(500).json({
       status: false,
       message: 'Failed to retrieve webhooks',
@@ -3183,14 +3182,14 @@ exports.getTerminalWebhooks = async (req, res) => {
 exports.deleteTerminalWebhook = async (req, res) => {
   try {
     const { webhook_id } = req.params;
-    
+
     if (!webhook_id) {
       return res.status(400).json({
         status: false,
         message: 'Webhook ID is required'
       });
     }
-    
+
     // Check if Terminal API is configured
     if (!process.env.TERMINAL_SECRET_KEY) {
       return res.status(500).json({
@@ -3198,20 +3197,20 @@ exports.deleteTerminalWebhook = async (req, res) => {
         message: 'Terminal Africa API key not configured'
       });
     }
-    
+
     // Use the existing terminalAPI client
     const response = await terminalAPI.delete(`/webhooks/${webhook_id}`);
-    
+
     console.log('Terminal webhook deleted successfully:', webhook_id);
-    
+
     res.status(200).json({
       status: true,
       message: 'Webhook deleted successfully'
     });
-    
+
   } catch (error) {
     console.error('Error deleting Terminal webhook:', error);
-    
+
     if (error.response) {
       // Terminal Africa API error
       return res.status(error.response.status).json({
@@ -3220,7 +3219,7 @@ exports.deleteTerminalWebhook = async (req, res) => {
         error: error.response.data
       });
     }
-    
+
     res.status(500).json({
       status: false,
       message: 'Failed to delete webhook',

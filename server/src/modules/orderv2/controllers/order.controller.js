@@ -38,7 +38,7 @@ exports.createOrder = async (req, res) => {
       }
 
       console.log(`Controller: Processing orderId ${orderId}`);
-      
+
       // Create shipment
       try {
         console.log(`Controller: Calling createShipmentForOrder for orderId ${orderId}`);
@@ -48,13 +48,13 @@ exports.createOrder = async (req, res) => {
         await errorLoggingService.logError(orderId, 'create_shipment', error);
         throw error;
       }
-      
+
       // Get rates
       try {
         console.log(`Controller: Calling getOrderRates for orderId ${orderId}`);
         const ratesResult = await ratesService.getOrderRates(orderId);
         console.log(`Controller: Rates received for orderId ${orderId}`, ratesResult.data.rates);
-        
+
         return {
           ...order,
           rates: ratesResult.data.rates || [],
@@ -69,7 +69,7 @@ exports.createOrder = async (req, res) => {
     const finalOrders = ordersWithRates.map(order => ({
       isFreeShipping: true,
       ...order,
-     
+
     }));
 
     return res.status(201).json({
@@ -83,6 +83,11 @@ exports.createOrder = async (req, res) => {
     if (orderId) {
       await errorLoggingService.logError(orderId, 'create_order', error);
     }
+
+    if (error.message === 'This product is out of stock') {
+      return res.status(400).json({ message: error.message });
+    }
+
     return res.status(500).json({ message: 'Failed to create order, shipment, and fetch rates', error: error.message });
   }
 };
@@ -120,7 +125,7 @@ exports.payForOrder = async (req, res) => {
     // 2. Proceed with payment
     const paymentResult = await paymentService.payForOrder(orderId, paymentDetails);
     return res.status(200).json(paymentResult);
-    
+
   } catch (error) {
     console.error('Error in payForOrder workflow:', error);
     await errorLoggingService.logError(orderId, 'payment', error);
@@ -129,50 +134,50 @@ exports.payForOrder = async (req, res) => {
 };
 
 
-  exports.markOrderAsPaid = async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { transactionId, paymentReference, manualNote } = req.body;
-  
-      const result = await markAsPaidService.markOrderAsPaid(id, transactionId, paymentReference, manualNote);
-      return res.status(result.status).json(result.data);
-    } catch (error) {
-      console.error('Error in markOrderAsPaid controller:', error);
-      return res.status(500).json({
-        message: 'Failed to mark order as paid',
-        error: error.message
-      });
-    }
-  };
+exports.markOrderAsPaid = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { transactionId, paymentReference, manualNote } = req.body;
+
+    const result = await markAsPaidService.markOrderAsPaid(id, transactionId, paymentReference, manualNote);
+    return res.status(result.status).json(result.data);
+  } catch (error) {
+    console.error('Error in markOrderAsPaid controller:', error);
+    return res.status(500).json({
+      message: 'Failed to mark order as paid',
+      error: error.message
+    });
+  }
+};
 
 
-  exports.verifyPaymentByReference = async (req, res) => {
-    try {
-      const { reference, orderId } = req.body;
-      const result = await verifyPaymentService.verifyPaymentByReference(reference, orderId);
-      return res.status(result.status).json(result.data);
-    } catch (error) {
-      console.error('Error in verifyPaymentByReference controller:', error);
-      return res.status(500).json({
-        message: 'Error verifying payment',
-        error: error.message
-      });
-    }
-  };
+exports.verifyPaymentByReference = async (req, res) => {
+  try {
+    const { reference, orderId } = req.body;
+    const result = await verifyPaymentService.verifyPaymentByReference(reference, orderId);
+    return res.status(result.status).json(result.data);
+  } catch (error) {
+    console.error('Error in verifyPaymentByReference controller:', error);
+    return res.status(500).json({
+      message: 'Error verifying payment',
+      error: error.message
+    });
+  }
+};
 
 
-  exports.handlePaystackWebhook = async (req, res) => {
-    try {
-      const result = await paystackWebhookService.handlePaystackWebhook(req);
-      return res.status(result.status).json(result.data);
-    } catch (error) {
-      console.error('Error in handlePaystackWebhook controller:', error);
-      return res.status(500).json({
-        message: 'Error processing webhook',
-        error: error.message
-      });
-    }
-  };
+exports.handlePaystackWebhook = async (req, res) => {
+  try {
+    const result = await paystackWebhookService.handlePaystackWebhook(req);
+    return res.status(result.status).json(result.data);
+  } catch (error) {
+    console.error('Error in handlePaystackWebhook controller:', error);
+    return res.status(500).json({
+      message: 'Error processing webhook',
+      error: error.message
+    });
+  }
+};
 
 
 exports.cancelOrderBySeller = async (req, res) => {
@@ -198,9 +203,9 @@ exports.cancelOrderBySeller = async (req, res) => {
 
   } catch (error) {
     console.error('Error in cancelOrderBySeller controller:', error);
-    return res.status(500).json({ 
-      message: 'Error cancelling order', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Error cancelling order',
+      error: error.message
     });
   }
 };
@@ -229,9 +234,9 @@ exports.cancelOrderByBuyer = async (req, res) => {
 
   } catch (error) {
     console.error('Error in cancelOrderByBuyer controller:', error);
-    return res.status(500).json({ 
-      message: 'Error cancelling order', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Error cancelling order',
+      error: error.message
     });
   }
 };

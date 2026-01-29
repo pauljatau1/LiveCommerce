@@ -1072,7 +1072,15 @@ exports.getTopSoldProducts = async (req, res) => {
       .limit(3)
       .select('name description price images stats.soldCount category brand');
 
-    res.json(topProducts);
+    const formattedProducts = topProducts.map(product => {
+      const obj = product.toObject();
+      if (obj.stats && typeof obj.stats.soldCount === 'number') {
+        obj.stats.soldCount = Math.max(0, obj.stats.soldCount);
+      }
+      return obj;
+    });
+
+    res.json(formattedProducts);
   } catch (error) {
     res.status(500).json({
       message: 'Failed to retrieve top sold products',

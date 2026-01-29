@@ -20,10 +20,24 @@ const verifySendGridConfig = () => {
   }
 };
 
-// Helper function to restore product stock when orders are cancelled or expired
 const restoreProductStock = async (order, reason = 'Order cancelled/expired') => {
   try {
     console.log(`Restoring stock for order ${order.order_id} - Reason: ${reason}`);
+
+    // Check if stock was actually reserved (and soldCount incremented)
+    // Stock is reserved if:
+    // 1. Order is paid
+    // 2. Order channel is 'auction' (stock reserved on creation)
+    // 3. Order status implies processing/completion (processing, shipped, delivered)
+    // If it's a draft or pending_payment marketplace order that isn't paid, stock was never decremented, so don't restore it.
+    const isStockReserved = order.paid ||
+      order.channel === 'auction' ||
+      ['processing', 'shipped', 'delivered', 'completed'].includes(order.status);
+
+    if (!isStockReserved) {
+      console.log(`Skipping stock restoration for order ${order.order_id} - Stock was not strictly reserved (Unpaid/Draft & Not Auction)`);
+      return 0;
+    }
 
     const Product = mongoose.model('Product');
     let totalStockRestored = 0;
