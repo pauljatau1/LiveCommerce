@@ -10,7 +10,8 @@ import axios from 'axios';
 // StockUpdateModal component for updating product stock
 const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitting, setIsStockUpdated }) => {
     const { token } = useAuthContext();
-    const [stockChange, setStockChange] = useState(0);
+    const [stockChange, setStockChange] = useState(0); // Integer value for calculations
+    const [stockInputValue, setStockInputValue] = useState(''); // String value for TextField input
     const [operation, setOperation] = useState('add'); // 'add' or 'subtract'
     const [localIsSubmitting, setLocalIsSubmitting] = useState(false);
 
@@ -35,7 +36,14 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
 
     const handleStockChange = useCallback((e) => {
         const value = e.target.value;
-        setStockChange(Math.max(0, parseInt(value) || 0));
+        // Allow empty string for clearing the field
+        setStockInputValue(value);
+        
+        // Parse to integer, defaulting to 0 if empty or invalid
+        const numValue = value === '' ? 0 : parseInt(value, 10);
+        // Ensure non-negative integer
+        const validNum = isNaN(numValue) ? 0 : Math.max(0, numValue);
+        setStockChange(validNum);
     }, []);
 
     const handleStockIncreaseButton = () => {
@@ -158,7 +166,7 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                     <TextField
                                         label={`${operation === 'add' ? 'Add' : 'Remove'} Quantity`}
                                         type="number"
-                                        value={stockChange}
+                                        value={stockInputValue}
                                         onChange={handleStockChange}
                                         variant="outlined"
                                         InputProps={{
@@ -179,7 +187,11 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                     />
                                     <div className="flex items-center gap-2">
                                         <button
-                                            onClick={() => setStockChange(prev => prev + 1)}
+                                            onClick={() => {
+                                                const newValue = stockChange + 1;
+                                                setStockChange(newValue);
+                                                setStockInputValue(newValue.toString());
+                                            }}
                                             className={`h-14 w-14 rounded-md flex items-center justify-center ${operation === 'add'
                                                     ? 'bg-[#0BB248] text-white'
                                                     : 'bg-[#DF0707] text-white'
@@ -188,7 +200,11 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                                             <Icon icon="solar:add-circle-bold" className="w-6 h-6" />
                                         </button>
                                         <button
-                                            onClick={() => setStockChange(prev => Math.max(0, prev - 1))}
+                                            onClick={() => {
+                                                const newValue = Math.max(0, stockChange - 1);
+                                                setStockChange(newValue);
+                                                setStockInputValue(newValue.toString());
+                                            }}
                                             className={`h-14 w-14 rounded-md flex items-center justify-center ${operation === 'add'
                                                     ? 'bg-[#0BB248] text-white'
                                                     : 'bg-[#DF0707] text-white'
