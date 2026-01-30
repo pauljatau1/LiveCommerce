@@ -53,6 +53,15 @@ const ActiveLiveStreamCard = ({
         }).replace(',', ' •').replace(/\s+/g, ' ');
     };
 
+    // Check if the stream start time has passed
+    const isStreamExpired = useMemo(() => {
+        if (!startTime) return false;
+        const now = new Date();
+        const streamStartTime = new Date(startTime);
+        // Stream is expired if current time is past the scheduled start time
+        return now > streamStartTime;
+    }, [startTime]);
+
     // Check if the stream is available to enter based on time
     const isStreamAvailableToEnter = useMemo(() => {
         const now = new Date();
@@ -65,7 +74,7 @@ const ActiveLiveStreamCard = ({
     }, [startTime]);
 
     const displayLiveStatusCard = () => {
-        if (isLiveStatus === 'scheduled') {
+        if (isLiveStatus === 'scheduled' && !isStreamExpired) {
             return (
                 <div className="bg-green-500 px-2 py-1 rounded-md flex items-center gap-1">
                     <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
@@ -85,7 +94,7 @@ const ActiveLiveStreamCard = ({
                     <span className="text-xs text-white font-medium">Ended</span>
                 </div>
             )
-        } else if (isLiveStatus === 'expired') {
+        } else if (isLiveStatus === 'expired' || isStreamExpired) {
             return (
                 <div className="bg-gray-500 px-2 py-1 rounded-md flex items-center gap-1">
                     <span className="text-xs text-white font-medium">Expired</span>
@@ -244,7 +253,7 @@ const ActiveLiveStreamCard = ({
             <p className="text-[#425466] capitalize font-inter text-xs mt-2">lagos, Nigeria</p>
             {
                 isStreamAvailableToEnter ? (
-                    isLiveStatus === 'expired' ? (
+                    ((isLiveStatus === 'expired' || isStreamExpired && isLiveStatus !== 'live' ) && isLiveStatus !== 'ended' ) ? (
                         <button
                             onClick={handleRescheduleClick}
                             className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors`}
@@ -265,18 +274,18 @@ const ActiveLiveStreamCard = ({
                     <Tooltip>
                         <TooltipTrigger asChild>
                             {
-                                isLiveStatus === 'expired' ? (
+                                (isLiveStatus === 'expired' && isStreamExpired) ? (
                                     <button
                                         onClick={handleRescheduleClick}
-                                        className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors ${isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors ${isLiveStatus === 'ended' || isLiveStatus === 'expired' || isStreamExpired || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     >
                                         Reschedule
                                     </button>
                                 ) : (
                                     <NavLink to={`/dashboard/live-streams/live-stream-studio/${id}`}>
                                         <button
-                                            disabled={isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter}
-                                            className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors ${isLiveStatus === 'ended' || isLiveStatus === 'expired' || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            disabled={isLiveStatus === 'ended' || isLiveStatus === 'expired' || isStreamExpired || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter}
+                                            className={`w-full py-2 mt-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors ${isLiveStatus === 'ended' || (isLiveStatus === 'expired' && isStreamExpired) || isLiveStatus === 'cancelled' || !isStreamAvailableToEnter ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
                                             Enter Studio
                                         </button>

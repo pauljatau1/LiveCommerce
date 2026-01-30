@@ -395,8 +395,8 @@ const EditProduct = () => {
 
         // Show error for oversized files
         if (oversizedFiles.length > 0) {
-            toast.error(`File${oversizedFiles.length > 1 ? 's' : ''} too large: ${oversizedFiles.join(', ')}`, {
-                description: "Each image must be less than 7MB",
+            toast.error(`Image${oversizedFiles.length > 1 ? 's' : ''} too large: ${oversizedFiles.join(', ')}`, {
+                description: "Each image must be less than 7MB in size, please compress image to be less than 7mb and try again",
                 style: {
                     background: '#17171B',
                     color: '#fff',
