@@ -78,9 +78,9 @@ app.use((req, res, next) => {
 const { sendRawHTMLEmail } = require('./services/termiiEmailService');
 
 const MONITOR_CONFIG = {
-  RECIPIENTS: ['bolu@auqli.com', 'dan@auqli.com', 'todimu@auqli.com', 'ope@auqli.com', 'emmanuel@auqli.com'],
+  RECIPIENTS: ['bolu@auqli.com', 'dan@auqli.com', 'todimu@auqli.com', 'emmanuel@auqli.com'],
   ERROR_STATUSES: [500, 502, 503, 504, 408, 429],
-  TIMEOUT_MS: 7000 // 7 seconds
+  TIMEOUT_MS: 15000 // 15 seconds for production
 };
 
 app.use((req, res, next) => {
@@ -95,6 +95,24 @@ app.use((req, res, next) => {
   };
 
   res.on('finish', async () => {
+    // Determine Environment first
+    const host = req.get('host') || '';
+    let environment = 'Local Development';
+    let baseUrl = 'http://localhost:8000';
+
+    if (host.includes('api.staging.auqli.live')) {
+      environment = 'Staging';
+      baseUrl = 'https://api.staging.auqli.live';
+    } else if (host.includes('api.auqli.live')) {
+      environment = 'Production';
+      baseUrl = 'https://api.auqli.live';
+    }
+
+    // ONLY send alerts in Production
+    if (environment !== 'Production') {
+      return;
+    }
+
     const duration = Date.now() - start;
     const status = res.statusCode;
 
@@ -103,19 +121,6 @@ app.use((req, res, next) => {
 
     if (isError || isSlow) {
       try {
-        // Determine Environment
-        const host = req.get('host') || '';
-        let environment = 'Local Development';
-        let baseUrl = 'http://localhost:8000';
-
-        if (host.includes('api.staging.auqli.live')) {
-          environment = 'Staging';
-          baseUrl = 'https://api.staging.auqli.live';
-        } else if (host.includes('api.auqli.live')) {
-          environment = 'Production';
-          baseUrl = 'https://api.auqli.live';
-        }
-
         const fullUrl = `${baseUrl}${req.originalUrl}`;
         const timestamp = new Date().toISOString();
         const reason = isError ? `Error Status: ${status}` : `Slow Request (${duration}ms)`;
@@ -146,7 +151,7 @@ app.use((req, res, next) => {
               </tr>
               <tr style="background-color: #f9f9f9;">
                 <td style="padding: 10px; font-weight: bold;">Duration:</td>
-                <td style="padding: 10px;">${duration}ms ${isSlow ? '(Exceeded 7000ms)' : ''}</td>
+                <td style="padding: 10px;">${duration}ms ${isSlow ? '(Exceeded 15000ms)' : ''}</td>
               </tr>
             </table>
 

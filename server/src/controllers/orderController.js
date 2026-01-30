@@ -338,9 +338,9 @@ exports.createOrder = async (req, res) => {
       const product = productMap[item.productId];
       if (!product) continue;
 
-      if (product.stock < item.quantity) {
+      if (product.stock <= 0 || product.stock < item.quantity) {
         return res.status(400).json({
-          message: `Insufficient stock ${product.name} (${product.stock})`
+          message: 'This product is out of stock'
         });
       }
     }
