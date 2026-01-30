@@ -580,9 +580,14 @@ export const LivestreamProvider = ({ children }) => {
                 dispatch({ type: 'SET_JOIN_LIVE_STREAM_DATA', payload: response.data });
                 return response.data;
             }
-            
+            return null;
         } catch (error) {
             console.error('Error joining live stream as host', error);
+            dispatch({
+                type: 'SET_ERROR',
+                payload: error.response?.data?.message || error.message
+            });
+            throw error;
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
         }

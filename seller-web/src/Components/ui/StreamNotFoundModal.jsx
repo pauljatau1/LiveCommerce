@@ -7,7 +7,6 @@ import {
     DialogTitle,
     DialogDescription,
     DialogFooter,
-    DialogClose,
 } from './dialog';
 import { Icon } from '@iconify/react';
 import PropTypes from 'prop-types';
@@ -35,7 +34,12 @@ const StreamNotFoundModal = ({ open, onClose }) => {
     return (
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent showCloseButton={false} className="sm:max-w-[500px] bg-[#0D0F12] rounded-[10px]  ">
-                <button type="button" aria-label="Close" className="w-fit absolute right-4 top-4 hover:bg-[#272A31]/50 rounded-full p-1">
+                <button 
+                    type="button" 
+                    aria-label="Close" 
+                    onClick={onClose}
+                    className="w-fit absolute right-4 top-4 hover:bg-[#272A31]/50 rounded-full p-1 transition-colors"
+                >
                     <Icon icon="material-symbols:close-rounded" className="w-6 h-6 text-[#ffffff] hover:text-[#ffffff]/50" />
                 </button>
                 <DialogHeader className="text-center sm:text-left">
@@ -52,7 +56,7 @@ const StreamNotFoundModal = ({ open, onClose }) => {
                     </DialogTitle>
                     <DialogDescription className="text-sm sm:text-base text-gray-600 mt-2 text-center sm:text-left">
                         Stream could not be started. This stream belongs to another seller. You are currently logged in as{' '}
-                        <span className="font-semibold text-[#fff]">{sellerName}{sellerStoreName ? `(${sellerStoreName})` : ''}</span>. Please log in as the correct seller if this was a mistake.
+                        <span className="font-semibold text-[#fff]">{sellerName}{sellerStoreName ? ` (${sellerStoreName})` : ''}</span>. Please log in as the correct seller if this was a mistake.
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="flex-col sm:flex-row gap-3 sm:gap-2 mt-6">
