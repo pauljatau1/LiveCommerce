@@ -5,8 +5,8 @@ const BASE_URL_V1 = process.env.TERMINAL_API_URL + '/v1';
 const BASE_URL_V2 = process.env.TERMINAL_API_URL + '/v2';
 const SECRET_KEY = process.env.TERMINAL_SECRET_KEY;
 
-// Default timeout for API requests (15 seconds)
-const DEFAULT_TIMEOUT_MS = 15000;
+// Default timeout for API requests (30 seconds - rates endpoint queries multiple carriers)
+const DEFAULT_TIMEOUT_MS = 30000;
 
 // HTTPS Agent with connection pooling (keep-alive)
 // This reuses TCP connections, saving 200-800ms per request on TLS handshake
