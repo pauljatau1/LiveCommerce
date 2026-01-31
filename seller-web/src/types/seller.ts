@@ -161,7 +161,8 @@ export interface SellerAnalytics {
 }
 
 // Seller conversations API response interface
-export interface SellerConversations {
+
+export interface conversations {
   _id: string;
   participant: {
     id: string;
@@ -189,17 +190,16 @@ export interface SellerConversations {
     mutedBy: string | null;
   };
 }
+export interface SellerConversations {
+  conversations: conversations[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalConversations: number;
+    hasMore: boolean;
+  };
+}
 
 export interface SellerConversationsResponse {
-  success: boolean;
-  message: string;
-  data: {
-    conversations: SellerConversations[];
-    pagination: {
-      currentPage: number;
-      totalPages: number;
-      totalConversations: number;
-      hasMore: boolean;
-    };
-  };
+  data: SellerConversations;
 }

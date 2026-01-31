@@ -8,9 +8,8 @@ import type {
   SellerNotifications,
   Notification,
   AnalyticsData,
-  SellerConversations,
-  SellerConversationsResponse,
 } from "@/types";
+import type { conversations } from "@/types/seller";
 
 const SELLER_ENDPOINTS = {
   fetchSellerDetails: "/sellers/profile",
@@ -81,13 +80,17 @@ export const sellerService = {
   /**
    * Fetch seller conversations
    * 
-   * @returns Promise<SellerConversations[]> - Seller conversations
+   * @returns Promise<conversations[]> - Seller conversations array
    */
-  async fetchSellerConversations(): Promise<SellerConversations[]> {
+  async fetchSellerConversations(): Promise<conversations[]> {
     const url = SELLER_ENDPOINTS.fetchSellerConversations;
-    const response = await apiService.get<SellerConversationsResponse>(url);
-    console.log("seller conversations service", response.data);
-    return response.data.data.conversations as SellerConversations[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response = await apiService.get<any>(url);
+    console.log("seller conversations service", response);
+    // Handle multiple possible response structures
+    const responseData = response.data;
+    const conversationsData = responseData?.data?.conversations || responseData?.conversations || [];
+    return conversationsData as conversations[];
   },
 
   /**
