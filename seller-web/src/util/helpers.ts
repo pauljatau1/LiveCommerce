@@ -186,3 +186,7 @@ export const getNetworkSpeed = async (): Promise<string> => {
     return "unknown";
   }
 };
+
+export const getInitials = (firstName: string | undefined, lastName: string | undefined) => {
+  return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
+}

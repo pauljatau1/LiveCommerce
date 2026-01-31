@@ -20,7 +20,7 @@ const HomePage = () => {
 
   // useEffect to set the header name, nav name, and show back button
   useEffect(() => {
-    setHeaderName(`Hello ${seller?.firstName}`);
+    setHeaderName(`Hello ${seller?.firstName ? seller?.firstName : "" }`);
     setNavName("Let's makes some sales today!");
     setShowBackButton(false);
 

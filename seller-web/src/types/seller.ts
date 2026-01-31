@@ -14,6 +14,7 @@ export interface Seller {
   email: string;
   phoneNumber: string;
   storeName: string;
+  businessName: string;
   accountType: "individual" | "business";
   emailVerified: boolean;
   isVerified: boolean;
@@ -42,6 +43,10 @@ export interface Seller {
   };
   referralUsed: boolean;
   referrerId: string;
+  storeAvatar: {
+    public_id: string;
+    url: string;
+  };
 }
 
 // Top sold seller products interface

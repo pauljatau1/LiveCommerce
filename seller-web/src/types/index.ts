@@ -64,3 +64,7 @@ export type {
     ProductsSearchResponse,
     ProductsSearchParams
 } from "./products";
+
+export type {
+    HeaderV2Props
+} from "./header";
