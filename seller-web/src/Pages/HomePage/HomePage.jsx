@@ -37,7 +37,7 @@ const HomePage = () => {
   }, []);
 
   return (
-    <div className="mt-28">
+    <div className="mt-8">
 
       {/* Notification */}
       {notification && <AlertNotification />}

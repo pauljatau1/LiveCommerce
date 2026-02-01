@@ -66,7 +66,7 @@ const DashboardLayout = () => {
             showBackButton={showBackButton}
             fullScreenMode={fullScreenMode}
           />
-          <div className={` ${fullScreenMode ? isLiveStreamPage ? '' : 'mt-[88px]' : isMessagesPage ? 'mt-[90px]' : location?.pathname !== "/dashboard/home" ? 'h-full mt-[108px] overflow-y-scroll [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-gray-600 px-5 md:px-8' : 'h-full mt-[88px] overflow-y-scroll [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-gray-600 px-5 md:px-8'}`}>
+          <div className={` ${fullScreenMode ? isLiveStreamPage ? '' : 'mt-[88px]' : isMessagesPage ? 'mt-[90px]' : location?.pathname !== "/dashboard/home" ? 'h-full mt-[120px] overflow-y-scroll [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-gray-600 px-5 md:px-8' : 'h-full mt-[88px] overflow-y-scroll [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-gray-600 px-5 md:px-8'}`}>
             <Outlet context={outletContext} />
           </div>
         </div>

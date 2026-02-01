@@ -6,6 +6,7 @@ import { authService } from "@/services/authService";
 import { LoginFormData } from "@/schemas/loginSchema";
 import { GoogleOAuthRequestData } from "@/types";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
+import { useNotification } from "@/Hooks/useNotification";
 import AuqliLogo from "@/assets/icons/AuqliLogo";
 import LoginForm from "@/Components/loginPage/LoginForm";
 import PrimaryButton from "@/Components/shared/PrimaryButton";
@@ -16,6 +17,7 @@ export default function LoginPageV2() {
     const navigate = useNavigate();
     const { login, googleAuth } = authService
     const { isLoading, handleLoginActivity } = useAuthContext();
+    const { showNotification } = useNotification();
 
     // Regular login mutation
     const { mutate, isPending } = useMutation({ mutationFn: (data: LoginFormData) => login(data) });
@@ -108,6 +110,8 @@ export default function LoginPageV2() {
                 console.log(error instanceof AxiosError);
                 if (error instanceof AxiosError) {
                     if (error.status === 404) {
+                        // Example: Show error notification banner
+                        showNotification("Incorrect email or password", "error", "dismissible");
                         toast.error("Login failed", {
                             description: "Incorrect email or password",
                             style: {
@@ -116,6 +120,11 @@ export default function LoginPageV2() {
                             }
                         })
                     } else {
+                        showNotification(
+                            error.response?.data?.message || error.message || "Login failed",
+                            "error",
+                            "dismissible"
+                        );
                         toast.error("Login Failed", {
                             description: error.response?.data?.message || error.message,
                             style: {
@@ -125,6 +134,7 @@ export default function LoginPageV2() {
                         })
                     }
                 } else {
+                    showNotification("Something went wrong please try again later", "error", "dismissible");
                     toast.error("Login Failed", {
                         description: "Something went wrong please try again later",
                         style: {

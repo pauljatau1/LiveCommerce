@@ -15,6 +15,8 @@ import AlertIcon from "@/assets/icons/AlertIcon"
 import { Skeleton } from "@/Components/shared/Skeleton"
 import NavRightIcon from "@/assets/icons/NavRightIcon";
 import { isAxiosError } from "axios";
+import { useNotification } from "@/Hooks/useNotification";
+import NotificationBanner from "@/Components/ui/NotificationBanner";
 
 export default function HeaderV2({ name, navName, showBackButton, fullScreenMode, isSidebarOpen, setIsSidebarOpen }: HeaderV2Props) {
     const { seller } = useAuthContext()
@@ -24,6 +26,7 @@ export default function HeaderV2({ name, navName, showBackButton, fullScreenMode
     const [notificationDialogOpen, setNotificationDialogOpen] = useState(false)
     const location = useLocation();
     const queryClient = useQueryClient();
+    const { notification, hideNotification } = useNotification();
 
     // Fetch notifications and conversations
     const { data: notifications, isLoading: isLoadingNotifications } = useQuery({
@@ -330,6 +333,18 @@ export default function HeaderV2({ name, navName, showBackButton, fullScreenMode
                     )
                 }
             </div>
+            
+            {/* Notification Banner - Renders at this location for all pages */}
+            {notification.isVisible && notification.type && (
+                <div className="px-5 xl:px-8 pb-3 pt-0 lg:pt-2 ">
+                    <NotificationBanner
+                        message={notification.message}
+                        type={notification.type}
+                        visibility={notification.visibility}
+                        onClose={hideNotification}
+                    />
+                </div>
+            )}
         </header>
     )
 }
