@@ -64,3 +64,16 @@ export type {
     ProductsSearchResponse,
     ProductsSearchParams
 } from "./products";
+
+export type {
+    HeaderV2Props
+} from "./header";
+
+export type {
+    NotificationType,
+    NotificationVisibility,
+    NotificationState,
+    NotificationAction,
+    NotificationContextType,
+    NotificationProviderProps
+} from "./notification";

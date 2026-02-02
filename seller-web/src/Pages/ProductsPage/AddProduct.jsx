@@ -31,6 +31,7 @@ import { debounce } from 'lodash';
 import CategorySelectionModal from '../../Components/ui/CategorySelectionModal';
 import SimpleEditor from '../../Components/ui/SimpleEditor';
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
+import { useNotification } from '../../Hooks/useNotification';
 
 const AddProduct = () => {
     const { setHeaderName, setNavName } = useOutletContext()
@@ -41,6 +42,7 @@ const AddProduct = () => {
     //const { seller } = useAuthContext();
     const dispatch = useDispatch();
     const { message, error, isLoading, response } = useSelector(state => state.product)
+    const { showNotification } = useNotification();
     //const [notification, setNotification] = useState(true);
     //const [open, setOpen] = useState(false);
     //const [isChatVisible, setIsChatVisible] = useState(true);
@@ -648,6 +650,8 @@ const AddProduct = () => {
             // setProductSpecs({}); // Reset specifications
             
             // Add navigation to products page
+            // Example: Show information notification banner
+            showNotification("Product added successfully!", "information", "dismissible");
             toast.success("Product added successfully!");
             navigate("/dashboard/products");
             

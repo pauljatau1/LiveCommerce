@@ -186,3 +186,34 @@ export const getNetworkSpeed = async (): Promise<string> => {
     return "unknown";
   }
 };
+
+export const getInitials = (firstName: string | undefined, lastName: string | undefined) => {
+  return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
+};
+
+export const formatTimestamp = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInMs = Math.abs(now.getTime() - date.getTime());
+  const diffInMinutes = Math.floor(diffInMs / 60000);
+
+  if (diffInMinutes < 1) {
+      return "Just now";
+  } else if (diffInMinutes < 60) {
+      return `${diffInMinutes} mins ago`;
+  } else {
+      const diffInHours = Math.floor(diffInMinutes / 60);
+      if (diffInHours < 24) {
+          return `${diffInHours} hours ago`;
+      } else {
+          const diffInDays = Math.floor(diffInHours / 24);
+          if (diffInDays === 1) {
+              return "Yesterday";
+          } else if (diffInDays < 7) {
+              return `${diffInDays} days ago`;
+          } else {
+              return date.toLocaleDateString();
+          }
+      }
+  }
+};

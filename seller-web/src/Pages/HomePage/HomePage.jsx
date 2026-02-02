@@ -2,6 +2,7 @@ import { useIntercomChat } from "@/Hooks/useIntercom";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import { useOutletContext } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useNotification } from "@/Hooks/useNotification";
 import AlertNotification from "@/Components/ui/AlertNotification";
 import HomeAnalyticsCards from "@/Components/ui/DashboardHomepageUi/HomeAnalyticsCards";
 import AuqliUniversity from "@/Components/AuqliUniversity";
@@ -15,13 +16,14 @@ const HomePage = () => {
   const { initUser } = useIntercomChat();
   const { setHeaderName, setNavName, setShowBackButton } = useOutletContext();
   const { seller } = useAuthContext();
+  const { showNotification } = useNotification();
 
   const [notification] = useState(false);
 
   // useEffect to set the header name, nav name, and show back button
   useEffect(() => {
-    setHeaderName("Dashboard");
-    setNavName("");
+    setHeaderName(`Hello ${seller?.firstName ? seller?.firstName : "" }`);
+    setNavName("Let's makes some sales today!");
     setShowBackButton(false);
 
     return () => {
@@ -37,7 +39,7 @@ const HomePage = () => {
   }, []);
 
   return (
-    <div className="mt-28">
+    <div className="mt-8">
 
       {/* Notification */}
       {notification && <AlertNotification />}

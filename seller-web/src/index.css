@@ -7,33 +7,47 @@
 
 
 @layer components {
-  
-    /* https://dev.to/afif/i-made-100-css-loaders-for-your-next-project-4eje */
-    .loader {
-      width: 45px;
-      aspect-ratio: 0.75;
-      --c: no-repeat linear-gradient(var(--loader-color) 0 0);
-      background: var(--c) 0% 50%, var(--c) 50% 50%, var(--c) 100% 50%;
-      background-size: 20% 50%;
-      animation: loading 1s infinite linear;
+
+  /* https://dev.to/afif/i-made-100-css-loaders-for-your-next-project-4eje */
+  .loader {
+    width: 45px;
+    aspect-ratio: 0.75;
+    --c: no-repeat linear-gradient(var(--loader-color) 0 0);
+    background: var(--c) 0% 50%, var(--c) 50% 50%, var(--c) 100% 50%;
+    background-size: 20% 50%;
+    animation: loading 1s infinite linear;
+  }
+
+  @keyframes loading {
+    20% {
+      background-position: 0% 0%, 50% 50%, 100% 50%;
     }
-  
-    @keyframes loading {
-      20% {
-        background-position: 0% 0%, 50% 50%, 100% 50%;
-      }
-      40% {
-        background-position: 0% 100%, 50% 0%, 100% 50%;
-      }
-      60% {
-        background-position: 0% 50%, 50% 100%, 100% 0%;
-      }
-      80% {
-        background-position: 0% 50%, 50% 50%, 100% 100%;
-      }
+
+    40% {
+      background-position: 0% 100%, 50% 0%, 100% 50%;
+    }
+
+    60% {
+      background-position: 0% 50%, 50% 100%, 100% 0%;
+    }
+
+    80% {
+      background-position: 0% 50%, 50% 50%, 100% 100%;
     }
   }
-  
+}
+
+/* Shimmer animation for skeleton loading - continuous wave effect */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(150%);
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -62,6 +76,7 @@
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
   }
+
   .dark {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
@@ -94,6 +109,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -149,35 +165,35 @@
 /* End React Quill Editor Styles */
 
 .react-phone-input-2 .selected-flag {
-    background: transparent !important;
+  background: transparent !important;
 }
 
 .react-phone-input-2 .flag-dropdown {
-    background: transparent !important;
-    border: none !important;
+  background: transparent !important;
+  border: none !important;
 }
 
 .react-phone-input-2 .form-control:focus {
-    border-color: #E5E7EB !important;
-    box-shadow: none !important;
+  border-color: #E5E7EB !important;
+  box-shadow: none !important;
 }
 
 /* New styles for the dropdown container */
 .react-phone-input-2 .country-list {
-    width: 100% !important;
-    margin: 0 !important;
-    border: 1px solid #E5E7EB !important;
-    border-radius: 0.5rem !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-    background-color: white !important;
+  width: 100% !important;
+  margin: 0 !important;
+  border: 1px solid #E5E7EB !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  background-color: white !important;
 }
 
 .react-phone-input-2 .country-list .country:hover {
-    background-color: #F3F4F6 !important;
+  background-color: #F3F4F6 !important;
 }
 
 .react-phone-input-2 .country-list .country.highlight {
-    background-color: #F3F4F6 !important;
+  background-color: #F3F4F6 !important;
 }
 
 /* Custom scrollbar for chat container */
@@ -250,7 +266,8 @@
   bottom: 0;
   left: 0;
   right: 0;
-  will-change: transform; /* this improves performances and prevent painting issues on iOS Chrome */
+  will-change: transform;
+  /* this improves performances and prevent painting issues on iOS Chrome */
 }
 
 .reactEasyCrop_CropArea {
@@ -303,4 +320,3 @@
   border-left: 0;
   border-right: 0;
 }
-  

@@ -56,6 +56,7 @@ import {
 import { EmojiPicker } from "@/Components/ui/emoji-picker";
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
+import { useNotification } from '@/Hooks/useNotification';
 
 
 // Helper function to format message timestamps
@@ -267,6 +268,7 @@ const CampaignMessage = ({ campaign }) => {
 
 export default function ChatInterface() {
   const { setHeaderName, setNavName } = useOutletContext()
+  const { notification } = useNotification();
   const { token } = useAuthContext();
   const [conversations, setConversations] = useState([]);
   const [currentConversation, setCurrentConversation] = useState(null);

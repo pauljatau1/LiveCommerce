@@ -38,6 +38,7 @@ const PastShows = lazy(() => import('../Pages/LiveStream/PastShows'));
 const SubmitLiveShow = lazy(() => import('../Pages/LiveStream/SubmitLiveShow'));
 //const SubmitLiveAuction = lazy(() => import('../Pages/LiveStream/SubmitLiveAuction'));
 const LivestreamStudio = lazy(() => import('../Pages/LiveStream/LivestreamStudio'));
+const NotificationsPage = lazy(() => import('../Pages/Notififcations/NotificationsPage'));
 
 export const dashboardRoutes = [
     {
@@ -115,6 +116,7 @@ export const dashboardRoutes = [
             { path: 'help', element: <Help /> },
             { path: 'analytics-insights', element: <AnalyticsDashboard /> },
             { path: 'kyc-verification', element: <KycVerificationPage /> },
+            { path: 'notifications', element: <NotificationsPage /> },
         ],
     },
 ];
