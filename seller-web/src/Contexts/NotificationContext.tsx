@@ -1,4 +1,4 @@
-import { createContext, useReducer, useMemo, useEffect, useRef } from 'react';
+import { createContext, useReducer, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
     NotificationContextType,
@@ -8,6 +8,7 @@ import {
     NotificationType,
     NotificationVisibility,
 } from '@/types';
+import { registerNotificationCallback, unregisterNotificationCallback } from '@/util/notificationService';
 
 // Create the NotificationContext
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -98,8 +99,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         };
     }, [state.isVisible, state.visibility]);
 
-    // Function to show notification
-    const showNotification = (
+    // Function to show notification - wrapped in useCallback for stability
+    const showNotification = useCallback((
         message: string,
         type: NotificationType,
         visibility: NotificationVisibility = 'dismissible'
@@ -119,7 +120,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
                 visibility,
             },
         });
-    };
+    }, [dispatch]);
 
     // Function to hide notification
     const hideNotification = () => {
@@ -141,6 +142,14 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         dispatch({ type: 'CLEAR_NOTIFICATION' });
     };
 
+    // Register notification callback with the service for use outside React components
+    useEffect(() => {
+        registerNotificationCallback(showNotification);
+        return () => {
+            unregisterNotificationCallback();
+        };
+    }, [showNotification]);
+
     // Memoize context value to prevent unnecessary re-renders
     const contextValue = useMemo<NotificationContextType>(
         () => ({
@@ -149,7 +158,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
             hideNotification,
             clearNotification,
         }),
-        [state]
+        [state, showNotification]
     );
 
     return (

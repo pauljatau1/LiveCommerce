@@ -1,7 +1,11 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/Components/ui/dialog";
 import { Button } from "@/Components/ui/button";
+import { useNotification } from '@/Hooks/useNotification';
+import NotificationBanner from "@/Components/ui/NotificationBanner";
 
 export default function PdfPreviewDialog({ open, onOpenChange, pdfUrl, title = 'Document' }) {
+  const { notification, hideNotification } = useNotification();
+
   const handleDownload = () => {
     if (!pdfUrl) return;
     const a = document.createElement('a');
@@ -25,6 +29,17 @@ export default function PdfPreviewDialog({ open, onOpenChange, pdfUrl, title = '
           </DialogTitle>
         </DialogHeader>
         <div className="w-full h-[70vh] border rounded-md overflow-hidden bg-gray-50">
+          {/* Notification Banner - Renders at this location for all pages */}
+          {notification.isVisible && notification.type && (
+            <div className=" pb-3 pt-0 lg:pt-2 ">
+              <NotificationBanner
+                message={notification.message}
+                type={notification.type}
+                visibility={notification.visibility}
+                onClose={hideNotification}
+              />
+            </div>
+          )}
           {pdfUrl ? (
             <iframe title="pdf-preview" src={pdfUrl} className="w-full h-full" />
           ) : (

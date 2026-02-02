@@ -2,7 +2,6 @@ import { useIntercomChat } from "@/Hooks/useIntercom";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import { useOutletContext } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { useNotification } from "@/Hooks/useNotification";
 import AlertNotification from "@/Components/ui/AlertNotification";
 import HomeAnalyticsCards from "@/Components/ui/DashboardHomepageUi/HomeAnalyticsCards";
 import AuqliUniversity from "@/Components/AuqliUniversity";
@@ -16,7 +15,6 @@ const HomePage = () => {
   const { initUser } = useIntercomChat();
   const { setHeaderName, setNavName, setShowBackButton } = useOutletContext();
   const { seller } = useAuthContext();
-  const { showNotification } = useNotification();
 
   const [notification] = useState(false);
 

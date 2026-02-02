@@ -8,11 +8,10 @@ import { BASE_URL } from "@/Constants/Server"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/Components/ui/dialog"
 import { Input } from "@/Components/ui/form/input"
 import { Alert, AlertTitle, AlertDescription } from "@/Components/ui/alert"
-import { toast } from "sonner"
 import { Label } from "@/Components/ui/label"
 import { Textarea } from "@/Components/ui/textarea"
 import { tokenUtils } from "@/util/auth"
-// import { toast } from "@/Components/ui/use-toast"
+import { useNotification } from '@/Hooks/useNotification';
 
 const getStatusConfig = (status) => {
   const configs = {
@@ -85,7 +84,7 @@ export default function ReturnDetail() {
   const [approvalMessage, setApprovalMessage] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState(null)
-
+  const { showNotification } = useNotification();
   // New state variables
   const [shippingRates, setShippingRates] = useState(null)
   const [selectedRate, setSelectedRate] = useState(null)
@@ -146,18 +145,18 @@ export default function ReturnDetail() {
       })
 
       if (response.ok) {
-        toast.success(`Return request ${action === 'approve' ? 'approved' : 'rejected'} successfully`)
+        showNotification(`Return request ${action === 'approve' ? 'approved' : 'rejected'} successfully`, "success", 'dismissible')
         setApprovalDialog(false)
         await fetchReturnDetails()
       } else {
         const error = await response.json()
         setError(error.message)
-        toast.error(error.message || `Failed to ${action} return request`)
+        showNotification(error.message || `Failed to ${action} return request`, "error", 'dismissible')
       }
     } catch (error) {
       setError(`Failed to process return ${action}`)
       console.error(`Error handling return ${action}:`, error)
-      toast.error(`Failed to process return ${action}`)
+      showNotification(`Failed to process return ${action}`, "error", 'dismissible')
     } finally {
       setIsProcessing(false)
     }
@@ -179,18 +178,18 @@ export default function ReturnDetail() {
       })
 
       if (response.ok) {
-        toast.success("Return shipping label created successfully")
+        showNotification("Return shipping label created successfully", "success", 'dismissible')
         await fetchReturnDetails()
         // No need to fetch rates or show rates dialog since Fez handles everything in one step
       } else {
         const error = await response.json()
         setError(error.message)
-        toast.error(error.message || "Failed to create shipping label")
+        showNotification(error.message || "Failed to create shipping label", "error", 'dismissible')
       }
     } catch (error) {
       setError("Failed to create shipping label")
       console.error("Error creating shipping label:", error)
-      toast.error("Failed to create shipping label")
+      showNotification("Failed to create shipping label", "error", 'dismissible')
     } finally {
       setIsCreatingLabel(false)
     }
@@ -224,16 +223,16 @@ export default function ReturnDetail() {
       })
 
       if (response.ok) {
-        toast.success("Return request rejected successfully")
+        showNotification("Return request rejected successfully", "success", 'dismissible')
         setShowRejectDialog(false)
         await fetchReturnDetails()
       } else {
         const error = await response.json()
-        toast.error(error.message || "Failed to reject return request")
+        showNotification(error.message || "Failed to reject return request", "error", 'dismissible')
       }
     } catch (error) {
       console.error("Error rejecting return:", error)
-      toast.error("Failed to reject return request")
+      showNotification("Failed to reject return request", "error", 'dismissible')
     } finally {
       setIsRejecting(false)
     }
@@ -242,7 +241,7 @@ export default function ReturnDetail() {
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files)
     if (files.length > 5) {
-      toast.error("Maximum 5 files allowed")
+      showNotification("Maximum 5 files allowed", "error", 'dismissible')
       return
     }
     setRejectEvidence(files)
@@ -265,16 +264,16 @@ export default function ReturnDetail() {
       })
 
       if (response.ok) {
-        toast.success("Refund request sent to admin successfully")
+        showNotification("Refund request sent to admin successfully", "success", 'dismissible')
         setShowRefundDialog(false)
         await fetchReturnDetails()
       } else {
         const error = await response.json()
-        toast.error(error.message || "Failed to send refund request")
+        showNotification(error.message || "Failed to send refund request", "error", 'dismissible')
       }
     } catch (error) {
       console.error("Error requesting refund:", error)
-      toast.error("Failed to send refund request")
+      showNotification("Failed to send refund request", "error", 'dismissible')
     } finally {
       setIsRequestingRefund(false)
     }

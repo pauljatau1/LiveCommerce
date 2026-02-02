@@ -13,7 +13,7 @@ import {
 import { Calendar, ChevronDown, Download, Users, Mail, DollarSign, Filter, Zap, LineChart, ShoppingCart } from "lucide-react"
 import { useEffect, useState } from "react"
 import axios from "axios"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useOutletContext } from "react-router-dom"
 import { BASE_URL } from "@/Constants/Server"
 import { toast } from "sonner"
 import PropTypes from "prop-types";
@@ -220,6 +220,7 @@ CampaignsTable.propTypes = {
 };
 
 function InboxCampaigns() {
+  const { setHeaderName, setNavName } = useOutletContext();
   const navigate = useNavigate()
   const { token } = useAuthContext();
   const [summary, setSummary] = useState({
@@ -276,6 +277,8 @@ function InboxCampaigns() {
     }
 
     fetchData()
+    setHeaderName("Campaign Analytics")
+    setNavName("")
   }, [period])
 
   const isWithinPeriod = (createdAt, periodDays) => {

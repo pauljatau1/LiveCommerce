@@ -10,7 +10,6 @@ import { Label } from "../../Components/ui/label";
 import { Input } from "../../Components/ui/input2";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../Components/ui/select";
 import { BASE_URL } from '../../Constants/Server';
-import { toast } from 'sonner';
 //import { useAuthContext } from '../../Hooks/useAuthContext';
 //import { useProductContext } from '../../Hooks/useProductContext';
 import { useSelector, useDispatch } from 'react-redux';
@@ -28,6 +27,7 @@ import VariantSection from '../../Components/ui/VariantComponents/VariantSection
 import CategorySelectionModal from '../../Components/ui/CategorySelectionModal';
 import SimpleEditor from '../../Components/ui/SimpleEditor';
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
+import { useNotification } from '../../Hooks/useNotification';
 
 const EditProduct = () => {
     const { setHeaderName, setNavName } = useOutletContext()
@@ -37,6 +37,7 @@ const EditProduct = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { message, error, isLoading, response, product, isProductDetailsFetched } = useSelector(state => state.product)
+    const { showNotification } = useNotification();
     //const [notification, setNotification] = useState(true);
     //const [open, setOpen] = useState(false);
     //const [isChatVisible, setIsChatVisible] = useState(true);
@@ -98,7 +99,7 @@ const EditProduct = () => {
                 }
             } catch (error) {
                 console.error(error);
-                toast.error('Failed to fetch categories');
+                showNotification('Failed to fetch categories', "error", 'dismissible');
             } finally {
                 setLoading(false);
             }
@@ -306,10 +307,10 @@ const EditProduct = () => {
 
     useEffect(() => {
         if (message) {
-            toast.success(message);
+            showNotification(message, "information", 'dismissible');
         }
         if (error) {
-            toast.error(error);
+            showNotification(error, "error", 'dismissible');
         }
     }, [message, error]);
 
@@ -372,7 +373,7 @@ const EditProduct = () => {
         const remainingSlots = 5 - images.length;
 
         if (remainingSlots <= 0) {
-            toast.error('Maximum 5 images allowed');
+            showNotification('Maximum 5 images allowed', "warning", 'dismissible');
             return;
         }
 
@@ -384,24 +385,31 @@ const EditProduct = () => {
         const validFiles = [];
         const oversizedFiles = [];
 
-        // Check file sizes
+        // Image size converter: Extract sizeMB from objects in array, ensures MB numbers for notifications
+        const getOversizedFileSizesMB = (oversizedFilesArr) =>
+            oversizedFilesArr.map(f => Number(f.sizeMB));
+
+        // Check file sizes, store each oversized file as {name, sizeMB}
         filesToProcess.forEach(file => {
             if (file.size > maxSize) {
-                oversizedFiles.push(file.name);
+                oversizedFiles.push({
+                    name: file.name,
+                    sizeMB: (file.size / (1024 * 1024)).toFixed(2)
+                });
             } else {
                 validFiles.push(file);
             }
         });
 
-        // Show error for oversized files
+        // Show error for oversized files with exact MB sizes (always in MB) in notification
         if (oversizedFiles.length > 0) {
-            toast.error(`File${oversizedFiles.length > 1 ? 's' : ''} too large: ${oversizedFiles.join(', ')}`, {
-                description: "Each image must be less than 7MB",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            const namesAndSizes = oversizedFiles.map(f => `${f.name} (${f.sizeMB} MB)`).join(', ');
+            const mbSizes = getOversizedFileSizesMB(oversizedFiles);
+            showNotification(
+                `Image${oversizedFiles.length > 1 ? 's' : ''} too large: ${namesAndSizes}. Each image must be less than 6MB and image is ${mbSizes[0]} MB`,
+                "warning",
+                'dismissible'
+            );
         }
 
         // Process valid files only
@@ -429,12 +437,12 @@ const EditProduct = () => {
 
         // Show message if some files were not processed due to limit
         if (files.length > remainingSlots) {
-            toast.warning(`Only ${remainingSlots} image${remainingSlots > 1 ? 's' : ''} added. Maximum limit reached.`);
+            showNotification(`Only ${remainingSlots} image${remainingSlots > 1 ? 's' : ''} added. Maximum limit reached.`, "warning", 'dismissible');
         }
 
         // Show success message for valid files
         if (validFiles.length > 0) {
-            toast.success(`${validFiles.length} image${validFiles.length > 1 ? 's' : ''} uploaded successfully`);
+            showNotification(`${validFiles.length} image${validFiles.length > 1 ? 's' : ''} uploaded successfully`, "information", 'dismissible');
         }
     };
 
@@ -635,15 +643,7 @@ const EditProduct = () => {
             
             // Check for links in description before validation
             if (hasLinksInDescription || linksWereDetected) {
-                toast.error('Product description contained links', {
-                    description: linksWereDetected ? 
-                        'Links were detected and removed from the description. Please manually clear and re-enter the description to proceed.' :
-                        `Please remove the following links: ${detectedLinksInDescription.join(', ')}`,
-                    style: {
-                        background: '#17171B',
-                        color: '#fff',
-                    }
-                });
+                showNotification(`Product description contained links. Please remove the following links: ${detectedLinksInDescription.join(', ')}`, "warning", 'dismissible');
                 return;
             }
 
@@ -665,22 +665,16 @@ const EditProduct = () => {
                 dispatch(updateProduct({ productId: product._id, formData: productData }));
             } else {
                 if (missingFields.length === 1) {
-                    toast.error(`Please fill the required field: ${missingFields[0]}`);
+                    showNotification(`Please fill the required field: ${missingFields[0]}`, "warning", 'dismissible');
                 } else if (missingFields.length <= 3) {
-                    toast.error(`Please fill these required fields: ${missingFields.join(', ')}`);
+                    showNotification(`Please fill these required fields: ${missingFields.join(', ')}`, "warning", 'dismissible');
                 } else {
-                    toast.error(`Several required fields are missing: ${missingFields.join(', ')}`);
+                    showNotification(`Several required fields are missing: ${missingFields.join(', ')}`, "warning", 'dismissible');
                 }
             }
         } catch (error) {
             console.error('Error submitting product:', error);
-            toast.error('Failed to submit product', {
-                description: error.message,
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            showNotification('Failed to submit product', "error", 'dismissible');
         }
     };
 
@@ -759,7 +753,7 @@ const EditProduct = () => {
     // Add effect to handle successful product update
     useEffect(() => {
         if (response === 'success') {
-            toast.success("Product updated successfully!");
+            showNotification("Product updated successfully!", "information", 'dismissible');
             navigate("/dashboard/products");
             // Reset the response state
             dispatch(resetResponse());

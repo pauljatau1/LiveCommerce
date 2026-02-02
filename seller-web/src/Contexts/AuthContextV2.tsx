@@ -5,10 +5,10 @@ import {
     AuthProviderProps,
     Seller,
 } from '../types';
-import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { trackEvent, identifyUserMixpanel } from '@/util/analytics';
 import { useIntercomChat } from '@/Hooks/useIntercom';
+import { useNotification } from "@/Hooks/useNotification";
 import { tokenUtils, sellerUtils, authUtils } from "@/util/auth";
 import { getClientIP, getDeviceType } from '@/util/helpers';
 import { createContext, useReducer, useMemo } from "react";
@@ -24,7 +24,7 @@ function AuthProvider({ children }: AuthProviderProps) {
     // initialize intercom chat hook to configure intercom functionality
     const { shutdown } = useIntercomChat();
     const navigate = useNavigate();
-
+    const { showNotification } = useNotification();
     // Initial state with proper typing
     const initialState: AuthState = {
         seller: null,
@@ -252,13 +252,7 @@ function AuthProvider({ children }: AuthProviderProps) {
                 sellerUtils.storeSeller(seller);
                 tokenUtils.storeBearerToken({ data: token, isVerified: seller.isVerified });
 
-                toast.error('Account Disabled', {
-                    description: 'Your account has been disabled. Please contact support.',
-                    style: {
-                        background: '#17171B',
-                        color: '#fff',
-                    }
-                });
+                showNotification('Account Disabled, Your account has been disabled. Please contact support.', 'error', 'dismissible');
 
                 return
             }
@@ -339,10 +333,10 @@ function AuthProvider({ children }: AuthProviderProps) {
             }
 
 
-            // display success toast after storing seller data in global auth context
-            toast.success("Login successful")
+            // display success banner after storing seller data in global auth context
+            showNotification("Login successful, Welcome back!", "information", "dismissible");
 
-            // wait for 2 seconds after showing toast and then navigate to dashboard
+            // wait for 2 seconds after showing banner and then navigate to dashboard
             setTimeout(() => {
                 navigate("/dashboard/home", { replace: true });
             }, 1000);

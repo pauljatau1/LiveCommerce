@@ -27,10 +27,10 @@ import { Label } from "@/Components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 import { SearchableSelect } from "@/Components/ui/searchable-select";
 import { RadioGroup, RadioGroupItem } from "@/Components/ui/radio-group";
-import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/Components/ui/dialog";
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
 import { sellerUtils } from '@/util/auth';
+import { useNotification } from '@/Hooks/useNotification';
 //import EmailVerificationModal from '@/Components/EmailVerificationModal';
 import VerificationService from '@/services/VerificationService';
 
@@ -128,7 +128,7 @@ const KycVerificationPage = () => {
     const [smileIdLoading, setSmileIdLoading] = useState(false);
     const [isSmileIdModalOpen, setIsSmileIdModalOpen] = useState(false);
     const [isAddressWarningModalOpen, setIsAddressWarningModalOpen] = useState(false);
-    
+    const { showNotification } = useNotification();
     // Address verification multi-step state
     const [addressVerificationStep, setAddressVerificationStep] = useState(0);
     const [selectedAccountType, setSelectedAccountType] = useState('');
@@ -249,7 +249,7 @@ const KycVerificationPage = () => {
                 await VerificationService.addBusinessInformation(businessInfo);
             }
 
-            toast.success('Address updated successfully!');
+            showNotification('Address updated successfully!', 'information', 'dismissible');
 
             // Update local storage
             const updatedSeller = { 
@@ -272,7 +272,7 @@ const KycVerificationPage = () => {
 
         } catch (error) {
             console.error('Error updating address:', error);
-            toast.error('Failed to update address');
+            showNotification('Failed to update address', 'error', 'dismissible');
         } finally {
             setIsLoading(false);
         }
@@ -303,7 +303,7 @@ const KycVerificationPage = () => {
 
             await VerificationService.addBankDetails(bankDetails);
 
-            toast.success('Bank details updated successfully!');
+            showNotification('Bank details updated successfully!', 'information', 'dismissible');
 
             // Update local storage
             const updatedSeller = { ...sellerDetails, hasFilledBankDetails: true };
@@ -313,7 +313,7 @@ const KycVerificationPage = () => {
 
         } catch (error) {
             console.error('Error updating bank details:', error);
-            toast.error('Failed to update bank details');
+            showNotification('Failed to update bank details', 'error', 'dismissible');
         } finally {
             setIsLoading(false);
         }
@@ -375,7 +375,7 @@ const KycVerificationPage = () => {
 
         } catch (error) {
             console.error('Error starting SmileID verification:', error);
-            toast.error('Failed to start verification. Please try again.');
+            showNotification('Failed to start verification. Please try again.', 'error', 'dismissible');
             setSmileIdLoading(false);
         }
     };
@@ -388,7 +388,7 @@ const KycVerificationPage = () => {
         if (!modalContainer) {
             console.error('SmileID container not found');
             setIsSmileIdModalOpen(false);
-            toast.error('Unable to initialize verification system. Please try again.');
+            showNotification('Unable to initialize verification system. Please try again.', 'error', 'dismissible');
             return;
         }
 
@@ -425,10 +425,10 @@ const KycVerificationPage = () => {
                 if (hasSelfieCaptured && hasDocumentCaptured) {
                     handleDocumentVerificationSuccess(event.detail);
                     setIsSmileIdModalOpen(false);
-                    toast.success('Identity verification completed successfully!');
+                    showNotification('Identity verification completed successfully!', 'information', 'dismissible');
                 } else {
                     console.error('Missing required images - selfie or document not captured');
-                    toast.error('Verification incomplete. Please ensure both selfie and document are captured.');
+                    showNotification('Verification incomplete. Please ensure both selfie and document are captured.', 'error', 'dismissible');
                 }
             });
 
@@ -442,7 +442,7 @@ const KycVerificationPage = () => {
             smartCameraWeb.addEventListener('smart-camera-web.error', (event) => {
                 console.error('Enhanced KYC verification error:', event.detail);
                 setIsSmileIdModalOpen(false);
-                toast.error('Verification failed. Please try again.');
+                showNotification('Verification failed. Please try again.', 'error', 'dismissible');
             });
 
             // Start the enhanced KYC flow
@@ -462,7 +462,7 @@ const KycVerificationPage = () => {
                 console.log('Business verification completed:', event.detail);
                 handleDocumentVerificationSuccess(event.detail);
                 setIsSmileIdModalOpen(false);
-                toast.success('Verification completed successfully!');
+                showNotification('Verification completed successfully!', 'information', 'dismissible');
             });
 
             smartCameraWeb.addEventListener('smart-camera-web.cancelled', () => {
@@ -473,7 +473,7 @@ const KycVerificationPage = () => {
             smartCameraWeb.addEventListener('smart-camera-web.error', (event) => {
                 console.error('Business verification error:', event.detail);
                 setIsSmileIdModalOpen(false);
-                toast.error('Verification failed. Please try again.');
+                showNotification('Verification failed. Please try again.', 'error', 'dismissible');
             });
 
             modalContainer.appendChild(smartCameraWeb);
@@ -536,10 +536,10 @@ const KycVerificationPage = () => {
             setSellerDetails(updatedSeller);
             */}
 
-            toast.success('Document verification completed and saved successfully!');
+            showNotification('Document verification completed and saved successfully!', 'information', 'dismissible');
         } catch (error) {
             console.error('Error saving verification result:', error);
-            toast.error('Verification completed but failed to save. Please contact support.');
+            showNotification('Verification completed but failed to save. Please contact support.', 'error', 'dismissible');
         }
     };
 
@@ -627,10 +627,9 @@ const KycVerificationPage = () => {
     }
 
     return (
-        <div className="max-w-7xl mx-auto p-4 sm:p-6">
+        <div className="max-w-7xl mx-auto py-4 sm:py-6">
             {/* Header */}
             <div className="mb-8">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">KYC Verification</h1>
                 <p className="text-gray-600">Complete your verification to unlock all features</p>
             </div>
 

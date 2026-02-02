@@ -1,4 +1,3 @@
-import { toast } from "sonner";
 import { AxiosError } from "axios";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -11,20 +10,21 @@ import AuqliLogo from "@/assets/icons/AuqliLogo";
 import LoginForm from "@/Components/loginPage/LoginForm";
 import PrimaryButton from "@/Components/shared/PrimaryButton";
 import MarketingSection from "@/Components/loginPage/MarketingSection";
+import NotificationBanner from "@/Components/ui/NotificationBanner";
 
 
 export default function LoginPageV2() {
     const navigate = useNavigate();
     const { login, googleAuth } = authService
     const { isLoading, handleLoginActivity } = useAuthContext();
-    const { showNotification } = useNotification();
+    const { showNotification, notification, hideNotification } = useNotification();
 
     // Regular login mutation
     const { mutate, isPending } = useMutation({ mutationFn: (data: LoginFormData) => login(data) });
-    
+
     // Google OAuth mutation
-    const { mutate: googleAuthMutate, isPending: isGoogleAuthPending } = useMutation({ 
-        mutationFn: (data: GoogleOAuthRequestData) => googleAuth(data) 
+    const { mutate: googleAuthMutate, isPending: isGoogleAuthPending } = useMutation({
+        mutationFn: (data: GoogleOAuthRequestData) => googleAuth(data)
     });
     const handleSignupClick = () => {
         // navigate to signup page
@@ -33,55 +33,31 @@ export default function LoginPageV2() {
 
     const handleGoogleLogin = (googleToken: string) => {
         console.log("Processing Google OAuth token:", googleToken);
-        
+
         // Call the Google OAuth mutation with the token
         googleAuthMutate({ token: googleToken }, {
             onSuccess: (response) => {
                 console.log("Google OAuth successful:", response);
-                
+
                 // Extract user and token from response
                 const { user, token } = response.data;
-                
+
                 // Call handleLoginActivity to complete the login process
                 handleLoginActivity(user, token);
             },
             onError: (error) => {
                 console.error("Google OAuth failed:", error);
-                
+
                 if (error instanceof AxiosError) {
                     if (error.status === 401) {
-                        toast.error("Google Authentication Failed", {
-                            description: "Invalid Google token. Please try again.",
-                            style: {
-                                background: "#17171B",
-                                color: "#fff",
-                            }
-                        });
+                        showNotification("Google Authentication Failed", "error", "dismissible");
                     } else if (error.status === 400) {
-                        toast.error("Google Authentication Failed", {
-                            description: error.response?.data?.message || "Invalid request. Please try again.",
-                            style: {
-                                background: "#17171B",
-                                color: "#fff",
-                            }
-                        });
+                        showNotification(error.response?.data?.message || "Invalid request. Please try again.", "error", "dismissible");
                     } else {
-                        toast.error("Google Authentication Failed", {
-                            description: error.response?.data?.message || error.message,
-                            style: {
-                                background: "#17171B",
-                                color: "#fff",
-                            }
-                        });
+                        showNotification(error.response?.data?.message || error.message, "error", "dismissible");
                     }
                 } else {
-                    toast.error("Google Authentication Failed", {
-                        description: "Something went wrong. Please try again later.",
-                        style: {
-                            background: "#17171B",
-                            color: "#fff",
-                        }
-                    });
+                    showNotification("Something went wrong. Please try again later", "error", "dismissible");
                 }
             }
         });
@@ -111,37 +87,16 @@ export default function LoginPageV2() {
                 if (error instanceof AxiosError) {
                     if (error.status === 404) {
                         // Example: Show error notification banner
-                        showNotification("Incorrect email or password", "error", "dismissible");
-                        toast.error("Login failed", {
-                            description: "Incorrect email or password",
-                            style: {
-                                background: "#17171B",
-                                color: "#fff",
-                            }
-                        })
+                        showNotification("Incorrect email or password, please try again", "warning", "dismissible");
                     } else {
                         showNotification(
-                            error.response?.data?.message || error.message || "Login failed",
+                            `Login Failed: ${error.response?.data?.message || error.message || "Something went wrong. Please try again later."}`,
                             "error",
                             "dismissible"
                         );
-                        toast.error("Login Failed", {
-                            description: error.response?.data?.message || error.message,
-                            style: {
-                                background: "#17171B",
-                                color: "#fff",
-                            }
-                        })
                     }
                 } else {
                     showNotification("Something went wrong please try again later", "error", "dismissible");
-                    toast.error("Login Failed", {
-                        description: "Something went wrong please try again later",
-                        style: {
-                            background: "#17171B",
-                            color: "#fff",
-                        }
-                    })
                 }
             }
         });
@@ -150,11 +105,24 @@ export default function LoginPageV2() {
     return (
         <div className="min-h-[100dvh] bg-gray-50">
             {/* Header */}
-            <div className="flex z-10 justify-between py-[9px] lg:py-[10px] px-[20px] lg:px-[30px]">
-                <AuqliLogo className="w-[95px] lg:w-[131px] h-[24.1px] lg:h-[35px]" />
-                <PrimaryButton onClick={handleSignupClick}>
-                    Register a Seller
-                </PrimaryButton>
+            <div className="flex flex-col gap-2 z-10 py-[9px] lg:py-[10px] px-[20px] lg:px-[30px]">
+                <div className="flex items-center justify-between">
+                    <AuqliLogo className="w-[95px] lg:w-[131px] h-[24.1px] lg:h-[35px]" />
+                    <PrimaryButton onClick={handleSignupClick}>
+                        Register a Seller
+                    </PrimaryButton>
+                </div>
+                {/* Notification Banner - Renders at this location for all pages */}
+                {notification.isVisible && notification.type && (
+                    <div className="pb-3 pt-0 lg:pt-2 ">
+                        <NotificationBanner
+                            message={notification.message}
+                            type={notification.type}
+                            visibility={notification.visibility}
+                            onClose={hideNotification}
+                        />
+                    </div>
+                )}
             </div>
 
             {/* Main Content */}
