@@ -27,6 +27,7 @@ import { useState, useEffect } from "react";
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
 //import { productPageCardData } from "../../Utilities/data";
 import { useSelector, useDispatch } from "react-redux";
+import { useNotification } from '@/Hooks/useNotification';
 import { fetchSellerProducts, fetchSellerAuctionProducts, searchSellerProducts, deleteProduct, toggleVacationMode } from "../../Redux/Slices/ProductSlice";
 import React from 'react';
 //import Loader from '../../Components/Loader';
@@ -69,6 +70,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from ".
 const ProductsPage = () => {
     const { seller, token } = useAuthContext();
     const { setHeaderName, setNavName } = useOutletContext()
+    const { showNotification, notification } = useNotification();
     const dispatch = useDispatch();
     const { products, auctionProducts, isLoading, isLoadingAuctions, productStatistics, vacationMode, vacationRequestPending } = useSelector((state) => state.product);
     const [isStockUpdated, setIsStockUpdated] = useState(false);

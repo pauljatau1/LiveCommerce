@@ -51,7 +51,7 @@ const NotificationBanner = ({ message, type, visibility, onClose }: Notification
 
     return (
         <div
-            className="flex items-center gap-3 pr-4 h-[44px]  rounded-tl-lg rounded-bl-lg transition-all duration-300 ease-in-out"
+            className="flex items-center gap-3 pr-4 h-[44px] rounded-tl-lg rounded-bl-lg transition-all duration-300 ease-in-out"
             style={{
                 backgroundColor: styles.bgColor,
                 color: styles.textColor,

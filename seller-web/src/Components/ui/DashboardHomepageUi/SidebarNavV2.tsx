@@ -109,7 +109,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
             {/** Desktop Sidebar */}
             {
                 !hideSidebar && (
-                    <div className="fixed xl:relative group bg-[#17171B] h-full w-[300px] py-[37px] space-y-[24px] gap-10 " >
+                    <div className="hidden xl:block xl:relative group bg-[#17171B] h-full w-[300px] py-[37px] space-y-[24px] gap-10 " >
                         <div className="px-[20px]">
                             <AuqliLogo height={33.3} />
                         </div>
@@ -377,7 +377,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
             {/** Mobile Sidebar */}
             {
                 isSidebarOpen && (
-                    <div className="absolute inset-0 z-50 xl:hidden group bg-[#17171B] h-screen w-full py-[37px] space-y-[24px] gap-10">
+                    <div className={` ${isSidebarOpen ? 'block' : 'hidden'} absolute inset-0 z-50 xl:hidden group bg-[#17171B] h-screen w-full py-[37px] space-y-[24px] gap-10`} >
                         <div className="px-[10px] flex items-center justify-between">
                             <AuqliLogo height={33.3} />
                             <div className="w-[40px] h-[40px] flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 cursor-pointer transition-all duration-300 ease-in-out" onClick={() => setIsSidebarOpen(false)}>

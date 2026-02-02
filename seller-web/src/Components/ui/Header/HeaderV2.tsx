@@ -140,9 +140,9 @@ export default function HeaderV2({ name, navName, showBackButton, fullScreenMode
 
 
     return (
-        <header className={`${fullScreenMode ? 'hidden' : 'absolute top-0 left-0 right-0 z-20'}`} >
+        <header className={`${fullScreenMode ? 'hidden' : 'absolute top-0 left-0 right-0 z-40 '}`} >
             <div className="">
-                <div className="flex items-center justify-between h-16 bg-white border-b border-[#EDF2F7] pt-[50px] pb-[36px] lg:pt-[50px] lg:pb-[40px] px-5 xl:px-8">
+                <div className="flex items-center justify-between h-16 bg-white border-b border-[#EDF2F7] pt-[50px] pb-[36px] lg:pt-[50px] lg:pb-[50px] px-5 xl:px-8">
                     {/**Welcome Message and Back Button ui*/}
                     <div className="flex items-center">
                         {!isSidebarOpen && (

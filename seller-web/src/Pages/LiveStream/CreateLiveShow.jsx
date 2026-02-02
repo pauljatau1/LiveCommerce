@@ -24,12 +24,14 @@ import ZeroQuantityProductsModal from '../../Components/ZeroQuantityProductsModa
 import ProductLimitModal from "../../Components/livestream/ProductLimitModal";
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { productService } from '@/services/productService';
+import { useNotification } from '@/Hooks/useNotification';
 
 const CreateLiveShow = () => {
     const { setHeaderName, setNavName } = useOutletContext();
     const navigate = useNavigate();
     // Redux store not used here for products anymore
     const { seller } = useAuthContext();
+    const { showNotification } = useNotification();
     const { dispatch: livestreamDispatch, livestream } = useLivestreamContext();
     const [dragActive, setDragActive] = useState(false);
     const [categories, setCategories] = useState([]);

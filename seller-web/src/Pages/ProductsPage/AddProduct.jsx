@@ -126,7 +126,6 @@ const AddProduct = () => {
 
     useEffect(() => {
         if (message) {
-            showNotification(message, "success", "fixed");
             toast.success(message);
         }
         if (error) {
