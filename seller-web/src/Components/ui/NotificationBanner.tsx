@@ -51,7 +51,7 @@ const NotificationBanner = ({ message, type, visibility, onClose }: Notification
 
     return (
         <div
-            className="flex items-center gap-3 pr-4 h-[44px] rounded-tl-lg rounded-bl-lg transition-all duration-300 ease-in-out"
+            className="flex items-center gap-3 pr-4 py-1 min-h-[44px] rounded-tl-lg rounded-bl-lg transition-all duration-300 ease-in-out relative"
             style={{
                 backgroundColor: styles.bgColor,
                 color: styles.textColor,
@@ -59,7 +59,7 @@ const NotificationBanner = ({ message, type, visibility, onClose }: Notification
         >
             {/* Left border */}
             <div
-                className="w-1 h-full rounded-l-lg"
+                className="w-1 self-stretch rounded-l-lg flex-shrink-0"
                 style={{
                     backgroundColor: styles.leftBorderColor,
                 }}
@@ -75,8 +75,8 @@ const NotificationBanner = ({ message, type, visibility, onClose }: Notification
             </div>
 
             {/* Message */}
-            <div className="flex-1">
-                <p className="text-sm font-medium" style={{ color: styles.textColor }}>
+            <div className="flex-1 max-w-[70%]">
+                <p className="text-xs lg:text-sm font-medium" style={{ color: styles.textColor }}>
                     {message}
                 </p>
             </div>
@@ -85,8 +85,8 @@ const NotificationBanner = ({ message, type, visibility, onClose }: Notification
             {visibility === 'fixed' && (
                 <button
                     onClick={onClose}
-                    className={`flex-shrink-0 p-1 h-8 w-8 flex items-center justify-center bg-[${styles.leftBorderColor}] rounded-full hover:opacity-80 transition-opacity`}
-                    style={{ color: styles.leftBorderColor, }}
+                    className="flex-shrink-0 absolute right-2 top-2 p-1 h-8 w-8 flex items-center justify-center rounded-full transition-all duration-300 hover:backdrop-blur-md hover:bg-white/20 hover:shadow-lg hover:scale-110"
+                    style={{ color: styles.leftBorderColor }}
                     aria-label="Close notification"
                 >
                     <MenuCloseIcon

@@ -17,7 +17,6 @@ import {
     DialogTitle,
 } from "../../Components/ui/dialog";
 import { Icon } from "@iconify/react";
-import { toast } from "sonner";
 import { Switch } from "../../Components/ui/switch";
 import { BASE_URL } from "../../Constants/Server";
 import { NavLink, Link } from 'react-router-dom';
@@ -70,7 +69,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from ".
 const ProductsPage = () => {
     const { seller, token } = useAuthContext();
     const { setHeaderName, setNavName } = useOutletContext()
-    const { showNotification, notification } = useNotification();
+    const { showNotification } = useNotification();
     const dispatch = useDispatch();
     const { products, auctionProducts, isLoading, isLoadingAuctions, productStatistics, vacationMode, vacationRequestPending } = useSelector((state) => state.product);
     const [isStockUpdated, setIsStockUpdated] = useState(false);
@@ -578,13 +577,11 @@ const ProductsPage = () => {
                 // Refresh products to show updated stock
                 setIsStockUpdated(prev => !prev);
                 setOpenStockModal(false);
-                toast.success(`Stock ${operation === 'add' ? 'increased' : 'decreased'} successfully`);
+                showNotification(`Stock ${operation === 'add' ? 'increased' : 'decreased'} successfully`, 'information', 'dismissible');
             }
         } catch (error) {
             console.error('Error updating stock:', error);
-            toast.error("Failed to update stock", {
-                description: error.response?.data?.message || "Please try again"
-            });
+            showNotification(`Failed to update stock: ${error.response?.data?.message || "Please try again"}`, 'error', 'dismissible');
         } finally {
             setIsSubmitting(false);
         }

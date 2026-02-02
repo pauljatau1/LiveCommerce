@@ -73,7 +73,7 @@ const DashboardLayout = () => {
               isLiveStreamPage ? '' : 'mt-[88px]'
             ) : (
               isMessagesPage ? (
-                ` ${notification.isVisible && notification.type ? 'mt-[160px]' : 'mt-[110px] lg:mt-[100px] '}`
+                ` ${notification.isVisible && notification.type ? 'mt-[160px]' : 'mt-[110px] lg:mt-[50px] '}`
               ) : (
                 location?.pathname !== "/dashboard/home" ? (
                   `${notification.isVisible && notification.type ? 'mt-[150px]' : 'mt-[110px] lg:mt-[100px] '} px-5 md:px-8 pb-0`
