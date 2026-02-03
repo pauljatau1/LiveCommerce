@@ -217,3 +217,48 @@ export const formatTimestamp = (dateString: string): string => {
       }
   }
 };
+
+/**
+ * Calculate total unread messages from conversations array
+ * 
+ * @param conversations - Array of conversation objects with unreadCount property
+ * @returns Total number of unread messages
+ */
+export const calculateUnreadMessages = (conversations: Array<{ unreadCount?: number }> | undefined): number => {
+  try {
+    if (!conversations || conversations.length === 0) {
+      return 0;
+    }
+    const totalUnread = conversations.reduce((total, conv) =>
+      total + (conv.unreadCount || 0), 0);
+    return totalUnread;
+  } catch (error) {
+    console.error('Error calculating unread messages:', error);
+    return 0;
+  }
+};
+
+/**
+ * Calculate new notifications count (today's unread notifications)
+ * 
+ * @param notifications - Array of notification objects with isRead and createdAt properties
+ * @returns Count of unread notifications from today
+ */
+export const calculateNewNotifications = (notifications: Array<{ isRead?: boolean; createdAt: string }> | undefined): number => {
+  try {
+    if (!notifications || notifications.length === 0) {
+      return 0;
+    }
+
+    const today = new Date().setHours(0, 0, 0, 0);
+    const newNotificationsCount = notifications.filter(notification =>
+      !notification.isRead &&
+      new Date(notification.createdAt).setHours(0, 0, 0, 0) === today
+    ).length;
+
+    return newNotificationsCount;
+  } catch (error) {
+    console.error('Error calculating new notifications:', error);
+    return 0;
+  }
+};

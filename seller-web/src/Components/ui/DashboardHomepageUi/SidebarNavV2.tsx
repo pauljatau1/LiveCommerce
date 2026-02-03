@@ -2,9 +2,13 @@ import AuqliLogo from "@/assets/icons/AuqliLogo"
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Icon } from "@iconify/react";
-import { useAuthContext } from "../../../Hooks/useAuthContextV2";
 import { sideBarNavData, sideBarNavData2, sideBarNavData3, sideBarNavData4, sideBarNavData5 } from "@/Utilities/data";
 import MenuCloseIcon from "../../../assets/icons/MenuCloseIcon";
+import { useQuery } from "@tanstack/react-query";
+import { sellerService } from "@/services/sellerService";
+import { calculateUnreadMessages, calculateNewNotifications } from "@/util/helpers";
+import { Skeleton } from "@/Components/shared/Skeleton";
+import { isAxiosError } from "axios";
 
 /**
  * SideBarNav Component
@@ -33,6 +37,47 @@ interface IItem {
 
 export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSidebar }: { isSidebarOpen: boolean, setIsSidebarOpen: (isSidebarOpen: boolean) => void, hideSidebar: () => void }) {
     const location = useLocation();
+    
+    // Fetch notifications and conversations using the same query keys as HeaderV2
+    // React Query will automatically share the cache between components
+    const { data: notifications, isLoading: isLoadingNotifications } = useQuery({
+        queryKey: ["sellerNotifications"],
+        queryFn: () => sellerService.fetchSellerNotifications(),
+        refetchOnMount: true,
+        refetchOnReconnect: true,
+        refetchOnWindowFocus: true,
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 10, // 10 minutes
+        retry: (failureCount, error) => {
+            // Don't retry on 401 errors
+            if (isAxiosError(error) && error.response?.status === 401) {
+                return false;
+            }
+            return failureCount < 3;
+        },
+    });
+
+    const { data: conversations, isLoading: isLoadingConversations } = useQuery({
+        queryKey: ["sellerConversations"],
+        queryFn: () => sellerService.fetchSellerConversations(),
+        refetchOnMount: true,
+        refetchOnReconnect: true,
+        refetchOnWindowFocus: true,
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 10, // 10 minutes
+        retry: (failureCount, error) => {
+            // Don't retry on 401 errors
+            if (isAxiosError(error) && error.response?.status === 401) {
+                return false;
+            }
+            return failureCount < 3;
+        },
+    });
+
+    // Calculate counts using helper functions
+    const unreadMessagesCount = calculateUnreadMessages(conversations);
+    const unreadNotificationsCount = calculateNewNotifications(notifications);
+
     const [isExpanded, setIsExpanded] = useState<string[]>(() => {
         // Initialize with items that have active subnav children
         // This ensures parent items are expanded when the page loads with an active subnav route
@@ -62,10 +107,6 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
 
     const isSubNavActive = (item: ISubItem) => {
         return location.pathname.includes(item?.path);
-    }
-
-    const isFixedSideNavActive = (path: string) => {
-        return location?.pathname === path;
     }
 
     const handleSubNavOpen = (id: string) => {
@@ -138,9 +179,17 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                                     </NavLink>
                                                     {
                                                         item?.hasMessageCount ? (
-                                                            <div className="bg-[#EEFFF4] w-[27px] h-[19px] px-[10px] rounded-full flex items-center justify-center text-[#0BB248] text-[12px] font-bold " >
-                                                                3
-                                                            </div>
+                                                            isLoadingConversations ? (
+                                                                <Skeleton className="bg-[#EEFFF4] w-[27px] h-[19px] rounded-full" />
+                                                            ) : unreadMessagesCount > 0 ? (
+                                                                <div className="bg-[#EEFFF4] w-[27px] h-[19px] px-[10px] rounded-full flex items-center justify-center text-[#0BB248] text-[12px] font-bold " >
+                                                                    {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                                                                </div>
+                                                            ) : (
+                                                                item?.subNav && item?.subNav?.length > 0 && (
+                                                                    <Icon icon={isSubNavExpanded ? "iconamoon:arrow-down-2-light" : "iconamoon:arrow-right-2-light"} onClick={() => handleSubNavOpen(item.id)} className="hover:bg-white/10 hover:backdrop-blur-sm rounded-full p-[1px] transition-all duration-300 ease-in-out" width={18} height={18} />
+                                                                )
+                                                            )
                                                         ) : (
                                                             item?.subNav && item?.subNav?.length > 0 && (
                                                                 <Icon icon={isSubNavExpanded ? "iconamoon:arrow-down-2-light" : "iconamoon:arrow-right-2-light"} onClick={() => handleSubNavOpen(item.id)} className="hover:bg-white/10 hover:backdrop-blur-sm rounded-full p-[1px] transition-all duration-300 ease-in-out" width={18} height={18} />
@@ -187,7 +236,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                             return (
                                                 <>
                                                     <div key={item.id} className={`flex items-center justify-between w-[95%] hover:bg-white/10 hover:backdrop-blur-sm  cursor-pointer pl-[15px] pr-[20px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
-                                        ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '} `} >
+                                                        ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '} `} >
                                                         <NavLink to={item.path} key={item.id} onClick={() => handleSubNavOpen(item.id)} className="flex py-[8px] h-full w-full items-center gap-3">
                                                             <Icon icon={item.icon} width={18} height={18} />
                                                             <span className="font-lexend text-[14px] 3xl:text-base ">{item.name}</span>
@@ -289,9 +338,17 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                                 </NavLink>
                                                 {
                                                     item?.hasMessageCount ? (
-                                                        <div className="bg-[#FFE6E4] w-[27px] h-[19px] px-[10px] rounded-full flex items-center justify-center text-[#F16063] text-[12px] font-bold " >
-                                                            23
-                                                        </div>
+                                                        isLoadingNotifications ? (
+                                                            <Skeleton className="bg-[#FFE6E4] w-[27px] h-[19px] rounded-full" />
+                                                        ) : unreadNotificationsCount > 0 ? (
+                                                            <div className="bg-[#FFE6E4] w-[27px] h-[19px] px-[10px] rounded-full flex items-center justify-center text-[#F16063] text-[12px] font-bold " >
+                                                                {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                                                            </div>
+                                                        ) : (
+                                                            item?.subNav && item?.subNav?.length > 0 && (
+                                                                <Icon icon="iconoir:nav-arrow-right" className="hover:bg-white/10 hover:backdrop-blur-sm rounded-full p-[1px] transition-all duration-300 ease-in-out" width={18} height={18} />
+                                                            )
+                                                        )
                                                     ) : (
                                                         item?.subNav && item?.subNav?.length > 0 && (
                                                             <Icon icon="iconoir:nav-arrow-right" className="hover:bg-white/10 hover:backdrop-blur-sm rounded-full p-[1px] transition-all duration-300 ease-in-out" width={18} height={18} />
@@ -341,7 +398,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
 
                                                                     return (
                                                                         <div key={subNavItem.id} className={`flex items-center justify-between w-[92%] hover:bg-white/10 hover:backdrop-blur-sm  cursor-pointer rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
-                                                            ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '}  h-full w-full items-center gap-3 pl-[22px] pr-[20px] `} >
+                                                                            ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '}  h-full w-full items-center gap-3 pl-[22px] pr-[20px] `} >
                                                                             <NavLink to={subNavItem.path} key={subNavItem.id} className="flex py-[8px] h-full w-full">
                                                                                 <span className="font-lexend text-[14px] 3xl:text-base ">{subNavItem.name}</span>
                                                                             </NavLink>
@@ -381,7 +438,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                         <div className="px-[10px] flex items-center justify-between">
                             <AuqliLogo height={33.3} />
                             <div className="w-[40px] h-[40px] flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 cursor-pointer transition-all duration-300 ease-in-out" onClick={() => setIsSidebarOpen(false)}>
-                                <MenuCloseIcon  width={20} height={20} />
+                                <MenuCloseIcon width={20} height={20} />
                             </div>
                         </div>
                         <div className="px-[20px]">
@@ -410,9 +467,17 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                                     </NavLink>
                                                     {
                                                         item?.hasMessageCount ? (
-                                                            <div className="bg-[#EEFFF4] w-[27px] h-[19px] px-[10px] rounded-full flex items-center justify-center text-[#0BB248] text-[12px] font-bold " >
-                                                                3
-                                                            </div>
+                                                            isLoadingConversations ? (
+                                                                <Skeleton className="bg-[#EEFFF4] w-[27px] h-[19px] rounded-full" />
+                                                            ) : unreadMessagesCount > 0 ? (
+                                                                <div className="bg-[#EEFFF4] w-[27px] h-[19px] px-[10px] rounded-full flex items-center justify-center text-[#0BB248] text-[12px] font-bold " >
+                                                                    {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                                                                </div>
+                                                            ) : (
+                                                                item?.subNav && item?.subNav?.length > 0 && (
+                                                                    <Icon icon={isSubNavExpanded ? "iconamoon:arrow-down-2-light" : "iconamoon:arrow-right-2-light"} onClick={() => handleSubNavOpen(item.id)} className="hover:bg-white/10 hover:backdrop-blur-sm rounded-full p-[1px] transition-all duration-300 ease-in-out" width={18} height={18} />
+                                                                )
+                                                            )
                                                         ) : (
                                                             item?.subNav && item?.subNav?.length > 0 && (
                                                                 <Icon icon={isSubNavExpanded ? "iconamoon:arrow-down-2-light" : "iconamoon:arrow-right-2-light"} onClick={() => handleSubNavOpen(item.id)} className="hover:bg-white/10 hover:backdrop-blur-sm rounded-full p-[1px] transition-all duration-300 ease-in-out" width={18} height={18} />
@@ -429,7 +494,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
 
                                                                     return (
                                                                         <div key={subNavItem.id} className={`flex items-center justify-between w-[92%] hover:bg-white/10 hover:backdrop-blur-sm  cursor-pointer rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
-                                                                ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '}  h-full w-full items-center gap-3 pl-[22px] pr-[20px] `} >
+                                                                            ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '}  h-full w-full items-center gap-3 pl-[22px] pr-[20px] `} >
                                                                             <NavLink to={subNavItem.path} onClick={() => { isSidebarOpen && setIsSidebarOpen(false) }} key={subNavItem.id} className="flex py-[8px] h-full w-full">
                                                                                 <span className="font-lexend text-[14px] 3xl:text-base ">{subNavItem.name}</span>
                                                                             </NavLink>
@@ -561,9 +626,17 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                                 </NavLink>
                                                 {
                                                     item?.hasMessageCount ? (
-                                                        <div className="bg-[#FFE6E4] w-[27px] h-[19px] px-[10px] rounded-full flex items-center justify-center text-[#F16063] text-[12px] font-bold " >
-                                                            23
-                                                        </div>
+                                                        isLoadingNotifications ? (
+                                                            <Skeleton className="bg-[#FFE6E4] w-[27px] h-[19px] rounded-full" />
+                                                        ) : unreadNotificationsCount > 0 ? (
+                                                            <div className="bg-[#FFE6E4] w-[27px] h-[19px] px-[10px] rounded-full flex items-center justify-center text-[#F16063] text-[12px] font-bold " >
+                                                                {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                                                            </div>
+                                                        ) : (
+                                                            item?.subNav && item?.subNav?.length > 0 && (
+                                                                <Icon icon="iconoir:nav-arrow-right" className="hover:bg-white/10 hover:backdrop-blur-sm rounded-full p-[1px] transition-all duration-300 ease-in-out" width={18} height={18} />
+                                                            )
+                                                        )
                                                     ) : (
                                                         item?.subNav && item?.subNav?.length > 0 && (
                                                             <Icon icon="iconoir:nav-arrow-right" className="hover:bg-white/10 hover:backdrop-blur-sm rounded-full p-[1px] transition-all duration-300 ease-in-out" width={18} height={18} />
