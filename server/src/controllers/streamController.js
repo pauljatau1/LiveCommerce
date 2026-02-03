@@ -235,6 +235,10 @@ exports.createStream = async (req, res) => {
     const sellerDetails = await Seller.findById(req.user.id).select('storeName businessName storeAvatar');
     const storeName = sellerDetails?.storeName || sellerDetails?.businessName || 'A Seller';
 
+    // Check for staging environment to disable emails
+    const host = req.get('host') || '';
+    const isStaging = host.includes('api.staging.auqli.live');
+
     // GLOBAL NOTIFICATION: Send push notifications AND emails to ALL buyers when a stream is scheduled
     // This notifies all buyers about the upcoming live stream they can join
     console.log('========================================');
@@ -310,8 +314,8 @@ exports.createStream = async (req, res) => {
             skippedNoToken++;
           }
 
-          // Add email notification if email exists
-          if (buyer.email) {
+          // Add email notification if email exists - SKIP ON STAGING
+          if (buyer.email && !isStaging) {
             const emailHtml = `
               <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; background-color: #ffffff; padding: 24px;">
                 <div style="text-align: center; margin-bottom: 24px;">
@@ -2008,6 +2012,10 @@ exports.getSellerStreams = async (req, res) => {
 // Background task processor for open live show creation
 const processOpenLiveShowBackgroundTasks = async (stream, req, coverImage, video, startDate, title, description) => {
   try {
+    // Check for staging environment to disable emails
+    const host = req.get('host') || '';
+    const isStaging = host.includes('api.staging.auqli.live');
+
     // Upload cover image to AWS S3 in background
     let imageData = {};
     if (coverImage && coverImage.data) {
@@ -2130,7 +2138,8 @@ const processOpenLiveShowBackgroundTasks = async (stream, req, coverImage, video
             });
           }
 
-          if (buyer.email) {
+          // Add email notification if email exists - SKIP ON STAGING
+          if (buyer.email && !isStaging) {
             const emailHtml = `
               <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; background-color: #ffffff; padding: 24px;">
                 <div style="text-align: center; margin-bottom: 24px;">
