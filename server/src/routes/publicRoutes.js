@@ -12,6 +12,7 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const { Transform } = require('json2csv');
 const { once } = require('events');
+const { prioritizeGadgetsCategories } = require('../utils/gadgetsPrioritization.helper');
 const baseUrl = process.env.STORE_URL;
 
 // Add middleware for secure code validation
@@ -209,7 +210,10 @@ router.get('/categories', async (req, res) => {
       'statistics.orders.pending': -1
     });
 
-    res.json(updatedCategories);
+    // Prioritize Gadgets & Electronics categories
+    const prioritizedCategories = prioritizeGadgetsCategories(updatedCategories);
+
+    res.json(prioritizedCategories);
 
   } catch (error) {
     console.error('Error retrieving categories:', error);
