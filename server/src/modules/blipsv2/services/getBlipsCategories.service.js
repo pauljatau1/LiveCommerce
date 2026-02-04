@@ -1,5 +1,6 @@
 const productRepository = require('../repositories/product.repository');
 const categoryHelper = require('../helpers/category.helper');
+const { prioritizeGadgetsCategories } = require('../../../utils/gadgetsPrioritization.helper');
 
 /**
  * GetBlipsCategoriesService
@@ -173,7 +174,10 @@ class GetBlipsCategoriesService {
       const pageItems = finalCategories.slice(startIndex, endIndex);
 
       // Enrich with category images
-      const enriched = await this.enrichWithCategoryImages(pageItems);
+      const enrichedRaw = await this.enrichWithCategoryImages(pageItems);
+
+      // Prioritize Gadgets & Electronics categories
+      const enriched = prioritizeGadgetsCategories(enrichedRaw);
 
       // Determine if personalized (has user's categories)
       const isPersonalized = prioritizedUserCategories.length > 0;
@@ -501,7 +505,10 @@ class GetBlipsCategoriesService {
         totalPages = Math.max(1, Math.ceil(total / limit));
       }
 
-      const enriched = await this.enrichWithCategoryImages(finalCategories);
+      const enrichedRaw = await this.enrichWithCategoryImages(finalCategories);
+
+      // Prioritize Gadgets & Electronics categories
+      const enriched = prioritizeGadgetsCategories(enrichedRaw);
       return {
         categories: enriched,
         totalCategories: total,

@@ -14,6 +14,7 @@ const { ProductVariantDeleteS3ObjectsByUrls } = require('../services/products/va
 const productBlips = require('../services/products/blips');
 const Fuse = require('fuse.js');
 const { uploadResizedImages } = require('../utils/imageProcessor');
+const { prioritizeGadgetsItems } = require('../utils/gadgetsPrioritization.helper');
 const baseUrl = process.env.STORE_URL;
 
 // Create a new product
@@ -428,10 +429,12 @@ exports.getAllProducts = async (req, res) => {
         soldCount: Math.max(0, productObj.stats?.soldCount || 0)
       };
     });
+    // Prioritize Gadgets & Electronics products
+    const prioritizedProducts = prioritizeGadgetsItems(productsWithStats, 'category');
     res.json({
       success: true,
       data: {
-        products: productsWithStats,
+        products: prioritizedProducts,
         pagination: {
           currentPage: Number(page),
           totalPages,
@@ -1719,9 +1722,12 @@ exports.getJustArrivedProducts = async (req, res) => {
       };
     });
 
+    // Prioritize Gadgets & Electronics products
+    const prioritizedProducts = prioritizeGadgetsItems(productsWithStats, 'category');
+
     res.json({
       success: true,
-      data: productsWithStats
+      data: prioritizedProducts
     });
   } catch (error) {
     res.status(500).json({
@@ -1894,9 +1900,12 @@ exports.getTrendingProducts = async (req, res) => {
       };
     });
 
+    // Prioritize Gadgets & Electronics products
+    const prioritizedProducts = prioritizeGadgetsItems(productsWithStats, 'category');
+
     res.json({
       success: true,
-      data: productsWithStats
+      data: prioritizedProducts
     });
   } catch (error) {
     res.status(500).json({

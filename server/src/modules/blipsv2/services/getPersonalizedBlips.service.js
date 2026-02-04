@@ -3,6 +3,7 @@ const sessionHelper = require('../helpers/session.helper');
 const pipelineHelper = require('../helpers/pipeline.helper');
 const transformationHelper = require('../helpers/transformation.helper');
 const categoryHelper = require('../helpers/category.helper');
+const { prioritizeGadgetsItems } = require('../../../utils/gadgetsPrioritization.helper');
 
 /**
  * GetPersonalizedBlipsService
@@ -29,7 +30,7 @@ class GetPersonalizedBlipsService {
 
     // Get or create session
     const { sessionData, seenBlipIds } = sessionHelper.getOrCreateSession(sessionId, page);
-    
+
     console.log(`📝 [BLIPS DEBUG] Current seen blips count: ${seenBlipIds.length}`);
     console.log(`📄 [BLIPS DEBUG] Last page visited: ${sessionData.lastPage}, Current page: ${page}`);
     if (seenBlipIds.length > 0) {
@@ -48,7 +49,7 @@ class GetPersonalizedBlipsService {
 
     if (isAuthenticated) {
       console.log(`✅ [CATEGORY DEBUG] User is authenticated - Buyer ID: ${buyerId}`);
-      
+
       // Fetch buyer with selected categories for personalized blips
       const buyer = await productRepository.findBuyerByIdWithCategories(buyerId);
 
@@ -70,7 +71,7 @@ class GetPersonalizedBlipsService {
       if (categoryHelper.hasSelectedCategories(buyer)) {
         selectedCategoryNames = categoryHelper.extractCategoryNames(buyer.selectedCategories);
         const summary = categoryHelper.getCategorySummary(buyer);
-        
+
         console.log(`\n🎯 [CATEGORY DEBUG] EXTRACTED CATEGORY NAMES FOR FILTERING:`);
         console.log(`   Categories to match: [${selectedCategoryNames.map(c => `"${c}"`).join(', ')}]`);
         console.log(`   Total categories: ${summary.totalCategories}`);
@@ -96,14 +97,14 @@ class GetPersonalizedBlipsService {
     if (useCategoryFilter) {
       primaryMatchStage = pipelineHelper.buildCategoryEnhancedMatchStage(selectedCategoryNames);
       fallbackMatchStage = pipelineHelper.buildCategoryEnhancedFallbackMatchStage(selectedCategoryNames);
-      
+
       console.log(`\n🔧 [CATEGORY DEBUG] MONGODB QUERY FILTER:`);
       console.log(`   Using category filter: { category: { $in: [${selectedCategoryNames.map(c => `"${c}"`).join(', ')}] } }`);
       console.log(`   This will ONLY return products where product.category matches one of the above categories\n`);
     } else {
       primaryMatchStage = pipelineHelper.buildPrimaryMatchStage();
       fallbackMatchStage = pipelineHelper.buildFallbackMatchStage();
-      
+
       console.log(`\n🔧 [CATEGORY DEBUG] MONGODB QUERY FILTER:`);
       console.log(`   No category filter applied - will return random products from ALL categories\n`);
     }
@@ -117,7 +118,7 @@ class GetPersonalizedBlipsService {
 
     // Validate and clean ObjectIds
     const { seenBlipObjectIds, validIds } = sessionHelper.validateAndCleanObjectIds(seenBlipIds);
-    
+
     // Update session with cleaned IDs if needed
     if (validIds !== seenBlipIds) {
       sessionData.seenBlipIds = validIds;
@@ -132,8 +133,8 @@ class GetPersonalizedBlipsService {
 
     // Execute primary pipeline
     const { pipeline: primaryPipeline, exclusionMatchStage } = pipelineHelper.buildPrimaryPipeline(
-      primaryMatchStage, 
-      seenBlipObjectIds, 
+      primaryMatchStage,
+      seenBlipObjectIds,
       commonPipeline
     );
 
@@ -153,66 +154,66 @@ class GetPersonalizedBlipsService {
       products = await productRepository.aggregateProducts(simplePipeline);
       console.log(`🔄 [BLIPS DEBUG] Used fallback pipeline without exclusions due to DB error`);
     }
-    
+
     console.log(`📊 [BLIPS DEBUG] Primary pipeline returned: ${products.length} products`);
-    
+
     // LOG THE CATEGORIES OF PRODUCTS RETURNED
     if (products.length > 0) {
       console.log(`\n${'='.repeat(80)}`);
       console.log(`📦 [CATEGORY DEBUG] PRODUCTS RETURNED FROM DATABASE:`);
       console.log(`${'='.repeat(80)}`);
-      
+
       const blipIds = products.slice(0, 3).map(p => p.blip._id.toString());
       console.log(`📊 [BLIPS DEBUG] First 3 blip IDs from primary: ${blipIds.join(', ')}`);
-      
+
       // Log all product categories AND subcategories
       const productCategories = products.map(p => p.category || 'NO_CATEGORY');
       const productSubCategories = products.map(p => p.subCategory || 'NO_SUBCATEGORY');
       const uniqueCategories = [...new Set(productCategories)];
       const uniqueSubCategories = [...new Set(productSubCategories)];
-      
+
       console.log(`\n📊 [CATEGORY DEBUG] Product Categories Distribution:`);
       console.log(`   Total products: ${products.length}`);
       console.log(`   Unique CATEGORIES: ${uniqueCategories.length}`);
       console.log(`   Categories found: [${uniqueCategories.map(c => `"${c}"`).join(', ')}]`);
       console.log(`   Unique SUBCATEGORIES: ${uniqueSubCategories.length}`);
       console.log(`   SubCategories found: [${uniqueSubCategories.map(c => `"${c}"`).join(', ')}]`);
-      
+
       // Count products per category
       const categoryCounts = {};
       productCategories.forEach(cat => {
         categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
       });
-      
+
       console.log(`\n📊 [CATEGORY DEBUG] Products per CATEGORY field:`);
       Object.entries(categoryCounts).forEach(([cat, count]) => {
         console.log(`   - "${cat}": ${count} product(s)`);
       });
-      
+
       // Count products per subcategory
       const subCategoryCounts = {};
       productSubCategories.forEach(cat => {
         subCategoryCounts[cat] = (subCategoryCounts[cat] || 0) + 1;
       });
-      
+
       console.log(`\n📊 [CATEGORY DEBUG] Products per SUBCATEGORY field:`);
       Object.entries(subCategoryCounts).forEach(([cat, count]) => {
         console.log(`   - "${cat}": ${count} product(s)`);
       });
-      
+
       // If category filter was applied, verify matching
       if (useCategoryFilter) {
         console.log(`\n🔍 [CATEGORY DEBUG] CATEGORY MATCHING VERIFICATION:`);
         console.log(`   Expected categories: [${selectedCategoryNames.map(c => `"${c}"`).join(', ')}]`);
         console.log(`   Found categories: [${uniqueCategories.map(c => `"${c}"`).join(', ')}]`);
-        
+
         const matchingCategories = uniqueCategories.filter(cat => selectedCategoryNames.includes(cat));
         const nonMatchingCategories = uniqueCategories.filter(cat => !selectedCategoryNames.includes(cat));
-        
+
         if (matchingCategories.length > 0) {
           console.log(`   ✅ Matching categories: [${matchingCategories.map(c => `"${c}"`).join(', ')}]`);
         }
-        
+
         if (nonMatchingCategories.length > 0) {
           console.log(`   ❌ NON-MATCHING categories found: [${nonMatchingCategories.map(c => `"${c}"`).join(', ')}]`);
           console.log(`   ⚠️  WARNING: Products returned that DON'T match buyer's selected categories!`);
@@ -221,7 +222,7 @@ class GetPersonalizedBlipsService {
           console.log(`   ✅ All products match buyer's selected categories!`);
         }
       }
-      
+
       // Log detailed info for first 10 products
       console.log(`\n📋 [CATEGORY DEBUG] Detailed Product Info (First 10):`);
       products.slice(0, 10).forEach((p, idx) => {
@@ -233,9 +234,9 @@ class GetPersonalizedBlipsService {
         console.log(`      Blip ID: ${p.blip._id}`);
         console.log(``);
       });
-      
+
       console.log(`${'='.repeat(80)}\n`);
-      
+
       // Check if any returned blips were in the exclusion list (this shouldn't happen)
       const duplicates = blipIds.filter(id => seenBlipIds.includes(id));
       if (duplicates.length > 0) {
@@ -248,8 +249,8 @@ class GetPersonalizedBlipsService {
       console.log('❌ [BLIPS DEBUG] No primary blips, falling back to general pool');
 
       const { pipeline: fallbackPipeline } = pipelineHelper.buildFallbackPipeline(
-        fallbackMatchStage, 
-        seenBlipObjectIds, 
+        fallbackMatchStage,
+        seenBlipObjectIds,
         commonPipeline
       );
 
@@ -264,11 +265,11 @@ class GetPersonalizedBlipsService {
         console.log(`🔄 [BLIPS DEBUG] Used simple fallback without exclusions due to DB error`);
       }
       console.log(`📊 [BLIPS DEBUG] Fallback pipeline returned: ${products.length} products`);
-      
+
       if (products.length > 0) {
         const blipIds = products.slice(0, 3).map(p => p.blip._id.toString());
         console.log(`📊 [BLIPS DEBUG] First 3 blip IDs from fallback: ${blipIds.join(', ')}`);
-        
+
         // Check if any returned blips were in the exclusion list (this shouldn't happen)
         const duplicates = blipIds.filter(id => seenBlipIds.includes(id));
         if (duplicates.length > 0) {
@@ -280,7 +281,7 @@ class GetPersonalizedBlipsService {
       // This ensures we always return blips even if the buyer's selected categories have no matching products
       if (products.length === 0 && useCategoryFilter) {
         console.log('🔄 [BLIPS PERSONALIZATION] Category-filtered queries returned no results, falling back to non-filtered blips');
-        
+
         // Build non-filtered match stages
         const nonFilteredPrimaryMatch = pipelineHelper.buildPrimaryMatchStage();
         const nonFilteredFallbackMatch = pipelineHelper.buildFallbackMatchStage();
@@ -318,11 +319,14 @@ class GetPersonalizedBlipsService {
       };
     }
 
+    // Prioritize Gadgets & Electronics products before transformation
+    const prioritizedProducts = prioritizeGadgetsItems(products, 'category');
+
     // Transform products to blips
     const transformedBlips = transformationHelper.transformProductsToBlips(
-      products, 
-      buyerId, 
-      isAuthenticated, 
+      prioritizedProducts,
+      buyerId,
+      isAuthenticated,
       followedSellers
     );
 
@@ -357,30 +361,30 @@ class GetPersonalizedBlipsService {
     if (finalBlips.length > 0) {
       console.log(`📤 [BLIPS DEBUG] First blip product: ${finalBlips[0].productName} (ID: ${finalBlips[0].blipId})`);
     }
-    
+
     // Log personalization status with final category breakdown
     if (useCategoryFilter) {
       console.log(`\n✨ [BLIPS PERSONALIZATION] Returned personalized blips based on ${selectedCategoryNames.length} selected categories`);
-      
+
       // Final verification of returned blips
       console.log(`\n${'='.repeat(80)}`);
       console.log(`📤 [CATEGORY DEBUG] FINAL BLIPS BEING RETURNED TO USER:`);
       console.log(`${'='.repeat(80)}`);
-      
+
       // We need to get categories from the original products array
       const finalBlipIds = finalBlips.map(b => b.blipId.toString());
       const finalProducts = products.filter(p => finalBlipIds.includes(p.blip._id.toString()));
       const finalCategories = finalProducts.map(p => p.category || 'NO_CATEGORY');
       const uniqueFinalCategories = [...new Set(finalCategories)];
-      
+
       console.log(`   Total blips: ${finalBlips.length}`);
       console.log(`   Categories: [${uniqueFinalCategories.map(c => `"${c}"`).join(', ')}]`);
-      
+
       finalBlips.forEach((blip, idx) => {
         const product = finalProducts.find(p => p.blip._id.toString() === blip.blipId.toString());
         console.log(`   ${idx + 1}. "${blip.productName}" - Category: "${product?.category || 'UNKNOWN'}"`);
       });
-      
+
       console.log(`${'='.repeat(80)}\n`);
     }
 
