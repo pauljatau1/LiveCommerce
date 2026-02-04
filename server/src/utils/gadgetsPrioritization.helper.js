@@ -27,13 +27,12 @@ const GADGETS_CATEGORIES = new Set([
     'Refurbished Computers',
     'PC Components',
 
-    // Accessories
-    'Phone Accessories',
-    'Laptop Accessories',
-    'Tablet Accessories',
+    // Wearable & Accessories
     'Wearable & Accessories',
     'Wearable Accessories', // Staging variant
     'Charging Devices',
+    'Chargers', // Added to cover specific subcategory
+    'Power Banks',
     'Photography Accessories',
 
     // Audio
@@ -82,12 +81,14 @@ function isGadgetsCategory(category) {
  * Prioritize items from Gadgets & Electronics category
  * Items belonging to Gadgets & Electronics will appear first,
  * followed by other items. Relative order within each group is maintained.
+ * Checks both category and subCategory fields.
  * 
  * @param {Array} items - Array of items to prioritize
  * @param {string} categoryField - Field name containing the category (default: 'category')
+ * @param {string} subCategoryField - Field name containing the subCategory (default: 'subCategory')
  * @returns {Array} Reordered array with gadgets items first
  */
-function prioritizeGadgetsItems(items, categoryField = 'category') {
+function prioritizeGadgetsItems(items, categoryField = 'category', subCategoryField = 'subCategory') {
     if (!Array.isArray(items) || items.length === 0) {
         return items;
     }
@@ -97,7 +98,10 @@ function prioritizeGadgetsItems(items, categoryField = 'category') {
 
     for (const item of items) {
         const category = item[categoryField];
-        if (isGadgetsCategory(category)) {
+        const subCategory = item[subCategoryField];
+
+        // Check if either category or subCategory matches the gadgets list
+        if (isGadgetsCategory(category) || isGadgetsCategory(subCategory)) {
             gadgetsItems.push(item);
         } else {
             otherItems.push(item);
