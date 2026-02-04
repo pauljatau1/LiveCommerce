@@ -14,7 +14,7 @@ const { ProductVariantDeleteS3ObjectsByUrls } = require('../services/products/va
 const productBlips = require('../services/products/blips');
 const Fuse = require('fuse.js');
 const { uploadResizedImages } = require('../utils/imageProcessor');
-const { prioritizeGadgetsItems } = require('../utils/gadgetsPrioritization.helper');
+const { prioritizeGadgetsItems, GADGETS_CATEGORIES } = require('../utils/gadgetsPrioritization.helper');
 const baseUrl = process.env.STORE_URL;
 
 // Create a new product
@@ -1847,6 +1847,11 @@ exports.getBuyerFeedProducts = async (req, res) => {
 exports.getTrendingProducts = async (req, res) => {
   try {
     // Define the trending product query
+    // Convert Set to Array for MongoDB query
+    const gadgetsList = Array.from(GADGETS_CATEGORIES);
+    const requestedLimit = parseInt(req.query.limit) || 20;
+
+    // Define the trending product query
     const trendingQuery = {
       status: 'active',
       visibility: 'visible',
@@ -1862,35 +1867,80 @@ exports.getTrendingProducts = async (req, res) => {
       visibility: 'visible'
     };
 
-    // First, try to get the count of trending products
+    // First, try to get the count of trending products to decide base query
     let productCount = await Product.countDocuments(trendingQuery);
+    let baseQuery = trendingQuery;
 
-    // Decide which query to use
-    let queryToUse = trendingQuery;
     if (productCount === 0) {
-      // If no trending products, use the fallback query
-      queryToUse = fallbackQuery;
+      baseQuery = fallbackQuery;
       productCount = await Product.countDocuments(fallbackQuery);
     }
 
-    // Limit to max 20 products
-    const limit = Math.min(20, productCount);
+    // Adjust limit based on available products
+    const finalLimit = Math.min(requestedLimit, productCount);
 
-    // Skip a random number of documents for randomization
-    const skip = productCount > limit ?
-      Math.floor(Math.random() * (productCount - limit)) : 0;
+    // 1. GADGETS QUERY: prioritize tech items
+    const gadgetsQuery = {
+      ...baseQuery,
+      $or: [
+        // Case-insensitive match logic handled by helper, but for DB query we rely on exact names 
+        // usually stored in DB. Assuming DB matches helper's list.
+        { category: { $in: gadgetsList } },
+        { subCategory: { $in: gadgetsList } }
+      ]
+    };
 
-    // Fetch the products
-    const products = await Product.find(queryToUse)
-      .skip(skip)
-      .limit(limit)
+    const gadgetsCount = await Product.countDocuments(gadgetsQuery);
+
+    // Randomize gadgets fetch
+    // If we have more gadgets than the limit, pick a random subset
+    const gadgetsSkip = gadgetsCount > finalLimit
+      ? Math.floor(Math.random() * (gadgetsCount - finalLimit))
+      : 0;
+
+    // Fetch as many gadgets as we can, up to the limit
+    const gadgetsProducts = await Product.find(gadgetsQuery)
+      .skip(gadgetsSkip)
+      .limit(finalLimit)
       .populate('seller', sellerPopulationFields);
 
-    // Shuffle the results for additional randomization
-    const shuffledProducts = products.sort(() => 0.5 - Math.random());
+    // Shuffle the gadget products among themselves
+    const shuffledGadgets = gadgetsProducts.sort(() => 0.5 - Math.random());
+
+    let finalProducts = [...shuffledGadgets];
+
+    // 2. OTHERS QUERY: If we haven't filled the limit, fetch other products
+    const remainingCount = finalLimit - finalProducts.length;
+
+    if (remainingCount > 0) {
+      const othersQuery = {
+        ...baseQuery,
+        $and: [
+          { category: { $nin: gadgetsList } },
+          { subCategory: { $nin: gadgetsList } }
+        ]
+      };
+
+      const othersCount = await Product.countDocuments(othersQuery);
+
+      // Randomize others fetch
+      const othersSkip = othersCount > remainingCount
+        ? Math.floor(Math.random() * (othersCount - remainingCount))
+        : 0;
+
+      const otherProducts = await Product.find(othersQuery)
+        .skip(othersSkip)
+        .limit(remainingCount)
+        .populate('seller', sellerPopulationFields);
+
+      const shuffledOthers = otherProducts.sort(() => 0.5 - Math.random());
+
+      // Append others AFTER gadgets
+      finalProducts = [...finalProducts, ...shuffledOthers];
+    }
 
     // Add review stats data to each product
-    const productsWithStats = shuffledProducts.map(product => {
+    const productsWithStats = finalProducts.map(product => {
       const productObj = product.toObject();
       return {
         ...productObj,
@@ -1900,7 +1950,11 @@ exports.getTrendingProducts = async (req, res) => {
       };
     });
 
-    // Prioritize Gadgets & Electronics products
+    // The result is already prioritized (Gadgets first), but we can run helper just in case
+    // to strictly enforce internal sorting if needed, though strictly speaking 
+    // we just want gadgets block then others block.
+    // Since we prioritized retrieval, we are good.
+    // The previous code called prioritizeGadgetsItems at the end, which is fine to keep as a safety net.
     const prioritizedProducts = prioritizeGadgetsItems(productsWithStats, 'category');
 
     res.json({
