@@ -51,7 +51,12 @@ const toggleActivityStatusService = require('../services/toggleActivityStatus.se
 const getActivityStatusService = require('../services/getActivityStatus.service');
 const selectMajorCategoriesService = require('../services/selectMajorCategories.service');
 const updateMajorCategoriesSelectionService = require('../services/updateMajorCategoriesSelection.service');
+const toggleActivityStatusService = require('../services/toggleActivityStatus.service');
+const getActivityStatusService = require('../services/getActivityStatus.service');
+const selectMajorCategoriesService = require('../services/selectMajorCategories.service');
+const updateMajorCategoriesSelectionService = require('../services/updateMajorCategoriesSelection.service');
 const getSelectedMajorCategoriesService = require('../services/getSelectedMajorCategories.service');
+const logoutService = require('../services/logout.service');
 
 
 
@@ -335,6 +340,25 @@ async function resendOTP(req, res, next) {
     res.success(response, 'OTP resent successfully');
   } catch (err) {
     // Forward any error to the error-handling middleware
+    next(err);
+  }
+}
+
+/**
+ * Logout a buyer.
+ *
+ * Removes the Expo push token from the database and Firebase.
+ *
+ * @param {Request} req - Express request object containing buyer ID in `req.user.id`
+ * @param {Response} res - Express response object used to return the response
+ * @param {Function} next - Express next middleware function for error handling
+ */
+async function logout(req, res, next) {
+  try {
+    const buyerId = req.user.id;
+    const response = await logoutService.logout(buyerId);
+    res.success(response, 'Logged out successfully');
+  } catch (err) {
     next(err);
   }
 }
@@ -1658,5 +1682,6 @@ module.exports = {
   updateMajorCategoriesSelection,
   getSelectedMajorCategories,
   googleAuth,
-  appleAuth
+  appleAuth,
+  logout
 };
