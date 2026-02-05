@@ -51,10 +51,6 @@ const toggleActivityStatusService = require('../services/toggleActivityStatus.se
 const getActivityStatusService = require('../services/getActivityStatus.service');
 const selectMajorCategoriesService = require('../services/selectMajorCategories.service');
 const updateMajorCategoriesSelectionService = require('../services/updateMajorCategoriesSelection.service');
-const toggleActivityStatusService = require('../services/toggleActivityStatus.service');
-const getActivityStatusService = require('../services/getActivityStatus.service');
-const selectMajorCategoriesService = require('../services/selectMajorCategories.service');
-const updateMajorCategoriesSelectionService = require('../services/updateMajorCategoriesSelection.service');
 const getSelectedMajorCategoriesService = require('../services/getSelectedMajorCategories.service');
 const logoutService = require('../services/logout.service');
 
