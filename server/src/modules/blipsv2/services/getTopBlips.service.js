@@ -1,5 +1,6 @@
 const productRepository = require('../repositories/product.repository');
 const transformationHelper = require('../helpers/transformation.helper');
+const { prioritizeGadgetsItems } = require('../../../utils/gadgetsPrioritization.helper');
 
 class GetTopBlipsService {
   async execute(req) {
@@ -266,9 +267,12 @@ class GetTopBlipsService {
       };
     }
 
+    // Prioritize Gadgets & Electronics products before transformation
+    const prioritizedProducts = prioritizeGadgetsItems(products, 'category');
+
     // Map to response DTO using shared transformer
     const transformedBlips = transformationHelper.transformProductsToBlips(
-      products,
+      prioritizedProducts,
       buyerId,
       isAuthenticated,
       followedSellers

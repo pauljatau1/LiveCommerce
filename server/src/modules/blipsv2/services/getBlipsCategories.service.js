@@ -1,5 +1,6 @@
 const productRepository = require('../repositories/product.repository');
 const categoryHelper = require('../helpers/category.helper');
+const { prioritizeGadgetsCategories } = require('../../../utils/gadgetsPrioritization.helper');
 
 /**
  * GetBlipsCategoriesService
@@ -165,6 +166,10 @@ class GetBlipsCategoriesService {
           finalCategories = [...finalCategories, ...additionalFromUnfiltered];
         }
       }
+
+      // Prioritize Gadgets & Electronics categories BEFORE pagination
+      // This ensures they appear on the first page regardless of their original position
+      finalCategories = prioritizeGadgetsCategories(finalCategories);
 
       // Pagination - respect the limit parameter exactly
       const total = finalCategories.length;
@@ -481,22 +486,26 @@ class GetBlipsCategoriesService {
         ? popularCategories.filter(c => (c?.name || '').toLowerCase().includes(searchQuery))
         : popularCategories;
 
-      // If limit is high (used as supplement), return all categories without pagination
+      // Prioritize Gadgets & Electronics categories BEFORE pagination
+      // This ensures they appear on the first page regardless of their original position
+      const prioritizedAll = prioritizeGadgetsCategories(filtered);
+
+      // If limit is high (used as supplement), return all without pagination
       // Otherwise, apply pagination for direct calls
       let finalCategories, total, currentPage, totalPages;
 
       if (isSupplementCall) {
         // Return all categories when used as supplement (no pagination)
-        finalCategories = filtered;
-        total = filtered.length;
+        finalCategories = prioritizedAll;
+        total = prioritizedAll.length;
         currentPage = 1;
         totalPages = 1;
       } else {
         // Apply pagination for direct calls - respect the limit parameter exactly
-        total = filtered.length;
+        total = prioritizedAll.length;
         const startIndex = (page - 1) * limit;
         const endIndex = startIndex + limit;
-        finalCategories = filtered.slice(startIndex, endIndex);
+        finalCategories = prioritizedAll.slice(startIndex, endIndex);
         currentPage = page;
         totalPages = Math.max(1, Math.ceil(total / limit));
       }
