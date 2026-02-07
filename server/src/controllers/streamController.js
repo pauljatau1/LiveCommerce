@@ -235,6 +235,10 @@ exports.createStream = async (req, res) => {
     const sellerDetails = await Seller.findById(req.user.id).select('storeName businessName storeAvatar');
     const storeName = sellerDetails?.storeName || sellerDetails?.businessName || 'A Seller';
 
+    // Check for staging environment to disable emails
+    const host = req.get('host') || '';
+    const isStaging = host.includes('api.staging.auqli.live');
+
     // GLOBAL NOTIFICATION: Send push notifications AND emails to ALL buyers when a stream is scheduled
     // This notifies all buyers about the upcoming live stream they can join
     console.log('========================================');
@@ -310,8 +314,8 @@ exports.createStream = async (req, res) => {
             skippedNoToken++;
           }
 
-          // Add email notification if email exists
-          if (buyer.email) {
+          // Add email notification if email exists - SKIP ON STAGING
+          if (buyer.email && !isStaging) {
             const emailHtml = `
               <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; background-color: #ffffff; padding: 24px;">
                 <div style="text-align: center; margin-bottom: 24px;">
@@ -512,6 +516,10 @@ exports.createStream = async (req, res) => {
 // Background task processor for stream start notifications and cleanup
 const processStreamStartBackgroundTasks = async (stream, seller, existingStreams, req) => {
   try {
+    // Check for staging environment to disable emails
+    const host = req.get('host') || '';
+    const isStaging = host.includes('api.staging.auqli.live');
+
     const cancelledStreams = existingStreams.map(s => s.title);
 
     // Cancel reminder jobs (SMS and push) for cancelled streams
@@ -676,14 +684,17 @@ const processStreamStartBackgroundTasks = async (stream, seller, existingStreams
                 notificationData
               );
 
-              const emailNotification = {
-                type: 'stream_start',
-                title: `${storeName} has started a live ${stream.type === 'auction' ? 'auction' : 'show'}`,
-                message: `${storeName} has started a live ${stream.type === 'auction' ? 'auction' : 'show'}: "${stream.title}". Join now!`,
-                data: notificationData
-              };
+              // Skip email on staging
+              if (!isStaging) {
+                const emailNotification = {
+                  type: 'stream_start',
+                  title: `${storeName} has started a live ${stream.type === 'auction' ? 'auction' : 'show'}`,
+                  message: `${storeName} has started a live ${stream.type === 'auction' ? 'auction' : 'show'}: "${stream.title}". Join now!`,
+                  data: notificationData
+                };
 
-              await notificationController.sendEmailToBuyer(buyer, emailNotification);
+                await notificationController.sendEmailToBuyer(buyer, emailNotification);
+              }
 
               if (buyer.expoPushToken) {
                 const livePrefs = buyer.notificationPreferences?.liveShows || {};
@@ -799,7 +810,8 @@ const processStreamStartBackgroundTasks = async (stream, seller, existingStreams
             });
           }
 
-          if (buyer.email) {
+          // Add email notification if email exists - SKIP ON STAGING
+          if (buyer.email && !isStaging) {
             const emailHtml = `
               <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; background-color: #ffffff; padding: 24px;">
                 <div style="text-align: center; margin-bottom: 24px;">
@@ -857,7 +869,7 @@ const processStreamStartBackgroundTasks = async (stream, seller, existingStreams
         }
 
         if (emailPromises.length > 0) {
-          Promise.allSettled(emailPromises).catch(() => {});
+          Promise.allSettled(emailPromises).catch(() => { });
         }
       }
     } catch (globalNotifError) {
@@ -916,7 +928,7 @@ exports.startStream = async (req, res) => {
 
     // Generate token and update stream
     const freshToken = agoraService.generateToken(stream.channelName, seller.agoraUid, RtcRole.PUBLISHER);
-    
+
     stream.status = 'live';
     stream.actualStartTime = new Date();
     stream.agoraUid = seller.agoraUid;
@@ -2000,6 +2012,10 @@ exports.getSellerStreams = async (req, res) => {
 // Background task processor for open live show creation
 const processOpenLiveShowBackgroundTasks = async (stream, req, coverImage, video, startDate, title, description) => {
   try {
+    // Check for staging environment to disable emails
+    const host = req.get('host') || '';
+    const isStaging = host.includes('api.staging.auqli.live');
+
     // Upload cover image to AWS S3 in background
     let imageData = {};
     if (coverImage && coverImage.data) {
@@ -2122,7 +2138,8 @@ const processOpenLiveShowBackgroundTasks = async (stream, req, coverImage, video
             });
           }
 
-          if (buyer.email) {
+          // Add email notification if email exists - SKIP ON STAGING
+          if (buyer.email && !isStaging) {
             const emailHtml = `
               <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; background-color: #ffffff; padding: 24px;">
                 <div style="text-align: center; margin-bottom: 24px;">
@@ -2182,7 +2199,7 @@ const processOpenLiveShowBackgroundTasks = async (stream, req, coverImage, video
         }
 
         if (emailPromises.length > 0) {
-          Promise.allSettled(emailPromises).catch(() => {});
+          Promise.allSettled(emailPromises).catch(() => { });
         }
       }
     } catch (scheduleNotifError) {
@@ -2331,7 +2348,7 @@ exports.createOpenLiveShow = async (req, res) => {
       const productIds = productsList
         .map(p => p.product?.productId)
         .filter(Boolean);
-      
+
       const completeProducts = await Product.find({
         _id: { $in: productIds }
       })
@@ -2343,7 +2360,7 @@ exports.createOpenLiveShow = async (req, res) => {
       productsForStream = productsList.map(p => {
         const productId = p.product?.productId;
         const completeProduct = productMap.get(productId?.toString());
-        
+
         if (!completeProduct) {
           return { product: p.product || {} };
         }

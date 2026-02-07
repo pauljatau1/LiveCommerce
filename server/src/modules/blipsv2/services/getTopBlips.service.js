@@ -1,5 +1,6 @@
 const productRepository = require('../repositories/product.repository');
 const transformationHelper = require('../helpers/transformation.helper');
+const { prioritizeGadgetsItems } = require('../../../utils/gadgetsPrioritization.helper');
 
 class GetTopBlipsService {
   async execute(req) {
@@ -45,7 +46,7 @@ class GetTopBlipsService {
         {
           $or: [
             { status: { $ne: 'offline_auction' } },
-            { $and: [ { status: 'offline_auction' }, { 'auction.status': { $ne: 'ended' } } ] }
+            { $and: [{ status: 'offline_auction' }, { 'auction.status': { $ne: 'ended' } }] }
           ]
         }
       ]
@@ -67,7 +68,7 @@ class GetTopBlipsService {
           commentsCount: { $ifNull: ['\u0024blips.commentsCount', 0] },
           blipCreatedAt: { $ifNull: ['\u0024blips.createdAt', '$createdAt'] },
           daysSinceCreation: {
-            $divide: [ { $subtract: [now, { $ifNull: ['\u0024blips.createdAt', now] }] }, 1000 * 60 * 60 * 24 ]
+            $divide: [{ $subtract: [now, { $ifNull: ['\u0024blips.createdAt', now] }] }, 1000 * 60 * 60 * 24]
           }
         }
       },
@@ -88,7 +89,7 @@ class GetTopBlipsService {
               then: {
                 $subtract: [
                   300,
-                  { $multiply: [ { $min: ['\u0024daysSinceCreation', 14] }, 15 ] } // 300 -> 90 over 14d
+                  { $multiply: [{ $min: ['\u0024daysSinceCreation', 14] }, 15] } // 300 -> 90 over 14d
                 ]
               },
               else: 0
@@ -106,33 +107,34 @@ class GetTopBlipsService {
     // Category preference filter/boost for authenticated users
     const categoryPreferenceStage = isAuthenticated && buyerCategories.length > 0
       ? [{
-          $addFields: {
-            inPreferredCategory: {
-              $or: [
-                { $in: ['$category', buyerCategories] },
-                { $in: ['$subCategory', buyerCategories] }
-              ]
-            },
-            followedSellerBoost: {
-              $cond: [ { $in: ['$seller', followedSellers.map(id => ({ $toObjectId: id }))] }, 200, 0 ]
-            }
+        $addFields: {
+          inPreferredCategory: {
+            $or: [
+              { $in: ['$category', buyerCategories] },
+              { $in: ['$subCategory', buyerCategories] }
+            ]
+          },
+          followedSellerBoost: {
+            $cond: [{ $in: ['$seller', followedSellers.map(id => ({ $toObjectId: id }))] }, 200, 0]
           }
-        },
-        {
-          $addFields: {
-            topScore: {
-              $add: [
-                '$topScore',
-                { $cond: ['\u0024inPreferredCategory', 150, 0] },
-                '$followedSellerBoost'
-              ]
-            }
+        }
+      },
+      {
+        $addFields: {
+          topScore: {
+            $add: [
+              '$topScore',
+              { $cond: ['\u0024inPreferredCategory', 150, 0] },
+              '$followedSellerBoost'
+            ]
           }
-        }]
+        }
+      }]
       : [];
 
     // Cap the pool before projection, then shuffle for variety within the score ordering
-    const POOL_LIMIT = Math.max(limit * 3, 30);
+    // Increased pool limit to ensure more variety and reduce redundancy
+    const POOL_LIMIT = Math.max(limit * 10, 100);
 
     const primaryPipeline = [
       { $match: primaryMatch },
@@ -265,19 +267,22 @@ class GetTopBlipsService {
       };
     }
 
+    // Prioritize Gadgets & Electronics products before transformation
+    const prioritizedProducts = prioritizeGadgetsItems(products, 'category');
+
     // Map to response DTO using shared transformer
     const transformedBlips = transformationHelper.transformProductsToBlips(
-      products,
+      prioritizedProducts,
       buyerId,
       isAuthenticated,
       followedSellers
     );
 
-    // Categorize for distribution: prioritize high engagement and preferred categories if logged in
     const categorized = {
       preferredHigh: [],    // in preferred category + high engagement
       followedSellers: [],
       highEngagement: [],
+      popular: [],          // [NEW] relaxed threshold (e.g. > 50 views)
       recent: [],
       random: []
     };
@@ -298,6 +303,9 @@ class GetTopBlipsService {
         categorized.followedSellers.push(b);
       } else if (engagementScore > 120) {
         categorized.highEngagement.push(b);
+      } else if (engagementScore > 50 || (b.blipEngagement && b.blipEngagement.viewCount > 50)) {
+        // [NEW] relaxed "popular" bucket
+        categorized.popular.push(b);
       } else if (isRecent) {
         categorized.recent.push(b);
       } else {
@@ -324,6 +332,7 @@ class GetTopBlipsService {
       'preferredHigh',
       'highEngagement',
       'followedSellers',
+      'popular',
       'recent',
       'random'
     ];
