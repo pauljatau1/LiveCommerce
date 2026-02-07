@@ -252,7 +252,7 @@ function AuthProvider({ children }: AuthProviderProps) {
                 sellerUtils.storeSeller(seller);
                 tokenUtils.storeBearerToken({ data: token, isVerified: seller.isVerified });
 
-                showNotification('Account Disabled, Your account has been disabled. Please contact support.', 'error', 'dismissible');
+                showNotification('Account Disabled, Your account has been disabled. Please contact support at (support@auqli.com) to reactivate your account.', 'error', 'fixed');
 
                 return
             }

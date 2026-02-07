@@ -262,3 +262,25 @@ export const calculateNewNotifications = (notifications: Array<{ isRead?: boolea
     return 0;
   }
 };
+
+/**
+ * Extract YouTube video ID from URL
+ * 
+ * @param url - YouTube video URL
+ * @returns Video ID or null if invalid
+ */
+export const getYoutubeVideoId = (url: string): string | null => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+};
+
+/**
+ * Create thumbnail URL from YouTube video ID
+ * 
+ * @param videoId - YouTube video ID
+ * @returns Thumbnail URL
+ */
+export const getYoutubeThumbnail = (videoId: string): string => {
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+};

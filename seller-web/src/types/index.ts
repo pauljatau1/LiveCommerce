@@ -55,7 +55,11 @@ export type {
     ShippingDelivery,
     ShippingCarrier,
     ShippingFee,
-    OrdersPagination
+    OrdersPagination,
+    State,
+    City,
+    StatesResponse,
+    CitiesResponse
 } from "./orders";
 
 export type {
@@ -77,3 +81,7 @@ export type {
     NotificationContextType,
     NotificationProviderProps
 } from "./notification";
+
+export type {
+    OutletContextType
+} from "./outlet";

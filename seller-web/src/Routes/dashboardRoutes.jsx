@@ -5,7 +5,7 @@ import RouterErrorHandler from '../Components/RouterErrorHandler';
 import { VariantsProvider } from '../Contexts/VariantContext';
 import { LivestreamProvider } from '../Contexts/LivestreamContext';
 
-const HomePage = lazy(() => import('../Pages/HomePage/HomePage'));
+const HomePage = lazy(() => import('../Pages/HomePage/HomePageV2'));
 const Customers = lazy(() => import('../Pages/Customers/Customers'));
 const CustomerDetail = lazy(() => import('../Pages/Customers/CustomerDetail'));
 const OrdersDashboard = lazy(() => import('../Pages/Orders/Orders'));
@@ -115,7 +115,7 @@ export const dashboardRoutes = [
             { path: 'account', element: <Account /> },
             { path: 'help', element: <Help /> },
             { path: 'analytics-insights', element: <AnalyticsDashboard /> },
-            { path: 'kyc-verification', element: <KycVerificationPage /> },
+            { path: 'kyc-verification/:id', element: <KycVerificationPage /> },
             { path: 'notifications', element: <NotificationsPage /> },
         ],
     },

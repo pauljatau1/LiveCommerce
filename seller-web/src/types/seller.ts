@@ -41,12 +41,15 @@ export interface Seller {
     state: string;
     addressLine1: string;
   };
+  isPhoneVerified: boolean;
   referralUsed: boolean;
   referrerId: string;
   storeAvatar: {
     public_id: string;
     url: string;
   };
+  hasProducts: boolean;
+  hasMoreThan10Blips: boolean;
 }
 
 // Top sold seller products interface

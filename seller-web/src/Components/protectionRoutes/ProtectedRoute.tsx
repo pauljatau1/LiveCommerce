@@ -94,6 +94,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
         } 
       });
 
+      sellerUtils.storeSeller(data as Seller);
+
       // Check if account is disabled
       if (data.isDisabled) {
         console.log("Account is disabled, showing dialog");
