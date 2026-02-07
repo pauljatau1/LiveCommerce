@@ -284,3 +284,36 @@ export const getYoutubeVideoId = (url: string): string | null => {
 export const getYoutubeThumbnail = (videoId: string): string => {
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 };
+
+/**
+ * Format metric value with K, M, B suffixes
+ * 
+ * @param value - Numeric value to format
+ * @returns Formatted string (e.g., "1.5K", "2.3M", "1.0B")
+ */
+export const formatMetricValue = (value: number | undefined | null): string => {
+  if (!value && value !== 0) return "0";
+  if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+  return value.toString();
+};
+
+/**
+ * Format change value from last week based on type
+ * 
+ * @param value - Change value (number)
+ * @param type - Type of change ("number" or "percentage")
+ * @returns Formatted change string (e.g., "+₦1.5K" or "+5.2%")
+ */
+export const formatChangeFromLastWeek = (value: number | undefined | null, type: string | undefined): string => {
+  if (value === undefined || value === null || !type) return "";
+  
+  if (type === "number") {
+    return `+₦${formatMetricValue(value)}`;
+  } else if (type === "percentage") {
+    return `${value >= 0 ? "+" : "-"}${Math.abs(value).toFixed(2)}%`;
+  } else {
+    return "";
+  }
+};

@@ -45,7 +45,7 @@ interface PickupAddressVerificationModalProps {
 
 type ViewType = "initial" | "verification";
 
-export function PickupAddressVerificationModal({
+export default function PickupAddressVerificationModal({
   isOpen,
   onClose,
   isPending = false,

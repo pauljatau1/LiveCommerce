@@ -5,6 +5,7 @@ import { useIntercomChat } from "@/Hooks/useIntercom";
 import { useOutletContext } from "react-router-dom";
 import { OutletContextType } from "@/types";
 import DashboardTopBannerV2 from "@/Components/ui/DashboardHomepageUi/DashboardTopBannerV2";
+import HomeAnalyticsSection from "@/Components/ui/DashboardHomepageUi/HomeAnalyticsSection";
 
 
 
@@ -31,6 +32,8 @@ export default function HomePageV2() {
         <main className="h-full py-[10px] lg:py-[20px] " >
             {/* Verification Banner */}
             <DashboardTopBannerV2 sellerDetails={seller as Seller} />
+            {/* Home Analytics Section */}
+            <HomeAnalyticsSection />
         </main>
     )
 }

@@ -8,7 +8,7 @@ import PhoneIcon from "@/assets/icons/PhoneIcon";
 import LocationIcon from "@/assets/icons/LocationIcon";
 import ProductIcon from "@/assets/icons/ProductIcon";
 import BankIcon from "@/assets/icons/BankIcon";
-import { PickupAddressVerificationModal } from "@/Components/shared/PickupAddressVerificationModal";
+import PickupAddressVerificationModal from "@/Components/shared/PickupAddressVerificationModal";
 
 interface IDashboardTopBannerV2Props {
     sellerDetails: Seller;

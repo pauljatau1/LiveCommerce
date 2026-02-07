@@ -17,6 +17,7 @@ import NavRightIcon from "@/assets/icons/NavRightIcon";
 import { isAxiosError } from "axios";
 import { useNotification } from "@/Hooks/useNotification";
 import NotificationBanner from "@/Components/ui/NotificationBanner";
+import GlassImage from "@/Components/ui/GlassImageV2";
 
 export default function HeaderV2({ name, navName, showBackButton, fullScreenMode, isSidebarOpen, setIsSidebarOpen }: HeaderV2Props) {
     const { seller } = useAuthContext()
@@ -123,10 +124,12 @@ export default function HeaderV2({ name, navName, showBackButton, fullScreenMode
     const renderAvatar = () => {
         if (seller?.storeAvatar?.url) {
             return (
-                <img
+                <GlassImage
                     src={seller.storeAvatar.url}
                     alt={`${seller.firstName} ${seller.lastName}`}
-                    className="h-[46px] w-[46px] rounded-full object-cover"
+                    containerClassName="h-[46px] w-[46px] rounded-full object-cover"
+                    glassClassName="h-[46px] w-[46px] rounded-full object-cover"
+                    imageClassName="h-[46px] w-[46px] rounded-full object-cover"
                 />
             )
         }
