@@ -326,11 +326,6 @@ export function PickupAddressVerificationModal({
 
         // Force refresh the parent component
         queryClient.invalidateQueries({ queryKey: ["sellerDetails"] });
-
-        // Reload the page after modal closes
-        setTimeout(() => {
-          window.location.reload();
-        }, 300);
       } else {
         showNotification(
           "Could not complete address update. Please try again.",
