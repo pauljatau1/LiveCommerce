@@ -1,7 +1,3 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -10,13 +6,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/Components/ui/dialog";
-import { Button } from "@/Components/ui/button";
-import { ChevronRight, ChevronLeft, MapPin, CheckSquare, Loader2 } from "lucide-react";
-import { Form } from "@/Components/ui/form/form";
-import { sellerService } from "@/services/sellerService";
-import { verificationService } from "@/services/verificationServiceV2";
-import { sellerUtils } from "@/util/auth";
-import { getYoutubeVideoId, getYoutubeThumbnail } from "@/util/helpers";
 import {
   profileCompletionSchema,
   pickupAddressSchema,
@@ -24,15 +13,27 @@ import {
   type PickupAddressFormData,
   type AccountType,
 } from "@/schemas/pickupAddressSchema";
-import { ProgressIndicator } from "./PickupAddressVerification/ProgressIndicator";
-import { InitialView } from "./PickupAddressVerification/InitialView";
-import { ProfileCompletionStep } from "./PickupAddressVerification/ProfileCompletionStep";
-import { AccountTypeStep } from "./PickupAddressVerification/AccountTypeStep";
-import  AddressStep  from "./PickupAddressVerification/AddressStep";
+import { Form } from "@/Components/ui/form/form";
+import { Button } from "@/Components/ui/button";
+import { useForm } from "react-hook-form";
 import { VideoModal } from "./PickupAddressVerification/VideoModal";
+import { InitialView } from "./PickupAddressVerification/InitialView";
+import { sellerUtils } from "@/util/auth";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { sellerService } from "@/services/sellerService";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNotification } from "@/Hooks/useNotification";
-import StarIcon from "@/assets/icons/StarIcon";
+import { AccountTypeStep } from "./PickupAddressVerification/AccountTypeStep";
 import { locationService } from "@/services/locationService";
+import { ProgressIndicator } from "./PickupAddressVerification/ProgressIndicator";
+import { verificationService } from "@/services/verificationServiceV2";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { ProfileCompletionStep } from "./PickupAddressVerification/ProfileCompletionStep";
+import { getYoutubeVideoId, getYoutubeThumbnail } from "@/util/helpers";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { ChevronRight, ChevronLeft, MapPin, CheckSquare, Loader2 } from "lucide-react";
+import  AddressStep  from "./PickupAddressVerification/AddressStep";
+import StarIcon from "@/assets/icons/StarIcon";
 
 interface PickupAddressVerificationModalProps {
   isOpen: boolean;
@@ -56,6 +57,7 @@ export function PickupAddressVerificationModal({
   const [accountType, setAccountType] = useState<AccountType | "">("");
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
   const { showNotification } = useNotification();
+  const queryClient = useQueryClient();
 
   // Retrieve current seller using sellerUtils to drive conditional UI and defaults
   const currentSeller = useMemo(() => sellerUtils.getSeller(), []);
@@ -323,9 +325,7 @@ export function PickupAddressVerificationModal({
         onClose();
 
         // Force refresh the parent component
-        if (window.dispatchEvent) {
-          window.dispatchEvent(new CustomEvent("seller-verification-completed"));
-        }
+        queryClient.invalidateQueries({ queryKey: ["sellerDetails"] });
 
         // Reload the page after modal closes
         setTimeout(() => {

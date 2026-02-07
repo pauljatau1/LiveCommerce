@@ -39,7 +39,11 @@ export interface BusinessInformation {
 export interface AccountTypeResponse {
   success: boolean;
   message: string;
-  data: Seller;
+  data: {
+    message: string;
+    seller: Seller;
+  };
+  pagination: null;
 }
 
 export interface AddressUpdateResponse {
@@ -47,7 +51,11 @@ export interface AddressUpdateResponse {
   data: {
     success: boolean;
     message: string;
-    data?: Seller;
+    data: {
+      message: string;
+      seller: Seller;
+    };
+    pagination: null;
   };
 }
 
@@ -70,7 +78,7 @@ export const verificationService = {
     );
 
     const sellerData = sellerUtils.getSeller();
-    if (response.data.success && sellerData) {
+    if (response.success && sellerData) {
       trackEvent("seller Account Type Selected", {
         "Account Type": accountType,
         "seller id": sellerData._id,
@@ -84,7 +92,7 @@ export const verificationService = {
       });
     }
 
-    return response.data;
+    return response;
   },
 
   /**
@@ -98,14 +106,14 @@ export const verificationService = {
     const config = {
       baseURL: API_CONFIG.BASE_URL,
     };
-    const response = await apiService.put<AddressUpdateResponse["data"]>(
+    const response = await apiService.put<AccountTypeResponse>(
       url,
       individualInfo as unknown as Record<string, unknown>,
       config
     );
 
     const sellerDetails = sellerUtils.getSeller();
-    if (response.data.success && sellerDetails) {
+    if (response.success && sellerDetails) {
       trackEvent("seller pickup address verification completed", {
         "seller id": sellerDetails._id,
         "seller email": sellerDetails.email,
@@ -124,7 +132,7 @@ export const verificationService = {
 
     return {
       status: 200,
-      data: response.data,
+      data: response,
     };
   },
 
@@ -139,14 +147,14 @@ export const verificationService = {
     const config = {
       baseURL: API_CONFIG.BASE_URL_V2,
     };
-    const response = await apiService.put<AddressUpdateResponse["data"]>(
+    const response = await apiService.put<AccountTypeResponse>(
       url,
       businessInfo as unknown as Record<string, unknown>,
       config
     );
 
     const sellerDetails = sellerUtils.getSeller();
-    if (response.data.success && sellerDetails) {
+    if (response.success && sellerDetails) {
       trackEvent("seller pickup address adddress verification completed", {
         "seller id": sellerDetails._id,
         "seller email": sellerDetails.email,
@@ -165,7 +173,7 @@ export const verificationService = {
 
     return {
       status: 200,
-      data: response.data,
+      data: response,
     };
   },
 };
