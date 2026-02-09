@@ -6,6 +6,8 @@ import { useOutletContext } from "react-router-dom";
 import { OutletContextType } from "@/types";
 import DashboardTopBannerV2 from "@/Components/ui/DashboardHomepageUi/DashboardTopBannerV2";
 import HomeAnalyticsSection from "@/Components/ui/DashboardHomepageUi/HomeAnalyticsSection";
+import DashboardActivitiesSection from "@/Components/ui/DashboardHomepageUi/DashboardActivitiesSection";
+import DashboardOrdersSection from "@/Components/ui/DashboardHomepageUi/DashboardOrdersSection";
 
 
 
@@ -29,11 +31,15 @@ export default function HomePageV2() {
     }, []);
 
     return (
-        <main className="h-full py-[10px] lg:py-[20px] " >
+        <main className="py-[10px] lg:py-[20px] " >
             {/* Verification Banner */}
             <DashboardTopBannerV2 sellerDetails={seller as Seller} />
             {/* Home Analytics Section */}
             <HomeAnalyticsSection />
+            {/* Dashboard Activities Section */}
+            <DashboardActivitiesSection />
+            {/* Dashboard Orders Section */}
+            <DashboardOrdersSection />
         </main>
     )
 }

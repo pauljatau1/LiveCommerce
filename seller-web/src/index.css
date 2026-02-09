@@ -125,6 +125,49 @@
   border-radius: 1rem;
 }
 
+/* MUI DatePicker Mobile View - Brand Color Overrides */
+.MuiDialog-root .MuiPickersYear-yearButton.Mui-selected,
+.MuiModal-root .MuiPickersYear-yearButton.Mui-selected {
+  background-color: #16a34a !important;
+  color: #fff !important;
+}
+
+.MuiDialog-root .MuiPickersMonth-monthButton.Mui-selected,
+.MuiModal-root .MuiPickersMonth-monthButton.Mui-selected {
+  background-color: #16a34a !important;
+  color: #fff !important;
+}
+
+.MuiDialog-root .MuiPickersYear-yearButton:hover,
+.MuiModal-root .MuiPickersYear-yearButton:hover {
+  background-color: #dcfce7 !important;
+}
+
+.MuiDialog-root .MuiPickersMonth-monthButton:hover,
+.MuiModal-root .MuiPickersMonth-monthButton:hover {
+  background-color: #dcfce7 !important;
+}
+
+.MuiDialog-root .MuiPickersYear-yearButton.Mui-selected:hover,
+.MuiModal-root .MuiPickersYear-yearButton.Mui-selected:hover {
+  background-color: #15803d !important;
+}
+
+.MuiDialog-root .MuiPickersMonth-monthButton.Mui-selected:hover,
+.MuiModal-root .MuiPickersMonth-monthButton.Mui-selected:hover {
+  background-color: #15803d !important;
+}
+
+.MuiDialog-root .MuiButton-root,
+.MuiModal-root .MuiButton-root {
+  color: #16a34a !important;
+}
+
+.MuiDialog-root .MuiButton-root.MuiButton-textPrimary,
+.MuiModal-root .MuiButton-root.MuiButton-textPrimary {
+  color: #16a34a !important;
+}
+
 .ql-toolbar.ql-snow {
   border: none !important;
   border-bottom: 1px solid rgba(2, 2, 2, 0.14) !important;
@@ -218,6 +261,42 @@
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: #2D3748 transparent;
+}
+
+/* Custom scrollbar for Activity Feed - Hidden by default, visible on parent hover */
+.activity-feed-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.group:hover .activity-feed-scrollbar {
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.activity-feed-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.activity-feed-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 10px;
+}
+
+.group:hover .activity-feed-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.activity-feed-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 10px;
+}
+
+.group:hover .activity-feed-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+.group:hover .activity-feed-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 /* Add react-draggable specific cursor styles */

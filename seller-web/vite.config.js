@@ -35,7 +35,11 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, 'src/Shared'),
+      // Dedupe React to prevent multiple instances
+      'react': path.resolve(__dirname, './node_modules/react'),
+      'react-dom': path.resolve(__dirname, './node_modules/react-dom'),
     },
+    dedupe: ['react', 'react-dom'],
   },
   build: {
     rollupOptions: {

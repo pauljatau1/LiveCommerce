@@ -111,6 +111,9 @@ export default function HomeAnalyticsSection() {
         queryFn: () => sellerService.fetchSellerAnalytics(),
         refetchOnMount: true,
         refetchOnReconnect: true,
+        refetchOnWindowFocus: true,
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 10, // 10 minutes
         retry: 5,
         retryDelay: 7000,
     });

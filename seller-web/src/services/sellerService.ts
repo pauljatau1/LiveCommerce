@@ -63,6 +63,20 @@ export const sellerService = {
   },
 
   /**
+   * Fetch seller notifications with pagination (for infinite query)
+   *
+   * @param params - Pagination parameters
+   * @returns Promise<SellerNotifications> - Seller notifications with pagination
+   */
+  async fetchSellerNotificationsPaginated(params?: { page?: number; limit?: number }): Promise<SellerNotifications> {
+    const url = SELLER_ENDPOINTS.notifications;
+    const config = params ? { params } : undefined;
+    const response = await apiService.get<SellerNotifications>(url, config);
+    console.log("seller notifications paginated service", response.data);
+    return response.data;
+  },
+
+  /**
    * Fetch seller analytics
    *
    * @returns Promise<SellerAnalytics> - Seller analytics
