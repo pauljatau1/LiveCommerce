@@ -153,7 +153,7 @@ export default function ActivityFeed() {
 
         const handleScroll = () => {
             if (!hasNextPage || isFetchingNextPage) return;
-            
+
             const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
             // Trigger fetch when user is within 50px of the bottom
             const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
@@ -226,7 +226,7 @@ export default function ActivityFeed() {
             </div>
 
             {/* Notifications List - Scrollable Container */}
-            <div 
+            <div
                 ref={scrollContainerRef}
                 className="flex flex-col gap-1 max-h-[319px] lg:max-h-[385px] overflow-y-auto pr-2 activity-feed-scrollbar"
             >
@@ -237,71 +237,75 @@ export default function ActivityFeed() {
 
                     return (
                         <React.Fragment key={notification._id}>
-                            <div 
+                            <div
                                 onClick={() => handleNotificationClick(notification)}
-                                className={`py-2 ${displayData.showProfilePicture ? 'h-16' : ''} flex items-start gap-2 hover:bg-gray-100/80 cursor-pointer hover:backdrop-blur-sm rounded-lg p-2 transition-all duration-300 ease-in-out`}
+                                className={`py-2 ${displayData.showProfilePicture ? 'h-16' : 'space-y-1'}`}
                             >
-                                {/* Icon or Profile Picture */}
-                                <div className="w-11 h-11 flex-shrink-0 flex justify-end items-start">
-                                    {displayData.showProfilePicture ? (
-                                        <div className="w-11 h-11 relative">
-                                            <div className="w-11 h-11 rounded-full border border-gray-200 overflow-hidden">
-                                                {displayData.profilePictureUrl ? (
-                                                    <GlassImage
-                                                        src={displayData.profilePictureUrl}
-                                                        alt={displayData.rightText || 'User'}
-                                                        containerClassName="w-11 h-11 rounded-full"
-                                                        glassClassName="w-11 h-11 rounded-full"
-                                                        imageClassName="w-11 h-11 rounded-full object-cover"
+                                <div className='flex items-start gap-2 hover:bg-gray-100/80 cursor-pointer hover:backdrop-blur-sm rounded-lg p-2 transition-all duration-300 ease-in-out' >
+
+
+                                    {/* Icon or Profile Picture */}
+                                    <div className="w-12 h-12 flex-shrink-0 flex justify-end items-start">
+                                        {displayData.showProfilePicture ? (
+                                            <div className="w-12 h-12 relative">
+                                                <div className="w-12 h-12 rounded-full border border-gray-200 overflow-hidden">
+                                                    {displayData.profilePictureUrl ? (
+                                                        <GlassImage
+                                                            src={displayData.profilePictureUrl}
+                                                            alt={displayData.rightText || 'User'}
+                                                            containerClassName="w-12 h-12 rounded-full"
+                                                            glassClassName="w-12 h-12 rounded-full"
+                                                            imageClassName="w-12 h-12 rounded-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                                                            <Icon icon="mdi:account" className="w-6 h-6 text-gray-400" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="w-11 h-11 relative bg-green-600/10 rounded-[100px] flex items-center justify-center">
+                                                {iconName && (
+                                                    <Icon
+                                                        icon={iconName}
+                                                        className="w-4 h-4 text-green-600"
                                                     />
-                                                ) : (
-                                                    <div className="w-11 h-11 rounded-full bg-gray-200 flex items-center justify-center">
-                                                        <Icon icon="mdi:account" className="w-6 h-6 text-gray-400" />
-                                                    </div>
                                                 )}
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <div className="w-11 h-11 relative bg-green-600/10 rounded-[100px] flex items-center justify-center">
-                                            {iconName && (
-                                                <Icon
-                                                    icon={iconName}
-                                                    className="w-4 h-4 text-green-600"
-                                                />
+                                        )}
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="flex-1 flex flex-col gap-2 min-w-0">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <h3 className="flex-1 max-w-[250px] text-zinc-800 text-xs lg:text-sm font-semibold font-['Lexend_Deca'] leading-4 line-clamp-2">
+                                                {displayData.mainText}
+                                            </h3>
+                                            {displayData.rightText && (
+                                                <div className="w-20 flex-shrink-0 text-right">
+                                                    <p className="text-zinc-800 text-xs  font-semibold font-['Lexend'] leading-4 truncate">
+                                                        {displayData.rightText}
+                                                    </p>
+                                                </div>
                                             )}
                                         </div>
-                                    )}
-                                </div>
-
-                                {/* Content */}
-                                <div className="flex-1 flex flex-col gap-2 min-w-0">
-                                    <div className="flex items-start justify-between gap-2">
-                                        <h3 className="flex-1 max-w-[250px] text-zinc-800 text-xs lg:text-sm font-semibold font-['Lexend_Deca'] leading-4 line-clamp-2">
-                                            {displayData.mainText}
-                                        </h3>
-                                        {displayData.rightText && (
-                                            <div className="w-20 flex-shrink-0 text-right">
-                                                <p className="text-zinc-800 text-xs  font-semibold font-['Lexend'] leading-4 truncate">
-                                                    {displayData.rightText}
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex items-start justify-between gap-2">
-                                        <p className="flex-1 capitalize text-zinc-500 text-xs font-normal font-['Lexend'] leading-4 line-clamp-2">
-                                            {displayData.subText}
-                                        </p>
-                                        {displayData.rightSubText && (
-                                            <div className="w-20 flex-shrink-0 text-right">
-                                                <p className="text-zinc-500 text-xs font-semibold font-['Lexend'] leading-4">
-                                                    {displayData.rightSubText}
-                                                </p>
-                                            </div>
-                                        )}
+                                        <div className="flex items-start justify-between gap-2">
+                                            <p className="flex-1 capitalize text-zinc-500 text-xs font-normal font-['Lexend'] leading-4 line-clamp-2">
+                                                {displayData.subText}
+                                            </p>
+                                            {displayData.rightSubText && (
+                                                <div className="w-20 flex-shrink-0 text-right">
+                                                    <p className="text-zinc-500 text-xs font-semibold font-['Lexend'] leading-4">
+                                                        {displayData.rightSubText}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
+                                {<div className="w-full h-px bg-[#EDF2F7] " />}
                             </div>
-                            {!isLast && <div className="h-px bg-slate-100" />}
                         </React.Fragment>
                     );
                 })}

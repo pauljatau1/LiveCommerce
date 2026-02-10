@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronUp, Radio, ShoppingBag } from 'lucide-react';
+import { ChevronDown, ChevronUp, Radio, ShoppingBag, Copy, Check } from 'lucide-react';
+import { useNotification } from '@/Hooks/useNotification';
 import type { Order } from '@/types';
 
 interface MobileOrdersCardsProps {
@@ -32,6 +33,8 @@ const getPaymentStatusStyle = (status: string): string => {
 
 const MobileOrdersCards: React.FC<MobileOrdersCardsProps> = ({ orders, loading }) => {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { showNotification } = useNotification();
 
   const toggleCard = (orderId: string) => {
     setExpandedCards((prev) => {
@@ -43,6 +46,55 @@ const MobileOrdersCards: React.FC<MobileOrdersCardsProps> = ({ orders, loading }
       }
       return newSet;
     });
+  };
+
+  const copyToClipboard = async (text: string): Promise<boolean> => {
+    // Try modern Clipboard API first
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (err) {
+        console.warn('Clipboard API failed, trying fallback:', err);
+      }
+    }
+
+    // Fallback for mobile browsers that don't support Clipboard API
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      
+      return successful;
+    } catch (err) {
+      console.error('Fallback copy method failed:', err);
+      return false;
+    }
+  };
+
+  const handleCopyOrderId = async (orderId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card expansion when clicking order ID
+    try {
+      const success = await copyToClipboard(orderId);
+      if (success) {
+        setCopiedId(orderId);
+        showNotification('Order ID copied to clipboard!', 'information');
+        setTimeout(() => setCopiedId(null), 2000);
+      } else {
+        showNotification('Failed to copy order ID. Please try again.', 'error');
+      }
+    } catch (err) {
+      console.error('Error copying order ID:', err);
+      showNotification('Failed to copy order ID. Please try again.', 'error');
+    }
   };
 
   if (loading) {
@@ -62,39 +114,48 @@ const MobileOrdersCards: React.FC<MobileOrdersCardsProps> = ({ orders, loading }
   }
 
   // Show only first 4 orders for mobile
-  const displayOrders = orders.slice(0, 4);
+  const displayOrders = orders?.slice(0, 4);
 
   return (
     <div className="space-y-3">
-      {displayOrders.map((order) => {
-        const isExpanded = expandedCards.has(order._id);
-        const shippingStatus = order.isStale
+      {displayOrders?.map((order) => {
+        const isExpanded = expandedCards?.has(order?._id);
+        const shippingStatus = order?.isStale
           ? 'abandoned'
-          : order.shipping?.tracking?.status || 'pending';
-        const paymentStatus = order.isStale
+          : order?.shipping?.tracking?.status || 'pending';
+        const paymentStatus = order?.isStale
           ? 'abandoned'
-          : order.paymentInfo?.status || 'pending';
-        const isBlips = order.channel.toLowerCase() === 'blips' || order.channel.toLowerCase() === 'livestream';
-        const isShop = order.channel.toLowerCase() === 'shop' || order.channel.toLowerCase() === 'marketplace';
-        const isCompleted = !order.isOpen && order.closedAt;
+          : order?.paymentInfo?.status || 'pending';
+        const isBlips = order?.channel?.toLowerCase() === 'blips' || order?.channel?.toLowerCase() === 'livestream';
+        const isShop = order?.channel?.toLowerCase() === 'shop' || order?.channel?.toLowerCase() === 'marketplace';
+        const isCompleted = !order?.isOpen && order?.closedAt;
 
         return (
           <div
-            key={order._id}
+            key={order?._id}
             className="bg-white rounded-lg border border-gray-200 overflow-hidden"
           >
             {/* Card Header - Always Visible */}
             <div
               className="p-4 cursor-pointer"
-              onClick={() => toggleCard(order._id)}
+              onClick={() => toggleCard(order?._id)}
             >
               <div className="flex justify-between items-start mb-3">
                 <div>
-                  <div className="text-blue-500 text-sm font-medium font-['Lexend']">
-                    {order.order_id}
-                  </div>
+                  <button
+                    onClick={(e) => handleCopyOrderId(order?.order_id, e)}
+                    className="text-blue-500 text-sm font-medium font-['Lexend'] cursor-pointer hover:text-blue-600 transition-colors flex items-center gap-1.5 group"
+                    title="Click to copy order ID"
+                  >
+                    <span>{order?.order_id}</span>
+                    {copiedId === order?.order_id ? (
+                      <Check className="w-3.5 h-3.5 text-blue-600" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
+                  </button>
                   <div className="text-slate-600 text-xs font-normal font-['Lexend'] mt-1">
-                    {new Date(order.createdAt).toLocaleDateString('en-US', {
+                    {new Date(order?.createdAt).toLocaleDateString('en-US', {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',
@@ -123,13 +184,13 @@ const MobileOrdersCards: React.FC<MobileOrdersCardsProps> = ({ orders, loading }
                 <div>
                   <div className="text-xs text-gray-500 font-['Lexend']">Customer</div>
                   <div className="text-sm font-medium text-slate-600 font-['Lexend'] capitalize truncate">
-                    {`${order.buyer.firstName} ${order.buyer.lastName}`}
+                    {`${order?.buyer?.firstName} ${order?.buyer?.lastName}`}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-gray-500 font-['Lexend']">Amount</div>
                   <div className="text-sm font-medium text-slate-600 font-['Lexend']">
-                    <span className="line-through">N</span> {order.totalAmount.toLocaleString()}
+                    <span className="line-through">N</span> {order?.totalAmount?.toLocaleString()}
                   </div>
                 </div>
               </div>
@@ -142,19 +203,19 @@ const MobileOrdersCards: React.FC<MobileOrdersCardsProps> = ({ orders, loading }
                 <div>
                   <div className="text-xs text-gray-500 font-['Lexend'] mb-1">Products</div>
                   <div className="space-y-1">
-                    {order.items.slice(0, 2).map((item, index) => (
+                    {order?.items?.slice(0, 2).map((item, index) => (
                       <div
                         key={index}
                         className="text-sm text-slate-600 font-['Lexend'] capitalize"
                       >
-                        {item.productName.length > 30
-                          ? `${item.productName.slice(0, 30)}...`
-                          : item.productName}
+                        {item?.productName?.length > 30
+                          ? `${item?.productName?.slice(0, 30)}...`
+                          : item?.productName}
                       </div>
                     ))}
-                    {order.items.length > 2 && (
+                    {order?.items?.length > 2 && (
                       <div className="text-xs text-slate-500">
-                        +{order.items.length - 2} more items
+                        +{order?.items?.length - 2} more items
                       </div>
                     )}
                   </div>
@@ -201,13 +262,13 @@ const MobileOrdersCards: React.FC<MobileOrdersCardsProps> = ({ orders, loading }
                         isBlips ? 'text-rose-600' : 'text-blue-500'
                       }`}
                     >
-                      {isBlips ? 'Blips' : isShop ? 'Shop' : order.channel}
+                      {isBlips ? 'Blips' : isShop ? 'Shop' : order?.channel}
                     </span>
                   </div>
                 </div>
 
                 {/* View Order Button */}
-                <Link to={`/dashboard/order/${order._id}`}>
+                <Link to={`/dashboard/order/${order?._id}`}>
                   <button className="w-full mt-2 px-4 py-2 rounded border border-green-600 text-green-600 text-xs font-semibold font-['Lexend'] hover:bg-green-50 transition-colors">
                     View Order Details
                   </button>

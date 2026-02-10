@@ -99,12 +99,12 @@ const DesktopOrdersTable: React.FC<DesktopOrdersTableProps> = ({
         <div className="space-y-1">
           <div
             onClick={() => handleCopyOrderId(record?.order_id)}
-            className="text-[#16783A] text-sm font-normal font-['Lexend'] cursor-pointer hover:text-[#1a8a44] transition-colors flex items-center gap-1.5 group"
+            className="text-blue-500 text-sm font-normal font-['Lexend'] cursor-pointer hover:text-blue-600 transition-colors flex items-center gap-1.5 group"
             title="Click to copy order ID"
           >
             <span>{record?.order_id}</span>
             {copiedId === record?.order_id ? (
-              <Check className="w-3.5 h-3.5 text-green-600" />
+              <Check className="w-3.5 h-3.5 text-blue-600" />
             ) : (
               <Copy className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
             )}

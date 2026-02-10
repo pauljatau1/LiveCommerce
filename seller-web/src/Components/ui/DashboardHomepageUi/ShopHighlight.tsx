@@ -165,7 +165,7 @@ export default function ShopHighlight() {
                   </div>
                 </div>
                 {index < productsArray.length - 1 && (
-                  <div className="w-full h-px bg-slate-100" />
+                  <div className="w-full h-px bg-[#EDF2F7] " />
                 )}
               </React.Fragment>
             ))}
