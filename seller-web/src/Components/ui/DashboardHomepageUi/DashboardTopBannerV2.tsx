@@ -34,7 +34,7 @@ export default function DashboardTopBannerV2({ sellerDetails }: IDashboardTopBan
     }
 
     useEffect(() => {
-        if (isPickupAddressRequired()) {
+        if (seller && sellerDetails && isPickupAddressRequired()) {
             setShowPickupAddressModal(true);
         }
     }, [isPickupAddressRequired()]);
@@ -68,7 +68,7 @@ export default function DashboardTopBannerV2({ sellerDetails }: IDashboardTopBan
                                                     Add Pick Up Information
                                                 </p>
                                             </div>
-                                            <button 
+                                            <button
                                                 onClick={() => setShowPickupAddressModal(true)}
                                                 className="text-xs font-lexend font-semibold text-[#FFFFFF] bg-[#16783A] rounded-[8px] p-[8px] hover:bg-[#16783A]/80 transition-all duration-300 "
                                             >
@@ -102,7 +102,7 @@ export default function DashboardTopBannerV2({ sellerDetails }: IDashboardTopBan
                                                     Add Phone Number
                                                 </p>
                                             </div>
-                                            <button 
+                                            <button
                                                 onClick={() => setShowPhoneOtpModal(true)}
                                                 className="text-xs font-lexend font-semibold text-[#FFFFFF] bg-[#16783A] rounded-[8px] p-[8px] hover:bg-[#16783A]/80 transition-all duration-300 "
                                             >
@@ -207,11 +207,15 @@ export default function DashboardTopBannerV2({ sellerDetails }: IDashboardTopBan
                     </div>
                 </div>
             </>
-            <PickupAddressVerificationModal
-                isOpen={showPickupAddressModal}
-                onClose={() => setShowPickupAddressModal(false)}
-                isPending={!isPickupAddressRequired()}
-            />
+            {
+                showPickupAddressModal && (
+                    <PickupAddressVerificationModal
+                        isOpen={showPickupAddressModal}
+                        onClose={() => setShowPickupAddressModal(false)}
+                        isPending={!isPickupAddressRequired()}
+                    />
+                )
+            }
             <PhoneOtpVerificationModal
                 open={showPhoneOtpModal}
                 onOpenChange={setShowPhoneOtpModal}

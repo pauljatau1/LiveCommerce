@@ -9,6 +9,8 @@ import { sellerService } from "@/services/sellerService";
 import { calculateUnreadMessages, calculateNewNotifications } from "@/util/helpers";
 import { Skeleton } from "@/Components/shared/Skeleton";
 import { isAxiosError } from "axios";
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
+import LogoutConfirmationModal from "@/Components/ui/Header/LogoutConfirmationModal";
 
 /**
  * SideBarNav Component
@@ -37,6 +39,8 @@ interface IItem {
 
 export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSidebar }: { isSidebarOpen: boolean, setIsSidebarOpen: (isSidebarOpen: boolean) => void, hideSidebar: () => void }) {
     const location = useLocation();
+    const { logout, isLoading } = useAuthContext();
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
 
     // Fetch notifications and conversations using the same query keys as HeaderV2
     // React Query will automatically share the cache between components
@@ -424,10 +428,13 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                     </NavLink>
                                 </div>
                                 <div className="flex items-center w-[95%] px-[5px] justify-between hover:bg-white/10 hover:backdrop-blur-sm text-white/60 hover:text-white cursor-pointer py-[2px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out" >
-                                    <NavLink to="/dashboard/shop-manager" className="flex py-[8px] h-full w-full items-center gap-3" >
+                                    <button 
+                                        onClick={() => setShowLogoutModal(true)}
+                                        className="flex py-[8px] h-full w-full items-center gap-3"
+                                    >
                                         <Icon icon="solar:logout-2-outline" width={18} height={18} />
                                         <span className="font-lexend text-[14px] 3xl:text-base ">Log Out</span>
-                                    </NavLink>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -712,16 +719,31 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                     </NavLink>
                                 </div>
                                 <div className="flex items-center w-[95%] px-[5px] justify-between hover:bg-white/10 hover:backdrop-blur-sm text-white/60 hover:text-white cursor-pointer py-[2px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out" >
-                                    <NavLink to="/dashboard/shop-manager" onClick={() => { isSidebarOpen && setIsSidebarOpen(false) }} className="flex py-[8px] h-full w-full items-center gap-3" >
+                                    <button 
+                                        onClick={() => {
+                                            setShowLogoutModal(true);
+                                            if (isSidebarOpen) {
+                                                setIsSidebarOpen(false);
+                                            }
+                                        }}
+                                        className="flex py-[8px] h-full w-full items-center gap-3"
+                                    >
                                         <Icon icon="solar:logout-2-outline" width={18} height={18} />
                                         <span className="font-lexend text-[14px] 3xl:text-base ">Log Out</span>
-                                    </NavLink>
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 )
             }
+
+            <LogoutConfirmationModal
+                open={showLogoutModal}
+                onOpenChange={setShowLogoutModal}
+                onConfirm={logout}
+                isLoggingOut={isLoading}
+            />
         </>
     )
 }
