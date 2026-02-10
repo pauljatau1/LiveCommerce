@@ -20,8 +20,17 @@ export default function ShopHighlight() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('This Month');
 
   const { data: products, isPending } = useQuery({
-    queryKey: ['topSellingProducts'],
-    queryFn: () => sellerService.fetchTopSoldProducts()
+    queryKey: ['topSellingProducts', dateRange[0]?.format('YYYY-MM-DD'), dateRange[1]?.format('YYYY-MM-DD')],
+    queryFn: () => {
+      const params = dateRange[0] && dateRange[1] 
+        ? { 
+            startDate: dateRange[0].format('YYYY-MM-DD'), 
+            endDate: dateRange[1].format('YYYY-MM-DD') 
+          }
+        : undefined;
+      return sellerService.fetchTopSoldProducts(params);
+    },
+    enabled: true, // Always enabled, but params will be undefined if no date range is selected
   });
 
   // Cast products to array since API returns array but type says single object

@@ -41,11 +41,15 @@ export const sellerService = {
   /**
    * Fetch top sold products
    *
+   * @param params - Optional parameters for date range filtering
+   * @param params.startDate - Start date in YYYY-MM-DD format
+   * @param params.endDate - End date in YYYY-MM-DD format
    * @returns Promise<TopSoldProducts> - Top sold products
    */
-  async fetchTopSoldProducts(): Promise<TopSoldProducts> {
+  async fetchTopSoldProducts(params?: { startDate?: string; endDate?: string }): Promise<TopSoldProducts> {
     const url = SELLER_ENDPOINTS.topSoldProducts;
-    const response = await apiService.get<TopSoldProducts>(url);
+    const config = params ? { params } : undefined;
+    const response = await apiService.get<TopSoldProducts>(url, config);
     console.log("top sold products service", response.data);
     return response.data;
   },
