@@ -1,15 +1,16 @@
-import AuqliLogo from "@/assets/icons/AuqliLogo"
+import { Icon } from "@iconify/react";
+import { Skeleton } from "@/Components/shared/Skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { useIntercom } from 'react-use-intercom';
+import { isAxiosError } from "axios";
+import { sellerService } from "@/services/sellerService";
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Icon } from "@iconify/react";
-import { sideBarNavData, sideBarNavData2, sideBarNavData3, sideBarNavData4, sideBarNavData5 } from "@/Utilities/data";
-import MenuCloseIcon from "../../../assets/icons/MenuCloseIcon";
-import { useQuery } from "@tanstack/react-query";
-import { sellerService } from "@/services/sellerService";
 import { calculateUnreadMessages, calculateNewNotifications } from "@/util/helpers";
-import { Skeleton } from "@/Components/shared/Skeleton";
-import { isAxiosError } from "axios";
-import { useAuthContext } from "@/Hooks/useAuthContextV2";
+import { sideBarNavData, sideBarNavData2, sideBarNavData3, sideBarNavData4, sideBarNavData5 } from "@/Utilities/data";
+import AuqliLogo from "@/assets/icons/AuqliLogo"
+import MenuCloseIcon from "../../../assets/icons/MenuCloseIcon";
 import LogoutConfirmationModal from "@/Components/ui/Header/LogoutConfirmationModal";
 
 /**
@@ -39,6 +40,7 @@ interface IItem {
 
 export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSidebar }: { isSidebarOpen: boolean, setIsSidebarOpen: (isSidebarOpen: boolean) => void, hideSidebar: () => void }) {
     const location = useLocation();
+    const { show, showNewMessage } = useIntercom();
     const { logout, isLoading } = useAuthContext();
     const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -89,7 +91,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
         const mergedSideBarData = [...sideBarNavData, ...sideBarNavData2, ...sideBarNavData3, ...sideBarNavData4];
         mergedSideBarData.forEach((item) => {
             if (item?.subNav && item?.subNav?.length > 0) {
-                const hasActiveChild = item.subNav.some(subItem => location.pathname === subItem.path);
+                const hasActiveChild = item.subNav.some((subItem: ISubItem) => location.pathname === subItem.path);
                 if (hasActiveChild) {
                     initialExpanded.push(item.id);
                 }
@@ -121,6 +123,11 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
         setIsExpanded(prev => prev?.includes(id) ? prev?.filter((item: string) => item !== id) : [...prev, id]);
     }
 
+    const handleNewMessages = () => {
+        showNewMessage();
+        isSidebarOpen && setIsSidebarOpen(false);
+    }
+
     /**
     * Effect to auto-expand parent items when route changes and a subnav child is active
     * This handles cases where users navigate directly to a subnav URL or click on subnav links
@@ -129,9 +136,9 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
         const mergedSideBarData = [...sideBarNavData, ...sideBarNavData2, ...sideBarNavData3, ...sideBarNavData4];
         mergedSideBarData?.forEach(item => {
             if (item.subNav && item.subNav.length > 0) {
-                const subNavPaths = item?.subNav?.map(subItem => subItem.path);
+                const subNavPaths = item?.subNav?.map((subItem: ISubItem) => subItem.path);
                 const lastPath = location.pathname.split('/').pop();
-                const hasActiveChild = subNavPaths.some(path => lastPath === path);
+                const hasActiveChild = subNavPaths.some((path: string) => lastPath === path);
                 //console.log('location pathname', location.pathname);
                 //console.log('item subnav', item.subNav);
                 //console.log('hasActiveChild', hasActiveChild);
@@ -401,7 +408,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                                     hasSubNav && isSubNavExpanded && (
                                                         <div className="border-l-[1px] border-l-[#FFFFFF1A] flex flex-col gap-2 ml-[10px]" >
                                                             {
-                                                                item?.subNav?.map((subNavItem) => {
+                                                                item?.subNav?.map((subNavItem: ISubItem) => {
                                                                     const isActive = isSubNavActive(subNavItem);
 
                                                                     return (
@@ -422,10 +429,10 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                     })
                                 }
                                 <div className="flex items-center w-[95%] px-[5px] justify-between hover:bg-white/10 hover:backdrop-blur-sm text-white/60 hover:text-white cursor-pointer py-[2px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out" >
-                                    <NavLink to="/dashboard/shop-manager" className="flex py-[8px] h-full w-full items-center gap-3" >
+                                    <div onClick={handleNewMessages} className="flex py-[8px] h-full w-full items-center gap-3" >
                                         <Icon icon="ix:support" width={18} height={18} />
                                         <span className="font-lexend text-[14px] 3xl:text-base ">Help & Support</span>
-                                    </NavLink>
+                                    </div>
                                 </div>
                                 <div className="flex items-center w-[95%] px-[5px] justify-between hover:bg-white/10 hover:backdrop-blur-sm text-white/60 hover:text-white cursor-pointer py-[2px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out" >
                                     <button 
@@ -556,7 +563,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                                         hasSubNav && isSubNavExpanded && (
                                                             <div className="border-l-[1px] border-l-[#FFFFFF1A] flex flex-col gap-2 ml-[22px]" >
                                                                 {
-                                                                    item?.subNav?.map((subNavItem) => {
+                                                                    item?.subNav?.map((subNavItem: ISubItem) => {
                                                                         const isActive = isSubNavActive(subNavItem);
 
                                                                         return (
@@ -692,7 +699,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                                     hasSubNav && isSubNavExpanded && (
                                                         <div className="border-l-[1px] border-l-[#FFFFFF1A] flex flex-col gap-2 ml-[10px]" >
                                                             {
-                                                                item?.subNav?.map((subNavItem) => {
+                                                                item?.subNav?.map((subNavItem: ISubItem) => {
                                                                     const isActive = isSubNavActive(subNavItem);
 
                                                                     return (
@@ -713,10 +720,10 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                     })
                                 }
                                 <div className="flex items-center w-[95%] px-[5px] justify-between hover:bg-white/10 hover:backdrop-blur-sm text-white/60 hover:text-white cursor-pointer py-[2px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out" >
-                                    <NavLink to="/dashboard/shop-manager" onClick={() => { isSidebarOpen && setIsSidebarOpen(false) }} className="flex py-[8px] h-full w-full items-center gap-3" >
+                                    <div onClick={handleNewMessages} className="flex py-[8px] h-full w-full items-center gap-3" >
                                         <Icon icon="ix:support" width={18} height={18} />
                                         <span className="font-lexend text-[14px] 3xl:text-base ">Help & Support</span>
-                                    </NavLink>
+                                    </div>
                                 </div>
                                 <div className="flex items-center w-[95%] px-[5px] justify-between hover:bg-white/10 hover:backdrop-blur-sm text-white/60 hover:text-white cursor-pointer py-[2px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out" >
                                     <button 
