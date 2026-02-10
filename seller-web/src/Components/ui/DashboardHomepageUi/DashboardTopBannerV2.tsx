@@ -9,6 +9,7 @@ import LocationIcon from "@/assets/icons/LocationIcon";
 import ProductIcon from "@/assets/icons/ProductIcon";
 import BankIcon from "@/assets/icons/BankIcon";
 import PickupAddressVerificationModal from "@/Components/shared/PickupAddressVerificationModal";
+import PhoneOtpVerificationModal from "@/Components/ui/Header/PhoneOtpVerificationModal";
 
 interface IDashboardTopBannerV2Props {
     sellerDetails: Seller;
@@ -18,6 +19,7 @@ export default function DashboardTopBannerV2({ sellerDetails }: IDashboardTopBan
     const navigate = useNavigate();
     const { seller } = useAuthContext();
     const [showPickupAddressModal, setShowPickupAddressModal] = useState(false);
+    const [showPhoneOtpModal, setShowPhoneOtpModal] = useState(false);
 
     const isPickupAddressRequired = () => {
         if (sellerDetails?.accountType) {
@@ -100,7 +102,12 @@ export default function DashboardTopBannerV2({ sellerDetails }: IDashboardTopBan
                                                     Add Phone Number
                                                 </p>
                                             </div>
-                                            <button className="text-xs font-lexend font-semibold text-[#FFFFFF] bg-[#16783A] rounded-[8px] p-[8px] hover:bg-[#16783A]/80 transition-all duration-300 ">Add Now</button>
+                                            <button 
+                                                onClick={() => setShowPhoneOtpModal(true)}
+                                                className="text-xs font-lexend font-semibold text-[#FFFFFF] bg-[#16783A] rounded-[8px] p-[8px] hover:bg-[#16783A]/80 transition-all duration-300 "
+                                            >
+                                                Add Now
+                                            </button>
                                         </div>
                                     </TooltipTrigger>
                                     <TooltipContent className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-lg max-w-xs">
@@ -204,6 +211,10 @@ export default function DashboardTopBannerV2({ sellerDetails }: IDashboardTopBan
                 isOpen={showPickupAddressModal}
                 onClose={() => setShowPickupAddressModal(false)}
                 isPending={!isPickupAddressRequired()}
+            />
+            <PhoneOtpVerificationModal
+                open={showPhoneOtpModal}
+                onOpenChange={setShowPhoneOtpModal}
             />
         </section>
     )

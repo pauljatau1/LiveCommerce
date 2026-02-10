@@ -18,6 +18,8 @@ const SELLER_ENDPOINTS = {
   analytics: "/sellers/statistics",
   fetchSellerConversations: "/conversations",
   completeProfile: "/sellers/profile/complete",
+  sendPhoneVerification: "/sellers/send-phone-verification",
+  verifyPhone: "/sellers/verify-phone",
 };
 
 export const sellerService = {
@@ -140,5 +142,44 @@ export const sellerService = {
     );
     // Ensure we return the full standard API response shape
     return (response as unknown) as { success: boolean; message: string; data: { message: string; seller: Seller } };
+  },
+
+  /**
+   * Send phone verification OTP
+   *
+   * @param phoneNumber - 10-digit phone number (without country code prefix)
+   * @returns Promise<{ success: boolean; message: string }>
+   */
+  async sendPhoneVerificationOtp(phoneNumber: string): Promise<{ success: boolean; message: string }> {
+    const url = SELLER_ENDPOINTS.sendPhoneVerification;
+    const config = {
+      baseURL: API_CONFIG.BASE_URL_V2,
+    };
+    const response = await apiService.post<{ success: boolean; message: string }>(
+      url,
+      { phoneNumber } as unknown as Record<string, unknown>,
+      config
+    );
+    return response;
+  },
+
+  /**
+   * Verify phone number with OTP
+   *
+   * @param phoneNumber - 10-digit phone number (without country code prefix)
+   * @param otp - 4-digit OTP code
+   * @returns Promise<{ success: boolean; message: string; data?: Seller }>
+   */
+  async verifyPhoneOtp(phoneNumber: string, otp: string): Promise<{ success: boolean; message: string; data?: Seller }> {
+    const url = SELLER_ENDPOINTS.verifyPhone;
+    const config = {
+      baseURL: API_CONFIG.BASE_URL_V2,
+    };
+    const response = await apiService.post<{ success: boolean; message: string; data?: Seller }>(
+      url,
+      { phoneNumber, otp } as unknown as Record<string, unknown>,
+      config
+    );
+    return response;
   },
 };

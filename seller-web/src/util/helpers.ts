@@ -471,3 +471,48 @@ export const getNotificationDisplayData = (notification: {
     profilePictureUrl,
   };
 };
+
+/**
+ * Extract error message from AxiosError
+ * 
+ * Handles various error structures and extracts the most relevant error message.
+ * Checks response.data.message first, then falls back to other error properties.
+ * 
+ * @param error - The error object (can be AxiosError, Error, or unknown)
+ * @returns The extracted error message or a default message
+ */
+export function extractAxiosErrorMessage(error: unknown): string {
+  // Handle AxiosError with response data
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    error.response &&
+    typeof error.response === "object" &&
+    "data" in error.response &&
+    error.response.data &&
+    typeof error.response.data === "object" &&
+    "message" in error.response.data &&
+    typeof error.response.data.message === "string"
+  ) {
+    return error.response.data.message;
+  }
+
+  if (typeof error === "object" &&
+    error !== null) {
+    return error.response.data;
+  }
+
+  // Handle AxiosError with direct message
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+
+  // Fallback to default message
+  return "An unexpected error occurred";
+}
