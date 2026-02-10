@@ -5,6 +5,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/Components/ui/dialog";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface LogoutConfirmationModalProps {
   open: boolean;
@@ -19,7 +20,14 @@ export default function LogoutConfirmationModal({
   onConfirm,
   isLoggingOut = false,
 }: LogoutConfirmationModalProps) {
+  const queryClient = useQueryClient();
+
   const handleConfirm = async () => {
+    // Invalidate all queries to clear cached data
+    queryClient.invalidateQueries();
+    queryClient.clear();
+    queryClient.resetQueries();
+    queryClient.removeQueries();
     await onConfirm();
     onOpenChange(false);
   };
