@@ -8,6 +8,7 @@ import DashboardTopBannerV2 from "@/Components/ui/DashboardHomepageUi/DashboardT
 import HomeAnalyticsSection from "@/Components/ui/DashboardHomepageUi/HomeAnalyticsSection";
 import DashboardActivitiesSection from "@/Components/ui/DashboardHomepageUi/DashboardActivitiesSection";
 import DashboardOrdersSection from "@/Components/ui/DashboardHomepageUi/DashboardOrdersSection";
+import AuqliUniversity from "@/Components/shared/AuqliUniversity";
 
 
 
@@ -40,6 +41,10 @@ export default function HomePageV2() {
             <DashboardActivitiesSection />
             {/* Dashboard Orders Section */}
             <DashboardOrdersSection />
+            {/* Auqli Seller University */}
+            <div className="mt-4 lg:mt-8">
+                <AuqliUniversity />
+            </div>
         </main>
     )
 }
