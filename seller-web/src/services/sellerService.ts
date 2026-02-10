@@ -67,6 +67,16 @@ export const sellerService = {
   },
 
   /**
+   * Mark a single notification as read
+   *
+   * @param notificationId - ID of the notification to mark as read
+   */
+  async markNotificationAsRead(notificationId: string): Promise<void> {
+    const url = `${SELLER_ENDPOINTS.notifications}/${notificationId}/mark-read`;
+    await apiService.put<void>(url);
+  },
+
+  /**
    * Fetch seller notifications with pagination (for infinite query)
    *
    * @param params - Pagination parameters

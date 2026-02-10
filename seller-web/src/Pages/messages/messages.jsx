@@ -597,63 +597,86 @@ export default function ChatInterface() {
     fetchConversations();
   }, []);
 
-  // Handle location state to open chat with specific customer
+  // Handle location state to open chat with specific customer or specific conversation
   useEffect(() => {
     const handleLocationState = async () => {
-      if (!location.state?.openChatWithCustomer || !location.state?.customerId) {
+      const state = location.state;
+
+      if (!state) return;
+
+      // Open chat with a specific customer (existing behaviour)
+      if (state.openChatWithCustomer && state.customerId) {
+        const { customerId, customerName } = state;
+        
+        // Check if there's already a conversation with this customer
+        const existingConversation = conversations.find(conv => 
+          conv.participant.id === customerId
+        );
+  
+        if (existingConversation) {
+          // Open existing conversation
+          setCurrentConversation(existingConversation);
+          setShowChatList(false); // Hide chat list on mobile
+          
+          // Don't mark as loaded - let the normal message fetching handle it
+          // This ensures messages are properly fetched when returning to the conversation
+        } else {
+          // Create new conversation without sending a default message
+          setIsCreatingConversation(true);
+          try {
+            // Create a conversation object without sending a message
+            const newConversation = {
+              _id: `temp_${Date.now()}`, // Temporary ID until we get the real one
+              participant: {
+                id: customerId,
+                name: customerName,
+                model: 'Buyer'
+              },
+              lastMessage: {
+                content: '',
+                createdAt: new Date().toISOString()
+              },
+              unreadCount: 0,
+              isNew: true // Flag to indicate this is a new conversation
+            };
+  
+            // Update conversations list and set current
+            setConversations(prev => [newConversation, ...prev]);
+            setCurrentConversation(newConversation);
+            setShowChatList(false); // Hide chat list on mobile
+            
+            toast.success('Chat opened with customer');
+          } catch (error) {
+            console.error('Error opening chat:', error);
+            toast.error('Failed to open chat with customer');
+          } finally {
+            setIsCreatingConversation(false);
+          }
+        }
+
+        // Clear the location state to prevent re-triggering
+        navigate('/dashboard/messages', { replace: true });
         return;
       }
 
-      const { customerId, customerName } = location.state;
-      
-      // Check if there's already a conversation with this customer
-      const existingConversation = conversations.find(conv => 
-        conv.participant.id === customerId
-      );
+      // Open an existing conversation directly by ID (for buyer_message notifications)
+      if (state.openConversationById && state.conversationId) {
+        const targetConversationId = state.conversationId;
 
-      if (existingConversation) {
-        // Open existing conversation
-        setCurrentConversation(existingConversation);
-        setShowChatList(false); // Hide chat list on mobile
-        
-        // Don't mark as loaded - let the normal message fetching handle it
-        // This ensures messages are properly fetched when returning to the conversation
-      } else {
-        // Create new conversation without sending a default message
-        setIsCreatingConversation(true);
-        try {
-          // Create a conversation object without sending a message
-          const newConversation = {
-            _id: `temp_${Date.now()}`, // Temporary ID until we get the real one
-            participant: {
-              id: customerId,
-              name: customerName,
-              model: 'Buyer'
-            },
-            lastMessage: {
-              content: '',
-              createdAt: new Date().toISOString()
-            },
-            unreadCount: 0,
-            isNew: true // Flag to indicate this is a new conversation
-          };
+        const existingConversation = conversations.find(conv => 
+          conv._id === targetConversationId
+        );
 
-          // Update conversations list and set current
-          setConversations(prev => [newConversation, ...prev]);
-          setCurrentConversation(newConversation);
+        if (existingConversation) {
+          setCurrentConversation(existingConversation);
           setShowChatList(false); // Hide chat list on mobile
-          
-          toast.success('Chat opened with customer');
-        } catch (error) {
-          console.error('Error opening chat:', error);
-          toast.error('Failed to open chat with customer');
-        } finally {
-          setIsCreatingConversation(false);
+        } else {
+          console.warn('Conversation with ID not found:', targetConversationId);
         }
-      }
 
-      // Clear the location state to prevent re-triggering
-      navigate('/dashboard/messages', { replace: true });
+        // Clear the location state to prevent re-triggering
+        navigate('/dashboard/messages', { replace: true });
+      }
     };
 
     // Only run after conversations are loaded
@@ -2632,6 +2655,7 @@ export default function ChatInterface() {
           flex-1 flex-col 
           bg-white
           overflow-hidden
+          lg:mt-[50px]
         `}>
           {currentConversation ? (
             <>

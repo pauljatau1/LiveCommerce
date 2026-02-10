@@ -2,13 +2,18 @@ import { Icon } from '@iconify/react';
 import { Skeleton } from '@/Components/shared/Skeleton';
 import { isAxiosError } from 'axios';
 import { sellerService } from '@/services/sellerService';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getNotificationIcon, getNotificationDisplayData } from '@/util/helpers';
 import React, { useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import GlassImage from '@/Components/ui/GlassImageV2';
 import EmptyActivityIcon from '@/assets/icons/EmptyActivityIcon';
+import { useNotification } from '@/Hooks/useNotification';
 
 export default function ActivityFeed() {
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const { showNotification } = useNotification();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const {
         data,
@@ -45,6 +50,101 @@ export default function ActivityFeed() {
 
     // Flatten all notifications from all pages
     const notifications = data?.pages.flatMap(page => page.notifications || []) || [];
+
+    const markNotificationAsReadMutation = useMutation({
+        mutationFn: (notificationId: string) =>
+            sellerService.markNotificationAsRead(notificationId),
+        onError: (error) => {
+            console.error("Error marking notification as read:", error);
+            showNotification(
+                "Failed to mark notification as read. Please try again.",
+                "error"
+            );
+        },
+    });
+
+    const handleNotificationClick = (notification: any) => {
+        // Mark notification as read if it isn't already
+        if (!notification.isRead) {
+            markNotificationAsReadMutation.mutate(notification._id);
+        }
+
+        // Route based on notification type
+        switch (notification.type) {
+            case "low_stock":
+            case "back_in_stock":
+                navigate(`/dashboard/products`);
+                break;
+
+            case "new_follower":
+                // Redirect to account page with parameter to open followers dialog
+                navigate("/dashboard/account?openFollowers=true");
+                break;
+
+            case "new_order":
+            case "order_paid":
+            case "order_delivered":
+            case "order_cancelled":
+            case "order_status_update":
+            case "order_shipped":
+            case "order_reminder":
+            case "order_picked_up":
+            case "order_in_transit":
+                // Navigate to the specific order if orderId is available in the notification data
+                if (notification.data && notification.data.orderId) {
+                    navigate(`/dashboard/order/${notification.data.orderId}`);
+                } else {
+                    navigate("/dashboard/orders");
+                }
+                break;
+
+            case "return_request":
+            case "return_created":
+            case "return_approved":
+            case "return_rejected":
+            case "return_info_needed":
+            case "return_partial_refund":
+            case "return_label_created":
+            case "return_pickup_arranged":
+                navigate("/dashboard/returns");
+                break;
+
+            case "new_campaign":
+            case "campaign_scheduled":
+                navigate("/dashboard/marketing/inbox-campaigns/list");
+                break;
+
+            case "blip_like":
+            case "blip_comment":
+                // Just navigate to the blips page without opening any specific details
+                navigate("/dashboard/blips");
+                break;
+
+            case "buyer_message": {
+                const conversationId = notification.data?.conversationId;
+
+                if (conversationId) {
+                    navigate("/dashboard/messages", {
+                        state: {
+                            openConversationById: true,
+                            conversationId,
+                        },
+                    });
+                } else {
+                    navigate("/dashboard/messages");
+                }
+
+                // Invalidate conversations so unread counts are updated
+                queryClient.invalidateQueries({ queryKey: ["sellerConversations"] });
+
+                break;
+            }
+
+            default:
+                // Default to dashboard if no specific route
+                navigate("/dashboard/home");
+        }
+    };
 
     // Handle scroll to load more when reaching bottom
     useEffect(() => {
@@ -137,7 +237,10 @@ export default function ActivityFeed() {
 
                     return (
                         <React.Fragment key={notification._id}>
-                            <div className={`py-2 ${displayData.showProfilePicture ? 'h-16' : ''} flex items-start gap-2 hover:bg-gray-100/80 cursor-pointer hover:backdrop-blur-sm rounded-lg p-2 transition-all duration-300 ease-in-out`}>
+                            <div 
+                                onClick={() => handleNotificationClick(notification)}
+                                className={`py-2 ${displayData.showProfilePicture ? 'h-16' : ''} flex items-start gap-2 hover:bg-gray-100/80 cursor-pointer hover:backdrop-blur-sm rounded-lg p-2 transition-all duration-300 ease-in-out`}
+                            >
                                 {/* Icon or Profile Picture */}
                                 <div className="w-11 h-11 flex-shrink-0 flex justify-end items-start">
                                     {displayData.showProfilePicture ? (
