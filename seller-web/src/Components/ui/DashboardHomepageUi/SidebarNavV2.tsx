@@ -37,7 +37,7 @@ interface IItem {
 
 export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSidebar }: { isSidebarOpen: boolean, setIsSidebarOpen: (isSidebarOpen: boolean) => void, hideSidebar: () => void }) {
     const location = useLocation();
-    
+
     // Fetch notifications and conversations using the same query keys as HeaderV2
     // React Query will automatically share the cache between components
     const { data: notifications, isLoading: isLoadingNotifications } = useQuery({
@@ -100,7 +100,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
         if (item?.name == 'KYC Verification') {
             return location?.pathname.includes('/dashboard/kyc-verification');
         }
-        
+
         if (item?.subNav && item?.subNav?.length > 0) {
             const exactParent = location?.pathname === item?.path;
             return exactParent;
@@ -656,11 +656,11 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                         </div>
                         <div className="pl-[10px] pr-[20px]">
                             <div className="bg-[#17171B] flex flex-col gap-2 overflow-y-auto h-[150px] [&::-webkit-scrollbar]:w-1.5
-                    [&::-webkit-scrollbar-track]:bg-transparent
-                    [&::-webkit-scrollbar-thumb]:bg-transparent
-                    [&::-webkit-scrollbar-thumb]:rounded-full
-                    [&::-webkit-scrollbar-thumb]:border-0
-                    group-hover:[&::-webkit-scrollbar-thumb]:bg-[#FFFFFF1A] " >
+                                [&::-webkit-scrollbar-track]:bg-transparent
+                                [&::-webkit-scrollbar-thumb]:bg-transparent
+                                [&::-webkit-scrollbar-thumb]:rounded-full
+                                [&::-webkit-scrollbar-thumb]:border-0
+                                group-hover:[&::-webkit-scrollbar-thumb]:bg-[#FFFFFF1A] " >
                                 {
                                     sideBarNavData4.map((item) => {
                                         const hasSubNav = item?.subNav && item?.subNav?.length > 0;

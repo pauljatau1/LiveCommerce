@@ -8,6 +8,7 @@ import type { SellerOrders } from '@/types';
 import DesktopOrdersTable from './DesktopOrdersTable';
 import MobileOrdersCards from './MobileOrdersCards';
 import OrdersDatePicker from './OrdersDatePicker';
+import EmptyOrdersIcon from '@/assets/icons/EmptyOrdersIcon';
 
 export default function DashboardOrdersSection() {
   const navigate = useNavigate();
@@ -77,20 +78,40 @@ export default function DashboardOrdersSection() {
       {/* Table Content */}
       <div className="overflow-hidden">
         {isDesktop ? (
-          <DesktopOrdersTable
-            orders={orders}
-            loading={isLoading}
-            pagination={{
-              current: currentPage,
-              pageSize,
-              total: totalOrders,
-              onChange: handlePageChange,
-            }}
-          />
+          orders?.length > 0 ? (
+            <DesktopOrdersTable
+              orders={orders}
+              loading={isLoading}
+              pagination={{
+                current: currentPage,
+                pageSize,
+                total: totalOrders,
+                onChange: handlePageChange,
+              }}
+            />
+          ) : (
+            <div className='flex flex-col items-center justify-center gap-4 py-20 '>
+              <h3 className='font-semibold text-xl 2xl:text-2xl font-lexend text-[#0BB248] ' >No Orders Found!</h3>
+              <p className="font-lexend text-[#667085] text-sm lg:text-base font-normal leading-6 text-center max-w-[400px] lg:max-w-[766px] " >There are no products matching your current filters. Try adjusting your search criteria, date range.</p>
+              <EmptyOrdersIcon width={220} height={220} />
+              <p className="font-lexend text-[#667085] text-sm lg:text-base font-medium leading-6 text-center max-w-[400px] lg:max-w-[766px] " >Let’s fix that!</p>
+              <button className='bg-[#0BB248] text-white text-sm lg:text-base font-medium font-lexend leading-6 px-4 lg:px-6 py-2 lg:py-3 rounded-lg hover:bg-[#0BB248]/80 transition-colors duration-300 ease-in-out ' onClick={() => navigate('/dashboard/products')} >Start Uploading</button>
+            </div>
+          )
         ) : (
-          <div className="p-4">
-            <MobileOrdersCards orders={orders} loading={isLoading} />
-          </div>
+          orders?.length > 0 ? (
+            <div className="p-4">
+              <MobileOrdersCards orders={orders} loading={isLoading} />
+            </div>
+          ) : (
+            <div className='flex flex-col items-center justify-center gap-4 py-20 '>
+              <h3 className='font-semibold text-xl 2xl:text-2xl font-lexend text-[#0BB248] ' >No Orders Found!</h3>
+              <p className="font-lexend text-[#667085] text-sm lg:text-base font-normal leading-6 text-center max-w-[300px] lg:max-w-[766px] " >There are no products matching your current filters. Try adjusting your search criteria, date range.</p>
+              <EmptyOrdersIcon width={220} height={220} />
+              <p className="font-lexend text-[#667085] text-sm lg:text-base font-medium leading-6 text-center max-w-[400px] lg:max-w-[766px] " >Let’s fix that!</p>
+              <button className='bg-[#0BB248] text-white text-sm lg:text-base font-medium font-lexend leading-6 px-4 lg:px-6 py-2 lg:py-3 rounded-lg hover:bg-[#0BB248]/80 transition-colors duration-300 ease-in-out ' onClick={() => navigate('/dashboard/products')} >Start Uploading</button>
+            </div>
+          )
         )}
       </div>
     </section>
