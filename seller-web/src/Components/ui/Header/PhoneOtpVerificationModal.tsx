@@ -314,7 +314,14 @@ export default function PhoneOtpVerificationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="md::max-w-[635px] rounded-[21px] " showCloseButton={true}>
+      <DialogContent 
+        className="md::max-w-[635px] rounded-[21px] " 
+        showCloseButton={true}
+        onOpenAutoFocus={(e) => {
+          // Prevent auto-focus on dialog open to avoid keyboard appearing
+          e.preventDefault();
+        }}
+      >
         {step === "phone" ? (
           <>
             <DialogHeader className="text-center">
@@ -351,6 +358,7 @@ export default function PhoneOtpVerificationModal({
                       autoFocus={false}
                       placeholder="80 1234 567"
                       className="rounded-l-none border-l-0"
+                      tabIndex={0}
                       {...phoneForm.register("phoneNumber", {
                         onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
                           const value = e.target.value.replace(/\D/g, "").slice(0, 10);
