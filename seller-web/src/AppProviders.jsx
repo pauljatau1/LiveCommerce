@@ -9,11 +9,11 @@ import PropTypes from 'prop-types';
 export default function AppProviders({ children }) {
     return (
         <DeviceProvider>
-        <LivestreamSocketProvider>
+            <LivestreamSocketProvider>
                 <TooltipProvider>
                     <Suspense fallback={<Loader />}>{children}</Suspense>
                 </TooltipProvider>
-        </LivestreamSocketProvider>
+            </LivestreamSocketProvider>
         </DeviceProvider>
     );
 }

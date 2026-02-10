@@ -117,12 +117,12 @@ export const sideBarNavData = [
         path: '/dashboard/orders',
         hasMessageCount: false
     },
-    {
-        id: ObjectID().toHexString(),
-        name: 'Returns Center',
-        icon: 'heroicons:arrow-path',
-        path: '/dashboard/returns',
-        hasMessageCount: false,
+    //{
+      //  id: ObjectID().toHexString(),
+      //  name: 'Returns Center',
+      //  icon: 'heroicons:arrow-path',
+      //  path: '/dashboard/returns',
+      //  hasMessageCount: false,
         // subNav: [
         //     {
         //         id: ObjectID().toHexString(),
@@ -140,7 +140,7 @@ export const sideBarNavData = [
         //         path: 'rejected'
         //     }
         // ]
-    },
+    //},
     {
         id: ObjectID().toHexString(),
         name: 'Customers',
@@ -207,23 +207,23 @@ export const sideBarNavData2 = [
 ]
 
 export const sideBarNavData3 = [
-    {
-        id: ObjectID().toHexString(),
-        name: 'Notifications',
-        icon: 'bi:bell',
-        path: '/dashboard/notifications',
-        subNav: [],
-        hasMessageCount: true
+    //{
+      //  id: ObjectID().toHexString(),
+      //  name: 'Notifications',
+      //  icon: 'bi:bell',
+      //  path: '/dashboard/notifications',
+      //  subNav: [],
+      //  hasMessageCount: true
 
-    },
-    {
-        id: ObjectID().toHexString(),
-        name: 'Auqli Connect',
-        icon: 'ri:user-community-line',
-        path: '/dashboard/auqli-connect',
-        hasMessageCount: false,
-        subNav: []
-    },
+    //},
+    //{
+    //    id: ObjectID().toHexString(),
+    //    name: 'Auqli Connect',
+    //    icon: 'ri:user-community-line',
+    //    path: '/dashboard/auqli-connect',
+    //    hasMessageCount: false,
+    //    subNav: []
+    //},
     {
         id: ObjectID().toHexString(),
         name: 'Auqli University',
@@ -239,29 +239,29 @@ export const sideBarNavData4 = [
         id: ObjectID().toHexString(),
         name: "Shop Manager",
         icon: "mdi:shop-settings",
-        path: "/dashboard/shop-manager",
+        path: "/dashboard/settings",
         hasMessageCount: false,
         subNav: [
-            {
-                id: ObjectID().toHexString(),
-                name: "Shop Settings",
-                path: "/dashboard/shop-manager/settings"
-            },
-            {
-                id: ObjectID().toHexString(),
-                name: "Manage Reviews",
-                path: "/dashboard/shop-manager/manage-reviews"
-            },
-            {
-                id: ObjectID().toHexString(),
-                name: "View Account/My Shop",
-                path: "/dashboard/shop-manager/view-account"
-            },
-            {
-                id: ObjectID().toHexString(),
-                name: "Refer a Seller & Earn",
-                path: "/dashboard/shop-manager/referral"
-            }
+    //        {
+    //            id: ObjectID().toHexString(),
+    //            name: "Shop Settings",
+    //            path: "/dashboard/settings"
+    //        },
+    //       {
+    //            id: ObjectID().toHexString(),
+    //            name: "Manage Reviews",
+    //            path: "/dashboard/shop-manager/manage-reviews"
+    //        },
+    //        {
+    //            id: ObjectID().toHexString(),
+    //            name: "View Account/My Shop",
+    //            path: "/dashboard/shop-manager/view-account"
+    //        },
+    //        {
+    //            id: ObjectID().toHexString(),
+    //            name: "Refer a Seller & Earn",
+    //            path: "/dashboard/shop-manager/referral"
+    //        }
         ]
     }
 ]
