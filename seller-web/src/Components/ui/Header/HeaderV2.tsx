@@ -1,22 +1,23 @@
 import { Icon } from "@iconify/react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { Skeleton } from "@/Components/shared/Skeleton"
 import { getInitials } from "@/util/helpers"
+import { isAxiosError } from "axios";
 import { HeaderV2Props } from '@/types';
-import { useNavigate, useLocation } from "react-router-dom"
 import { sellerService } from "@/services/sellerService"
 import { headerService } from "@/services/headerService"
 import { useAuthContext } from "@/Hooks/useAuthContextV2"
+import { useNotification } from "@/Hooks/useNotification";
 import { useEffect, useState } from "react"
+import { useNavigate, useLocation } from "react-router-dom"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import HeaderNotificationsModal from "@/Components/ui/Header/HeaderNotificationsModal";
 import GoLiveIcon from "@/assets/icons/GoLiveIcon"
 import MenuOpenIcon from "@/assets/icons/MenuOpenIcon"
 import MessageIcon from "@/assets/icons/MessageIcon"
 import AlertIcon from "@/assets/icons/AlertIcon"
-import { Skeleton } from "@/Components/shared/Skeleton"
 import NavRightIcon from "@/assets/icons/NavRightIcon";
-import { isAxiosError } from "axios";
-import { useNotification } from "@/Hooks/useNotification";
 import NotificationBanner from "@/Components/ui/NotificationBanner";
+import GlassImage from "@/Components/ui/GlassImageV2";
 
 export default function HeaderV2({ name, navName, showBackButton, fullScreenMode, isSidebarOpen, setIsSidebarOpen }: HeaderV2Props) {
     const { seller } = useAuthContext()
@@ -123,10 +124,12 @@ export default function HeaderV2({ name, navName, showBackButton, fullScreenMode
     const renderAvatar = () => {
         if (seller?.storeAvatar?.url) {
             return (
-                <img
+                <GlassImage
                     src={seller.storeAvatar.url}
                     alt={`${seller.firstName} ${seller.lastName}`}
-                    className="h-[46px] w-[46px] rounded-full object-cover"
+                    containerClassName="h-[46px] w-[46px] rounded-full object-cover"
+                    glassClassName="h-[46px] w-[46px] rounded-full object-cover"
+                    imageClassName="h-[46px] w-[46px] rounded-full object-cover"
                 />
             )
         }

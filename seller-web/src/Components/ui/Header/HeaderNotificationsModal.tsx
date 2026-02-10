@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import { BASE_URL } from "@/Constants/Server";
 import { getInitials, formatTimestamp } from "@/util/helpers";
+import GlassImage from "@/Components/ui/GlassImageV2";
 
 interface HeaderNotificationsModalProps {
     open: boolean;
@@ -95,7 +96,7 @@ const HeaderNotificationsModal = ({ open, onOpenChange }: HeaderNotificationsMod
         // For buyer_message notifications, try to get avatar from data
         if (notification.type === 'buyer_message' && notification.data?.buyerAvatar) {
             return (
-                <img
+                <GlassImage
                     src={notification.data.buyerAvatar}
                     alt={notification.data.buyerName || 'Buyer'}
                     className="w-10 h-10 rounded-full object-cover"

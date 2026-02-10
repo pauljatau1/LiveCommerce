@@ -31,6 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
 import { sellerUtils } from '@/util/auth';
 import { useNotification } from '@/Hooks/useNotification';
+import { useParams } from 'react-router-dom';
 //import EmailVerificationModal from '@/Components/EmailVerificationModal';
 import VerificationService from '@/services/VerificationService';
 
@@ -118,10 +119,11 @@ const NIGERIAN_BANKS = [
     { name: 'Suntrust Bank', code: '100' }
 ];
 
-const KycVerificationPage = () => {
+    const KycVerificationPage = () => {
     const { setHeaderName, setNavName } = useOutletContext();
-    const { emailVerified, seller, dispatch } = useAuthContext();
-    const [activeTab, setActiveTab] = useState('address');
+    const { seller, dispatch } = useAuthContext();
+    const params = useParams();
+    const [activeTab, setActiveTab] = useState('');
     const [sellerDetails, setSellerDetails] = useState(null);
     //const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -165,6 +167,11 @@ const KycVerificationPage = () => {
     useEffect(() => {
         setHeaderName('KYC Verification');
         setNavName('');
+
+        console.log('params', params);
+        if (params?.id) {
+            setActiveTab(params?.id);
+        }
         
         // Set account type if already known and skip to address step
         if (seller?.accountType) {

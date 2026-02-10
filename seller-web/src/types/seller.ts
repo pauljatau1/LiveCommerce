@@ -41,12 +41,15 @@ export interface Seller {
     state: string;
     addressLine1: string;
   };
+  isPhoneVerified: boolean;
   referralUsed: boolean;
   referrerId: string;
   storeAvatar: {
     public_id: string;
     url: string;
   };
+  hasProducts: boolean;
+  hasMoreThan10Blips: boolean;
 }
 
 // Top sold seller products interface
@@ -84,21 +87,40 @@ export interface Notification {
   _id: string;
   seller: string;
   recipient: string;
-  type: "buyer_message" | "blip_comment";
+  type: 
+    | "buyer_message" 
+    | "blip_comment" 
+    | "blip_like"
+    | "order_delivered"
+    | "order_status_update"
+    | "pickup_arranged"
+    | "order_cancelled_admin"
+    | "seller_reply_to_comment"
+    | "buyer_reply_to_comment"
+    | "new_follower"
+    | "product_restocked"
+    | "stock_update"
+    | "platform_maintenance"
+    | "system_notification";
   title: string;
   message: string;
   isRead: boolean;
   createdAt: string;
-  data: BlipCommentData | BuyerMessageData;
+  data: BlipCommentData | BuyerMessageData | any; // Using any for flexibility with different notification data structures
   __v: number;
 }
 
 // Seller notifications response interface (paginated)
 export interface SellerNotifications {
   notifications: Notification[];
-  currentPage: number;
-  totalPages: number;
-  totalNotifications: number;
+  currentPage?: number;
+  totalPages?: number;
+  totalNotifications?: number;
+  pagination?: {
+    currentPage: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
 }
 
 // Analytics data interfaces for different metrics

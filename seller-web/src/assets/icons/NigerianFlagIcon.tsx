@@ -1,12 +1,14 @@
 import * as React from "react"
 import { SVGProps } from "react"
 
-const NigerianFlagIcon = (props: SVGProps<SVGSVGElement>) => (
+const NigerianFlagIcon = ({ width = 34, height = 34, ...props }: SVGProps<SVGSVGElement>) => (
   <svg
+    className={props.className}
     xmlns="http://www.w3.org/2000/svg"
-    width={34}
-    height={34}
+    width={width}
+    height={height}
     fill="none"
+    viewBox="0 0 34 34"
     {...props}
   >
     <g clipPath="url(#a)">

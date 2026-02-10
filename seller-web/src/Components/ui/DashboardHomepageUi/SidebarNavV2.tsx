@@ -37,7 +37,7 @@ interface IItem {
 
 export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSidebar }: { isSidebarOpen: boolean, setIsSidebarOpen: (isSidebarOpen: boolean) => void, hideSidebar: () => void }) {
     const location = useLocation();
-    
+
     // Fetch notifications and conversations using the same query keys as HeaderV2
     // React Query will automatically share the cache between components
     const { data: notifications, isLoading: isLoadingNotifications } = useQuery({
@@ -97,6 +97,10 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
     );
 
     const isItemActive = (item: IItem) => {
+        if (item?.name == 'KYC Verification') {
+            return location?.pathname.includes('/dashboard/kyc-verification');
+        }
+
         if (item?.subNav && item?.subNav?.length > 0) {
             const exactParent = location?.pathname === item?.path;
             return exactParent;
@@ -150,7 +154,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
             {/** Desktop Sidebar */}
             {
                 !hideSidebar && (
-                    <div className="hidden xl:block xl:relative group bg-[#17171B] h-full w-[300px] py-[37px] space-y-[24px] gap-10 " >
+                    <div className="hidden xl:block xl:relative group bg-[#17171B] h-full min-w-[300px] py-[37px] space-y-[24px] gap-10 " >
                         <div className="px-[20px]">
                             <AuqliLogo height={33.3} />
                         </div>
@@ -172,8 +176,8 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                         return (
                                             <>
                                                 <div key={item.id} className={`flex items-center justify-between w-[95%] hover:bg-white/10 hover:backdrop-blur-sm  cursor-pointer pl-[15px] pr-[20px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
-                                        ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '} `} >
-                                                    <NavLink to={item.path} key={item.id} onClick={() => handleSubNavOpen(item.id)} className="flex py-[8px] h-full w-full items-center gap-3">
+                                                        ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '} `} >
+                                                    <NavLink to={`${item?.name == 'KYC Verification' ? '/dashboard/kyc-verification/address' : item.path}`} key={item.id} onClick={() => handleSubNavOpen(item.id)} className="flex py-[8px] h-full w-full items-center gap-3">
                                                         <Icon icon={item.icon} width={18} height={18} />
                                                         <span className="font-lexend text-[14px] 3xl:text-base ">{item.name}</span>
                                                     </NavLink>
@@ -652,11 +656,11 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                         </div>
                         <div className="pl-[10px] pr-[20px]">
                             <div className="bg-[#17171B] flex flex-col gap-2 overflow-y-auto h-[150px] [&::-webkit-scrollbar]:w-1.5
-                    [&::-webkit-scrollbar-track]:bg-transparent
-                    [&::-webkit-scrollbar-thumb]:bg-transparent
-                    [&::-webkit-scrollbar-thumb]:rounded-full
-                    [&::-webkit-scrollbar-thumb]:border-0
-                    group-hover:[&::-webkit-scrollbar-thumb]:bg-[#FFFFFF1A] " >
+                                [&::-webkit-scrollbar-track]:bg-transparent
+                                [&::-webkit-scrollbar-thumb]:bg-transparent
+                                [&::-webkit-scrollbar-thumb]:rounded-full
+                                [&::-webkit-scrollbar-thumb]:border-0
+                                group-hover:[&::-webkit-scrollbar-thumb]:bg-[#FFFFFF1A] " >
                                 {
                                     sideBarNavData4.map((item) => {
                                         const hasSubNav = item?.subNav && item?.subNav?.length > 0;
