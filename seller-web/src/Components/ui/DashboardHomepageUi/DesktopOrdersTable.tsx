@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Table, Tag, ConfigProvider, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { Link } from 'react-router-dom';
-import { Radio, ShoppingBag, Copy, Check } from 'lucide-react';
+import { Radio, ShoppingBag, Copy, Check, Video, Tv } from 'lucide-react';
 import type { Order } from '@/types';
 import type { ThemeConfig } from 'antd';
 
@@ -208,14 +208,16 @@ const DesktopOrdersTable: React.FC<DesktopOrdersTableProps> = ({
       render: (channel: string) => {
         const isBlips = channel?.toLowerCase() === 'blips' || channel?.toLowerCase() === 'livestream';
         const isShop = channel?.toLowerCase() === 'shop' || channel?.toLowerCase() === 'marketplace';
+        const isLive = channel?.toLowerCase() === 'live' || channel?.toLowerCase() === 'liveshow';
         
         return (
           <div className="flex items-center gap-2">
-            {isBlips && <Radio className="w-4 h-4 text-rose-600" />}
+            {isBlips && <Tv className="w-4 h-4 text-green-500" />}
             {isShop && <ShoppingBag className="w-4 h-4 text-blue-500" />}
+            {isLive && <Radio className="w-4 h-4 text-rose-600" />}
             <span
               className={`text-sm font-normal font-['Lexend'] capitalize ${
-                isBlips ? 'text-rose-600' : 'text-blue-500'
+                isBlips ? 'text-green-500' : isShop ? 'text-blue-500' : isLive ? 'text-rose-600' : 'text-gray-500'
               }`}
             >
               {isBlips ? 'Blips' : isShop ? 'Shop' : channel}
