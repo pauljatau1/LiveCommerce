@@ -63,4 +63,15 @@ const getToken = async (userId) => {
     }
 };
 
-module.exports = { admin, saveToken, getToken };
+
+const removeToken = async (userId) => {
+    try {
+        await dbRef.child(`userTokens/${userId}`).remove();
+        return true;
+    } catch (error) {
+        console.error('Firebase removeToken error:', error);
+        throw error;
+    }
+};
+
+module.exports = { admin, saveToken, getToken, removeToken };
