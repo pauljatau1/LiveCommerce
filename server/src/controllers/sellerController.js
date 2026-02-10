@@ -1066,22 +1066,90 @@ exports.resetPasswordWithToken = async (req, res) => {
 exports.getTopSoldProducts = async (req, res) => {
   try {
     const sellerId = req.user.id;
+    const { startDate, endDate } = req.query;
 
-    const topProducts = await Product.find({ seller: sellerId })
-      .sort({ 'stats.soldCount': -1 })
-      .limit(3)
-      .select('name description price images stats.soldCount category brand');
+    let topProducts = [];
+
+    if (startDate && endDate) {
+      // If date range is provided, calculate from Orders
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999); // Include the end date fully
+
+      const aggregationPipeline = [
+        {
+          $match: {
+            seller: new mongoose.Types.ObjectId(sellerId),
+            createdAt: { $gte: start, $lte: end },
+            status: { $ne: 'cancelled' },
+            isStale: { $ne: true }
+          }
+        },
+        { $unwind: '$items' },
+        {
+          $group: {
+            _id: '$items.product',
+            totalSold: { $sum: '$items.quantity' }
+          }
+        },
+        { $sort: { totalSold: -1 } },
+        { $limit: 4 },
+        {
+          $lookup: {
+            from: 'products',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'productDetails'
+          }
+        },
+        { $unwind: '$productDetails' },
+        {
+          $project: {
+            name: '$productDetails.name',
+            description: '$productDetails.description',
+            price: '$productDetails.price',
+            images: '$productDetails.images',
+            category: '$productDetails.category',
+            brand: '$productDetails.brand',
+            stats: { soldCount: '$totalSold' },
+            _id: '$productDetails._id' // Use product ID as the main ID
+          }
+        }
+      ];
+
+      topProducts = await Order.aggregate(aggregationPipeline);
+    } else {
+      // Default behavior: Fetch from Product stats
+      topProducts = await Product.find({ seller: sellerId })
+        .sort({ 'stats.soldCount': -1 })
+        .limit(4) // Changed from 3 to 4
+        .select('name description price images stats.soldCount category brand');
+
+      // Ensure stats.soldCount is treated as stats.soldCount for consistency
+      // The Mongoose result needs to be converted to object to be consistent with aggregation result if needed,
+      // but actually the aggregation result mimics the product structure so it should be fine.
+    }
 
     const formattedProducts = topProducts.map(product => {
-      const obj = product.toObject();
-      if (obj.stats && typeof obj.stats.soldCount === 'number') {
+      // Validating and formatting the output
+      const obj = product.toObject ? product.toObject() : product;
+
+      // Ensure stats object exists
+      if (!obj.stats) {
+        obj.stats = { soldCount: 0 };
+      }
+
+      // Ensure soldCount is non-negative
+      if (typeof obj.stats.soldCount === 'number') {
         obj.stats.soldCount = Math.max(0, obj.stats.soldCount);
       }
+
       return obj;
     });
 
     res.json(formattedProducts);
   } catch (error) {
+    console.error('Error fetching top sold products:', error);
     res.status(500).json({
       message: 'Failed to retrieve top sold products',
       error: error.message
