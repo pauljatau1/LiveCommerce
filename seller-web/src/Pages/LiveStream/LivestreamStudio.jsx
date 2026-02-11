@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useLivestreamSocket } from '@/Contexts/LivestreamSocketContext';
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
 import { Icon } from '@iconify/react';
+import StreamNotFoundModal from '../../Components/ui/StreamNotFoundModal';
 
 // Split UI components using React's lazy loading for code splitting
 const PreStreamDesktopUi = lazy(() => import('../../Components/preStreamDesktopUi/preStreamDesktopUi'));
@@ -152,6 +153,7 @@ const LivestreamStudio = () => {
     const [isVideoSettingsModalOpen, setIsVideoSettingsModalOpen] = useState(false);
     const [videoSettings, setVideoSettings] = useState(DEFAULT_VIDEO_SETTINGS);
     const [streamQualityInfo, setStreamQualityInfo] = useState(null);
+    const [showStreamNotFoundModal, setShowStreamNotFoundModal] = useState(false);
 
     // Tracking state - fixed totalShares to avoid linter error
     const [totalShares] = useState(0);
@@ -463,14 +465,60 @@ const LivestreamStudio = () => {
             }
         } catch (error) {
             console.error('Failed to start stream:', error);
-            toast.error('Failed to start stream: ' + error.message, {
-                style: {
-                    background: '#161A1E',
-                    color: '#fff',
-                }
-            });
+            
+            // Check if it's a 404 error with "Stream not found" message
+            if (
+                error.response?.status === 404 &&
+                (error.response?.data?.message === 'Stream not found' || 
+                 error.message?.includes('Stream not found') ||
+                 error.response?.data?.error === 'Stream not found')
+            ) {
+                // Show the stream not found modal
+                setShowStreamNotFoundModal(true);
+            } else {
+                // Show regular error toast for other errors
+                toast.error('Failed to start stream: ' + (error.response?.data?.message || error.message), {
+                    style: {
+                        background: '#161A1E',
+                        color: '#fff',
+                    }
+                });
+            }
         }
-    }, [_id, startLiveStream]);
+    }, [_id, startLiveStream, subscribeToStreamNotifications, id]);
+
+    // Optimize join stream as host handling with useCallback
+    const handleJoinStreamAsHost = useCallback(async (streamId) => {
+        try {
+            if (!streamId) return null;
+
+            const freshData = await joinLiveStreamAsHost(streamId);
+            return freshData;
+        } catch (error) {
+            console.error('Failed to join stream as host:', error);
+            
+            // Check if it's a 404 error with "Active stream not found or you do not have permission" message
+            if (
+                error.response?.status === 404 &&
+                (error.response?.data?.message === 'Active stream not found or you do not have permission' || 
+                 error.message?.includes('Active stream not found or you do not have permission') ||
+                 error.response?.data?.error === 'Active stream not found or you do not have permission')
+            ) {
+                // Show the stream not found modal
+                setShowStreamNotFoundModal(true);
+                return null;
+            } else {
+                // Show regular error toast for other errors
+                toast.error('Failed to join stream: ' + (error.response?.data?.message || error.message), {
+                    style: {
+                        background: '#161A1E',
+                        color: '#fff',
+                    }
+                });
+                return null;
+            }
+        }
+    }, [joinLiveStreamAsHost]);
 
     const initializeStream = async (freshStreamData) => {
         try {
@@ -1548,7 +1596,7 @@ const LivestreamStudio = () => {
             // Get fresh stream data
             console.log('🔄 [RECONNECT 9/18] Fetching fresh stream data from server');
             const streamId = mostRecentStream.streamId;
-            const freshData = await joinLiveStreamAsHost(streamId);
+            const freshData = await handleJoinStreamAsHost(streamId);
             console.log('🔄 [RECONNECT 9/18] Fresh stream data:', freshData);
 
             if (!freshData) {
@@ -2431,6 +2479,10 @@ const LivestreamStudio = () => {
             {videoSettingsModal}
             {showStreamEndedModal && streamEndedModal}
             {closeWarningModal}
+            <StreamNotFoundModal
+                open={showStreamNotFoundModal}
+                onClose={() => setShowStreamNotFoundModal(false)}
+            />
         </div>
     );
 };

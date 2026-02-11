@@ -29,6 +29,7 @@ import axios from 'axios';
 import React from 'react';
 import ShareLinkPopUp from '../ShareLinkPopUp';
 import BlipUploadModal from './BlipUploadModal';
+import StockUpdateModal from '@/Components/ui/ProductPageUi/StockUpdateModal';
 
 
 // Auction Performance Modal component
@@ -46,7 +47,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
         try {
             const response = await axios.get(`${BASE_URL}/products/${id}`, {
                 headers: {
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${token?.data}`
                 }
             });
 
@@ -69,7 +70,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
             // Rerun with default values from the API (will use previous settings)
             const response = await axios.post(`${BASE_URL}/products/${auctionData._id}/rerun-auction`, {}, {
                 headers: {
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${token?.data}`,
                     'Content-Type': 'application/json'
                 }
             });
@@ -372,206 +373,7 @@ AuctionPerformanceModal.propTypes = {
     setShowRerunDialog: PropTypes.func.isRequired
 };
 
-// Create a separate component for the stock update modal
-const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitting }) => {
-    const { showNotification, notification, hideNotification } = useNotification();
-    const [stockChange, setStockChange] = useState(0);
-    const [operation, setOperation] = useState('add'); // 'add' or 'subtract'
 
-
-    // Modal style configuration
-    const modalStyle = {
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: '90%',
-        maxWidth: '425px',
-        bgcolor: 'background.paper',
-        borderRadius: '8px',
-        boxShadow: 24,
-        p: { xs: 2, sm: 4 },
-        maxHeight: '90vh',
-        overflow: 'auto',
-        '&:focus': {
-            outline: 'none',
-        }
-    };
-
-    const handleStockChange = useCallback((e) => {
-        const value = e.target.value;
-        setStockChange(Math.max(0, parseInt(value) || 0));
-    }, []);
-
-    const handleStockIncreaseButton = () => {
-        setOperation('add');
-    }
-
-    const handleStockDecreaseButton = () => {
-        setOperation('subtract');
-    }
-
-    const handleSubmit = async () => {
-        if (stockChange <= 0) {
-            showNotification("Please enter a valid quantity", 'error', 'dismissible');
-            return;
-        }
-        await onUpdate(stockChange, operation);
-    };
-
-    return (
-        <Modal open={open} onClose={onClose}>
-            <Box sx={modalStyle}>
-                {notification.isVisible && notification.type && (
-                    <NotificationBanner
-                        message={notification.message}
-                        type={notification.type}
-                        visibility={notification.visibility}
-                        onClose={hideNotification}
-                    />
-                )}
-                <div className="relative">
-                    <button
-                        onClick={onClose}
-                        className="absolute right-0 top-0 rounded-full p-1.5 sm:p-2 hover:bg-gray-100"
-                    >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="sm:w-6 sm:h-6">
-                            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                    </button>
-                    <div className="flex flex-col gap-6 pt-4">
-                        <div className="text-center">
-                            <h1 className="text-xl xl:text-2xl font-bold text-[#17171B]">Update Stock</h1>
-                            <p className="text-sm text-gray-500 mt-2">Update stock quantity for {item?.name}</p>
-                        </div>
-
-                        <div className="flex flex-col gap-4">
-                            <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg">
-                                <img
-                                    src={item?.images[0]?.url}
-                                    alt={item?.name}
-                                    className="w-16 h-16 rounded-lg object-contain bg-white"
-                                />
-                                <div>
-                                    <h3 className="font-medium text-[#17171B]">{item?.name}</h3>
-                                    <p className="text-sm text-gray-500">Current Stock: {item?.stock}</p>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-3">
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={handleStockIncreaseButton}
-                                        className={`flex-1 py-3 px-4 rounded-lg font-medium text-center ${operation === 'add'
-                                            ? 'bg-[#0BB248]/10 text-[#0BB248] border-2 border-[#0BB248]'
-                                            : 'bg-gray-100 text-gray-600'
-                                            }`}
-                                    >
-                                        Add Stock
-                                    </button>
-                                    <button
-                                        onClick={handleStockDecreaseButton}
-                                        className={`flex-1 py-3 px-4 rounded-lg font-medium text-center ${operation === 'subtract'
-                                            ? 'bg-[#DF0707]/10 text-[#DF0707] border-2 border-[#DF0707]'
-                                            : 'bg-gray-100 text-gray-600'
-                                            }`}
-                                    >
-                                        Remove Stock
-                                    </button>
-                                </div>
-
-                                <p className="text-sm text-gray-500 text-center">
-                                    {operation === 'add'
-                                        ? `Adding stock will increase total to: ${item?.stock + stockChange}`
-                                        : `Removing stock will decrease total to: ${Math.max(0, item?.stock - stockChange)}`
-                                    }
-                                </p>
-
-                                <div className="flex items-center justify-between gap-4">
-                                    <TextField
-                                        label={`${operation === 'add' ? 'Add' : 'Remove'} Quantity`}
-                                        type="number"
-                                        value={stockChange}
-                                        onChange={handleStockChange}
-                                        variant="outlined"
-                                        InputProps={{
-                                            inputProps: { min: 0 }
-                                        }}
-                                        sx={{
-                                            flex: 1,
-                                            '& .MuiOutlinedInput-root': {
-                                                '&.Mui-focused fieldset': {
-                                                    borderColor: operation === 'add' ? '#0BB248' : '#DF0707',
-                                                    borderWidth: '1px',
-                                                },
-                                            },
-                                            '& label.Mui-focused': {
-                                                color: operation === 'add' ? '#0BB248' : '#DF0707',
-                                            },
-                                        }}
-                                    />
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => setStockChange(prev => prev + 1)}
-                                            className={`h-14 w-14 rounded-md flex items-center justify-center ${operation === 'add'
-                                                ? 'bg-[#0BB248] text-white'
-                                                : 'bg-[#DF0707] text-white'
-                                                }`}
-                                        >
-                                            <Icon icon="solar:add-circle-bold" className="w-6 h-6" />
-                                        </button>
-                                        <button
-                                            onClick={() => setStockChange(prev => Math.max(0, prev - 1))}
-                                            className={`h-14 w-14 rounded-md flex items-center justify-center ${operation === 'add'
-                                                ? 'bg-[#0BB248] text-white'
-                                                : 'bg-[#DF0707] text-white'
-                                                }`}
-                                            disabled={stockChange <= 0}
-                                        >
-                                            <Icon icon="solar:minus-circle-bold" className="w-6 h-6" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3 mt-4">
-                            <button
-                                className="border border-[#17171B] flex-1 text-[#17171B] px-2 py-1 h-14 rounded-md"
-                                onClick={onClose}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                className={`flex-1 text-white px-2 py-1 h-14 rounded-md transition-all duration-200 ${operation === 'add'
-                                    ? 'bg-[#0BB248] hover:bg-[#0BB248]/80'
-                                    : 'bg-[#DF0707] hover:bg-[#DF0707]/80'
-                                    }`}
-                                onClick={handleSubmit}
-                                disabled={isSubmitting || stockChange <= 0}
-                            >
-                                {isSubmitting ? (
-                                    <CircularProgress size={20} color="inherit" />
-                                ) : (
-                                    `${operation === 'add' ? 'Add' : 'Remove'} ${stockChange} ${stockChange === 1 ? 'Unit' : 'Units'}`
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </Box>
-        </Modal>
-    );
-});
-
-StockUpdateModal.displayName = 'StockUpdateModal';
-StockUpdateModal.propTypes = {
-    open: PropTypes.bool.isRequired,
-    onClose: PropTypes.func.isRequired,
-    item: PropTypes.object.isRequired,
-    onUpdate: PropTypes.func.isRequired,
-    isSubmitting: PropTypes.bool.isRequired,
-};
 
 // Product Details Modal component
 const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
@@ -587,7 +389,7 @@ const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
 
             const response = await axios.get(`${BASE_URL}/products/${id}`, {
                 headers: {
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${token?.data}`
                 }
             });
 
@@ -1138,7 +940,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
                 operation: operation // "add" or "subtract"
             }, {
                 headers: {
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${token?.data}`
                 }
             });
             if (response.status === 200) {
@@ -1166,7 +968,7 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
         try {
             const response = await axios.post(`${BASE_URL}/products/${item._id}/rerun-auction`, formData, {
                 headers: {
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${token?.data}`,
                     'Content-Type': 'application/json'
                 }
             });

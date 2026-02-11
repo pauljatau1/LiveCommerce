@@ -244,7 +244,7 @@ const AddProduct = () => {
             const namesAndSizes = oversizedFiles.map(f => `${f.name} (${f.sizeMB} MB)`).join(', ');
             const mbSizes = getOversizedFileSizesMB(oversizedFiles);
             showNotification(
-                `Image${oversizedFiles.length > 1 ? 's' : ''} too large: ${namesAndSizes}. Each image must be less than 6MB and image is ${mbSizes[0]} MB`,
+                `Image${oversizedFiles.length > 1 ? 's' : ''} too large: ${namesAndSizes}. please compress image to be less than 7mb, image is ${mbSizes[0]} MB`,
                 "warning",
                 'dismissible'
             );
