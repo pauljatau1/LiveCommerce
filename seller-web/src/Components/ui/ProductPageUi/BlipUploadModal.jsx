@@ -5,11 +5,14 @@ import { BASE_URL } from '@/Constants/Server';
 import { trackEvent } from '@/util/analytics';
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
 import { CircularProgress } from '@mui/material';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/Components/ui/dialog';
 import axios from 'axios';
-import VideoPlayer from '@/Shared/VideoPlayer';
 import PropTypes from 'prop-types';
+import Loader from '@/Components/Loader';
+
+// Lazy load VideoPlayer to reduce initial bundle size
+const VideoPlayer = lazy(() => import('@/Shared/VideoPlayer'));
 
 // Update the BlipUploadModal to include product information
 const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPopUp, changeLinkType, changeDeepLink }) => {

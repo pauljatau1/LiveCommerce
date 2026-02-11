@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchBlipDetails, fetchBlipComments, clearBlipDetails, addReplyToBlipComment } from '../../Redux/Slices/ProductSlice';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../Components/ui/dialog';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '../../Components/ui/pagination';
 import Loader from '../../Components/Loader';
 import { formatDistanceToNow } from 'date-fns';
-import VideoPlayer from '@/Shared/VideoPlayer';
 import { Icon } from '@iconify/react';
 import ShareLinkPopUp from '../../Components/ui/ShareLinkPopUp';
+
+// Lazy load VideoPlayer to reduce initial bundle size
+const VideoPlayer = lazy(() => import('@/Shared/VideoPlayer'));
 
 
 const BlipDetails = ({ isOpen, onClose, productId, blipId }) => {
