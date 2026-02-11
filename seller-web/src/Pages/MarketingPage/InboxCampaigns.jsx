@@ -13,9 +13,9 @@ import {
 import { Calendar, ChevronDown, Download, Users, Mail, DollarSign, Filter, Zap, LineChart, ShoppingCart } from "lucide-react"
 import { useEffect, useState } from "react"
 import axios from "axios"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useOutletContext } from "react-router-dom"
 import { BASE_URL } from "@/Constants/Server"
-import { toast } from "sonner"
+import { useNotification } from '@/Hooks/useNotification';
 import PropTypes from "prop-types";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
 
@@ -220,8 +220,10 @@ CampaignsTable.propTypes = {
 };
 
 function InboxCampaigns() {
+  const { setHeaderName, setNavName } = useOutletContext();
   const navigate = useNavigate()
   const { token } = useAuthContext();
+  const { showNotification } = useNotification();
   const [summary, setSummary] = useState({
     totalRecipients: 0,
     totalSales: 0,
@@ -269,13 +271,15 @@ function InboxCampaigns() {
         setCampaigns(campaignsRes.data.campaigns)
       } catch (error) {
         console.error('Error fetching campaign data:', error)
-        toast.error('Failed to load campaign data')
+        showNotification('Failed to load campaign data', 'error', 'dismissible');
       } finally {
         setLoading(false)
       }
     }
 
     fetchData()
+    setHeaderName("Campaign Analytics")
+    setNavName("")
   }, [period])
 
   const isWithinPeriod = (createdAt, periodDays) => {

@@ -9,7 +9,7 @@ import { NavLink } from 'react-router-dom';
 import PickupAddressVerificationModal from "../../Components/PickupAddressVerificationModal";
 import { useAuthContext } from "../../Hooks/useAuthContextV2";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../Components/ui/tooltip';
-import { toast } from 'sonner';
+import { useNotification } from '@/Hooks/useNotification';
 import { Icon } from "@iconify/react";
 
 
@@ -17,6 +17,7 @@ const LiveStream = () => {
     const { setHeaderName, setNavName } = useOutletContext();
     const { getAllSellerActiveStreams, fetchedLiveStreams, isLoading } = useContext(LivestreamContext);
     const { seller: sellerData, } = useAuthContext();
+    const { showNotification } = useNotification();
     const [scheduledShows, setScheduledShows] = useState([]);
     const [currentTime, setCurrentTime] = useState(new Date());
     //const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
@@ -97,12 +98,12 @@ const LiveStream = () => {
         try {
             if (streamLink) {
                 await navigator.clipboard.writeText(streamLink);
-                toast.success('Stream link copied');
+                showNotification('Stream link copied', 'information', 'dismissible');
             } else {
-                toast.error('No link found to copy');
+                showNotification('No link found to copy', 'error', 'dismissible');
             }
         } catch {
-            toast.error('Failed to copy link');
+            showNotification('Failed to copy link', 'error', 'dismissible');
         }
     };
 

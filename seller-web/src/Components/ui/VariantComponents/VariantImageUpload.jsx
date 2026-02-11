@@ -1,20 +1,20 @@
 import { memo, useCallback } from 'react';
 import { Icon } from "@iconify/react";
 import { useVariants } from '../../../Contexts/VariantContext';
-import { toast } from "sonner";
+import { useNotification } from '@/Hooks/useNotification';
 import PropTypes from 'prop-types';
 
 const VariantImageUpload = memo(({ variantPath }) => {
     const { tempInputs, updateVariantValue } = useVariants();
     const images = tempInputs[variantPath]?.images || [];
-
+    const { showNotification } = useNotification();
     const handleImageUpload = async (e) => {
         const files = Array.from(e.target.files);
         const currentImagesLength = Array.isArray(images) ? images.length : 0;
         const remainingSlots = 5 - currentImagesLength;
 
         if (remainingSlots <= 0) {
-            toast.error('Maximum 5 images allowed');
+            showNotification('Maximum 5 images allowed', 'error', 'dismissible');
             return;
         }
 
@@ -36,13 +36,7 @@ const VariantImageUpload = memo(({ variantPath }) => {
 
         // Show error for oversized files
         if (oversizedFiles.length > 0) {
-            toast.error(`File${oversizedFiles.length > 1 ? 's' : ''} too large: ${oversizedFiles.join(', ')}`, {
-                description: "Each image must be less than 7MB",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            showNotification(`File${oversizedFiles.length > 1 ? 's' : ''} too large: ${oversizedFiles.join(', ')}`, 'error', 'dismissible');
         }
 
         // Process valid files only

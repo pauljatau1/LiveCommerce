@@ -10,7 +10,6 @@ import { Label } from "../../Components/ui/label";
 import { Input } from "../../Components/ui/input2";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../Components/ui/select";
 import { BASE_URL } from '../../Constants/Server';
-import { toast } from 'sonner';
 //import { useAuthContext } from '../../Hooks/useAuthContext';
 //import { useProductContext } from '../../Hooks/useProductContext';
 import { useSelector, useDispatch } from 'react-redux';
@@ -31,6 +30,7 @@ import { debounce } from 'lodash';
 import CategorySelectionModal from '../../Components/ui/CategorySelectionModal';
 import SimpleEditor from '../../Components/ui/SimpleEditor';
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
+import { useNotification } from '../../Hooks/useNotification';
 
 const AddProduct = () => {
     const { setHeaderName, setNavName } = useOutletContext()
@@ -41,6 +41,7 @@ const AddProduct = () => {
     //const { seller } = useAuthContext();
     const dispatch = useDispatch();
     const { message, error, isLoading, response } = useSelector(state => state.product)
+    const { showNotification } = useNotification();
     //const [notification, setNotification] = useState(true);
     //const [open, setOpen] = useState(false);
     //const [isChatVisible, setIsChatVisible] = useState(true);
@@ -124,10 +125,10 @@ const AddProduct = () => {
 
     useEffect(() => {
         if (message) {
-            toast.success(message);
+            showNotification(message, 'information', 'dismissible');
         }
         if (error) {
-            toast.error(error);
+            showNotification(error, 'error', 'dismissible');
         }
     }, [message, error]);
 
@@ -141,7 +142,7 @@ const AddProduct = () => {
                 }
             } catch (error) {
                 console.error(error);
-                toast.error('Failed to fetch categories');
+                showNotification('Failed to fetch categories', 'error', 'dismissible');
             } finally {
                 setLoading(false);
             }
@@ -210,7 +211,7 @@ const AddProduct = () => {
         const remainingSlots = 5 - images.length;
 
         if (remainingSlots <= 0) {
-            toast.error('Maximum 5 images allowed');
+            showNotification('Maximum 5 images allowed', "warning", 'dismissible');
             return;
         }
 
@@ -222,24 +223,31 @@ const AddProduct = () => {
         const validFiles = [];
         const oversizedFiles = [];
 
-        // Check file sizes
+        // Image size converter: Extract sizeMB from objects in array, ensures MB numbers for notifications
+        const getOversizedFileSizesMB = (oversizedFilesArr) =>
+            oversizedFilesArr.map(f => Number(f.sizeMB));
+
+        // Check file sizes, store each oversized file as {name, sizeMB}
         filesToProcess.forEach(file => {
             if (file.size > maxSize) {
-                oversizedFiles.push(file.name);
+                oversizedFiles.push({
+                    name: file.name,
+                    sizeMB: (file.size / (1024 * 1024)).toFixed(2)
+                });
             } else {
                 validFiles.push(file);
             }
         });
 
-        // Show error for oversized files
+        // Show error for oversized files with exact MB sizes (always in MB) in notification
         if (oversizedFiles.length > 0) {
-            toast.error(`Image${oversizedFiles.length > 1 ? 's' : ''} too large: ${oversizedFiles.join(', ')}`, {
-                description: "Each image must be less than 7MB in size, please compress image to be less than 7mb and try again",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            const namesAndSizes = oversizedFiles.map(f => `${f.name} (${f.sizeMB} MB)`).join(', ');
+            const mbSizes = getOversizedFileSizesMB(oversizedFiles);
+            showNotification(
+                `Image${oversizedFiles.length > 1 ? 's' : ''} too large: ${namesAndSizes}. please compress image to be less than 7mb, image is ${mbSizes[0]} MB`,
+                "warning",
+                'dismissible'
+            );
         }
 
         // Process valid files only
@@ -262,7 +270,7 @@ const AddProduct = () => {
                     };
                     reader.readAsDataURL(file);
                     
-                    toast.warning('Image has mobile screenshot aspect ratio. Please edit it for better product display.');
+                    showNotification('Image has mobile screenshot aspect ratio. Please edit it for better product display.', "warning", 'dismissible');
                     // Process only the first problematic image to avoid multiple modals
                     break;
                 } else {
@@ -280,13 +288,13 @@ const AddProduct = () => {
                 }
             } catch (error) {
                 console.error('Error checking image dimensions:', error);
-                toast.error(`Failed to process ${file.name}`);
+                showNotification(`Failed to process ${file.name}`, "warning", 'dismissible');
             }
         }
 
         // Show message if some files were not processed due to limit
         if (files.length > remainingSlots) {
-            toast.warning(`Only ${remainingSlots} image${remainingSlots > 1 ? 's' : ''} added. Maximum limit reached.`);
+            showNotification(`Only ${remainingSlots} image${remainingSlots > 1 ? 's' : ''} added. Maximum limit reached.`, "warning", 'dismissible');
         }
 
         // Clear the file input to allow selecting the same file again
@@ -338,7 +346,7 @@ const AddProduct = () => {
             }
         } catch (error) {
             console.error('Error searching categories:', error);
-            toast.error('Failed to search categories');
+            showNotification('Failed to search categories', "error", 'dismissible');
         } finally {
             setIsSearching(false);
         }
@@ -551,13 +559,7 @@ const AddProduct = () => {
             
             // Check for links in description before validation
             if (hasLinksInDescription) {
-                toast.error('Product description contains links', {
-                    description: `Please remove the following links: ${detectedLinksInDescription.join(', ')}`,
-                    style: {
-                        background: '#17171B',
-                        color: '#fff',
-                    }
-                });
+                showNotification(`Product description contains links. Please remove the following links: ${detectedLinksInDescription.join(', ')}`, "warning", 'dismissible');
                 return;
             }
 
@@ -584,19 +586,19 @@ const AddProduct = () => {
                 
                 // Validate min bid is less than max bid
                 if (Number(auctionDetails.minBid) >= Number(auctionDetails.maxBid)) {
-                    toast.error('Maximum bid must be greater than minimum bid');
+                    showNotification('Maximum bid must be greater than minimum bid', "warning", 'dismissible');
                     return;
                 }
 
                 // Validate start date is in the future
                 // if (new Date(auctionDetails.startDate) <= new Date()) {
-                //     toast.error('Auction start date must be in the future');
+                //     showNotification('Auction start date must be in the future', "warning", 'dismissible');
                 //     return;
                 // }
 
                 // Validate end date is after start date
                 if (new Date(auctionDetails.endDate) <= new Date(auctionDetails.startDate)) {
-                    toast.error('Auction end date must be after start date');
+                    showNotification('Auction end date must be after start date', "warning", 'dismissible');
                     return;
                 }
             }
@@ -606,17 +608,17 @@ const AddProduct = () => {
                 dispatch(createProduct(productData));
             } else {
                 if (missingFields.length === 1) {
-                    toast.error(`Please fill the required field: ${missingFields[0]}`);
+                    showNotification(`Please fill the required field: ${missingFields[0]}`, "warning", 'dismissible');
                 } else if (missingFields.length <= 3) {
-                    toast.error(`Please fill these required fields: ${missingFields.join(', ')}`);
+                    showNotification(`Please fill these required fields: ${missingFields.join(', ')}`, "warning", 'dismissible');
                 } else {
-                    toast.error(`Several required fields are missing: ${missingFields.join(', ')}`);
+                    showNotification(`Several required fields are missing: ${missingFields.join(', ')}`, "warning", 'dismissible');
                 }
             }
 
         } catch (error) {
             console.error('Error submitting product:', error);
-            toast.error('Failed to submit product');
+            showNotification('Failed to submit product', "error", 'dismissible');
         }
     };
 
@@ -648,7 +650,8 @@ const AddProduct = () => {
             // setProductSpecs({}); // Reset specifications
             
             // Add navigation to products page
-            toast.success("Product added successfully!");
+            // Example: Show information notification banner
+            showNotification("Product added successfully!", "information", "dismissible");
             navigate("/dashboard/products");
             
             // Reset the response state so it doesn't trigger again if we come back
@@ -755,7 +758,7 @@ const AddProduct = () => {
             isDefault: images.length === 0 // First image is default
         };
         setImages(prev => [...prev, newImage]);
-        toast.success('Image added successfully after editing!');
+        showNotification('Image added successfully after editing!', "information", 'dismissible');
     };
 
     // Handler for closing image edit modal
@@ -1043,7 +1046,7 @@ const AddProduct = () => {
                                                             <Select
                                                                 onValueChange={(value) => {
                                                                     if (!auctionDetails.startDate) {
-                                                                        toast.error("Please set start date first");
+                                                                        showNotification("Please set start date first", "warning", 'dismissible');
                                                                         return;
                                                                     }
                                                                     

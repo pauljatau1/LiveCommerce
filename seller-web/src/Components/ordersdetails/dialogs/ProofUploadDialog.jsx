@@ -1,6 +1,8 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/Components/ui/dialog";
 import { Button } from "@/Components/ui/button";
 import { Loader2 } from "lucide-react";
+import { useNotification } from '@/Hooks/useNotification';
+import NotificationBanner from "@/Components/ui/NotificationBanner";
 
 export default function ProofUploadDialog({
   open,
@@ -15,11 +17,16 @@ export default function ProofUploadDialog({
   storePickupState
 }) {
   const disabled = disabledState || storePickupState === 'approved' || storePickupState === 'confirmed_by_seller';
+  const { notification, hideNotification } = useNotification();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Upload Pickup Proof</DialogTitle>
+          <DialogTitle>
+
+            Upload Pickup Proof
+          </DialogTitle>
           <DialogDescription>
             {storePickupState === 'approved' ? (
               <div className="text-green-600 mt-2">The pickup for this order has already been approved. No further action is needed.</div>
@@ -32,6 +39,7 @@ export default function ProofUploadDialog({
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
+            
             <label className="text-sm font-medium text-gray-700 block">Upload Proof</label>
             <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
               <div className="space-y-1 text-center">

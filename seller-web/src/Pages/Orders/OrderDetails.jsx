@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useParams, useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
 import Loader from '@/Components/Loader'
 import { useOutletContext } from 'react-router-dom'
 import {
@@ -34,9 +33,11 @@ import OrderItemsCard from '@/Components/ordersdetails/OrderItemsCard'
 import OrderNotFound from '@/Components/ordersdetails/OrderNotFound'
 import CarrierInformation from '@/Components/ordersdetails/CarrierInformation'
 import DeliveryInformation from '@/Components/ordersdetails/DeliveryInformation'
+import { useNotification } from '../../Hooks/useNotification';
 
 export default function OrderDetails() {
   const dispatch = useDispatch()
+  const { showNotification } = useNotification();
   const { detailsById, detailsLoading, sellerId, sellerProfile } = useSelector((state) => state.orders)
   const { setHeaderName, setNavName } = useOutletContext()
   const { id } = useParams()
@@ -128,7 +129,7 @@ export default function OrderDetails() {
     const file = e.target.files[0]
     if (file) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        toast.error('Image size should be less than 5MB')
+        showNotification('Image size should be less than 5MB', "warning", 'fixed');
         return
       }
       setProofImage(file)
@@ -143,12 +144,12 @@ export default function OrderDetails() {
       formData.append('proofOfDelivery', proofImage);
       if (note) formData.append('notes', note);
       await dispatch(confirmPickupThunk({ orderId, formData })).unwrap();
-      toast.success('Pickup confirmed successfully');
+      showNotification('Pickup confirmed successfully', "information", 'dismissible');
       setProofUploadDialogOpen(false);
       await dispatch(fetchOrderDetailsThunk(orderId));
     } catch (error) {
       console.error('Error confirming pickup:', error);
-      toast.error(error?.message || 'Failed to confirm pickup');
+      showNotification(error?.message || 'Failed to confirm pickup', "error", 'dismissible');
     } finally {
       setIsConfirming(false);
       setConfirmDeliveryLoading(false);
@@ -172,7 +173,7 @@ export default function OrderDetails() {
         return url
       })
     } catch (e) {
-      toast.error('Failed to generate document')
+      showNotification('Failed to generate document', "error", 'dismissible');
     }
   }
 
@@ -181,7 +182,7 @@ export default function OrderDetails() {
   // Add function to update tracking information for international sellers
   const updateTrackingInformation = async () => {
     if (!trackingNumber) {
-      toast.error('Tracking number is required');
+      showNotification('Tracking number is required', "warning", 'dismissible');
       return;
     }
 
@@ -195,13 +196,13 @@ export default function OrderDetails() {
           estimatedDeliveryDate: estimatedDeliveryDate || undefined
         }
       })).unwrap()
-      toast.success('Tracking information updated successfully');
+      showNotification('Tracking information updated successfully', "information", 'dismissible');
       setTrackingDialogOpen(false);
       
       await dispatch(fetchOrderDetailsThunk(id))
     } catch (error) {
       console.error('Error updating tracking information:', error);
-      toast.error(error.message || 'Failed to update tracking information');
+      showNotification(error.message || 'Failed to update tracking information', "error", 'dismissible');
     } finally {
       setUpdatingTracking(false);
     }
@@ -210,7 +211,7 @@ export default function OrderDetails() {
   // Add function to update order status for international sellers
   const updateOrderStatus = async () => {
     if (!shippingStatus) {
-      toast.error('Please select a status');
+      showNotification('Please select a status', "warning", 'dismissible');
       return;
     }
 
@@ -218,13 +219,13 @@ export default function OrderDetails() {
     try {
       await dispatch(updateInternationalStatusThunk({ orderId: id, payload: { status: shippingStatus } })).unwrap()
 
-      toast.success('Order status updated successfully');
+      showNotification('Order status updated successfully', "information", 'dismissible');
       setStatusDialogOpen(false);
       
       await dispatch(fetchOrderDetailsThunk(id))
     } catch (error) {
       console.error('Error updating order status:', error);
-      toast.error(error.message || 'Failed to update order status');
+      showNotification(error.message || 'Failed to update order status', "error", 'dismissible');
     } finally {
       setUpdatingStatus(false);
     }
@@ -235,7 +236,7 @@ export default function OrderDetails() {
   // Update the handleCancelOrder function
   const handleCancelOrder = async () => {
     if (!cancelReason.trim()) {
-      toast.error('Please provide a reason for cancellation');
+      showNotification('Please provide a reason for cancellation', "warning", 'dismissible');
       return;
     }
 
@@ -244,11 +245,11 @@ export default function OrderDetails() {
     setCancelLoading(true);
     try {
       await dispatch(cancelOrderBySellerThunk({ orderId: id, payload: { reason: cancelReason } })).unwrap()
-      toast.success('Order cancelled successfully');
+      showNotification('Order cancelled successfully', "information", 'dismissible');
       setCancelDialogOpen(false);
       await dispatch(fetchOrderDetailsThunk(id))
     } catch (error) {
-      toast.error(error.message);
+      showNotification(error.message, "error", 'dismissible');
     } finally {
       setCancelLoading(false);
     }

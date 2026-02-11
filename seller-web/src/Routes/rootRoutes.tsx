@@ -1,4 +1,5 @@
 import AuthProviderV2 from '@/Contexts/AuthContextV2';
+import { NotificationProvider } from '@/Contexts/NotificationContext';
 import AppProviders from '../AppProviders.jsx';
 import AppLayout from '../Components/AppLayout.jsx';
 import AppInitializer from '../AppInitializer.jsx';
@@ -17,14 +18,16 @@ export const rootRoutes = [
     {
         path: '/',
         element: (
-            <AuthProviderV2>
-                <ProtectedRoute>
-                    <AppProviders>
-                        <AppLayout />
-                        <AppInitializer />
-                    </AppProviders>
-                </ProtectedRoute>
-            </AuthProviderV2>
+            <NotificationProvider>
+                <AuthProviderV2>
+                    <ProtectedRoute>
+                        <AppProviders>
+                            <AppLayout />
+                            <AppInitializer />
+                        </AppProviders>
+                    </ProtectedRoute>
+                </AuthProviderV2>
+            </NotificationProvider>
         ),
         errorElement: <RouterErrorHandler />,
         children: [

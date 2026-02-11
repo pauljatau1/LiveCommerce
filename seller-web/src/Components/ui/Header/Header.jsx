@@ -1,19 +1,24 @@
 import { Icon } from "@iconify/react"
 import { BASE_URL } from "@/Constants/Server"
 import { useQuery } from "@tanstack/react-query"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import { sellerService } from "@/services/sellerService"
 import { useAuthContext } from "@/Hooks/useAuthContextV2"
 import { useEffect, useState } from "react"
 import { Dialog, DialogTrigger } from "../../ui/dialog"
 import PropTypes from "prop-types"
-import NotificationsDialog from "../../NotificationsDialog"
+import NotificationsDialog from "../../NotificationsDialog";
+import GoLiveIcon from "@/assets/icons/GoLiveIcon"
+import MenuOpenIcon from "@/assets/icons/MenuOpenIcon"
+import MessageIcon from "@/assets/icons/MessageIcon"
+import AlertIcon from "@/assets/icons/AlertIcon"
 
 const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, showBackButton, fullScreenMode }) => {
   const { token, seller } = useAuthContext()
   const [unreadMessages, setUnreadMessages] = useState(0)
   const navigate = useNavigate()
   const [notificationDialogOpen, setNotificationDialogOpen] = useState(false)
+  const location = useLocation()
 
 
   const { data: stuffToDo } = useQuery({
@@ -62,9 +67,9 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
     <>
       <div
         onClick={() => navigate('/dashboard/live-streams/live-stream')}
-        className="items-center hidden lg:flex px-6 py-2 gap-2 mr-2 rounded-md bg-red-600 cursor-pointer hover:bg-red-700 transition-all duration-300 ease-in-out"
+        className="items-center hidden lg:flex h-[40px] w-[128px] py-[4px] px-[8px] gap-2 mr-2 rounded-[8px] bg-[#FF3B30] cursor-pointer hover:bg-[#FF3B30]/80 transition-all duration-300 ease-in-out"
       >
-        <Icon icon="mdi:record" className="h-4 w-4 animate-pulse" color="#ffffff" />
+        <GoLiveIcon className="h-[32px] w-[32px] animate-pulse" color="#ffffff" />
         <span className="inline-flex items-center font-lexend border border-transparent text-sm font-medium text-[#ffffff]">
           Go Live
         </span>
@@ -107,7 +112,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
     }}>
       <DialogTrigger asChild>
         <button className="relative p-2 mr-3 text-[#757575] hover:text-gray-700 transition-all duration-300 ease-in-out">
-          <Icon icon="ion:notifications-outline" className="h-7 w-7" />
+          <AlertIcon className="h-[24px] w-[24px]" color="#757575" />
           {calculateNewNotifications() > 0 && (
             <span className="absolute -top-0 -right-0 bg-blue-600 text-white w-5 h-5 flex items-center justify-center rounded-full text-xs">
               {calculateNewNotifications()}
@@ -128,7 +133,7 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
         <img
           src={seller.storeAvatar.url}
           alt={`${seller.firstName} ${seller.lastName}`}
-          className="h-8 w-8 rounded-full object-cover"
+          className="h-[46px] w-[46px] rounded-full object-cover"
         />
       )
     }
@@ -207,16 +212,16 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
     <div className="flex items-center gap-1 md:hidden">
       <button
         onClick={() => navigate('/dashboard/live-streams/live-stream')}
-        className="p-2 rounded-full bg-red-600 text-white hover:bg-red-700 transition-all duration-300"
+        className="flex items-center justify-center rounded-full bg-[#FF3B3033] w-[46px] h-[46px] text-white hover:bg-[#FF3B3033]/30 transition-all duration-300 ease-in-out"
       >
-        <Icon icon="material-symbols:screen-record" className="h-5 w-5 animate-pulse" />
+        <GoLiveIcon className="h-[32px] w-[32px] animate-pulse" color="#FF3B30" />
       </button>
 
       <button
         onClick={handleMessagesClick}
-        className="relative p-2 rounded-full text-[#757575] hover:bg-gray-100"
+        className="relative flex items-center justify-center h-[46px] w-[46px] rounded-full text-[#757575] bg-[#F6F6F6] hover:bg-gray-200 transition-all duration-300 ease-in-out"
       >
-        <Icon icon="solar:chat-line-bold" className="h-5 w-5" />
+        <MessageIcon className="h-[20px] w-[20px]" color="#757575" />
         {unreadMessages > 0 && (
           <span className="absolute -top-0 -right-0 bg-blue-600 text-white w-4 h-4 flex items-center justify-center rounded-full text-xs">
             {unreadMessages}
@@ -252,8 +257,8 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
         }
       }}>
         <DialogTrigger asChild>
-          <button className="relative p-2 rounded-full text-[#757575] hover:bg-gray-100">
-            <Icon icon="ion:notifications-outline" className="h-5 w-5" />
+          <button className="relative flex items-center justify-center h-[46px] w-[46px] rounded-full text-[#757575] bg-[#F6F6F6] hover:bg-gray-200 transition-all duration-300 ease-in-out">
+            <AlertIcon className="h-[24px] w-[24px]" color="#757575" />
             {calculateNewNotifications() > 0 && (
               <span className="absolute -top-0 -right-0 bg-blue-600 text-white w-4 h-4 flex items-center justify-center rounded-full text-xs">
                 {calculateNewNotifications()}
@@ -279,38 +284,56 @@ const Header = ({ isSidebarOpen, setIsSidebarOpen, name = "Dashboard", navName, 
   return (
     <header className={`${fullScreenMode
       ? 'hidden'
-      : `block bg-white border-b border-[#EDF2F7] fixed top-0 z-50 
-           ${isSidebarOpen ? 'left-[257px]' : 'left-0'} right-0 
-           md:left-[257px] xl:left-[307px] 
-           w-full md:w-[calc(100%-257px)] xl:w-[calc(100%-307px)]`
+      : ` bg-white border-b border-[#EDF2F7] absolute top-0 left-0 right-0 z-20
+          `
       }`}>
-      <div className="py-3 px-5 md:px-8">
+      <div className="py-3 px-5 xl:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             {!isSidebarOpen && (
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-2 rounded-md md:hidden text-gray-400 hover:text-gray-500 hover:bg-gray-100 lg:hidden"
+                className="p-2 rounded-md  text-gray-400 hover:text-gray-500 hover:bg-gray-100 xl:hidden transition-all duration-300 ease-in-out"
               >
-                <Icon icon="pepicons-pencil:menu" className="h-6 w-6" />
+                <MenuOpenIcon className="h-[24px] w-[24px]" color="#8492A6" />
               </button>
             )}
-            <div className="flex flex-col xl:flex-row xl:gap-10 xl:items-center">
-              <div className="flex gap-2 items-center">
-                {showBackButton && (
-                  <button onClick={() => navigate(-1)} className="p-2 rounded-full md:block hidden text-[#272D30] hover:text-[#272D30]/80 transition-all duration-300 ease-in-out hover:bg-[#272D30]/10">
-                    <Icon icon="ep:back" className="h-6 w-6" />
-                  </button>
-                )}
-                <h1 className="ml-2 lg:ml-0 text-base md:text-lg xl:text-xl font-inter font-semibold text-[#27272E] truncate max-w-[150px] md:max-w-full">{name}</h1>
-              </div>
-              {navName !== "" && (
-                <div className="flex items-center gap-10">
-                  <span className="text-2xl hidden xl:block font-inter text-[#888787]">•</span>
-                  <h1 className="ml-2 lg:ml-0 capitalize text-base md:text-lg xl:text-xl font-inter font-semibold text-[#16783A] truncate max-w-[100px] md:max-w-full">{navName}</h1>
+            {
+              location?.pathname === "/dashboard/home" ? (
+                <div className="hidden lg:flex flex-col ">
+                  <div className="flex gap-2 items-center">
+                    {showBackButton && (
+                      <button onClick={() => navigate(-1)} className="p-2 rounded-full xl:block hidden text-[#272D30] hover:text-[#272D30]/80 transition-all duration-300 ease-in-out hover:bg-[#272D30]/10">
+                        <Icon icon="ep:back" className="h-6 w-6" />
+                      </button>
+                    )}
+                    <h1 className="ml-2 lg:ml-0 text-base md:text-xl xl:text-3xl font-lexend font-semibold text-[#111111] truncate max-w-[150px] md:max-w-full">{name}</h1>
+                  </div>
+                  {navName !== "" && (
+                    <div className="flex items-center gap-10">
+                      <h1 className="ml-2 lg:ml-0 capitalize text-base font-lexend font-normal text-[#98A2B3] truncate max-w-[100px] md:max-w-full">{navName}</h1>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              ) : (
+                <div className="hidden lg:flex flex-col xl:flex-row xl:gap-10 xl:items-center">
+                  <div className="flex gap-2 items-center">
+                    {showBackButton && (
+                      <button onClick={() => navigate(-1)} className="p-2 rounded-full xl:block hidden text-[#272D30] hover:text-[#272D30]/80 transition-all duration-300 ease-in-out hover:bg-[#272D30]/10">
+                        <Icon icon="ep:back" className="h-6 w-6" />
+                      </button>
+                    )}
+                    <h1 className="ml-2 lg:ml-0 text-base md:text-xl xl:text-3xl font-lexend font-semibold text-[#111111] truncate max-w-[150px] md:max-w-full">{name}</h1>
+                  </div>
+                  {navName !== "" && (
+                    <div className="flex items-center gap-10">
+                      <span className="text-2xl hidden xl:block font-inter text-[#888787]">•</span>
+                      <h1 className="ml-2 lg:ml-0 capitalize text-base md:text-lg xl:text-xl font-inter font-semibold text-[#16783A] truncate max-w-[100px] md:max-w-full">{navName}</h1>
+                    </div>
+                  )}
+                </div>
+              )
+            }
           </div>
 
           {/* Mobile Menu - replaced dropdown with inline icons */}

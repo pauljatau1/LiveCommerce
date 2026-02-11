@@ -12,7 +12,8 @@ import {
 } from "../../ui/dialog";
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
-import { toast } from 'sonner';
+import { useNotification } from '@/Hooks/useNotification';
+import NotificationBanner from '@/Components/ui/NotificationBanner';
 import { BASE_URL } from '../../../Constants/Server';
 import { BiPlayCircle } from 'react-icons/bi';
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
@@ -34,6 +35,7 @@ import StockUpdateModal from '@/Components/ui/ProductPageUi/StockUpdateModal';
 // Auction Performance Modal component
 const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog }) => {
     const { token } = useAuthContext();
+    const { showNotification } = useNotification();
     const [auctionData, setAuctionData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -74,24 +76,12 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
             });
 
             if (response.status === 200) {
-                toast.success("Auction rerun successfully", {
-                    description: "Your auction has been rescheduled with previous settings",
-                    style: {
-                        background: '#17171B',
-                        color: '#fff',
-                    }
-                });
+                showNotification("Auction rerun successfully", 'information', 'dismissible');
                 fetchAuctionData(auctionData._id); // Refresh data
             }
         } catch (err) {
             console.error("Failed to rerun auction:", err);
-            toast.error("Failed to rerun auction", {
-                description: err.response?.data?.message || "Please try again later",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            showNotification(`Failed to rerun auction: ${err.response?.data?.message || "Please try again later"}`, 'error', 'dismissible');
         } finally {
             setIsRerunLoading(false);
         }
@@ -146,7 +136,7 @@ const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog 
                 <DialogHeader className="space-y-3">
                     <DialogTitle className="text-xl sm:text-2xl font-bold text-[#17171B]">Auction Performance</DialogTitle>
                     <DialogDescription className="text-sm sm:text-base">
-                        Detailed information about this auction's performance
+                        Detailed information about this auction&apos;s performance
                     </DialogDescription>
                 </DialogHeader>
 
@@ -849,6 +839,7 @@ RerunAuctionDialog.propTypes = {
 
 
 const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
+    const { showNotification, notification, hideNotification } = useNotification();
     const { token, seller } = useAuthContext();
     // Separate states for mobile and desktop popovers
     const [isMobilePopoverOpen, setIsMobilePopoverOpen] = useState(false);
@@ -955,12 +946,10 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
             if (response.status === 200) {
                 setOpenStockModal(false);
                 setIsStockUpdated(prev => !prev);
-                toast.success(`Stock ${operation === 'add' ? 'increased' : 'decreased'} successfully`);
+                showNotification(`Stock ${operation === 'add' ? 'increased' : 'decreased'} successfully`, 'information', 'dismissible');
             }
         } catch (error) {
-            toast.error("Failed to update stock", {
-                description: error.response?.data?.message || "Please try again"
-            });
+            showNotification(`Failed to update stock: ${error.response?.data?.message || "Please try again"}`, 'error', 'dismissible');
         } finally {
             setIsSubmitting(false);
         }
@@ -985,24 +974,12 @@ const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
             });
 
             if (response.status === 200) {
-                toast.success("Auction rerun successfully", {
-                    description: "Your auction has been rescheduled with the new settings",
-                    style: {
-                        background: '#17171B',
-                        color: '#fff',
-                    }
-                });
+                showNotification("Auction rerun successfully", 'information', 'dismissible');
                 setShowRerunDialog(false);
                 setIsStockUpdated(prev => !prev);
             }
         } catch (error) {
-            toast.error("Failed to rerun auction", {
-                description: error.response?.data?.message || "Please try again later",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            showNotification(`Failed to rerun auction: ${error.response?.data?.message || "Please try again later"}`, 'error', 'dismissible');
         } finally {
             setIsRerunLoading(false);
         }

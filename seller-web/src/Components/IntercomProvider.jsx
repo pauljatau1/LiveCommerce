@@ -5,7 +5,7 @@ const IntercomWrapper = ({ children }) => {
   return (
     <IntercomProvider 
       appId={import.meta.env.VITE_INTERCOM_APP_ID}
-      autoBoot={false}
+      autoBoot={true}
       shouldInitialize={true}
       onUnreadCountChange={() => {
         console.log('unread count changed');

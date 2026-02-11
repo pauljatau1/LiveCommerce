@@ -1,4 +1,4 @@
-import { toast } from "sonner";
+import { useNotification } from '@/Hooks/useNotification';      
 import { useNavigate } from "react-router-dom";
 import AuqliLogo from "@/assets/icons/AuqliLogo";
 import ForgotPasswordForm from "@/Components/forgotPassword/ForgotPasswordForm";
@@ -7,13 +7,13 @@ import MarketingSection from "@/Components/loginPage/MarketingSection";
 
 export default function ForgotPasswordPage() {
     const navigate = useNavigate();
-    
+    const { showNotification } = useNotification();
     const handleSignupClick = () => {
         navigate("/signup");
     };
 
     const handleForgotPasswordSuccess = () => {
-        toast.success("Password reset successfully! You can now log in with your new password.");
+        showNotification("Password reset successfully! You can now log in with your new password.", 'information', 'dismissible');
         navigate("/login");
     };
 

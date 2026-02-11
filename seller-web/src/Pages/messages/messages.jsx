@@ -27,7 +27,6 @@ import {
   RefreshCw,
   Package
 } from 'lucide-react';
-import { toast } from "sonner";
 import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server";
 import { io } from "socket.io-client";
 import { useLivestreamSocket } from "@/Contexts/LivestreamSocketContext";
@@ -56,6 +55,7 @@ import {
 import { EmojiPicker } from "@/Components/ui/emoji-picker";
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
+import { useNotification } from '@/Hooks/useNotification';
 
 
 // Helper function to format message timestamps
@@ -267,6 +267,7 @@ const CampaignMessage = ({ campaign }) => {
 
 export default function ChatInterface() {
   const { setHeaderName, setNavName } = useOutletContext()
+  const { showNotification } = useNotification();
   const { token } = useAuthContext();
   const [conversations, setConversations] = useState([]);
   const [currentConversation, setCurrentConversation] = useState(null);
@@ -349,7 +350,7 @@ export default function ChatInterface() {
         fetchSellerProductsWithParams(profileData.data._id);
       } catch (error) {
         console.error('Error fetching seller profile:', error);
-        toast.error('Failed to load seller profile');
+        showNotification('Failed to load seller profile', 'error', 'dismissible');
       }
     };
     fetchSellerProfile();
@@ -397,7 +398,7 @@ export default function ChatInterface() {
       }));
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast.error('Failed to load products');
+      showNotification('Failed to load products', 'error', 'dismissible');
     } finally {
       if (append) {
         setLoadingMoreProducts(false);
@@ -489,11 +490,11 @@ export default function ChatInterface() {
         }
       } else {
         console.error('Unexpected search response format:', data);
-        toast.error('Error in search response format');
+        showNotification('Error in search response format', 'error', 'dismissible');
       }
     } catch (error) {
       console.error('Error searching products:', error);
-      toast.error('Failed to search products');
+      showNotification('Failed to search products', 'error', 'dismissible');
     } finally {
       setIsLoadingProducts(false);
     }
@@ -538,7 +539,7 @@ export default function ChatInterface() {
         })
         .catch(error => {
           console.error('Error loading more search results:', error);
-          toast.error('Failed to load more search results');
+          showNotification('Failed to load more search results', 'error', 'dismissible');
         })
         .finally(() => {
           setLoadingMoreProducts(false);
@@ -587,7 +588,7 @@ export default function ChatInterface() {
         setConversations(data.conversations);
       } catch (error) {
         console.error('Error fetching conversations:', error);
-        toast.error('Failed to load conversations');
+        showNotification('Failed to load conversations', 'error', 'dismissible');
       } finally {
         setIsLoadingConversations(false);
       }
@@ -595,63 +596,86 @@ export default function ChatInterface() {
     fetchConversations();
   }, []);
 
-  // Handle location state to open chat with specific customer
+  // Handle location state to open chat with specific customer or specific conversation
   useEffect(() => {
     const handleLocationState = async () => {
-      if (!location.state?.openChatWithCustomer || !location.state?.customerId) {
+      const state = location.state;
+
+      if (!state) return;
+
+      // Open chat with a specific customer (existing behaviour)
+      if (state.openChatWithCustomer && state.customerId) {
+        const { customerId, customerName } = state;
+        
+        // Check if there's already a conversation with this customer
+        const existingConversation = conversations.find(conv => 
+          conv.participant.id === customerId
+        );
+  
+        if (existingConversation) {
+          // Open existing conversation
+          setCurrentConversation(existingConversation);
+          setShowChatList(false); // Hide chat list on mobile
+          
+          // Don't mark as loaded - let the normal message fetching handle it
+          // This ensures messages are properly fetched when returning to the conversation
+        } else {
+          // Create new conversation without sending a default message
+          setIsCreatingConversation(true);
+          try {
+            // Create a conversation object without sending a message
+            const newConversation = {
+              _id: `temp_${Date.now()}`, // Temporary ID until we get the real one
+              participant: {
+                id: customerId,
+                name: customerName,
+                model: 'Buyer'
+              },
+              lastMessage: {
+                content: '',
+                createdAt: new Date().toISOString()
+              },
+              unreadCount: 0,
+              isNew: true // Flag to indicate this is a new conversation
+            };
+  
+            // Update conversations list and set current
+            setConversations(prev => [newConversation, ...prev]);
+            setCurrentConversation(newConversation);
+            setShowChatList(false); // Hide chat list on mobile
+            
+            showNotification('Chat opened with customer', 'information', 'dismissible');
+          } catch (error) {
+            console.error('Error opening chat:', error);
+            showNotification('Failed to open chat with customer', 'error', 'dismissible');
+          } finally {
+            setIsCreatingConversation(false);
+          }
+        }
+
+        // Clear the location state to prevent re-triggering
+        navigate('/dashboard/messages', { replace: true });
         return;
       }
 
-      const { customerId, customerName } = location.state;
-      
-      // Check if there's already a conversation with this customer
-      const existingConversation = conversations.find(conv => 
-        conv.participant.id === customerId
-      );
+      // Open an existing conversation directly by ID (for buyer_message notifications)
+      if (state.openConversationById && state.conversationId) {
+        const targetConversationId = state.conversationId;
 
-      if (existingConversation) {
-        // Open existing conversation
-        setCurrentConversation(existingConversation);
-        setShowChatList(false); // Hide chat list on mobile
-        
-        // Don't mark as loaded - let the normal message fetching handle it
-        // This ensures messages are properly fetched when returning to the conversation
-      } else {
-        // Create new conversation without sending a default message
-        setIsCreatingConversation(true);
-        try {
-          // Create a conversation object without sending a message
-          const newConversation = {
-            _id: `temp_${Date.now()}`, // Temporary ID until we get the real one
-            participant: {
-              id: customerId,
-              name: customerName,
-              model: 'Buyer'
-            },
-            lastMessage: {
-              content: '',
-              createdAt: new Date().toISOString()
-            },
-            unreadCount: 0,
-            isNew: true // Flag to indicate this is a new conversation
-          };
+        const existingConversation = conversations.find(conv => 
+          conv._id === targetConversationId
+        );
 
-          // Update conversations list and set current
-          setConversations(prev => [newConversation, ...prev]);
-          setCurrentConversation(newConversation);
+        if (existingConversation) {
+          setCurrentConversation(existingConversation);
           setShowChatList(false); // Hide chat list on mobile
-          
-          toast.success('Chat opened with customer');
-        } catch (error) {
-          console.error('Error opening chat:', error);
-          toast.error('Failed to open chat with customer');
-        } finally {
-          setIsCreatingConversation(false);
+        } else {
+          console.warn('Conversation with ID not found:', targetConversationId);
         }
-      }
 
-      // Clear the location state to prevent re-triggering
-      navigate('/dashboard/messages', { replace: true });
+        // Clear the location state to prevent re-triggering
+        navigate('/dashboard/messages', { replace: true });
+      }
     };
 
     // Only run after conversations are loaded
@@ -801,7 +825,7 @@ export default function ChatInterface() {
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
-      toast.error('Failed to load messages');
+      showNotification('Failed to load messages', 'error', 'dismissible');
     } finally {
       // Only update loading state if we're still on the same conversation
       if (currentConversation?._id === conversationId) {
@@ -993,11 +1017,11 @@ export default function ChatInterface() {
   // Update the handleSendMessage function to work with the new order
   const handleSendMessage = async () => {
     if (!messageInput.trim()) {
-      toast.error("Please enter a message");
+      showNotification("Please enter a message", 'error', 'dismissible');
       return;
     }
     if (!currentConversation?.participant?.id) {
-      toast.error("Please select a conversation first");
+      showNotification("Please select a conversation first", 'error', 'dismissible');
       return;
     }
 
@@ -1199,7 +1223,7 @@ export default function ChatInterface() {
         return updatedMessages;
       });
       setMessageInput(newMessageContent); // Restore message input
-      toast.error(error.message || "Failed to send message. Please try again.");
+      showNotification(error.message || "Failed to send message. Please try again.", 'error', 'dismissible');
     } finally {
       setIsSending(false);
     }
@@ -1210,12 +1234,12 @@ export default function ChatInterface() {
     if (!file || !currentConversation) return;
 
     if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
-      toast.error("Please select a valid image file (JPEG, PNG, or GIF)");
+      showNotification("Please select a valid image file (JPEG, PNG, or GIF)", 'error', 'dismissible');
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("File size should be less than 5MB");
+      showNotification("File size should be less than 5MB", 'error', 'dismissible');
       return;
     }
 
@@ -1320,7 +1344,7 @@ export default function ChatInterface() {
       // Force immediate scroll to bottom after server confirmation
       scrollToBottom(true);
 
-      toast.success("Image sent successfully");
+      showNotification("Image sent successfully", 'information', 'dismissible');
     } catch (error) {
       // Remove temporary message if upload failed
       setMessages(prev => {
@@ -1337,7 +1361,7 @@ export default function ChatInterface() {
         return updatedMessages;
       });
       console.error('Error uploading image:', error);
-      toast.error("Failed to send image. Please try again.");
+      showNotification("Failed to send image. Please try again.", 'error', 'dismissible');
     }
   };
 
@@ -1441,7 +1465,7 @@ export default function ChatInterface() {
         message: serverMessage
       });
 
-      toast.success("Product shared successfully");
+      showNotification("Product shared successfully", 'information', 'dismissible');
     } catch (error) {
       // Remove temporary message if send failed
       setMessages(prev => {
@@ -1458,7 +1482,7 @@ export default function ChatInterface() {
         return updatedMessages;
       });
       console.error('Error sending product message:', error);
-      toast.error("Failed to share product. Please try again.");
+      showNotification("Failed to share product. Please try again.", 'error', 'dismissible');
     }
   };
 
@@ -1988,7 +2012,7 @@ export default function ChatInterface() {
         }
       } catch (error) {
         console.error('Error fetching customers:', error);
-        toast.error('Failed to load customers');
+        showNotification('Failed to load customers', 'error', 'dismissible');
       }
     };
 
@@ -2062,7 +2086,7 @@ export default function ChatInterface() {
   // Update handleStartNewConversation to immediately update the header
   const handleStartNewConversation = async () => {
     if (!selectedCustomer || !initialMessage.trim()) {
-      toast.error('Please select a customer and enter a message');
+      showNotification('Please select a customer and enter a message', 'error', 'dismissible');
       return;
     }
 
@@ -2120,10 +2144,10 @@ export default function ChatInterface() {
       setInitialMessage("");
       setNewMessageOpen(false);
       
-      toast.success('Conversation started successfully');
+      showNotification('Conversation started successfully', 'information', 'dismissible');
     } catch (error) {
       console.error('Error starting conversation:', error);
-      toast.error('Failed to start conversation');
+      showNotification('Failed to start conversation', 'error', 'dismissible');
     }
   };
 
@@ -2146,7 +2170,7 @@ export default function ChatInterface() {
         setBuyerDetails(data);
       } catch (error) {
         console.error('Error fetching buyer details:', error);
-        toast.error('Failed to load buyer details');
+        showNotification('Failed to load buyer details', 'error', 'dismissible');
       }
     };
 
@@ -2247,7 +2271,7 @@ export default function ChatInterface() {
 
   const handleCreateQuickReply = () => {
     if (!quickReplyTitle.trim() || !quickReplyContent.trim()) {
-      toast.error('Please fill in both title and content');
+      showNotification('Please fill in both title and content', 'error', 'dismissible');
       return;
     }
 
@@ -2261,12 +2285,12 @@ export default function ChatInterface() {
     setNewQuickReplyOpen(false);
     setQuickReplyTitle("");
     setQuickReplyContent("");
-    toast.success('Quick reply created successfully');
+    showNotification('Quick reply created successfully', 'information', 'dismissible');
   };
 
   const handleDeleteQuickReply = (id) => {
     setQuickReplies(prev => prev.filter(reply => reply.id !== id));
-    toast.success('Quick reply deleted');
+    showNotification('Quick reply deleted', 'information', 'dismissible');
   };
 
   const handleSendQuickReply = (content) => {
@@ -2630,6 +2654,7 @@ export default function ChatInterface() {
           flex-1 flex-col 
           bg-white
           overflow-hidden
+          lg:mt-[50px]
         `}>
           {currentConversation ? (
             <>

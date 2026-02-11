@@ -55,7 +55,11 @@ export type {
     ShippingDelivery,
     ShippingCarrier,
     ShippingFee,
-    OrdersPagination
+    OrdersPagination,
+    State,
+    City,
+    StatesResponse,
+    CitiesResponse
 } from "./orders";
 
 export type {
@@ -64,3 +68,20 @@ export type {
     ProductsSearchResponse,
     ProductsSearchParams
 } from "./products";
+
+export type {
+    HeaderV2Props
+} from "./header";
+
+export type {
+    NotificationType,
+    NotificationVisibility,
+    NotificationState,
+    NotificationAction,
+    NotificationContextType,
+    NotificationProviderProps
+} from "./notification";
+
+export type {
+    OutletContextType
+} from "./outlet";

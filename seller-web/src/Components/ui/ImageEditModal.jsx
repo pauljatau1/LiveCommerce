@@ -3,7 +3,8 @@ import Cropper from 'react-easy-crop';
 import { Button } from './button';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
 import { Slider } from './slider';
-import { toast } from 'sonner';
+import { useNotification } from '@/Hooks/useNotification';
+import NotificationBanner from '@/Components/ui/NotificationBanner';
 import { Icon } from "@iconify/react";
 import PropTypes from 'prop-types';
 
@@ -14,6 +15,7 @@ const ImageEditModal = ({
   onSave,
   originalFile
 }) => {
+  const { showNotification, notification, hideNotification } = useNotification();
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -155,7 +157,7 @@ const ImageEditModal = ({
 
   const handleSave = async () => {
     if (!croppedAreaPixels) {
-      toast.error('Please select a crop area');
+      showNotification('Please select a crop area', 'error', 'dismissible');
       return;
     }
 
@@ -190,13 +192,13 @@ const ImageEditModal = ({
           
           onSave(croppedImageData);
           onClose();
-          toast.success('Image edited successfully!');
+          showNotification('Image edited successfully!', 'information', 'dismissible');
         };
         reader.readAsDataURL(croppedFile);
       }
     } catch (error) {
       console.error('Error cropping image:', error);
-      toast.error('Failed to process image');
+      showNotification('Failed to process image', 'error', 'dismissible');
     } finally {
       setIsProcessing(false);
     }
@@ -221,6 +223,14 @@ const ImageEditModal = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        {notification.isVisible && notification.type && (
+          <NotificationBanner
+            message={notification.message}
+            type={notification.type}
+            visibility={notification.visibility}
+            onClose={hideNotification}
+          />
+        )}
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Edit Image</CardTitle>
           <Button variant="ghost" size="sm" onClick={onClose}>

@@ -23,10 +23,11 @@ import {
 } from "@/Components/ui/dropdown-menu";
 import { Input } from "@/Components/ui/form/input";
 import { Textarea } from "@/Components/ui/textarea";
-import { toast } from "sonner";
+import { useNotification } from '@/Hooks/useNotification';
 import PropTypes from "prop-types";
 export default function PostsTab({ sellerId }) {
   const [posts, setPosts] = useState([]);
+  const { showNotification } = useNotification();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
@@ -108,12 +109,12 @@ export default function PostsTab({ sellerId }) {
 
       if (!response.ok) throw new Error("Failed to update post");
 
-      toast.success("Post updated successfully");
+      showNotification("Post updated successfully", 'information', 'dismissible');
       setIsUpdateModalOpen(false);
       fetchPosts(); // Refresh posts
     } catch (error) {
       console.error("Update post error:", error);
-      toast.error(error.message);
+      showNotification(error.message, 'error', 'dismissible');
     }
   };
 
@@ -138,12 +139,12 @@ export default function PostsTab({ sellerId }) {
 
       if (!response.ok) throw new Error("Failed to delete post");
 
-      toast.success("Post deleted successfully");
+      showNotification("Post deleted successfully", 'information', 'dismissible');
       setIsDeleteModalOpen(false);
       fetchPosts(); // Refresh posts
     } catch (error) {
       console.error("Delete post error:", error);
-      toast.error(error.message);
+      showNotification(error.message, 'error', 'dismissible');
     }
   };
 

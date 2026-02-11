@@ -1,18 +1,20 @@
-import { toast } from "sonner";
 import { AxiosError } from "axios";
+import { useNavigate } from "react-router-dom";
 import { authService } from "@/services/authService";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { SignupFormData } from "@/schemas/signupSchema";
-import { GoogleOAuthRequestData } from "@/types";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
+import { useNotification } from "@/Hooks/useNotification";
+import { GoogleOAuthRequestData } from "@/types";
 import AuqliLogo from "@/assets/icons/AuqliLogo";
 import SignUpForm from "@/Components/signUpPage/SignUpForm";
 import PrimaryButton from "@/Components/shared/PrimaryButton";
 import MarketingSection from "@/Components/loginPage/MarketingSection";
+import NotificationBanner from "@/Components/ui/NotificationBanner";
 
 export default function SignUpPageV2() {
     const { signUp, googleAuth } = authService;
+    const { showNotification, notification, hideNotification } = useNotification();
     const { isLoading, handleSignupActivity } = useAuthContext();
     const navigate = useNavigate();
 
@@ -22,8 +24,8 @@ export default function SignUpPageV2() {
     });
 
     // Google OAuth mutation
-    const { mutate: googleAuthMutate, isPending: isGoogleAuthPending } = useMutation({ 
-        mutationFn: (data: GoogleOAuthRequestData) => googleAuth(data) 
+    const { mutate: googleAuthMutate, isPending: isGoogleAuthPending } = useMutation({
+        mutationFn: (data: GoogleOAuthRequestData) => googleAuth(data)
     });
 
     // Mock handlers for demonstration
@@ -33,25 +35,19 @@ export default function SignUpPageV2() {
 
     const handleGoogleSignup = (googleToken: string) => {
         console.log("Processing Google OAuth token for signup:", googleToken);
-        
+
         // Call the Google OAuth mutation with the token
         googleAuthMutate({ token: googleToken }, {
             onSuccess: async (response) => {
                 console.log("Google OAuth signup successful:", response);
-                
+
                 // Extract user and token from response
                 const { user, token } = response.data;
-                
+
                 // Call handleSignupActivity to complete the signup process
                 const signUpActivity = await handleSignupActivity(user, token);
                 if (signUpActivity) {
-                    toast.success("Account created successfully!", {
-                        description: "Welcome to Auqli! Your account has been created.",
-                        style: {
-                            background: "#17171B",
-                            color: "#fff",
-                        }
-                    });
+                    showNotification("Account created successfully!", "information", "dismissible");
 
                     // Navigate to dashboard after successful signup
                     navigate("/dashboard/home", { replace: true });
@@ -59,41 +55,17 @@ export default function SignUpPageV2() {
             },
             onError: (error) => {
                 console.error("Google OAuth signup failed:", error);
-                
+
                 if (error instanceof AxiosError) {
                     if (error.status === 401) {
-                        toast.error("Google Authentication Failed", {
-                            description: "Invalid Google token. Please try again.",
-                            style: {
-                                background: "#17171B",
-                                color: "#fff",
-                            }
-                        });
+                        showNotification("Google Authentication Failed", "error", "dismissible");
                     } else if (error.status === 400) {
-                        toast.error("Google Authentication Failed", {
-                            description: error.response?.data?.message || "Invalid request. Please try again.",
-                            style: {
-                                background: "#17171B",
-                                color: "#fff",
-                            }
-                        });
+                        showNotification("Google Authentication Failed", "error", "dismissible");
                     } else {
-                        toast.error("Google Authentication Failed", {
-                            description: error.response?.data?.message || error.message,
-                            style: {
-                                background: "#17171B",
-                                color: "#fff",
-                            }
-                        });
+                        showNotification("Google Authentication Failed", "error", "dismissible");
                     }
                 } else {
-                    toast.error("Google Authentication Failed", {
-                        description: "Something went wrong. Please try again later.",
-                        style: {
-                            background: "#17171B",
-                            color: "#fff",
-                        }
-                    });
+                    showNotification("Something went wrong. Please try again later", "error", "dismissible");
                 }
             }
         });
@@ -106,13 +78,7 @@ export default function SignUpPageV2() {
 
                 const signUpActivity = await handleSignupActivity(res.data.user, res.data.token);
                 if (signUpActivity) {
-                    toast.success("Account created successfully!", {
-                        description: "Please check your email to verify your account.",
-                        style: {
-                            background: "#17171B",
-                            color: "#fff",
-                        }
-                    });
+                    showNotification("Account created successfully!", "information", "dismissible");
 
                     // Navigate to login page after successful signup
 
@@ -123,13 +89,7 @@ export default function SignUpPageV2() {
             onError: (error) => {
                 console.log("Signup error:", error instanceof AxiosError);
 
-                toast.error("Signup Failed", {
-                    description: error?.message || "Something went wrong. Please try again later.",
-                    style: {
-                        background: "#17171B",
-                        color: "#fff",
-                    }
-                });
+                showNotification(`Signup Failed: ${error?.message || "Something went wrong. Please try again later."}`, "error", "dismissible");
             }
         });
     };
@@ -137,11 +97,24 @@ export default function SignUpPageV2() {
     return (
         <div className="min-h-[100dvh] bg-gray-50">
             {/* Header */}
-            <div className="flex z-10 justify-between py-[9px] lg:py-[10px] px-[20px] lg:px-[30px]">
-                <AuqliLogo className="w-[95px] lg:w-[131px] h-[24.1px] lg:h-[35px]" />
-                <PrimaryButton outline onClick={handleSignInClick}>
-                    Sign In
-                </PrimaryButton>
+            <div className="flex flex-col gap-2 z-10 py-[9px] lg:py-[10px] px-[20px] lg:px-[30px]">
+                <div className="flex items-center justify-between">
+                    <AuqliLogo className="w-[95px] lg:w-[131px] h-[24.1px] lg:h-[35px]" />
+                    <PrimaryButton outline onClick={handleSignInClick}>
+                        Sign In
+                    </PrimaryButton>
+                </div>
+                {/* Notification Banner - Renders at this location for all pages */}
+                {notification.isVisible && notification.type && (
+                    <div className="pb-3 pt-0 lg:pt-2 ">
+                        <NotificationBanner
+                            message={notification.message}
+                            type={notification.type}
+                            visibility={notification.visibility}
+                            onClose={hideNotification}
+                        />
+                    </div>
+                )}
             </div>
 
             {/* Main Content */}

@@ -20,8 +20,8 @@ const HomePage = () => {
 
   // useEffect to set the header name, nav name, and show back button
   useEffect(() => {
-    setHeaderName("Dashboard");
-    setNavName("");
+    setHeaderName(`Hello ${seller?.firstName ? seller?.firstName : "" }`);
+    setNavName("Let's makes some sales today!");
     setShowBackButton(false);
 
     return () => {
@@ -37,7 +37,7 @@ const HomePage = () => {
   }, []);
 
   return (
-    <div className="mt-28">
+    <div className="mt-8">
 
       {/* Notification */}
       {notification && <AlertNotification />}

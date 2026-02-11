@@ -11,14 +11,15 @@ import { Icon } from '@iconify/react';
 import { Progress } from '../../Components/ui/progress';
 import { CircularProgress } from '@mui/material';
 import axios from 'axios';
-import { toast } from 'sonner';
 import { BASE_URL } from '../../Constants/Server';
 import { trackEvent } from '@/util/analytics';
-import { useAuthContext } from '@/Hooks/useAuthContextV2';  
+import { useAuthContext } from '@/Hooks/useAuthContextV2';
+import { useNotification } from '../../Hooks/useNotification';
 
 const Blips = () => {
   const { token, seller } = useAuthContext();
   const { setHeaderName, setNavName } = useOutletContext()
+  const { showNotification } = useNotification();
   const dispatch = useDispatch();
   const { blips, isLoadingBlips, blipsPagination, products } = useSelector((state) => state.product);
   const [currentPage, setCurrentPage] = useState(1);
@@ -132,9 +133,7 @@ const Blips = () => {
       }
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast.error('Failed to load products', {
-        description: "Please try again",
-      });
+      showNotification('Failed to load products', "error", 'dismissible');
     } finally {
       setIsLoadingProducts(false);
     }
@@ -229,13 +228,13 @@ const Blips = () => {
     files.forEach(file => {
       // Check if file is a video
       if (!file.type.startsWith('video/')) {
-        toast.error(`${file.name} is not a video file`);
+        showNotification(`${file.name} is not a video file`, "warning", 'dismissible');
         return;
       }
 
       // Check file size (max 50MB)
       if (file.size > 50 * 1024 * 1024) {
-        toast.error(`${file.name} is too large (max 50MB)`);
+        showNotification(`${file.name} is too large (max 50MB)`, "warning", 'dismissible');
         return;
       }
 
@@ -261,12 +260,12 @@ const Blips = () => {
 
   const handleUpload = async () => {
     if (!selectedProduct) {
-      toast.error('Please select a product first');
+      showNotification('Please select a product first', "warning", 'dismissible');
       return;
     }
 
     if (blipVideos.length === 0) {
-      toast.error('Please select at least one video to upload');
+      showNotification('Please select at least one video to upload', "warning", 'dismissible');
       return;
     }
 
@@ -298,7 +297,7 @@ const Blips = () => {
       );
 
       if (response.status === 201) {
-        toast.success(`${blipVideos.length} blip video${blipVideos.length > 1 ? 's' : ''} uploaded successfully`);
+        showNotification(`${blipVideos.length} blip video${blipVideos.length > 1 ? 's' : ''} uploaded successfully`, "information", 'dismissible');
         const sellerDetails = JSON.parse(localStorage.getItem('seller'));
 
         trackEvent('blip_created', {
@@ -334,9 +333,7 @@ const Blips = () => {
       }
     } catch (error) {
       console.error('Error uploading blips:', error);
-      toast.error('Failed to upload blip videos', {
-        description: error.response?.data?.message || 'Please try again',
-      });
+      showNotification(`Failed to upload blip videos, ${error.response?.data?.message || 'Please try again'}`, "error", 'dismissible');
     } finally {
       setIsUploading(false);
     }

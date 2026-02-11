@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { tokenUtils, authUtils, sellerUtils } from '@/util/auth';
 import DisabledAccountDialog from '@/Components/DisabledAccountDialog';
 import PropTypes from 'prop-types';
-import { toast } from 'sonner';
+import { useNotification } from '@/Hooks/useNotification';
 import Loader from '@/Components/Loader';
 
 /**
@@ -25,7 +25,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { logout, dispatch } = useAuthContext();
   const [showDisabledDialog, setShowDisabledDialog] = useState(false);
   const [hasAuthenticated, setHasAuthenticated] = useState(false);
-
+  const { showNotification } = useNotification();
   // Define route types for easier checking
   const isSignUpRoute = location.pathname.startsWith('/signup');
   const isLoginRoute = location.pathname.startsWith('/login');
@@ -94,6 +94,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
         } 
       });
 
+      sellerUtils.storeSeller(data as Seller);
+
       // Check if account is disabled
       if (data.isDisabled) {
         console.log("Account is disabled, showing dialog");
@@ -111,16 +113,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       // Clear all authentication data
       authUtils.clearAllAuthData();
       
-      // Show error toast
-      toast.error("Session expired, please login again", {
-        style: {
-          backgroundColor: '#17171B',
-          color: '#F7FAFC',
-          fontFamily: 'Inter',
-          fontSize: '14px',
-          fontWeight: '400',
-        }
-      });
+      // Show error notification
+      showNotification("Session expired, please login again", 'error', 'dismissible');
 
       // Redirect to login
       navigate('/login', { replace: true });

@@ -246,4 +246,33 @@ export interface OrderAddress {
     data: OrdersData;
     pagination: OrdersPagination;
   }
+
+  // Location/Address related types
+  export interface State {
+    name: string;
+    isoCode: string;
+    countryCode: string;
+    latitude: string;
+    longitude: string;
+  }
+
+  export interface City {
+    name: string;
+    countryCode: string;
+    stateCode: string;
+    latitude: string;
+    longitude: string;
+  }
+
+  export interface StatesResponse {
+    status: boolean;
+    message: string;
+    data: State[];
+  }
+
+  export interface CitiesResponse {
+    status: boolean;
+    message: string;
+    data: City[];
+  }
   
