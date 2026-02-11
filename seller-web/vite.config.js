@@ -44,48 +44,83 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor': [
-            'react', 
-            'react-dom', 
-            'react-router-dom',
-            '@reduxjs/toolkit',
-            'react-redux'
-          ],
-          'ui': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-select',
-            '@radix-ui/react-avatar',
-            '@radix-ui/react-slot',
-            '@radix-ui/react-tooltip',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-checkbox',
-            '@radix-ui/react-switch',
-            '@radix-ui/react-accordion',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-dropdown-menu',
-            'class-variance-authority',
-            'clsx',
-            'tailwind-merge',
-            'lucide-react'
-          ],
-          'material-ui': [
-            '@mui/material',
-            '@mui/x-date-pickers',
-            '@emotion/react',
-            '@emotion/styled'
-          ],
-          'icons': [
-            '@iconify/react',
-            'react-icons'
-          ],
-          'charting': [
-            'recharts'
-          ]
+        manualChunks: (id) => {
+          // Large dependencies that should be in their own chunks
+          if (id.includes('node_modules')) {
+            // Ant Design
+            if (id.includes('antd')) {
+              return 'antd';
+            }
+            // Lodash
+            if (id.includes('lodash')) {
+              return 'lodash';
+            }
+            // PDF generation
+            if (id.includes('jspdf') || id.includes('jspdf-autotable')) {
+              return 'pdf';
+            }
+            // HTML to Canvas
+            if (id.includes('html2canvas')) {
+              return 'html2canvas';
+            }
+            // Agora SDK
+            if (id.includes('agora-rtc-sdk-ng')) {
+              return 'agora';
+            }
+            // Video/Media
+            if (id.includes('hls.js')) {
+              return 'hls';
+            }
+            // TipTap editor
+            if (id.includes('@tiptap')) {
+              return 'tiptap';
+            }
+            // React Query
+            if (id.includes('@tanstack/react-query')) {
+              return 'react-query';
+            }
+            // Socket.io
+            if (id.includes('socket.io')) {
+              return 'socket';
+            }
+            // Material UI
+            if (id.includes('@mui/material') || id.includes('@mui/x-date-pickers') || id.includes('@emotion')) {
+              return 'material-ui';
+            }
+            // Radix UI components
+            if (id.includes('@radix-ui')) {
+              return 'radix-ui';
+            }
+            // Icons
+            if (id.includes('@iconify') || id.includes('react-icons') || id.includes('lucide-react')) {
+              return 'icons';
+            }
+            // Charts
+            if (id.includes('recharts')) {
+              return 'charting';
+            }
+            // Core vendor libraries
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'vendor-react';
+            }
+            // Redux
+            if (id.includes('redux') || id.includes('@reduxjs')) {
+              return 'vendor-redux';
+            }
+            // Other large vendor libraries
+            if (id.includes('axios') || id.includes('dayjs') || id.includes('date-fns') || id.includes('zod')) {
+              return 'vendor-utils';
+            }
+            // Everything else from node_modules
+            return 'vendor';
+          }
         }
       }
     },
     sourcemap: true,
+    chunkSizeWarningLimit: 1000,
+    // Use esbuild for minification (default, more memory efficient than terser)
+    minify: 'esbuild',
   },
   esbuild: {
     drop: APP_STATE === 'production' ? ['console', 'debugger'] : [],
