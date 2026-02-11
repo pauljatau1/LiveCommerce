@@ -50,17 +50,17 @@ export default function LogoutConfirmationModal({
           <DialogTitle className="text-2xl md:text-3xl font-bold text-[#FF3B30] mb-4">
             Logout?
           </DialogTitle>
-          <DialogDescription className="text-base md:text-lg text-gray-700 font-normal">
+          <DialogDescription className="text-base text-gray-700 font-normal">
             Are you sure you want to log out now?
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-6">
+        <div className="flex flex-row flex-wrap gap-3 sm:gap-4 mt-6">
           <button
             type="button"
             onClick={handleConfirm}
             disabled={isLoggingOut}
-            className="flex-1 bg-[#FF3B30] hover:bg-[#FF3B30]/80 text-white font-bold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base"
+            className="flex-1 bg-[#FF3B30] hover:bg-[#FF3B30]/80 text-white font-bold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs lg:text-sm"
           >
             {isLoggingOut ? "Logging out..." : "Logout"}
           </button>
@@ -68,7 +68,7 @@ export default function LogoutConfirmationModal({
             type="button"
             onClick={handleCancel}
             disabled={isLoggingOut}
-            className="flex-1 bg-white border-2 border-[#FF3B30] text-[#FF3B30] hover:bg-red-50 font-bold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base"
+            className="flex-1 bg-white border-2 border-[#FF3B30] text-[#FF3B30] hover:bg-red-50 font-bold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs lg:text-sm"
           >
             Cancel
           </button>

@@ -1,9 +1,10 @@
-import { toast } from "sonner"
 import { Label } from "@/Components/ui/label"
 import { Badge } from "@/Components/ui/badge"
 import { Input } from "@/Components/ui/form/input"
 import { Button } from "@/Components/ui/button"
+import { useIntercom } from "react-use-intercom"
 import { useAuthContext } from "@/Hooks/useAuthContextV2"
+import { useNotification } from '@/Hooks/useNotification';
 import { useState, useEffect } from "react"
 import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import {MapPin, Building2, Home } from 'lucide-react'
@@ -67,6 +68,8 @@ const NIGERIAN_CITIES = {
 
 export default function AddressSettings() {
   const { token } = useAuthContext();
+  const { show } = useIntercom();
+  const { showNotification } = useNotification();
   console.log("Main component render");
   
   const [profileData, setProfileData] = useState({
@@ -285,7 +288,8 @@ export default function AddressSettings() {
         setProfileData(data.data);
       }
     } catch (error) {
-      toast.error("Failed to fetch address data");
+      console.error("Failed to fetch address data", error);
+      showNotification("Failed to fetch address data", 'error', 'dismissible');
     }
   };
 
@@ -323,13 +327,14 @@ export default function AddressSettings() {
       });
 
       if (response.ok) {
-        toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} address updated successfully`);
+        showNotification(`${type.charAt(0).toUpperCase() + type.slice(1)} address updated successfully`, 'information', 'dismissible');
         await fetchProfileData(); // Refresh data
       } else {
         throw new Error('Failed to update address');
       }
     } catch (error) {
-      toast.error(`Failed to update ${type} address`);
+      console.error(`Failed to update ${type} address`, error);
+      showNotification(`Failed to update ${type} address`, 'error', 'dismissible');
       console.error('Update error:', error);
     } finally {
       setIsLoading(false);
@@ -355,13 +360,14 @@ export default function AddressSettings() {
       });
 
       if (response.ok) {
-        toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} address deleted successfully`);
+        showNotification(`${type.charAt(0).toUpperCase() + type.slice(1)} address deleted successfully`, 'information', 'dismissible');
         await fetchProfileData(); // Refresh data
       } else {
         throw new Error('Failed to delete address');
       }
     } catch (error) {
-      toast.error(`Failed to delete ${type} address`);
+      console.error(`Failed to delete ${type} address`, error);
+      showNotification(`Failed to delete ${type} address`, 'error', 'dismissible');
     }
   };
 
@@ -387,9 +393,9 @@ export default function AddressSettings() {
           {hasVerified && (
             <Badge variant="outline" className="text-green-500">Verified</Badge>
           )}
-          <div className="text-sm text-blue-700">
-            <span>Contact <a href="mailto:support@auqli.com" className="underline font-medium">support@auqli.com</a> to update</span>
-          </div>
+          <button className="text-sm text-white bg-blue-500 px-4 py-2 my-3 rounded-md" onClick={() => show()}>
+            Message Support
+          </button>
         </div>
       </CardHeader>
       <CardContent>
@@ -425,8 +431,11 @@ export default function AddressSettings() {
     <div className="space-y-6 p-4 sm:p-6">
       <div className="bg-blue-50 p-4 rounded-md border border-blue-200 mb-6">
         <p className="text-sm text-blue-700">
-          To update or add address information, please contact support at <a href="mailto:support@auqli.com" className="underline font-medium">support@auqli.com</a>
+          To update or add address information, please contact support
         </p>
+        <button className="text-sm text-white bg-blue-500 px-4 py-2 my-3 rounded-md" onClick={() => show()}>
+            Message Support
+        </button>
       </div>
       
       {profileData.accountType === 'business' && (

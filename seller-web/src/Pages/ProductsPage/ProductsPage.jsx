@@ -35,7 +35,7 @@ import BlipUploadModal from "../../Components/ui/ProductPageUi/BlipUploadModal";
 import ShareLinkPopUp from "../../Components/ui/ShareLinkPopUp";
 import NotFound from "../../assets/not-found-icon2.png";
 import LinearProgress from "@mui/material/LinearProgress";
-import PickupAddressVerificationModal from "../../Components/PickupAddressVerificationModal";
+import PickupAddressVerificationModal from "@/Components/shared/PickupAddressVerificationModal";
 import StockUpdateModal from "../../Components/ui/ProductPageUi/StockUpdateModal";
 import axios from 'axios';
 //import EmailVerificationModal from "../../Components/EmailVerificationModal";

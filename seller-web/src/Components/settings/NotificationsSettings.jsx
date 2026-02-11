@@ -1,4 +1,4 @@
-import { toast } from "sonner"
+import { useNotification } from '@/Hooks/useNotification';
 import { Switch } from "@/Components/ui/switch"
 import { Checkbox } from "@/Components/ui/checkbox"
 import { useAuthContext } from "@/Hooks/useAuthContextV2"
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card"
 
 export default function NotificationsSettings() {
   const { token } = useAuthContext();
+  const { showNotification } = useNotification();
   const [ setIsLoading ] = useState(false);
   const [preferences, setPreferences] = useState({
     emailNotifications: true,
@@ -39,7 +40,7 @@ export default function NotificationsSettings() {
       }
     } catch (error) {
       console.log('error fetching notification preferences', error);
-      toast.error("Failed to fetch notification preferences");
+      showNotification("Failed to fetch notification preferences", 'error', 'dismissible');
     }
   };
 
@@ -58,13 +59,13 @@ export default function NotificationsSettings() {
 
       if (response.ok) {
         setPreferences(prev => ({ ...prev, ...updates }));
-        toast.success("Notification preferences updated");
+        showNotification("Notification preferences updated", 'information', 'dismissible');
       } else {
         throw new Error("Failed to update preferences");
       }
     } catch (error) {
       console.log('error updating notification preferences', error);
-      toast.error("Error updating notification preferences");
+      showNotification("Error updating notification preferences", 'error', 'dismissible');
     } finally {
       setIsLoading(false);
     }

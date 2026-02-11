@@ -1,5 +1,6 @@
 import { Icon } from "@iconify/react";
-import { toast } from 'sonner';
+import { useNotification } from '@/Hooks/useNotification';
+import NotificationBanner from '@/Components/ui/NotificationBanner';
 import { BASE_URL } from '../../../Constants/Server';
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
 import { Modal, Box, TextField, CircularProgress } from '@mui/material';
@@ -10,6 +11,7 @@ import axios from 'axios';
 // StockUpdateModal component for updating product stock
 const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitting, setIsStockUpdated }) => {
     const { token } = useAuthContext();
+    const { showNotification, notification, hideNotification } = useNotification();
     const [stockChange, setStockChange] = useState(0);
     const [operation, setOperation] = useState('add'); // 'add' or 'subtract'
     const [localIsSubmitting, setLocalIsSubmitting] = useState(false);
@@ -49,7 +51,7 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
     // If onUpdate is provided as a prop, use it; otherwise use the local implementation
     const handleSubmit = async () => {
         if (stockChange <= 0) {
-            toast.error("Please enter a valid quantity");
+            showNotification("Please enter a valid quantity", 'error', 'dismissible');
             return;
         }
 
@@ -78,13 +80,11 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
                     if (setIsStockUpdated) {
                         setIsStockUpdated(prev => !prev);
                     }
-                    toast.success(`Stock ${operation === 'add' ? 'increased' : 'decreased'} successfully`);
+                    showNotification(`Stock ${operation === 'add' ? 'increased' : 'decreased'} successfully`, 'information', 'dismissible');
                 }
             } catch (error) {
                 console.error("Stock update error:", error);
-                toast.error("Failed to update stock", {
-                    description: error.response?.data?.message || "Please try again"
-                });
+                showNotification(`Failed to update stock: ${error.response?.data?.message || "Please try again"}`, 'error', 'dismissible');
             } finally {
                 setLocalIsSubmitting(false);
             }
@@ -97,6 +97,14 @@ const StockUpdateModal = React.memo(({ open, onClose, item, onUpdate, isSubmitti
     return (
         <Modal open={open} onClose={onClose}>
             <Box sx={modalStyle}>
+                {notification.isVisible && notification.type && (
+                    <NotificationBanner
+                        message={notification.message}
+                        type={notification.type}
+                        visibility={notification.visibility}
+                        onClose={hideNotification}
+                    />
+                )}
                 <div className="relative">
                     <button
                         onClick={onClose}

@@ -5,7 +5,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import LiveStreamSuccessIcon from '../../assets/Party.png';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
+import { useNotification } from '@/Hooks/useNotification';
 import { useOutletContext } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../Components/ui/tooltip';
@@ -14,6 +14,7 @@ import LiveShowProductsCard from '@/Components/livestream/LiveShowProductsCard';
 const SuccessModal = ({ isOpen, onClose, shouldStartImmediately, livestream }) => {
     const navigate = useNavigate();
     const { activeStreams } = useLivestreamContext();
+    const { showNotification } = useNotification();
 
     if (!isOpen) return null;
 
@@ -21,12 +22,12 @@ const SuccessModal = ({ isOpen, onClose, shouldStartImmediately, livestream }) =
         try {
             if (activeStreams?.streamLink) {
                 await navigator.clipboard.writeText(activeStreams.streamLink);
-                toast.success('Link copied to clipboard');
+                showNotification('Link copied to clipboard', 'information', 'dismissible');
             } else {
-                toast.error('No link found to copy');
+                showNotification('No link found to copy', 'error', 'dismissible');
             }
         } catch {
-            toast.error('Failed to copy link');
+            showNotification('Failed to copy link', 'error', 'dismissible');
         }
     };
 
@@ -116,11 +117,11 @@ SuccessModal.propTypes = {
 };
 
 const SubmitLiveShow = () => {
+    const { showNotification } = useNotification();
     const { livestream, scheduleLiveShow, isLoading, message, activeStreams } = useLivestreamContext();
     const { setHeaderName, setNavName } = useOutletContext();
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [shouldStartImmediately, setShouldStartImmediately] = useState(false);
-    const [livestreamData, setLivestreamData] = useState(null);
 
     useEffect(() => {
         setHeaderName('Live Streams');
@@ -174,12 +175,7 @@ const SubmitLiveShow = () => {
             if (livestream.title && livestream.description && livestream.coverPhoto && livestream.tags.length > 0 && selectedProducts.length > 0) {
                 await scheduleLiveShow(streamData);
             } else {
-                toast.error('Please fill in all fields', {
-                    style: {
-                        background: '#05031F',
-                        color: '#fff',
-                    }
-                });
+                showNotification('Please fill in all fields', 'error', 'dismissible');
             }
         } catch (error) {
             console.error('Failed to schedule livestream:', error);

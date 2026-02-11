@@ -1,8 +1,8 @@
-import { toast } from "sonner"
 import { Label } from "@/Components/ui/label"
 import { Input } from "@/Components/ui/form/input"
 import { Button } from "@/Components/ui/button"
 import { useAuthContext } from "@/Hooks/useAuthContextV2"
+import { useNotification } from '@/Hooks/useNotification';
 import { Smartphone, Lock } from 'lucide-react'
 import { Card, CardContent } from "@/Components/ui/card"
 import { useState, useEffect } from 'react'
@@ -10,6 +10,7 @@ import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 
 export default function SecuritySettings() {
   const { token } = useAuthContext();
+  const { showNotification } = useNotification();
   const [isLoading, setIsLoading] = useState(false);
   const [showResetCode, setShowResetCode] = useState(false);
   const [sellerEmail, setSellerEmail] = useState('');
@@ -39,7 +40,7 @@ export default function SecuritySettings() {
       }
     } catch (error) {
       console.error("Failed to fetch profile", error);
-      toast.error("Failed to fetch profile");
+      showNotification("Failed to fetch profile", 'error', 'dismissible');
     }
   };
 
@@ -55,14 +56,14 @@ export default function SecuritySettings() {
       });
 
       if (response.ok) {
-        toast.success("Reset code sent to your email");
+        showNotification("Reset code sent to your email", 'information', 'dismissible');
         setShowResetCode(true);
       } else {
         throw new Error("Failed to send reset code");
       }
     } catch (error) {
       console.error("Error requesting password reset", error);
-      toast.error("Error requesting password reset");
+      showNotification("Error requesting password reset", 'error', 'dismissible');
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +71,7 @@ export default function SecuritySettings() {
 
   const handleResetPassword = async () => {
     if (formData.newPassword !== formData.confirmPassword) {
-      toast.error("Passwords do not match");
+      showNotification("Passwords do not match", 'error', 'dismissible');
       return;
     }
 
@@ -89,7 +90,7 @@ export default function SecuritySettings() {
       });
 
       if (response.ok) {
-        toast.success("Password reset successfully");
+        showNotification("Password reset successfully", 'information', 'dismissible');
         setShowResetCode(false);
         setFormData({
           currentPassword: '',
@@ -102,7 +103,7 @@ export default function SecuritySettings() {
       }
     } catch (error) {
       console.error("Error resetting password", error);
-      toast.error("Error resetting password");
+      showNotification("Error resetting password", 'error', 'dismissible');
     } finally {
       setIsLoading(false);
     }
