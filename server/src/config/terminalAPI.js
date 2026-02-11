@@ -1,10 +1,23 @@
 require('dotenv').config();
+const https = require('https');
 
 const BASE_URL_V1 = process.env.TERMINAL_API_URL + '/v1';
 const BASE_URL_V2 = process.env.TERMINAL_API_URL + '/v2';
 const SECRET_KEY = process.env.TERMINAL_SECRET_KEY;
 
-// Logging helper
+// Default timeout for API requests (30 seconds - rates endpoint queries multiple carriers)
+const DEFAULT_TIMEOUT_MS = 30000;
+
+// HTTPS Agent with connection pooling (keep-alive)
+// This reuses TCP connections, saving 200-800ms per request on TLS handshake
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,  // Keep connections alive for 30 seconds
+  maxSockets: 10,          // Max 10 concurrent connections to Terminal API
+  maxFreeSockets: 5,       // Keep 5 idle connections ready
+  timeout: 60000,          // Socket timeout 60 seconds
+});
+
 // Logging helper
 const logRequest = (method, url, body) => {
   console.log(`[Terminal API] REQUEST: ${method} ${url}`);
@@ -18,16 +31,26 @@ const logResponse = (method, url, duration, status) => {
 const customFetch = async (baseUrl, endpoint, options = {}) => {
   const url = `${baseUrl}${endpoint}`;
   const method = options.method || 'GET';
+  const timeoutMs = options.timeout || DEFAULT_TIMEOUT_MS;
 
   const headers = {
     'Authorization': `Bearer ${SECRET_KEY}`,
     'Content-Type': 'application/json',
+    'Connection': 'keep-alive',  // Explicitly request keep-alive
     ...(options.headers || {})
   };
+
+  // Create AbortController for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
 
   const config = {
     method,
     headers,
+    agent: httpsAgent,  // Use connection pooling
+    signal: controller.signal,  // Enable timeout via AbortController
     ...(options.body && { body: JSON.stringify(options.body) })
   };
 
@@ -36,6 +59,8 @@ const customFetch = async (baseUrl, endpoint, options = {}) => {
 
   try {
     const response = await fetch(url, config);
+    clearTimeout(timeoutId);  // Clear timeout on success
+
     const endTime = Date.now();
     const duration = (endTime - startTime) / 1000;
 
@@ -74,6 +99,20 @@ const customFetch = async (baseUrl, endpoint, options = {}) => {
     };
 
   } catch (error) {
+    clearTimeout(timeoutId);  // Always clear timeout
+
+    // Handle timeout specifically
+    if (error.name === 'AbortError') {
+      const endTime = Date.now();
+      const duration = (endTime - startTime) / 1000;
+      console.log(`[Terminal API] TIMEOUT: ${method} ${url} | Duration: ${duration.toFixed(3)} seconds | Timeout after ${timeoutMs}ms`);
+
+      const timeoutError = new Error(`Terminal API request timed out after ${timeoutMs}ms`);
+      timeoutError.code = 'ETIMEDOUT';
+      timeoutError.isTimeout = true;
+      throw timeoutError;
+    }
+
     // If it's the error we already formatted, rethrow it
     if (error.response) throw error;
 
@@ -88,7 +127,6 @@ const customFetch = async (baseUrl, endpoint, options = {}) => {
 const createClient = (baseUrl) => ({
   get: (endpoint, config = {}) => customFetch(baseUrl, endpoint, { ...config, method: 'GET' }),
   post: (endpoint, data, config = {}) => customFetch(baseUrl, endpoint, { ...config, method: 'POST', body: data }),
-  // Implement other methods if needed
   put: (endpoint, data, config = {}) => customFetch(baseUrl, endpoint, { ...config, method: 'PUT', body: data }),
   delete: (endpoint, config = {}) => customFetch(baseUrl, endpoint, { ...config, method: 'DELETE' }),
   patch: (endpoint, data, config = {}) => customFetch(baseUrl, endpoint, { ...config, method: 'PATCH', body: data }),
@@ -96,5 +134,8 @@ const createClient = (baseUrl) => ({
 
 const terminalAPI = createClient(BASE_URL_V1);
 terminalAPI.v2 = createClient(BASE_URL_V2);
+
+// Export agent for monitoring/cleanup if needed
+terminalAPI.agent = httpsAgent;
 
 module.exports = terminalAPI;
