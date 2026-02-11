@@ -84,7 +84,7 @@ export default defineConfig({
               return 'socket';
             }
             // Material UI
-            if (id.includes('@mui/material') || id.includes('@mui/x-date-pickers') || id.includes('@emotion')) {
+            if (id.includes('@mui/material') || id.includes('@mui/x-date-pickers')) {
               return 'material-ui';
             }
             // Radix UI components
