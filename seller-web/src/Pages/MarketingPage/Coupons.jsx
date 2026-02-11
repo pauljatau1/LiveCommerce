@@ -57,7 +57,7 @@ export default function Coupons() {
   })
   const [selectedProducts, setSelectedProducts] = useState([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [endDateEnabled, setEndDateEnabled] = useState(false)
+  //const [endDateEnabled, setEndDateEnabled] = useState(false)
   const [sellerProducts, setSellerProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -294,30 +294,7 @@ export default function Coupons() {
         
         const allProducts = productsResponse.data.products || []
         
-        // Fetch all selected products from backend to ensure we have complete product data
-        // This handles cases where products were selected from different pages
-        const profileResponse = await axios.get(`${BASE_URL_V2}/sellers/profile`, {
-          headers: { Authorization: `Bearer ${sellerToken}` }
-        })
-        const sellerId = profileResponse.data.data._id
-        
-        // Fetch all selected products
-        const productsResponse = await axios.get(`${BASE_URL}/products/seller/${sellerId}`, {
-          params: {
-            limit: 1000 // Get enough products to cover all selected ones
-          }
-        })
-        
-        const allProducts = productsResponse.data.products || []
-        
         const productDiscounts = selectedProducts.map(productId => {
-          const product = allProducts.find(p => p._id === productId)
-          if (!product) {
-            throw new Error(`Product with ID ${productId} not found`)
-          }
-          if (!product.price) {
-            throw new Error(`Product ${product.name || productId} does not have a price`)
-          }
           const product = allProducts.find(p => p._id === productId)
           if (!product) {
             throw new Error(`Product with ID ${productId} not found`)
@@ -488,7 +465,7 @@ export default function Coupons() {
            availableProducts.every(product => selectedProducts.includes(product._id))
   }
 
-  const formatDiscountInfo = (product) => {
+  {/*const formatDiscountInfo = (product) => {
     if (!product.isOnDiscount) return null;
 
     const endDate = new Date(product.discountEndDate).toLocaleDateString();
@@ -501,7 +478,7 @@ export default function Coupons() {
       discountPercentage,
       daysRemaining: Math.ceil((new Date(product.discountEndDate) - new Date()) / (1000 * 60 * 60 * 24))
     };
-  };
+  };*/}
 
   // Add pagination handlers
   const handlePreviousPage = () => {
@@ -856,7 +833,6 @@ export default function Coupons() {
           </h2>
           
           {/* Toolbar: search + actions */}
-          {/* Toolbar: search + actions */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
             <div className="max-w-md w-full">
               <div className="relative">
@@ -921,14 +897,6 @@ export default function Coupons() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={areAllSelected()}
-                      onCheckedChange={handleSelectAll}
-                      aria-label="Select all products"
-                      title="Select all available products"
-                    />
-                  </TableHead>
                   <TableHead className="w-12">
                     <Checkbox
                       checked={areAllSelected()}
@@ -1064,28 +1032,15 @@ export default function Coupons() {
                     {selectedProducts.length} selected
                   </Badge>
                 )}
-            <div className="p-4 border-t bg-gray-50 text-sm text-gray-500 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-gray-700">
-                  Showing {filteredProducts.length} of {paginationData.totalProducts} products
-                </span>
-                {selectedProducts.length > 0 && (
-                  <Badge variant="secondary" className="bg-green-100 text-green-700">
-                    {selectedProducts.length} selected
-                  </Badge>
-                )}
               </div>
               
               {paginationData.totalPages > 1 && (
                 <div className="flex items-center justify-center flex-wrap gap-3 w-full sm:w-auto">
                   <span className="text-xs text-gray-500 mr-2 hidden sm:block">Browse products:</span>
                   
-                  <span className="text-xs text-gray-500 mr-2 hidden sm:block">Browse products:</span>
-                  
                   {/* Mobile pagination display */}
                   <div className="flex sm:hidden items-center justify-center w-full">
                     <button 
-                      type="button"
                       type="button"
                       onClick={handlePreviousPage}
                       disabled={currentPage <= 1}
@@ -1093,20 +1048,16 @@ export default function Coupons() {
                         currentPage <= 1 
                           ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
                           : 'text-[#ffffff] bg-blue-600 hover:bg-blue-700'
-                          : 'text-[#ffffff] bg-blue-600 hover:bg-blue-700'
                       } flex items-center justify-center gap-1 rounded-l-lg py-2 transition-all duration-300 ease-in-out`}
                     >
                       <span className="text-xs">← Prev Page</span>
-                      <span className="text-xs">← Prev Page</span>
                     </button>
                     
-                    <span className="px-4 py-2 text-xs bg-white border-t border-b border-gray-200 font-medium">
                     <span className="px-4 py-2 text-xs bg-white border-t border-b border-gray-200 font-medium">
                       Page {currentPage} of {paginationData.totalPages}
                     </span>
                     
                     <button 
-                      type="button"
                       type="button"
                       onClick={handleNextPage}
                       disabled={currentPage >= paginationData.totalPages}
@@ -1114,10 +1065,8 @@ export default function Coupons() {
                         currentPage >= paginationData.totalPages 
                           ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
                           : 'text-[#ffffff] bg-blue-600 hover:bg-blue-700'
-                          : 'text-[#ffffff] bg-blue-600 hover:bg-blue-700'
                       } flex items-center justify-center gap-1 rounded-r-lg py-2 transition-all duration-300 ease-in-out`}
                     >
-                      <span className="text-xs">Next Page →</span>
                       <span className="text-xs">Next Page →</span>
                     </button>
                   </div>
@@ -1126,7 +1075,6 @@ export default function Coupons() {
                   <div className="hidden sm:flex items-center justify-center gap-3">
                     <button 
                       type="button"
-                      type="button"
                       onClick={handlePreviousPage}
                       disabled={currentPage <= 1}
                       className={`text-xs sm:text-sm font-cabin font-normal ${
@@ -1134,27 +1082,21 @@ export default function Coupons() {
                           ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
                           : 'text-[#ffffff] bg-blue-600 hover:bg-blue-700'
                       } flex items-center gap-1 sm:gap-2 rounded-lg py-2 sm:py-2 px-3 sm:px-4 transition-all duration-300 ease-in-out`}
-                          : 'text-[#ffffff] bg-blue-600 hover:bg-blue-700'
-                      } flex items-center gap-1 sm:gap-2 rounded-lg py-2 sm:py-2 px-3 sm:px-4 transition-all duration-300 ease-in-out`}
                     >
-                      <p className="text-xs sm:text-sm font-cabin font-normal">← Previous Page</p>
                       <p className="text-xs sm:text-sm font-cabin font-normal">← Previous Page</p>
                     </button>
                     
                     <div className="flex items-center gap-1">
                       <span className="px-3 py-2 rounded-md bg-blue-600 text-white font-medium">
-                      <span className="px-3 py-2 rounded-md bg-blue-600 text-white font-medium">
                         {currentPage}
                       </span>
                       <span className="text-gray-600">of</span>
-                      <span className="px-3 py-2 rounded-md border border-gray-300 bg-white font-medium">
                       <span className="px-3 py-2 rounded-md border border-gray-300 bg-white font-medium">
                         {paginationData.totalPages}
                       </span>
                     </div>
                     
                     <button 
-                      type="button"
                       type="button"
                       onClick={handleNextPage}
                       disabled={currentPage >= paginationData.totalPages}
@@ -1163,17 +1105,13 @@ export default function Coupons() {
                           ? 'text-gray-400 bg-gray-200 cursor-not-allowed' 
                           : 'text-[#ffffff] bg-blue-600 hover:bg-blue-700'
                       } flex items-center gap-1 sm:gap-2 rounded-lg py-2 sm:py-2 px-3 sm:px-4 transition-all duration-300 ease-in-out`}
-                          : 'text-[#ffffff] bg-blue-600 hover:bg-blue-700'
-                      } flex items-center gap-1 sm:gap-2 rounded-lg py-2 sm:py-2 px-3 sm:px-4 transition-all duration-300 ease-in-out`}
                     >
-                      <p className="text-xs sm:text-sm font-cabin font-normal">Next Page →</p>
                       <p className="text-xs sm:text-sm font-cabin font-normal">Next Page →</p>
                     </button>
                   </div>
                   
                   <Popover>
                     <PopoverTrigger asChild>
-                      <button type="button" className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-gray-700 flex items-center gap-1 sm:gap-2 rounded-lg py-2 sm:py-2 px-3 sm:px-4 whitespace-nowrap hover:bg-gray-800 transition-all duration-300 ease-in-out">
                       <button type="button" className="text-xs sm:text-sm font-cabin font-normal text-[#ffffff] bg-gray-700 flex items-center gap-1 sm:gap-2 rounded-lg py-2 sm:py-2 px-3 sm:px-4 whitespace-nowrap hover:bg-gray-800 transition-all duration-300 ease-in-out">
                         <p className="text-xs sm:text-sm font-cabin font-normal text-[#FFFFFF]">{itemsPerPage} per page</p>
                       </button>
@@ -1206,47 +1144,6 @@ export default function Coupons() {
         </div>
 
         {/* Form Actions */}
-        <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border-2 border-green-200 p-6 mt-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">Ready to Create Coupon?</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                {selectedProducts.length > 0 ? (
-                  <>You have selected <strong>{selectedProducts.length}</strong> product{selectedProducts.length > 1 ? 's' : ''} for this coupon</>
-                ) : (
-                  <>Please select at least one product to continue</>
-                )}
-              </p>
-            </div>
-          </div>
-          <div className="flex justify-end space-x-4 pt-4 border-t border-green-200">
-            <Button 
-              type="button" 
-              variant="outline" 
-              disabled={isSubmitting}
-              onClick={() => navigate(-1)}
-              className="min-w-[120px]"
-            >
-              Cancel
-            </Button>
-            <Button 
-              type="submit"
-              className="min-w-[180px] bg-green-600 hover:bg-green-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
-              disabled={selectedProducts.length === 0 || isSubmitting || !isDateValid()}
-            >
-              {isSubmitting ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Creating Coupon...</span>
-                </div>
-              ) : (
-                <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Publish Coupon
-                </>
-              )}
-            </Button>
-          </div>
         <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border-2 border-green-200 p-6 mt-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
             <div>
