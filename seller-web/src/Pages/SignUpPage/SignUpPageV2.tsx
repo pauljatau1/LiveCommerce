@@ -98,8 +98,8 @@ export default function SignUpPageV2() {
         <div className="min-h-[100dvh] bg-gray-50">
             {/* Header */}
             <div className="flex flex-col gap-2 z-10 py-[9px] lg:py-[10px] px-[20px] lg:px-[30px]">
-                <AuqliLogo className="w-[95px] lg:w-[131px] h-[24.1px] lg:h-[35px]" />
                 <div className="flex items-center justify-between">
+                    <AuqliLogo className="w-[95px] lg:w-[131px] h-[24.1px] lg:h-[35px]" />
                     <PrimaryButton outline onClick={handleSignInClick}>
                         Sign In
                     </PrimaryButton>
