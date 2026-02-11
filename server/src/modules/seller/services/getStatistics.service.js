@@ -14,29 +14,12 @@ const orderRepository = require('../repositories/order.repository');
 const ValidationError = require('../../../utils/errors/ValidationError');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
 
-/**
- * Calculate percentage change between current and previous values.
- *
- * This helper function computes the percentage change between two values,
- * handling edge cases like zero values and providing appropriate formatting.
- *
- * @param {number} current - Current period value
- * @param {number} previous - Previous period value
- * @returns {Object} Change object with value and type
- * @returns {string} returns.value - Formatted change value
- * @returns {string} returns.type - Type of change ('percentage' or 'number')
- */
 function calculatePositiveChange(current, previous) {
-  // Handle edge cases where previous value is zero or undefined
+  // Handle edge cases where previous value is zero
   if (!previous || previous === 0) {
-    return { value: current.toFixed(2), type: 'number' };
+    return { value: current > 0 ? "100.00" : "0.00", type: 'percentage' };
   }
-  
-  // Handle edge cases where current value is zero or undefined
-  if (!current || current === 0) {
-    return { value: current.toFixed(2), type: 'number' };
-  }
-  
+
   // Calculate percentage change
   const change = ((current - previous) / previous) * 100;
   return { value: change.toFixed(2), type: 'percentage' };
@@ -56,14 +39,14 @@ function calculatePositiveChange(current, previous) {
 function getWeekDateRanges() {
   const currentDate = new Date();
   const currentWeekStart = new Date(currentDate);
-  
+
   // Set to start of current week (Sunday)
   currentWeekStart.setDate(currentDate.getDate() - currentDate.getDay());
-  
+
   // Calculate start of last week
   const lastWeekStart = new Date(currentWeekStart);
   lastWeekStart.setDate(currentWeekStart.getDate() - 7);
-  
+
   return {
     currentDate,
     currentWeekStart,
@@ -89,7 +72,7 @@ function hasValidFollowerData(follower) {
  * @returns {boolean} True if follower has placed orders
  */
 function hasOrdersWithSeller(follower, buyersWithOrders) {
-  return buyersWithOrders.some(buyerId => 
+  return buyersWithOrders.some(buyerId =>
     buyerId && buyerId.toString() === follower.buyerId.toString()
   );
 }
@@ -124,9 +107,9 @@ function isFollowerDateInRange(follower, startDate, endDate) {
  */
 function countCustomersWithOrders(followers, buyersWithOrders, startDate = null, endDate = null) {
   return followers.filter(follower => {
-    return hasValidFollowerData(follower) && 
-           hasOrdersWithSeller(follower, buyersWithOrders) && 
-           isFollowerDateInRange(follower, startDate, endDate);
+    return hasValidFollowerData(follower) &&
+      hasOrdersWithSeller(follower, buyersWithOrders) &&
+      isFollowerDateInRange(follower, startDate, endDate);
   }).length;
 }
 
@@ -138,16 +121,16 @@ function countCustomersWithOrders(followers, buyersWithOrders, startDate = null,
  */
 function validateSellerId(sellerId) {
   if (!sellerId || typeof sellerId !== 'string' || sellerId.trim() === '') {
-    throw new ValidationError([{ 
-      field: 'sellerId', 
-      message: 'Valid seller ID is required' 
+    throw new ValidationError([{
+      field: 'sellerId',
+      message: 'Valid seller ID is required'
     }]);
   }
 
   if (!mongoose.Types.ObjectId.isValid(sellerId)) {
-    throw new ValidationError([{ 
-      field: 'sellerId', 
-      message: 'Seller ID must be a valid ObjectId format' 
+    throw new ValidationError([{
+      field: 'sellerId',
+      message: 'Seller ID must be a valid ObjectId format'
     }]);
   }
 }
@@ -176,7 +159,7 @@ async function fetchSellerData(sellerId) {
  */
 async function getOrderStatistics(sellerId, dateRanges) {
   const { currentDate, currentWeekStart, lastWeekStart } = dateRanges;
-  
+
   return Promise.all([
     orderRepository.countOrdersBySellerWithDateRange(sellerId),
     orderRepository.countOrdersBySellerWithDateRange(sellerId, {
@@ -201,19 +184,19 @@ async function getOrderStatistics(sellerId, dateRanges) {
  */
 function calculateCustomerMetrics(followers, buyersWithOrders, dateRanges) {
   const { currentDate, currentWeekStart, lastWeekStart } = dateRanges;
-  
+
   return {
     totalCustomers: countCustomersWithOrders(followers, buyersWithOrders),
     currentWeekCustomers: countCustomersWithOrders(
-      followers, 
-      buyersWithOrders, 
-      currentWeekStart, 
+      followers,
+      buyersWithOrders,
+      currentWeekStart,
       currentDate
     ),
     lastWeekCustomers: countCustomersWithOrders(
-      followers, 
-      buyersWithOrders, 
-      lastWeekStart, 
+      followers,
+      buyersWithOrders,
+      lastWeekStart,
       currentWeekStart
     )
   };
@@ -229,10 +212,10 @@ function calculateCustomerMetrics(followers, buyersWithOrders, dateRanges) {
  * @returns {Object} Conversion rates
  */
 function calculateConversionRates(storeVisits, totalOrders, lastWeekVisits, lastWeekOrders) {
-  const currentConversionRate = storeVisits > 0 ? 
+  const currentConversionRate = storeVisits > 0 ?
     (totalOrders / storeVisits) * 100 : 0;
-  
-  const lastWeekConversionRate = lastWeekVisits > 0 ? 
+
+  const lastWeekConversionRate = lastWeekVisits > 0 ?
     (lastWeekOrders / lastWeekVisits) * 100 : 0;
 
   return { currentConversionRate, lastWeekConversionRate };
