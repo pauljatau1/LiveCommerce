@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { Card } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/form/input";
@@ -52,10 +52,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/Components/ui/select";
-import { EmojiPicker } from "@/Components/ui/emoji-picker";
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import { useNotification } from '@/Hooks/useNotification';
+
+// Lazy load EmojiPicker to reduce initial bundle size
+const EmojiPicker = lazy(() => 
+  import("@/Components/ui/emoji-picker").then(module => ({ 
+    default: module.EmojiPicker 
+  }))
+);
 
 
 // Helper function to format message timestamps

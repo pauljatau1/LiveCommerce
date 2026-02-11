@@ -1,14 +1,17 @@
 import type { Seller } from "@/types";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import { useIntercomChat } from "@/Hooks/useIntercom";
 import { useOutletContext } from "react-router-dom";
 import { OutletContextType } from "@/types";
-import DashboardTopBannerV2 from "@/Components/ui/DashboardHomepageUi/DashboardTopBannerV2";
-import HomeAnalyticsSection from "@/Components/ui/DashboardHomepageUi/HomeAnalyticsSection";
-import DashboardActivitiesSection from "@/Components/ui/DashboardHomepageUi/DashboardActivitiesSection";
-import DashboardOrdersSection from "@/Components/ui/DashboardHomepageUi/DashboardOrdersSection";
-import AuqliUniversity from "@/Components/shared/AuqliUniversity";
+import Loader from "@/Components/Loader";
+
+// Lazy load child components to reduce initial bundle size
+const DashboardTopBannerV2 = lazy(() => import("@/Components/ui/DashboardHomepageUi/DashboardTopBannerV2"));
+const HomeAnalyticsSection = lazy(() => import("@/Components/ui/DashboardHomepageUi/HomeAnalyticsSection"));
+const DashboardActivitiesSection = lazy(() => import("@/Components/ui/DashboardHomepageUi/DashboardActivitiesSection"));
+const DashboardOrdersSection = lazy(() => import("@/Components/ui/DashboardHomepageUi/DashboardOrdersSection"));
+const AuqliUniversity = lazy(() => import("@/Components/shared/AuqliUniversity"));
 
 
 
