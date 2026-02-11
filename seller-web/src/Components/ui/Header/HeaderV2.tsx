@@ -339,7 +339,7 @@ export default function HeaderV2({ name, navName, showBackButton, fullScreenMode
             
             {/* Notification Banner - Renders at this location for all pages */}
             {notification.isVisible && notification.type && (
-                <div className="px-5 xl:px-8 pb-3 pt-0 lg:pt-2 ">
+                <div className="px-5 xl:px-8 pb-3 pt-0 ">
                     <NotificationBanner
                         message={notification.message}
                         type={notification.type}

@@ -8,7 +8,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
 import { Switch } from '@mui/material';
 import { useLivestreamContext } from '../Hooks/useLivestreamContext';
-import { toast } from 'sonner';
+import { useNotification } from '@/Hooks/useNotification';
 
 const RescheduleModal = ({ isOpen, onClose, streamData }) => {
     const { rescheduleExpiredStream, isLoading } = useLivestreamContext();
@@ -17,7 +17,7 @@ const RescheduleModal = ({ isOpen, onClose, streamData }) => {
     const [datePickerOpen, setDatePickerOpen] = useState(false);
     const [timePickerOpen, setTimePickerOpen] = useState(false);
     const [startImmediately, setStartImmediately] = useState(false);
-
+    const { showNotification } = useNotification();
     // Set initial values when modal opens
     useEffect(() => {
         if (isOpen && streamData) {
@@ -45,7 +45,7 @@ const RescheduleModal = ({ isOpen, onClose, streamData }) => {
 
                 // Validate that the selected time is in the future
                 if (combinedDateTime.isBefore(dayjs())) {
-                    toast.error('Please select a future date and time');
+                    showNotification('Please select a future date and time', 'warning', 'dismissible');
                     return;
                 }
 
@@ -53,11 +53,11 @@ const RescheduleModal = ({ isOpen, onClose, streamData }) => {
             }
 
             await rescheduleExpiredStream(streamData.id, scheduledStartTime);
-            toast.success('Stream rescheduled successfully!');
+            showNotification('Stream rescheduled successfully!', 'success', 'dismissible');
             onClose();
         } catch (error) {
             console.error('Error rescheduling stream:', error);
-            toast.error('Failed to reschedule stream');
+            showNotification('Failed to reschedule stream', 'error', 'dismissible');
         }
     };
 

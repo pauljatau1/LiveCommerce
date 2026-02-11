@@ -1,5 +1,5 @@
 import { Icon } from '@iconify/react';
-import { toast } from 'sonner';
+import { useNotification } from '@/Hooks/useNotification';
 import { Progress } from '@/Components/ui/progress';
 import { BASE_URL } from '@/Constants/Server';
 import { trackEvent } from '@/util/analytics';
@@ -14,6 +14,7 @@ import PropTypes from 'prop-types';
 // Update the BlipUploadModal to include product information
 const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPopUp, changeLinkType, changeDeepLink }) => {
     const { token, seller } = useAuthContext();
+    const { showNotification } = useNotification();
     const [blipVideos, setBlipVideos] = useState([]);
     const [previewUrls, setPreviewUrls] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
@@ -54,13 +55,7 @@ const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPo
             }
         } catch (error) {
             console.error('Error fetching product blips:', error);
-            toast.error('Failed to load product blips', {
-                description: error.response?.data?.message || 'Please try again',
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            showNotification(`Failed to load product blips: ${error.response?.data?.message || 'Please try again'}`, 'error', 'dismissible');
         } finally {
             setIsLoadingProduct(false);
         }
@@ -88,13 +83,13 @@ const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPo
         files.forEach(file => {
             // Check if file is a video
             if (!file.type.startsWith('video/')) {
-                toast.error(`${file.name} is not a video file`);
+                showNotification(`${file.name} is not a video file`, 'error', 'dismissible');
                 return;
             }
 
             // Check file size (max 50MB)
             if (file.size > 50 * 1024 * 1024) {
-                toast.error(`${file.name} is too large (max 50MB)`);
+                showNotification(`${file.name} is too large (max 50MB)`, 'error', 'dismissible');
                 return;
             }
 
@@ -107,7 +102,7 @@ const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPo
 
         // Check if adding these files would exceed limit of 5 total blips
         if (existingBlips.length + validFiles.length > 5) {
-            toast.error(`You can only have a maximum of 5 blips per product. You currently have ${existingBlips.length}.`);
+            showNotification(`You can only have a maximum of 5 blips per product. You currently have ${existingBlips.length}.`, 'error', 'dismissible');
             // Clear previews
             newPreviewUrls.forEach(url => URL.revokeObjectURL(url));
             return;
@@ -128,7 +123,7 @@ const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPo
 
     const handleUpload = async () => {
         if (blipVideos.length === 0) {
-            toast.error('Please select at least one video to upload');
+            showNotification('Please select at least one video to upload', 'error', 'dismissible');
             return;
         }
 
@@ -160,12 +155,7 @@ const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPo
             );
 
             if (response.status === 201) {
-                toast.success(`${blipVideos.length} blip video${blipVideos.length > 1 ? 's' : ''} uploaded successfully`, {
-                    style: {
-                        background: '#17171B',
-                        color: '#fff',
-                    }
-                });
+                showNotification(`${blipVideos.length} blip video${blipVideos.length > 1 ? 's' : ''} uploaded successfully`, 'information', 'dismissible');
 
                 // Update existing blips with new ones from response
                 if (response.data && response.data.blips) {
@@ -197,13 +187,7 @@ const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPo
             }
         } catch (error) {
             console.error('Error uploading blips:', error);
-            toast.error('Failed to upload blip videos', {
-                description: error.response?.data?.message || 'Please try again',
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            showNotification(`Failed to upload blip videos: ${error.response?.data?.message || 'Please try again'}`, 'error', 'dismissible');
         } finally {
             setIsUploading(false);
         }
@@ -228,25 +212,14 @@ const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPo
             );
 
             if (response.status === 200) {
-                toast.success('Blip video deleted successfully', {
-                    style: {
-                        background: '#17171B',
-                        color: '#fff',
-                    }
-                });
+                showNotification('Blip video deleted successfully', 'information', 'dismissible');
 
                 // Remove the deleted blip from the list
                 setExistingBlips(prev => prev.filter(blip => blip._id !== blipId));
             }
         } catch (error) {
             console.error('Error deleting blip:', error);
-            toast.error('Failed to delete blip video', {
-                description: error.response?.data?.message || 'Please try again',
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            showNotification(`Failed to delete blip video: ${error.response?.data?.message || 'Please try again'}`, 'error', 'dismissible');
         } finally {
             setIsDeleting(false);
             setDeletingBlipId(null);

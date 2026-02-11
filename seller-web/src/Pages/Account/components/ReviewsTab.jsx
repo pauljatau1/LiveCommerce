@@ -7,7 +7,7 @@ import { BASE_URL } from "@/Constants/Server";
 import { Badge } from "@/Components/ui/badge";
 import { Button } from "@/Components/ui/button";
 import { Textarea } from "@/Components/ui/textarea";
-import { toast } from "sonner";
+import { useNotification } from '@/Hooks/useNotification';
 import { Skeleton } from "@/Components/ui/skeleton";
 import {
   Dialog,
@@ -20,6 +20,7 @@ import {
 import PropTypes from "prop-types";
 export default function ReviewsTab({ sellerId }) {
   const [reviews, setReviews] = useState([]);
+  const { showNotification } = useNotification();
   const [loading, setLoading] = useState(true);
   const [replyContent, setReplyContent] = useState("");
   const [submittingReply, setSubmittingReply] = useState(false);
@@ -83,7 +84,7 @@ export default function ReviewsTab({ sellerId }) {
       });
     } catch (error) {
       console.error('Error fetching store reviews:', error);
-      toast.error("Failed to fetch store reviews");
+      showNotification("Failed to fetch store reviews", 'error', 'dismissible');
     } finally {
       setLoading(false);
     }
@@ -97,11 +98,11 @@ export default function ReviewsTab({ sellerId }) {
 
   const handleSubmitReply = async () => {
     if (!replyContent?.trim()) {
-      toast.error("Reply content cannot be empty");
+      showNotification("Reply content cannot be empty", 'error', 'dismissible');
       return;
     }
 
-    const loadingToast = toast.loading('Submitting reply...');
+    showNotification('Submitting reply...', 'information', 'fixed');
     setSubmittingReply(true);
 
     try {
@@ -152,12 +153,10 @@ export default function ReviewsTab({ sellerId }) {
       setReplyContent("");
       setSelectedReview(null);
 
-      toast.dismiss(loadingToast);
-      toast.success("Reply added successfully");
+      showNotification("Reply added successfully", 'information', 'dismissible');
     } catch (error) {
       console.error('Error submitting reply:', error);
-      toast.dismiss(loadingToast);
-      toast.error("Failed to submit reply");
+      showNotification("Failed to submit reply", 'error', 'dismissible');
     } finally {
       setSubmittingReply(false);
     }

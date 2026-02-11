@@ -10,11 +10,12 @@ import { useEffect, useState } from "react"
 import axios from "axios"
 import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server"
 import { useNavigate } from "react-router-dom"
-import { toast } from "sonner"
+import { useNotification } from '@/Hooks/useNotification';
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
 
 export default function CreateCampaign() {
   const { token, seller } = useAuthContext();
+  const { showNotification } = useNotification();
   const navigate = useNavigate()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -169,17 +170,17 @@ export default function CreateCampaign() {
     
     // Validate form
     if (!formData.title.trim()) {
-      toast.error("Please enter a campaign name")
+      showNotification("Please enter a campaign name", 'error', 'dismissible');
       return
     }
     
     if (!formData.message.trim()) {
-      toast.error("Please enter a message for your campaign")
+      showNotification("Please enter a message for your campaign", 'error', 'dismissible');
       return
     }
     
     if (formData.selectedProducts.length === 0) {
-      toast.error("Please select at least one product")
+      showNotification("Please select at least one product", 'error', 'dismissible');
       return
     }
     
@@ -196,11 +197,11 @@ export default function CreateCampaign() {
       )
       
       console.log("Campaign created response:", response.data)
-      toast.success("Campaign created successfully")
+      showNotification("Campaign created successfully", 'information', 'dismissible');
       navigate("/dashboard/inbox-campaigns/list")
     } catch (error) {
       console.error("Campaign creation error:", error)
-      toast.error(error.response?.data?.message || "Failed to create campaign")
+      showNotification(error.response?.data?.message || "Failed to create campaign", 'error', 'dismissible');
     } finally {
       setIsSubmitting(false)
     }

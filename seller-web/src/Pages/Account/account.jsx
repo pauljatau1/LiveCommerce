@@ -14,10 +14,10 @@ import BlipsTab from "./components/BlipsTab";
 import ShowsTab from "./components/ShowsTab";
 import ReviewsTab from "./components/ReviewsTab";
 import { useOutletContext, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { useNotification } from '@/Hooks/useNotification';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/Components/ui/dialog";
 //import EmailVerificationModal from "../../Components/EmailVerificationModal";
-import PickupAddressVerificationModal from "../../Components/PickupAddressVerificationModal";
+import PickupAddressVerificationModal from "@/Components/shared/PickupAddressVerificationModal";
 import { Icon } from "@iconify/react";
 import { trackEvent } from "@/util/analytics";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/Components/ui/tooltip";
@@ -27,6 +27,7 @@ export default function AccountPage() {
   const { seller } = useAuthContext();
   const { setHeaderName, setNavName } = useOutletContext();
   const navigate = useNavigate();
+  const { showNotification } = useNotification();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -148,7 +149,7 @@ export default function AccountPage() {
       });
     } catch (error) {
       console.error('Error fetching followers:', error);
-      toast.error("Failed to load followers");
+      showNotification("Failed to load followers", 'error', 'dismissible');
     } finally {
       setFollowersLoading(false);
     }
@@ -174,7 +175,7 @@ export default function AccountPage() {
       setFollowing(data || []);
     } catch (error) {
       console.error('Error fetching following:', error);
-      toast.error("Failed to load following");
+      showNotification("Failed to load following", 'error', 'dismissible');
     } finally {
       setFollowingLoading(false);
     }
@@ -217,8 +218,8 @@ export default function AccountPage() {
       },
     }));
 
-    // Show loading toast for background upload
-    const loadingToast = toast.loading('Uploading profile picture...');
+    // Show notification for background upload
+    showNotification('Uploading profile picture...', 'information', 'dismissible');
 
     // Prepare form payload
     const formData = new FormData();
@@ -238,8 +239,7 @@ export default function AccountPage() {
       // Handle non-2xx responses as failures
       if (!response.ok) throw new Error('Failed to upload avatar');
 
-      toast.dismiss(loadingToast);
-      toast.success('Profile picture updated successfully!');
+      showNotification('Profile picture updated successfully!', 'information', 'dismissible');
     } catch (error) {
       // On failure, revert profile avatar back to the previous value
       setProfile((prev) => ({
@@ -250,8 +250,7 @@ export default function AccountPage() {
       // Clean up the temporary object URL since it's no longer needed
       if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
 
-      toast.dismiss(loadingToast);
-      toast.error('Failed to update profile picture');
+      showNotification('Failed to update profile picture', 'error', 'dismissible');
       console.error('Error uploading avatar:', error);
     }
   };
@@ -275,8 +274,8 @@ export default function AccountPage() {
       },
     }));
 
-    // Show loading toast
-    const loadingToast = toast.loading('Uploading cover image...');
+    // Show notification for cover image upload
+    showNotification('Uploading cover image...', 'information', 'fixed');
 
     const formData = new FormData();
     formData.append('banner', file);
@@ -293,8 +292,7 @@ export default function AccountPage() {
 
       if (!response.ok) throw new Error('Failed to upload banner');
 
-      toast.dismiss(loadingToast);
-      toast.success('Cover image updated successfully!');
+      showNotification('Cover image updated successfully!', 'information', 'dismissible');
     } catch (error) {
       // On failure, revert profile banner back to the previous value
       setProfile((prev) => ({
@@ -305,8 +303,7 @@ export default function AccountPage() {
       // Clean up the temporary object URL since it's no longer needed
       if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
 
-      toast.dismiss(loadingToast);
-      toast.error('Failed to update cover image');
+      showNotification('Failed to update cover image', 'error', 'dismissible');
       console.error('Error uploading banner:', error);
     }
   };
@@ -344,10 +341,10 @@ export default function AccountPage() {
       // Close the modal
       setShowAvatarModal(false);
       
-      toast.success('Profile picture deleted successfully!');
+      showNotification('Profile picture deleted successfully!', 'information', 'dismissible');
     } catch (error) {
       console.error('Error deleting avatar:', error);
-      toast.error('Failed to delete profile picture');
+      showNotification('Failed to delete profile picture', 'error', 'dismissible');
     } finally {
       setIsDeletingAvatar(false);
     }
@@ -362,7 +359,7 @@ export default function AccountPage() {
       const profileUrl = `${AUQLI_STORE_BASE_URL}/seller/${profile?._id}`;
       navigator.clipboard.writeText(profileUrl)
         .then(() => {
-          toast.success("Profile link copied to clipboard");
+          showNotification("Profile link copied to clipboard", 'information', 'dismissible');
           trackEvent("Seller Copied Profile Link", {
             "seller id": profile?._id,
             "seller store name": profile?.storeName,
@@ -370,7 +367,7 @@ export default function AccountPage() {
         })
         .catch((error) => {
           console.error("Failed to copy link:", error);
-          toast.error("Failed to copy link to clipboard");
+          showNotification("Failed to copy link to clipboard", 'error', 'dismissible');
         });
     }
   };

@@ -51,7 +51,7 @@ const NotificationBanner = ({ message, type, visibility, onClose }: Notification
 
     return (
         <div
-            className="flex items-center gap-3 pr-4 py-1 min-h-[44px] rounded-tl-lg rounded-bl-lg transition-all duration-300 ease-in-out relative"
+            className="flex items-center gap-3 pr-4 min-h-[44px] transition-all duration-300 ease-in-out relative"
             style={{
                 backgroundColor: styles.bgColor,
                 color: styles.textColor,
@@ -59,7 +59,7 @@ const NotificationBanner = ({ message, type, visibility, onClose }: Notification
         >
             {/* Left border */}
             <div
-                className="w-1 self-stretch rounded-l-lg flex-shrink-0"
+                className="w-1 self-stretch flex-shrink-0"
                 style={{
                     backgroundColor: styles.leftBorderColor,
                 }}
@@ -85,7 +85,7 @@ const NotificationBanner = ({ message, type, visibility, onClose }: Notification
             {visibility === 'fixed' && (
                 <button
                     onClick={onClose}
-                    className="flex-shrink-0 absolute right-2 top-2 p-1 h-8 w-8 flex items-center justify-center rounded-full transition-all duration-300 hover:backdrop-blur-md hover:bg-white/20 hover:shadow-lg hover:scale-110"
+                    className="flex-shrink-0 absolute right-2 top-2 p-1 h-6 w-6 flex items-center justify-center rounded-full transition-all duration-300 hover:bg-gray-500/20"
                     style={{ color: styles.leftBorderColor }}
                     aria-label="Close notification"
                 >

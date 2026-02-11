@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useNotification } from '@/Hooks/useNotification';
 import { authService } from "@/services/authService";
 import { Button } from "@/Components/ui/button";
 import { FloatingLabelInput } from "@/Components/shared/floating-label-input";
@@ -29,7 +29,7 @@ export default function ForgotPasswordForm({ onSuccess, onCancel }: ForgotPasswo
     const [canResend, setCanResend] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
+    const { showNotification } = useNotification();
     // Step 1 form (Email)
     const step1Form = useForm<ForgotPasswordStep1Data>({
         resolver: zodResolver(forgotPasswordStep1Schema),
@@ -60,13 +60,11 @@ export default function ForgotPasswordForm({ onSuccess, onCancel }: ForgotPasswo
             setCurrentStep(2);
             setOtpTimer(30);
             setCanResend(false);
-            toast.success("Verification code sent to your email");
+            showNotification("Verification code sent to your email", 'information', 'dismissible');
         },
         onError: (error: unknown) => {
             console.error('Error sending OTP:', error);
-            toast.error("Failed to send verification code", {
-                description: error instanceof AxiosError ? error.response?.data?.message : "Something went wrong. Please try again later.",
-            });
+            showNotification(`Failed to send verification code: ${error instanceof AxiosError ? error.response?.data?.message : "Something went wrong. Please try again later."}`, 'error', 'dismissible');
         },
     });
 
@@ -79,13 +77,11 @@ export default function ForgotPasswordForm({ onSuccess, onCancel }: ForgotPasswo
         onSuccess: () => {
             setOtpTimer(30);
             setCanResend(false);
-            toast.success("A new verification code has been sent");
+            showNotification("A new verification code has been sent", 'information', 'dismissible');
         },
         onError: (error: unknown) => {
             console.error('Error resending OTP:', error);
-            toast.error("Failed to resend verification code", {
-                description: error instanceof AxiosError ? error.response?.data?.message : "Something went wrong. Please try again later.",
-            });
+            showNotification(`Failed to resend verification code: ${error instanceof AxiosError ? error.response?.data?.message : "Something went wrong. Please try again later."}`, 'error', 'dismissible');
         },
     });
 
@@ -97,12 +93,12 @@ export default function ForgotPasswordForm({ onSuccess, onCancel }: ForgotPasswo
             return response;
         },
         onSuccess: () => {
-            toast.success("Password updated successfully");
+            showNotification("Password updated successfully", 'information', 'dismissible');
             onSuccess?.();
         },
         onError: (error: unknown) => {
             console.error('Error resetting password:', error);
-            toast.error("Failed to update password. Check code and try again");
+            showNotification("Failed to update password. Check code and try again", 'error', 'dismissible');
         },
     });
 
