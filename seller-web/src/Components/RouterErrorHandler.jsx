@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy } from "react";
 import { useRouteError } from "react-router-dom";
-import NotFoundPage from "../Pages/NotFoundPage/NotFoundPage";
+
+// Lazy load NotFoundPage to reduce initial bundle size
+const NotFoundPage = lazy(() => import("../Pages/NotFoundPage/NotFoundPage"));
 
 export default function RouterErrorHandler() {
   const [hasChunkError, setHasChunkError] = useState(false);
