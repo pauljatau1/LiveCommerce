@@ -41,12 +41,28 @@ export default defineConfig({
     },
     dedupe: ['react', 'react-dom'],
   },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react/jsx-runtime',
+      '@radix-ui/react-slot',
+      '@radix-ui/react-compose-refs',
+    ],
+    esbuildOptions: {
+      target: 'es2020',
+    },
+  },
   build: {
     rollupOptions: {
       output: {
         manualChunks: (id) => {
           // Large dependencies that should be in their own chunks
           if (id.includes('node_modules')) {
+            // Core React libraries - MUST be first to ensure availability
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'vendor-react';
+            }
             // Ant Design
             if (id.includes('antd')) {
               return 'antd';
@@ -87,7 +103,7 @@ export default defineConfig({
             if (id.includes('@mui/material') || id.includes('@mui/x-date-pickers')) {
               return 'material-ui';
             }
-            // Radix UI components
+            // Radix UI components - must come after React check
             if (id.includes('@radix-ui')) {
               return 'radix-ui';
             }
@@ -98,10 +114,6 @@ export default defineConfig({
             // Charts
             if (id.includes('recharts')) {
               return 'charting';
-            }
-            // Core vendor libraries
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
-              return 'vendor-react';
             }
             // Redux
             if (id.includes('redux') || id.includes('@reduxjs')) {
