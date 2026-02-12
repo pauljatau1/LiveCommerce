@@ -1,14 +1,14 @@
 import { Icon } from '@iconify/react';
 import { Skeleton } from '@/Components/shared/Skeleton';
+import { useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { sellerService } from '@/services/sellerService';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getNotificationIcon, getNotificationDisplayData } from '@/util/helpers';
+import { useNotification } from '@/Hooks/useNotification';
 import React, { useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getNotificationIcon, getNotificationDisplayData, extractAxiosErrorMessage } from '@/util/helpers';
 import GlassImage from '@/Components/ui/GlassImageV2';
 import EmptyActivityIcon from '@/assets/icons/EmptyActivityIcon';
-import { useNotification } from '@/Hooks/useNotification';
 
 export default function ActivityFeed() {
     const navigate = useNavigate();
@@ -57,7 +57,7 @@ export default function ActivityFeed() {
         onError: (error) => {
             console.error("Error marking notification as read:", error);
             showNotification(
-                "Failed to mark notification as read. Please try again.",
+                `Failed to mark notification as read ${extractAxiosErrorMessage(error) || "Something went wrong. Please try again later."}`,
                 "error"
             );
         },

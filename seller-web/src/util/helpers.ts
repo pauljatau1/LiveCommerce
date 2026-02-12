@@ -476,7 +476,8 @@ export const getNotificationDisplayData = (notification: {
  * Extract error message from AxiosError
  * 
  * Handles various error structures and extracts the most relevant error message.
- * Checks response.data.message first, then falls back to other error properties.
+ * Checks response.data.errors array first (returns first error's message), then
+ * falls back to response.data.message, then other error properties.
  * 
  * @param error - The error object (can be AxiosError, Error, or unknown)
  * @returns The extracted error message or a default message
@@ -491,16 +492,28 @@ export function extractAxiosErrorMessage(error: unknown): string {
     typeof error.response === "object" &&
     "data" in error.response &&
     error.response.data &&
-    typeof error.response.data === "object" &&
-    "message" in error.response.data &&
-    typeof error.response.data.message === "string"
+    typeof error.response.data === "object"
   ) {
-    return error.response.data.message;
-  }
+    // First, check for errors array and return first error's message if it exists
+    if (
+      "errors" in error.response.data &&
+      Array.isArray(error.response.data.errors) &&
+      error.response.data.errors.length > 0 &&
+      typeof error.response.data.errors[0] === "object" &&
+      error.response.data.errors[0] !== null &&
+      "message" in error.response.data.errors[0] &&
+      typeof error.response.data.errors[0].message === "string"
+    ) {
+      return error.response.data.errors[0].message;
+    }
 
-  if (typeof error === "object" &&
-    error !== null) {
-    return error.response.data;
+    // Fall back to response.data.message if errors array doesn't have a message
+    if (
+      "message" in error.response.data &&
+      typeof error.response.data.message === "string"
+    ) {
+      return error.response.data.message;
+    }
   }
 
   // Handle AxiosError with direct message
