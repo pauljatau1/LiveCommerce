@@ -1,6 +1,6 @@
 import { Input } from "@/Components/ui/form/input"
 import { Label } from "@/Components/ui/label"
-import { toast } from "sonner"
+import { useNotification } from '@/Hooks/useNotification';
 import { Button } from "@/Components/ui/button"
 import { useAuthContext } from "@/Hooks/useAuthContextV2"
 import { useState, useEffect } from 'react'
@@ -15,6 +15,7 @@ import { Skeleton } from "@/Components/ui/skeleton";
 
 export default function PaymentSettings() {
   const { token } = useAuthContext();
+  const { showNotification } = useNotification();
   const [bankDetails, setBankDetails] = useState({
     bankCountry: "",
     bankName: "",
@@ -61,7 +62,7 @@ export default function PaymentSettings() {
       }
     } catch (error) {
       console.error("Failed to fetch bank details", error);
-      toast.error("Failed to fetch bank details");
+      showNotification("Failed to fetch bank details", 'error', 'dismissible');
     } finally {
       setIsLoadingBankDetails(false);
     }
@@ -88,7 +89,7 @@ export default function PaymentSettings() {
       }
     } catch (error) {
       console.error("Failed to fetch banks", error);
-      toast.error("Failed to fetch bank list. Using cached list.");
+      showNotification("Failed to fetch bank list. Using cached list.", 'error', 'dismissible');
       // Fallback to a basic list if API fails
       setBanks([
         { name: 'Access Bank Nigeria Plc', code: '044' },
@@ -143,7 +144,7 @@ export default function PaymentSettings() {
           accountName: data.data.accountName
         });
         
-        toast.success(`Account verified: ${data.data.accountName}`);
+        showNotification(`Account verified: ${data.data.accountName}`, 'information', 'dismissible');
       } else {
         const errorData = await response.json();
         
@@ -152,14 +153,14 @@ export default function PaymentSettings() {
         setVerificationMessage(errorData.message || 'Account verification failed');
         setIsFieldsLocked(false);
         
-        toast.error(errorData.message || 'Could not verify account. Please check the details.');
+        showNotification(errorData.message || 'Could not verify account. Please check the details.', 'error', 'dismissible');
       }
     } catch (error) {
       console.error("Bank verification error:", error);
       setVerificationStatus('error');
       setVerificationMessage('Network error. Please try again.');
       setIsFieldsLocked(false);
-      toast.error("Network error during verification");
+      showNotification("Network error during verification", 'error', 'dismissible');
     } finally {
       setIsVerifying(false);
     }
@@ -184,7 +185,7 @@ export default function PaymentSettings() {
     setVerificationMessage('');
     setIsFieldsLocked(false);
     setVerifiedAccountName('');
-    toast.info("Form reset. Please enter new bank details.");
+    showNotification("Form reset. Please enter new bank details.", 'information', 'dismissible');
   };
 
 
@@ -225,7 +226,7 @@ export default function PaymentSettings() {
   const handleUpdateBankDetails = async () => {
     // Check if verification is required but not completed
     if (verificationStatus !== 'success') {
-      toast.error("Please verify your bank account before submitting");
+      showNotification("Please verify your bank account before submitting", 'error', 'dismissible');
       return;
     }
 
@@ -264,7 +265,7 @@ export default function PaymentSettings() {
         const message = bankDetails.accountNumber 
           ? "Bank details updated and verified successfully!" 
           : "Bank details added and verified successfully!";
-        toast.success(message);
+        showNotification(message, 'information', 'dismissible');
         
         await fetchProfileData(); // Wait for profile to refresh
         setIsEditing(false);
@@ -278,7 +279,7 @@ export default function PaymentSettings() {
         throw new Error(errorData.message || "Failed to save bank details");
       }
     } catch (error) {
-      toast.error(error.message);
+      showNotification(error.message, 'error', 'dismissible');
     } finally {
       setIsLoading(false);
     }

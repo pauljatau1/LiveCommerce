@@ -8,9 +8,8 @@ import type {
   SellerNotifications,
   Notification,
   AnalyticsData,
-  SellerConversations,
-  SellerConversationsResponse,
 } from "@/types";
+import type { conversations } from "@/types/seller";
 
 const SELLER_ENDPOINTS = {
   fetchSellerDetails: "/sellers/profile",
@@ -19,6 +18,8 @@ const SELLER_ENDPOINTS = {
   analytics: "/sellers/statistics",
   fetchSellerConversations: "/conversations",
   completeProfile: "/sellers/profile/complete",
+  sendPhoneVerification: "/sellers/send-phone-verification",
+  verifyPhone: "/sellers/verify-phone",
 };
 
 export const sellerService = {
@@ -42,11 +43,15 @@ export const sellerService = {
   /**
    * Fetch top sold products
    *
+   * @param params - Optional parameters for date range filtering
+   * @param params.startDate - Start date in YYYY-MM-DD format
+   * @param params.endDate - End date in YYYY-MM-DD format
    * @returns Promise<TopSoldProducts> - Top sold products
    */
-  async fetchTopSoldProducts(): Promise<TopSoldProducts> {
+  async fetchTopSoldProducts(params?: { startDate?: string; endDate?: string }): Promise<TopSoldProducts> {
     const url = SELLER_ENDPOINTS.topSoldProducts;
-    const response = await apiService.get<TopSoldProducts>(url);
+    const config = params ? { params } : undefined;
+    const response = await apiService.get<TopSoldProducts>(url, config);
     console.log("top sold products service", response.data);
     return response.data;
   },
@@ -61,6 +66,30 @@ export const sellerService = {
     const response = await apiService.get<SellerNotifications>(url);
     console.log("seller notifications service", response.data);
     return response.data.notifications as Notification[];
+  },
+
+  /**
+   * Mark a single notification as read
+   *
+   * @param notificationId - ID of the notification to mark as read
+   */
+  async markNotificationAsRead(notificationId: string): Promise<void> {
+    const url = `${SELLER_ENDPOINTS.notifications}/${notificationId}/mark-read`;
+    await apiService.put<void>(url);
+  },
+
+  /**
+   * Fetch seller notifications with pagination (for infinite query)
+   *
+   * @param params - Pagination parameters
+   * @returns Promise<SellerNotifications> - Seller notifications with pagination
+   */
+  async fetchSellerNotificationsPaginated(params?: { page?: number; limit?: number }): Promise<SellerNotifications> {
+    const url = SELLER_ENDPOINTS.notifications;
+    const config = params ? { params } : undefined;
+    const response = await apiService.get<SellerNotifications>(url, config);
+    console.log("seller notifications paginated service", response.data);
+    return response.data;
   },
 
   /**
@@ -81,13 +110,17 @@ export const sellerService = {
   /**
    * Fetch seller conversations
    * 
-   * @returns Promise<SellerConversations[]> - Seller conversations
+   * @returns Promise<conversations[]> - Seller conversations array
    */
-  async fetchSellerConversations(): Promise<SellerConversations[]> {
+  async fetchSellerConversations(): Promise<conversations[]> {
     const url = SELLER_ENDPOINTS.fetchSellerConversations;
-    const response = await apiService.get<SellerConversationsResponse>(url);
-    console.log("seller conversations service", response.data);
-    return response.data.data.conversations as SellerConversations[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response = await apiService.get<any>(url);
+    console.log("seller conversations service", response);
+    // Handle multiple possible response structures
+    const responseData = response.data;
+    const conversationsData = responseData?.data?.conversations || responseData?.conversations || [];
+    return conversationsData as conversations[];
   },
 
   /**
@@ -109,5 +142,44 @@ export const sellerService = {
     );
     // Ensure we return the full standard API response shape
     return (response as unknown) as { success: boolean; message: string; data: { message: string; seller: Seller } };
+  },
+
+  /**
+   * Send phone verification OTP
+   *
+   * @param phoneNumber - 10-digit phone number (without country code prefix)
+   * @returns Promise<{ success: boolean; message: string }>
+   */
+  async sendPhoneVerificationOtp(phoneNumber: string): Promise<{ success: boolean; message: string }> {
+    const url = SELLER_ENDPOINTS.sendPhoneVerification;
+    const config = {
+      baseURL: API_CONFIG.BASE_URL_V2,
+    };
+    const response = await apiService.post<{ success: boolean; message: string }>(
+      url,
+      { phoneNumber } as unknown as Record<string, unknown>,
+      config
+    );
+    return response;
+  },
+
+  /**
+   * Verify phone number with OTP
+   *
+   * @param phoneNumber - 10-digit phone number (without country code prefix)
+   * @param otp - 4-digit OTP code
+   * @returns Promise<{ success: boolean; message: string; data?: Seller }>
+   */
+  async verifyPhoneOtp(phoneNumber: string, otp: string): Promise<{ success: boolean; message: string; data?: Seller }> {
+    const url = SELLER_ENDPOINTS.verifyPhone;
+    const config = {
+      baseURL: API_CONFIG.BASE_URL_V2,
+    };
+    const response = await apiService.post<{ success: boolean; message: string; data?: Seller }>(
+      url,
+      { phoneNumber, otp } as unknown as Record<string, unknown>,
+      config
+    );
+    return response;
   },
 };

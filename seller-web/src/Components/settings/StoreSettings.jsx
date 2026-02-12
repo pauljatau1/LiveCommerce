@@ -1,4 +1,3 @@
-import { toast } from "sonner"
 import { Input } from "@/Components/ui/form/input"
 import { Label } from "@/Components/ui/label"
 import { Button } from "@/Components/ui/button"
@@ -7,6 +6,7 @@ import { Loader2 } from "lucide-react"
 import { Textarea } from "@/Components/ui/textarea"
 import { useIntercom } from 'react-use-intercom';
 import { useAuthContext } from "@/Hooks/useAuthContextV2"
+import { useNotification } from '@/Hooks/useNotification';
 import { toggleVacationMode } from "@/Redux/Slices/ProductSlice"
 import { useState, useEffect } from "react"
 import { fetchSellerProducts } from "@/Redux/Slices/ProductSlice"
@@ -58,6 +58,7 @@ const DELIVERY_POLICIES = {
 export default function StoreSettings() {
   const { show } = useIntercom();
   const { token } = useAuthContext();
+  const { showNotification } = useNotification();
   const dispatch = useDispatch();
   const { vacationMode, vacationRequestPending } = useSelector((state) => state.product);
   const [formData, setFormData] = useState({
@@ -211,7 +212,8 @@ export default function StoreSettings() {
         }
       }
     } catch (error) {
-      toast.error("Failed to fetch store data");
+      console.error("Failed to fetch store data", error);
+      showNotification("Failed to fetch store data", 'error', 'dismissible');
     }
   };
   
@@ -279,13 +281,14 @@ export default function StoreSettings() {
       });
 
       if (response.ok) {
-        toast.success("Store logo uploaded successfully");
+        showNotification("Store logo uploaded successfully", 'information', 'dismissible');
         fetchStoreData();
       } else {
         throw new Error("Failed to upload logo");
       }
     } catch (error) {
-      toast.error("Error uploading logo");
+      console.error("Error uploading logo", error);
+      showNotification("Error uploading logo", 'error', 'dismissible');
     }
   };
 
@@ -304,13 +307,14 @@ export default function StoreSettings() {
       });
 
       if (response.ok) {
-        toast.success("Store banner uploaded successfully");
+        showNotification("Store banner uploaded successfully", 'information', 'dismissible');
         fetchStoreData();
       } else {
         throw new Error("Failed to upload banner");
       }
     } catch (error) {
-      toast.error("Error uploading banner");
+      console.error("Error uploading banner", error);
+      showNotification("Error uploading banner", 'error', 'dismissible');
     }
   };
 
@@ -318,7 +322,7 @@ export default function StoreSettings() {
 
   const handleAddSpecialDate = () => {
     if (!newSpecialDate.date) {
-      toast.error("Please select a date");
+      showNotification("Please select a date", 'error', 'dismissible');
       return;
     }
 
@@ -398,7 +402,7 @@ export default function StoreSettings() {
       });
       
       if (!isValid) {
-        toast.error("Please fill in all the fields you are trying to update");
+        showNotification("Please fill in all the fields you are trying to update", 'error', 'dismissible');
         return false;
       }
     }
@@ -424,7 +428,8 @@ export default function StoreSettings() {
       if (!response.ok) throw new Error("Failed to update account type");
       return true;
     } catch (error) {
-      toast.error("Error updating account type");
+      console.error("Error updating account type", error);
+      showNotification("Error updating account type", 'error', 'dismissible');
       return false;
     } finally {
       setUpdatingSection(prev => ({ ...prev, accountType: false }));
@@ -458,7 +463,8 @@ export default function StoreSettings() {
       if (!response.ok) throw new Error("Failed to update business details");
       return true;
     } catch (error) {
-      toast.error("Error updating business details");
+      console.error("Error updating business details", error);
+      showNotification("Error updating business details", 'error', 'dismissible');
       return false;
     } finally {
       setUpdatingSection(prev => ({ ...prev, businessDetails: false }));
@@ -472,7 +478,7 @@ export default function StoreSettings() {
       
       // Validate phone number before updating
       if (formData.phoneNumber && !isValidNigerianNumber(formData.phoneNumber)) {
-        toast.error("Please enter a valid Nigerian phone number");
+        showNotification("Please enter a valid Nigerian phone number", 'error', 'dismissible');
         return false;
       }
       
@@ -497,7 +503,8 @@ export default function StoreSettings() {
       if (!response.ok) throw new Error("Failed to update business information");
       return true;
     } catch (error) {
-      toast.error("Error updating business information");
+      console.error("Error updating business information", error);
+      showNotification("Error updating business information", 'error', 'dismissible');
       return false;
     } finally {
       setUpdatingSection(prev => ({ ...prev, businessInfo: false }));
@@ -511,7 +518,7 @@ export default function StoreSettings() {
       
       // Validate phone number before updating
       if (formData.phoneNumber && !isValidNigerianNumber(formData.phoneNumber)) {
-        toast.error("Please enter a valid Nigerian phone number");
+        showNotification("Please enter a valid Nigerian phone number", 'error', 'dismissible');
         return false;
       }
       
@@ -537,7 +544,8 @@ export default function StoreSettings() {
       if (!response.ok) throw new Error("Failed to update individual information");
       return true;
     } catch (error) {
-      toast.error("Error updating individual information");
+      console.error("Error updating individual information", error);
+      showNotification("Error updating individual information", 'error', 'dismissible');
       return false;
     } finally {
       setUpdatingSection(prev => ({ ...prev, individualInfo: false }));
@@ -563,7 +571,8 @@ export default function StoreSettings() {
       if (!response.ok) throw new Error("Failed to update store profile");
       return true;
     } catch (error) {
-      toast.error("Error updating store profile");
+      console.error("Error updating store profile", error);
+      showNotification("Error updating store profile", 'error', 'dismissible');
       return false;
     } finally {
       setUpdatingSection(prev => ({ ...prev, storeProfile: false }));
@@ -589,7 +598,8 @@ export default function StoreSettings() {
       if (!response.ok) throw new Error("Failed to update special dates");
       return true;
     } catch (error) {
-      toast.error("Error updating special dates");
+      console.error("Error updating special dates", error);
+      showNotification("Error updating special dates", 'error', 'dismissible');
       return false;
     }
   };
@@ -627,7 +637,8 @@ export default function StoreSettings() {
       
       return true;
     } catch (error) {
-      toast.error("Error updating store policy");
+      console.error("Error updating store policy", error);
+      showNotification("Error updating store policy", 'error', 'dismissible');
       return false;
     } finally {
       setUpdatingSection(prev => ({ ...prev, storePolicy: false }));
@@ -650,7 +661,8 @@ export default function StoreSettings() {
       if (!response.ok) throw new Error("Failed to update social media");
       return true;
     } catch (error) {
-      toast.error("Error updating social media");
+      console.error("Error updating social media", error);
+      showNotification("Error updating social media", 'error', 'dismissible');
       return false;
     } finally {
       setUpdatingSection(prev => ({ ...prev, socialMedia: false }));
@@ -695,9 +707,10 @@ export default function StoreSettings() {
       const socialMediaSuccess = await updateSocialMedia();
       if (!socialMediaSuccess) return;
 
-      toast.success("All settings updated successfully");
+      showNotification("All settings updated successfully", 'information', 'dismissible');
     } catch (error) {
-      toast.error("An error occurred while updating settings");
+      console.error("Error updating settings", error);
+      showNotification("An error occurred while updating settings", 'error', 'dismissible');
     } finally {
       setIsLoading(false);
     }

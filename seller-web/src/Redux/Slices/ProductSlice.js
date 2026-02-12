@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { BASE_URL } from "../../Constants/Server";
-import { toast } from "sonner";
 import { tokenUtils, sellerUtils } from "@/util/auth";
+import { notificationService } from "@/util/notificationService";
 import axios from 'axios';
 
 
@@ -345,25 +345,13 @@ const productSlice = createSlice({
             // Don't throw here - we still want to return the successful response
         }
 
-        toast.success('Product created successfully', {
-            description: "Product has been created successfully",
-            style: {
-                background: '#17171B',
-                color: '#fff',
-            }
-        });
+        notificationService.showSuccess('Product created successfully', 'dismissible');
         state.response = 'success';
         console.log('product created response2:', action.payload);
     }).addCase(createProduct.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message;
-        toast.error('Failed to create product', {
-            description: "Please try again",
-            style: {
-                background: '#17171B',
-                color: '#fff',
-            }
-        });
+        notificationService.showError('Failed to create product. Please try again', 'dismissible');
     }).addCase(fetchSellerProducts.pending, (state) => {
         state.isLoading = true;
         state.message = null;
@@ -382,13 +370,7 @@ const productSlice = createSlice({
     }).addCase(fetchSellerProducts.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message;
-        toast.error('Failed to fetch products', {
-            description: "Please reload the page and try again",
-            style: {
-                background: '#17171B',
-                color: '#fff',
-            }
-        });
+        notificationService.showError('Failed to fetch products. Please reload the page and try again', 'dismissible');
     }).addCase(deleteProduct.pending, (state, action) => {
         state.deleteStatus = true;
         state.deletedProductId = action.meta.arg
@@ -396,23 +378,12 @@ const productSlice = createSlice({
         console.log(action.payload);
         state.deleteStatus = false;
         state.products = state.products.filter(product => product._id !== action.payload.deletedProduct.id);
-        toast.success(`${action.payload.deletedProduct.name} has been deleted successfully`, {
-            style: {
-                background: '#17171B',
-                color: '#fff',
-            }
-        });
+        notificationService.showSuccess(`${action.payload.deletedProduct.name} has been deleted successfully`, 'dismissible');
     }).addCase(deleteProduct.rejected, (state, action) => {
         state.isLoading = false;
         state.deleteStatus = false;
         state.error = action.error.message;
-        toast.error('Failed to delete product', {
-            description: "Please try again",
-            style: {
-                background: '#17171B',
-                color: '#fff',
-            }
-        });
+        notificationService.showError('Failed to delete product. Please try again', 'dismissible');
     }).addCase(getProductDetailsById.pending, (state) => {
         state.isLoading = true;
         state.isProductDetailsFetched = false;
@@ -423,13 +394,7 @@ const productSlice = createSlice({
     }).addCase(getProductDetailsById.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message;
-        toast.error('Failed to fetch product details', {
-            description: "Please try again",
-            style: {
-                background: '#17171B',
-                color: '#fff',
-            }
-        });
+        notificationService.showError('Failed to fetch product details. Please try again', 'dismissible');
     }).addCase(updateProduct.pending, (state) => {
         state.isLoading = true;
     }).addCase(updateProduct.fulfilled, (state, action) => {
@@ -465,23 +430,12 @@ const productSlice = createSlice({
             console.error('Failed to track product update:', trackingError);
             // Don't throw here - we still want to return the successful response
         }
-        toast.success('Product updated successfully', {
-            style: {
-                background: '#17171B',
-                color: '#fff',
-            }
-        });
+        notificationService.showSuccess('Product updated successfully', 'dismissible');
         state.response = 'success';
     }).addCase(updateProduct.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message;
-        toast.error('Failed to update product', {
-            description: action.error.message,
-            style: {
-                background: '#17171B',
-                color: '#fff',
-            }
-        });
+        notificationService.showError(`Failed to update product. ${action.error.message}`, 'dismissible');
     }).addCase(fetchSellerAuctionProducts.pending, (state) => {
         state.isLoadingAuctions = true;
     }).addCase(fetchSellerAuctionProducts.fulfilled, (state, action) => {
@@ -495,13 +449,7 @@ const productSlice = createSlice({
     }).addCase(fetchSellerAuctionProducts.rejected, (state, action) => {
         state.isLoadingAuctions = false;
         state.error = action.error.message;
-        toast.error('Failed to fetch auction products', {
-            description: "Please reload the page and try again",
-            style: {
-                background: '#17171B',
-                color: '#fff',
-            }
-        });
+        notificationService.showError('Failed to fetch auction products. Please reload the page and try again', 'dismissible');
     })
         .addCase(searchSellerProducts.pending, (state) => {
             state.isLoading = true;
@@ -520,13 +468,7 @@ const productSlice = createSlice({
         .addCase(searchSellerProducts.rejected, (state, action) => {
             state.isLoading = false;
             state.error = action.error.message;
-            toast.error('Failed to search products', {
-                description: "Please try again with different search terms",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            notificationService.showError('Failed to search products. Please try again with different search terms', 'dismissible');
         })
         .addCase(fetchSellerBlips.pending, (state) => {
             state.isLoadingBlips = true;
@@ -544,13 +486,7 @@ const productSlice = createSlice({
         .addCase(fetchSellerBlips.rejected, (state, action) => {
             state.isLoadingBlips = false;
             state.error = action.error.message;
-            toast.error('Failed to fetch blips', {
-                description: "Please reload the page and try again",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            notificationService.showError('Failed to fetch blips. Please reload the page and try again', 'dismissible');
         })
         .addCase(fetchBlipDetails.pending, (state) => {
             state.isLoadingBlipDetails = true;
@@ -582,13 +518,7 @@ const productSlice = createSlice({
             console.error('Error in fetchBlipDetails:', action.error);
             state.error = action.error.message || 'Failed to fetch blip details';
             
-            toast.error('Failed to fetch blip details', {
-                description: action.error.message || "Please try again",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            notificationService.showError(`Failed to fetch blip details. ${action.error.message || 'Please try again'}`, 'dismissible');
         })
         .addCase(fetchBlipComments.pending, (state) => {
             state.isLoadingBlipComments = true;
@@ -601,13 +531,7 @@ const productSlice = createSlice({
         .addCase(fetchBlipComments.rejected, (state, action) => {
             state.isLoadingBlipComments = false;
             state.error = action.error.message;
-            toast.error('Failed to fetch blip comments', {
-                description: "Please try again",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            notificationService.showError('Failed to fetch blip comments. Please try again', 'dismissible');
         })
         .addCase(addReplyToBlipComment.pending, () => {
             // Optionally add a loading state for replies
@@ -637,22 +561,11 @@ const productSlice = createSlice({
                 }
             }
             
-            toast.success('Reply added successfully', {
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            notificationService.showSuccess('Reply added successfully', 'dismissible');
         })
         .addCase(addReplyToBlipComment.rejected, (state, action) => {
             state.error = action.error.message;
-            toast.error('Failed to add reply', {
-                description: action.error.message || "Please try again",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            notificationService.showError(`Failed to add reply. ${action.error.message || 'Please try again'}`, 'dismissible');
         })
         .addCase(toggleVacationMode.pending, (state) => {
             state.vacationRequestPending = true;
@@ -661,23 +574,12 @@ const productSlice = createSlice({
             state.isLoading = false;
             state.vacationMode = action.payload.vacationMode.isOn;
             state.vacationRequestPending = false;
-            toast.success(`Vacation mode ${action.payload.vacationMode.isOn ? 'enabled' : 'disabled'} successfully`, {
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            notificationService.showSuccess(`Vacation mode ${action.payload.vacationMode.isOn ? 'enabled' : 'disabled'} successfully`, 'dismissible');
         })
         .addCase(toggleVacationMode.rejected, (state, action) => {
             state.vacationRequestPending = false;
             state.error = action.error.message;
-            toast.error('Failed to toggle vacation mode', {
-                description: action.error.message || "Please try again",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            notificationService.showError(`Failed to toggle vacation mode. ${action.error.message || 'Please try again'}`, 'dismissible');
         })
 });
 

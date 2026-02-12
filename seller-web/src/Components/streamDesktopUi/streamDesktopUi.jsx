@@ -286,7 +286,7 @@ const StreamDesktopUi = ({
             setVisibilityModalOpen(false);
             setSelectedProduct(null);
         } catch (error) {
-            // Error is already handled in the context functions with toast notifications
+            // Error is already handled in the context functions with showNotification
             console.error('Error handling product visibility:', error);
         } finally {
             setIsVisibilityLoading(false);

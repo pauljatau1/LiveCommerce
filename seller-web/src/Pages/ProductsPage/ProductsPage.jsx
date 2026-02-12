@@ -17,7 +17,6 @@ import {
     DialogTitle,
 } from "../../Components/ui/dialog";
 import { Icon } from "@iconify/react";
-import { toast } from "sonner";
 import { Switch } from "../../Components/ui/switch";
 import { BASE_URL } from "../../Constants/Server";
 import { NavLink, Link } from 'react-router-dom';
@@ -27,6 +26,7 @@ import { useState, useEffect } from "react";
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
 //import { productPageCardData } from "../../Utilities/data";
 import { useSelector, useDispatch } from "react-redux";
+import { useNotification } from '@/Hooks/useNotification';
 import { fetchSellerProducts, fetchSellerAuctionProducts, searchSellerProducts, deleteProduct, toggleVacationMode } from "../../Redux/Slices/ProductSlice";
 import React from 'react';
 //import Loader from '../../Components/Loader';
@@ -35,7 +35,7 @@ import BlipUploadModal from "../../Components/ui/ProductPageUi/BlipUploadModal";
 import ShareLinkPopUp from "../../Components/ui/ShareLinkPopUp";
 import NotFound from "../../assets/not-found-icon2.png";
 import LinearProgress from "@mui/material/LinearProgress";
-import PickupAddressVerificationModal from "../../Components/PickupAddressVerificationModal";
+import PickupAddressVerificationModal from "@/Components/shared/PickupAddressVerificationModal";
 import StockUpdateModal from "../../Components/ui/ProductPageUi/StockUpdateModal";
 import axios from 'axios';
 //import EmailVerificationModal from "../../Components/EmailVerificationModal";
@@ -69,6 +69,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from ".
 const ProductsPage = () => {
     const { seller, token } = useAuthContext();
     const { setHeaderName, setNavName } = useOutletContext()
+    const { showNotification } = useNotification();
     const dispatch = useDispatch();
     const { products, auctionProducts, isLoading, isLoadingAuctions, productStatistics, vacationMode, vacationRequestPending } = useSelector((state) => state.product);
     const [isStockUpdated, setIsStockUpdated] = useState(false);
@@ -576,13 +577,11 @@ const ProductsPage = () => {
                 // Refresh products to show updated stock
                 setIsStockUpdated(prev => !prev);
                 setOpenStockModal(false);
-                toast.success(`Stock ${operation === 'add' ? 'increased' : 'decreased'} successfully`);
+                showNotification(`Stock ${operation === 'add' ? 'increased' : 'decreased'} successfully`, 'information', 'dismissible');
             }
         } catch (error) {
             console.error('Error updating stock:', error);
-            toast.error("Failed to update stock", {
-                description: error.response?.data?.message || "Please try again"
-            });
+            showNotification(`Failed to update stock: ${error.response?.data?.message || "Please try again"}`, 'error', 'dismissible');
         } finally {
             setIsSubmitting(false);
         }

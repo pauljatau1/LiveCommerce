@@ -1,4 +1,3 @@
-import { toast } from 'sonner';
 import { Icon } from "@iconify/react";
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { BASE_URL } from '../../Constants/Server';
@@ -24,12 +23,14 @@ import ZeroQuantityProductsModal from '../../Components/ZeroQuantityProductsModa
 import ProductLimitModal from "../../Components/livestream/ProductLimitModal";
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { productService } from '@/services/productService';
+import { useNotification } from '@/Hooks/useNotification';
 
 const CreateLiveShow = () => {
     const { setHeaderName, setNavName } = useOutletContext();
     const navigate = useNavigate();
     // Redux store not used here for products anymore
     const { seller } = useAuthContext();
+    const { showNotification } = useNotification();
     const { dispatch: livestreamDispatch, livestream } = useLivestreamContext();
     const [dragActive, setDragActive] = useState(false);
     const [categories, setCategories] = useState([]);
@@ -266,7 +267,7 @@ const CreateLiveShow = () => {
                 }
             } catch (error) {
                 console.error(error);
-                toast.error('Failed to fetch categories');
+                showNotification('Failed to fetch categories', 'error', 'dismissible');
             }
         }
         fetchCategories();
@@ -307,13 +308,7 @@ const CreateLiveShow = () => {
         // Add file type validation here - only allow image types
         const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
         if (!validTypes.includes(file.type)) {
-            toast.error('Invalid file type', {
-                description: 'Please upload only image files (JPEG, PNG, GIF)',
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            showNotification('Invalid file type', 'error', 'dismissible');
             return;
         }
 
@@ -344,13 +339,7 @@ const CreateLiveShow = () => {
             });
         } catch (error) {
             console.error('Image processing failed:', error);
-            toast.error('Failed to process image', {
-                description: "There was an error processing your image",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            showNotification('Failed to process image', 'error', 'dismissible');
         }
     };
 
@@ -374,25 +363,13 @@ const CreateLiveShow = () => {
         if (!file) return;
 
         if (!file.type.startsWith('video/')) {
-            toast.error('Please upload a video file', {
-                description: "Upload a video file for your blip",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            showNotification('Please upload a video file', 'error', 'dismissible');
             return;
         }
 
         const maxSize = 60 * 1024 * 1024; // 60MB
         if (file.size > maxSize) {
-            toast.error('Video must be less than 60MB', {
-                description: "Please upload a smaller video file",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            showNotification('Video must be less than 60MB', 'error', 'dismissible');
             return;
         }
 
@@ -411,13 +388,7 @@ const CreateLiveShow = () => {
             });
 
             if (duration > 30) {
-                toast.error('Video must be less than 30 seconds', {
-                    description: "Please upload a shorter video for better viewer engagement",
-                    style: {
-                        background: '#17171B',
-                        color: '#fff',
-                    }
-                });
+                showNotification('Video must be less than 30 seconds', 'error', 'dismissible');
                 return;
             }
 
@@ -460,13 +431,7 @@ const CreateLiveShow = () => {
 
         } catch (error) {
             console.error('Upload failed:', error);
-            toast.error('Failed to upload video', {
-                description: "There was an error processing your video",
-                style: {
-                    background: '#17171B',
-                    color: '#fff',
-                }
-            });
+            showNotification('Failed to upload video', 'error', 'dismissible');
         } finally {
             setIsUploading(false);
             setUploadProgress(0);
@@ -524,9 +489,7 @@ const CreateLiveShow = () => {
 
     const handleContinue = () => {
         if (livestream?.selectedProducts.length === 0) {
-            toast.error('Please select at least one product', {
-                description: 'You must select at least one product to continue',
-            });
+            showNotification('Please select at least one product', 'error', 'dismissible');
             return;
         }
 
@@ -546,9 +509,7 @@ const CreateLiveShow = () => {
 
             navigate('/dashboard/live-streams/submit-live-show');
         } else {
-            toast.error('Please fill all fields', {
-                description: 'Please fill all fields to continue',
-            });
+            showNotification('Please fill all fields', 'error', 'dismissible');
         }
     };
 
@@ -590,7 +551,7 @@ const CreateLiveShow = () => {
             }
         } catch (error) {
             console.error('Error searching categories:', error);
-            toast.error('Failed to search categories');
+            showNotification('Failed to search categories', 'error', 'dismissible');
         } finally {
             setIsSearching(false);
         }

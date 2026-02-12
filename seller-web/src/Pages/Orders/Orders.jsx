@@ -1,7 +1,6 @@
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
-import { toast } from 'sonner'
 import Loader from '@/Components/Loader'
 import { BASE_URL, BASE_URL_V2 } from '@/Constants/Server'
 import { Button } from "@/Components/ui/button";

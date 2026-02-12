@@ -7,33 +7,47 @@
 
 
 @layer components {
-  
-    /* https://dev.to/afif/i-made-100-css-loaders-for-your-next-project-4eje */
-    .loader {
-      width: 45px;
-      aspect-ratio: 0.75;
-      --c: no-repeat linear-gradient(var(--loader-color) 0 0);
-      background: var(--c) 0% 50%, var(--c) 50% 50%, var(--c) 100% 50%;
-      background-size: 20% 50%;
-      animation: loading 1s infinite linear;
+
+  /* https://dev.to/afif/i-made-100-css-loaders-for-your-next-project-4eje */
+  .loader {
+    width: 45px;
+    aspect-ratio: 0.75;
+    --c: no-repeat linear-gradient(var(--loader-color) 0 0);
+    background: var(--c) 0% 50%, var(--c) 50% 50%, var(--c) 100% 50%;
+    background-size: 20% 50%;
+    animation: loading 1s infinite linear;
+  }
+
+  @keyframes loading {
+    20% {
+      background-position: 0% 0%, 50% 50%, 100% 50%;
     }
-  
-    @keyframes loading {
-      20% {
-        background-position: 0% 0%, 50% 50%, 100% 50%;
-      }
-      40% {
-        background-position: 0% 100%, 50% 0%, 100% 50%;
-      }
-      60% {
-        background-position: 0% 50%, 50% 100%, 100% 0%;
-      }
-      80% {
-        background-position: 0% 50%, 50% 50%, 100% 100%;
-      }
+
+    40% {
+      background-position: 0% 100%, 50% 0%, 100% 50%;
+    }
+
+    60% {
+      background-position: 0% 50%, 50% 100%, 100% 0%;
+    }
+
+    80% {
+      background-position: 0% 50%, 50% 50%, 100% 100%;
     }
   }
-  
+}
+
+/* Shimmer animation for skeleton loading - continuous wave effect */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(150%);
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -62,6 +76,7 @@
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
   }
+
   .dark {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
@@ -94,6 +109,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -107,6 +123,49 @@
 /* React Quill Editor Styles */
 .quill {
   border-radius: 1rem;
+}
+
+/* MUI DatePicker Mobile View - Brand Color Overrides */
+.MuiDialog-root .MuiPickersYear-yearButton.Mui-selected,
+.MuiModal-root .MuiPickersYear-yearButton.Mui-selected {
+  background-color: #16a34a !important;
+  color: #fff !important;
+}
+
+.MuiDialog-root .MuiPickersMonth-monthButton.Mui-selected,
+.MuiModal-root .MuiPickersMonth-monthButton.Mui-selected {
+  background-color: #16a34a !important;
+  color: #fff !important;
+}
+
+.MuiDialog-root .MuiPickersYear-yearButton:hover,
+.MuiModal-root .MuiPickersYear-yearButton:hover {
+  background-color: #dcfce7 !important;
+}
+
+.MuiDialog-root .MuiPickersMonth-monthButton:hover,
+.MuiModal-root .MuiPickersMonth-monthButton:hover {
+  background-color: #dcfce7 !important;
+}
+
+.MuiDialog-root .MuiPickersYear-yearButton.Mui-selected:hover,
+.MuiModal-root .MuiPickersYear-yearButton.Mui-selected:hover {
+  background-color: #15803d !important;
+}
+
+.MuiDialog-root .MuiPickersMonth-monthButton.Mui-selected:hover,
+.MuiModal-root .MuiPickersMonth-monthButton.Mui-selected:hover {
+  background-color: #15803d !important;
+}
+
+.MuiDialog-root .MuiButton-root,
+.MuiModal-root .MuiButton-root {
+  color: #16a34a !important;
+}
+
+.MuiDialog-root .MuiButton-root.MuiButton-textPrimary,
+.MuiModal-root .MuiButton-root.MuiButton-textPrimary {
+  color: #16a34a !important;
 }
 
 .ql-toolbar.ql-snow {
@@ -149,35 +208,35 @@
 /* End React Quill Editor Styles */
 
 .react-phone-input-2 .selected-flag {
-    background: transparent !important;
+  background: transparent !important;
 }
 
 .react-phone-input-2 .flag-dropdown {
-    background: transparent !important;
-    border: none !important;
+  background: transparent !important;
+  border: none !important;
 }
 
 .react-phone-input-2 .form-control:focus {
-    border-color: #E5E7EB !important;
-    box-shadow: none !important;
+  border-color: #E5E7EB !important;
+  box-shadow: none !important;
 }
 
 /* New styles for the dropdown container */
 .react-phone-input-2 .country-list {
-    width: 100% !important;
-    margin: 0 !important;
-    border: 1px solid #E5E7EB !important;
-    border-radius: 0.5rem !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-    background-color: white !important;
+  width: 100% !important;
+  margin: 0 !important;
+  border: 1px solid #E5E7EB !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  background-color: white !important;
 }
 
 .react-phone-input-2 .country-list .country:hover {
-    background-color: #F3F4F6 !important;
+  background-color: #F3F4F6 !important;
 }
 
 .react-phone-input-2 .country-list .country.highlight {
-    background-color: #F3F4F6 !important;
+  background-color: #F3F4F6 !important;
 }
 
 /* Custom scrollbar for chat container */
@@ -202,6 +261,42 @@
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: #2D3748 transparent;
+}
+
+/* Custom scrollbar for Activity Feed - Hidden by default, visible on parent hover */
+.activity-feed-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.group:hover .activity-feed-scrollbar {
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.activity-feed-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.activity-feed-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 10px;
+}
+
+.group:hover .activity-feed-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.activity-feed-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 10px;
+}
+
+.group:hover .activity-feed-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+.group:hover .activity-feed-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 /* Add react-draggable specific cursor styles */
@@ -250,7 +345,8 @@
   bottom: 0;
   left: 0;
   right: 0;
-  will-change: transform; /* this improves performances and prevent painting issues on iOS Chrome */
+  will-change: transform;
+  /* this improves performances and prevent painting issues on iOS Chrome */
 }
 
 .reactEasyCrop_CropArea {
@@ -303,4 +399,3 @@
   border-left: 0;
   border-right: 0;
 }
-  

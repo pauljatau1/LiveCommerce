@@ -5,10 +5,10 @@ import {
     AuthProviderProps,
     Seller,
 } from '../types';
-import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { trackEvent, identifyUserMixpanel } from '@/util/analytics';
-import { useIntercomChat } from '@/Hooks/useIntercom';
+import { useIntercom } from 'react-use-intercom';
+import { useNotification } from "@/Hooks/useNotification";
 import { tokenUtils, sellerUtils, authUtils } from "@/util/auth";
 import { getClientIP, getDeviceType } from '@/util/helpers';
 import { createContext, useReducer, useMemo } from "react";
@@ -22,9 +22,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
  */
 function AuthProvider({ children }: AuthProviderProps) {
     // initialize intercom chat hook to configure intercom functionality
-    const { shutdown } = useIntercomChat();
+    const { boot, shutdown } = useIntercom();
+    const { showNotification } = useNotification();
     const navigate = useNavigate();
-
     // Initial state with proper typing
     const initialState: AuthState = {
         seller: null,
@@ -235,7 +235,7 @@ function AuthProvider({ children }: AuthProviderProps) {
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
             // shutdown intercom for fresh restart upon login
-            shutdown();
+            boot();
             dispatch({ type: "RESET" })
             // dispatch auth success action to update all auth state
             dispatch({ type: "AUTH_SUCCESS", payload: { seller, token } });
@@ -252,13 +252,7 @@ function AuthProvider({ children }: AuthProviderProps) {
                 sellerUtils.storeSeller(seller);
                 tokenUtils.storeBearerToken({ data: token, isVerified: seller.isVerified });
 
-                toast.error('Account Disabled', {
-                    description: 'Your account has been disabled. Please contact support.',
-                    style: {
-                        background: '#17171B',
-                        color: '#fff',
-                    }
-                });
+                showNotification('Account Disabled, Your account has been disabled. Please contact support at (support@auqli.com) to reactivate your account.', 'error', 'fixed');
 
                 return
             }
@@ -339,10 +333,10 @@ function AuthProvider({ children }: AuthProviderProps) {
             }
 
 
-            // display success toast after storing seller data in global auth context
-            toast.success("Login successful")
+            // display success banner after storing seller data in global auth context
+            showNotification("Login successful, Welcome back!", "information", "dismissible");
 
-            // wait for 2 seconds after showing toast and then navigate to dashboard
+            // wait for 2 seconds after showing banner and then navigate to dashboard
             setTimeout(() => {
                 navigate("/dashboard/home", { replace: true });
             }, 1000);
@@ -359,12 +353,6 @@ function AuthProvider({ children }: AuthProviderProps) {
             shutdown();
             dispatch({ type: 'RESET' });
             dispatch({ type: 'LOGOUT' });
-            // Clear Intercom storage tracks
-            Object.keys(localStorage).forEach(key => {
-                if (key.startsWith('intercom')) {
-                    localStorage.removeItem(key);
-                }
-            });
 
             // Clear app-specific storage
             authUtils.clearAllAuthData();
@@ -379,7 +367,7 @@ function AuthProvider({ children }: AuthProviderProps) {
     const handleSignupActivity = async (seller: Seller, token: string) => {
         try {
             // shutdown intercom for fresh restart upon login
-            shutdown();
+            boot();
             // dispatch loading action to show loading state
             dispatch({ type: 'SET_LOADING', payload: true });
             // dispatch signup success action to update all auth state

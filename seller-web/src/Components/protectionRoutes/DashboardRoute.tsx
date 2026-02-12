@@ -2,18 +2,20 @@ import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { tokenUtils, sellerUtils } from "@/util/auth";
-import { toast } from "sonner";
+import { useNotification } from "@/Hooks/useNotification";
 
 export default function DashboardRoute({ children }: { children: React.ReactNode }) {
     const { seller, token } = useAuthContext();
     const navigate = useNavigate();
     const location = useLocation();
-
+    const { showNotification } = useNotification();
     useEffect(() => {
         // Use both context and localStorage to decide
         const hasToken = Boolean(token?.data || tokenUtils.getBearerToken());
         const hasSeller = Boolean(seller || sellerUtils.getSeller());
 
+        // Note: LivestreamSocketContext handles socket connection automatically
+        // No need to manually connect here
         // Note: LivestreamSocketContext handles socket connection automatically
         // No need to manually connect here
 
@@ -38,13 +40,7 @@ export default function DashboardRoute({ children }: { children: React.ReactNode
         const isRestrictedPath = restrictedPaths.some(path => currentPath.startsWith(path));
 
         if (isRestrictedPath && seller && isPickupAddressRequired) {
-          toast.error('Pickup Address Required', {
-            description: 'Register your pickup address to access this feature',
-            style: {
-              background: '#17171B',
-              color: '#fff',
-            }
-          });
+          showNotification('Pickup Address Required', 'error', 'dismissible');
 
           // Redirect to dashboard home where verification dialog will appear
           navigate('/dashboard/home', { replace: true });

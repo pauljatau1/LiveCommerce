@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 import DraftThumbnail from '../assets/young-woman-organizing-live-shop 1.png'
 import { useState, useRef, useMemo } from 'react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './ui/tooltip';
-import { toast } from 'sonner';
+import { useNotification } from '@/Hooks/useNotification';
 import RescheduleModal from './RescheduleModal';
 
 const ActiveLiveStreamCard = ({
@@ -23,7 +23,7 @@ const ActiveLiveStreamCard = ({
     const [isPlaying, setIsPlaying] = useState(false);
     const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
     const videoRef = useRef(null);
-
+    const { showNotification } = useNotification();
     const handleVideoPlayPause = () => {
         if (videoRef.current) {
             if (isPlaying) {
@@ -114,12 +114,12 @@ const ActiveLiveStreamCard = ({
         try {
             if (streamLink) {
                 await navigator.clipboard.writeText(streamLink);
-                toast.success('Link copied to clipboard');
+                showNotification('Link copied to clipboard', 'success', 'dismissible');
             } else {
-                toast.error('No link found to copy');
+                showNotification('No link found to copy', 'warning', 'dismissible');
             }
         } catch {
-            toast.error('Failed to copy link');
+            showNotification('Failed to copy link', 'error', 'dismissible');
         }
     };
 

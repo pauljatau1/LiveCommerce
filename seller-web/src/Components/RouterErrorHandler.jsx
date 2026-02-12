@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRouteError } from "react-router-dom";
+// Import NotFoundPage directly (not lazy) for error handler reliability
+// Error handlers should not depend on dynamic imports that might fail
 import NotFoundPage from "../Pages/NotFoundPage/NotFoundPage";
 
 export default function RouterErrorHandler() {
@@ -127,5 +129,6 @@ export default function RouterErrorHandler() {
   }
 
   // If it's not a chunk error, show the normal NotFoundPage
+  // Direct import ensures NotFoundPage is available even when chunks fail to load
   return <NotFoundPage />;
 } 

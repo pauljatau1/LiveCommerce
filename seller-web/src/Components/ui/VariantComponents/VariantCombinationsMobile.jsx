@@ -1,12 +1,13 @@
 import { memo, useState, useCallback, useEffect } from 'react';
 import { useVariants } from '../../../Contexts/VariantContext';
-import { toast } from 'sonner';
+import { useNotification } from '@/Hooks/useNotification';
 import PropTypes from 'prop-types';
 
 const VariantCombinationsMobile = memo(() => {
     const [expandedVariants, setExpandedVariants] = useState(new Set());
     const { variantStructure, updateVariantValue, calculateMinimumStock } = useVariants();
     const [stockWarnings, setStockWarnings] = useState(new Map());
+    const { showNotification } = useNotification();
 
     // Monitor variantStructure changes for image debugging (throttled)
     useEffect(() => {
@@ -28,7 +29,7 @@ const VariantCombinationsMobile = memo(() => {
             const MAX_FILE_SIZE = 7 * 1024 * 1024;
             if (file.size > MAX_FILE_SIZE) {
                 console.log('❌ MOBILE File too large:', file.size);
-                toast.error('Image size must be less than 7MB');
+                showNotification('Image size must be less than 7MB', 'error', 'dismissible');
                 return;
             }
 
@@ -47,7 +48,7 @@ const VariantCombinationsMobile = memo(() => {
                     isDefault: true
                 }]);
                 console.log('✅ MOBILE updateVariantValue called for images');
-                toast.success('Variant image uploaded successfully');
+                showNotification('Variant image uploaded successfully', 'information', 'dismissible');
             };
             reader.readAsDataURL(file);
         } else {
