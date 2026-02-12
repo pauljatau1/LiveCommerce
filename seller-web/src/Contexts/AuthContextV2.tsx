@@ -7,7 +7,7 @@ import {
 } from '../types';
 import { useNavigate } from "react-router-dom";
 import { trackEvent, identifyUserMixpanel } from '@/util/analytics';
-import { useIntercomChat } from '@/Hooks/useIntercom';
+import { useIntercom } from 'react-use-intercom';
 import { useNotification } from "@/Hooks/useNotification";
 import { tokenUtils, sellerUtils, authUtils } from "@/util/auth";
 import { getClientIP, getDeviceType } from '@/util/helpers';
@@ -22,9 +22,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
  */
 function AuthProvider({ children }: AuthProviderProps) {
     // initialize intercom chat hook to configure intercom functionality
-    const { shutdown } = useIntercomChat();
-    const navigate = useNavigate();
+    const { boot, shutdown } = useIntercom();
     const { showNotification } = useNotification();
+    const navigate = useNavigate();
     // Initial state with proper typing
     const initialState: AuthState = {
         seller: null,
@@ -235,7 +235,7 @@ function AuthProvider({ children }: AuthProviderProps) {
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
             // shutdown intercom for fresh restart upon login
-            shutdown();
+            boot();
             dispatch({ type: "RESET" })
             // dispatch auth success action to update all auth state
             dispatch({ type: "AUTH_SUCCESS", payload: { seller, token } });
@@ -353,12 +353,6 @@ function AuthProvider({ children }: AuthProviderProps) {
             shutdown();
             dispatch({ type: 'RESET' });
             dispatch({ type: 'LOGOUT' });
-            // Clear Intercom storage tracks
-            Object.keys(localStorage).forEach(key => {
-                if (key.startsWith('intercom')) {
-                    localStorage.removeItem(key);
-                }
-            });
 
             // Clear app-specific storage
             authUtils.clearAllAuthData();
@@ -373,7 +367,7 @@ function AuthProvider({ children }: AuthProviderProps) {
     const handleSignupActivity = async (seller: Seller, token: string) => {
         try {
             // shutdown intercom for fresh restart upon login
-            shutdown();
+            boot();
             // dispatch loading action to show loading state
             dispatch({ type: 'SET_LOADING', payload: true });
             // dispatch signup success action to update all auth state

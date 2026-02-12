@@ -7,7 +7,7 @@ import { sellerService } from "@/services/sellerService";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { calculateUnreadMessages, calculateNewNotifications } from "@/util/helpers";
+import { calculateUnreadMessages, calculateNewNotifications, isIntercomReady, waitForIntercomReady } from "@/util/helpers";
 import { sideBarNavData, sideBarNavData2, sideBarNavData3, sideBarNavData4, sideBarNavData5 } from "@/Utilities/data";
 import AuqliLogo from "@/assets/icons/AuqliLogo"
 import MenuCloseIcon from "../../../assets/icons/MenuCloseIcon";
@@ -40,7 +40,7 @@ interface IItem {
 
 export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSidebar }: { isSidebarOpen: boolean, setIsSidebarOpen: (isSidebarOpen: boolean) => void, hideSidebar: () => void }) {
     const location = useLocation();
-    const { show, showNewMessage } = useIntercom();
+    const { show, showNewMessage, boot } = useIntercom();
     const { logout, isLoading } = useAuthContext();
     const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -123,9 +123,37 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
         setIsExpanded(prev => prev?.includes(id) ? prev?.filter((item: string) => item !== id) : [...prev, id]);
     }
 
-    const handleNewMessages = () => {
-        showNewMessage();
-        isSidebarOpen && setIsSidebarOpen(false);
+    /**
+     * Handle opening new messages in Intercom
+     * Ensures Intercom has booted before calling showNewMessage
+     */
+    const handleNewMessages = async () => {
+        try {
+            // First, check if Intercom is ready
+            if (!isIntercomReady()) {
+                // If not ready, wait for it to be ready
+                const isReady = await waitForIntercomReady();
+                
+                if (!isReady) {
+                    // If still not ready after retries, try to boot manually
+                    console.warn('Intercom not ready, attempting to boot...');
+                    boot();
+                    
+                    // Wait a bit more after boot
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+
+            // Double-check before calling showNewMessage
+            if (isIntercomReady()) {
+                show();
+                isSidebarOpen && setIsSidebarOpen(false);
+            } else {
+                console.error('Intercom is still not ready after boot attempt');
+            }
+        } catch (error) {
+            console.error('Error opening Intercom messages:', error);
+        }
     }
 
     /**
