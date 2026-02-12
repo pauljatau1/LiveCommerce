@@ -86,7 +86,7 @@ const initializeFezWebhook = async () => {
 };
 
 
-initializeFezWebhook();
+// initializeFezWebhook();
 
 
 
