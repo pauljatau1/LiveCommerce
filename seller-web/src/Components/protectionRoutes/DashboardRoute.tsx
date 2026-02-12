@@ -16,6 +16,8 @@ export default function DashboardRoute({ children }: { children: React.ReactNode
 
         // Note: LivestreamSocketContext handles socket connection automatically
         // No need to manually connect here
+        // Note: LivestreamSocketContext handles socket connection automatically
+        // No need to manually connect here
 
         if (!hasToken && !hasSeller) {
             navigate("/login", { replace: true });
