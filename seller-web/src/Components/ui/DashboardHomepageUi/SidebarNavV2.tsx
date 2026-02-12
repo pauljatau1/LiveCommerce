@@ -310,7 +310,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
 
                                             return (
                                                 <div key={item.id} className={`flex items-center justify-between w-[95%] hover:bg-white/10 hover:backdrop-blur-sm cursor-pointer pl-[15px] pr-[20px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
-                                    ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '} `} >
+                                                    ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '} `} >
                                                     <NavLink to={item.path} key={item.id} className="flex py-[8px] h-full w-full items-center gap-3">
                                                         <Icon icon={item.icon} width={18} height={18} />
                                                         <span className="font-lexend text-[14px] 3xl:text-base ">{item.name}</span>
@@ -346,7 +346,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
 
                                         return (
                                             <div key={item.id} className={`flex items-center justify-between w-[95%] hover:bg-white/10 hover:backdrop-blur-sm  cursor-pointer pl-[15px] pr-[20px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
-                                    ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '} `} >
+                                                ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '} `} >
                                                 <NavLink to={item.path} key={item.id} className="flex py-[8px] h-full w-full items-center gap-3">
                                                     <Icon icon={item.icon} width={18} height={18} />
                                                     <span className="font-lexend text-[14px] 3xl:text-base ">{item.name}</span>
@@ -479,7 +479,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                             <>
                                                 <div key={item.id} className={`flex items-center justify-between w-[95%] hover:bg-white/10 hover:backdrop-blur-sm  cursor-pointer pl-[15px] pr-[20px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
                                                     ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '} `} >
-                                                    <NavLink to={item.path} key={item.id} onClick={() => { isSidebarOpen && setIsSidebarOpen(false); handleSubNavOpen(item.id) }} className="flex py-[8px] h-full w-full items-center gap-3">
+                                                    <NavLink to={`${item?.name == 'KYC Verification' ? '/dashboard/kyc-verification/address' : item.path}`} key={item.id} onClick={() => { isSidebarOpen && setIsSidebarOpen(false); handleSubNavOpen(item.id) }} className="flex py-[8px] h-full w-full items-center gap-3">
                                                         <Icon icon={item.icon} width={18} height={18} />
                                                         <span className="font-lexend text-[14px] 3xl:text-base ">{item.name}</span>
                                                     </NavLink>
