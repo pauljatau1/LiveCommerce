@@ -1,3 +1,10 @@
+// Extend Window interface to include Intercom
+declare global {
+  interface Window {
+    Intercom?: (command: string, ...args: any[]) => void;
+  }
+}
+
 // helper function to get a users ip address
 
 export const getClientIP = async () => {
@@ -516,3 +523,31 @@ export function extractAxiosErrorMessage(error: unknown): string {
   // Fallback to default message
   return "An unexpected error occurred";
 }
+
+/**
+ * Check if Intercom has fully booted and is ready to accept commands
+ * @returns {boolean} True if Intercom is ready
+ */
+export const isIntercomReady = (): boolean => {
+  // Check if window.Intercom exists and is a function
+  return typeof window !== 'undefined' && 
+         typeof window.Intercom === 'function' &&
+         window.Intercom !== undefined;
+};
+
+/**
+ * Wait for Intercom to be ready with retry logic
+ * @param {number} maxRetries - Maximum number of retry attempts
+ * @param {number} delay - Delay between retries in milliseconds
+ * @returns {Promise<boolean>} Promise that resolves when Intercom is ready
+ */
+export const waitForIntercomReady = async (maxRetries: number = 10, delay: number = 200): Promise<boolean> => {
+  for (let i = 0; i < maxRetries; i++) {
+    if (isIntercomReady()) {
+      return true;
+    }
+    // Wait before next retry
+    await new Promise(resolve => setTimeout(resolve, delay));
+  }
+  return false;
+};
