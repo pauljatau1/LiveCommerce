@@ -41,10 +41,10 @@ export default function DashboardTopBannerV2({ sellerDetails }: IDashboardTopBan
 
     // Do not render the banner if all conditions are met
     if (
-        !sellerDetails?.emailVerified &&
+        sellerDetails?.emailVerified &&
         !isPickupAddressRequired() &&
-        sellerDetails?.hasProducts !== false &&
-        sellerDetails?.hasMoreThan10Blips !== false
+        sellerDetails?.hasProducts &&
+        sellerDetails?.hasMoreThan10Blips
     ) {
         return null;
     }
@@ -91,7 +91,7 @@ export default function DashboardTopBannerV2({ sellerDetails }: IDashboardTopBan
                                 </Tooltip>
                             )
                         }
-                        {
+                        {/*
                             !seller?.isPhoneVerified && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -122,7 +122,7 @@ export default function DashboardTopBannerV2({ sellerDetails }: IDashboardTopBan
                                     </TooltipContent>
                                 </Tooltip>
                             )
-                        }
+                        */}
                         {
                             !seller?.hasProducts && (
                                 <Tooltip>
