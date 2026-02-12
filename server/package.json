@@ -25,7 +25,7 @@
         "@sendgrid/mail": "^8.1.4",
         "agenda": "^5.0.0",
         "agora-access-token": "^2.0.4",
-        "aws-sdk": "^2.1692.0",
+        "aws-sdk": "^2.1693.0",
         "bcrypt": "^5.1.1",
         "btoa": "^1.2.1",
         "canvas": "^3.1.0",

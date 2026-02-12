@@ -29,7 +29,7 @@
  * - TERMII_API_KEY: Your Termii API key from the dashboard
  *
  * Hardcoded Configuration:
- * - Template ID: bbb5385c-9920-4a4d-a151-7f663d95ad8e
+ * - Template ID: de58adb8-761f-4bcf-b514-a580074fff42
  * - Email Configuration ID: 57cc65e1-3708-407a-95ed-ceceea3bd36d
  * - The template should have {{email_body}} variable placeholder for raw HTML emails
  *
@@ -41,10 +41,17 @@ require('dotenv').config();
 
 // Hardcoded Termii email template ID for password reset emails
 // This template should have {{email_body}} variable placeholder
-const TERMII_EMAIL_TEMPLATE_ID = 'bbb5385c-9920-4a4d-a151-7f663d95ad8e';
+// Hardcoded Termii email template ID for password reset emails
+// This template should have {{email_body}} variable placeholder
+const TERMII_EMAIL_TEMPLATE_ID = 'de58adb8-761f-4bcf-b514-a580074fff42';
 
 // Hardcoded Termii email configuration ID
 const TERMII_EMAIL_CONFIGURATION_ID = '57cc65e1-3708-407a-95ed-ceceea3bd36d';
+
+// Termii Transactional Email Template ID
+// Template Category: TRANSACTIONAL
+// Variables: {{name}}, {{message}}
+const TERMII_TRANSACTIONAL_TEMPLATE_ID = 'de58adb8-761f-4bcf-b514-a580074fff42';
 
 /**
  * Send a templated email via Termii Email API.
@@ -186,7 +193,7 @@ async function sendTemplatedEmail(emailData) {
  * by using a Termii template with a single variable placeholder.
  *
  * Template Configuration:
- * - Uses hardcoded template ID: bbb5385c-9920-4a4d-a151-7f663d95ad8e
+ * - Uses hardcoded template ID: de58adb8-761f-4bcf-b514-a580074fff42
  * - The template should have {{email_body}} variable placeholder
  * - This way, you can keep your HTML email body in your code and pass it as a variable
  *
@@ -217,7 +224,7 @@ async function sendRawHTMLEmail(emailData) {
     html,
     templateId = TERMII_EMAIL_TEMPLATE_ID,
     emailConfigurationId = TERMII_EMAIL_CONFIGURATION_ID,
-    bodyVariableName = 'email_body'
+    bodyVariableName = 'message'
   } = emailData;
 
   // Step 2: Validate required fields
@@ -238,14 +245,15 @@ async function sendRawHTMLEmail(emailData) {
   }
 
   // Step 3: Send email using template with HTML body as variable
-  // The template should have {{email_body}} (or your custom variable name) placeholder
+  // The template should have {{message}} (or your custom variable name) placeholder
   return await sendTemplatedEmail({
     email: email,
     subject: subject,
     templateId: templateId,
     emailConfigurationId: emailConfigurationId,
     variables: {
-      [bodyVariableName]: html
+      [bodyVariableName]: html,
+      name: '' // Default name to empty string as requested
     }
   });
 }
@@ -341,10 +349,48 @@ async function sendPasswordResetEmail(resetData) {
   });
 }
 
+/**
+ * Send a transactional email using the general Termii template.
+ *
+ * Template ID: de58adb8-761f-4bcf-b514-a580074fff42
+ * Variables: {{name}}, {{message}}
+ *
+ * @param {Object} emailData - Email data
+ * @param {string} emailData.email - Recipient email
+ * @param {string} emailData.subject - Email subject
+ * @param {string} emailData.message - The main message content
+ * @param {string} [emailData.name] - User's name (optional, defaults to empty string)
+ */
+async function sendTransactionalEmail(emailData) {
+  const {
+    email,
+    subject,
+    message,
+    name = '',
+    emailConfigurationId = TERMII_EMAIL_CONFIGURATION_ID
+  } = emailData;
+
+  if (!email) throw new Error('Recipient email address is required');
+  if (!subject) throw new Error('Email subject is required');
+  if (!message) throw new Error('Email message is required');
+
+  return await sendTemplatedEmail({
+    email,
+    subject,
+    templateId: TERMII_TRANSACTIONAL_TEMPLATE_ID,
+    emailConfigurationId,
+    variables: {
+      name,
+      message
+    }
+  });
+}
+
 // Export service functions for use in other modules
 module.exports = {
   sendTemplatedEmail,
   sendRawHTMLEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendTransactionalEmail
 };
 
