@@ -235,6 +235,10 @@ exports.createStream = async (req, res) => {
     const sellerDetails = await Seller.findById(req.user.id).select('storeName businessName storeAvatar');
     const storeName = sellerDetails?.storeName || sellerDetails?.businessName || 'A Seller';
 
+    // Check for staging environment to disable emails
+    const host = req.get('host') || '';
+    const isStaging = host.includes('api.staging.auqli.live');
+
     // GLOBAL NOTIFICATION: Send push notifications AND emails to ALL buyers when a stream is scheduled
     // This notifies all buyers about the upcoming live stream they can join
     console.log('========================================');
@@ -260,7 +264,7 @@ exports.createStream = async (req, res) => {
 
       if (allBuyers && allBuyers.length > 0) {
         const scheduleNotifications = [];
-        const emailPromises = [];
+
 
         // Format the scheduled time for display
         const scheduledDate = new Date(startDate);
@@ -310,55 +314,6 @@ exports.createStream = async (req, res) => {
             skippedNoToken++;
           }
 
-          // Add email notification if email exists
-          if (buyer.email) {
-            const emailHtml = `
-              <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; background-color: #ffffff; padding: 24px;">
-                <div style="text-align: center; margin-bottom: 24px;">
-                  <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli" style="width: 100px; height: auto;">
-                </div>
-                <h2 style="color: #10b981; margin-top: 0; text-align: center;">📅 New Live Show Scheduled!</h2>
-                <p style="font-size: 16px; line-height: 1.6;">Hi ${buyer.firstName || 'there'},</p>
-                <p style="font-size: 16px; line-height: 1.6;">Great news! <strong>${storeName}</strong> has scheduled a new live ${stream.type === 'auction' ? 'auction' : 'show'}.</p>
-                <div style="background-color: #f9fafb; border-left: 4px solid #10b981; padding: 16px; margin: 24px 0;">
-                  <p style="font-size: 18px; font-weight: bold; margin: 0 0 8px 0; color: #111;">${title}</p>
-                  <p style="margin: 0; font-size: 15px; color: #555;">📆 ${formattedDate} at ${formattedTime}</p>
-                </div>
-                ${description ? `<p style="font-size: 15px; color: #666; font-style: italic; margin-bottom: 24px;">"${description}"</p>` : ''}
-                <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">Don't miss out! ⏰ Mark your calendar and be ready to join when it goes live.</p>
-                
-                <div style="margin-bottom: 24px;">
-                  <p style="font-size: 15px; font-weight: bold; color: #333; margin-bottom: 12px;">Why join?</p>
-                  <ul style="list-style: none; padding: 0; margin: 0;">
-                    <li style="margin-bottom: 8px; font-size: 14px; color: #555;">✨ Interactive shopping experience</li>
-                    <li style="margin-bottom: 8px; font-size: 14px; color: #555;">🏷️ Exclusive live-only deals</li>
-                    <li style="margin-bottom: 8px; font-size: 14px; color: #555;">💬 Chat directly with the host</li>
-                  </ul>
-                </div>
-
-                <div style="text-align: center; margin-bottom: 32px;">
-                  <a href="https://app.auqli.live/live" style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; padding: 12px 24px; border-radius: 8px;">
-                    Join Now
-                  </a>
-                </div>
-                <p style="color: #9ca3af; font-size: 12px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 24px;">
-                  You're receiving this because you have an account on Auqli.<br>
-                  To manage your notification preferences, visit your account settings.
-                </p>
-              </div>
-            `;
-
-            emailPromises.push(
-              termiiEmailService.sendRawHTMLEmail({
-                email: buyer.email,
-                subject: `📅 ${storeName} Scheduled a Live ${stream.type === 'auction' ? 'Auction' : 'Show'}: "${title}"`,
-                html: emailHtml
-              }).catch(err => {
-                console.error(`[Stream] Failed to send scheduled stream email to ${buyer.email}:`, err.message);
-                return null;
-              })
-            );
-          }
         }
 
         console.log(`[Stream Notifications] Stats:
@@ -366,7 +321,6 @@ exports.createStream = async (req, res) => {
           - Push Notifications Queued: ${scheduleNotifications.length}
           - Skipped (No Token): ${skippedNoToken}
           - Skipped (Preferences): ${skippedPreferences}
-          - Emails Queued: ${emailPromises.length}
         `);
 
         // Send push notifications in batches using Expo's chunking
@@ -410,20 +364,6 @@ exports.createStream = async (req, res) => {
           console.log('[Stream] No schedule push notifications sent (all opted out or no valid tokens)', {
             streamId: stream._id?.toString(),
             totalBuyers: allBuyers.length
-          });
-        }
-
-        // Send emails in parallel (non-blocking)
-        if (emailPromises.length > 0) {
-          Promise.allSettled(emailPromises).then((results) => {
-            const successfulEmails = results.filter(r => r.status === 'fulfilled' && r.value).length;
-            const failedEmails = results.filter(r => r.status === 'rejected' || !r.value).length;
-            console.log('[Stream] Sent scheduled stream emails to buyers', {
-              streamId: stream._id?.toString(),
-              totalEmails: emailPromises.length,
-              successfulEmails,
-              failedEmails
-            });
           });
         }
       } else {
@@ -680,17 +620,7 @@ const processStreamStartBackgroundTasks = async (stream, seller, existingStreams
                 notificationData
               );
 
-              // Skip email on staging
-              if (!isStaging) {
-                const emailNotification = {
-                  type: 'stream_start',
-                  title: `${storeName} has started a live ${stream.type === 'auction' ? 'auction' : 'show'}`,
-                  message: `${storeName} has started a live ${stream.type === 'auction' ? 'auction' : 'show'}: "${stream.title}". Join now!`,
-                  data: notificationData
-                };
 
-                await notificationController.sendEmailToBuyer(buyer, emailNotification);
-              }
 
               if (buyer.expoPushToken) {
                 const livePrefs = buyer.notificationPreferences?.liveShows || {};
@@ -805,52 +735,6 @@ const processStreamStartBackgroundTasks = async (stream, seller, existingStreams
               channelId: 'live_streams'
             });
           }
-
-          // Add email notification if email exists - SKIP ON STAGING
-          if (buyer.email && !isStaging) {
-            const emailHtml = `
-              <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; background-color: #ffffff; padding: 24px;">
-                <div style="text-align: center; margin-bottom: 24px;">
-                  <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli" style="width: 100px; height: auto;">
-                </div>
-                <h2 style="color: #ef4444; margin-top: 0; text-align: center;">🔴 LIVE NOW!</h2>
-                <p style="font-size: 16px; line-height: 1.6;">Hi ${buyer.firstName || 'there'},</p>
-                <p style="font-size: 16px; line-height: 1.6;"><strong>${storeNameDisplay}</strong> just went live with an exciting ${stream.type === 'auction' ? 'auction' : 'shopping show'}!</p>
-                <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 16px; margin: 24px 0;">
-                  <p style="font-size: 18px; font-weight: bold; margin: 0; color: #111;">${stream.title}</p>
-                </div>
-                <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">Join now to watch the stream and shop amazing products.</p>
-                <div style="margin-bottom: 24px;">
-                  <p style="font-size: 15px; font-weight: bold; color: #333; margin-bottom: 12px;">Why join?</p>
-                  <ul style="list-style: none; padding: 0; margin: 0;">
-                    <li style="margin-bottom: 8px; font-size: 14px; color: #555;">✨ Interactive shopping experience</li>
-                    <li style="margin-bottom: 8px; font-size: 14px; color: #555;">🏷️ Exclusive live-only deals</li>
-                    <li style="margin-bottom: 8px; font-size: 14px; color: #555;">💬 Chat directly with the host</li>
-                  </ul>
-                </div>
-                <div style="text-align: center; margin-bottom: 32px;">
-                  <a href="https://app.auqli.live/live" style="display: inline-block; background-color: #ef4444; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; padding: 12px 24px; border-radius: 8px;">
-                    Join Now
-                  </a>
-                </div>
-                <p style="color: #9ca3af; font-size: 12px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 24px;">
-                  You're receiving this because you have an account on Auqli.<br>
-                  To manage your notification preferences, visit your account settings.
-                </p>
-              </div>
-            `;
-
-            emailPromises.push(
-              termiiEmailService.sendRawHTMLEmail({
-                email: buyer.email,
-                subject: `🔴 LIVE NOW: ${storeNameDisplay} is streaming "${stream.title}"`,
-                html: emailHtml
-              }).catch(err => {
-                console.error(`[Stream] Failed to send live stream email to ${buyer.email}:`, err.message);
-                return null;
-              })
-            );
-          }
         }
 
         if (globalNotifications.length > 0) {
@@ -864,9 +748,6 @@ const processStreamStartBackgroundTasks = async (stream, seller, existingStreams
           }
         }
 
-        if (emailPromises.length > 0) {
-          Promise.allSettled(emailPromises).catch(() => { });
-        }
       }
     } catch (globalNotifError) {
       console.error('[Stream Notifications] Error sending global buyer notifications:', globalNotifError);
@@ -2008,6 +1889,10 @@ exports.getSellerStreams = async (req, res) => {
 // Background task processor for open live show creation
 const processOpenLiveShowBackgroundTasks = async (stream, req, coverImage, video, startDate, title, description) => {
   try {
+    // Check for staging environment to disable emails
+    const host = req.get('host') || '';
+    const isStaging = host.includes('api.staging.auqli.live');
+
     // Upload cover image to AWS S3 in background
     let imageData = {};
     if (coverImage && coverImage.data) {
@@ -2129,53 +2014,6 @@ const processOpenLiveShowBackgroundTasks = async (stream, req, coverImage, video
               channelId: 'live_streams'
             });
           }
-
-          if (buyer.email) {
-            const emailHtml = `
-              <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; background-color: #ffffff; padding: 24px;">
-                <div style="text-align: center; margin-bottom: 24px;">
-                  <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli" style="width: 100px; height: auto;">
-                </div>
-                <h2 style="color: #10b981; margin-top: 0; text-align: center;">📅 New Live Show Scheduled!</h2>
-                <p style="font-size: 16px; line-height: 1.6;">Hi ${buyer.firstName || 'there'},</p>
-                <p style="font-size: 16px; line-height: 1.6;">Great news! <strong>${storeName}</strong> has scheduled a new live show.</p>
-                <div style="background-color: #f9fafb; border-left: 4px solid #10b981; padding: 16px; margin: 24px 0;">
-                  <p style="font-size: 18px; font-weight: bold; margin: 0 0 8px 0; color: #111;">${title}</p>
-                  <p style="margin: 0; font-size: 15px; color: #555;">📆 ${formattedDate} at ${formattedTime}</p>
-                </div>
-                ${description ? `<p style="font-size: 15px; color: #666; font-style: italic; margin-bottom: 24px;">"${description}"</p>` : ''}
-                <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">Don't miss out! ⏰ Mark your calendar and be ready to join when it goes live.</p>
-                <div style="margin-bottom: 24px;">
-                  <p style="font-size: 15px; font-weight: bold; color: #333; margin-bottom: 12px;">Why join?</p>
-                  <ul style="list-style: none; padding: 0; margin: 0;">
-                    <li style="margin-bottom: 8px; font-size: 14px; color: #555;">✨ Interactive shopping experience</li>
-                    <li style="margin-bottom: 8px; font-size: 14px; color: #555;">🏷️ Exclusive live-only deals</li>
-                    <li style="margin-bottom: 8px; font-size: 14px; color: #555;">💬 Chat directly with the host</li>
-                  </ul>
-                </div>
-                <div style="text-align: center; margin-bottom: 32px;">
-                  <a href="https://app.auqli.live/live" style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; padding: 12px 24px; border-radius: 8px;">
-                    Join Now
-                  </a>
-                </div>
-                <p style="color: #9ca3af; font-size: 12px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 24px;">
-                  You're receiving this because you have an account on Auqli.<br>
-                  To manage your notification preferences, visit your account settings.
-                </p>
-              </div>
-            `;
-
-            emailPromises.push(
-              termiiEmailService.sendRawHTMLEmail({
-                email: buyer.email,
-                subject: `${storeName} scheduled a live show: ${title}`,
-                html: emailHtml
-              }).catch(err => {
-                console.error(`[Stream] Failed to send scheduled stream email to ${buyer.email}:`, err.message);
-                return null;
-              })
-            );
-          }
         }
 
         if (scheduleNotifications.length > 0) {
@@ -2189,9 +2027,6 @@ const processOpenLiveShowBackgroundTasks = async (stream, req, coverImage, video
           }
         }
 
-        if (emailPromises.length > 0) {
-          Promise.allSettled(emailPromises).catch(() => { });
-        }
       }
     } catch (scheduleNotifError) {
       console.error('[Stream] Error sending scheduled stream notifications:', scheduleNotifError);

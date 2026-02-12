@@ -39,21 +39,35 @@ exports.createOrder = async (req, res) => {
 
       console.log(`Controller: Processing orderId ${orderId}`);
 
-      // Create shipment
+      // Create shipment and get the shipment_id directly
+      let shipmentId = null;
       try {
         console.log(`Controller: Calling createShipmentForOrder for orderId ${orderId}`);
-        await shipmentService.createShipmentForOrder(orderId);
-        console.log(`Controller: Shipment created for orderId ${orderId}`);
+        const shipmentResult = await shipmentService.createShipmentForOrder(orderId);
+        shipmentId = shipmentResult.shipment_id;
+        console.log(`Controller: Shipment created for orderId ${orderId}, shipment_id: ${shipmentId}`);
       } catch (error) {
         await errorLoggingService.logError(orderId, 'create_shipment', error);
         throw error;
       }
 
-      // Get rates
+      // Get rates using shipment_id directly (no extra DB query)
       try {
-        console.log(`Controller: Calling getOrderRates for orderId ${orderId}`);
-        const ratesResult = await ratesService.getOrderRates(orderId);
-        console.log(`Controller: Rates received for orderId ${orderId}`, ratesResult.data.rates);
+        console.log(`Controller: Calling getRatesByShipmentId for shipment_id ${shipmentId}`);
+        const ratesResult = await ratesService.getRatesByShipmentId(shipmentId);
+
+        // Handle timeout or error responses gracefully
+        if (ratesResult.status >= 400) {
+          console.warn(`Controller: Rate fetch returned status ${ratesResult.status} for orderId ${orderId}:`, ratesResult.data.message);
+          // Return empty rates on timeout/error so order creation doesn't fail
+          return {
+            ...order,
+            rates: [],
+            rateError: ratesResult.data.message
+          };
+        }
+
+        console.log(`Controller: Rates received for orderId ${orderId}`, ratesResult.data.rates?.length || 0, 'rates');
 
         return {
           ...order,

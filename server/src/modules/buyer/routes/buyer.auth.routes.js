@@ -697,6 +697,39 @@ router.post('/forgot-password-sms', buyerController.forgotPasswordSMS);
  */
 router.post('/reset-password', buyerController.resetPassword);
 
+
+const { verifyToken } = require('../../../middlewares/authMiddleware');
+
+/**
+ * @swagger
+ * /api/v2/buyers/auth/logout:
+ *   post:
+ *     summary: Logout a buyer
+ *     description: Removes the Expo push token from the database and Firebase.
+ *     tags: [Buyer V2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Logged out successfully"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/auth/logout', verifyToken, buyerController.logout);
+
 module.exports = router;
 
 

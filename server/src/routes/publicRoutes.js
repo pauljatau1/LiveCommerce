@@ -12,20 +12,21 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const { Transform } = require('json2csv');
 const { once } = require('events');
+const { prioritizeGadgetsCategories } = require('../utils/gadgetsPrioritization.helper');
 const baseUrl = process.env.STORE_URL;
 
 // Add middleware for secure code validation
 const validateSecurityCode = (req, res, next) => {
   const { code } = req.params;
-  
+
   // Check if the provided code matches the expected code (1122)
   if (code !== '1122') {
-    return res.status(401).json({ 
-      success: false, 
-      message: 'Unauthorized access - Invalid security code' 
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized access - Invalid security code'
     });
   }
-  
+
   next();
 };
 
@@ -37,14 +38,14 @@ router.get('/paystack-keys/:code', validateSecurityCode, (req, res) => {
       data: {
         secretKey: process.env.PAYSTACK_SECRET_KEY,
         publicKey: process.env.PAYSTACK_PUBLIC_KEY
-      
+
       }
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to retrieve Paystack keys', 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve Paystack keys',
+      error: error.message
     });
   }
 });
@@ -79,7 +80,7 @@ router.get('/categories', async (req, res) => {
   try {
     // Get all categories first
     const categories = await Category.find({});
-    
+
     // Get all necessary data for statistics calculation
     // Get all orders and their items
     const orders = await Order.find({})
@@ -104,14 +105,14 @@ router.get('/categories', async (req, res) => {
       {
         $group: {
           _id: '$category',
-          active: { 
-            $sum: { $cond: [{ $eq: ['$status', 'live'] }, 1, 0] } 
+          active: {
+            $sum: { $cond: [{ $eq: ['$status', 'live'] }, 1, 0] }
           },
-          scheduled: { 
-            $sum: { $cond: [{ $eq: ['$status', 'scheduled'] }, 1, 0] } 
+          scheduled: {
+            $sum: { $cond: [{ $eq: ['$status', 'scheduled'] }, 1, 0] }
           },
-          ended: { 
-            $sum: { $cond: [{ $eq: ['$status', 'ended'] }, 1, 0] } 
+          ended: {
+            $sum: { $cond: [{ $eq: ['$status', 'ended'] }, 1, 0] }
           }
         }
       }
@@ -123,7 +124,7 @@ router.get('/categories', async (req, res) => {
       acc[item._id] = item.totalProducts;
       return acc;
     }, {});
-    
+
     // Create map for stream statistics
     const streamCountMap = streamCounts.reduce((acc, item) => {
       acc[item._id] = {
@@ -140,7 +141,7 @@ router.get('/categories', async (req, res) => {
         if (!item.product || !item.product.category) continue;
 
         const category = item.product.category;
-        
+
         if (!categoryStats[category]) {
           categoryStats[category] = {
             pending: { orders: 0, items: 0 },
@@ -165,14 +166,14 @@ router.get('/categories', async (req, res) => {
 
     for (let i = 0; i < categories.length; i += batchSize) {
       const batch = categories.slice(i, i + batchSize);
-      
+
       const batchPromises = batch.map(async (category) => {
         const categoryName = category.name;
-        const stats = categoryStats[categoryName] || { 
+        const stats = categoryStats[categoryName] || {
           pending: { orders: 0, items: 0 },
           completed: { orders: 0, items: 0 }
         };
-        
+
         try {
           // Update the category with its statistics
           await Category.findByIdAndUpdate(
@@ -201,14 +202,18 @@ router.get('/categories', async (req, res) => {
 
     // Wait for all updates to complete
     await Promise.all(updatePromises);
-    
-    // Get updated categories and sort them
+
+    // Get updated categories and sort them - prioritize categories with products first
     const updatedCategories = await Category.find().sort({
+      'statistics.totalProducts': -1,
       'statistics.orders.completed': -1,
       'statistics.orders.pending': -1
     });
 
-    res.json(updatedCategories);
+    // Prioritize Gadgets & Electronics categories
+    const prioritizedCategories = prioritizeGadgetsCategories(updatedCategories);
+
+    res.json(prioritizedCategories);
 
   } catch (error) {
     console.error('Error retrieving categories:', error);
@@ -571,7 +576,7 @@ router.get('/resources', async (req, res) => {
   try {
     // Extract query parameters for filtering
     const { resourceType, category } = req.query;
-    
+
     // Build filter object
     const filter = {};
     if (resourceType && ['youtube', 'file'].includes(resourceType)) {
@@ -580,7 +585,7 @@ router.get('/resources', async (req, res) => {
     if (category && ['auqli_university', 'other'].includes(category)) {
       filter.category = category;
     }
-    
+
     const resources = await Resource.find(filter).sort({ createdAt: -1 });
     res.json(resources);
   } catch (error) {
@@ -620,25 +625,25 @@ router.get('/resources/category/:category', async (req, res) => {
   try {
     const { category } = req.params;
     const { resourceType } = req.query;
-    
+
     if (!['auqli_university', 'other'].includes(category)) {
-      return res.status(400).json({ 
-        message: 'Invalid category. Must be either "auqli_university" or "other"' 
+      return res.status(400).json({
+        message: 'Invalid category. Must be either "auqli_university" or "other"'
       });
     }
-    
+
     // Build filter object
     const filter = { category };
     if (resourceType && ['youtube', 'file'].includes(resourceType)) {
       filter.resourceType = resourceType;
     }
-    
+
     const resources = await Resource.find(filter).sort({ createdAt: -1 });
-    
+
     if (resources.length === 0) {
       return res.status(404).json({ message: 'No resources found for this category' });
     }
-    
+
     res.json(resources);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -677,25 +682,25 @@ router.get('/resources/type/:resourceType', async (req, res) => {
   try {
     const { resourceType } = req.params;
     const { category } = req.query;
-    
+
     if (!['youtube', 'file'].includes(resourceType)) {
-      return res.status(400).json({ 
-        message: 'Invalid resource type. Must be either "youtube" or "file"' 
+      return res.status(400).json({
+        message: 'Invalid resource type. Must be either "youtube" or "file"'
       });
     }
-    
+
     // Build filter object
     const filter = { resourceType };
     if (category && ['auqli_university', 'other'].includes(category)) {
       filter.category = category;
     }
-    
+
     const resources = await Resource.find(filter).sort({ createdAt: -1 });
-    
+
     if (resources.length === 0) {
       return res.status(404).json({ message: 'No resources found for this type' });
     }
-    
+
     res.json(resources);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -856,7 +861,7 @@ router.get('/sellers/lagos-csv', async (req, res, next) => {
 
     res.on('close', () => {
       if (!res.writableEnded) {
-        cursor.close().catch(() => {});
+        cursor.close().catch(() => { });
         csvTransform.end();
       }
     });
@@ -1002,7 +1007,7 @@ router.get('/sellers/:id', async (req, res) => {
         accountType verificationDocuments emailVerified isNewSeller
         activityFeed customers sellerAddress email reviews stats isInternational
       `);
-    
+
     if (!seller) {
       return res.status(404).json({ message: 'Seller not found' });
     }
@@ -1055,7 +1060,7 @@ router.get('/sellers/:id', async (req, res) => {
     // Get product ratings statistics
     const Product = mongoose.model('Product');
     console.log(`Finding products for seller ID: ${seller._id}`);
-    
+
     const productRatingsStats = await Product.aggregate([
       {
         $match: {
@@ -1066,7 +1071,7 @@ router.get('/sellers/:id', async (req, res) => {
         $group: {
           _id: null,
           totalProductReviews: { $sum: { $size: { $ifNull: ["$reviews", []] } } },
-          averageProductRating: { 
+          averageProductRating: {
             $avg: {
               $cond: [
                 { $gt: [{ $size: { $ifNull: ["$reviews", []] } }, 0] },
@@ -1112,13 +1117,13 @@ router.get('/sellers/:id', async (req, res) => {
         .map(product => product.category)
         .filter(category => category && category.trim() !== '')
     )];
-    
+
     console.log('Initial aggregation result:', JSON.stringify(productRatingsStats, null, 2));
 
     // Fallback query if the first approach returns 0 for average rating
     if (!productRatingsStats.length || productRatingsStats[0].averageProductRating === 0) {
       console.log('Using fallback method for product ratings calculation');
-      
+
       // Check if the products have the expected structure
       const sampleProducts = await Product.find({ seller: seller._id }).limit(2);
       console.log('Sample product structure:', JSON.stringify(sampleProducts.map(p => ({
@@ -1129,16 +1134,16 @@ router.get('/sellers/:id', async (req, res) => {
         // Include a sample review if available
         sampleReview: p.reviews && p.reviews.length > 0 ? p.reviews[0] : null
       })), null, 2));
-      
+
       const products = await Product.find({ seller: seller._id }).select('reviews averageRating');
       console.log(`Found ${products.length} products for manual calculation`);
-      
+
       let totalReviews = 0;
       let sumRatings = 0;
-      
+
       products.forEach(product => {
         console.log(`Product ${product._id}: averageRating=${product.averageRating}, reviews=${product.reviews ? product.reviews.length : 0}`);
-        
+
         if (product.reviews && product.reviews.length > 0) {
           product.reviews.forEach(review => {
             if (review.rating) {
@@ -1151,13 +1156,13 @@ router.get('/sellers/:id', async (req, res) => {
           });
         }
       });
-      
+
       console.log(`Total ratings sum: ${sumRatings}, Total reviews: ${totalReviews}`);
       const avgRating = totalReviews > 0 ? (sumRatings / totalReviews) : 0;
       // Round to one decimal place
       const roundedAvgRating = Math.round(avgRating * 10) / 10;
       console.log(`Calculated average rating: ${avgRating}, rounded to: ${roundedAvgRating}`);
-      
+
       if (!productRatingsStats.length) {
         productRatingsStats.push({
           totalProductReviews: totalReviews,
@@ -1167,7 +1172,7 @@ router.get('/sellers/:id', async (req, res) => {
         productRatingsStats[0].totalProductReviews = totalReviews || productRatingsStats[0].totalProductReviews;
         productRatingsStats[0].averageProductRating = roundedAvgRating || 0;
       }
-      
+
       console.log('Updated productRatingsStats:', JSON.stringify(productRatingsStats, null, 2));
     }
 
@@ -1177,16 +1182,17 @@ router.get('/sellers/:id', async (req, res) => {
       const directRatingAgg = await Product.aggregate([
         { $match: { seller: seller._id } },
         { $unwind: { path: "$reviews", preserveNullAndEmptyArrays: false } },
-        { $group: {
+        {
+          $group: {
             _id: null,
             totalReviews: { $sum: 1 },
             avgRating: { $avg: "$reviews.rating" }
           }
         }
       ]);
-      
+
       console.log('Direct rating aggregation result:', JSON.stringify(directRatingAgg, null, 2));
-      
+
       if (directRatingAgg.length > 0 && directRatingAgg[0].avgRating > 0) {
         console.log(`Using direct aggregation result: ${directRatingAgg[0].avgRating}`);
         // Round to one decimal place
@@ -1340,7 +1346,7 @@ router.get('/buyers/:id', async (req, res) => {
         profileImage bio selectedCategories createdAt
         isIdentityVerified phoneVerified wishlist
       `);
-    
+
     if (!buyer) {
       return res.status(404).json({ message: 'Buyer not found' });
     }
@@ -1503,7 +1509,7 @@ router.get('/meta-product-feed', async (req, res, next) => {
 
     res.on('close', () => {
       if (!res.writableEnded) {
-        cursor.close().catch(() => {});
+        cursor.close().catch(() => { });
       }
     });
   } catch (err) {
@@ -1558,7 +1564,7 @@ router.get('/seller-locations', async (req, res, next) => {
     const locationAggregation = await Seller.aggregate([
       // Match only active sellers
       { $match: { isDisabled: false } },
-      
+
       // Project only needed fields to reduce memory usage
       {
         $project: {
@@ -1571,7 +1577,7 @@ router.get('/seller-locations', async (req, res, next) => {
           isFeatured: 1
         }
       },
-      
+
       // Create an array of all addresses for each seller
       {
         $addFields: {
@@ -1580,10 +1586,12 @@ router.get('/seller-locations', async (req, res, next) => {
               input: [
                 {
                   $cond: {
-                    if: { $and: [
-                      { $ne: ['$businessAddress', null] },
-                      { $ne: ['$businessAddress.country', null] }
-                    ]},
+                    if: {
+                      $and: [
+                        { $ne: ['$businessAddress', null] },
+                        { $ne: ['$businessAddress.country', null] }
+                      ]
+                    },
                     then: {
                       country: '$businessAddress.country',
                       state: '$businessAddress.state',
@@ -1594,10 +1602,12 @@ router.get('/seller-locations', async (req, res, next) => {
                 },
                 {
                   $cond: {
-                    if: { $and: [
-                      { $ne: ['$sellerAddress', null] },
-                      { $ne: ['$sellerAddress.country', null] }
-                    ]},
+                    if: {
+                      $and: [
+                        { $ne: ['$sellerAddress', null] },
+                        { $ne: ['$sellerAddress.country', null] }
+                      ]
+                    },
                     then: {
                       country: '$sellerAddress.country',
                       state: '$sellerAddress.state',
@@ -1608,10 +1618,12 @@ router.get('/seller-locations', async (req, res, next) => {
                 },
                 {
                   $cond: {
-                    if: { $and: [
-                      { $ne: ['$warehouseDetails.address', null] },
-                      { $ne: ['$warehouseDetails.address.country', null] }
-                    ]},
+                    if: {
+                      $and: [
+                        { $ne: ['$warehouseDetails.address', null] },
+                        { $ne: ['$warehouseDetails.address.country', null] }
+                      ]
+                    },
                     then: {
                       country: '$warehouseDetails.address.country',
                       state: '$warehouseDetails.address.state',
@@ -1627,7 +1639,7 @@ router.get('/seller-locations', async (req, res, next) => {
           }
         }
       },
-      
+
       // If no addresses found, add default Nigeria location
       {
         $addFields: {
@@ -1640,10 +1652,10 @@ router.get('/seller-locations', async (req, res, next) => {
           }
         }
       },
-      
+
       // Unwind addresses to create a document for each address
       { $unwind: '$allAddresses' },
-      
+
       // Group by location and aggregate seller statistics
       {
         $group: {
@@ -1660,7 +1672,7 @@ router.get('/seller-locations', async (req, res, next) => {
           featuredSellers: { $sum: { $cond: ['$isFeatured', 1, 0] } }
         }
       },
-      
+
       // Sort by location hierarchy and total sellers
       {
         $sort: {
@@ -1676,7 +1688,7 @@ router.get('/seller-locations', async (req, res, next) => {
     const chunkSize = 100;
     for (let i = 0; i < locationAggregation.length; i += chunkSize) {
       const chunk = locationAggregation.slice(i, i + chunkSize);
-      
+
       for (const location of chunk) {
         const csvRow = {
           Country: location._id.country,
@@ -1689,11 +1701,11 @@ router.get('/seller-locations', async (req, res, next) => {
           New_Sellers: location.newSellers,
           Featured_Sellers: location.featuredSellers
         };
-        
+
         const ok = csvTransform.write(csvRow);
         if (!ok) await once(csvTransform, 'drain');
       }
-      
+
       // Allow other operations to proceed (non-blocking)
       if (i % (chunkSize * 10) === 0) {
         await new Promise(resolve => setImmediate(resolve));
@@ -1716,19 +1728,19 @@ router.get('/seller-locations', async (req, res, next) => {
 function toMetaRow(p) {
   // Get the first blip if available
   const firstBlip = p.blips && p.blips.length > 0 ? p.blips[0] : null;
-  
-  
-  
-  
+
+
+
+
   return {
-    id:          p._id.toString(),
-    title:       p.name,
+    id: p._id.toString(),
+    title: p.name,
     description: stripHtmlTags(p.description),
     availability: p.stock > 0 ? 'in stock' : 'out of stock',
-    condition:    p.condition || 'new',
-    price:        `${p.price} NGN`,
-    link:         `${baseUrl}/products/${p._id}`,
-    blip_link:    firstBlip ? `${baseUrl}/products/${p._id}/blips/${firstBlip._id}` : '',
+    condition: p.condition || 'new',
+    price: `${p.price} NGN`,
+    link: `${baseUrl}/products/${p._id}`,
+    blip_link: firstBlip ? `${baseUrl}/products/${p._id}/blips/${firstBlip._id}` : '',
     image_link:
       p.images?.[0]?.url ??
       'https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png',

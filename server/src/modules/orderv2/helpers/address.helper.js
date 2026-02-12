@@ -482,99 +482,61 @@ const kadunaCityMapping = {
 };
 
 
+// Consolidated state mapping for O(1) lookup
+// Map: lowercase state name -> { displayName, cityMapping }
+const stateConfigs = new Map([
+    ['lagos', { displayName: 'Lagos', cityMapping: lagosCityMapping }],
+    ['fct', { displayName: 'Abuja', cityMapping: abujaCityMapping }],
+    ['abuja', { displayName: 'Abuja', cityMapping: abujaCityMapping }],
+    ['enugu', { displayName: 'Enugu', cityMapping: enuguCityMapping, defaultCity: 'Enugu' }],
+    ['ogun', { displayName: 'Ogun', cityMapping: ogunCityMapping }],
+    ['abia', { displayName: 'Abia', cityMapping: abiaCityMapping }],
+    ['adamawa', { displayName: 'Adamawa', cityMapping: adamawaCityMapping }],
+    ['akwa ibom', { displayName: 'Akwa Ibom', cityMapping: akwaIbomCityMapping }],
+    ['anambra', { displayName: 'Anambra', cityMapping: anambraCityMapping }],
+    ['oyo', { displayName: 'Oyo', cityMapping: oyoCityMapping }],
+    ['osun', { displayName: 'Osun', cityMapping: osunCityMapping }],
+    ['rivers', { displayName: 'Rivers', cityMapping: riversCityMapping }],
+    ['imo', { displayName: 'Imo', cityMapping: imoCityMapping }],
+    ['edo', { displayName: 'Edo', cityMapping: edoCityMapping }],
+    ['kano', { displayName: 'Kano', cityMapping: kanoCityMapping }],
+    ['plateau', { displayName: 'Plateau', cityMapping: plateauCityMapping }],
+    ['kaduna', { displayName: 'Kaduna', cityMapping: kadunaCityMapping }],
+]);
+
 const formatAddress = (address) => {
     if (!address) {
         return null;
     }
+
     const formattedAddress = { ...address };
+
+    // Normalize country
     if (formattedAddress.country && formattedAddress.country.toLowerCase() === 'nigeria') {
         formattedAddress.country = 'NG';
     }
-    if (formattedAddress.country === 'NG') {
-        if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'lagos') {
-            formattedAddress.state = 'Lagos';
-            if (formattedAddress.city && lagosCityMapping[formattedAddress.city]) {
-                formattedAddress.city = lagosCityMapping[formattedAddress.city];
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'fct') {
-            formattedAddress.state = 'Abuja';
-            if (formattedAddress.city && abujaCityMapping[formattedAddress.city]) {
-                formattedAddress.city = abujaCityMapping[formattedAddress.city];
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'enugu') {
-            formattedAddress.state = 'Enugu';
-            if (formattedAddress.city && enuguCityMapping[formattedAddress.city]) {
-                formattedAddress.city = enuguCityMapping[formattedAddress.city];
-            } else {
-                formattedAddress.city = 'Enugu';
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'ogun') {
-            formattedAddress.state = 'Ogun';
-            if (formattedAddress.city && ogunCityMapping[formattedAddress.city]) {
-                formattedAddress.city = ogunCityMapping[formattedAddress.city];
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'abia') {
-            formattedAddress.state = 'Abia';
-            if (formattedAddress.city && abiaCityMapping[formattedAddress.city]) {
-                formattedAddress.city = abiaCityMapping[formattedAddress.city];
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'adamawa') {
-            formattedAddress.state = 'Adamawa';
-            if (formattedAddress.city && adamawaCityMapping[formattedAddress.city]) {
-                formattedAddress.city = adamawaCityMapping[formattedAddress.city];
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'akwa ibom') {
-            formattedAddress.state = 'Akwa Ibom';
-            if (formattedAddress.city && akwaIbomCityMapping[formattedAddress.city]) {
-                formattedAddress.city = akwaIbomCityMapping[formattedAddress.city];
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'anambra') {
-            formattedAddress.state = 'Anambra';
-            if (formattedAddress.city && anambraCityMapping[formattedAddress.city]) {
-                formattedAddress.city = anambraCityMapping[formattedAddress.city];
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'oyo') {
-            formattedAddress.state = 'Oyo';
-            if (formattedAddress.city && oyoCityMapping[formattedAddress.city]) {
-                formattedAddress.city = oyoCityMapping[formattedAddress.city];
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'osun') {
-            formattedAddress.state = 'Osun';
-            if (formattedAddress.city && osunCityMapping[formattedAddress.city]) {
-                formattedAddress.city = osunCityMapping[formattedAddress.city];
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'rivers') {
-            formattedAddress.state = 'Rivers';
-            if (formattedAddress.city && riversCityMapping[formattedAddress.city]) {
-                formattedAddress.city = riversCityMapping[formattedAddress.city];
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'imo') {
-            formattedAddress.state = 'Imo';
-            if (formattedAddress.city && imoCityMapping[formattedAddress.city]) {
-                formattedAddress.city = imoCityMapping[formattedAddress.city];
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'edo') {
-            formattedAddress.state = 'Edo';
-            if (formattedAddress.city && edoCityMapping[formattedAddress.city]) {
-                formattedAddress.city = edoCityMapping[formattedAddress.city];
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'kano') {
-            formattedAddress.state = 'Kano';
-            if (formattedAddress.city && kanoCityMapping[formattedAddress.city]) {
-                formattedAddress.city = kanoCityMapping[formattedAddress.city];
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'plateau') {
-            formattedAddress.state = 'Plateau';
-            if (formattedAddress.city && plateauCityMapping[formattedAddress.city]) {
-                formattedAddress.city = plateauCityMapping[formattedAddress.city];
-            }
-        } else if (formattedAddress.state && formattedAddress.state.toLowerCase() === 'kaduna') {
-            formattedAddress.state = 'Kaduna';
-            if (formattedAddress.city && kadunaCityMapping[formattedAddress.city]) {
-                formattedAddress.city = kadunaCityMapping[formattedAddress.city];
-            }
+
+    // Only apply state/city mapping for Nigerian addresses
+    if (formattedAddress.country !== 'NG') {
+        return formattedAddress;
+    }
+
+    // Get state config using O(1) Map lookup
+    const stateLower = (formattedAddress.state || '').toLowerCase();
+    const stateConfig = stateConfigs.get(stateLower);
+
+    if (stateConfig) {
+        formattedAddress.state = stateConfig.displayName;
+
+        // Apply city mapping if city exists
+        if (formattedAddress.city && stateConfig.cityMapping[formattedAddress.city]) {
+            formattedAddress.city = stateConfig.cityMapping[formattedAddress.city];
+        } else if (stateConfig.defaultCity && !stateConfig.cityMapping[formattedAddress.city]) {
+            // Use default city if specified and no mapping found
+            formattedAddress.city = stateConfig.defaultCity;
         }
     }
+
     return formattedAddress;
 };
 

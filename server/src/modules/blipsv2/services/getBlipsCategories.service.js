@@ -1,5 +1,6 @@
 const productRepository = require('../repositories/product.repository');
 const categoryHelper = require('../helpers/category.helper');
+const { prioritizeGadgetsCategories } = require('../../../utils/gadgetsPrioritization.helper');
 
 /**
  * GetBlipsCategoriesService
@@ -46,7 +47,7 @@ class GetBlipsCategoriesService {
       if (names.length === 0) return categories;
 
       const images = await productRepository.findCategoryImagesByNames(names);
-      const nameToImage = new Map(images.map(i => [i.name, { id: i.id, imageUrl: i.imageUrl } ]));
+      const nameToImage = new Map(images.map(i => [i.name, { id: i.id, imageUrl: i.imageUrl }]));
 
       return categories.map(cat => {
         const found = nameToImage.get(cat.name);
@@ -78,7 +79,7 @@ class GetBlipsCategoriesService {
 
       // Get buyer's selected categories
       const buyer = await productRepository.findBuyerByIdWithCategories(buyerId);
-      
+
       if (!buyer) {
         console.log('👤 [BLIPS CATEGORIES] Buyer not found, falling back to popular categories');
         return await this.getPopularCategories(searchQuery, page, limit);
@@ -86,7 +87,7 @@ class GetBlipsCategoriesService {
 
       // Extract category names from buyer's selected categories
       const categoryNames = categoryHelper.extractCategoryNames(buyer.selectedCategories);
-      
+
       if (!categoryNames || categoryNames.length === 0) {
         console.log('👤 [BLIPS CATEGORIES] No selected categories found, falling back to popular categories');
         return await this.getPopularCategories(searchQuery, page, limit);
@@ -97,18 +98,18 @@ class GetBlipsCategoriesService {
       // Get statistics for user's selected categories
       // This will return categories that actually exist in products with blips
       const userCategoriesWithStats = await this.getCategoriesStatistics(categoryNames);
-      
+
       console.log(`👤 [BLIPS CATEGORIES] Found ${userCategoriesWithStats.length} user categories with blips available`);
 
       // Personalization: Always prioritize user's selected categories first
       // Take at least first 5 user categories (or all if less than 5)
       const minUserCategories = Math.min(5, userCategoriesWithStats.length);
       const prioritizedUserCategories = userCategoriesWithStats.slice(0, minUserCategories);
-      
+
       // Calculate how many more categories we need to reach minimum of 10
       const minTotalCategories = 10;
       const remainingNeeded = Math.max(0, minTotalCategories - prioritizedUserCategories.length);
-      
+
       console.log(`👤 [BLIPS CATEGORIES] Need ${remainingNeeded} more categories to reach minimum of ${minTotalCategories}`);
 
       // Get popular categories to supplement (with at least 3 blips requirement)
@@ -127,7 +128,7 @@ class GetBlipsCategoriesService {
       const currentTotal = prioritizedUserCategories.length + additionalPopularCategories.length;
       if (currentTotal < minTotalCategories) {
         console.log(`👤 [BLIPS CATEGORIES] Only have ${currentTotal} categories, fetching additional categories with lower threshold (1+ blips)`);
-        
+
         const additionalCategories = await this.getCategoriesWithLowThreshold(prioritizedUserCategories, additionalPopularCategories, minTotalCategories - currentTotal);
         additionalPopularCategories = [...additionalPopularCategories, ...additionalCategories];
       }
@@ -147,19 +148,28 @@ class GetBlipsCategoriesService {
 
       // Ensure we always have at least 10 categories available in the database (for data richness)
       // If filtering removed too many, use unfiltered to ensure minimum availability
-      let finalCategories = filteredCategories.length >= minTotalCategories 
-        ? filteredCategories 
-        : (filteredCategories.length > 0 ? filteredCategories : combinedCategories);
+      // ONLY do this if NOT searching. If searching, we want exact matches.
+      let finalCategories = filteredCategories;
 
-      // If we still don't have enough after filtering, try to get more from unfiltered
-      if (finalCategories.length < minTotalCategories && combinedCategories.length > finalCategories.length) {
-        // Add more from unfiltered combined list to ensure we have at least 10 available
-        const missing = minTotalCategories - finalCategories.length;
-        const additionalFromUnfiltered = combinedCategories
-          .filter(cat => !finalCategories.some(fc => fc.name === cat.name))
-          .slice(0, missing);
-        finalCategories = [...finalCategories, ...additionalFromUnfiltered];
+      if (!searchQuery) {
+        finalCategories = filteredCategories.length >= minTotalCategories
+          ? filteredCategories
+          : (filteredCategories.length > 0 ? filteredCategories : combinedCategories);
+
+        // If we still don't have enough after filtering, try to get more from unfiltered
+        if (finalCategories.length < minTotalCategories && combinedCategories.length > finalCategories.length) {
+          // Add more from unfiltered combined list to ensure we have at least 10 available
+          const missing = minTotalCategories - finalCategories.length;
+          const additionalFromUnfiltered = combinedCategories
+            .filter(cat => !finalCategories.some(fc => fc.name === cat.name))
+            .slice(0, missing);
+          finalCategories = [...finalCategories, ...additionalFromUnfiltered];
+        }
       }
+
+      // Prioritize Gadgets & Electronics categories BEFORE pagination
+      // This ensures they appear on the first page regardless of their original position
+      finalCategories = prioritizeGadgetsCategories(finalCategories);
 
       // Pagination - respect the limit parameter exactly
       const total = finalCategories.length;
@@ -280,14 +290,14 @@ class GetBlipsCategoriesService {
       ];
 
       const allCategories = await productRepository.aggregateProducts(lowThresholdPipeline);
-      
+
       // Filter out categories that are already included
       const additionalCategories = allCategories
         .filter(cat => !existingNames.has((cat.name || '').toLowerCase()))
         .slice(0, neededCount);
 
       console.log(`👤 [BLIPS CATEGORIES] Found ${additionalCategories.length} additional categories with low threshold (1+ blips)`);
-      
+
       return additionalCategories;
     } catch (error) {
       console.error('❌ [BLIPS CATEGORIES] Error getting categories with low threshold:', error);
@@ -383,10 +393,10 @@ class GetBlipsCategoriesService {
       // fetch additional categories with lower threshold (1+ blips)
       const minTotalCategories = 10;
       const isSupplementCall = limit >= 50;
-      
+
       if (!isSupplementCall && popularCategories.length < minTotalCategories) {
         console.log(`🌐 [BLIPS CATEGORIES] Only found ${popularCategories.length} categories with 3+ blips, fetching additional with 1+ blips`);
-        
+
         // Get additional categories with 1+ blips
         const lowThresholdPipeline = [
           {
@@ -458,15 +468,15 @@ class GetBlipsCategoriesService {
         ];
 
         const allCategories = await productRepository.aggregateProducts(lowThresholdPipeline);
-        
+
         // Create set of existing category names
         const existingNames = new Set(popularCategories.map(c => (c.name || '').toLowerCase()));
-        
+
         // Add additional categories that aren't already in the list
         const additionalCategories = allCategories
           .filter(cat => !existingNames.has((cat.name || '').toLowerCase()))
           .slice(0, minTotalCategories - popularCategories.length);
-        
+
         popularCategories = [...popularCategories, ...additionalCategories];
         console.log(`🌐 [BLIPS CATEGORIES] Added ${additionalCategories.length} additional categories, total: ${popularCategories.length}`);
       }
@@ -476,22 +486,26 @@ class GetBlipsCategoriesService {
         ? popularCategories.filter(c => (c?.name || '').toLowerCase().includes(searchQuery))
         : popularCategories;
 
-      // If limit is high (used as supplement), return all categories without pagination
+      // Prioritize Gadgets & Electronics categories BEFORE pagination
+      // This ensures they appear on the first page regardless of their original position
+      const prioritizedAll = prioritizeGadgetsCategories(filtered);
+
+      // If limit is high (used as supplement), return all without pagination
       // Otherwise, apply pagination for direct calls
       let finalCategories, total, currentPage, totalPages;
-      
+
       if (isSupplementCall) {
         // Return all categories when used as supplement (no pagination)
-        finalCategories = filtered;
-        total = filtered.length;
+        finalCategories = prioritizedAll;
+        total = prioritizedAll.length;
         currentPage = 1;
         totalPages = 1;
       } else {
         // Apply pagination for direct calls - respect the limit parameter exactly
-        total = filtered.length;
+        total = prioritizedAll.length;
         const startIndex = (page - 1) * limit;
         const endIndex = startIndex + limit;
-        finalCategories = filtered.slice(startIndex, endIndex);
+        finalCategories = prioritizedAll.slice(startIndex, endIndex);
         currentPage = page;
         totalPages = Math.max(1, Math.ceil(total / limit));
       }
@@ -606,7 +620,7 @@ class GetBlipsCategoriesService {
           }
         }
       ];
-      
+
       const debugMatch = await productRepository.aggregateProducts(debugMatchPipeline);
       console.log(`🔍 [BLIPS CATEGORIES] Products matching selected categories:`, debugMatch);
 
@@ -628,7 +642,7 @@ class GetBlipsCategoriesService {
    */
   createCategoryPatterns(categoryNames) {
     const patterns = [];
-    
+
     // Common category mappings
     const categoryMappings = {
       'smartphones': ['phones', 'mobile phones', 'cell phones'],
@@ -645,15 +659,15 @@ class GetBlipsCategoriesService {
 
     categoryNames.forEach(category => {
       const lowerCategory = category.toLowerCase();
-      
+
       // Add exact match
       patterns.push(category);
-      
+
       // Add mapped variations
       if (categoryMappings[lowerCategory]) {
         patterns.push(...categoryMappings[lowerCategory]);
       }
-      
+
       // Add partial matches (remove common words)
       const simplified = category.replace(/\b(women|men|kids|refurbished|region-specific)\b/gi, '').trim();
       if (simplified !== category && simplified.length > 0) {
@@ -676,7 +690,7 @@ class GetBlipsCategoriesService {
       const escaped = category.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       return `(${escaped})`;
     });
-    
+
     return patterns.join('|');
   }
 }

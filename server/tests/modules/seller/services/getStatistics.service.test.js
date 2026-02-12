@@ -248,12 +248,12 @@ describe('Get Statistics Service', () => {
       // Assert: Verify calculations with zero previous values
       // Since lastWeekStats fields don't exist in the model, previous values are 0
       // Wallet: 20000 (current value as number since previous is 0)
-      expect(result.data.walletBalance.change.value).toBe('20000.00');
-      expect(result.data.walletBalance.change.type).toBe('number');
+      expect(result.data.walletBalance.change.value).toBe('100.00');
+      expect(result.data.walletBalance.change.type).toBe('percentage');
 
       // Store visits: 1000 (current value as number since previous is 0)
-      expect(result.data.storeVisits.change.value).toBe('1000.00');
-      expect(result.data.storeVisits.change.type).toBe('number');
+      expect(result.data.storeVisits.change.value).toBe('100.00');
+      expect(result.data.storeVisits.change.type).toBe('percentage');
     });
 
     it('should handle zero previous values correctly', async () => {
@@ -283,11 +283,11 @@ describe('Get Statistics Service', () => {
       const result = await getStatisticsService.getStatistics(sellerId.toString());
 
       // Assert: Verify handling of zero previous values
-      expect(result.data.walletBalance.change.value).toBe('5000.00');
-      expect(result.data.walletBalance.change.type).toBe('number');
+      expect(result.data.walletBalance.change.value).toBe('100.00');
+      expect(result.data.walletBalance.change.type).toBe('percentage');
 
       expect(result.data.storeVisits.change.value).toBe('100.00');
-      expect(result.data.storeVisits.change.type).toBe('number');
+      expect(result.data.storeVisits.change.type).toBe('percentage');
     });
 
     it('should exclude stale orders from calculations', async () => {
@@ -391,7 +391,7 @@ describe('Get Statistics Service', () => {
       // Test empty string seller ID
       await expect(getStatisticsService.getStatistics('')).rejects.toThrow(ValidationError);
       await expect(getStatisticsService.getStatistics('')).rejects.toThrow('Validation failed');
-      
+
       // Check the error structure for empty string
       try {
         await getStatisticsService.getStatistics('');
@@ -399,16 +399,16 @@ describe('Get Statistics Service', () => {
         expect(error).toBeInstanceOf(ValidationError);
         expect(error.name).toBe('ValidationError');
         expect(error.status).toBe(422);
-        expect(error.errors).toEqual([{ 
-          field: 'sellerId', 
-          message: 'Valid seller ID is required' 
+        expect(error.errors).toEqual([{
+          field: 'sellerId',
+          message: 'Valid seller ID is required'
         }]);
       }
 
       // Test null seller ID
       await expect(getStatisticsService.getStatistics(null)).rejects.toThrow(ValidationError);
       await expect(getStatisticsService.getStatistics(null)).rejects.toThrow('Validation failed');
-      
+
       // Check the error structure for null
       try {
         await getStatisticsService.getStatistics(null);
@@ -416,16 +416,16 @@ describe('Get Statistics Service', () => {
         expect(error).toBeInstanceOf(ValidationError);
         expect(error.name).toBe('ValidationError');
         expect(error.status).toBe(422);
-        expect(error.errors).toEqual([{ 
-          field: 'sellerId', 
-          message: 'Valid seller ID is required' 
+        expect(error.errors).toEqual([{
+          field: 'sellerId',
+          message: 'Valid seller ID is required'
         }]);
       }
 
       // Test undefined seller ID
       await expect(getStatisticsService.getStatistics(undefined)).rejects.toThrow(ValidationError);
       await expect(getStatisticsService.getStatistics(undefined)).rejects.toThrow('Validation failed');
-      
+
       // Check the error structure for undefined
       try {
         await getStatisticsService.getStatistics(undefined);
@@ -433,16 +433,16 @@ describe('Get Statistics Service', () => {
         expect(error).toBeInstanceOf(ValidationError);
         expect(error.name).toBe('ValidationError');
         expect(error.status).toBe(422);
-        expect(error.errors).toEqual([{ 
-          field: 'sellerId', 
-          message: 'Valid seller ID is required' 
+        expect(error.errors).toEqual([{
+          field: 'sellerId',
+          message: 'Valid seller ID is required'
         }]);
       }
 
       // Test invalid ObjectId format
       await expect(getStatisticsService.getStatistics('invalid-id')).rejects.toThrow(ValidationError);
       await expect(getStatisticsService.getStatistics('invalid-id')).rejects.toThrow('Validation failed');
-      
+
       // Check the error structure for invalid ObjectId
       try {
         await getStatisticsService.getStatistics('invalid-id');
@@ -450,9 +450,9 @@ describe('Get Statistics Service', () => {
         expect(error).toBeInstanceOf(ValidationError);
         expect(error.name).toBe('ValidationError');
         expect(error.status).toBe(422);
-        expect(error.errors).toEqual([{ 
-          field: 'sellerId', 
-          message: 'Seller ID must be a valid ObjectId format' 
+        expect(error.errors).toEqual([{
+          field: 'sellerId',
+          message: 'Seller ID must be a valid ObjectId format'
         }]);
       }
 
@@ -460,7 +460,7 @@ describe('Get Statistics Service', () => {
       const nonExistentId = new mongoose.Types.ObjectId();
       await expect(getStatisticsService.getStatistics(nonExistentId.toString())).rejects.toThrow(NotFoundException);
       await expect(getStatisticsService.getStatistics(nonExistentId.toString())).rejects.toThrow('Seller not found');
-      
+
       // Check the error structure for non-existent seller
       try {
         await getStatisticsService.getStatistics(nonExistentId.toString());

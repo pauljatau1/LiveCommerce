@@ -86,7 +86,7 @@ const initializeFezWebhook = async () => {
 };
 
 
-initializeFezWebhook();
+// initializeFezWebhook();
 
 
 
@@ -4828,7 +4828,6 @@ exports.handlePaystackWebhook = async (req, res) => {
 
     try {
       // Find the order
-      const Order = mongoose.model('Order');
       const order = await Order.findById(metadata.orderId);
 
       if (!order) {
@@ -4886,7 +4885,6 @@ exports.handlePaystackWebhook = async (req, res) => {
       await order.save();
 
       // Get the buyer for email notification
-      const Buyer = mongoose.model('Buyer');
       const buyer = await Buyer.findById(order.buyer);
 
       // Always send order confirmation email for paid Paystack order, regardless of notification status

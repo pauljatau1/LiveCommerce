@@ -161,10 +161,27 @@ const sendEmail = async (to, subject, text, html) => {
   }
 };
 
+const sendTransactionalEmail = async (to, subject, message, name = '') => {
+  try {
+    await termiiEmailService.sendTransactionalEmail({
+      email: to,
+      subject: subject,
+      message: message,
+      name: name
+    });
+    console.log(`Transactional email sent to ${to} with subject: ${subject}`);
+    return true;
+  } catch (error) {
+    console.error(`Failed to send transactional email to ${to}:`, error.message);
+    return false;
+  }
+};
+
 module.exports = {
   sendPasswordResetEmail,
   sendAdminLoginNotificationEmail,
   sendInternationalSellerEmail,
   sendShipmentFailureEmail,
-  sendEmail
+  sendEmail,
+  sendTransactionalEmail
 };
