@@ -6,6 +6,7 @@ import { SignupFormData } from "@/schemas/signupSchema";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
 import { useNotification } from "@/Hooks/useNotification";
 import { GoogleOAuthRequestData } from "@/types";
+import { extractAxiosErrorMessage } from "@/util/helpers";
 import AuqliLogo from "@/assets/icons/AuqliLogo";
 import SignUpForm from "@/Components/signUpPage/SignUpForm";
 import PrimaryButton from "@/Components/shared/PrimaryButton";
@@ -89,7 +90,7 @@ export default function SignUpPageV2() {
             onError: (error) => {
                 console.log("Signup error:", error instanceof AxiosError);
 
-                showNotification(`Signup Failed: ${error?.message || "Something went wrong. Please try again later."}`, "error", "dismissible");
+                showNotification(`Signup Failed ${extractAxiosErrorMessage(error) || "Something went wrong. Please try again later."}`, "error", "dismissible");
             }
         });
     };
