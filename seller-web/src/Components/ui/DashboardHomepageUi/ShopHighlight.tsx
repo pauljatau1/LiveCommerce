@@ -22,11 +22,11 @@ export default function ShopHighlight() {
   const { data: products, isPending } = useQuery({
     queryKey: ['topSellingProducts', dateRange[0]?.format('YYYY-MM-DD'), dateRange[1]?.format('YYYY-MM-DD')],
     queryFn: () => {
-      const params = dateRange[0] && dateRange[1] 
-        ? { 
-            startDate: dateRange[0].format('YYYY-MM-DD'), 
-            endDate: dateRange[1].format('YYYY-MM-DD') 
-          }
+      const params = dateRange[0] && dateRange[1]
+        ? {
+          startDate: dateRange[0].format('YYYY-MM-DD'),
+          endDate: dateRange[1].format('YYYY-MM-DD')
+        }
         : undefined;
       return sellerService.fetchTopSoldProducts(params);
     },
@@ -174,13 +174,18 @@ export default function ShopHighlight() {
           // Empty State
           <div className="w-full flex flex-col items-center justify-center gap-4 py-8 min-h-[256px]">
             <div className="relative">
-              <div className="w-[88px] h-[88px] border-2 border-dashed border-blue-200 rounded-lg flex items-center justify-center">
+              <div className="w-[88px] h-[88px] flex items-center justify-center">
                 <EmptyProductsIcon width={88} height={88} color="#A9A9A9" />
               </div>
             </div>
-            <p className="text-base font-medium text-[#425466] font-['Lexend']">
-              No Products sold yet!
-            </p>
+            <div className="flex flex-col items-center justify-center gap-2">
+              <p className="text-base font-medium text-[#425466] font-['Lexend'] text-center">
+                No Products sold yet!
+              </p>
+              <p className="w-full text-[#7A828A] text-center text-xs lg:text-sm 5xl:text-base font-normal font-['Lexend']">
+                Your top selling products will appear here when you make a sale!
+              </p>
+            </div>
           </div>
         )}
       </div>
