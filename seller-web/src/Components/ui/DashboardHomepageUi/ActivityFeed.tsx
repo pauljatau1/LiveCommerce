@@ -204,9 +204,9 @@ export default function ActivityFeed() {
                     <h2 className="text-zinc-800 lg:text-2xl text-xl font-semibold font-['Lexend'] leading-8">Activity Feed</h2>
                     <p className="text-[#7A828A] lg:text-base text-sm font-normal font-['Lexend']">Your recent activities and events</p>
                 </div>
-                <div className="flex flex-col items-center justify-center">
+                <div className="flex flex-col items-center min-h-[256px] justify-center">
                     <EmptyActivityIcon width={100} height={100} />
-                    <div className="text-center py-2 text-[#425466] font-lexend font-medium text-base lg:text-xl leading-6">
+                    <div className="text-center py-2 text-[#425466] font-lexend font-medium text-base leading-6">
                         <p>No activities yet</p>
                     </div>
                     <div className="text-[#7A828A] text-sm font-normal font-['Lexend']">
