@@ -349,6 +349,30 @@ exports.getAllUsers = async (req, res) => {
       .limit(limit)
       .sort(sortOptions);
 
+    // Get stats for each buyer
+    const usersWithStats = await Promise.all(
+      users.map(async (user) => {
+        const userObj = user.toObject();
+
+        // Get order stats
+        const orderStats = await Order.aggregate([
+          { $match: { buyer: user._id, paid: true } },
+          {
+            $group: {
+              _id: null,
+              count: { $sum: 1 },
+              totalSpent: { $sum: '$totalAmount' }
+            }
+          }
+        ]);
+
+        userObj.ordersCount = orderStats.length > 0 ? orderStats[0].count : 0;
+        userObj.totalSpent = orderStats.length > 0 ? orderStats[0].totalSpent : 0;
+
+        return userObj;
+      })
+    );
+
     // Return paginated response
     res.json({
       success: true,
@@ -356,7 +380,7 @@ exports.getAllUsers = async (req, res) => {
       totalPages: Math.ceil(totalUsers / limit),
       totalUsers,
       usersPerPage: limit,
-      users
+      users: usersWithStats
     });
   } catch (error) {
     res.status(500).json({
@@ -446,13 +470,30 @@ exports.getAllSellers = async (req, res) => {
       .limit(limit)
       .sort(sortOptions);
 
-    // Get product counts for each seller
+    // Get stats for each seller (Product Count, Revenue, Sales)
     const Product = mongoose.model('Product');
-    const sellersWithProductCount = await Promise.all(
+    const sellersWithStats = await Promise.all(
       sellers.map(async (seller) => {
-        const productCount = await Product.countDocuments({ seller: seller._id });
         const sellerObj = seller.toObject();
-        sellerObj.productCount = productCount;
+
+        // Product count
+        sellerObj.productCount = await Product.countDocuments({ seller: seller._id });
+
+        // Revenue and Sales count from Orders
+        const orderStats = await Order.aggregate([
+          { $match: { seller: seller._id, paid: true, isStale: { $ne: true } } },
+          {
+            $group: {
+              _id: null,
+              totalRevenue: { $sum: '$totalAmount' },
+              salesCount: { $sum: 1 }
+            }
+          }
+        ]);
+
+        sellerObj.totalRevenue = orderStats.length > 0 ? orderStats[0].totalRevenue : 0;
+        sellerObj.totalSales = orderStats.length > 0 ? orderStats[0].salesCount : 0;
+
         return sellerObj;
       })
     );
@@ -464,7 +505,7 @@ exports.getAllSellers = async (req, res) => {
       totalPages: Math.ceil(totalSellers / limit),
       totalSellers,
       sellersPerPage: limit,
-      sellers: sellersWithProductCount
+      sellers: sellersWithStats
     });
   } catch (error) {
     res.status(500).json({
@@ -1433,6 +1474,44 @@ exports.getAllOrdersAdmin = async (req, res) => {
   }
 };
 
+// Get orders for a specific buyer
+exports.getBuyerOrders = async (req, res) => {
+  try {
+    const { buyerId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const query = { buyer: buyerId };
+
+    // Default sort: newest first
+    const sort = { createdAt: -1 };
+
+    const totalOrders = await Order.countDocuments(query);
+    const orders = await Order.find(query)
+      .populate('items.product', 'name images price')
+      .populate('seller', 'businessName storeName firstName lastName email')
+      .sort(sort)
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      success: true,
+      orders,
+      currentPage: page,
+      totalPages: Math.ceil(totalOrders / limit),
+      totalOrders,
+      ordersPerPage: limit
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch buyer orders',
+      error: error.message
+    });
+  }
+};
+
 // Update order status by admin
 exports.updateOrderStatusAdmin = async (req, res) => {
   const { id } = req.params;
@@ -1834,6 +1913,11 @@ exports.getAllOrders = async (req, res) => {
     // Filter by seller
     if (seller) {
       query.seller = seller;
+    }
+
+    // Filter by buyer
+    if (req.query.buyer) {
+      query.buyer = req.query.buyer;
     }
 
     // Filter by shipment status
@@ -2602,6 +2686,13 @@ exports.updateWithdrawalStatus = async (req, res) => {
   try {
     const { withdrawalId } = req.params;
     const { status, note } = req.body;
+
+    // Block manual completion — only Paystack transfer.success webhook should set completed
+    if (status === 'completed') {
+      return res.status(400).json({
+        message: 'Cannot manually mark withdrawal as completed. Completion is handled automatically by the Paystack transfer webhook.'
+      });
+    }
 
     const withdrawal = await Withdrawal.findById(withdrawalId)
       .populate('seller')
@@ -4850,7 +4941,7 @@ exports.getAllStreams = async (req, res) => {
 
     // Fetch streams with pagination and populate seller information
     const streams = await Stream.find(query)
-      .populate('seller', 'firstName lastName email storeName')
+      .populate('seller', 'firstName lastName email storeName storeAvatar')
       .populate('viewers', 'firstName lastName email')
       .sort(sort)
       .skip(skip)
@@ -4869,7 +4960,8 @@ exports.getAllStreams = async (req, res) => {
           id: stream.seller._id,
           name: `${stream.seller.firstName} ${stream.seller.lastName}`,
           email: stream.seller.email,
-          storeName: stream.seller.storeName
+          storeName: stream.seller.storeName,
+          storeAvatar: stream.seller.storeAvatar
         } : null,
         productsCount: stream.products ? stream.products.length : 0,
         viewersCount: stream.viewers ? stream.viewers.length : 0,
@@ -6934,6 +7026,19 @@ exports.searchProducts = async (req, res) => {
 
 exports.getPlatformMetrics = async (req, res) => {
   try {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    const startOfToday = new Date(today.setHours(0, 0, 0, 0));
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+    // Helper for percentage change
+    const calculatePercentageChange = (current, previous) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous * 100).toFixed(2);
+    };
+
     // Collect counts from all main models
     const [
       totalBuyers,
@@ -6948,12 +7053,31 @@ exports.getPlatformMetrics = async (req, res) => {
       Buyer.countDocuments(),
       Seller.countDocuments(),
       Product.countDocuments(),
-      Order.countDocuments(),
+      Order.countDocuments({ paid: true, isStale: { $ne: true } }),
       Stream.countDocuments(),
       Transaction.countDocuments(),
       Withdrawal.countDocuments(),
       BankChangeRequest.countDocuments()
     ]);
+
+    // Counts from 30 days ago (for monthly growth comparison)
+    const [
+      buyers30DaysAgo,
+      sellers30DaysAgo,
+      products30DaysAgo,
+      orders30DaysAgo
+    ] = await Promise.all([
+      Buyer.countDocuments({ createdAt: { $lt: thirtyDaysAgo } }),
+      Seller.countDocuments({ createdAt: { $lt: thirtyDaysAgo } }),
+      Product.countDocuments({ createdAt: { $lt: thirtyDaysAgo } }),
+      Order.countDocuments({ paid: true, isStale: { $ne: true }, createdAt: { $lt: thirtyDaysAgo } })
+    ]);
+
+    // Comparison Percentages
+    const buyerGrowth = calculatePercentageChange(totalBuyers, buyers30DaysAgo);
+    const sellerGrowth = calculatePercentageChange(totalSellers, sellers30DaysAgo);
+    const productGrowth = calculatePercentageChange(totalProducts, products30DaysAgo);
+    const orderGrowth = calculatePercentageChange(totalOrders, orders30DaysAgo);
 
     // Get active/inactive users based on actual activity
     const [buyersWithOrders, sellersWithProducts] = await Promise.all([
@@ -6989,13 +7113,13 @@ exports.getPlatformMetrics = async (req, res) => {
       ordersWithReturns,
       ordersWithDisputes
     ] = await Promise.all([
-      Order.countDocuments({ 'items.status': 'pending' }),
-      Order.countDocuments({ 'items.status': 'processing' }),
-      Order.countDocuments({ 'items.status': 'shipped' }),
-      Order.countDocuments({ 'items.status': 'delivered' }),
-      Order.countDocuments({ 'items.status': 'cancelled' }),
-      Order.countDocuments({ 'orderStatus.hasReturn': true }),
-      Order.countDocuments({ 'orderStatus.hasDispute': true })
+      Order.countDocuments({ paid: true, isStale: { $ne: true }, 'items.status': 'pending' }),
+      Order.countDocuments({ paid: true, isStale: { $ne: true }, 'items.status': 'processing' }),
+      Order.countDocuments({ paid: true, isStale: { $ne: true }, 'items.status': 'shipped' }),
+      Order.countDocuments({ paid: true, isStale: { $ne: true }, 'items.status': 'delivered' }),
+      Order.countDocuments({ paid: true, isStale: { $ne: true }, 'items.status': 'cancelled' }),
+      Order.countDocuments({ paid: true, isStale: { $ne: true }, 'orderStatus.hasReturn': true }),
+      Order.countDocuments({ paid: true, isStale: { $ne: true }, 'orderStatus.hasDispute': true })
     ]);
 
     // Get withdrawal status metrics
@@ -7036,15 +7160,89 @@ exports.getPlatformMetrics = async (req, res) => {
     ]);
 
     // Get financial metrics
-    const totalOrderAmount = await Order.aggregate([
+    // Total Revenue
+    const totalRevenueResult = await Order.aggregate([
       { $match: { paid: true, isStale: { $ne: true }, items: { $not: { $elemMatch: { status: 'cancelled' } } } } },
       { $group: { _id: null, total: { $sum: '$totalAmount' } } }
     ]);
+    const totalOrderAmount = totalRevenueResult[0]?.total || 0;
 
-    const totalWithdrawalAmount = await Withdrawal.aggregate([
+    // Revenue 30 Days Ago
+    const revenue30DaysAgoResult = await Order.aggregate([
+      { $match: { paid: true, isStale: { $ne: true }, items: { $not: { $elemMatch: { status: 'cancelled' } } }, createdAt: { $lt: thirtyDaysAgo } } },
+      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+    ]);
+    const revenue30DaysAgo = revenue30DaysAgoResult[0]?.total || 0;
+    const revenueGrowth = calculatePercentageChange(totalOrderAmount, revenue30DaysAgo);
+
+    const totalWithdrawalResult = await Withdrawal.aggregate([
       { $match: { status: 'completed' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
+    const totalWithdrawalAmount = totalWithdrawalResult[0]?.total || 0;
+
+
+    // --- TIME SERIES DATA (For Charts) ---
+    // Daily Revenue & Orders (Last 30 Days)
+    const dailyStats = await Order.aggregate([
+      {
+        $match: {
+          paid: true,
+          isStale: { $ne: true },
+          items: { $not: { $elemMatch: { status: 'cancelled' } } },
+          createdAt: { $gte: thirtyDaysAgo }
+        }
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          revenue: { $sum: "$totalAmount" },
+          orders: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Fill in missing dates for charts
+    const chartData = [];
+    for (let d = new Date(thirtyDaysAgo); d <= today; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      const dayData = dailyStats.find(s => s._id === dateStr);
+      chartData.push({
+        date: dateStr,
+        revenue: dayData ? dayData.revenue : 0,
+        orders: dayData ? dayData.orders : 0
+      });
+    }
+
+    // Daily User Signups (Last 30 Days)
+    const dailySignups = await Promise.all([
+      Buyer.aggregate([
+        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } }
+      ]),
+      Seller.aggregate([
+        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } }
+      ])
+    ]);
+
+    // Merge Signups Data
+    const signupChartData = [];
+    const signupLoopStart = new Date();
+    signupLoopStart.setDate(signupLoopStart.getDate() - 30);
+
+    for (let d = new Date(signupLoopStart); d <= new Date(); d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      const buyers = dailySignups[0].find(s => s._id === dateStr)?.count || 0;
+      const sellers = dailySignups[1].find(s => s._id === dateStr)?.count || 0;
+      signupChartData.push({
+        date: dateStr,
+        buyers,
+        sellers,
+        total: buyers + sellers
+      });
+    }
 
     // Calculate percentages
     const buyerVerificationRate = totalBuyers > 0 ? (identityVerifiedBuyers / totalBuyers * 100).toFixed(2) : 0;
@@ -7060,7 +7258,7 @@ exports.getPlatformMetrics = async (req, res) => {
       recentBankChangeRequests,
       recentStreams
     ] = await Promise.all([
-      Order.find().sort({ createdAt: -1 }).limit(5).select('order_id buyer seller totalAmount createdAt items.status'),
+      Order.find({ paid: true, isStale: { $ne: true }, 'items.status': { $ne: 'draft' } }).sort({ createdAt: -1 }).limit(5).select('order_id buyer seller totalAmount createdAt items.status'),
       Withdrawal.find().sort({ requestDate: -1 }).limit(5).select('seller amount status requestDate reference'),
       BankChangeRequest.find().sort({ requestDate: -1 }).limit(5).select('seller status requestDate newBankDetails.bankName'),
       Stream.find().sort({ createdAt: -1 }).limit(5).select('seller title status scheduledStartTime actualStartTime')
@@ -7161,6 +7359,17 @@ exports.getPlatformMetrics = async (req, res) => {
         transactions: totalTransactions,
         withdrawals: totalWithdrawals,
         bankChangeRequests: totalBankChangeRequests
+      },
+      growth: {
+        revenue: revenueGrowth,
+        orders: orderGrowth,
+        buyers: buyerGrowth,
+        sellers: sellerGrowth,
+        products: productGrowth
+      },
+      charts: {
+        revenueAndOrders: chartData,
+        userSignups: signupChartData
       },
       userMetrics: {
         activeBuyers,
@@ -8084,23 +8293,29 @@ exports.getBuyerDetails = async (req, res) => {
 
     // Get additional metrics and related data concurrently
     const [
-      ordersData,
+      recentOrders,
       postsCount,
+      followersCount,
       wishlistProducts,
       messageThreads,
-      transactionStats
+      transactionStats,
+      orderAggregates,
+      favoriteCategories
     ] = await Promise.all([
-      // Get buyer's orders with pagination (most recent 10)
+      // Get buyer's recent orders (limit 10)
       Order.find({ buyer: buyerId })
         .populate('seller', 'firstName lastName businessName storeName')
         .populate('items.product', 'name images')
         .sort({ createdAt: -1 })
         .limit(10),
 
-      // Fix: Count buyer's posts with the correct schema structure
+      // Count buyer's followers (stores they follow)
+      Seller.countDocuments({ _id: { $in: (buyer.followers || []).map(f => f.sellerId) } }),
+
+      // Count buyer's posts
       Post.countDocuments({ 'author.userId': buyerId, 'author.userModel': 'Buyer' }),
 
-      // Get wishlist items with product details
+      // Get wishlist items
       Promise.all((buyer.wishlist || []).map(async (item) => {
         const product = await Product.findById(item.product)
           .populate('seller', 'storeName businessName')
@@ -8138,14 +8353,58 @@ exports.getBuyerDetails = async (req, res) => {
         .limit(5),
 
       // Get wallet transaction statistics
-      getWalletTransactionStats(buyer)
+      getWalletTransactionStats(buyer),
+
+      // AGGREGATE: Get accurate total order counts and spent
+      Order.aggregate([
+        { $match: { buyer: new mongoose.Types.ObjectId(buyerId) } },
+        {
+          $group: {
+            _id: null,
+            totalOrders: { $sum: 1 },
+            totalSpent: { $sum: { $cond: [{ $eq: ["$paid", true] }, "$totalAmount", 0] } },
+            pendingOrders: { $sum: { $cond: [{ $in: ["$items.status", ["pending", "processing"]] }, 1, 0] } }, // Approximation, usually per item but this gives idea
+            completedOrders: { $sum: { $cond: [{ $eq: ["$items.status", "delivered"] }, 1, 0] } },
+            cancelledOrders: { $sum: { $cond: [{ $eq: ["$items.status", "cancelled"] }, 1, 0] } }
+          }
+        }
+      ]),
+
+      // AGGREGATE: Favorite Categories based on order items
+      Order.aggregate([
+        { $match: { buyer: new mongoose.Types.ObjectId(buyerId), paid: true } },
+        { $unwind: "$items" },
+        {
+          $lookup: {
+            from: "products",
+            localField: "items.product",
+            foreignField: "_id",
+            as: "product"
+          }
+        },
+        { $unwind: "$product" },
+        {
+          $group: {
+            _id: "$product.category",
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 5 }
+      ])
     ]);
 
-    // Filter out null wishlist items (products that may have been deleted)
+    // Filter out null wishlist items
     const filteredWishlist = wishlistProducts.filter(item => item !== null);
 
-    // Calculate order metrics
-    const orderMetrics = calculateOrderMetrics(ordersData);
+    // Process Order Metrics from aggregation
+    const orderMetrics = orderAggregates.length > 0 ? orderAggregates[0] : {
+      totalOrders: 0,
+      totalSpent: 0,
+      pendingOrders: 0,
+      completedOrders: 0,
+      cancelledOrders: 0
+    };
 
     // Format response data
     const responseData = {
@@ -8176,7 +8435,11 @@ exports.getBuyerDetails = async (req, res) => {
           onHoldAmount: buyer.wallet?.onHoldAmount || 0,
           onHoldItems: buyer.wallet?.onHoldItems || []
         },
-        notificationPreferences: buyer.notificationPreferences
+        notificationPreferences: buyer.notificationPreferences,
+        notificationPreferences: buyer.notificationPreferences,
+        favoriteCategories,
+        expoPushToken: buyer.expoPushToken,
+        followersCount: followersCount || 0
       },
       metrics: {
         ordersCount: orderMetrics.totalOrders,
@@ -8197,48 +8460,28 @@ exports.getBuyerDetails = async (req, res) => {
         }
       },
       recentActivity: {
-        orders: ordersData.map(order => ({
+        orders: recentOrders.map(order => ({
           _id: order._id,
+          orderNumber: order.order_id,
           order_id: order.order_id,
           totalAmount: order.totalAmount,
-          status: order.status || 'pending',
+          status: order.items && order.items.length > 0 ? order.items[0].status : 'unknown', // Simplified status
           createdAt: order.createdAt,
-          seller: order.seller ? {
-            _id: order.seller._id,
-            name: order.seller.businessName || order.seller.storeName || `${order.seller.firstName} ${order.seller.lastName}`
-          } : null,
-          items: order.items.length
+          items: order.items ? order.items.length : 0
         })),
         wishlist: filteredWishlist,
-        conversations: messageThreads.map(conversation => {
-          // Find the other participant (not the buyer)
-          const otherParticipant = conversation.participants.find(
-            p => p.participantId._id.toString() !== buyerId.toString()
-          );
-
-          return {
-            _id: conversation._id,
-            lastUpdated: conversation.updatedAt,
-            unreadCount: conversation.unreadCount || 0,
-            otherParticipant: otherParticipant ? {
-              _id: otherParticipant.participantId._id,
-              type: otherParticipant.participantType,
-              name: otherParticipant.participantType === 'seller'
-                ? (otherParticipant.participantId.storeName || otherParticipant.participantId.businessName)
-                : `${otherParticipant.participantId.firstName} ${otherParticipant.participantId.lastName}`,
-              profileImage: otherParticipant.participantId.profileImage
-            } : null
-          };
-        })
+        conversations: messageThreads.map(thread => ({
+          _id: thread._id,
+          seller: thread.participants.find(p => p.participantType !== 'buyer')?.participantId,
+          lastMessageAt: thread.updatedAt
+        }))
       }
     };
 
-    // Return successful response
     res.status(200).json({
       success: true,
       data: responseData
     });
-
   } catch (error) {
     console.error('Error fetching buyer details:', error);
     res.status(500).json({
@@ -8248,6 +8491,62 @@ exports.getBuyerDetails = async (req, res) => {
     });
   }
 };
+
+exports.updateBuyer = async (req, res) => {
+  try {
+    const { buyerId } = req.params;
+    const {
+      firstName,
+      lastName,
+      phoneNumber,
+      emailVerified,
+      phoneVerified,
+      isDisabled,
+      isIdentityVerified,
+      shippingAddresses
+    } = req.body;
+
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Buyer not found'
+      });
+    }
+
+    // Update basic fields if provided
+    if (firstName !== undefined) buyer.firstName = firstName;
+    if (lastName !== undefined) buyer.lastName = lastName;
+    if (phoneNumber !== undefined) buyer.phoneNumber = phoneNumber;
+
+    // Update status fields if provided
+    if (emailVerified !== undefined) buyer.emailVerified = emailVerified;
+    if (phoneVerified !== undefined) buyer.phoneVerified = phoneVerified;
+    if (isDisabled !== undefined) buyer.isDisabled = isDisabled;
+    if (isIdentityVerified !== undefined) buyer.isIdentityVerified = isIdentityVerified;
+
+    // Update addresses if provided
+    if (shippingAddresses !== undefined && Array.isArray(shippingAddresses)) {
+      buyer.shippingAddresses = shippingAddresses;
+    }
+
+    await buyer.save();
+
+    res.json({
+      success: true,
+      message: 'Buyer updated successfully',
+      buyer
+    });
+  } catch (error) {
+    console.error('Error updating buyer:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update buyer',
+      error: error.message
+    });
+  }
+};
+
 
 /**
  * Helper function to calculate order metrics

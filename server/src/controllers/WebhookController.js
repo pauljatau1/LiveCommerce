@@ -1,6 +1,9 @@
 const Webhook = require('../models/WebHook');
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const Withdrawal = require('../models/Withdrawal');
+const Seller = require('../models/Seller');
+const Transaction = require('../models/Transaction');
 const termiiEmailService = require('../services/termiiEmailService');
 
 exports.createWebhook = async (req, res) => {
@@ -279,40 +282,82 @@ exports.handlePaystackWebhook = async (req, res) => {
 };
 
 async function handleTransferSuccess(data) {
-  const withdrawal = await Withdrawal.findOne({
-    'paymentInfo.transferReference': data.reference
-  }).populate('seller');
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (!withdrawal) return;
-
-  withdrawal.status = 'completed';
-  withdrawal.processedDate = new Date();
-  withdrawal.paymentInfo.completedAt = new Date();
-  withdrawal.notes.push({
-    content: `Transfer completed successfully. Reference: ${data.reference}`,
-    addedBy: 'system'
-  });
-
-  await withdrawal.save();
-
-  // Send success email
   try {
-    await termiiEmailService.sendRawHTMLEmail({
-      email: withdrawal.seller.email,
-      subject: 'Withdrawal Completed Successfully - Auqli',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Withdrawal Completed</h2>
-          <p>Dear ${withdrawal.seller.firstName},</p>
-          <p>Your withdrawal request (Ref: ${withdrawal.reference}) has been completed successfully.</p>
-          <p>Amount: ₦${withdrawal.amount.toLocaleString()}</p>
-          <p>The funds have been transferred to your bank account.</p>
-          <p>Best regards,<br>The Auqli Team</p>
-        </div>
-      `
+    const withdrawal = await Withdrawal.findOne({
+      'paymentInfo.transferReference': data.reference
+    }).populate('seller').session(session);
+
+    if (!withdrawal) {
+      await session.abortTransaction();
+      session.endSession();
+      console.log(`No withdrawal found for transfer reference: ${data.reference}`);
+      return;
+    }
+
+    // Mark as completed
+    withdrawal.status = 'completed';
+    withdrawal.processedDate = new Date();
+    withdrawal.paymentInfo.completedAt = new Date();
+    withdrawal.paymentInfo.paystackStatus = 'success';
+    withdrawal.notes.push({
+      content: `Transfer completed successfully via Paystack webhook. Reference: ${data.reference}`,
+      addedBy: 'system'
     });
-  } catch (emailError) {
-    console.error('Error sending withdrawal success email:', emailError.message);
+
+    await withdrawal.save({ session });
+
+    // Deduct from seller wallet balance
+    const seller = await Seller.findById(withdrawal.seller._id).session(session);
+    if (seller) {
+      seller.walletBalance = Math.max(0, seller.walletBalance - withdrawal.amount);
+      await seller.save({ session });
+      console.log(`Deducted ₦${withdrawal.amount} from seller ${seller._id} wallet. New balance: ₦${seller.walletBalance}`);
+    }
+
+    // Create transaction record
+    await Transaction.create([{
+      seller: withdrawal.seller._id,
+      type: 'withdrawal',
+      amount: withdrawal.amount,
+      status: 'completed',
+      bankDetails: withdrawal.bankDetails,
+      description: `Withdrawal to bank account ${withdrawal.bankDetails.accountNumber}`,
+      reference: data.reference
+    }], { session });
+
+    await session.commitTransaction();
+    console.log(`Transfer.success processed for withdrawal ${withdrawal.reference}: ₦${withdrawal.amount}`);
+
+    // Send success email (non-blocking, outside transaction)
+    try {
+      await termiiEmailService.sendRawHTMLEmail({
+        email: withdrawal.seller.email,
+        subject: 'Withdrawal Completed Successfully - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Withdrawal Completed</h2>
+            <p>Dear ${withdrawal.seller.firstName},</p>
+            <p>Your withdrawal request (Ref: ${withdrawal.reference}) has been completed successfully.</p>
+            <p>Amount: ₦${withdrawal.amount.toLocaleString()}</p>
+            <p>The funds have been transferred to your bank account.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      });
+    } catch (emailError) {
+      console.error('Error sending withdrawal success email:', emailError.message);
+    }
+  } catch (error) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    console.error('Error processing transfer.success webhook:', error);
+    throw error;
+  } finally {
+    session.endSession();
   }
 }
 

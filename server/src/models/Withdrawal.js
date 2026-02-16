@@ -12,7 +12,7 @@ const withdrawalSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'processing', 'completed', 'rejected'],
+    enum: ['pending', 'processing', 'completed', 'rejected', 'failed', 'reversed'],
     default: 'pending'
   },
   bankDetails: {
@@ -20,6 +20,18 @@ const withdrawalSchema = new mongoose.Schema({
     accountNumber: String,
     accountName: String,
     bankIdentifierCode: String
+  },
+  paymentInfo: {
+    transferReference: String,
+    transferRecipientCode: String,
+    initiatedAt: Date,
+    completedAt: Date,
+    failureReason: String,
+    amount: Number,
+    amountInKobo: Number,
+    paystackStatus: String,
+    lastChecked: Date,
+    reference: String
   },
   requestDate: {
     type: Date,
@@ -30,7 +42,7 @@ const withdrawalSchema = new mongoose.Schema({
     content: String,
     addedBy: {
       type: String,
-      enum: ['seller', 'admin']
+      enum: ['seller', 'admin', 'system']
     },
     createdAt: {
       type: Date,
@@ -44,7 +56,7 @@ const withdrawalSchema = new mongoose.Schema({
 });
 
 // Generate unique reference before saving
-withdrawalSchema.pre('save', async function(next) {
+withdrawalSchema.pre('save', async function (next) {
   if (!this.reference) {
     const timestamp = Date.now().toString().slice(-6);
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
