@@ -290,6 +290,8 @@ async function findOrCreateBuyer(payload, expoPushToken, firstName, lastName, em
                 try {
                     const { saveToken } = require('../../../../Firebase');
                     await saveToken(buyer._id, normalizedPushToken);
+                    // Update buyer document
+                    buyer.expoPushToken = normalizedPushToken;
                 } catch (err) {
                     console.error('Failed to save push token to Firebase:', err);
                 }
@@ -336,6 +338,8 @@ async function findOrCreateBuyer(payload, expoPushToken, firstName, lastName, em
                         try {
                             const { saveToken } = require('../../../../Firebase');
                             await saveToken(buyer._id, normalizedPushToken);
+                            // Update buyer document
+                            buyer.expoPushToken = normalizedPushToken;
                         } catch (err) {
                             console.error('Failed to save push token to Firebase:', err);
                         }
@@ -378,6 +382,10 @@ async function findOrCreateBuyer(payload, expoPushToken, firstName, lastName, em
             try {
                 const { saveToken } = require('../../../../Firebase');
                 await saveToken(savedBuyer._id, normalizedPushToken);
+
+                // Update buyer with the token
+                savedBuyer.expoPushToken = normalizedPushToken;
+                await savedBuyer.save();
             } catch (err) {
                 console.error('Failed to save push token to Firebase:', err);
             }

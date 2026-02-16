@@ -37,7 +37,7 @@ describe('Register Service', () => {
   beforeEach(async () => {
     // Clear all mocks before each test
     jest.clearAllMocks();
-    
+
     // Clear database
     await Buyer.deleteMany({});
   });
@@ -408,7 +408,10 @@ describe('Register Service', () => {
 
     it('should not fail if email service is unavailable (email not used)', async () => {
       const mockBuyer = {
-        _id: new mongoose.Types.ObjectId()
+        _id: new mongoose.Types.ObjectId(),
+        save: jest.fn().mockResolvedValue({
+          _id: new mongoose.Types.ObjectId()
+        })
       };
 
       buyerValidator.validateRegisterData.mockResolvedValue();
@@ -432,15 +435,22 @@ describe('Register Service', () => {
         firstName: 'John',
         lastName: 'Doe',
         email: 'john.doe@example.com',
-        username: 'johndoe'
+        username: 'johndoe',
+        save: jest.fn().mockResolvedValue({
+          _id: new mongoose.Types.ObjectId(),
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          username: 'johndoe'
+        })
       };
 
       buyerValidator.validateRegisterData.mockResolvedValue();
       buyerRepository.save.mockResolvedValue(mockBuyer);
-      
+
       const { saveToken } = require('../../../../Firebase');
       saveToken.mockResolvedValue();
-      
+
       const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue('mock-jwt-token');
 
@@ -464,15 +474,16 @@ describe('Register Service', () => {
         savedBuyer = buyer;
         return Promise.resolve({
           _id: new mongoose.Types.ObjectId(),
-          ...buyer.toObject()
+          ...buyer.toObject(),
+          save: jest.fn().mockResolvedValue({})
         });
       });
 
       buyerValidator.validateRegisterData.mockResolvedValue();
-      
+
       const { saveToken } = require('../../../../Firebase');
       saveToken.mockResolvedValue();
-      
+
       const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue('mock-jwt-token');
 
@@ -481,7 +492,7 @@ describe('Register Service', () => {
       // Verify that notificationPreferences are objects, not booleans
       expect(savedBuyer.notificationPreferences).toBeDefined();
       expect(typeof savedBuyer.notificationPreferences).toBe('object');
-      
+
       // Test orderUpdates structure
       expect(savedBuyer.notificationPreferences.orderUpdates).toBeDefined();
       expect(typeof savedBuyer.notificationPreferences.orderUpdates).toBe('object');
@@ -489,14 +500,14 @@ describe('Register Service', () => {
       expect(savedBuyer.notificationPreferences.orderUpdates.shippingAndDelivery).toBe(true);
       expect(savedBuyer.notificationPreferences.orderUpdates.orderCancellation).toBe(true);
       expect(savedBuyer.notificationPreferences.orderUpdates.refundUpdates).toBe(true);
-      
+
       // Test liveShows structure
       expect(savedBuyer.notificationPreferences.liveShows).toBeDefined();
       expect(typeof savedBuyer.notificationPreferences.liveShows).toBe('object');
       expect(savedBuyer.notificationPreferences.liveShows.allShows).toBe(true);
       expect(savedBuyer.notificationPreferences.liveShows.followedSellers).toBe(true);
       expect(savedBuyer.notificationPreferences.liveShows.recommendedShows).toBe(true);
-      
+
       // Test messages structure
       expect(savedBuyer.notificationPreferences.messages).toBeDefined();
       expect(typeof savedBuyer.notificationPreferences.messages).toBe('object');
@@ -504,14 +515,14 @@ describe('Register Service', () => {
       expect(savedBuyer.notificationPreferences.messages.fromBuyers).toBe(true);
       expect(savedBuyer.notificationPreferences.messages.chatReplies).toBe(true);
       expect(savedBuyer.notificationPreferences.messages.mentions).toBe(true);
-      
+
       // Test communityActivity structure
       expect(savedBuyer.notificationPreferences.communityActivity).toBeDefined();
       expect(typeof savedBuyer.notificationPreferences.communityActivity).toBe('object');
       expect(savedBuyer.notificationPreferences.communityActivity.postComments).toBe(true);
       expect(savedBuyer.notificationPreferences.communityActivity.postLikes).toBe(true);
       expect(savedBuyer.notificationPreferences.communityActivity.repliesAndMentions).toBe(true);
-      
+
       // Test promotionsAndSales structure
       expect(savedBuyer.notificationPreferences.promotionsAndSales).toBeDefined();
       expect(typeof savedBuyer.notificationPreferences.promotionsAndSales).toBe('object');
@@ -528,18 +539,19 @@ describe('Register Service', () => {
         savedBuyer = buyer;
         return Promise.resolve({
           _id: new mongoose.Types.ObjectId(),
-          ...buyer.toObject()
+          ...buyer.toObject(),
+          save: jest.fn().mockResolvedValue({})
         });
       });
 
       buyerValidator.validateRegisterData.mockResolvedValue();
-      
+
       const { saveToken } = require('../../../../Firebase');
       saveToken.mockResolvedValue();
-      
+
       const sgMail = require('@sendgrid/mail');
       sgMail.send.mockResolvedValue();
-      
+
       const { generateOTP, generateToken } = require('@utils/helpers');
       generateOTP.mockReturnValue('1234');
       generateToken.mockReturnValue('mock-jwt-token');
@@ -549,13 +561,13 @@ describe('Register Service', () => {
       // This test specifically verifies that the original error would not occur
       // The original error was: "Cast to Object failed for value "true" (type boolean)"
       // These assertions ensure that the values are objects, not booleans
-      
+
       expect(typeof savedBuyer.notificationPreferences.orderUpdates).not.toBe('boolean');
       expect(typeof savedBuyer.notificationPreferences.liveShows).not.toBe('boolean');
       expect(typeof savedBuyer.notificationPreferences.messages).not.toBe('boolean');
       expect(typeof savedBuyer.notificationPreferences.communityActivity).not.toBe('boolean');
       expect(typeof savedBuyer.notificationPreferences.promotionsAndSales).not.toBe('boolean');
-      
+
       // Ensure they are objects (which is what the schema expects)
       expect(typeof savedBuyer.notificationPreferences.orderUpdates).toBe('object');
       expect(typeof savedBuyer.notificationPreferences.liveShows).toBe('object');
