@@ -129,6 +129,8 @@ async function login(data) {
   // This enables push notifications for the authenticated user
   if (expoPushToken) {
     await saveToken(buyer._id, expoPushToken);
+    buyer.expoPushToken = expoPushToken;
+    await buyer.save();
   }
 
   // Step 5: Send welcome push notification
@@ -147,7 +149,7 @@ async function login(data) {
   // Step 6: Generate JWT token for session management
   // This provides secure authentication for subsequent requests
   const token = generateToken(buyer._id);
-  
+
   // Step 7: Return authenticated user data and token (exclude password and OTP for security)
   const userResponse = buyer.toObject ? buyer.toObject() : { ...buyer };
   delete userResponse.password;
