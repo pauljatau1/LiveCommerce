@@ -129,8 +129,12 @@ async function register(data) {
   if (data.expoPushToken && data.expoPushToken != undefined) {
     const { saveToken } = require('../../../../Firebase');
     await saveToken(newBuyer._id, data.expoPushToken);
+
+    // Update buyer with the token and save
+    newBuyer.expoPushToken = data.expoPushToken;
+    await newBuyer.save();
   }
-  
+
   // Step 5: Generate JWT token for immediate authentication
   // This allows the user to be logged in immediately after registration
   const token = generateToken(newBuyer._id);
@@ -174,34 +178,34 @@ async function register(data) {
  */
 function generateNamesFromUsername(data) {
   const { username, firstName, lastName } = data;
-  
+
   // If both names are provided, return data as-is
   if (firstName && lastName) {
     return data;
   }
-  
+
   // Create a copy of the data object
   const processedData = { ...data };
-  
+
   // Generate names from username
   const nameParts = username
     .toLowerCase()
     .replace(/[^a-z0-9]/g, ' ') // Replace non-alphanumeric with spaces
     .split(' ')
     .filter(part => part.length > 0); // Remove empty parts
-  
+
   if (nameParts.length >= 2) {
     // Use first two parts as first and last name
     const generatedFirstName = nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1);
     const generatedLastName = nameParts[1].charAt(0).toUpperCase() + nameParts[1].slice(1);
-    
+
     processedData.firstName = firstName || generatedFirstName;
     processedData.lastName = lastName || generatedLastName;
   } else if (nameParts.length === 1) {
     // Use the single part as first name, generate last name
     const generatedFirstName = nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1);
     const generatedLastName = 'User'; // Default last name
-    
+
     processedData.firstName = firstName || generatedFirstName;
     processedData.lastName = lastName || generatedLastName;
   } else {
@@ -209,7 +213,7 @@ function generateNamesFromUsername(data) {
     processedData.firstName = firstName || 'User';
     processedData.lastName = lastName || 'User';
   }
-  
+
   return processedData;
 }
 

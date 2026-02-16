@@ -239,6 +239,9 @@ exports.login = async (req, res) => {
     if (expoPushToken) {
       try {
         await saveToken(buyer._id, expoPushToken);
+        // Update buyer document with new token and save
+        buyer.expoPushToken = expoPushToken;
+        await buyer.save();
       } catch (tokenErr) {
         console.error('Failed to save Expo token on login:', tokenErr);
       }
@@ -270,6 +273,9 @@ async function googleLoginMobile(data, res) {
     // Only save token if provided
     if (expoPushToken) {
       await saveToken(buyer._id, expoPushToken);
+      // Update buyer document with new token and save
+      buyer.expoPushToken = expoPushToken;
+      await buyer.save();
     }
 
     const token = generateToken(buyer._id);
