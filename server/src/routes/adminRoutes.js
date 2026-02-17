@@ -245,6 +245,80 @@ router.put('/buyers/:buyerId/enable', authMiddleware.verifyToken, adminControlle
 
 /**
  * @swagger
+ * /api/admin/buyers/{buyerId}:
+ *   put:
+ *     summary: Update buyer details
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               phoneNumber:
+ *                 type: string
+ *               isDisabled:
+ *                 type: boolean
+ *               shippingAddresses:
+ *                 type: array
+ *     responses:
+ *       200:
+ *         description: Buyer updated successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/buyers/:buyerId', authMiddleware.verifyToken, adminController.updateBuyer);
+
+/**
+ * @swagger
+ * /api/admin/buyers/{buyerId}/orders:
+ *   get:
+ *     summary: Get orders for a specific buyer
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: buyerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Buyer ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Items per page
+ *     responses:
+ *       200:
+ *         description: List of buyer orders retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/buyers/:buyerId/orders', authMiddleware.verifyToken, adminController.getBuyerOrders);
+
+/**
+ * @swagger
  * /api/admin/products:
  *   get:
  *     summary: Get all products with pagination and filtering
@@ -377,9 +451,9 @@ router.put('/sellers/:sellerId/verify', authMiddleware.verifyToken, adminControl
  *       400:
  *         description: Bad request
  */
-router.post('/categories', 
-  authMiddleware.verifyToken, 
-  upload.single('image'), 
+router.post('/categories',
+  authMiddleware.verifyToken,
+  upload.single('image'),
   adminController.createCategory
 );
 
@@ -467,9 +541,9 @@ router.get('/categories', authMiddleware.verifyToken, adminController.getCategor
  *       500:
  *         description: Internal server error
  */
-router.put('/categories/:id', 
-  authMiddleware.verifyToken, 
-  upload.single('image'), 
+router.put('/categories/:id',
+  authMiddleware.verifyToken,
+  upload.single('image'),
   adminController.updateCategory
 );
 
@@ -572,7 +646,7 @@ router.get('/categories/:categoryId/subcategories', authMiddleware.verifyToken, 
  *       400:
  *         description: Bad request
  */
-router.post('/banners', 
+router.post('/banners',
   authMiddleware.verifyToken,
   upload.single('mainImage'),
   adminController.createBanner
@@ -620,7 +694,7 @@ router.post('/banners',
  *       500:
  *         description: Internal server error
  */
-router.put('/banners/:bannerId', 
+router.put('/banners/:bannerId',
   authMiddleware.verifyToken,
   upload.single('mainImage'),
   adminController.updateBanner
@@ -991,9 +1065,9 @@ router.delete('/announcements/:announcementId', authMiddleware.verifyToken, admi
  *       401:
  *         description: Unauthorized
  */
-router.get('/orders', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isAdmin, 
+router.get('/orders',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
   adminController.getAllOrders
 );
 
@@ -1020,9 +1094,9 @@ router.get('/orders',
  *       200:
  *         description: Platform analytics data
  */
-router.get('/analytics', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isAdmin, 
+router.get('/analytics',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
   adminController.getPlatformAnalytics
 );
 
@@ -1038,9 +1112,9 @@ router.get('/analytics',
  *       200:
  *         description: List of flagged orders
  */
-router.get('/orders/flagged', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isAdmin, 
+router.get('/orders/flagged',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
   adminController.getFlaggedOrders
 );
 
@@ -1075,9 +1149,9 @@ router.get('/orders/flagged',
  *       200:
  *         description: Order updated successfully
  */
-router.put('/orders/:orderId', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isAdmin, 
+router.put('/orders/:orderId',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
   adminController.updateOrderManually
 );
 
@@ -1093,9 +1167,9 @@ router.put('/orders/:orderId',
  *       200:
  *         description: List of all withdrawal requests
  */
-router.get('/withdrawals', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isAdmin, 
+router.get('/withdrawals',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
   adminController.getAllWithdrawals
 );
 
@@ -1591,8 +1665,8 @@ router.put('/sellers/:sellerId/reject', authMiddleware.verifyToken, adminControl
  *       500:
  *         description: Server error
  */
-router.put('/categories/:id/platform-fee', 
-  authMiddleware.verifyToken, 
+router.put('/categories/:id/platform-fee',
+  authMiddleware.verifyToken,
   adminController.updateCategoryPlatformFee
 );
 
@@ -1701,8 +1775,8 @@ router.get('/transfers/:reference/verify',
  *       500:
  *         description: Server error
  */
-router.post('/categories/recalculate-stats', 
- 
+router.post('/categories/recalculate-stats',
+
   adminController.recalculateCategoryStats
 );
 
@@ -2210,9 +2284,9 @@ router.get(
  *       500:
  *         description: Internal server error
  */
-router.delete('/buyers/:buyerId', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isAdmin, 
+router.delete('/buyers/:buyerId',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
   adminController.deleteBuyerAccount
 );
 
@@ -2432,8 +2506,8 @@ router.get('/sellers/transactions',
  *       500:
  *         description: Internal server error
  */
-router.get('/sellers/:sellerId/details', 
-  authMiddleware.verifyToken, 
+router.get('/sellers/:sellerId/details',
+  authMiddleware.verifyToken,
   authMiddleware.isAdmin,
   adminController.getSellerDetails
 );
@@ -2732,8 +2806,8 @@ router.get('/sellers/:sellerId/details',
  *       500:
  *         description: Internal server error
  */
-router.put('/sellers/:sellerId/update', 
-  authMiddleware.verifyToken, 
+router.put('/sellers/:sellerId/update',
+  authMiddleware.verifyToken,
   authMiddleware.isAdmin,
   adminController.updateSellerInfo
 );
@@ -2867,9 +2941,9 @@ router.put('/sellers/:sellerId/revoke-international', authMiddleware.verifyToken
  *       500:
  *         description: Server error
  */
-router.delete('/fez-orders/:orderNo', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isAdmin, 
+router.delete('/fez-orders/:orderNo',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
   adminController.deleteFezOrder
 );
 
@@ -3450,8 +3524,8 @@ router.post('/sellers/bulk/send-onboarding-reminders',
  *       500:
  *         description: Internal server error
  */
-router.get('/buyers/:buyerId/details', 
-  authMiddleware.verifyToken, 
+router.get('/buyers/:buyerId/details',
+  authMiddleware.verifyToken,
   authMiddleware.isAdmin,
   adminController.getBuyerDetails
 );
@@ -3597,9 +3671,9 @@ router.post(
  *       500:
  *         description: Internal server error
  */
-router.post('/platform-notifications', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isAdmin, 
+router.post('/platform-notifications',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
   adminController.createPlatformNotification
 );
 
@@ -3641,9 +3715,9 @@ router.post('/platform-notifications',
  *       500:
  *         description: Internal server error
  */
-router.get('/platform-notifications', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isAdmin, 
+router.get('/platform-notifications',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
   adminController.getAllPlatformNotifications
 );
 
@@ -3670,9 +3744,9 @@ router.get('/platform-notifications',
  *       500:
  *         description: Internal server error
  */
-router.get('/platform-notifications/:id', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isAdmin, 
+router.get('/platform-notifications/:id',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
   adminController.getPlatformNotification
 );
 
@@ -3726,9 +3800,9 @@ router.get('/platform-notifications/:id',
  *       500:
  *         description: Internal server error
  */
-router.put('/platform-notifications/:id', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isAdmin, 
+router.put('/platform-notifications/:id',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
   adminController.updatePlatformNotification
 );
 
@@ -3755,9 +3829,9 @@ router.put('/platform-notifications/:id',
  *       500:
  *         description: Internal server error
  */
-router.delete('/platform-notifications/:id', 
-  authMiddleware.verifyToken, 
-  authMiddleware.isAdmin, 
+router.delete('/platform-notifications/:id',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
   adminController.deletePlatformNotification
 );
 
@@ -4177,8 +4251,8 @@ router.post('/sellers/reminders/no-blips',
  *       500:
  *         description: Internal server error
  */
-router.post('/major-categories', 
-  authMiddleware.verifyToken, 
+router.post('/major-categories',
+  authMiddleware.verifyToken,
   authMiddleware.isAdmin,
   upload.single('image'),
   adminController.createMajorCategory
@@ -4198,8 +4272,8 @@ router.post('/major-categories',
  *       500:
  *         description: Internal server error
  */
-router.get('/major-categories', 
-  authMiddleware.verifyToken, 
+router.get('/major-categories',
+  authMiddleware.verifyToken,
   authMiddleware.isAdmin,
   adminController.getMajorCategories
 );
@@ -4227,8 +4301,8 @@ router.get('/major-categories',
  *       500:
  *         description: Internal server error
  */
-router.get('/major-categories/:id', 
-  authMiddleware.verifyToken, 
+router.get('/major-categories/:id',
+  authMiddleware.verifyToken,
   authMiddleware.isAdmin,
   adminController.getMajorCategoryById
 );
@@ -4279,8 +4353,8 @@ router.get('/major-categories/:id',
  *       500:
  *         description: Internal server error
  */
-router.put('/major-categories/:id', 
-  authMiddleware.verifyToken, 
+router.put('/major-categories/:id',
+  authMiddleware.verifyToken,
   authMiddleware.isAdmin,
   upload.single('image'),
   adminController.updateMajorCategory
@@ -4309,8 +4383,8 @@ router.put('/major-categories/:id',
  *       500:
  *         description: Internal server error
  */
-router.delete('/major-categories/:id', 
-  authMiddleware.verifyToken, 
+router.delete('/major-categories/:id',
+  authMiddleware.verifyToken,
   authMiddleware.isAdmin,
   adminController.deleteMajorCategory
 );
@@ -4329,8 +4403,8 @@ router.delete('/major-categories/:id',
  *       500:
  *         description: Internal server error
  */
-router.get('/unassigned-categories', 
-  authMiddleware.verifyToken, 
+router.get('/unassigned-categories',
+  authMiddleware.verifyToken,
   authMiddleware.isAdmin,
   adminController.getUnassignedCategories
 );
