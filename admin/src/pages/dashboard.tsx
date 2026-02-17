@@ -1,39 +1,56 @@
-import { 
-    Users, 
-    ShoppingCart, 
-    DollarSign, 
-    ArrowUp, 
-    ArrowDown,
-    ArrowUpRight,
-    Store,
-    Package,
-    RefreshCcw,
-    Building2,
-    Clock,
-    TrendingUp,
-    RotateCcw,
-    Wallet,
-    Video,
-    CircleDollarSign,
-    Settings,
-    LineChart,
-    Mail,
-    Shield,
-    LayoutDashboard,
-
-    Banknote
-  } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import {
+  Users,
+  ShoppingCart,
+  DollarSign,
+  ArrowUp,
+  ArrowDown,
+  ArrowRight,
+  Store,
+  Package,
+  Clock,
+  TrendingUp,
+  RotateCcw,
+  Wallet,
+  Video,
+  CircleDollarSign,
+  Banknote,
+  AlertCircle,
+  Activity,
+  Zap,
+  ChevronRight,
+  Trophy,
+  ShieldCheck,
+  Calendar,
+  MessageSquare
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  Legend
+} from 'recharts';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
-
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { api } from "@/api/axios";
+import { useAuth } from "@/context/authContext";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
-// Define interface for the API response
+// --- Types ---
 interface PlatformMetrics {
   counts: {
     buyers: number;
@@ -45,16 +62,23 @@ interface PlatformMetrics {
     withdrawals: number;
     bankChangeRequests: number;
   };
+  growth: {
+    revenue: number | string;
+    orders: number | string;
+    buyers: number | string;
+    sellers: number | string;
+    products: number | string;
+  };
+  charts: {
+    revenueAndOrders: Array<{ date: string; revenue: number; orders: number }>;
+    userSignups: Array<{ date: string; buyers: number; sellers: number; total: number }>;
+  };
   userMetrics: {
     activeBuyers: number;
-    inactiveBuyers: number;
     activeSellers: number;
-    inactiveSellers: number;
     verifiedSellers: number;
     pendingVerificationSellers: number;
     identityVerifiedBuyers: number;
-    buyerVerificationRate: string;
-    sellerVerificationRate: string;
   };
   orderMetrics: {
     pendingOrders: number;
@@ -70,109 +94,41 @@ interface PlatformMetrics {
     processingWithdrawals: number;
     completedWithdrawals: number;
     rejectedWithdrawals: number;
-    pendingWithdrawalRate: string;
   };
   bankChangeMetrics: {
     pendingBankChangeRequests: number;
     approvedBankChangeRequests: number;
     rejectedBankChangeRequests: number;
-    pendingBankChangeRate: string;
   };
   streamMetrics: {
     scheduledStreams: number;
     liveStreams: number;
     endedStreams: number;
     cancelledStreams: number;
-    cancelledStreamRate: string;
   };
   financialMetrics: {
     totalOrderAmount: number;
     totalWithdrawalAmount: number;
   };
   recentActivity: {
-    orders: Array<{
-      _id: string;
-      order_id: string;
-      totalAmount: number;
-      createdAt: string;
-    }>;
-    withdrawals: Array<{
-      _id: string;
-      seller: string;
-      amount: number;
-      status: string;
-      requestDate: string;
-      reference: string;
-    }>;
-    bankChangeRequests: Array<{
-      _id: string;
-      seller: string;
-      status: string;
-      requestDate: string;
-      newBankDetails: {
-        bankName: string;
-      };
-    }>;
-    streams: Array<{
-      _id: string;
-      seller: string;
-      title: string;
-      status: string;
-      scheduledStartTime: string;
-      actualStartTime: string;
-    }>;
+    orders: Array<any>;
+    withdrawals: Array<any>;
+    bankChangeRequests: Array<any>;
+    streams: Array<any>;
   };
   extra: {
-    topPerformers: Array<{
-      _id: {
-        storeAvatar?: {
-          url: string;
-        };
-        _id: string;
-        firstName: string;
-        lastName: string;
-        email: string;
-        storeName?: string;
-        businessName?: string;
-      };
-      totalRevenue: number;
-      totalOrders: number;
-    }>;
-    topProducts: Array<{
-      _id: {
-        _id: string;
-        name: string;
-        price: number;
-        category: string;
-        seller: {
-          storeName: string;
-        };
-        images: Array<{ url: string }>;
-      };
-      totalSold: number;
-      totalRevenue: number;
-    }>;
-    topBuyers: Array<{
-      _id: {
-        avatar?: { url: string };
-        _id: string;
-        firstName: string;
-        lastName: string;
-        email: string;
-      };
-      totalSpent: number;
-      orderCount: number;
-    }>;
-    topCategories: Array<{
-      _id: string;
-      count: number;
-    }>;
+    topPerformers: Array<any>;
+    topProducts: Array<any>;
+    topBuyers: Array<any>;
+    topLiveStreams: Array<any>;
+    topCategories: Array<any>;
   };
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF'];
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 function Dashboard() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<PlatformMetrics | null>(null);
 
@@ -192,521 +148,454 @@ function Dashboard() {
     fetchMetrics();
   }, []);
 
-  // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
-      currency: 'NGN'
+      currency: 'NGN',
+      maximumFractionDigits: 0
     }).format(amount);
   };
 
-  return (
-    <div className="space-y-6 p-4">
-     
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 18) return "Good Afternoon";
+    return "Good Evening";
+  };
 
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+  const StatCard = ({ title, value, growth, icon: Icon, colorClass, gradient }: any) => {
+    const isPositive = parseFloat(growth) >= 0;
+    return (
+      <Card className="bg-slate-900/50 border-slate-800 overflow-hidden group relative">
+        <div className={cn("absolute top-0 right-0 h-24 w-24 -mr-8 -mt-8 rounded-full blur-3xl opacity-10 transition-opacity group-hover:opacity-20", gradient)} />
+        <CardContent className="p-6">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <p className="text-[10px] sm:text-[11px] font-bold uppercase text-slate-500 tracking-wider font-mono">{title}</p>
+              <h3 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{value}</h3>
+            </div>
+            <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110", colorClass)}>
+              <Icon className="h-6 w-6 text-white" />
+            </div>
+          </div>
+          <div className="mt-6 flex items-center justify-between">
+            <div className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase",
+              isPositive ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+            )}>
+              {isPositive ? <TrendingUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+              {Math.abs(parseFloat(growth))}%
+            </div>
+            <span className="text-[10px] text-slate-500 font-medium">vs last month</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const ActionCard = ({ title, count, label, icon: Icon, color, link }: any) => (
+    <Link to={link} className="block group">
+      <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 flex items-center justify-between hover:bg-slate-800/80 transition-all hover:border-slate-700">
+        <div className="flex items-center gap-4">
+          <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center", color)}>
+            <Icon className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none mb-1.5">{title}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-bold text-white leading-none">{count}</span>
+              <span className="text-[10px] font-medium text-slate-600">{label}</span>
+            </div>
+          </div>
         </div>
-      ) : (
-        <>
-          {/* Main Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
-            <Card className="p-4 md:p-6">
-              <div className="flex items-center gap-3 md:gap-4">
-                <div className="bg-primary/10 p-2 md:p-3 rounded-lg">
-                  <ShoppingCart className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs md:text-sm">Total Orders</p>
-                  <h3 className="text-xl md:text-2xl font-bold">{metrics?.counts.orders}</h3>
-                </div>
-              </div>
-            </Card>
-            
-            <Card className="p-4 md:p-6">
-              <div className="flex items-center gap-3 md:gap-4">
-                <div className="bg-primary/10 p-2 md:p-3 rounded-lg">
-                  <DollarSign className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs md:text-sm">Total Revenue</p>
-                  <h3 className="text-xl md:text-2xl font-bold">{formatCurrency(metrics?.financialMetrics.totalOrderAmount || 0)}</h3>
-                </div>
-              </div>
-            </Card>
+        <ChevronRight className="h-4 w-4 text-slate-700 group-hover:text-white transition-colors" />
+      </div>
+    </Link>
+  );
 
-            <Card className="p-4 md:p-6">
-              <div className="flex items-center gap-3 md:gap-4">
-                <div className="bg-primary/10 p-2 md:p-3 rounded-lg">
-                  <Users className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs md:text-sm">Total Users</p>
-                  <h3 className="text-xl md:text-2xl font-bold">{(metrics?.counts.buyers || 0) + (metrics?.counts.sellers || 0)}</h3>
-                </div>
-              </div>
-            </Card>
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)] space-y-4">
+        <div className="relative h-12 w-12">
+          <div className="absolute inset-0 rounded-full border-2 border-slate-800" />
+          <div className="absolute inset-0 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+        </div>
+        <p className="text-slate-500 text-sm font-medium animate-pulse">Synchronizing platform data...</p>
+      </div>
+    );
+  }
 
-            <Card className="p-4 md:p-6">
-              <div className="flex items-center gap-3 md:gap-4">
-                <div className="bg-primary/10 p-2 md:p-3 rounded-lg">
-                  <Package className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs md:text-sm">Total Products</p>
-                  <h3 className="text-xl md:text-2xl font-bold">{metrics?.counts.products}</h3>
-                </div>
+  return (
+    <div className="p-4 sm:p-6 md:p-8 space-y-8 max-w-[1600px] mx-auto pb-20">
+      {/* Dashboard Top Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 mb-1">
+            <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 uppercase text-[10px] font-bold px-2 py-0">
+              Admin Control Center
+            </Badge>
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">System Online</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tighter">
+            {getGreeting()}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">{user?.username || 'Commander'}</span>
+          </h1>
+          <p className="text-slate-500 text-sm font-medium">Your marketplace ecosystem is processing <span className="text-slate-300">{(metrics?.counts.orders || 0).toLocaleString()}</span> total interactions.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex flex-col items-end">
+            <span className="text-xs font-bold text-white">{format(new Date(), "eeee, MMMM do")}</span>
+            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Real-time Dashboard</span>
+          </div>
+          <div className="h-12 w-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center shadow-inner">
+            <Calendar className="h-5 w-5 text-slate-400" />
+          </div>
+        </div>
+      </div>
+
+      {/* Primary Analytics Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <StatCard
+          title="Revenue (30d)"
+          value={formatCurrency(metrics?.financialMetrics.totalOrderAmount || 0)}
+          growth={metrics?.growth.revenue}
+          icon={DollarSign}
+          colorClass="bg-emerald-500 shadow-emerald-500/20"
+          gradient="bg-emerald-500"
+        />
+        <StatCard
+          title="Fulfillment Vol."
+          value={metrics?.counts.orders}
+          growth={metrics?.growth.orders}
+          icon={ShoppingCart}
+          colorClass="bg-blue-500 shadow-blue-500/20"
+          gradient="bg-blue-500"
+        />
+        <StatCard
+          title="Merchant Base"
+          value={metrics?.counts.sellers}
+          growth={metrics?.growth.sellers}
+          icon={Store}
+          colorClass="bg-orange-500 shadow-orange-500/20"
+          gradient="bg-orange-500"
+        />
+        <StatCard
+          title="User Network"
+          value={metrics?.counts.buyers}
+          growth={metrics?.growth.buyers}
+          icon={Users}
+          colorClass="bg-indigo-500 shadow-indigo-500/20"
+          gradient="bg-indigo-500"
+        />
+      </div>
+
+      {/* Middle Section - Visual Context */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Core Operational Charts */}
+        <Card className="lg:col-span-2 bg-slate-900/50 border-slate-800 overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between p-6 pb-2">
+            <div>
+              <CardTitle className="text-lg font-bold text-white">Platform Growth Velocity</CardTitle>
+              <p className="text-[11px] text-slate-500 font-medium">Revenue vs Transaction volume across 30-day window</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-blue-500" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Volume</span>
               </div>
-            </Card>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Revenue</span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="h-[320px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={metrics?.charts.revenueAndOrders} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="chartRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="chartOrders" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#475569"
+                    fontSize={10}
+                    fontFamily="monospace"
+                    tickFormatter={(v) => format(new Date(v), "dd MMM")}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    stroke="#475569"
+                    fontSize={10}
+                    fontFamily="monospace"
+                    tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    stroke="#475569"
+                    fontSize={10}
+                    fontFamily="monospace"
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '12px' }}
+                    itemStyle={{ fontSize: '11px', fontWeight: 'bold' }}
+                    labelStyle={{ fontSize: '10px', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                    cursor={{ stroke: '#334155', strokeWidth: 1 }}
+                  />
+                  <Area
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#10b981"
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#chartRevenue)"
+                    name="Revenue"
+                    animationDuration={1500}
+                  />
+                  <Area
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="orders"
+                    stroke="#3b82f6"
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#chartOrders)"
+                    name="Volume"
+                    animationDuration={1500}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* High Priority Operations (Action Center) */}
+        <div className="space-y-6">
+          <div className="px-1">
+            <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+              <Zap className="h-3 w-3 text-amber-500 fill-amber-500" /> Administrative Inbox
+            </h2>
+            <div className="grid grid-cols-1 gap-3">
+              <ActionCard
+                title="Pending Withdrawals"
+                count={metrics?.withdrawalMetrics.pendingWithdrawals}
+                label="Awaiting payout"
+                icon={Wallet}
+                color="bg-amber-500 shadow-amber-500/10"
+                link="/dashboard/withdrawals"
+              />
+              <ActionCard
+                title="Seller Verifications"
+                count={metrics?.userMetrics.pendingVerificationSellers}
+                label="Unprocessed documents"
+                icon={ShieldCheck}
+                color="bg-indigo-500 shadow-indigo-500/10"
+                link="/dashboard/sellers"
+              />
+              <ActionCard
+                title="Bank Change Requests"
+                count={metrics?.bankChangeMetrics.pendingBankChangeRequests}
+                label="Awaiting review"
+                icon={Banknote}
+                color="bg-blue-500 shadow-blue-500/10"
+                link="/dashboard/bankrequests"
+              />
+              <ActionCard
+                title="Disputes & Returns"
+                count={(metrics?.orderMetrics.ordersWithDisputes || 0) + (metrics?.orderMetrics.ordersWithReturns || 0)}
+                label="Critical attention"
+                icon={RotateCcw}
+                color="bg-rose-500 shadow-rose-500/10"
+                link="/dashboard/return-requests"
+              />
+            </div>
           </div>
 
-          {/* Navigation Section */}
-          <Card className="p-4 md:p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Quick Navigation</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              <Link to="/dashboard/orders">
-                <Card className="p-4 hover:bg-gray-800 transition-colors cursor-pointer h-full">
-                  <div className="flex flex-col items-center justify-center text-center h-full">
-                    <ShoppingCart className="h-8 w-8 mb-2 text-primary" />
-                    <span className="text-sm font-medium">Orders</span>
-                  </div>
-                </Card>
+          <Card className="bg-slate-900/50 border-slate-800 border-dashed relative overflow-hidden group">
+            <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardContent className="p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400">
+                  <Activity className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest leading-none mb-1">Infrastructure</p>
+                  <p className="text-xs text-slate-300 font-medium whitespace-nowrap">View Platform System Logs</p>
+                </div>
+              </div>
+              <Link to="/dashboard/system-logs">
+                <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-slate-800">
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
               </Link>
-              
-              <Link to="/dashboard/products">
-                <Card className="p-4 hover:bg-gray-800 transition-colors cursor-pointer h-full">
-                  <div className="flex flex-col items-center justify-center text-center h-full">
-                    <Package className="h-8 w-8 mb-2 text-green-500" />
-                    <span className="text-sm font-medium">Products</span>
-                  </div>
-                </Card>
-              </Link>
-              
-              <Link to="/dashboard/buyers">
-                <Card className="p-4 hover:bg-gray-800 transition-colors cursor-pointer h-full">
-                  <div className="flex flex-col items-center justify-center text-center h-full">
-                    <Users className="h-8 w-8 mb-2 text-blue-500" />
-                    <span className="text-sm font-medium">Buyers</span>
-                  </div>
-                </Card>
-              </Link>
-              
-              <Link to="/dashboard/sellers">
-                <Card className="p-4 hover:bg-gray-800 transition-colors cursor-pointer h-full">
-                  <div className="flex flex-col items-center justify-center text-center h-full">
-                    <Store className="h-8 w-8 mb-2 text-purple-500" />
-                    <span className="text-sm font-medium">Sellers</span>
-                  </div>
-                </Card>
-              </Link>
-              
-              <Link to="/dashboard/streams">
-                <Card className="p-4 hover:bg-gray-800 transition-colors cursor-pointer h-full">
-                  <div className="flex flex-col items-center justify-center text-center h-full">
-                    <Video className="h-8 w-8 mb-2 text-red-500" />
-                    <span className="text-sm font-medium">Streams</span>
-                  </div>
-                </Card>
-              </Link>
-              
-              <Link to="/dashboard/withdrawals">
-                <Card className="p-4 hover:bg-gray-800 transition-colors cursor-pointer h-full">
-                  <div className="flex flex-col items-center justify-center text-center h-full">
-                    <Wallet className="h-8 w-8 mb-2 text-amber-500" />
-                    <span className="text-sm font-medium">Withdrawals</span>
-                  </div>
-                </Card>
-              </Link>
-              
-              <Link to="/dashboard/payments">
-                <Card className="p-4 hover:bg-gray-800 transition-colors cursor-pointer h-full">
-                  <div className="flex flex-col items-center justify-center text-center h-full">
-                    <CircleDollarSign className="h-8 w-8 mb-2 text-emerald-500" />
-                    <span className="text-sm font-medium">Payments</span>
-                  </div>
-                </Card>
-              </Link>
-              
-              <Link to="/dashboard/bankrequests">
-                <Card className="p-4 hover:bg-gray-800 transition-colors cursor-pointer h-full">
-                  <div className="flex flex-col items-center justify-center text-center h-full">
-                    <Banknote className="h-8 w-8 mb-2 text-gray-400" />
-                    <span className="text-sm font-medium">Bank Requests</span>
-                  </div>
-                </Card>
-              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Tables Section - Marketplace Intelligence */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Recent Performance Log */}
+        <Card className="lg:col-span-8 bg-slate-900/50 border-slate-800 overflow-hidden">
+          <CardHeader className="p-6 border-b border-slate-800/50 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-lg font-bold text-white">Consolidated Activity</CardTitle>
+              <p className="text-[11px] text-slate-500 font-medium">Monitoring the 50 most recent platform state changes</p>
             </div>
+            <Link to="/dashboard/orders">
+              <Button variant="outline" size="sm" className="bg-slate-900 border-slate-800 text-[10px] uppercase font-bold text-slate-400 h-8 px-4 hover:bg-slate-800 hover:text-white transition-all">
+                Access Archives
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader className="bg-slate-950/20">
+                <TableRow className="border-slate-800/50">
+                  <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider pl-6 py-4">Descriptor</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Timeline</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Status</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase text-slate-500 tracking-wider text-right pr-6">Value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {metrics?.recentActivity.orders.slice(0, 8).map((order) => (
+                  <TableRow key={order._id} className="border-slate-800/50 group hover:bg-slate-800/30 transition-colors">
+                    <TableCell className="pl-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                          <ShoppingCart className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-white text-sm">Order #{order.order_id}</p>
+                          <p className="text-[10px] text-slate-500 font-mono tracking-tighter uppercase">{order.channel || 'Marketplace'}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs font-medium text-slate-400">{format(new Date(order.createdAt), "MMM dd, HH:mm")}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="border-slate-800 bg-slate-950/50 text-slate-400 text-[9px] uppercase font-bold py-0.5 h-5">
+                        {order.items?.[0]?.status || 'In Queue'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right pr-6">
+                      <span className="font-bold text-white text-sm tracking-tight">{formatCurrency(order.totalAmount)}</span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        {/* Competitive Insights & Leaderboards */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Top Sellers Cards */}
+          <Card className="bg-slate-900/50 border-slate-800 overflow-hidden">
+            <CardHeader className="p-5 border-b border-slate-800/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-amber-500" />
+                  <CardTitle className="text-sm font-black uppercase text-white tracking-widest">Elite Merchants</CardTitle>
+                </div>
+                <div className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 uppercase tracking-tighter">Gross GMV</div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-slate-800/50">
+                {metrics?.extra.topPerformers.map((seller: any, idx) => (
+                  <div key={seller._id._id} className="p-4 flex items-center justify-between hover:bg-slate-800/20 transition-colors group">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Avatar className="h-10 w-10 border border-slate-800 shadow-md">
+                          <AvatarImage src={seller._id.storeAvatar?.url} className="object-cover" />
+                          <AvatarFallback className="bg-slate-800 text-slate-500">{seller._id.storeName?.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="absolute -top-1 -left-1 h-5 w-5 bg-slate-900 rounded-full flex items-center justify-center border border-slate-800">
+                          <span className="text-[10px] font-black text-slate-500">#{idx + 1}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors truncate max-w-[120px]">{seller._id.storeName || 'Merchant'}</span>
+                        <span className="text-[10px] text-slate-500 truncate max-w-[120px]">{seller._id.email}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-black text-white">{formatCurrency(seller.totalRevenue)}</p>
+                      <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Revenue</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
           </Card>
 
-          {/* Business Overview */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            {/* Orders Stats */}
-            <Card className="p-4 md:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-                <h3 className="text-lg font-semibold text-white">Orders Overview</h3>
-                <Link to="/dashboard/orders">
-                  <Button variant="outline" size="sm" className="w-full sm:w-auto">View All Orders</Button>
-                </Link>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-3 md:p-4 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 md:h-5 md:w-5 text-amber-500" />
-                    <p className="text-xs md:text-sm text-muted-foreground">Pending Orders</p>
-                  </div>
-                  <p className="text-lg md:text-xl font-bold mt-2">{metrics?.orderMetrics.pendingOrders}</p>
-                </div>
-
-                <div className="p-3 md:p-4 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
-                    <p className="text-xs md:text-sm text-muted-foreground">Processing Orders</p>
-                  </div>
-                  <p className="text-lg md:text-xl font-bold mt-2">{metrics?.orderMetrics.processingOrders}</p>
-                </div>
-
-                <div className="p-3 md:p-4 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <RefreshCcw className="h-4 w-4 md:h-5 md:w-5 text-purple-500" />
-                    <p className="text-xs md:text-sm text-muted-foreground">Orders With Returns</p>
-                  </div>
-                  <p className="text-lg md:text-xl font-bold mt-2">{metrics?.orderMetrics.ordersWithReturns}</p>
-                </div>
-
-                <div className="p-3 md:p-4 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <RotateCcw className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
-                    <p className="text-xs md:text-sm text-muted-foreground">Delivered Orders</p>
-                  </div>
-                  <p className="text-lg md:text-xl font-bold mt-2">{metrics?.orderMetrics.deliveredOrders}</p>
-                </div>
-              </div>
-            </Card>
-
-            {/* User Stats */}
-            <Card className="p-4 md:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-                <h3 className="text-lg font-semibold text-white">User Overview</h3>
-                <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2">
-                  <Link to="/dashboard/buyers" className="w-full sm:w-auto">
-                    <Button variant="outline" size="sm" className="w-full">Buyers</Button>
-                  </Link>
-                  <Link to="/dashboard/sellers" className="w-full sm:w-auto">
-                    <Button variant="outline" size="sm" className="w-full">Sellers</Button>
-                  </Link>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-3 md:p-4 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
-                    <p className="text-xs md:text-sm text-muted-foreground">Active Buyers</p>
-                  </div>
-                  <p className="text-lg md:text-xl font-bold mt-2">{metrics?.userMetrics.activeBuyers}</p>
-                </div>
-
-                <div className="p-3 md:p-4 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Store className="h-4 w-4 md:h-5 md:w-5 text-indigo-500" />
-                    <p className="text-xs md:text-sm text-muted-foreground">Active Sellers</p>
-                  </div>
-                  <p className="text-lg md:text-xl font-bold mt-2">{metrics?.userMetrics.activeSellers}</p>
-                </div>
-
-                <div className="p-3 md:p-4 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <ArrowUpRight className="h-4 w-4 md:h-5 md:w-5 text-cyan-500" />
-                    <p className="text-xs md:text-sm text-muted-foreground">Verified Sellers</p>
-                  </div>
-                  <p className="text-lg md:text-xl font-bold mt-2">{metrics?.userMetrics.verifiedSellers}</p>
-                </div>
-
-                <div className="p-3 md:p-4 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 md:h-5 md:w-5 text-pink-500" />
-                    <p className="text-xs md:text-sm text-muted-foreground">Pending Verifications</p>
-                  </div>
-                  <p className="text-lg md:text-xl font-bold mt-2">{metrics?.userMetrics.pendingVerificationSellers}</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Additional Stats Row */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            {/* Financial Stats */}
-            <Card className="p-4 md:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-                <h3 className="text-lg font-semibold text-white">Financial Overview</h3>
-                <Link to="/dashboard/payments">
-                  <Button variant="outline" size="sm" className="w-full sm:w-auto">View All</Button>
-                </Link>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <ArrowUp className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
-                    <span className="text-xs md:text-sm">Total Order Amount</span>
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">{formatCurrency(metrics?.financialMetrics.totalOrderAmount || 0)}</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <ArrowDown className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
-                    <span className="text-xs md:text-sm">Total Withdrawal Amount</span>
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">{formatCurrency(metrics?.financialMetrics.totalWithdrawalAmount || 0)}</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
-                    <span className="text-xs md:text-sm">Net Balance</span>
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">
-                    {formatCurrency((metrics?.financialMetrics.totalOrderAmount || 0) - (metrics?.financialMetrics.totalWithdrawalAmount || 0))}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <CircleDollarSign className="h-4 w-4 md:h-5 md:w-5 text-amber-500" />
-                    <span className="text-xs md:text-sm">Pending Withdrawals</span>
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">{metrics?.withdrawalMetrics.pendingWithdrawals}</span>
-                </div>
-              </div>
-            </Card>
-
-            {/* Withdrawals Stats */}
-            <Card className="p-4 md:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-                <h3 className="text-lg font-semibold text-white">Withdrawal Status</h3>
-                <Link to="/dashboard/withdrawals">
-                  <Button variant="outline" size="sm" className="w-full sm:w-auto">View All</Button>
-                </Link>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-                    <span className="text-xs md:text-sm">Pending</span>
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">{metrics?.withdrawalMetrics.pendingWithdrawals}</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <RefreshCcw className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
-                    <span className="text-xs md:text-sm">Processing</span>
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">{metrics?.withdrawalMetrics.processingWithdrawals}</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <ArrowUp className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
-                    <span className="text-xs md:text-sm">Completed</span>
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">{metrics?.withdrawalMetrics.completedWithdrawals}</span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <RotateCcw className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
-                    <span className="text-xs md:text-sm">Rejected</span>
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">{metrics?.withdrawalMetrics.rejectedWithdrawals}</span>
-                </div>
-              </div>
-            </Card>
-
-            {/* Live Streams Stats */}
-            <Card className="p-4 md:p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-                <h3 className="text-lg font-semibold text-white">Live Streams</h3>
-                <Link to="/dashboard/streams">
-                  <Button variant="outline" size="sm" className="w-full sm:w-auto">View All</Button>
-                </Link>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Video className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-                    <span className="text-xs md:text-sm">Total Streams</span>
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">
-                    {metrics?.counts.streams}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Video className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
-                    <span className="text-xs md:text-sm">Live Streams</span>
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">
-                    {metrics?.streamMetrics.liveStreams}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Video className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
-                    <span className="text-xs md:text-sm">Scheduled</span>
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">
-                    {metrics?.streamMetrics.scheduledStreams}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-gray-950 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <RotateCcw className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
-                    <span className="text-xs md:text-sm">Cancelled</span>
-                  </div>
-                  <span className="text-xs md:text-sm font-semibold">
-                    {metrics?.streamMetrics.cancelledStreams}
-                  </span>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Bank Change Requests */}
-          <Card className="p-4 md:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-              <h3 className="text-lg font-semibold text-white">Bank Change Requests</h3>
-              <Link to="/dashboard/bankrequests">
-                <Button variant="outline" size="sm" className="w-full sm:w-auto">View All</Button>
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-3 md:p-4 bg-gray-950 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 md:h-5 md:w-5 text-amber-500" />
-                  <span className="text-xs md:text-sm">Pending Requests</span>
-                </div>
-                <p className="text-lg md:text-xl font-bold mt-2">{metrics?.bankChangeMetrics.pendingBankChangeRequests}</p>
-              </div>
-
-              <div className="p-3 md:p-4 bg-gray-950 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <ArrowUp className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
-                  <span className="text-xs md:text-sm">Approved Requests</span>
-                </div>
-                <p className="text-lg md:text-xl font-bold mt-2">{metrics?.bankChangeMetrics.approvedBankChangeRequests}</p>
-              </div>
-
-              <div className="p-3 md:p-4 bg-gray-950 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <RotateCcw className="h-4 w-4 md:h-5 md:w-5 text-red-500" />
-                  <span className="text-xs md:text-sm">Rejected Requests</span>
-                </div>
-                <p className="text-lg md:text-xl font-bold mt-2">{metrics?.bankChangeMetrics.rejectedBankChangeRequests}</p>
+          {/* Social Proof - Live Context */}
+          <Card className="bg-slate-900/50 border-slate-800 overflow-hidden relative">
+            <div className="absolute top-0 right-0 p-4">
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 animate-pulse">
+                <div className="h-1 w-1 rounded-full bg-rose-500" />
+                <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest">Direct Pulse</span>
               </div>
             </div>
+            <CardHeader className="p-5 border-b border-slate-800/50">
+              <div className="flex items-center gap-2">
+                <Video className="h-4 w-4 text-rose-500" />
+                <CardTitle className="text-sm font-black uppercase text-white tracking-widest">Active Streams</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-slate-800/50">
+                {metrics?.extra.topLiveStreams.map((stream: any) => (
+                  <div key={stream._id} className="p-4 flex items-center justify-between hover:bg-slate-800/20 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Avatar className="h-10 w-10 border border-slate-800">
+                          <AvatarImage src={stream.seller.storeAvatar?.url} className="object-cover" />
+                          <AvatarFallback>S</AvatarFallback>
+                        </Avatar>
+                        <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-slate-900" title="Online" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-white line-clamp-1">{stream.title}</p>
+                        <p className="text-[10px] text-slate-500 font-medium">{stream.seller.storeName}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800">
+                      <Users className="h-3 w-3 text-slate-500" />
+                      <span className="text-[10px] font-black text-white">{stream.viewers?.length || 0}</span>
+                    </div>
+                  </div>
+                ))}
+                {(!metrics?.extra.topLiveStreams || metrics.extra.topLiveStreams.length === 0) && (
+                  <div className="p-10 text-center">
+                    <Video className="h-8 w-8 text-slate-800 mx-auto mb-3 opacity-30" />
+                    <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">No Active Sessions</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
           </Card>
-
-          {/* Top Performers, Products, Buyers */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-            {/* Top Performing Sellers */}
-            <Card className="p-4 md:p-6 h-full flex flex-col justify-between">
-              <h3 className="text-lg font-semibold text-white mb-4">Top Performing Sellers</h3>
-              <div className="flex-1">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Seller</TableHead>
-                      <TableHead>Revenue</TableHead>
-                      <TableHead>Orders</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {metrics?.extra.topPerformers?.slice(0, 5)
-                      .map((seller) => (
-                        <TableRow key={seller._id._id}>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={seller._id.storeAvatar?.url} />
-                                <AvatarFallback>{seller._id.firstName.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                              <span className="text-xs">{seller._id.storeName || `${seller._id.firstName} ${seller._id.lastName}`}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-xs">{formatCurrency(seller.totalRevenue)}</TableCell>
-                          <TableCell className="text-xs">{seller.totalOrders}</TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </Card>
-
-            {/* Top Products */}
-            <Card className="p-4 md:p-6 h-full flex flex-col justify-between">
-              <h3 className="text-lg font-semibold text-white mb-4">Top Products</h3>
-              <div className="flex-1">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Units Sold</TableHead>
-                      <TableHead>Revenue</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {metrics?.extra.topProducts?.slice(0, 5)
-                      ?.filter(product => product && product._id && Array.isArray(product._id.images))
-                      .map((product) => (
-                        <TableRow key={product._id._id}>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-8 w-8 rounded-none">
-                                <AvatarImage src={product._id?.images?.[0]?.url || undefined} />
-                                <AvatarFallback>P</AvatarFallback>
-                              </Avatar>
-                              <span className="text-xs">{product._id?.name || "Unknown"}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-xs">{product.totalSold}</TableCell>
-                          <TableCell className="text-xs">{formatCurrency(product.totalRevenue)}</TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </Card>
-
-            {/* Top Buyers */}
-            <Card className="p-4 md:p-6 h-full flex flex-col justify-between">
-              <h3 className="text-lg font-semibold text-white mb-4">Top Buyers</h3>
-              <div className="flex-1">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Buyer</TableHead>
-                      <TableHead>Total Spent</TableHead>
-                      <TableHead>Orders</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {metrics?.extra?.topBuyers?.slice(0, 5).map((buyer) => (
-                      <TableRow key={buyer?._id?._id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={buyer?._id?.avatar?.url} />
-                              <AvatarFallback>{buyer?._id?.firstName?.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <span className="text-xs">{`${buyer?._id?.firstName} ${buyer?._id?.lastName}`}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs">{formatCurrency(buyer.totalSpent)}</TableCell>
-                        <TableCell className="text-xs">{buyer.orderCount}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </Card>
-          </div>
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -9,7 +9,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, Ban, Play, AlertCircle, Search, Filter, ChevronDown, Loader2 } from "lucide-react";
+import {
+  Eye, Ban, Play, AlertCircle, Search, Filter,
+  ChevronDown, Loader2, Video, Calendar, Users,
+  MessageSquare, Radio
+} from "lucide-react";
 import { api } from "@/api/axios";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -29,6 +33,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 interface Stream {
   id: string;
@@ -42,6 +48,7 @@ interface Stream {
     name: string;
     email: string;
     storeName: string;
+    storeAvatar?: string;
   };
   productsCount: number;
   viewersCount: number;
@@ -72,47 +79,37 @@ function Streams() {
     totalInteractions: 0
   });
   const [loading, setLoading] = useState(true);
-  
+
   // Pagination state
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
     total: 0
   });
-  
+
   // Filtering state
   const [statusFilter, setStatusFilter] = useState("all");
   const [sellerNameFilter, setSellerNameFilter] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState("desc");
-  
+
   const { toast } = useToast();
 
   // Fetch streams analytics
   const fetchStreamAnalytics = async () => {
     try {
       const response = await api.get("/api/admin/streams/analytics");
-      console.log("Analytics Response:", response.data);
-      
-      // Check if data exists and has the expected structure
       if (response.data && response.data.data) {
         setAnalytics({
-          totalStreams: response.data.data.totalStreams || 0,
-          activeStreams: response.data.data.activeStreams || 0,
-          totalViewers: response.data.data.totalViewers || 0,
-          totalInteractions: response.data.data.totalInteractions || 0
+          totalStreams: response.data.data.overview?.totalStreams || 0,
+          activeStreams: response.data.data.overview?.liveStreams || 0,
+          totalViewers: response.data.data.overview?.averageViewers || 0, // Using avg viewers as proxy if total not avail
+          totalInteractions: response.data.data.overview?.averageBids || 0
         });
-      } else {
-        console.error("Unexpected analytics API response structure:", response.data);
       }
     } catch (error) {
       console.error("Error fetching stream analytics:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch stream analytics",
-        variant: "destructive"
-      });
     }
   };
 
@@ -122,49 +119,41 @@ function Streams() {
     try {
       // Build query parameters based on filters
       let queryParams = `page=${pagination.page}&limit=${pagination.limit}`;
-      
+
       if (statusFilter && statusFilter !== "all") {
         queryParams += `&status=${statusFilter}`;
       }
-      
+
       if (sellerNameFilter) {
         queryParams += `&sellerName=${encodeURIComponent(sellerNameFilter)}`;
       }
-      
+
       // Format date range for API
       if (dateRange && dateRange.from && dateRange.to) {
         const fromDate = format(dateRange.from, "yyyy-MM-dd");
         const toDate = format(dateRange.to, "yyyy-MM-dd");
         queryParams += `&dateRange=${fromDate},${toDate}`;
       }
-      
+
       // Add sorting parameters
       if (sortBy) {
         queryParams += `&sortBy=${sortBy}`;
       }
-      
+
       if (sortOrder) {
         queryParams += `&sortOrder=${sortOrder}`;
       }
-      
+
       const response = await api.get(`/api/admin/streams?${queryParams}`);
-      console.log("API Response:", response.data);
-      
-      // Check if data exists and has the expected structure
+
       if (response.data && response.data.data && Array.isArray(response.data.data.streams)) {
         setStreams(response.data.data.streams);
         setPagination({
           ...pagination,
-          total: response.data.data.total || response.data.data.streams.length || 0
+          total: response.data.data.pagination.total || 0,
         });
       } else {
-        console.error("Unexpected API response structure:", response.data);
         setStreams([]);
-        toast({
-          title: "Error",
-          description: "Received unexpected data structure from API",
-          variant: "destructive"
-        });
       }
     } catch (error) {
       console.error("Error fetching streams:", error);
@@ -179,18 +168,14 @@ function Streams() {
     }
   };
 
-  // Fetch stream details (would be used when viewing a specific stream)
   const fetchStreamDetails = async (streamId: string) => {
     try {
-      const response = await api.get(`/api/admin/streams/${streamId}`);
+      await api.get(`/api/admin/streams/${streamId}`);
       toast({
         title: "Stream Details",
         description: "Stream details fetched successfully",
       });
-      // Here you could open a modal or navigate to a details page
-      console.log(response.data);
     } catch (error) {
-      console.error(`Error fetching stream details for ${streamId}:`, error);
       toast({
         title: "Error",
         description: "Failed to fetch stream details",
@@ -199,27 +184,19 @@ function Streams() {
     }
   };
 
-  // Effect to fetch data when component mounts or filters change
   useEffect(() => {
     fetchStreamAnalytics();
     fetchStreams();
   }, [pagination.page, pagination.limit, statusFilter, sortBy, sortOrder, dateRange]);
 
-  // Handle date range changes
   const handleDateRangeChange = (range: DateRange | undefined) => {
     setDateRange(range || { from: undefined, to: undefined });
-    // Reset to first page when filters change
-    setPagination({
-      ...pagination,
-      page: 1
-    });
+    setPagination({ ...pagination, page: 1 });
   };
 
-  // Format date for display
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
       month: "short",
       day: "numeric",
       hour: "2-digit",
@@ -227,286 +204,339 @@ function Streams() {
     });
   };
 
-  // Get status color class
-  const getStatusColor = (status: Stream['status']) => {
-    const colors = {
-      live: 'bg-green-100 text-green-800',
-      scheduled: 'bg-blue-100 text-blue-800',
-      ended: 'bg-gray-100 text-gray-800',
-      expired: 'bg-red-100 text-red-800'
-    };
-    return colors[status];
+  // Helper for status badges
+  const getStatusBadge = (status: Stream['status']) => {
+    switch (status) {
+      case 'live':
+        return <Badge className="bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/20"><Radio className="w-3 h-3 mr-1 animate-pulse" /> Live</Badge>;
+      case 'scheduled':
+        return <Badge className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-blue-500/20"><Calendar className="w-3 h-3 mr-1" /> Scheduled</Badge>;
+      case 'ended':
+        return <Badge variant="secondary" className="bg-gray-800 text-gray-400">Ended</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
   };
 
-  // Calculate total interactions for a stream
-  const getTotalInteractions = (stream: Stream) => {
-    return stream.bidCount;
-  };
+  // Live streams for the grid
+  const liveStreams = streams.filter(s => s.status === 'live');
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 pb-10">
+
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-white">Live Streams</h2>
-          <p className="text-muted-foreground">Monitor and manage platform streams</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
+            <Video className="h-8 w-8 text-orange-500" />
+            Streams Dashboard
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Real-time monitoring and management of platform streams.
+          </p>
         </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" size="sm" onClick={() => {
-            // Reset all filters
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => {
             setStatusFilter("all");
             setSellerNameFilter("");
             setDateRange(undefined);
             setSortBy("createdAt");
-            setSortOrder("desc");
             setPagination({ ...pagination, page: 1 });
           }}>
-            <Filter className="h-4 w-4 mr-2" />
+            <Filter className="w-4 h-4 mr-2" />
             Reset Filters
+          </Button>
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white">
+            Generate Report
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-4">
-        <Card className="p-6">
+      {/* Analytics Cards */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="p-6 bg-[#0a0a0a] border-[#2a2a2a] relative overflow-hidden group hover:border-orange-500/50 transition-colors">
+          <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Radio className="w-16 h-16 text-red-500" />
+          </div>
           <div className="flex flex-col">
-            <span className="text-muted-foreground text-sm">Active Streams</span>
-            <span className="text-2xl font-bold mt-2">
+            <span className="text-muted-foreground text-sm font-medium flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+              Live Now
+            </span>
+            <span className="text-3xl font-bold mt-2 text-white">
               {analytics.activeStreams}
             </span>
           </div>
         </Card>
-        <Card className="p-6">
+
+        <Card className="p-6 bg-[#0a0a0a] border-[#2a2a2a]">
           <div className="flex flex-col">
-            <span className="text-muted-foreground text-sm">Total Viewers</span>
-            <span className="text-2xl font-bold mt-2">
+            <span className="text-muted-foreground text-sm font-medium flex items-center gap-2">
+              <Video className="w-4 h-4 text-blue-500" />
+              Total Streams
+            </span>
+            <span className="text-3xl font-bold mt-2 text-white">
+              {analytics.totalStreams}
+            </span>
+          </div>
+        </Card>
+
+        <Card className="p-6 bg-[#0a0a0a] border-[#2a2a2a]">
+          <div className="flex flex-col">
+            <span className="text-muted-foreground text-sm font-medium flex items-center gap-2">
+              <Users className="w-4 h-4 text-green-500" />
+              Avg. Viewers
+            </span>
+            <span className="text-3xl font-bold mt-2 text-white">
               {analytics.totalViewers}
             </span>
           </div>
         </Card>
-        <Card className="p-6">
+
+        <Card className="p-6 bg-[#0a0a0a] border-[#2a2a2a]">
           <div className="flex flex-col">
-            <span className="text-muted-foreground text-sm">Total Interactions</span>
-            <span className="text-2xl font-bold mt-2">
+            <span className="text-muted-foreground text-sm font-medium flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-purple-500" />
+              Avg. Interactions
+            </span>
+            <span className="text-3xl font-bold mt-2 text-white">
               {analytics.totalInteractions}
             </span>
           </div>
         </Card>
-        <Card className="p-6">
-          <div className="flex flex-col">
-            <span className="text-muted-foreground text-sm">Total Streams</span>
-            <span className="text-2xl font-bold mt-2">{analytics.totalStreams}</span>
+      </div>
+
+      {/* Live Now Grid (Only if there are live streams) */}
+      {liveStreams.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+            <Radio className="w-5 h-5 text-red-500 animate-pulse" />
+            Live Now
+          </h2>
+          <div className="grid gap-6 md:grid-cols-3 lg:grid-cols-4">
+            {liveStreams.map(stream => (
+              <Card key={stream.id} className="overflow-hidden bg-[#0a0a0a] border-[#2a2a2a] group hover:border-orange-500/50 transition-all cursor-pointer">
+                <div className="aspect-video relative bg-gray-900">
+                  {stream.coverImageUrl ? (
+                    <img src={stream.coverImageUrl} alt={stream.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-700">
+                      <Video className="w-12 h-12" />
+                    </div>
+                  )}
+                  <div className="absolute top-2 left-2">
+                    <Badge className="bg-red-500 text-white border-none animate-pulse">LIVE</Badge>
+                  </div>
+                  <div className="absolute bottom-2 right-2 bg-black/60 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
+                    <Eye className="w-3 h-3" /> {stream.viewersCount}
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-white truncate">{stream.title}</h3>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Avatar className="w-6 h-6 border border-gray-700">
+                      <AvatarImage src={stream.seller.storeAvatar} />
+                      <AvatarFallback>{stream.seller.storeName.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm text-gray-400 truncate">{stream.seller.storeName}</span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+                    <span>{stream.category}</span>
+                    <span>{stream.productsCount} Products</span>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Filters & Table Section */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold text-white">All Streams</h2>
+
+        {/* Filter Bar */}
+        <Card className="p-4 bg-[#0a0a0a] border-[#2a2a2a]">
+          <div className="grid gap-4 md:grid-cols-6">
+            <div className="md:col-span-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                <Input
+                  placeholder="Search seller..."
+                  className="pl-9 bg-[#111] border-[#333]"
+                  value={sellerNameFilter}
+                  onChange={(e) => setSellerNameFilter(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="bg-[#111] border-[#333]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="live">Live</SelectItem>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="ended">Ended</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2">
+              <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
+            </div>
+            <div className="flex items-center justify-end">
+              <span className="text-sm text-gray-500">
+                {pagination.total} results
+              </span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Table */}
+        <Card className="bg-[#0a0a0a] border-[#2a2a2a] overflow-hidden">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader2 className="h-10 w-10 animate-spin text-orange-500 mb-4" />
+              <p className="text-muted-foreground">Loading streams...</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader className="bg-[#111]">
+                <TableRow className="border-b border-[#2a2a2a] hover:bg-[#111]">
+                  <TableHead className="text-gray-400">Stream Info</TableHead>
+                  <TableHead className="text-gray-400">Seller</TableHead>
+                  <TableHead className="text-gray-400">Status</TableHead>
+                  <TableHead className="text-gray-400">Stats</TableHead>
+                  <TableHead className="text-gray-400">Time</TableHead>
+                  <TableHead className="text-right text-gray-400">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {streams.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                      No streams found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  streams.map((stream) => (
+                    <TableRow key={stream.id} className="border-b border-[#2a2a2a] hover:bg-[#111]/50">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-16 h-10 bg-gray-800 rounded-md overflow-hidden relative shrink-0">
+                            {stream.coverImageUrl ? (
+                              <img src={stream.coverImageUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-600">
+                                <Video className="w-4 h-4" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-white line-clamp-1 max-w-[180px]" title={stream.title}>
+                              {stream.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground capitalize">
+                              {stream.type.replace('_', ' ')} • {stream.category}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="w-8 h-8 border border-gray-700">
+                            <AvatarImage src={stream.seller.storeAvatar} />
+                            <AvatarFallback>{stream.seller.storeName.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-200">{stream.seller.storeName}</span>
+                            <span className="text-xs text-gray-500">{stream.seller.email}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge(stream.status)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1 text-sm text-gray-300">
+                          <span className="flex items-center gap-1.5"><Eye className="w-3 h-3 text-gray-500" /> {stream.viewersCount}</span>
+                          <span className="flex items-center gap-1.5"><Users className="w-3 h-3 text-gray-500" /> {stream.bidCount} Bids</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm text-gray-300">
+                          {stream.status === 'scheduled' ? (
+                            <span className="text-blue-400">{formatDate(stream.scheduledStartTime)}</span>
+                          ) : (
+                            <span>Started: {formatDate(stream.actualStartTime)}</span>
+                          )}
+                        </div>
+                        {stream.duration && (
+                          <span className="text-xs text-gray-500 block mt-0.5">Duration: {stream.duration}m</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-[#222]" onClick={() => fetchStreamDetails(stream.id)}>
+                            <Eye className="w-4 h-4 text-gray-400" />
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-[#222]">
+                                <ChevronDown className="w-4 h-4 text-gray-400" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-[#111] border-[#333]">
+                              <DropdownMenuItem className="text-yellow-500 hover:text-yellow-400 hover:bg-[#222] cursor-pointer">
+                                <AlertCircle className="w-4 h-4 mr-2" /> Issue Warning
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-500 hover:text-red-400 hover:bg-[#222] cursor-pointer">
+                                <Ban className="w-4 h-4 mr-2" /> Suspend Stream
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+
+          {/* Pagination */}
+          <div className="p-4 border-t border-[#2a2a2a] flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              Page {pagination.page}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
+                disabled={pagination.page === 1}
+                className="bg-transparent border-[#333] hover:bg-[#111]"
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
+                disabled={streams.length < pagination.limit}
+                className="bg-transparent border-[#333] hover:bg-[#111]"
+              >
+                Next
+              </Button>
+            </div>
           </div>
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card className="p-6">
-        <div className="grid gap-4 md:grid-cols-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Stream Status</label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="live">Live</SelectItem>
-                <SelectItem value="scheduled">Scheduled</SelectItem>
-                <SelectItem value="ended">Ended</SelectItem>
-                <SelectItem value="expired">Expired</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-sm font-medium">Date Range</label>
-            <DateRangePicker
-              value={dateRange}
-              onChange={handleDateRangeChange}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Sort By</label>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="createdAt">Created Date</SelectItem>
-                <SelectItem value="scheduledStartTime">Scheduled Time</SelectItem>
-                <SelectItem value="viewersCount">Viewers Count</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Sort Order</label>
-            <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sort order" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="asc">Ascending</SelectItem>
-                <SelectItem value="desc">Descending</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2 md:col-span-6">
-            <label className="text-sm font-medium">Seller Search</label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Search by seller name..."
-                value={sellerNameFilter}
-                onChange={(e) => setSellerNameFilter(e.target.value)}
-              />
-              <Button 
-                variant="secondary"
-                onClick={() => {
-                  setPagination({ ...pagination, page: 1 });
-                  fetchStreams();
-                }}
-              >
-                <Search className="h-4 w-4 mr-2" />
-                Search
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        {loading ? (
-          <div className="flex justify-center items-center py-10">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : streams && streams.length > 0 ? (
-          <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Seller</TableHead>
-                  <TableHead>Stream Title</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Viewers</TableHead>
-                  <TableHead>Products</TableHead>
-                  <TableHead>Started/Scheduled</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {streams.map((stream) => (
-                  <TableRow key={stream.id}>
-                    <TableCell className="font-medium">{stream.seller.storeName}</TableCell>
-                    <TableCell>{stream.title}</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        stream.type === 'auction' 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : 'bg-purple-100 text-purple-800'
-                      }`}>
-                        {stream.type === 'auction' ? 'Auction' : 'Open Show'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(stream.status)}`}>
-                        {stream.status.charAt(0).toUpperCase() + stream.status.slice(1)}
-                      </span>
-                    </TableCell>
-                    <TableCell>{stream.category || "Uncategorized"}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center">
-                        {stream.status === 'live' && <Play className="h-3 w-3 text-green-500 mr-2" />}
-                        {stream.viewersCount}
-                      </div>
-                    </TableCell>
-                    <TableCell>{stream.productsCount}</TableCell>
-                    <TableCell>{formatDate(stream.actualStartTime || stream.scheduledStartTime)}</TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => fetchStreamDetails(stream.id)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              <ChevronDown className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem 
-                              onClick={() => {
-                                toast({
-                                  title: "Warning Issued",
-                                  description: `Warning issued to ${stream.seller.storeName}`,
-                                })
-                              }}
-                              className="text-yellow-500"
-                            >
-                              <AlertCircle className="h-4 w-4 mr-2" />
-                              Issue Warning
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => {
-                                toast({
-                                  title: "Stream Suspended",
-                                  description: `${stream.seller.storeName}'s stream has been suspended`,
-                                })
-                              }}
-                              className="text-red-500"
-                            >
-                              <Ban className="h-4 w-4 mr-2" />
-                              Suspend Stream
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-
-            {/* Pagination */}
-            <div className="flex items-center justify-between mt-6">
-              <div className="text-sm text-muted-foreground">
-                Showing {((pagination.page - 1) * pagination.limit) + 1}-
-                {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} streams
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPagination({ ...pagination, page: pagination.page - 1 })}
-                  disabled={pagination.page === 1}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPagination({ ...pagination, page: pagination.page + 1 })}
-                  disabled={pagination.page * pagination.limit >= pagination.total}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="py-10 text-center">
-            <p className="text-muted-foreground">No streams found matching your filters.</p>
-          </div>
-        )}
-      </Card>
     </div>
   );
 }

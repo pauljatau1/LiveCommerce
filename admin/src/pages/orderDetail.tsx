@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useState, useMemo } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { api } from "@/api/axios"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -22,34 +22,35 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { 
-  Package, 
-  Truck, 
-  MapPin, 
-  Clock, 
-  AlertCircle, 
-  CreditCard, 
-  Store, 
-  FileText, 
-  Banknote, 
-  User, 
-  CheckCircle, 
-  XCircle, 
-  Trash2, 
-  Bell, 
-  Calendar,
+import {
+  Package,
+  Truck,
+  MapPin,
+  Clock,
+  Store,
+  XCircle,
+  Trash2,
+  Bell,
   ShoppingCart,
-  ReceiptText,
   RefreshCw,
-  Tag,
-  ArrowDownCircle,
-  Archive,
   Shield,
   ChevronRight,
-  CornerDownRight,
-  Mail,
   Phone,
-  Fingerprint,
+  Printer,
+  History,
+  Copy,
+  ExternalLink,
+  FileText,
+  Mail,
+  Calendar,
+  CreditCard,
+  Banknote,
+  Receipt,
+  Zap,
+  CheckCircle2,
+  AlertTriangle,
+  User,
+  Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -60,6 +61,23 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
+
+// Standardized status colors
+const getStatusColor = (status: string) => {
+  const s = status?.toLowerCase();
+  if (['delivered', 'paid', 'success', 'open', 'ready', 'confirmed'].includes(s))
+    return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+  if (['processing', 'shipped', 'picked-up', 'dispatched', 'in-transit', 'picked', 'in_transit'].includes(s))
+    return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+  if (['pending', 'awaiting'].includes(s))
+    return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+  if (['cancelled', 'failed', 'closed', 'unpaid', 'rejected'].includes(s))
+    return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+  return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+};
 
 interface OrderDetail {
   order: {
@@ -113,24 +131,11 @@ interface OrderDetail {
     email: string
     phoneNumber: string
     createdAt?: string
+    profileImage?: { url: string }[]
   }
   seller: {
-    sellerAddress?: {
-      country: string
-      state: string
-      city: string
-      addressLine1: string
-      addressLine2?: string
-      zipCode: string
-    }
-    businessAddress?: {
-      country: string
-      state: string
-      city: string
-      addressLine1: string
-      addressLine2?: string
-      zipCode: string
-    }
+    sellerAddress?: any
+    businessAddress?: any
     _id: string
     firstName: string
     lastName: string
@@ -153,13 +158,7 @@ interface OrderDetail {
       condition: string
     }
     productName: string
-    seller: {
-      _id: string
-      email: string
-      phoneNumber: string
-      businessName: string
-      storeName: string
-    }
+    seller: any
     quantity: number
     price: number
     status: string
@@ -167,6 +166,7 @@ interface OrderDetail {
       status: string
       timestamp: string
       _id: string
+      description?: string
     }>
     specifications: {
       color: string
@@ -175,40 +175,12 @@ interface OrderDetail {
     }
   }>
   addresses: {
-    delivery: {
-      first_name: string
-      last_name: string
-      email: string
-      phone: string
-      line1: string
-      city: string
-      state: string
-      country: string
-      zip: string
-      _id: string
-    }
-    pickup?: {
-      first_name: string
-      last_name: string
-      email: string
-      phone: string
-      line1: string
-      city: string
-      state: string
-      country: string
-      zip: string
-      _id: string
-    }
+    delivery: any
+    pickup?: any
   }
   shipping: {
-    carrier: {
-      name: string
-      reference: string
-    }
-    fee: {
-      amount: number
-      currency: string
-    }
+    carrier: { name: string, reference: string }
+    fee: { amount: number, currency: string }
     tracking: {
       number: string
       carrier: string
@@ -217,46 +189,60 @@ interface OrderDetail {
     }
     shipment_id: string
     documents: Record<string, any>
+    estimatedDeliveryDate?: string
+    estimatedPickupDate?: string
+    rate_id?: string
   }
   discount: Record<string, any>
   notes: Array<any>
-  timeline: Array<any>
+  timeline: Array<{
+    status: string
+    timestamp: string
+    description?: string
+  }>
 }
 
 function OrderDetail() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [orderData, setOrderData] = useState<OrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false)
   const [fezDialogOpen, setFezDialogOpen] = useState(false)
+  const [webhookDialogOpen, setWebhookDialogOpen] = useState(false)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [terminalDialogOpen, setTerminalDialogOpen] = useState(false)
+
+  // Action states
   const [reason, setReason] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
   const [fezOrderNo, setFezOrderNo] = useState("")
   const [isDeletingFezOrder, setIsDeletingFezOrder] = useState(false)
-  const [webhookDialogOpen, setWebhookDialogOpen] = useState(false)
   const [webhookFezOrderNo, setWebhookFezOrderNo] = useState("")
   const [webhookStatus, setWebhookStatus] = useState("")
   const [isSimulatingWebhook, setIsSimulatingWebhook] = useState(false)
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [cancelReason, setCancelReason] = useState("")
   const [isCancellingOrder, setIsCancellingOrder] = useState(false)
-  const [terminalDialogOpen, setTerminalDialogOpen] = useState(false)
   const [terminalShipmentId, setTerminalShipmentId] = useState("")
   const [terminalEvent, setTerminalEvent] = useState("")
   const [isSimulatingTerminalWebhook, setIsSimulatingTerminalWebhook] = useState(false)
 
-  useEffect(() => {
-    const fetchOrderDetails = async () => {
-      try {
-        const response = await api.get(`/api/order/${id}`)
-        setOrderData(response.data)
-      } catch (error) {
-        console.error('Error fetching order details:', error)
-      } finally {
-        setLoading(false)
-      }
+  const fetchOrderDetails = async () => {
+    try {
+      setLoading(true)
+      const response = await api.get(`/api/order/${id}`)
+      setOrderData(response.data)
+    } catch (error) {
+      console.error('Error fetching order details:', error)
+      toast.error("Failed to load order details")
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     fetchOrderDetails()
   }, [id])
 
@@ -267,1884 +253,801 @@ function OrderDetail() {
         isOpen: newStatus,
         reason: reason
       })
-      
-      // Refresh order data
-      const response = await api.get(`/api/order/${id}`)
-      setOrderData(response.data)
+      toast.success(`Order ${newStatus ? 'reopened' : 'closed'} successfully`)
+      fetchOrderDetails()
       setDialogOpen(false)
       setReason("")
     } catch (error) {
       console.error('Error updating order status:', error)
+      toast.error("Failed to update status")
     } finally {
       setIsUpdating(false)
     }
   }
 
   const handleDeleteFezOrder = async () => {
-    if (!fezOrderNo.trim()) {
-      toast.error("Please enter a valid Fez order number");
-      return;
-    }
-
+    if (!fezOrderNo.trim()) return toast.error("Enter Fez order number")
     try {
-      setIsDeletingFezOrder(true);
-      const response = await api.delete(`/api/admin/fez-orders/${fezOrderNo.trim()}`);
-      
-      toast.success(response.data.message || "Fez order cancelled successfully");
-      setFezDialogOpen(false);
-      setFezOrderNo("");
-      
-      // Refresh order data if needed
-      const updatedOrder = await api.get(`/api/order/${id}`);
-      setOrderData(updatedOrder.data);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to cancel Fez order");
+      setIsDeletingFezOrder(true)
+      await api.delete(`/api/admin/fez-orders/${fezOrderNo.trim()}`)
+      toast.success("Fez order deleted")
+      fetchOrderDetails()
+      setFezDialogOpen(false)
+      setFezOrderNo("")
+    } catch (error) {
+      toast.error("Failed to delete Fez order")
     } finally {
-      setIsDeletingFezOrder(false);
+      setIsDeletingFezOrder(false)
     }
-  };
+  }
 
   const handleSimulateWebhook = async () => {
-    if (!webhookFezOrderNo.trim()) {
-      toast.error("Please enter a valid Fez order number");
-      return;
-    }
-    
-    if (!webhookStatus) {
-      toast.error("Please select a status");
-      return;
-    }
-    
+    if (!webhookFezOrderNo.trim() || !webhookStatus) return toast.error("Missing fields")
     try {
-      setIsSimulatingWebhook(true);
-      const response = await api.post('/api/notifications/simulate-fez-webhook', {
+      setIsSimulatingWebhook(true)
+      await api.post('/api/notifications/simulate-fez-webhook', {
         orderNumber: webhookFezOrderNo.trim(),
         status: webhookStatus
-      });
-      
-      toast.success(response.data.message || "Webhook simulated successfully");
-      setWebhookDialogOpen(false);
-      setWebhookFezOrderNo("");
-      setWebhookStatus("");
-      
-      // Refresh order data
-      const updatedOrder = await api.get(`/api/order/${id}`);
-      setOrderData(updatedOrder.data);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to simulate webhook");
+      })
+      toast.success("Webhook simulated")
+      fetchOrderDetails()
+      setWebhookDialogOpen(false)
+    } catch (error) {
+      toast.error("Simulation failed")
     } finally {
-      setIsSimulatingWebhook(false);
+      setIsSimulatingWebhook(false)
     }
-  };
+  }
 
   const handleCancelOrder = async () => {
     try {
-      setIsCancellingOrder(true);
-      const response = await api.post(`/api/admin/orders/${id}/cancel`, {
+      setIsCancellingOrder(true)
+      await api.post(`/api/admin/orders/${id}/cancel`, {
         reason: cancelReason.trim() || undefined
-      });
-      
-      toast.success(response.data.message || "Order cancelled successfully");
-      
-      // Show additional info if wallet refund was processed
-      if (response.data.walletRefunded && response.data.walletRefundAmount) {
-        toast.success(`Wallet refund of ₦${response.data.walletRefundAmount.toLocaleString()} processed`);
-      }
-      
-      setCancelDialogOpen(false);
-      setCancelReason("");
-      
-      // Refresh order data
-      const updatedOrder = await api.get(`/api/order/${id}`);
-      setOrderData(updatedOrder.data);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to cancel order");
+      })
+      toast.success("Order cancelled")
+      fetchOrderDetails()
+      setCancelDialogOpen(false)
+    } catch (error) {
+      toast.error("Cancellation failed")
     } finally {
-      setIsCancellingOrder(false);
+      setIsCancellingOrder(false)
     }
-  };
-
-  const handleSimulateTerminalWebhook = async () => {
-    if (!terminalShipmentId.trim()) {
-      toast.error("Please enter a valid shipment ID");
-      return;
-    }
-    
-    if (!terminalEvent) {
-      toast.error("Please select an event type");
-      return;
-    }
-    
-    try {
-      setIsSimulatingTerminalWebhook(true);
-      
-      // Create the request body in the Terminal webhook format
-      const requestBody = {
-        event: terminalEvent,
-        data: {
-          _id: terminalShipmentId.trim(),
-          address_to: "AD-YJGJYNEBNZ86NQEK",
-          address_from: "AD-B6UUF2QV3N28NI1I",
-          address_return: "AD-B6UUF2QV3N28NI1I",
-          delivery_cancelled: null,
-          delivery_delivered: terminalEvent === "shipment.delivered" ? new Date().toISOString() : null,
-          delivery_dropped_off: null,
-          delivery_picked_up: terminalEvent === "shipment.in-transit" ? new Date().toISOString() : null,
-          metadata: {
-            delivery_type: "Urgent delivery from Auqli",
-            carrier: orderData?.shipping?.carrier?.reference || "CA-81957188177",
-            selected_rate: {
-              _id: "6888b4f2cd649ab945900be1",
-              amount: orderData?.shipping?.fee?.amount || 5908.4,
-              breakdown: {
-                shipment_cost: (orderData?.shipping?.fee?.amount || 5908.4) * 0.76,
-                shipment_cost_currency: "NGN",
-                address_validation_fee: 0,
-                label_generation_fee: 0,
-                surcharge_amount: 0,
-                vat: ((orderData?.shipping?.fee?.amount || 5908.4) * 0.76 * 0.07),
-                charge_amount: orderData?.shipping?.fee?.amount || 5908.4,
-                charge_amount_currency: "NGN",
-                insurance_fee: 0,
-                markup_fee: 1300,
-                custom_account_charge: 0,
-                emergency_fee: 0,
-                charge_amount_ngn: orderData?.shipping?.fee?.amount || 5908.4,
-                currency_surcharge: 0,
-                markup_vat: 97.5,
-                demand_surcharge: 0,
-                discrepancy_charge: 1200,
-                additional_charge: 0
-              },
-              cargo_type: "",
-              carrier_logo: "https://terminal-static-file.s3.us-east-1.amazonaws.com/images/DHL.svg",
-              carrier_name: orderData?.shipping?.carrier?.name || "DHL Express",
-              carrier_rate_description: "DOMESTIC",
-              carrier_reference: orderData?.shipping?.carrier?.reference || "CA-81957188177",
-              carrier_slug: "dhl-ng",
-              currency: "NGN",
-              domain: "",
-              default_amount: orderData?.shipping?.fee?.amount || 5908.4,
-              default_currency: "NGN",
-              delivery_address: {
-                user: "USER-KNPID5IKLZSD7UMV",
-                child_user: "",
-                alias: "",
-                city: orderData?.addresses?.delivery?.city || "Amuwo-Odofin",
-                coordinates: {
-                  lat: "",
-                  lng: ""
-                },
-                country: orderData?.addresses?.delivery?.country || "NG",
-                email: orderData?.addresses?.delivery?.email || "bolu4good@gmail.com",
-                first_name: orderData?.addresses?.delivery?.first_name || "BOLUWATIFE",
-                is_residential: true,
-                last_name: orderData?.addresses?.delivery?.last_name || "AJAYI",
-                line1: orderData?.addresses?.delivery?.line1 || "Block 16 Plot 22 Segun Ajayi Close Amuwo Odof",
-                line2: "",
-                phone: orderData?.addresses?.delivery?.phone || "+2349124634152",
-                alt_phone: "",
-                place_id: "",
-                sender_default: false,
-                child_default: false,
-                state: orderData?.addresses?.delivery?.state || "Lagos",
-                shop_ship: "",
-                type: "user_address",
-                zip: orderData?.addresses?.delivery?.zip || "102102",
-                is_deleted: false,
-                address_id: "AD-YJGJYNEBNZ86NQEK",
-                created_at: "2025-07-29T11:48:01.572Z",
-                updated_at: "2025-07-29T11:48:01.572Z",
-                __v: 0
-              },
-              delivery_date: "2025-08-03T11:48:02.112Z",
-              delivery_eta: 7200,
-              delivery_time: "Within 5 days",
-              dropoff_available: true,
-              dropoff_only: false,
-              dropoff_required: false,
-              wordpress_used: false,
-              insurance_coverage: 0,
-              includes_duties: false,
-              insurance_fee: 0,
-              includes_insurance: false,
-              metadata: {
-                localProductCode: "N",
-                productCode: "N",
-                default_parcel: {
-                  packaging_dimension: {
-                    length: 10,
-                    height: 10,
-                    width: 10
-                  },
-                  parcel_total_weight: 0.4,
-                  parcel_value: orderData?.order?.totalAmount || 60000,
-                  packages: [
-                    {
-                      weight: 0.5,
-                      dimensions: {
-                        length: 10,
-                        width: 10,
-                        height: 10
-                      }
-                    }
-                  ]
-                },
-                address_payload: {
-                  pickup_address: {
-                    city: orderData?.addresses?.pickup?.city || "Amuwo-Odofin",
-                    state: orderData?.addresses?.pickup?.state || "Lagos",
-                    country: orderData?.addresses?.pickup?.country || "NG",
-                    zip: orderData?.addresses?.pickup?.zip || "102102"
-                  },
-                  delivery_address: {
-                    city: orderData?.addresses?.delivery?.city || "Amuwo-Odofin",
-                    state: orderData?.addresses?.delivery?.state || "Lagos",
-                    country: orderData?.addresses?.delivery?.country || "NG",
-                    zip: orderData?.addresses?.delivery?.zip || "102102"
-                  }
-                },
-                is_manual: true,
-                shipment_cost: (orderData?.shipping?.fee?.amount || 5908.4) * 0.76,
-                markup_version: 15,
-                score: 10,
-                _id: null,
-                avgActualTurnaroundTime: 0,
-                avgActualPickupTime: 1,
-                avgRating: 0,
-                insurance_fee: 0,
-                insurance_currency: "NGN",
-                insurance_default_fee: 0,
-                insurance_default_currency: "NGN",
-                cod_processing_fee: 0,
-                recommended: true
-              },
-              parcel: {
-                _id: "6888b4f1cd649ab945900b9f",
-                description: `Order from ${orderData?.seller?.storeName || "Top G Stores"}`,
-                items: orderData?.items?.map(item => ({
-                  description: item.productName,
-                  name: item.productName,
-                  type: "parcel",
-                  currency: "NGN",
-                  value: item.price * item.quantity,
-                  quantity: item.quantity,
-                  weight: 0.4
-                })) || [{
-                  description: "iphone 11",
-                  name: "iphone 11",
-                  type: "parcel",
-                  currency: "NGN",
-                  value: orderData?.order?.totalAmount || 60000,
-                  quantity: 1,
-                  weight: 0.4
-                }],
-                proof_of_payments: [],
-                rec_docs: [],
-                packaging: {
-                  _id: "6849ef81c3d990ccfcf2d464",
-                  default: true,
-                  height: 10,
-                  length: 10,
-                  name: "Terminal Default Standard",
-                  size_unit: "cm",
-                  type: "box",
-                  user: "USER-KNPID5IKLZSD7UMV",
-                  child_user: "",
-                  weight: 0.1,
-                  weight_unit: "kg",
-                  width: 10,
-                  packaging_id: "PA-O1IPAYZKS7B0OQC8",
-                  created_at: "2025-06-11T21:05:05.291Z",
-                  updated_at: "2025-06-11T21:05:05.291Z",
-                  __v: 0
-                },
-                total_weight: 0.4,
-                user: "USER-KNPID5IKLZSD7UMV",
-                child_user: "",
-                weight_unit: "kg",
-                parcel_id: "PC-P21FZLFKXAA3PI2G",
-                created_at: "2025-07-29T11:48:01.572Z",
-                updated_at: "2025-07-29T11:48:01.572Z",
-                __v: 0,
-                contains_perishables: false,
-                total_value: orderData?.order?.totalAmount || 60000,
-                id: "6888b4f1cd649ab945900b9f"
-              },
-              parcels: [],
-              pickup_address: {
-                user: "USER-KNPID5IKLZSD7UMV",
-                child_user: "",
-                alias: "",
-                city: orderData?.addresses?.pickup?.city || "Amuwo-Odofin",
-                coordinates: {
-                  lat: "",
-                  lng: ""
-                },
-                country: orderData?.addresses?.pickup?.country || "NG",
-                email: orderData?.addresses?.pickup?.email || "bolu@auqli.com",
-                first_name: orderData?.addresses?.pickup?.first_name || "bolu",
-                is_residential: true,
-                last_name: orderData?.addresses?.pickup?.last_name || "ajayi",
-                line1: orderData?.addresses?.pickup?.line1 || "Block 16 plot 22 segun ajayi close amuwo odof",
-                line2: "Block 16 Plot 22 Segun Ajayi Close Amuwo Odof",
-                phone: orderData?.addresses?.pickup?.phone || "+2349124634152",
-                alt_phone: "",
-                place_id: "",
-                sender_default: false,
-                child_default: false,
-                state: orderData?.addresses?.pickup?.state || "Lagos",
-                shop_ship: "",
-                type: "user_address",
-                zip: orderData?.addresses?.pickup?.zip || "102102",
-                is_deleted: false,
-                address_id: "AD-B6UUF2QV3N28NI1I",
-                created_at: "2025-07-29T11:48:01.572Z",
-                updated_at: "2025-07-29T11:48:01.572Z",
-                __v: 0
-              },
-              pickup_date: "2025-07-31T11:48:02.112Z",
-              pickup_eta: 2880,
-              pickup_time: "Within 48 Hours",
-              rate_id: "RT-OKE04H8MLX1E9J5M",
-              source: "api",
-              type: "standard",
-              used: false,
-              user: {
-                _id: "6759f15487835dd14116a721",
-                account_active: true,
-                account_type: "platform",
-                admin: false,
-                barred_countries: [],
-                business_category: "",
-                business_operation: "",
-                business_type: "Physical Store",
-                carriers: {
-                  domestic: [
-                    "CA-42199963340",
-                    "CA-58583827047",
-                    "CA-81957188177",
-                    "CA-31377601348",
-                    "CA-71017347351",
-                    "CA-18228854618",
-                    "CA-85479996273",
-                    "CA-86012707216",
-                    "CA-39897596546",
-                    "CA-49411197653",
-                    "CA-19429970231",
-                    "CA-EPTEBPNPW7HWULW0",
-                    "CA-EMBFYYC4LO4IHFTW",
-                    "CA-TNVVUT1XVB1ULV5Q",
-                    "CA-76337527026"
-                  ],
-                  international: [
-                    "CA-42199963340",
-                    "CA-81957188177",
-                    "CA-31377601348",
-                    "CA-85479996273",
-                    "CA-39897596546",
-                    "CA-49411197653",
-                    "CA-19429970231",
-                    "CA-A0D845KA5GINP9QX"
-                  ],
-                  regional: [
-                    "CA-42199963340",
-                    "CA-58583827047",
-                    "CA-81957188177",
-                    "CA-31377601348",
-                    "CA-71017347351",
-                    "CA-18228854618",
-                    "CA-85479996273",
-                    "CA-86012707216",
-                    "CA-39897596546",
-                    "CA-49411197653",
-                    "CA-19429970231",
-                    "CA-EPTEBPNPW7HWULW0",
-                    "CA-EMBFYYC4LO4IHFTW",
-                    "CA-TNVVUT1XVB1ULV5Q",
-                    "CA-76337527026"
-                  ]
-                },
-                company_logo: "",
-                company_name: orderData?.seller?.businessName || "BOLUWATIFE AJAYI",
-                country: "NG",
-                country_state: "",
-                device_tokens: [],
-                email: orderData?.seller?.email || "bolu@auqli.com",
-                enforce_verification: false,
-                first_name: orderData?.seller?.firstName || "BOLUWATIFE",
-                last_name: orderData?.seller?.lastName || "AJAYI",
-                metadata: {
-                  storeId: "dbvGNNWAcxbz5PA8i9CDlnIC4I62",
-                  tracking_only: true
-                },
-                notifications_enabled: true,
-                payment_gateway_status: "inactive",
-                phone: orderData?.seller?.phoneNumber || "+2349124634152",
-                plan: "",
-                referralCode: "REF-A99A19A737A",
-                staff_number: 1,
-                shipment_limit: 5000,
-                pass_code: "",
-                parent_thub_user: "",
-                child_thub_email: "",
-                wallet: "6759f154fc9e596f51573ed8",
-                wallet_enabled: false,
-                user_id: "USER-KNPID5IKLZSD7UMV",
-                created_at: "2024-12-11T20:08:52.864Z",
-                updated_at: "2025-07-29T10:56:29.179Z",
-                __v: 0,
-                new_publication: true
-              },
-              __v: 0,
-              created_at: "2025-07-29T11:48:02.335Z",
-              updated_at: "2025-07-29T11:48:02.335Z"
-            },
-            dropoff: false
-          },
-          parcel: "PC-P21FZLFKXAA3PI2G",
-          parcels: [],
-          pickup_date: "2025-07-29T11:48:08.147Z",
-          cancellation_request: false,
-          cancellation_reason: "",
-          cancellation_requested_at: null,
-          cancellation_request_sent: false,
-          shipment_cost_currency: "NGN",
-          shipment_purpose: "commercial",
-          thub_shipment_status: "draft",
-          status: terminalEvent === "shipment.delivered" ? "delivered" : 
-                  terminalEvent === "shipment.in-transit" ? "in-transit" : 
-                  terminalEvent === "shipment.cancelled" ? "cancelled" : "confirmed",
-          type: "terminal",
-          source: "api",
-          created_source: "api",
-          consolidated_reference: "",
-          user: "USER-KNPID5IKLZSD7UMV",
-          child_user: "",
-          parent_shipment: "",
-          pickup_requested: false,
-          events: [
-            {
-              status: "confirmed",
-              created_at: "2025-07-29T11:48:08.147Z",
-              description: `Shipment arranged by ${orderData?.seller?.firstName || "BOLUWATIFE"} ${orderData?.seller?.lastName || "AJAYI"}`,
-              location: `${orderData?.addresses?.delivery?.city || "Amuwo-Odofin"}, ${orderData?.addresses?.delivery?.country || "NG"}`
-            },
-            ...(terminalEvent === "shipment.in-transit" ? [{
-              created_at: new Date().toISOString(),
-              description: "In transit",
-              location: `${orderData?.addresses?.delivery?.city || "Amuwo-Odofin"} ${orderData?.addresses?.delivery?.country || "NG"}`,
-              status: "PU"
-            }] : []),
-            ...(terminalEvent === "shipment.delivered" ? [{
-              created_at: new Date().toISOString(),
-              description: "Delivery Completed",
-              location: `${orderData?.addresses?.delivery?.city || "Amuwo-Odofin"} ${orderData?.addresses?.delivery?.country || "NG"}`,
-              status: "OK"
-            }] : [])
-          ],
-          shipment_id: terminalShipmentId.trim(),
-          created_at: "2025-07-29T11:48:01.627Z",
-          updated_at: new Date().toISOString(),
-          __v: 0,
-          carrier: orderData?.shipping?.carrier?.reference || "CA-81957188177",
-          delivery_arranged: "2025-07-29T11:48:08.147Z",
-          delivery_date: "2025-08-02T11:48:08.147Z",
-          extras: {
-            tracking_number: orderData?.shipping?.tracking?.number || "IEEXKMX1ON9QGK",
-            carrier_tracking_url: `https://testing.terminal.africa/track/${terminalShipmentId.trim()}`,
-            tracking_url: `https://testing.terminal.africa/track/${terminalShipmentId.trim()}`,
-            reference: terminalShipmentId.trim(),
-            shipping_label_url: `https://sandbox.terminal.africa/v1/shipments/label/${terminalShipmentId.trim()}.pdf`,
-            commercial_invoice_url: `https://sandbox.terminal.africa/v1/shipments/commercial-invoice/${terminalShipmentId.trim()}.pdf`
-          },
-          rate: "RT-OKE04H8MLX1E9J5M",
-          shipment_cost: orderData?.shipping?.fee?.amount || 5908.4,
-          transaction_reference: "TR-6EWUWSPISRAVC6Z4OSRGT02Z93PEGKQ",
-          id: terminalShipmentId.trim()
-        }
-      };
-
-      const response = await api.post('/api/notifications/simulate-terminal-webhook', requestBody, {
-        headers: {
-          'x-terminal-signature': '5d53f182d1ace32ea47ffac3c74e15f3a87fea90ef1c084afc12377ef801c81d6ccab8f9b40de5c2cd12868dfbe2b51f119f3fffc6522b0930d07a1e3edbf446'
-        }
-      });
-      
-      toast.success(response.data.message || "Terminal webhook simulated successfully");
-      setTerminalDialogOpen(false);
-      setTerminalShipmentId("");
-      setTerminalEvent("");
-      
-      // Refresh order data
-      const updatedOrder = await api.get(`/api/order/${id}`);
-      setOrderData(updatedOrder.data);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to simulate Terminal webhook");
-    } finally {
-      setIsSimulatingTerminalWebhook(false);
-    }
-  };
-
-  if (loading) return <div>Loading...</div>
-  if (!orderData) return <div>Order not found</div>
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString()
   }
 
+  const handleSimulateTerminalWebhook = async () => {
+    if (!terminalShipmentId.trim() || !terminalEvent) return toast.error("Missing fields")
+    try {
+      setIsSimulatingTerminalWebhook(true)
+      await api.post('/api/notifications/simulate-terminal-webhook', {
+        event: terminalEvent,
+        data: {
+          shipment_id: terminalShipmentId.trim(),
+          id: terminalShipmentId.trim(),
+          status: terminalEvent.split('.')[1]
+        }
+      }, {
+        headers: { 'x-terminal-signature': 'simulated' }
+      })
+      toast.success("Terminal webhook simulated")
+      fetchOrderDetails()
+      setTerminalDialogOpen(false)
+    } catch (error) {
+      toast.error("Simulation failed")
+    } finally {
+      setIsSimulatingTerminalWebhook(false)
+    }
+  }
+
+  // Combined and sorted timeline
+  const combinedTimeline = useMemo(() => {
+    if (!orderData) return [];
+    const { order, items, timeline } = orderData;
+    const events: any[] = [];
+
+    // 1. Initial creation
+    events.push({
+      status: 'Order Placed',
+      timestamp: order.createdAt,
+      description: `Order #${order.order_id} was successfully placed via ${order.channel}.`
+    });
+
+    // 2. Main order timeline
+    if (timeline) {
+      timeline.forEach(e => events.push(e));
+    }
+
+    // 3. Status history from items (if not already in timeline)
+    items?.forEach(item => {
+      item.statusHistory?.forEach(h => {
+        const isDuplicate = events.some(e =>
+          e.status.toLowerCase() === h.status.toLowerCase() &&
+          Math.abs(new Date(e.timestamp).getTime() - new Date(h.timestamp).getTime()) < 5000
+        );
+        if (!isDuplicate) {
+          events.push({
+            status: h.status,
+            timestamp: h.timestamp,
+            description: h.description || `Item "${item.productName || item.product?.name}" updated to ${h.status}`
+          });
+        }
+      });
+    });
+
+    // 4. Shipping tracking history
+    if (orderData.shipping?.tracking?.history) {
+      orderData.shipping.tracking.history.forEach(h => {
+        events.push({
+          status: h.status,
+          timestamp: h.timestamp,
+          description: h.description || `Logistics update: ${h.status}`
+        });
+      });
+    }
+
+    return events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [orderData]);
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+      <p className="text-slate-400 animate-pulse">Loading order details...</p>
+    </div>
+  )
+
+  if (!orderData) return (
+    <div className="p-12 text-center max-w-md mx-auto">
+      <div className="h-16 w-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-500">
+        <ShoppingCart className="h-8 w-8" />
+      </div>
+      <h2 className="text-2xl font-bold text-white">Order not found</h2>
+      <p className="text-slate-400 mt-2">The order record might have been deleted or is inaccessible.</p>
+      <Button onClick={() => navigate('/dashboard/orders')} variant="default" className="mt-6">
+        Return to Orders
+      </Button>
+    </div>
+  )
+
+  const { order, buyer, seller, items, addresses, shipping } = orderData
+
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <Card className="p-6 bg-gray-900 border-gray-800">
-        <div className="flex flex-col gap-4">
-          <div className="flex justify-between items-start">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-600/20 p-2 rounded-lg">
-                <ShoppingCart className="h-6 w-6 text-blue-500" />
-              </div>
-        <div>
-                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            Order #{orderData.order?.order_id}
-                  <Badge className="ml-2 bg-blue-600 text-white">
-                    {orderData.order?.channel?.toUpperCase()}
-                  </Badge>
-          </h1>
-                <div className="flex items-center gap-3 mt-1">
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span>Placed on {new Date(orderData.order?.createdAt || '').toLocaleDateString('en-US', { 
-                      year: 'numeric', 
-                      month: 'short', 
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}</span>
-          </div>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <ReceiptText className="h-3.5 w-3.5" />
-                    <span>₦{orderData.order?.totalAmount?.toLocaleString()}</span>
+    <div className="p-6 space-y-6 max-w-[1600px] mx-auto pb-20">
+      {/* Breadcrumbs & Navigation */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm">
+          <Link to="/dashboard/orders" className="text-slate-400 hover:text-white flex items-center gap-1 transition-colors">
+            <ChevronRight className="h-4 w-4 rotate-180" />
+            Back to Orders
+          </Link>
+          <span className="text-slate-700">|</span>
+          <span className="text-blue-400 font-mono tracking-tighter">#{order.order_id}</span>
         </div>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 items-end">
-              <div className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1.5 ${
-                orderData.order?.orderStatus?.isOpen 
-                  ? "bg-green-600/20 text-green-500" 
-                  : "bg-yellow-600/20 text-yellow-500"
-              }`}>
-                {orderData.order?.orderStatus?.isOpen 
-                  ? <CheckCircle className="h-4 w-4" /> 
-                  : <Clock className="h-4 w-4" />}
-                {orderData.order?.orderStatus?.isOpen ? "Open" : "Closed"}
-              </div>
-              <div className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1.5 ${
-                orderData.order?.paid 
-                  ? "bg-green-600/20 text-green-500" 
-                  : "bg-red-600/20 text-red-500"
-              }`}>
-                {orderData.order?.paid 
-                  ? <CreditCard className="h-4 w-4" /> 
-                  : <AlertCircle className="h-4 w-4" />}
-                {orderData.order?.paid ? "Paid" : "Unpaid"}
-              </div>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2 border-t border-gray-800 pt-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">Payment Method</span>
-              <span className="text-white capitalize flex items-center gap-1">
-                <CreditCard className="h-3.5 w-3.5 text-blue-400" />
-                {orderData.order?.paymentInfo?.method || 'N/A'}
-            </span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">Order ID</span>
-              <span className="text-white">{orderData?.order?._id || 'N/A'}</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">Store Pickup</span>
-              <span className="text-white flex items-center gap-1">
-                {orderData.order?.isStorePickup === true 
-                  ? <Store className="h-3.5 w-3.5 text-purple-400" /> 
-                  : <Truck className="h-3.5 w-3.5 text-yellow-400" />}
-                {orderData.order?.isStorePickup === true ? "Yes" : "No"}
-              </span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">Tracking Number</span>
-              <span className="text-white">{orderData.shipping?.tracking?.number || 'N/A'}</span>
-            </div>
-          </div>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" className="h-8 border-slate-800 bg-slate-900 text-white hover:bg-slate-800" onClick={() => window.print()}>
+            <Printer className="h-4 w-4 mr-2" />
+            Invoice
+          </Button>
+        </div>
+      </div>
 
-          <div className="flex justify-between items-center mt-2 border-t border-gray-800 pt-4">
-            <div className="flex items-center gap-2">
-          <Dialog open={webhookDialogOpen} onOpenChange={setWebhookDialogOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                variant="outline"
-                    className="text-white"
-                title="Simulate Fez Webhook"
-              >
-                <Bell className="h-4 w-4 mr-2" />
-                Simulate Fez Webhook
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white">
-              <DialogHeader>
-                <DialogTitle>Simulate Fez Webhook</DialogTitle>
-                <DialogDescription className="text-muted-foreground">
-                  Simulate a webhook event from Fez Delivery to update order status.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <label className="text-sm text-white">Fez Order Number</label>
-                  <Input
-                    placeholder="Enter Fez Order Number"
-                    value={webhookFezOrderNo}
-                    onChange={(e) => setWebhookFezOrderNo(e.target.value)}
-                    className="bg-gray-800 border-gray-700 text-white"
-                  />
+      {/* Top Hero Section */}
+      <Card className="bg-slate-900/50 border-slate-800 overflow-hidden relative">
+        <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
+        <CardContent className="p-0">
+          <div className="p-6 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
+            <div className="flex gap-5 items-center">
+              <div className="h-14 w-14 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner">
+                <ShoppingCart className="h-7 w-7" />
+              </div>
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold text-white tracking-tight">Order #{order.order_id}</h1>
+                  <Badge className={cn("border-0 uppercase font-bold text-[10px]", getStatusColor(order.orderStatus.isOpen ? 'open' : 'closed'))}>
+                    {order.orderStatus.isOpen ? 'Active' : 'Archived'}
+                  </Badge>
+                  {order.isStale && <Badge className="bg-slate-800 text-slate-500 border-0 text-[10px] uppercase font-bold">Stale</Badge>}
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-white">Status</label>
-                  <Select onValueChange={setWebhookStatus} value={webhookStatus}>
-                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 border-gray-700 text-white">
-                      <SelectItem value="Pending Pick-Up">Pending Pick-Up</SelectItem>
-                      <SelectItem value="Picked-Up">Picked-Up</SelectItem>
-                      <SelectItem value="Dispatched">Dispatched</SelectItem>
-                      <SelectItem value="Delivered">Delivered</SelectItem>
-                      <SelectItem value="Cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center gap-3 mt-1.5 text-sm">
+                  <span className="text-slate-400">Placed on <span className="text-slate-200">{format(new Date(order.createdAt), "PPP 'at' p")}</span></span>
+                  <span className="text-slate-700">•</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-400">Via</span>
+                    <Badge variant="secondary" className="bg-slate-800 text-blue-400 border-0 uppercase text-[9px] font-bold py-0 h-5">
+                      {order.channel}
+                    </Badge>
+                  </div>
                 </div>
               </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setWebhookDialogOpen(false)}
-                  className="bg-gray-800 text-white hover:bg-gray-700"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSimulateWebhook}
-                  disabled={!webhookFezOrderNo.trim() || !webhookStatus || isSimulatingWebhook}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {isSimulatingWebhook ? "Simulating..." : "Simulate Webhook"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            </div>
 
-          <Dialog open={terminalDialogOpen} onOpenChange={setTerminalDialogOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                variant="outline"
-                className="text-white"
-                title="Simulate Terminal Webhook"
-              >
-                <Bell className="h-4 w-4 mr-2" />
-                Simulate Terminal Webhook
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white">
-              <DialogHeader>
-                <DialogTitle>Simulate Terminal Webhook</DialogTitle>
-                <DialogDescription className="text-muted-foreground">
-                  Simulate a webhook event from Terminal Africa to update shipment status.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <label className="text-sm text-white">Terminal Shipment ID</label>
-                  <Input
-                    placeholder="Enter Shipment ID"
-                    value={terminalShipmentId}
-                    onChange={(e) => setTerminalShipmentId(e.target.value)}
-                    className="bg-gray-800 border-gray-700 text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-white">Event</label>
-                  <Select onValueChange={setTerminalEvent} value={terminalEvent}>
-                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
-                      <SelectValue placeholder="Select event" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 border-gray-700 text-white">
-                      <SelectItem value="packaging.created">Packaging Created</SelectItem>
-                      <SelectItem value="packaging.updated">Packaging Updated</SelectItem>
-                      <SelectItem value="shipment.cancelled">Shipment Cancelled</SelectItem>
-                      <SelectItem value="shipment.created">Shipment Created</SelectItem>
-                      <SelectItem value="shipment.in-transit">Shipment In-Transit</SelectItem>
-                      <SelectItem value="shipment.updated">Shipment Updated</SelectItem>
-                      <SelectItem value="shipment.delivered">Shipment Delivered</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setTerminalDialogOpen(false)}
-                  className="bg-gray-800 text-white hover:bg-gray-700"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSimulateTerminalWebhook}
-                  disabled={!terminalShipmentId.trim() || !terminalEvent || isSimulatingTerminalWebhook}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {isSimulatingTerminalWebhook ? "Simulating..." : "Simulate Webhook"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-              <Dialog open={fezDialogOpen} onOpenChange={setFezDialogOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                    variant="destructive"
-                    className="ml-2"
-                    title="Delete Fez Order"
-              >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Fez Order
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white">
-              <DialogHeader>
-                    <DialogTitle>Delete Fez Order</DialogTitle>
-                <DialogDescription className="text-muted-foreground">
-                      Enter the Fez order number to cancel the delivery order.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                    <Input
-                      placeholder="Enter Fez Order Number"
-                      value={fezOrderNo}
-                      onChange={(e) => setFezOrderNo(e.target.value)}
-                  className="bg-gray-800 border-gray-700 text-white"
-                />
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                      onClick={() => setFezDialogOpen(false)}
-                  className="bg-gray-800 text-white hover:bg-gray-700"
-                >
-                  Cancel
-                </Button>
-                <Button
-                      onClick={handleDeleteFezOrder}
-                      disabled={!fezOrderNo.trim() || isDeletingFezOrder}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
-                      {isDeletingFezOrder ? "Deleting..." : "Delete Fez Order"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
+            <div className="flex flex-wrap gap-3">
               <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button 
-                    variant="destructive"
-                    className="ml-2"
-                    title="Cancel Order"
-                  >
+                  <Button variant="outline" className="border-rose-500/20 text-rose-400 hover:bg-rose-500/10" disabled={!order.orderStatus.isOpen}>
                     <XCircle className="h-4 w-4 mr-2" />
                     Cancel Order
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white">
-                  <DialogHeader>
-                    <DialogTitle>Cancel Order</DialogTitle>
-                    <DialogDescription className="text-muted-foreground">
-                      Cancel this order and process any necessary refunds. This action cannot be undone.
+                <DialogContent className="bg-slate-900 border-slate-800 text-white">
+                  <DialogHeader className="space-y-3 font-bold">
+                    <DialogTitle className="text-xl">Process Cancellation</DialogTitle>
+                    <DialogDescription className="text-slate-400">
+                      Cancelling this order is permanent. This will trigger the refund process if the customer has already paid.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="space-y-2">
-                      <label className="text-sm text-white">Cancellation Reason (Optional)</label>
-                      <Textarea
-                        placeholder="Enter reason for cancellation..."
-                        value={cancelReason}
-                        onChange={(e) => setCancelReason(e.target.value)}
-                        className="bg-gray-800 border-gray-700 text-white"
-                        rows={3}
-                      />
-                    </div>
+                  <div className="py-4">
+                    <Textarea
+                      placeholder="Enter reason for cancellation (sent to customer)..."
+                      className="bg-slate-950 border-slate-800 text-white min-h-[120px]"
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                    />
                   </div>
                   <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setCancelDialogOpen(false)}
-                      className="bg-gray-800 text-white hover:bg-gray-700"
-                    >
-                      Cancel
+                    <Button variant="ghost" onClick={() => setCancelDialogOpen(false)}>Dismiss</Button>
+                    <Button variant="destructive" onClick={handleCancelOrder} disabled={!cancelReason || isCancellingOrder}>
+                      {isCancellingOrder ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                      Process Cancellation
                     </Button>
-                    <Button
-                      onClick={handleCancelOrder}
-                      disabled={isCancellingOrder}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
-                      {isCancellingOrder ? "Cancelling..." : "Cancel Order"}
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="border-slate-800 bg-slate-900 text-white hover:bg-slate-800">
+                    <History className="h-4 w-4 mr-2" />
+                    {order.orderStatus.isOpen ? "Close Record" : "Restore Order"}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-slate-900 border-slate-800 text-white">
+                  <DialogHeader>
+                    <DialogTitle>{order.orderStatus.isOpen ? "Archives Order" : "Restore Active Status"}</DialogTitle>
+                    <DialogDescription className="text-slate-400">
+                      Archive orders to move them out of the active list once fulfilled or settled.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4">
+                    <Textarea
+                      placeholder="Add a note for this change..."
+                      className="bg-slate-950 border-slate-800 text-white"
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                    <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => handleStatusUpdate(!order.orderStatus.isOpen)} disabled={!reason || isUpdating}>
+                      {isUpdating ? "Processing..." : "Confirm Status Change"}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
             </div>
-          
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                  variant={orderData.order?.orderStatus?.isOpen ? "destructive" : "default"}
-              >
-                  {orderData.order?.orderStatus?.isOpen 
-                    ? <><XCircle className="h-4 w-4 mr-2" /> Close Order</> 
-                    : <><RefreshCw className="h-4 w-4 mr-2" /> Reopen Order</>}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white">
-              <DialogHeader>
-                  <DialogTitle>
-                    {orderData.order?.orderStatus?.isOpen ? "Close Order" : "Reopen Order"}
-                  </DialogTitle>
-                <DialogDescription className="text-muted-foreground">
-                    Please provide a reason for {orderData.order?.orderStatus?.isOpen ? "closing" : "reopening"} this order.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                  <Textarea
-                    placeholder="Enter reason here..."
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                  className="bg-gray-800 border-gray-700 text-white"
-                />
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                    onClick={() => setDialogOpen(false)}
-                  className="bg-gray-800 text-white hover:bg-gray-700"
-                >
-                  Cancel
-                </Button>
-                <Button
-                    onClick={() => handleStatusUpdate(!orderData.order?.orderStatus?.isOpen)}
-                    disabled={!reason || isUpdating}
-                    className={orderData.order?.orderStatus?.isOpen ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}
-                  >
-                    {isUpdating ? "Updating..." : orderData.order?.orderStatus?.isOpen ? "Close Order" : "Reopen Order"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-      </Card>
+          </div>
 
-      {/* Order Status Indicators */}
-      <Card className="p-6 bg-gray-900 border-gray-800">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="bg-indigo-600/20 p-2 rounded-lg">
-            <Clock className="h-5 w-5 text-indigo-500" />
-          </div>
-          <h2 className="text-lg font-semibold text-white">Order Status & Timeline</h2>
-          </div>
-        
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <div className="bg-gray-800 p-4 rounded-lg flex flex-col items-center gap-2">
-            <div className={`p-2 rounded-full ${orderData.order?.paid ? "bg-green-600/20" : "bg-gray-700/50"}`}>
-              <CreditCard className={`h-5 w-5 ${orderData.order?.paid ? "text-green-500" : "text-gray-500"}`} />
-          </div>
-            <span className="text-sm font-medium text-white">Payment</span>
-            <Badge className={orderData.order?.paid ? "bg-green-600/20 text-green-500 border-green-800" : "bg-gray-700 text-gray-400"}>
-              {orderData.order?.paid ? "Paid" : "Pending"}
-            </Badge>
-            {orderData.order?.paid && orderData.order?.paymentInfo?.paidAt && (
-              <span className="text-xs text-muted-foreground mt-1">
-                {new Date(orderData.order.paymentInfo.paidAt).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric'
-                })}
-              </span>
-            )}
-          </div>
-          
-          <div className="bg-gray-800 p-4 rounded-lg flex flex-col items-center gap-2">
-            <div className={`p-2 rounded-full ${orderData.shipping?.tracking?.status === "delivered" ? "bg-green-600/20" : "bg-blue-600/20"}`}>
-              <Truck className={`h-5 w-5 ${orderData.shipping?.tracking?.status === "delivered" ? "text-green-500" : "text-blue-500"}`} />
+          <div className="grid grid-cols-2 md:grid-cols-4 border-t border-slate-800/50 divide-x divide-slate-800/50">
+            <div className="p-5">
+              <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1.5 flex items-center gap-1.5">
+                <Banknote className="h-3 w-3" /> Total Value
+              </p>
+              <div className="text-xl font-bold text-white tracking-tight">₦{order.totalAmount.toLocaleString()}</div>
             </div>
-            <span className="text-sm font-medium text-white">Shipping</span>
-            <Badge className={
-              orderData.shipping?.tracking?.status === "delivered" 
-                ? "bg-green-600/20 text-green-500 border-green-800" 
-                : "bg-blue-600/20 text-blue-500 border-blue-800"
-            }>
-              {(orderData.shipping?.tracking?.status || "pending").toUpperCase()}
-            </Badge>
-            <span className="text-xs text-muted-foreground mt-1">
-              {orderData.shipping?.tracking?.number || 'Not shipped'}
-            </span>
-          </div>
-          
-          <div className="bg-gray-800 p-4 rounded-lg flex flex-col items-center gap-2">
-            <div className={`p-2 rounded-full ${orderData.order?.orderStatus?.hasReturn ? "bg-yellow-600/20" : "bg-gray-700/50"}`}>
-              <RefreshCw className={`h-5 w-5 ${orderData.order?.orderStatus?.hasReturn ? "text-yellow-500" : "text-gray-500"}`} />
-            </div>
-            <span className="text-sm font-medium text-white">Return</span>
-            <Badge className={orderData.order?.orderStatus?.hasReturn ? "bg-yellow-600/20 text-yellow-500 border-yellow-800" : "bg-gray-700 text-gray-400"}>
-              {orderData.order?.orderStatus?.hasReturn ? "Requested" : "None"}
-            </Badge>
-            {orderData.order?.orderStatus?.returnRequestId && (
-              <span className="text-xs text-muted-foreground mt-1 truncate w-full text-center" title={orderData.order.orderStatus.returnRequestId}>
-                ID: {orderData.order.orderStatus.returnRequestId.substring(0, 8)}...
-              </span>
-            )}
-          </div>
-          
-          <div className="bg-gray-800 p-4 rounded-lg flex flex-col items-center gap-2">
-            <div className={`p-2 rounded-full ${orderData.order?.orderStatus?.hasDispute ? "bg-red-600/20" : "bg-gray-700/50"}`}>
-              <AlertCircle className={`h-5 w-5 ${orderData.order?.orderStatus?.hasDispute ? "text-red-500" : "text-gray-500"}`} />
-            </div>
-            <span className="text-sm font-medium text-white">Dispute</span>
-            <Badge className={orderData.order?.orderStatus?.hasDispute ? "bg-red-600/20 text-red-500 border-red-800" : "bg-gray-700 text-gray-400"}>
-              {orderData.order?.orderStatus?.hasDispute ? "Active" : "None"}
-            </Badge>
-          </div>
-          
-          <div className="bg-gray-800 p-4 rounded-lg flex flex-col items-center gap-2">
-            <div className={`p-2 rounded-full ${orderData.order?.orderStatus?.hasRefund ? "bg-purple-600/20" : "bg-gray-700/50"}`}>
-              <ArrowDownCircle className={`h-5 w-5 ${orderData.order?.orderStatus?.hasRefund ? "text-purple-500" : "text-gray-500"}`} />
-            </div>
-            <span className="text-sm font-medium text-white">Refund</span>
-            <Badge className={orderData.order?.orderStatus?.hasRefund ? "bg-purple-600/20 text-purple-500 border-purple-800" : "bg-gray-700 text-gray-400"}>
-              {orderData.order?.orderStatus?.hasRefund ? "Processed" : "None"}
-            </Badge>
-          </div>
-        </div>
-        
-        {/* Order Timeline */}
-        <div className="mt-6 border-t border-gray-800 pt-4">
-                      <h3 className="text-md font-medium text-white mb-3 flex items-center gap-2">
-              <Clock className="h-4 w-4 text-blue-400" /> Order Timeline
-            </h3>
-          
-          {orderData && (
-            <div className="space-y-4">
-              {/* Default timeline entries if no custom ones */}
-              {(!orderData.timeline || orderData.timeline.length === 0) && (
-                <>
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1 flex flex-col items-center">
-                      <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                      <div className="h-12 w-0.5 bg-gray-700"></div>
-                    </div>
-                    <div className="bg-gray-800 p-3 rounded-md flex-grow">
-                      <p className="text-white font-medium">Order Placed</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(orderData.order?.createdAt || '')}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Order #{orderData.order?.order_id} was created
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* <div className="flex items-start gap-3">
-                    <div className="mt-1 flex flex-col items-center">
-                      <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                      <div className="h-12 w-0.5 bg-gray-700"></div>
-                    </div>
-                    <div className="bg-gray-800 p-3 rounded-md flex-grow">
-                      <p className="text-white font-medium">Payment Confirmed</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(orderData.order?.paymentInfo?.paidAt || '')}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Payment of ₦{orderData.order?.totalAmount?.toLocaleString()} received via {orderData.order?.paymentInfo?.method}
-                      </p>
-                    </div>
-                  </div> */}
-                  
-                  {orderData.items?.[0]?.statusHistory?.slice(0).reverse().map((status, index) => (
-                    <div key={index} className="flex items-start gap-3">
-                      <div className="mt-1 flex flex-col items-center">
-                        <div className="h-3 w-3 rounded-full bg-blue-500"></div>
-                        {index !== (orderData.items?.[0]?.statusHistory?.length || 0) - 1 && (
-                          <div className="h-12 w-0.5 bg-gray-700"></div>
-                        )}
-                      </div>
-                      <div className="bg-gray-800 p-3 rounded-md flex-grow">
-                        <p className="text-white font-medium capitalize">{status.status}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(status.timestamp)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Item status updated to {status.status}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-              
-              {/* Display custom timeline if available */}
-              {orderData.timeline && orderData.timeline.length > 0 && (
-                orderData.timeline.map((event, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className="mt-1 flex flex-col items-center">
-                      <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                      {index !== orderData.timeline.length - 1 && (
-                        <div className="h-12 w-0.5 bg-gray-700"></div>
-                      )}
-                    </div>
-                    <div className="bg-gray-800 p-3 rounded-md flex-grow">
-                      <p className="text-white font-medium capitalize">{event.status}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(event.timestamp)}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Customer Information */}
-        <Card className="bg-gray-900 border-gray-800 overflow-hidden">
-          <div className="p-6 border-b border-gray-800">
-            <div className="flex items-center gap-2">
-              <div className="bg-blue-600/20 p-2 rounded-lg">
-            <User className="h-5 w-5 text-blue-500" />
-              </div>
-            <h2 className="text-lg font-semibold text-white">Customer Information</h2>
-          </div>
-          </div>
-          
-          <div className="p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="bg-gray-800 h-12 w-12 rounded-full flex items-center justify-center">
-                <span className="text-white font-semibold text-lg">
-                  {orderData?.buyer?.firstName?.[0]}{orderData?.buyer?.lastName?.[0]}
-                </span>
-              </div>
-              <div>
-                <h3 className="text-white font-medium">
-                  {orderData?.buyer?.firstName} {orderData?.buyer?.lastName}
-                </h3>
-                <p className="text-sm text-muted-foreground">Customer since {new Date(orderData?.buyer?.createdAt || new Date()).getFullYear()}</p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 gap-4 mt-4">
-              <div className="bg-gray-800 p-3 rounded-lg flex items-center gap-3">
-                <Mail className="h-5 w-5 text-blue-400" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Email Address</p>
-                  <p className="text-sm text-white">{orderData?.buyer?.email}</p>
-                </div>
-              </div>
-              
-              <div className="bg-gray-800 p-3 rounded-lg flex items-center gap-3">
-                <Phone className="h-5 w-5 text-green-400" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Phone Number</p>
-                  <p className="text-sm text-white">{orderData?.buyer?.phoneNumber}</p>
-                </div>
-              </div>
-              
-              <div className="bg-gray-800 p-3 rounded-lg flex items-center gap-3">
-                <Fingerprint className="h-5 w-5 text-purple-400" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Customer ID</p>
-                  <p className="text-sm text-white truncate">{orderData?.buyer?._id}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Seller Information */}
-        <Card className="bg-gray-900 border-gray-800 overflow-hidden">
-          <div className="p-6 border-b border-gray-800">
-            <div className="flex items-center gap-2">
-              <div className="bg-purple-600/20 p-2 rounded-lg">
-            <Store className="h-5 w-5 text-purple-500" />
-              </div>
-            <h2 className="text-lg font-semibold text-white">Seller Information</h2>
-          </div>
-          </div>
-          
-          <div className="p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="bg-gray-800 h-12 w-12 rounded-full flex items-center justify-center">
-                <span className="text-white font-semibold text-lg">
-                  {orderData?.seller?.firstName?.[0]}{orderData?.seller?.lastName?.[0]}
-                </span>
-              </div>
-              <div>
-                <h3 className="text-white font-medium">
-                  {orderData?.seller?.firstName} {orderData?.seller?.lastName}
-                </h3>
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Store className="h-3.5 w-3.5" /> {orderData?.seller?.storeName}
-                </p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 gap-4 mt-4">
-              <div className="bg-gray-800 p-3 rounded-lg flex items-center gap-3">
-                <Mail className="h-5 w-5 text-blue-400" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Email Address</p>
-                  <p className="text-sm text-white">{orderData?.seller?.email}</p>
-                </div>
-              </div>
-              
-              <div className="bg-gray-800 p-3 rounded-lg flex items-center gap-3">
-                <Phone className="h-5 w-5 text-green-400" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Phone Number</p>
-                  <p className="text-sm text-white">{orderData?.seller?.phoneNumber}</p>
-                </div>
-              </div>
-              
-              {orderData?.seller?.sellerAddress && (
-                <div className="bg-gray-800 p-3 rounded-lg flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-red-400 mt-1" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Business Address</p>
-                    <p className="text-sm text-white">
-                      {orderData.seller.sellerAddress.addressLine1}
-                      {orderData.seller.sellerAddress.addressLine2 && `, ${orderData.seller.sellerAddress.addressLine2}`}
-                    </p>
-                    <p className="text-sm text-white">
-                      {orderData.seller.sellerAddress.city && typeof orderData.seller.sellerAddress.city === 'string' ? `${orderData.seller.sellerAddress.city}, ` : ''}
-                      {typeof orderData.seller.sellerAddress.state === 'string' ? orderData.seller.sellerAddress.state : ''}
-                      {typeof orderData.seller.sellerAddress.country === 'string' ? `, ${orderData.seller.sellerAddress.country}` : ''}
-                      {orderData.seller.sellerAddress.zipCode && typeof orderData.seller.sellerAddress.zipCode === 'string' ? ` ${orderData.seller.sellerAddress.zipCode}` : ''}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Delivery Address & Shipping Details */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Delivery Address */}
-        <Card className="bg-gray-900 border-gray-800 overflow-hidden">
-          <div className="p-6 border-b border-gray-800">
-            <div className="flex items-center gap-2">
-              <div className="bg-red-600/20 p-2 rounded-lg">
-                <MapPin className="h-5 w-5 text-red-500" />
-              </div>
-              <h2 className="text-lg font-semibold text-white">
-                {orderData?.order?.isStorePickup ? "Store Pickup Information" : "Delivery & Pickup Information"}
-              </h2>
-            </div>
-          </div>
-          
-          <div className="p-6 space-y-4">
-            {!orderData?.order?.isStorePickup && (
-              <>
-                {/* Delivery Address */}
-                <div className="bg-gray-800 p-4 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-white font-medium flex items-center gap-2">
-                      <User className="h-4 w-4 text-blue-400" /> Recipient Details
-                    </h3>
-                    <Badge className="bg-blue-600/20 text-blue-400 border-blue-800">
-                      Delivery Address
-                    </Badge>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Name</span>
-                      <span className="text-sm text-white">
-                        {orderData?.addresses?.delivery?.first_name} {orderData?.addresses?.delivery?.last_name}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Email</span>
-                      <span className="text-sm text-white">{orderData?.addresses?.delivery?.email}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Phone</span>
-                      <span className="text-sm text-white">{orderData?.addresses?.delivery?.phone}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-gray-800 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-3">
-                    <MapPin className="h-4 w-4 text-red-400" />
-                    <h3 className="text-white font-medium">Delivery Address</h3>
-                  </div>
-                  
-                  <div className="mt-2 text-white border border-gray-700 rounded-md p-3 bg-gray-800/50">
-                    <p>{orderData?.addresses?.delivery?.line1}</p>
-                    {orderData?.addresses?.delivery?.city && <p>{orderData?.addresses?.delivery?.city}</p>}
-                    <p>
-                      {typeof orderData?.addresses?.delivery?.state === 'string' ? orderData?.addresses?.delivery?.state : ''}
-                      {orderData?.addresses?.delivery?.country && typeof orderData?.addresses?.delivery?.country === 'string' ? `, ${orderData?.addresses?.delivery?.country}` : ''}
-                      {orderData?.addresses?.delivery?.zip && typeof orderData?.addresses?.delivery?.zip === 'string' ? ` ${orderData?.addresses?.delivery?.zip}` : ''}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Pickup Address */}
-                {orderData?.addresses?.pickup && (
-                  <>
-                    <div className="border-t border-gray-700 my-4"></div>
-                    
-                    <div className="bg-gray-800 p-4 rounded-lg">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-white font-medium flex items-center gap-2">
-                          <Store className="h-4 w-4 text-purple-400" /> Seller Details
-                        </h3>
-                        <Badge className="bg-purple-600/20 text-purple-400 border-purple-800">
-                          Pickup Address
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Name</span>
-                          <span className="text-sm text-white">
-                            {orderData?.addresses?.pickup?.first_name} {orderData?.addresses?.pickup?.last_name}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Email</span>
-                          <span className="text-sm text-white">{orderData?.addresses?.pickup?.email}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Phone</span>
-                          <span className="text-sm text-white">{orderData?.addresses?.pickup?.phone}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-gray-800 p-4 rounded-lg">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Store className="h-4 w-4 text-purple-400" />
-                        <h3 className="text-white font-medium">Pickup Address</h3>
-                      </div>
-                      
-                      <div className="mt-2 text-white border border-gray-700 rounded-md p-3 bg-gray-800/50">
-                        <p>{orderData?.addresses?.pickup?.line1}</p>
-                        {orderData?.addresses?.pickup?.city && <p>{orderData?.addresses?.pickup?.city}</p>}
-                        <p>
-                          {typeof orderData?.addresses?.pickup?.state === 'string' ? orderData?.addresses?.pickup?.state : ''}
-                          {orderData?.addresses?.pickup?.country && typeof orderData?.addresses?.pickup?.country === 'string' ? `, ${orderData?.addresses?.pickup?.country}` : ''}
-                          {orderData?.addresses?.pickup?.zip && typeof orderData?.addresses?.pickup?.zip === 'string' ? ` ${orderData?.addresses?.pickup?.zip}` : ''}
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-            
-            {orderData?.order?.isStorePickup && (
-              <>
-                <div className="bg-gray-800 p-4 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-white font-medium flex items-center gap-2">
-                      <Store className="h-4 w-4 text-purple-400" /> Store Pickup
-                    </h3>
-                    <Badge className={`${
-                      (typeof orderData?.order?.storePickupStatus === 'object' && orderData?.order?.storePickupStatus?.state === 'ready') || 
-                      orderData?.order?.storePickupStatus === 'ready'
-                        ? 'bg-green-600/20 text-green-500 border-green-800'
-                        : (typeof orderData?.order?.storePickupStatus === 'object' && orderData?.order?.storePickupStatus?.state === 'picked') || 
-                          orderData?.order?.storePickupStatus === 'picked'
-                        ? 'bg-blue-600/20 text-blue-500 border-blue-800'
-                        : 'bg-yellow-600/20 text-yellow-500 border-yellow-800'
-                    }`}>
-                      {orderData?.order?.storePickupStatus
-                        ? (typeof orderData.order.storePickupStatus === 'string' 
-                            ? orderData.order.storePickupStatus.toUpperCase() 
-                            : typeof orderData.order.storePickupStatus === 'object' && orderData.order.storePickupStatus?.state
-                              ? orderData.order.storePickupStatus.state.toUpperCase()
-                              : 'PENDING')
-                        : 'PENDING'}
-                    </Badge>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Store Name</span>
-                      <span className="text-sm text-white">{orderData?.seller?.storeName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Business Name</span>
-                      <span className="text-sm text-white">{orderData?.seller?.businessName || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Contact</span>
-                      <span className="text-sm text-white">{orderData?.seller?.phoneNumber || 'N/A'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Store Address */}
-                {(orderData?.seller?.businessAddress || orderData?.seller?.sellerAddress) && (
-                  <div className="bg-gray-800 p-4 rounded-lg mt-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <MapPin className="h-4 w-4 text-purple-400" />
-                      <h3 className="text-white font-medium">Store Address</h3>
-                    </div>
-                    
-                    <div className="mt-2 text-white border border-gray-700 rounded-md p-3 bg-gray-800/50">
-                      {/* Use businessAddress if available, otherwise fall back to sellerAddress */}
-                      {orderData?.seller?.businessAddress ? (
-                        <>
-                          <p>{orderData.seller.businessAddress.addressLine1}</p>
-                          {orderData.seller.businessAddress.addressLine2 && <p>{orderData.seller.businessAddress.addressLine2}</p>}
-                          {orderData.seller.businessAddress.city && <p>{orderData.seller.businessAddress.city}</p>}
-                          <p>
-                            {typeof orderData.seller.businessAddress.state === 'string' ? orderData.seller.businessAddress.state : ''}
-                            {orderData.seller.businessAddress.country && typeof orderData.seller.businessAddress.country === 'string' ? `, ${orderData.seller.businessAddress.country}` : ''}
-                            {orderData.seller.businessAddress.zipCode && typeof orderData.seller.businessAddress.zipCode === 'string' ? ` ${orderData.seller.businessAddress.zipCode}` : ''}
-                          </p>
-                        </>
-                      ) : orderData?.seller?.sellerAddress && (
-                        <>
-                          <p>{orderData.seller.sellerAddress.addressLine1}</p>
-                          {orderData.seller.sellerAddress.addressLine2 && <p>{orderData.seller.sellerAddress.addressLine2}</p>}
-                          {orderData.seller.sellerAddress.city && <p>{orderData.seller.sellerAddress.city}</p>}
-                          <p>
-                            {typeof orderData.seller.sellerAddress.state === 'string' ? orderData.seller.sellerAddress.state : ''}
-                            {orderData.seller.sellerAddress.country && typeof orderData.seller.sellerAddress.country === 'string' ? `, ${orderData.seller.sellerAddress.country}` : ''}
-                            {orderData.seller.sellerAddress.zipCode && typeof orderData.seller.sellerAddress.zipCode === 'string' ? ` ${orderData.seller.sellerAddress.zipCode}` : ''}
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </Card>
-
-        {/* Shipping Information */}
-        <Card className="bg-gray-900 border-gray-800 overflow-hidden">
-          <div className="p-6 border-b border-gray-800">
-            <div className="flex items-center gap-2">
-              <div className="bg-yellow-600/20 p-2 rounded-lg">
-                <Truck className="h-5 w-5 text-yellow-500" />
-              </div>
-              <h2 className="text-lg font-semibold text-white">Shipping Details</h2>
-            </div>
-          </div>
-          
-          <div className="p-6 space-y-4">
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-white font-medium flex items-center gap-2">
-                  <Truck className="h-4 w-4 text-yellow-400" /> Carrier Information
-                </h3>
-                <Badge 
-                  className={`${
-                    orderData?.shipping?.tracking?.status === "delivered"
-                      ? "bg-green-600/20 text-green-500 border-green-800"
-                      : orderData?.shipping?.tracking?.status === "pending"
-                        ? "bg-yellow-600/20 text-yellow-500 border-yellow-800"
-                        : "bg-blue-600/20 text-blue-500 border-blue-800"
-                  }`}
-                >
-                  {orderData?.shipping?.tracking?.status?.toUpperCase() || "PENDING"}
+            <div className="p-5">
+              <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1.5 flex items-center gap-1.5">
+                <CreditCard className="h-3 w-3" /> Payment
+              </p>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={cn("border-0 font-bold uppercase text-[9px] h-5", getStatusColor(order.paid ? 'paid' : 'unpaid'))}>
+                  {order.paid ? 'Paid' : 'Unpaid'}
                 </Badge>
+                <span className="text-xs text-slate-400 capitalize">{order.paymentInfo.method}</span>
               </div>
-              
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gray-900/50 p-3 rounded-md">
-                    <p className="text-xs text-muted-foreground">Carrier</p>
-                    <p className="text-sm text-white font-medium">{orderData?.shipping?.carrier?.name || "N/A"}</p>
-                  </div>
-                  <div className="bg-gray-900/50 p-3 rounded-md">
-                    <p className="text-xs text-muted-foreground">Reference</p>
-                    <p className="text-sm text-white font-medium">{orderData?.shipping?.carrier?.reference || "N/A"}</p>
+            </div>
+            <div className="p-5">
+              <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1.5 flex items-center gap-1.5">
+                <Package className="h-3 w-3" /> Quantity
+              </p>
+              <div className="text-xl font-bold text-white tracking-tight">{items.reduce((sum, i) => sum + i.quantity, 0)} Items <span className="text-slate-500 font-normal text-sm">/ {items.length} SKU</span></div>
+            </div>
+            <div className="p-5">
+              <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1.5 flex items-center gap-1.5">
+                <Truck className="h-3 w-3" /> Logistics
+              </p>
+              <Badge variant="outline" className={cn("border-0 font-bold uppercase text-[10px] h-5", getStatusColor(shipping?.tracking?.status || 'pending'))}>
+                {shipping?.tracking?.status || 'awaiting fulfillment'}
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Column - 8/12 */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Order Items Table */}
+          <Card className="bg-slate-900/50 border-slate-800 overflow-hidden">
+            <CardHeader className="p-5 border-b border-slate-800 bg-slate-800/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Package className="h-5 w-5 text-blue-400" />
+                  <CardTitle className="text-lg font-bold text-white">Line Items</CardTitle>
+                </div>
+                <div className="text-xs text-slate-500 font-mono tracking-tighter uppercase">{items.length} Items Listed</div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-slate-950/30">
+                  <TableRow className="border-slate-800 hover:bg-transparent">
+                    <TableHead className="text-slate-500 uppercase text-[10px] font-bold tracking-wider py-4 pl-5">Product Details</TableHead>
+                    <TableHead className="text-slate-500 uppercase text-[10px] font-bold tracking-wider">SKU & Spec</TableHead>
+                    <TableHead className="text-slate-500 uppercase text-[10px] font-bold tracking-wider">Status</TableHead>
+                    <TableHead className="text-slate-500 uppercase text-[10px] font-bold tracking-wider text-right">Price</TableHead>
+                    <TableHead className="text-slate-500 uppercase text-[10px] font-bold tracking-wider text-right pr-5">Subtotal</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item, idx) => (
+                    <TableRow key={idx} className="border-slate-800 group hover:bg-slate-800/20 transition-colors">
+                      <TableCell className="py-4 pl-5">
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-12 w-12 rounded-xl border border-slate-800 shadow-sm bg-slate-950">
+                            <AvatarImage src={item.product?.images?.[0]?.url} alt={item.product?.name} className="object-cover" />
+                            <AvatarFallback className="bg-slate-800 text-slate-500"><Package className="h-5 w-5" /></AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-semibold text-white group-hover:text-blue-400 transition-colors line-clamp-1">{item.product?.name || item.productName}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-slate-500 uppercase tracking-widest">{item.product?.category}</span>
+                              <Badge className="bg-slate-800 text-slate-400 border-0 text-[8px] h-3 px-1">{item.product?.condition?.toUpperCase()}</Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <code className="text-[10px] text-slate-500 bg-slate-950 px-1 py-0.5 rounded w-fit">{item.product?.sku || 'NO-SKU'}</code>
+                          <div className="flex gap-1.5">
+                            {item.specifications?.color && <div className="h-3 w-3 rounded-full border border-slate-700 shadow-inner" style={{ background: item.specifications.color.toLowerCase() }} title={item.specifications.color} />}
+                            {item.specifications?.size && <span className="text-[10px] text-slate-400 font-bold px-1.5 bg-slate-800 rounded">{item.specifications.size}</span>}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn("border-0 text-[9px] uppercase font-bold", getStatusColor(item.status))}>
+                          {item.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="text-sm font-medium text-white">₦{item.price.toLocaleString()}</div>
+                        <div className="text-[10px] text-slate-600">Qty: {item.quantity}</div>
+                      </TableCell>
+                      <TableCell className="text-right pr-5">
+                        <div className="text-sm font-bold text-white">₦{(item.price * item.quantity).toLocaleString()}</div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Detailed Financial Summary */}
+          <Card className="bg-slate-900/50 border-slate-800 overflow-hidden">
+            <CardHeader className="p-5 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Receipt className="h-5 w-5 text-emerald-400" />
+                <CardTitle className="text-lg font-bold text-white">Financial Breakdown</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div className="space-y-4">
+                  <div className="space-y-2.5">
+                    <p className="text-[10px] uppercase font-bold text-slate-500 mb-3 tracking-widest">Revenue & Deductions</p>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-400">Order Subtotal</span>
+                      <span className="text-white font-medium">₦{order.paymentBreakdown?.orderTotal?.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-400">Shipping Fee (Collected)</span>
+                      <span className="text-white font-medium">₦{shipping?.fee?.amount?.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-400">Platform Fees</span>
+                        <Zap className="h-3 w-3 text-amber-500 fill-amber-500" />
+                      </div>
+                      <span className="text-rose-400 font-medium">- ₦{order.paymentBreakdown?.fees?.totalPlatformFee?.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-400">Processing Fee ({order.paymentBreakdown?.fees?.processingFeePercentage}%)</span>
+                      <span className="text-rose-400 font-medium">- ₦{order.paymentBreakdown?.fees?.processingFee?.toLocaleString()}</span>
+                    </div>
+                    <div className="pt-3 border-t border-slate-800 flex justify-between items-center">
+                      <span className="text-sm font-bold text-white">Total Customer Paid</span>
+                      <span className="text-xl font-bold text-blue-400">₦{order.totalAmount.toLocaleString()}</span>
+                    </div>
                   </div>
                 </div>
-                
-                <div className="bg-gray-900/50 p-3 rounded-md">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">Tracking Number</p>
-                    <Badge className="bg-blue-600/20 text-blue-400">
-                      {orderData?.shipping?.tracking?.carrier || "N/A"}
+
+                <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-5 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    <p className="text-[10px] uppercase font-bold text-emerald-500 tracking-widest flex items-center gap-2">
+                      <CheckCircle2 className="h-3 w-3" /> Net Seller Payout
+                    </p>
+                    <div>
+                      <div className="text-3xl font-bold text-emerald-400 mb-1 tracking-tight">₦{order.paymentBreakdown?.sellerPayout?.toLocaleString()}</div>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        This amount will be credited to the seller's wallet once the order is successfully settled and no disputes are pending.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-4 mt-4 border-t border-emerald-500/10 flex items-center justify-between text-xs">
+                    <span className="text-emerald-500/70">Payment Method</span>
+                    <Badge className="bg-emerald-500/20 text-emerald-500 border-0 uppercase text-[9px] font-bold h-5">
+                      {order.paymentInfo.method}
                     </Badge>
                   </div>
-                  <p className="text-sm text-white font-medium mt-1">{orderData?.shipping?.tracking?.number || "N/A"}</p>
-                </div>
-                
-                <div className="bg-gray-900/50 p-3 rounded-md">
-                  <p className="text-xs text-muted-foreground">Shipment ID</p>
-                  <p className="text-sm text-white font-medium">{orderData?.shipping?.shipment_id || "N/A"}</p>
                 </div>
               </div>
-            </div>
-            
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <div className="flex items-center gap-2 mb-3">
-                <Tag className="h-4 w-4 text-blue-400" />
-                <h3 className="text-white font-medium">Shipping Fee</h3>
+            </CardContent>
+          </Card>
+
+          {/* Timeline & Analysis */}
+          <Card className="bg-slate-900/50 border-slate-800">
+            <CardHeader className="p-5 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <History className="h-5 w-5 text-purple-400" />
+                <CardTitle className="text-lg font-bold text-white">Full Event Logs</CardTitle>
               </div>
-              
-              <div className="bg-gray-900/50 p-3 rounded-md flex justify-between items-center">
-                <span className="text-muted-foreground">Delivery Fee</span>
-                <span className="text-white font-medium">
-                  ₦{orderData?.shipping?.fee?.amount?.toLocaleString() || "0"}
-                </span>
-              </div>
-            </div>
-            
-            {orderData?.shipping?.tracking?.history && orderData?.shipping?.tracking?.history.length > 0 && (
-              <div className="bg-gray-800 p-4 rounded-lg">
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock className="h-4 w-4 text-indigo-400" />
-                  <h3 className="text-white font-medium">Tracking History</h3>
-                </div>
-                
-                <div className="space-y-3">
-                  {orderData.shipping.tracking.history.map((event, index) => (
-                    <div key={index} className="bg-gray-900/50 p-3 rounded-md">
-                      <p className="text-sm text-white">{event.status}</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(event.timestamp)}</p>
+            </CardHeader>
+            <CardContent className="p-6">
+              {combinedTimeline.length > 0 ? (
+                <div className="relative space-y-6 before:absolute before:inset-0 before:ml-5 before:h-full before:w-0.5 before:bg-slate-800">
+                  {combinedTimeline.map((event: any, idx: number) => (
+                    <div key={idx} className="relative flex items-start group">
+                      <div className="absolute left-4 mt-1.5 h-2.5 w-2.5 rounded-full bg-slate-900 border-2 border-slate-600 ring-2 ring-slate-900 group-first:bg-blue-500 group-first:border-blue-400 group-first:ring-blue-500/20 shadow-lg transition-all" />
+                      <div className="ml-10 space-y-1 bg-slate-800/20 p-3 rounded-lg border border-slate-800/50 w-full hover:bg-slate-800/40 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-bold uppercase text-white tracking-widest">{event.status}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">{format(new Date(event.timestamp || new Date()), "HH:mm")} • {format(new Date(event.timestamp || new Date()), "MMM dd")}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 leading-relaxed italic border-l-2 border-slate-800 pl-3">
+                          {event.description || `State changed to ${event.status}`}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Payment Information */}
-        <Card className="bg-gray-900 border-gray-800 overflow-hidden">
-          <div className="p-6 border-b border-gray-800">
-            <div className="flex items-center gap-2">
-              <div className="bg-green-600/20 p-2 rounded-lg">
-                <CreditCard className="h-5 w-5 text-green-500" />
-        </div>
-              <h2 className="text-lg font-semibold text-white">Payment Information</h2>
-            </div>
-          </div>
-          
-          <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <Badge className={`${
-                orderData?.order?.paid
-                  ? "bg-green-600/20 text-green-500 border-green-800"
-                  : "bg-red-600/20 text-red-500 border-red-800"
-              }`}>
-                {orderData?.order?.paid ? "PAID" : "UNPAID"}
-              </Badge>
-              <span className="text-2xl font-bold text-white">₦{orderData?.order?.totalAmount?.toLocaleString()}</span>
-            </div>
-            
-            <div className="grid grid-cols-1 gap-4 mt-2">
-              <div className="bg-gray-800 p-3 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <CreditCard className="h-4 w-4 text-blue-400" />
-                  <h3 className="text-sm font-medium text-white">Payment Method</h3>
-                </div>
-                <p className="text-sm text-muted-foreground capitalize pl-6">
-                  {orderData?.order?.paymentInfo?.method || "N/A"}
-                </p>
-              </div>
-              
-              <div className="bg-gray-800 p-3 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <Shield className="h-4 w-4 text-green-400" />
-                  <h3 className="text-sm font-medium text-white">Status</h3>
-                </div>
-                <p className="text-sm text-muted-foreground capitalize pl-6">
-                  {orderData?.order?.paymentInfo?.status || "N/A"}
-                </p>
-              </div>
-              
-              {orderData?.order?.paymentInfo?.transactionId && (
-                <div className="bg-gray-800 p-3 rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
-                    <FileText className="h-4 w-4 text-yellow-400" />
-                    <h3 className="text-sm font-medium text-white">Transaction ID</h3>
-                  </div>
-                  <p className="text-sm text-muted-foreground pl-6 break-all">
-                    {orderData.order.paymentInfo.transactionId}
-                  </p>
+              ) : (
+                <div className="text-center py-10">
+                  <Clock className="mx-auto h-10 w-10 mb-3 text-slate-700 opacity-30" />
+                  <p className="text-sm text-slate-500">No activity history available for this order.</p>
                 </div>
               )}
-              
-              <div className="bg-gray-800 p-3 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <Clock className="h-4 w-4 text-purple-400" />
-                  <h3 className="text-sm font-medium text-white">Payment Time</h3>
-                </div>
-                <p className="text-sm text-muted-foreground pl-6">
-                  {orderData?.order?.paymentInfo?.paidAt 
-                    ? formatDate(orderData.order.paymentInfo.paidAt) 
-                    : 'Not paid yet'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Order Summary */}
-        <Card className="bg-gray-900 border-gray-800 overflow-hidden">
-          <div className="p-6 border-b border-gray-800">
-            <div className="flex items-center gap-2">
-              <div className="bg-gray-600/20 p-2 rounded-lg">
-                <FileText className="h-5 w-5 text-gray-400" />
+        {/* Right Column - 4/12 */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Admin Tools - Quick Actions */}
+          <Card className="bg-blue-600/5 border border-blue-500/10 shadow-lg">
+            <CardHeader className="pb-3 pt-5 px-5">
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-blue-500" />
+                <CardTitle className="text-md font-bold text-white tracking-tight uppercase">Control Center</CardTitle>
               </div>
-              <h2 className="text-lg font-semibold text-white">Order Summary</h2>
-            </div>
-          </div>
-          
-          <div className="p-6 space-y-4">
-            <div className="bg-gray-800 rounded-lg overflow-hidden">
-              <div className="p-4 border-b border-gray-700">
-                <h3 className="text-white font-medium">Price Details</h3>
+            </CardHeader>
+            <CardContent className="p-4 space-y-2">
+              <Dialog open={webhookDialogOpen} onOpenChange={setWebhookDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full justify-between bg-slate-900 border-slate-800 text-white hover:bg-slate-800 group h-10">
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-amber-500 group-hover:animate-pulse" />
+                      <span className="text-[11px] font-bold uppercase tracking-wider">Fez Webhook Simulation</span>
+                    </div>
+                    <ChevronRight className="h-3 w-3 opacity-30" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-slate-900 border-slate-800 text-white">
+                  <DialogHeader><DialogTitle>Simulation Suite: Fez Logistics</DialogTitle></DialogHeader>
+                  <div className="space-y-5 py-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Tracking Reference</label>
+                      <Input placeholder="FEZ-..." value={webhookFezOrderNo} onChange={(e) => setWebhookFezOrderNo(e.target.value)} className="bg-slate-950 border-slate-800" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Injection Status</label>
+                      <Select value={webhookStatus} onValueChange={setWebhookStatus}>
+                        <SelectTrigger className="bg-slate-950 border-slate-800"><SelectValue placeholder="Select Status" /></SelectTrigger>
+                        <SelectContent className="bg-slate-950 border-slate-800 text-white">
+                          {["Pending Pick-Up", "Picked-Up", "Dispatched", "Delivered", "Cancelled"].map(s => (
+                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="ghost" onClick={() => setWebhookDialogOpen(false)}>Discard</Button>
+                    <Button className="bg-amber-600 hover:bg-amber-700" onClick={handleSimulateWebhook} disabled={isSimulatingWebhook}>Inject Event</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={terminalDialogOpen} onOpenChange={setTerminalDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full justify-between bg-slate-900 border-slate-800 text-white hover:bg-slate-800 group h-10">
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-4 w-4 text-blue-400" />
+                      <span className="text-[11px] font-bold uppercase tracking-wider">Terminal Logistics Sim</span>
+                    </div>
+                    <ChevronRight className="h-3 w-3 opacity-30" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-slate-900 border-slate-800 text-white">
+                  <DialogHeader><DialogTitle>Terminal Webhook Interface</DialogTitle></DialogHeader>
+                  <div className="space-y-5 py-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Shipment Identity</label>
+                      <Input placeholder="SH-..." value={terminalShipmentId} onChange={(e) => setTerminalShipmentId(e.target.value)} className="bg-slate-950 border-slate-800" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Webhook Event Model</label>
+                      <Select value={terminalEvent} onValueChange={setTerminalEvent}>
+                        <SelectTrigger className="bg-slate-950 border-slate-800"><SelectValue placeholder="Select Event" /></SelectTrigger>
+                        <SelectContent className="bg-slate-950 border-slate-800 text-white">
+                          {["shipment.confirmed", "shipment.in-transit", "shipment.delivered", "shipment.cancelled"].map(e => (
+                            <SelectItem key={e} value={e}>{e}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="ghost" onClick={() => setTerminalDialogOpen(false)}>Cancel</Button>
+                    <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleSimulateTerminalWebhook} disabled={isSimulatingTerminalWebhook}>Trigger Webhook</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {order?.channel === 'fez' && (
+                <Dialog open={fezDialogOpen} onOpenChange={setFezDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="w-full justify-between bg-slate-900 border-rose-500/20 text-rose-400 hover:bg-rose-500/10 h-10">
+                      <div className="flex items-center gap-2">
+                        <Trash2 className="h-4 w-4" />
+                        <span className="text-[11px] font-bold uppercase tracking-wider">Clear Logistics Entry</span>
+                      </div>
+                      <AlertTriangle className="h-3.5 w-3.5 opacity-50" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-slate-900 border-slate-800 text-white">
+                    <DialogHeader><DialogTitle>Remove Logistics Link</DialogTitle></DialogHeader>
+                    <div className="py-5 space-y-3">
+                      <label className="text-[10px] font-bold uppercase text-slate-500 tracking-widest">Reference Number</label>
+                      <Input value={fezOrderNo} onChange={(e) => setFezOrderNo(e.target.value)} className="bg-slate-950 border-slate-800" />
+                      <p className="text-[10px] text-rose-400 italic">Caution: This will remove the link to the external delivery provider for this record.</p>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="destructive" className="w-full" onClick={handleDeleteFezOrder} disabled={isDeletingFezOrder}>Hard Delete Fez Link</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Customer Card */}
+          <Card className="bg-slate-900/50 border-slate-800 overflow-hidden">
+            <CardHeader className="p-5 pb-3 border-b border-slate-800/30">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-[11px] font-bold uppercase text-slate-500 tracking-[0.2em]">Customer Profile</CardTitle>
+                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
               </div>
-              
-              <div className="p-4 space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Order Total</span>
-                  <span className="text-white">₦{orderData?.order?.paymentBreakdown?.orderTotal?.toLocaleString() || 0}</span>
+            </CardHeader>
+            <CardContent className="p-5 space-y-6">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-12 w-12 rounded-2xl border-2 border-slate-800 shadow-xl">
+                  <AvatarImage src={buyer?.profileImage?.[0]?.url} className="object-cover" />
+                  <AvatarFallback className="bg-slate-800 font-bold text-lg">{buyer?.firstName?.[0]}{buyer?.lastName?.[0]}</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <Link to={`/dashboard/buyer-detail/${buyer?._id}`} className="font-bold text-white hover:text-blue-400 transition-colors flex items-center gap-1.5 leading-none mb-1">
+                    {buyer?.firstName} {buyer?.lastName}
+                    <ExternalLink className="h-3 w-3 opacity-30" />
+                  </Link>
+                  <div className="flex items-center gap-1.5 text-slate-500">
+                    <Mail className="h-3 w-3" />
+                    <span className="text-[11px] truncate max-w-[150px]">{buyer?.email}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Shipping Fee</span>
-                  <span className="text-white">₦{orderData?.shipping?.fee?.amount?.toLocaleString() || 0}</span>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-slate-800/50">
+                <div className="flex items-center gap-4 text-xs">
+                  <div className="h-8 w-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 shadow-inner">
+                    <Phone className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-0.5">Primary Contact</div>
+                    <span className="text-white font-medium">{buyer?.phoneNumber || 'UNAVAILABLE'}</span>
+                  </div>
                 </div>
-                
-                {orderData?.order?.paymentBreakdown?.fees?.processingFee > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Processing Fee ({orderData.order.paymentBreakdown.fees.processingFeePercentage}%)</span>
-                    <span className="text-white">₦{orderData.order.paymentBreakdown.fees.processingFee?.toLocaleString()}</span>
+
+                <div className="flex items-start gap-4 text-xs">
+                  <div className="h-8 w-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 mt-1 shadow-inner">
+                    <MapPin className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Delivery Destination</div>
+                    <div className="text-slate-200 leading-relaxed font-medium">
+                      {addresses?.delivery?.line1}<br />
+                      {addresses?.delivery?.line2 && <>{addresses.delivery.line2}<br /></>}
+                      <span className="text-white">{addresses?.delivery?.city}, {addresses?.delivery?.state}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Seller Card */}
+          <Card className="bg-slate-900/50 border-slate-800 overflow-hidden">
+            <CardHeader className="p-5 pb-3 border-b border-slate-800/30">
+              <CardTitle className="text-[11px] font-bold uppercase text-slate-500 tracking-[0.2em]">Merchant Account</CardTitle>
+            </CardHeader>
+            <CardContent className="p-5 space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 shadow-inner">
+                  <Store className="h-6 w-6" />
+                </div>
+                <div className="flex flex-col">
+                  <Link to={`/dashboard/seller/${seller?._id}`} className="font-bold text-white hover:text-orange-400 transition-colors flex items-center gap-1.5 leading-none mb-1">
+                    {seller?.businessName || seller?.storeName}
+                    <ExternalLink className="h-3 w-3 opacity-30" />
+                  </Link>
+                  <div className="flex items-center gap-1.5 text-slate-500">
+                    <User className="h-3 w-3" />
+                    <span className="text-[11px]">{seller?.firstName} {seller?.lastName}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-slate-800/50">
+                <div className="flex items-center gap-4 text-xs">
+                  <div className="h-8 w-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 shadow-inner">
+                    <Mail className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-0.5">Merchant Email</div>
+                    <span className="text-white font-medium truncate block">{seller?.email}</span>
+                  </div>
+                </div>
+
+                {addresses?.pickup && (
+                  <div className="flex items-start gap-4 text-xs">
+                    <div className="h-8 w-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 mt-1 shadow-inner">
+                      <Truck className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Dispatch Point</div>
+                      <div className="text-slate-200 leading-relaxed italic">
+                        {addresses.pickup.line1}, {addresses.pickup.city}, {addresses.pickup.state}
+                      </div>
+                    </div>
                   </div>
                 )}
-                
-                <div className="border-t border-gray-700 mt-2 pt-2">
-                  <div className="flex justify-between font-medium">
-                    <span className="text-white">Total</span>
-                    <span className="text-white text-lg">
-                      ₦{((orderData?.order?.totalAmount || 0) + (0)).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
               </div>
-            </div>
-            
-            {/* Payment Breakdown Summary */}
-            <div className="bg-gray-800 rounded-lg overflow-hidden">
-              <div className="p-4 border-b border-gray-700">
-                <h3 className="text-white font-medium">Seller Payout</h3>
-              </div>
-              
-              <div className="p-4 space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Platform Fee</span>
-                  <span className="text-white">₦{orderData?.order?.paymentBreakdown?.fees?.totalPlatformFee?.toLocaleString() || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Deductions</span>
-                  <span className="text-white">₦{orderData?.order?.paymentBreakdown?.fees?.totalDeductions?.toLocaleString() || 0}</span>
-                </div>
-                <div className="border-t border-gray-700 mt-2 pt-2">
-                  <div className="flex justify-between font-medium">
-                    <span className="text-white">Seller Receives</span>
-                    <span className="text-green-500 text-lg">
-                      ₦{orderData?.order?.paymentBreakdown?.sellerPayout?.toLocaleString() || 0}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-        </div>
-      </Card>
-      </div>
+            </CardContent>
+          </Card>
 
-      {/* Order Items */}
-      <Card className="bg-gray-900 border-gray-800 overflow-hidden">
-        <div className="p-6 border-b border-gray-800">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-600/20 p-2 rounded-lg">
-          <Package className="h-5 w-5 text-blue-500" />
-            </div>
-          <h2 className="text-lg font-semibold text-white">Order Items</h2>
-        </div>
-        </div>
-        
-        <div className="overflow-hidden">
-        <Table>
-            <TableHeader className="bg-gray-800">
-            <TableRow>
-                <TableHead className="text-white">Product</TableHead>
-                <TableHead className="text-white">Details</TableHead>
-                <TableHead className="text-white">Specifications</TableHead>
-                <TableHead className="text-white">Status</TableHead>
-                <TableHead className="text-white text-center">Quantity</TableHead>
-                <TableHead className="text-white text-right">Price</TableHead>
-                <TableHead className="text-white text-right">Total</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-              {orderData?.items?.map((item, index) => (
-                <TableRow key={index} className="border-b border-gray-800">
-                  <TableCell className="py-4">
-                  <div className="flex items-center gap-4">
-                    {item.product.images?.[0] && (
-                      <img 
-                        src={item.product.images[0].url} 
-                        alt={item.product.name}
-                          className="h-16 w-16 rounded-md object-cover border border-gray-700"
-                        />
+          {/* Shipping & Fulfillment */}
+          <Card className="bg-slate-900/50 border-slate-800 overflow-hidden">
+            <CardHeader className="p-5 pb-3 border-b border-slate-800/30 bg-blue-500/5">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-[11px] font-bold uppercase text-blue-400 tracking-[0.2em]">Logistics Intelligence</CardTitle>
+                <Truck className="h-4 w-4 text-blue-500 opacity-50" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 space-y-5">
+              <div className="space-y-4">
+                {shipping?.shipment_id && (
+                  <div className="space-y-1.5">
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Shipment Descriptor</span>
+                    <div className="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800 group">
+                      <span className="font-mono text-xs text-blue-400 font-bold select-all">{shipping.shipment_id}</span>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-800" onClick={() => {
+                        navigator.clipboard.writeText(shipping.shipment_id);
+                        toast.success("Shipment ID copied");
+                      }}>
+                        <Copy className="h-3.5 w-3.5 opacity-40 group-hover:opacity-100" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+                    <span className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Carrier Network</span>
+                    <span className="text-white font-bold text-xs">{shipping?.carrier?.name || 'Manual'}</span>
+                  </div>
+                  <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+                    <span className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Tracking Code</span>
+                    <div className="flex items-center gap-1.5 overflow-hidden">
+                      <span className="text-white font-mono font-bold text-[10px] truncate">{shipping?.tracking?.number || 'PENDING'}</span>
+                      {shipping?.tracking?.number && (
+                        <button className="text-blue-400 hover:text-blue-300" onClick={() => {
+                          navigator.clipboard.writeText(shipping.tracking.number);
+                          toast.success("Tracking copied");
+                        }}>
+                          <Copy className="h-2.5 w-2.5" />
+                        </button>
                       )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2.5">
+                  {shipping?.estimatedDeliveryDate && (
+                    <div className="flex items-center gap-3 text-xs bg-slate-800/20 p-2.5 rounded-lg">
+                      <Calendar className="h-4 w-4 text-blue-400" />
                       <div>
-                        <p className="text-white font-medium">{item.product.name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {item.product.brand}
-                        </p>
+                        <span className="text-[9px] text-slate-500 uppercase font-bold block">Estimated Arrival</span>
+                        <span className="text-slate-200 font-medium">{shipping.estimatedDeliveryDate}</span>
                       </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Tag className="h-3 w-3" />
-                        <span>SKU: {item.product.sku}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Archive className="h-3 w-3" />
-                        <span>Category: {item.product.category}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Shield className="h-3 w-3" />
-                        <span>Condition: {item.product.condition}</span>
-                      </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                    <div className="text-sm">
-                      {(item.specifications?.color || item.specifications?.size || item.specifications?.material) ? (
-                        <div className="space-y-1">
-                          {item.specifications?.color && (
-                            <div className="flex items-center gap-2">
-                              <div 
-                                className="h-3 w-3 rounded-full" 
-                                style={{ 
-                                  backgroundColor: item.specifications.color.toLowerCase().replace(/\s+/g, '') || 'gray' 
-                                }}
-                              ></div>
-                              <span className="text-muted-foreground">Color: {item.specifications.color}</span>
-                            </div>
-                          )}
-                          {item.specifications?.size && (
-                            <div className="flex items-center gap-1">
-                              <span className="text-muted-foreground">Size: {item.specifications.size}</span>
-                            </div>
-                          )}
-                          {item.specifications?.material && (
-                            <div className="flex items-center gap-1">
-                              <span className="text-muted-foreground">Material: {item.specifications.material}</span>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">No specifications</span>
-                      )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                    <Badge className={`
-                      ${item.status === 'pending' ? 'bg-yellow-600/20 text-yellow-500 border-yellow-800' : ''}
-                      ${item.status === 'processing' ? 'bg-blue-600/20 text-blue-500 border-blue-800' : ''}
-                      ${item.status === 'shipped' ? 'bg-purple-600/20 text-purple-500 border-purple-800' : ''}
-                      ${item.status === 'delivered' ? 'bg-green-600/20 text-green-500 border-green-800' : ''}
-                      ${item.status === 'cancelled' ? 'bg-red-600/20 text-red-500 border-red-800' : ''}
-                    `}>
-                      {item.status?.toUpperCase()}
-                    </Badge>
-                </TableCell>
-                  <TableCell className="text-center">
-                    <span className="text-white font-medium">{item.quantity}</span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span className="text-white">₦{item.price.toLocaleString()}</span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <span className="text-white font-medium">₦{(item.price * item.quantity).toLocaleString()}</span>
-                  </TableCell>
-              </TableRow>
-            ))}
-              {!orderData?.items?.length && (
-              <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  No items found in this order.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-        </div>
-      </Card>
-
-      {/* Item Status History */}
-      <Card className="bg-gray-900 border-gray-800 overflow-hidden">
-        <div className="p-6 border-b border-gray-800">
-          <div className="flex items-center gap-2">
-            <div className="bg-amber-600/20 p-2 rounded-lg">
-          <Clock className="h-5 w-5 text-amber-500" />
-            </div>
-          <h2 className="text-lg font-semibold text-white">Item Status History</h2>
-        </div>
-        </div>
-        
-        <div className="p-6">
-          <div className="space-y-6">
-            {orderData?.items?.map((item, itemIndex) => (
-              <div key={itemIndex} className="border-b border-gray-800 pb-6 last:border-0 last:pb-0">
-                <div className="flex items-start gap-4 mb-4">
-                  {item.product.images?.[0] && (
-                    <img 
-                      src={item.product.images[0].url} 
-                      alt={item.product.name}
-                      className="h-12 w-12 rounded object-cover border border-gray-700"
-                    />
+                    </div>
                   )}
-                    <div>
-                    <h3 className="text-md font-medium text-white">{item.product.name}</h3>
-                    <p className="text-sm text-muted-foreground">SKU: {item.product.sku}</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-0">
-                  {item.statusHistory?.map((status, statusIndex) => (
-                    <div key={statusIndex} className="flex items-start gap-3 ml-4">
-                      <div className="flex flex-col items-center">
-                        <div className="h-3 w-3 rounded-full bg-blue-500"></div>
-                        {statusIndex !== item.statusHistory.length - 1 && (
-                          <div className="h-12 w-0.5 bg-gray-700"></div>
-                        )}
+                  {shipping?.estimatedPickupDate && (
+                    <div className="flex items-center gap-3 text-xs bg-slate-800/20 p-2.5 rounded-lg">
+                      <Clock className="h-4 w-4 text-amber-400" />
+                      <div>
+                        <span className="text-[9px] text-slate-500 uppercase font-bold block">Estimated Pickup</span>
+                        <span className="text-slate-200 font-medium">{shipping.estimatedPickupDate}</span>
                       </div>
-                      <div className="bg-gray-800 p-3 rounded-md flex-grow mb-2">
-                        <p className="text-white font-medium capitalize">{status.status}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(status.timestamp)}
-                      </p>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-            {!orderData?.items?.length && (
-              <div className="flex items-center justify-center p-8 text-muted-foreground">
-                <AlertCircle className="h-5 w-5 mr-2" />
-                <span>No item status history available.</span>
-        </div>
-            )}
-          </div>
-        </div>
-      </Card>
+                  )}
+                </div>
 
-      {/* Order Notes */}
-      {orderData?.notes && orderData.notes.length > 0 && (
-        <Card className="bg-gray-900 border-gray-800 overflow-hidden">
-          <div className="p-6 border-b border-gray-800">
-            <div className="flex items-center gap-2">
-              <div className="bg-purple-600/20 p-2 rounded-lg">
-                <FileText className="h-5 w-5 text-purple-500" />
-        </div>
-              <h2 className="text-lg font-semibold text-white">Order Notes</h2>
-          </div>
-          </div>
-          
-          <div className="p-6">
-            <div className="space-y-3">
-            {orderData.notes?.map((note, index) => (
-                <div key={note._id || index} className="bg-gray-800 p-4 rounded-lg border-l-4 border-purple-500">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground capitalize">{note.type || 'Admin'} Note</span>
-                    </div>
-                    {note.createdAt && (
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(note.createdAt)}
-                      </span>
+                <div className="space-y-2 pt-2">
+                  <span className="text-[9px] uppercase font-bold text-slate-500 tracking-[0.2em] block mb-2">Authenticated Documents</span>
+                  <div className="grid gap-2">
+                    {shipping?.documents?.shippingLabel ? (
+                      <Button variant="outline" size="sm" className="h-9 w-full justify-between bg-white/[0.03] border-slate-800 hover:bg-blue-500/10 hover:border-blue-500/20 text-[11px]" asChild>
+                        <a href={shipping.documents.shippingLabel} target="_blank" rel="noreferrer">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-3.5 w-3.5 text-blue-400" />
+                            <span className="font-bold">Shipping Label (PDF)</span>
+                          </div>
+                          <ExternalLink className="h-3 w-3 opacity-30" />
+                        </a>
+                      </Button>
+                    ) : (
+                      <div className="text-[10px] italic text-slate-600 text-center py-2 bg-slate-950/50 rounded-lg border border-dashed border-slate-800">
+                        No shipment labels generated yet.
+                      </div>
+                    )}
+                    {shipping?.documents?.commercialInvoice && (
+                      <Button variant="outline" size="sm" className="h-9 w-full justify-between bg-white/[0.03] border-slate-800 hover:bg-purple-500/10 hover:border-purple-500/20 text-[11px]" asChild>
+                        <a href={shipping.documents.commercialInvoice} target="_blank" rel="noreferrer">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-3.5 w-3.5 text-purple-400" />
+                            <span className="font-bold">Commercial Invoice (PDF)</span>
+                          </div>
+                          <ExternalLink className="h-3 w-3 opacity-30" />
+                        </a>
+                      </Button>
                     )}
                   </div>
-                <p className="text-white">{note.content || note}</p>
-              </div>
-            ))}
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Order Timeline */}
-      {orderData?.timeline && orderData.timeline.length > 0 && (
-        <Card className="bg-gray-900 border-gray-800 overflow-hidden">
-          <div className="p-6 border-b border-gray-800">
-            <div className="flex items-center gap-2">
-              <div className="bg-blue-600/20 p-2 rounded-lg">
-                <Clock className="h-5 w-5 text-blue-500" />
-              </div>
-              <h2 className="text-lg font-semibold text-white">Order Timeline</h2>
-            </div>
-          </div>
-          
-          <div className="p-6">
-            <div className="space-y-0">
-            {orderData.timeline?.map((event, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <div className="flex flex-col items-center">
-                    <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                    {index !== orderData.timeline.length - 1 && (
-                      <div className="h-14 w-0.5 bg-gray-700"></div>
-                    )}
-                  </div>
-                  <div className="bg-gray-800 p-4 rounded-md flex-grow mb-2">
-                    <p className="text-white font-medium capitalize">{event.status}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatDate(event.timestamp)}
-                  </p>
-                    {event.description && (
-                      <p className="text-sm text-muted-foreground mt-2 border-t border-gray-700 pt-2">
-                        {event.description}
-                      </p>
-                    )}
                 </div>
               </div>
-            ))}
-            </div>
-          </div>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }

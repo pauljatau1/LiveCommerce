@@ -23,10 +23,50 @@ import {
   MapPin,
   Store,
   CreditCard,
-  Globe,
-  Settings 
+  Settings,
+  Search,
+  ChevronDown
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { SellerService, UpdateSellerData } from "@/services/sellerService";
+
+// Nigerian banks list with their BIC codes
+const NIGERIAN_BANKS = [
+  { name: 'Access Bank Nigeria Plc', code: '044' },
+  { name: 'Ecobank Nigeria', code: '050' },
+  { name: 'Enterprise Bank Plc', code: '084' },
+  { name: 'Fidelity Bank Plc', code: '070' },
+  { name: 'First Bank of Nigeria Plc', code: '011' },
+  { name: 'First City Monument Bank', code: '214' },
+  { name: 'Guaranty Trust Bank Plc', code: '058' },
+  { name: 'Jaiz Bank', code: '301' },
+  { name: 'Keystone Bank Ltd', code: '082' },
+  { name: 'Mainstreet Bank Plc', code: '014' },
+  { name: 'Skye Bank Plc', code: '076' },
+  { name: 'Stanbic IBTC Plc', code: '039' },
+  { name: 'Sterling Bank Plc', code: '232' },
+  { name: 'Union Bank Nigeria Plc', code: '032' },
+  { name: 'United Bank for Africa Plc', code: '033' },
+  { name: 'Unity Bank Plc', code: '215' },
+  { name: 'WEMA Bank Plc', code: '035' },
+  { name: 'Zenith Bank International', code: '057' },
+  { name: 'Providus Bank', code: '101' },
+  { name: 'PARALLEX BANK LIMITED', code: '104' },
+  { name: 'LOTUS BANK LIMITED', code: '303' },
+  { name: 'PREMIUM TRUST BANK LTD', code: '105' },
+  { name: 'SIGNATURE BANK LTD', code: '106' },
+  { name: 'GLOBUS BANK', code: '103' },
+  { name: 'TITAN TRUST BANK', code: '102' },
+  { name: 'Polaris Bank', code: '067' },
+  { name: 'OPTIMUS BANK LTD', code: '107' },
+  { name: 'Standard Chartered Bank', code: '068' },
+  { name: 'Suntrust Bank', code: '100' }
+];
 
 interface EditSellerFormProps {
   sellerId: string;
@@ -41,6 +81,8 @@ export default function EditSellerForm({ sellerId, initialData, onSuccess, onCan
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("personal");
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [bankSearchQuery, setBankSearchQuery] = useState("");
 
   const handleInputChange = (section: string, field: string, value: any) => {
     if (section === "root" && field === "accountType") {
@@ -85,6 +127,39 @@ export default function EditSellerForm({ sellerId, initialData, onSuccess, onCan
       }
     });
   };
+
+  // Handle bank selection - auto-populate BIC code when bank is selected
+  const handleBankSelect = (bankName: string) => {
+    // Find the selected bank from the list
+    const selectedBank = NIGERIAN_BANKS.find(bank => bank.name === bankName);
+    
+    // Preserve existing bank details and update only bank name and BIC code
+    const existingBankDetails = formData.bankDetails;
+    
+    setFormData({
+      ...formData,
+      bankDetails: {
+        bankCountry: existingBankDetails?.bankCountry || "Nigeria",
+        bankName: bankName,
+        bankAccountType: existingBankDetails?.bankAccountType || "",
+        accountCurrency: existingBankDetails?.accountCurrency || "",
+        accountNumber: existingBankDetails?.accountNumber || "",
+        accountName: existingBankDetails?.accountName || "",
+        swiftCode: existingBankDetails?.swiftCode,
+        // Auto-populate BIC code if bank is found, but keep existing value if manually edited
+        bankIdentifierCode: selectedBank ? selectedBank.code : (existingBankDetails?.bankIdentifierCode || "")
+      }
+    });
+    
+    // Close modal and reset search
+    setShowBankModal(false);
+    setBankSearchQuery("");
+  };
+
+  // Filter banks based on search query
+  const filteredBanks = NIGERIAN_BANKS.filter(bank =>
+    bank.name.toLowerCase().includes(bankSearchQuery.toLowerCase())
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -474,79 +549,115 @@ export default function EditSellerForm({ sellerId, initialData, onSuccess, onCan
 
           {/* Bank Details */}
           <TabsContent value="bank" className="space-y-6">
-            <Card className="p-6 bg-zinc-900 border-zinc-800">
-              <h3 className="text-lg font-semibold mb-4 text-white">Bank Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-white">
+            <Card className="p-6 bg-zinc-900/70 border-zinc-700 shadow-sm">
+              <h3 className="text-lg font-semibold mb-4 text-white border-b border-zinc-800 pb-2">Bank Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="bankName">Bank Name</Label>
-                  <Input
-                    id="bankName"
-                    value={formData.bankDetails?.bankName || ""}
-                    onChange={(e) => handleInputChange("bankDetails", "bankName", e.target.value)}
-                    className="bg-zinc-800 border-zinc-700 text-white"
-                  />
+                  <Label htmlFor="bankName" className="text-zinc-200">Bank Name</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowBankModal(true)}
+                    className="w-full justify-between bg-zinc-800/80 border-zinc-700 text-white hover:bg-zinc-700 focus:border-indigo-500 h-10"
+                  >
+                    <span className={formData.bankDetails?.bankName ? "text-white" : "text-zinc-400"}>
+                      {formData.bankDetails?.bankName || "Select a bank"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                  {/* Allow manual entry if bank is not in list */}
+                  {formData.bankDetails?.bankName && 
+                   !NIGERIAN_BANKS.find(b => b.name === formData.bankDetails?.bankName) && (
+                    <p className="text-xs text-zinc-400 mt-1">
+                      Bank not in list. You can manually edit the BIC code below.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="bankCountry">Bank Country</Label>
+                  <Label htmlFor="bankCountry" className="text-zinc-200">Bank Country</Label>
                   <Input
                     id="bankCountry"
                     value={formData.bankDetails?.bankCountry || ""}
                     onChange={(e) => handleInputChange("bankDetails", "bankCountry", e.target.value)}
-                    className="bg-zinc-800 border-zinc-700 text-white"
+                    className="bg-zinc-800/80 border-zinc-700 text-white placeholder:text-zinc-400 focus:border-indigo-500"
+                    placeholder="e.g., Nigeria"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="accountName">Account Holder Name</Label>
+                  <Label htmlFor="accountName" className="text-zinc-200">Account Holder Name</Label>
                   <Input
                     id="accountName"
                     value={formData.bankDetails?.accountName || ""}
                     onChange={(e) => handleInputChange("bankDetails", "accountName", e.target.value)}
-                    className="bg-zinc-800 border-zinc-700 text-white"
+                    className="bg-zinc-800/80 border-zinc-700 text-white placeholder:text-zinc-400 focus:border-indigo-500"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="accountNumber">Account Number</Label>
+                  <Label htmlFor="accountNumber" className="text-zinc-200">Account Number</Label>
                   <Input
                     id="accountNumber"
                     value={formData.bankDetails?.accountNumber || ""}
                     onChange={(e) => handleInputChange("bankDetails", "accountNumber", e.target.value)}
-                    className="bg-zinc-800 border-zinc-700 text-white"
+                    className="bg-zinc-800/80 border-zinc-700 text-white placeholder:text-zinc-400 focus:border-indigo-500"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="bankAccountType">Account Type</Label>
-                  <Input
-                    id="bankAccountType"
+                  <Label htmlFor="bankAccountType" className="text-zinc-200">Account Type</Label>
+                  <Select
                     value={formData.bankDetails?.bankAccountType || ""}
-                    onChange={(e) => handleInputChange("bankDetails", "bankAccountType", e.target.value)}
-                    className="bg-zinc-800 border-zinc-700 text-white"
-                  />
+                    onValueChange={(value) => handleInputChange("bankDetails", "bankAccountType", value)}
+                  >
+                    <SelectTrigger className="bg-zinc-800/80 border-zinc-700 text-white focus:border-indigo-500">
+                      <SelectValue placeholder="Select account type" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-800 border-zinc-700 text-white">
+                      <SelectItem value="savings">Savings</SelectItem>
+                      <SelectItem value="current">Current</SelectItem>
+                      <SelectItem value="checking">Checking</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="accountCurrency">Currency</Label>
-                  <Input
-                    id="accountCurrency"
+                  <Label htmlFor="accountCurrency" className="text-zinc-200">Currency</Label>
+                  <Select
                     value={formData.bankDetails?.accountCurrency || ""}
-                    onChange={(e) => handleInputChange("bankDetails", "accountCurrency", e.target.value)}
-                    className="bg-zinc-800 border-zinc-700 text-white"
-                  />
+                    onValueChange={(value) => handleInputChange("bankDetails", "accountCurrency", value)}
+                  >
+                    <SelectTrigger className="bg-zinc-800/80 border-zinc-700 text-white focus:border-indigo-500">
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-800 border-zinc-700 text-white">
+                      <SelectItem value="NGN">NGN - Nigerian Naira</SelectItem>
+                      <SelectItem value="USD">USD - US Dollar</SelectItem>
+                      <SelectItem value="EUR">EUR - Euro</SelectItem>
+                      <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="swiftCode">SWIFT Code</Label>
+                  <Label htmlFor="swiftCode" className="text-zinc-200">SWIFT Code</Label>
                   <Input
                     id="swiftCode"
                     value={formData.bankDetails?.swiftCode || ""}
                     onChange={(e) => handleInputChange("bankDetails", "swiftCode", e.target.value)}
-                    className="bg-zinc-800 border-zinc-700 text-white"
+                    className="bg-zinc-800/80 border-zinc-700 text-white placeholder:text-zinc-400 focus:border-indigo-500"
+                    placeholder="Optional"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="bankIdentifierCode">Bank Identifier Code</Label>
+                  <Label htmlFor="bankIdentifierCode" className="text-zinc-200">
+                    Bank Identifier Code (BIC)
+                    {formData.bankDetails?.bankName && 
+                     NIGERIAN_BANKS.find(b => b.name === formData.bankDetails?.bankName) && (
+                      <span className="text-xs text-zinc-400 ml-2">(Auto-filled, editable)</span>
+                    )}
+                  </Label>
                   <Input
                     id="bankIdentifierCode"
                     value={formData.bankDetails?.bankIdentifierCode || ""}
                     onChange={(e) => handleInputChange("bankDetails", "bankIdentifierCode", e.target.value)}
-                    className="bg-zinc-800 border-zinc-700 text-white"
+                    className="bg-zinc-800/80 border-zinc-700 text-white placeholder:text-zinc-400 focus:border-indigo-500"
+                    placeholder="Bank code (e.g., 044)"
                   />
                 </div>
               </div>
@@ -641,6 +752,70 @@ export default function EditSellerForm({ sellerId, initialData, onSuccess, onCan
           </Button>
         </div>
       </form>
+
+      {/* Bank Selection Modal */}
+      <Dialog open={showBankModal} onOpenChange={setShowBankModal}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Select Bank
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex flex-col flex-1 min-h-0 space-y-4">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
+              <Input
+                placeholder="Search banks..."
+                value={bankSearchQuery}
+                onChange={(e) => setBankSearchQuery(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-white pl-10 focus:border-indigo-500"
+                autoFocus
+              />
+            </div>
+
+            {/* Bank List - Scrollable */}
+            <div className="flex-1 overflow-y-auto border border-zinc-800 rounded-md">
+              {filteredBanks.length > 0 ? (
+                <div className="divide-y divide-zinc-800">
+                  {filteredBanks.map((bank) => (
+                    <button
+                      key={bank.code}
+                      type="button"
+                      onClick={() => handleBankSelect(bank.name)}
+                      className={`w-full text-left px-4 py-3 hover:bg-zinc-800 transition-colors flex items-center justify-between ${
+                        formData.bankDetails?.bankName === bank.name
+                          ? "bg-indigo-500/20 border-l-2 border-indigo-500"
+                          : ""
+                      }`}
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium text-white">{bank.name}</div>
+                        <div className="text-xs text-zinc-400 mt-0.5">BIC: {bank.code}</div>
+                      </div>
+                      {formData.bankDetails?.bankName === bank.name && (
+                        <Check className="h-5 w-5 text-indigo-400" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-zinc-400">
+                  <Search className="h-12 w-12 mb-3 opacity-30" />
+                  <p>No banks found matching "{bankSearchQuery}"</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Info */}
+            <div className="text-xs text-zinc-400 pt-2 border-t border-zinc-800">
+              Showing {filteredBanks.length} of {NIGERIAN_BANKS.length} banks
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

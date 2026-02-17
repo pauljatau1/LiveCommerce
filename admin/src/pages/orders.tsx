@@ -1,8 +1,5 @@
-import { 
+import {
   ShoppingCart,
-  Package,
-  ArrowUpRight,
-  Eye,
   Download,
   Trash2,
   ChevronLeft,
@@ -11,9 +8,19 @@ import {
   Search,
   Filter,
   X,
-  Clock
+  MoreHorizontal,
+  Calendar,
+  Truck,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  CreditCard,
+  Building2,
+  User,
+  ExternalLink,
+  ChevronDown
 } from "lucide-react"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -23,6 +30,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -35,25 +49,26 @@ import {
 import { Input } from "@/components/ui/input"
 import { useEffect, useState, useMemo } from "react"
 import { api } from "@/api/axios"
-import { Link } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import {
   Pagination,
   PaginationContent,
-  PaginationEllipsis,
   PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 
 // Define TypeScript interfaces
 interface Order {
   _id: string
   order_id: string
+  channel: string
   buyer: {
+    _id: string
     firstName: string
     lastName: string
     email?: string
@@ -72,55 +87,29 @@ interface Order {
     lastName: string
     email: string
     storeName: string
+    businessName?: string
   }
   items: {
     product: {
+      _id: string
       name: string
       images?: { url: string, _id: string }[]
+      price?: number
     }
+    productName: string
     quantity: number
     price: number
     status?: string
+    productImages?: { url: string, _id: string }[]
   }[]
   totalAmount: number
-  shipping: {
-    method?: string
-    tracking?: {
-      status: string
-      number?: string
-      carrier?: string
-      history?: {
-        status: string
-        timestamp: string
-        description?: string
-      }[]
-    }
-    carrier?: {
-      name: string
-      reference: string
-    }
-    fee?: {
-      amount: number
-      currency: string
-    }
-    shipment_id?: string
-    fez_order_number?: string
-  }
   paymentInfo: {
     status: string
     method?: string
     paidAt?: string
     isCashOnDelivery?: boolean
   }
-  orderStatus?: {
-    hasReturn: boolean
-    hasDispute: boolean
-    hasRefund: boolean
-  }
-  refundRequest?: {
-    requested: boolean
-    status: string
-  }
+  status: string
   createdAt: string
   isOpen: boolean
   isStorePickup?: boolean
@@ -133,134 +122,61 @@ interface OrdersResponse {
   currentPage: number
   totalPages: number
   totalOrders: number
+  filterOptions?: {
+    status: string[]
+    shipmentStatus: string[]
+    paymentMethod: string[]
+  }
 }
 
 function Orders() {
+  const navigate = useNavigate()
   const [ordersData, setOrdersData] = useState<OrdersResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [fezDialogOpen, setFezDialogOpen] = useState(false)
   const [fezOrderNo, setFezOrderNo] = useState("")
   const [isDeletingFezOrder, setIsDeletingFezOrder] = useState(false)
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const [limit, setLimit] = useState(10)
   const [isLoadingPage, setIsLoadingPage] = useState(false)
-  
+
   // Filter state
   const [filters, setFilters] = useState({
     search: "",
     status: "",
-    isStale: "",
+    isStale: "false",
     isOpen: "",
     paid: "",
     shipmentStatus: "",
     startDate: "",
     endDate: "",
     paymentMethod: "",
-    isCashOnDelivery: ""
+    isCashOnDelivery: "",
+    channel: ""
   })
-  
-  // Filter options from API
-  const [filterOptions, setFilterOptions] = useState({
-    itemStatuses: [],
-    shipmentStatuses: [],
-    paymentMethods: []
-  })
-  
-  // Search input state (separate from filter state to avoid immediate API calls)
+
+  // Search input state
   const [searchInput, setSearchInput] = useState("")
-  
-  // Order statistics state
-  const [orderStats, setOrderStats] = useState({
-    byStatus: {},
-    byPaymentMethod: {},
-    byDay: {},
-    openVsClosed: { open: 0, closed: 0 },
-    staleOrders: { stale: 0, active: 0 }
-  })
-  
-  // Calculate total revenue from paid orders using useMemo
-  const totalRevenue = useMemo(() => {
-    return ordersData?.orders
-      ?.filter(order => order.paymentInfo?.status === 'paid')
-      ?.reduce((sum, order) => sum + (order.totalAmount || 0), 0) || 0
-  }, [ordersData?.orders])
 
-  // Calculate pending orders count using useMemo
-  const pendingOrders = useMemo(() => {
-    return ordersData?.orders
-      ?.filter(order => order.paymentInfo?.status === 'pending')
-      ?.length || 0
-  }, [ordersData?.orders])
-  
-  // Fetch order statistics
-  const fetchOrderStats = async () => {
-    try {
-      const { startDate, endDate } = filters;
-      let url = '/api/admin/orders/stats';
-      
-      // Add date filters if present
-      const params = new URLSearchParams();
-      if (startDate) params.append('startDate', startDate);
-      if (endDate) params.append('endDate', endDate);
-      
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
-      
-      const response = await api.get(url);
-      setOrderStats(response.data);
-    } catch (error) {
-      console.error('Error fetching order statistics:', error);
-    }
-  }
-  
-  // Fetch stats when date filters change
-  useEffect(() => {
-    fetchOrderStats();
-  }, [filters.startDate, filters.endDate])
-
-  // Fetch filter options on component mount
-  useEffect(() => {
-    fetchFilterOptions()
-  }, [])
-  
   // Fetch orders when page, limit, or filters change
   useEffect(() => {
     fetchOrders(currentPage, limit)
   }, [currentPage, limit, filters])
-  
-  // Fetch available filter options from API
-  const fetchFilterOptions = async () => {
-    try {
-      const response = await api.get('/api/admin/orders/status-options')
-      // Normalize API response keys to expected state structure
-      setFilterOptions({
-        itemStatuses: (response.data.itemStatuses || response.data.status || []).filter(Boolean),
-        shipmentStatuses: (response.data.shipmentStatuses || response.data.shipmentStatus || []).filter(Boolean),
-        paymentMethods: (response.data.paymentMethods || response.data.paymentMethod || []).filter(Boolean)
-      })
-    } catch (error) {
-      console.error('Error fetching filter options:', error)
-    }
-  }
 
   const fetchOrders = async (page: number, pageLimit: number) => {
     try {
       setIsLoadingPage(true)
-      
-      // Build query string with all filters
       const params = new URLSearchParams({
         page: page.toString(),
         limit: pageLimit.toString()
       })
-      
-      // Add all active filters to the query
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value) params.append(key, value)
       })
-      
+
       const response = await api.get(`/api/admin/orders?${params.toString()}`)
       setOrdersData(response.data)
     } catch (error) {
@@ -273,74 +189,51 @@ function Orders() {
   }
 
   const handlePageChange = (page: number) => {
-    if (page < 1 || (ordersData && page > ordersData.totalPages)) {
-      return
-    }
+    if (page < 1 || (ordersData && page > ordersData.totalPages)) return
     setCurrentPage(page)
   }
 
   const handleLimitChange = (value: string) => {
     setLimit(parseInt(value))
-    setCurrentPage(1) // Reset to first page when changing limit
+    setCurrentPage(1)
   }
-  
+
   const handleFilterChange = (key: string, value: string) => {
-    // Convert "all" value to empty string for API filtering
     const filterValue = value === "all" ? "" : value
     setFilters(prev => ({ ...prev, [key]: filterValue }))
-    setCurrentPage(1) // Reset to first page when changing filters
+    setCurrentPage(1)
   }
-  
-  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchInput(e.target.value)
-  }
-  
-  const handleSearchSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleFilterChange('search', searchInput)
-    }
-  }
-  
-  const handleApplySearch = () => {
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
     handleFilterChange('search', searchInput)
   }
-  
+
   const clearFilters = () => {
     setFilters({
       search: "",
       status: "",
-      isStale: "",
+      isStale: "false",
       isOpen: "",
       paid: "",
       shipmentStatus: "",
       startDate: "",
       endDate: "",
       paymentMethod: "",
-      isCashOnDelivery: ""
+      isCashOnDelivery: "",
+      channel: ""
     })
     setSearchInput("")
   }
-  
-  // Check if any filter is active
-  const hasActiveFilters = () => {
-    return Object.values(filters).some(value => value !== "")
-  }
 
   const handleDeleteFezOrder = async () => {
-    if (!fezOrderNo.trim()) {
-      toast.error("Please enter a valid Fez order number");
-      return;
-    }
-
+    if (!fezOrderNo.trim()) return
     try {
       setIsDeletingFezOrder(true);
-      const response = await api.delete(`/api/admin/fez-orders/${fezOrderNo.trim()}`);
-      
-      toast.success(response.data.message || "Fez order cancelled successfully");
+      await api.delete(`/api/admin/fez-orders/${fezOrderNo.trim()}`);
+      toast.success("Fez order cancelled successfully");
       setFezDialogOpen(false);
       setFezOrderNo("");
-      
-      // Refresh orders data with current pagination
       fetchOrders(currentPage, limit);
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Failed to cancel Fez order");
@@ -349,737 +242,509 @@ function Orders() {
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'processing':
+      case 'confirmed':
+        return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+      case 'shipped':
+      case 'in-transit':
+      case 'in_transit':
+        return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+      case 'delivered':
+        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+      case 'cancelled':
+      case 'failed':
+        return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+      case 'draft':
+      case 'pending':
+        return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+      default:
+        return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN'
+    }).format(amount);
+  };
+
+  const stats = useMemo(() => {
+    if (!ordersData) return null;
+    return {
+      total: ordersData.totalOrders,
+      // These would ideally come from a summary API, but we can display what we have
+      paid: ordersData.orders.filter(o => o.paid).length,
+      processing: ordersData.orders.filter(o => o.status === 'processing').length,
+      revenue: ordersData.orders.reduce((sum, o) => sum + (o.paid ? o.totalAmount : 0), 0)
+    };
+  }, [ordersData]);
+
+  const statusTabs = [
+    { label: 'All', value: 'all' },
+    { label: 'Pending', value: 'pending' },
+    { label: 'Processing', value: 'processing' },
+    { label: 'In-Transit', value: 'in-transit' },
+    { label: 'Delivered', value: 'delivered' },
+    { label: 'Cancelled', value: 'cancelled' },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-white">Orders</h2>
-          <p className="text-muted-foreground">Manage and track customer orders</p>
+          <h2 className="text-3xl font-bold text-white tracking-tight">Orders</h2>
+          <p className="text-slate-400 mt-1">Monitor and manage all customer transactions</p>
         </div>
-        <div className="flex gap-4">
-          <Button variant="outline" className="shrink-0">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          
-          {/* Delete Fez Order Button */}
+        <div className="flex items-center gap-3">
           <Dialog open={fezDialogOpen} onOpenChange={setFezDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="destructive" className="shrink-0">
+              {/* <Button variant="outline" className="border-rose-500/20 text-rose-400 hover:bg-rose-500/10">
                 <Trash2 className="h-4 w-4 mr-2" />
-                Delete Fez Order
-              </Button>
+                Cancel Fez Order
+              </Button> */}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] bg-gray-900 text-white">
+            <DialogContent className="bg-slate-900 border-slate-800 text-white">
               <DialogHeader>
-                <DialogTitle>Delete Fez Order</DialogTitle>
-                <DialogDescription className="text-muted-foreground">
-                  Enter the Fez order number to cancel the delivery order.
+                <DialogTitle>Cancel Fez Delivery</DialogTitle>
+                <DialogDescription className="text-slate-400">
+                  Enter the Fez order number (FEZ-...) to cancel the delivery shipment.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
+              <div className="py-4">
                 <Input
-                  placeholder="Enter Fez Order Number"
+                  placeholder="FEZ-12345678"
                   value={fezOrderNo}
                   onChange={(e) => setFezOrderNo(e.target.value)}
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-slate-950 border-slate-800 focus:ring-rose-500"
                 />
               </div>
               <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setFezDialogOpen(false)}
-                  className="bg-gray-800 text-white hover:bg-gray-700"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleDeleteFezOrder}
-                  disabled={!fezOrderNo.trim() || isDeletingFezOrder}
-                  className="bg-red-600 hover:bg-red-700"
-                >
-                  {isDeletingFezOrder ? "Deleting..." : "Delete Fez Order"}
+                <Button variant="ghost" onClick={() => setFezDialogOpen(false)}>Cancel</Button>
+                <Button variant="destructive" onClick={handleDeleteFezOrder} disabled={isDeletingFezOrder}>
+                  {isDeletingFezOrder ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirm Cancellation"}
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          
-          <Button className="bg-primary shrink-0">
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            New Order
+          <Button variant="outline" className="border-slate-800 bg-slate-900 text-white hover:bg-slate-800">
+            <Download className="h-4 w-4 mr-2" />
+            Export
           </Button>
         </div>
       </div>
 
-      {/* Order Stats */}
-      {/* <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="bg-primary/10 p-3 rounded-lg">
-              <ShoppingCart className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Total Orders</p>
-              <h3 className="text-2xl font-bold">{ordersData?.totalOrders || 0}</h3>
-              <div className="text-xs text-muted-foreground mt-1">
-                <span className="text-green-500">{orderStats.openVsClosed.open}</span> open / 
-                <span className="text-gray-500"> {orderStats.openVsClosed.closed}</span> closed
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-400">Total Orders</p>
+                <h3 className="text-2xl font-bold text-white mt-1">{stats?.total || 0}</h3>
+              </div>
+              <div className="h-12 w-12 rounded-2xl bg-blue-500/10 flex items-center justify-center">
+                <ShoppingCart className="h-6 w-6 text-blue-500" />
               </div>
             </div>
-          </div>
+          </CardContent>
         </Card>
-        
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="bg-primary/10 p-3 rounded-lg">
-              <Package className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Order Status</p>
-              <h3 className="text-2xl font-bold">
-                {Object.entries(orderStats.byStatus || {}).slice(0, 1).map(([status, count]) => (
-                  <span key={status}>{count as number}</span>
-                ))}
-              </h3>
-              <div className="text-xs text-muted-foreground mt-1">
-                {Object.entries(orderStats.byStatus || {}).slice(0, 1).map(([status, count]) => (
-                  <span key={status} className="capitalize">{status}</span>
-                ))}
-                {Object.keys(orderStats.byStatus || {}).length > 1 && (
-                  <span className="ml-1">
-                    +{Object.keys(orderStats.byStatus || {}).length - 1} more
-                  </span>
-                )}
+        <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-400">Paid Orders</p>
+                <h3 className="text-2xl font-bold text-emerald-400 mt-1">{stats?.paid || 0}</h3>
+              </div>
+              <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 text-emerald-500" />
               </div>
             </div>
-          </div>
+          </CardContent>
         </Card>
+        <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-400">Processing</p>
+                <h3 className="text-2xl font-bold text-amber-400 mt-1">{stats?.processing || 0}</h3>
+              </div>
+              <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center">
+                <Clock className="h-6 w-6 text-amber-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-400">Sample Revenue</p>
+                <h3 className="text-2xl font-bold text-white mt-1">{formatCurrency(stats?.revenue || 0)}</h3>
+              </div>
+              <div className="h-12 w-12 rounded-2xl bg-purple-500/10 flex items-center justify-center">
+                <CreditCard className="h-6 w-6 text-purple-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="bg-primary/10 p-3 rounded-lg">
-              <ArrowUpRight className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Total Revenue</p>
-              <h3 className="text-2xl font-bold">₦{totalRevenue.toLocaleString()}</h3>
-              <div className="text-xs text-muted-foreground mt-1">
-                {Object.entries(orderStats.byPaymentMethod || {}).slice(0, 1).map(([method, data]) => (
-                  <span key={method}>{method}: ₦{(data as any)?.amount?.toLocaleString() || 0}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Card>
-        
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="bg-yellow-500/10 p-3 rounded-lg">
-              <Clock className="h-6 w-6 text-yellow-500" />
-            </div>
-            <div>
-              <p className="text-muted-foreground text-sm">Stale Orders</p>
-              <h3 className="text-2xl font-bold">{orderStats.staleOrders?.stale || 0}</h3>
-              <div className="text-xs text-muted-foreground mt-1">
-                {orderStats.staleOrders?.active || 0} active orders
-              </div>
-            </div>
-          </div>
-        </Card>
-      </div> */}
-
-      {/* Order Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col sm:flex-row gap-4 mb-4">
-          <div className="relative flex-1">
-            <Input
-              placeholder="Search by order ID, customer name or product..."
-              value={searchInput}
-              onChange={handleSearchInputChange}
-              onKeyDown={handleSearchSubmit}
-              className="pl-9"
-            />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            
-            <Button 
-              variant="default" 
-              size="sm" 
-              className="absolute right-0 top-0 h-full rounded-l-none"
-              onClick={handleApplySearch}
+      {/* Filter Bar */}
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-2">
+          {statusTabs.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => handleFilterChange('status', tab.value)}
+              className={cn(
+                "px-4 py-2 text-sm font-medium transition-all relative",
+                (filters.status || 'all') === tab.value
+                  ? "text-blue-400"
+                  : "text-slate-400 hover:text-slate-200"
+              )}
             >
-              Search
-            </Button>
-          </div>
-          
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={clearFilters}
-            disabled={!hasActiveFilters()}
-            title="Clear all filters"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+              {tab.label}
+              {(filters.status || 'all') === tab.value && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-400 rounded-full" />
+              )}
+            </button>
+          ))}
         </div>
-        
-        {/* Visible Filters */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {/* Order Status Filter */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Item Status</label>
-            <Select
-              value={filters.status || "all"}
-              onValueChange={(value) => handleFilterChange('status', value)}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {filterOptions.itemStatuses?.filter(Boolean).map((status) => (
-                  <SelectItem key={status} value={status}>{status}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {/* Open/Closed Filter */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Order State</label>
-            <Select
-              value={filters.isOpen || "all"}
-              onValueChange={(value) => handleFilterChange('isOpen', value)}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Open/Closed" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Orders</SelectItem>
-                <SelectItem value="true">Open Orders</SelectItem>
-                <SelectItem value="false">Closed Orders</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {/* Payment Status Filter */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Payment Status</label>
-            <Select
-              value={filters.paid || "all"}
-              onValueChange={(value) => handleFilterChange('paid', value)}
-            >
-              <SelectTrigger className="h-8 text-xs">
+
+        <div className="flex flex-col lg:flex-row gap-4">
+          <form onSubmit={handleSearchSubmit} className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+            <Input
+              placeholder="Search by Order ID, Customer, or Seller..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-10 bg-slate-900 border-slate-800 text-white placeholder:text-slate-500 focus:ring-blue-500"
+            />
+          </form>
+
+          <div className="flex flex-wrap gap-2">
+            <Select value={filters.paid || "all"} onValueChange={(v) => handleFilterChange('paid', v)}>
+              <SelectTrigger className="w-[140px] bg-slate-900 border-slate-800 text-white">
                 <SelectValue placeholder="Payment" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
+              <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                <SelectItem value="all">All Payments</SelectItem>
                 <SelectItem value="true">Paid</SelectItem>
                 <SelectItem value="false">Unpaid</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          
-          {/* Payment Method Filter */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Payment Method</label>
-            <Select
-              value={filters.paymentMethod || "all"}
-              onValueChange={(value) => handleFilterChange('paymentMethod', value)}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Method" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Methods</SelectItem>
-                {filterOptions.paymentMethods?.filter(Boolean).map((method) => (
-                  <SelectItem key={method} value={method}>{method || 'Unknown'}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {/* Shipment Status Filter */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Shipment Status</label>
-            <Select
-              value={filters.shipmentStatus || "all"}
-              onValueChange={(value) => handleFilterChange('shipmentStatus', value)}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Shipment" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Shipments</SelectItem>
-                {filterOptions.shipmentStatuses?.filter(Boolean).map((status) => (
-                  <SelectItem key={status} value={status}>{status}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {/* Stale Orders Filter */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Stale Orders</label>
-            <Select
-              value={filters.isStale || "all"}
-              onValueChange={(value) => handleFilterChange('isStale', value)}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Stale" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Orders</SelectItem>
-                <SelectItem value="true">Stale Orders</SelectItem>
-                <SelectItem value="false">Active Orders</SelectItem>
-              </SelectContent>
-            </Select>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="border-slate-800 bg-slate-900 text-white hover:bg-slate-800">
+                  <Filter className="h-4 w-4 mr-2" />
+                  More Filters
+                  <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-slate-900 border-slate-800 text-white w-56" align="end">
+                <div className="p-2 space-y-4">
+                  <div className="space-y-1">
+                    <p className="text-[10px] uppercase font-bold text-slate-500 px-1">Channel</p>
+                    <Select value={filters.channel || "all"} onValueChange={(v) => handleFilterChange('channel', v)}>
+                      <SelectTrigger className="h-8 bg-slate-950 border-slate-800">
+                        <SelectValue placeholder="Select Channel" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-950 border-slate-800 text-white">
+                        <SelectItem value="all">All Channels</SelectItem>
+                        <SelectItem value="marketplace">Marketplace</SelectItem>
+                        <SelectItem value="livestream">Livestream</SelectItem>
+                        <SelectItem value="terminal">Terminal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] uppercase font-bold text-slate-500 px-1">Order Type</p>
+                    <Select value={filters.isStale} onValueChange={(v) => handleFilterChange('isStale', v)}>
+                      <SelectTrigger className="h-8 bg-slate-950 border-slate-800 text-white">
+                        <SelectValue placeholder="Order Type" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-950 border-slate-800 text-white">
+                        <SelectItem value="all">All Orders</SelectItem>
+                        <SelectItem value="false">Active Orders</SelectItem>
+                        <SelectItem value="true">Stale Orders</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <DropdownMenuSeparator className="bg-slate-800" />
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-xs h-8 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                    onClick={clearFilters}
+                  >
+                    <X className="h-3.5 w-3.5 mr-2" />
+                    Clear All
+                  </Button>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="border-slate-800 bg-slate-900 text-white hover:bg-slate-800">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Date Range
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-slate-900 border-slate-800 text-white p-4 w-64" align="end">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs text-slate-400">Start Date</label>
+                    <Input
+                      type="date"
+                      value={filters.startDate}
+                      onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                      className="bg-slate-950 border-slate-800 h-8"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-slate-400">End Date</label>
+                    <Input
+                      type="date"
+                      value={filters.endDate}
+                      onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                      className="bg-slate-950 border-slate-800 h-8"
+                    />
+                  </div>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
-        
-        {/* Date Range Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Start Date</label>
-            <Input
-              type="date"
-              value={filters.startDate}
-              onChange={(e) => handleFilterChange('startDate', e.target.value)}
-              className="h-8"
-            />
+      </div>
+
+      {/* Main Table */}
+      <Card className="bg-slate-900/50 border-slate-800 overflow-hidden">
+        {loading || isLoadingPage ? (
+          <div className="h-[400px] flex flex-col items-center justify-center gap-4">
+            <Loader2 className="h-10 w-10 animate-spin text-blue-500" />
+            <p className="text-slate-400 animate-pulse">Fetching orders...</p>
           </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">End Date</label>
-            <Input
-              type="date"
-              value={filters.endDate}
-              onChange={(e) => handleFilterChange('endDate', e.target.value)}
-              className="h-8"
-            />
+        ) : ordersData && ordersData.orders.length > 0 ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-950/50">
+                <TableRow className="border-slate-800 hover:bg-transparent">
+                  <TableHead className="text-slate-400 font-bold uppercase text-[10px] tracking-wider py-4">Order Details</TableHead>
+                  <TableHead className="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Customer</TableHead>
+                  <TableHead className="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Store</TableHead>
+                  <TableHead className="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Items</TableHead>
+                  <TableHead className="text-slate-400 font-bold uppercase text-[10px] tracking-wider text-right">Amount</TableHead>
+                  <TableHead className="text-slate-400 font-bold uppercase text-[10px] tracking-wider text-center">Status</TableHead>
+                  <TableHead className="text-slate-400 font-bold uppercase text-[10px] tracking-wider w-[100px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ordersData.orders.map((order) => (
+                  <TableRow
+                    key={order._id}
+                    className="border-slate-800 hover:bg-slate-800/30 transition-colors group cursor-pointer"
+                    onClick={() => navigate(`/dashboard/order-detail/${order._id}`)}
+                  >
+                    <TableCell className="py-4">
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-bold font-mono tracking-tight">{order.order_id}</span>
+                          {order.isStale && (
+                            <Badge variant="outline" className="text-[9px] h-4 px-1 bg-slate-950 text-slate-500 border-slate-800 uppercase">Stale</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-slate-500">{format(new Date(order.createdAt), "MMM d, yyyy • h:mm a")}</span>
+                          <Badge className={cn(
+                            "text-[9px] h-4 px-1 border-0 uppercase font-bold",
+                            order.channel === 'marketplace' ? "bg-blue-500/10 text-blue-500" :
+                              order.channel === 'livestream' ? "bg-purple-500/10 text-purple-500" :
+                                "bg-orange-500/10 text-orange-500"
+                          )}>
+                            {order.channel}
+                          </Badge>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9 border border-slate-800 ring-2 ring-slate-950">
+                          <AvatarImage src={order.buyerDetails?.profileImage?.[0]?.url} alt={order.buyer?.firstName} />
+                          <AvatarFallback className="bg-slate-800 text-slate-400 text-xs">
+                            {order.buyer?.firstName?.[0]}{order.buyer?.lastName?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-white truncate max-w-[140px]">
+                            {order.buyer?.firstName} {order.buyer?.lastName}
+                          </span>
+                          <span className="text-[11px] text-slate-500 truncate max-w-[140px]">
+                            {order.buyer?.email}
+                          </span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5">
+                          <Building2 className="h-3 w-3 text-slate-600" />
+                          <span className="text-sm font-medium text-slate-300 truncate max-w-[140px]">
+                            {order.seller?.storeName || order.seller?.businessName}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-slate-500 pl-4 capitalize">
+                          {order.seller?.firstName} {order.seller?.lastName}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="flex -space-x-2 overflow-hidden">
+                          {order.items.slice(0, 3).map((item, i) => (
+                            <div key={i} className="h-8 w-8 rounded-lg border-2 border-slate-900 bg-slate-800 overflow-hidden">
+                              <img
+                                src={item.productImages?.[0]?.url || item.product?.images?.[0]?.url}
+                                className="h-full w-full object-cover"
+                                alt=""
+                              />
+                            </div>
+                          ))}
+                          {order.items.length > 3 && (
+                            <div className="h-8 w-8 rounded-lg border-2 border-slate-900 bg-slate-800 flex items-center justify-center text-[10px] text-slate-400">
+                              +{order.items.length - 3}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs text-slate-500 font-medium">
+                          {order.items.length} {order.items.length === 1 ? 'Item' : 'Items'}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-sm font-bold text-white">{formatCurrency(order.totalAmount)}</span>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="outline" className={cn(
+                            "text-[9px] h-4 px-1 font-bold uppercase border-0",
+                            order.paid ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+                          )}>
+                            {order.paid ? "Paid" : "Unpaid"}
+                          </Badge>
+                          <span className="text-[9px] text-slate-600 uppercase font-mono">{order.paymentInfo?.method}</span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col items-center gap-1.5">
+                        <Badge variant="outline" className={cn("border-0 shadow-none font-bold uppercase text-[10px] h-5 px-2", getStatusColor(order.status))}>
+                          {order.status}
+                        </Badge>
+                        {order.isStorePickup && (
+                          <Badge className="bg-amber-500/10 text-amber-500 border-0 text-[8px] h-3 px-1 uppercase letter-wide">Pickup</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-500 hover:text-white hover:bg-slate-800 group-hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/dashboard/order-detail/${order._id}`);
+                          }}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        </div>
-        
-        {/* Active filters display */}
-        {hasActiveFilters() && (
-          <div className="flex flex-wrap items-center gap-2 mt-3 text-xs">
-            <span className="text-muted-foreground">Active filters:</span>
-            {filters.search && (
-              <Badge variant="secondary" className="px-2 py-0.5 h-6">
-                Search: {filters.search.length > 15 ? filters.search.substring(0, 15) + '...' : filters.search}
-                <Button
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-4 w-4 ml-1 -mr-1"
-                  onClick={() => handleFilterChange('search', '')}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </Button>
-              </Badge>
-            )}
-            {filters.status && (
-              <Badge variant="secondary" className="px-2 py-0.5 h-6">
-                Status: {filters.status}
-                <Button
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-4 w-4 ml-1 -mr-1"
-                  onClick={() => handleFilterChange('status', '')}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </Button>
-              </Badge>
-            )}
-            {filters.isOpen && (
-              <Badge variant="secondary" className="px-2 py-0.5 h-6">
-                {filters.isOpen === 'true' ? 'Open' : 'Closed'}
-                <Button
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-4 w-4 ml-1 -mr-1"
-                  onClick={() => handleFilterChange('isOpen', '')}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </Button>
-              </Badge>
-            )}
-            {filters.paid && (
-              <Badge variant="secondary" className="px-2 py-0.5 h-6">
-                {filters.paid === 'true' ? 'Paid' : 'Unpaid'}
-                <Button
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-4 w-4 ml-1 -mr-1"
-                  onClick={() => handleFilterChange('paid', '')}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </Button>
-              </Badge>
-            )}
-            {filters.shipmentStatus && (
-              <Badge variant="secondary" className="px-2 py-0.5 h-6">
-                Ship: {filters.shipmentStatus}
-                <Button
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-4 w-4 ml-1 -mr-1"
-                  onClick={() => handleFilterChange('shipmentStatus', '')}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </Button>
-              </Badge>
-            )}
-            {filters.isStale && (
-              <Badge variant="secondary" className="px-2 py-0.5 h-6">
-                {filters.isStale === 'true' ? 'Stale' : 'Not Stale'}
-                <Button
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-4 w-4 ml-1 -mr-1"
-                  onClick={() => handleFilterChange('isStale', '')}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </Button>
-              </Badge>
-            )}
-            {filters.paymentMethod && (
-              <Badge variant="secondary" className="px-2 py-0.5 h-6">
-                Method: {filters.paymentMethod}
-                <Button
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-4 w-4 ml-1 -mr-1"
-                  onClick={() => handleFilterChange('paymentMethod', '')}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </Button>
-              </Badge>
-            )}
-            {filters.isCashOnDelivery && (
-              <Badge variant="secondary" className="px-2 py-0.5 h-6">
-                {filters.isCashOnDelivery === 'true' ? 'COD' : 'Non-COD'}
-                <Button
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-4 w-4 ml-1 -mr-1"
-                  onClick={() => handleFilterChange('isCashOnDelivery', '')}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </Button>
-              </Badge>
-            )}
-            {filters.startDate && (
-              <Badge variant="secondary" className="px-2 py-0.5 h-6">
-                From: {filters.startDate}
-                <Button
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-4 w-4 ml-1 -mr-1"
-                  onClick={() => handleFilterChange('startDate', '')}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </Button>
-              </Badge>
-            )}
-            {filters.endDate && (
-              <Badge variant="secondary" className="px-2 py-0.5 h-6">
-                To: {filters.endDate}
-                <Button
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-4 w-4 ml-1 -mr-1"
-                  onClick={() => handleFilterChange('endDate', '')}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </Button>
-              </Badge>
-            )}
+        ) : (
+          <div className="h-[400px] flex flex-col items-center justify-center text-center p-8">
+            <div className="h-16 w-16 rounded-3xl bg-slate-800 flex items-center justify-center mb-4">
+              <ShoppingCart className="h-8 w-8 text-slate-500" />
+            </div>
+            <h3 className="text-xl font-bold text-white">No orders found</h3>
+            <p className="text-slate-400 max-w-xs mt-2">
+              We couldn't find any orders matching your current search or filter criteria.
+            </p>
+            <Button variant="link" className="text-blue-400 mt-2" onClick={clearFilters}>
+              Reset all filters
+            </Button>
           </div>
         )}
       </Card>
 
-      {/* Orders Table */}
-      <Card className="p-6 overflow-hidden">
-        <div className="w-full overflow-x-auto relative">
-          {isLoadingPage && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      {/* Pagination */}
+      {ordersData && ordersData.totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-sm text-slate-400">
+              <span>View</span>
+              <Select value={limit.toString()} onValueChange={handleLimitChange}>
+                <SelectTrigger className="h-8 w-16 bg-slate-900 border-slate-800 text-white">
+                  <SelectValue placeholder={limit.toString()} />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-800 text-white min-w-[70px]">
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          )}
-          <Table className="min-w-[1000px]">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[100px]">Order ID</TableHead>
-                <TableHead className="w-[120px]">Customer</TableHead>
-                <TableHead className="w-[120px]">Seller</TableHead>
-                <TableHead className="w-[150px]">Items</TableHead>
-                <TableHead className="w-[100px]">Payment</TableHead>
-                <TableHead className="w-[150px]">Shipping</TableHead>
-                <TableHead className="w-[120px]">Status</TableHead>
-                <TableHead className="w-[120px]">Total</TableHead>
-                <TableHead className="hidden md:table-cell w-[120px]">Date</TableHead>
-                <TableHead className="w-[60px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={10} className="text-center">Loading...</TableCell>
-                </TableRow>
-              ) : ordersData?.orders && ordersData.orders.length > 0 ? (
-                ordersData.orders.map((order) => (
-                  <TableRow key={order._id}>
-                    <TableCell className="font-medium">{order.order_id}</TableCell>
-                    <TableCell>
-                      {order.buyer ? `${order.buyer.firstName || ''} ${order.buyer.lastName || ''}` : 'Unknown Buyer'}
-                      {order.buyer?.phoneNumber && (
-                        <div className="text-xs text-muted-foreground mt-1">{order.buyer.phoneNumber}</div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {order.seller?.storeName || 'N/A'}
-                    </TableCell>
-                    <TableCell>
-                      {order.items.length > 0 ? (
-                        <div className="flex flex-col gap-1">
-                          <span className="text-sm font-medium truncate max-w-[150px]" title={order.items[0]?.product?.name || 'Product unavailable'}>
-                            {order.items[0]?.product?.name 
-                              ? (order.items[0].product.name.length > 50 
-                                ? order.items[0].product.name.substring(0, 50) + '...' 
-                                : order.items[0].product.name)
-                              : 'Product unavailable'}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            Qty: {order.items[0].quantity}
-                            {order.items.length > 1 ? ` (+${order.items.length - 1} more)` : ''}
-                          </span>
-                        </div>
-                      ) : 'No items'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <Badge variant={order.paymentInfo.status === 'paid' ? 'default' : 'secondary'} className="mb-1">
-                          {order.paymentInfo.status}
-                        </Badge>
-                        {order.paymentInfo.method && (
-                          <span className="text-xs text-muted-foreground capitalize">{order.paymentInfo.method}</span>
-                        )}
-                        {order.paymentInfo.isCashOnDelivery && (
-                          <span className="text-xs text-yellow-500">COD</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {order.isStorePickup ? (
-                        <Badge variant="outline">Store Pickup</Badge>
-                      ) : (
-                        <div className="flex flex-col">
-                          <span className="text-xs font-medium">
-                            {order.shipping.carrier?.name || order.shipping.method || 'Standard'}
-                          </span>
-                          {order.shipping.tracking && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <Badge 
-                                variant={
-                                  order.shipping.tracking.status === 'delivered' ? 'default' :
-                                  order.shipping.tracking.status === 'cancelled' ? 'destructive' :
-                                  'secondary'
-                                }
-                                className="text-xs"
-                              >
-                                {order.shipping.tracking.status}
-                              </Badge>
-                            </div>
-                          )}
-                          {order.shipping.tracking?.number && (
-                            <span className="text-xs text-muted-foreground mt-1">
-                              #{order.shipping.tracking.number}
-                            </span>
-                          )}
-                          {order.shipping?.fee && order.shipping.fee.amount > 0 && (
-                            <span className="text-xs text-muted-foreground mt-1">
-                              Fee: ₦{order.shipping.fee.amount.toLocaleString()}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1">
-                      <div className="inline-flex items-center gap-2">
-  {order.isStale ? (
-    <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-200">
-      Stale
-    </Badge>
-  ) : (
-    <div className={`inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-xs font-medium
-      ${order.isOpen ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
-      <div className={`h-1.5 w-1.5 rounded-full
-        ${order.isOpen ? "bg-green-600" : "bg-gray-600"}`} />
-      {order.isOpen ? "Open" : "Closed"}
-    </div>
-  )}
-</div>
-                        
-                        {order.orderStatus && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {order.orderStatus.hasReturn && (
-                              <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-200">Return</Badge>
-                            )}
-                            {order.orderStatus.hasDispute && (
-                              <Badge variant="outline" className="text-xs bg-red-100 text-red-800 border-red-200">Dispute</Badge>
-                            )}
-                            {order.orderStatus.hasRefund && (
-                              <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800 border-blue-200">Refund</Badge>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <span className="font-medium">
-                          ₦{(
-                            (order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)) + 
-                            (order.shipping?.fee?.amount || 0)
-                          ).toLocaleString()}
-                        </span>
-                        {order.items.length > 0 && (
-                          <span className="text-xs text-muted-foreground">
-                            Items: ₦{order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0).toLocaleString()}
-                          </span>
-                        )}
-                        {order.shipping?.fee && order.shipping.fee.amount > 0 && (
-                          <span className="text-xs text-muted-foreground">
-                            + Shipping: ₦{order.shipping.fee.amount.toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })} {new Date(order.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase()}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center">
-                        <Link to={`/dashboard/order-detail/${order._id}`}>
-                          <Button variant="ghost" size="icon" title="View Order">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={10} className="text-center">No orders found</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-          
-          {/* Pagination UI */}
-          {ordersData && ordersData.totalPages > 0 && (
-            <div className="flex flex-col md:flex-row justify-between items-center mt-4 gap-4">
-              <div className="flex items-center gap-2 text-xs sm:text-sm">
-                <span className="text-muted-foreground">Show</span>
-                <Select
-                  value={limit.toString()}
-                  onValueChange={handleLimitChange}
-                >
-                  <SelectTrigger className="h-8 w-16">
-                    <SelectValue placeholder={limit.toString()} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                  </SelectContent>
-                </Select>
-                <span className="text-muted-foreground">per page</span>
-              </div>
-              
-              <div className="text-xs sm:text-sm text-muted-foreground text-center">
-                Showing {ordersData.orders.length ? ((ordersData.currentPage - 1) * limit) + 1 : 0}-
-                {Math.min(ordersData.currentPage * limit, ordersData.totalOrders)} of {ordersData.totalOrders} orders
-              </div>
-              
-              <div className="flex items-center gap-1">
+            <p className="text-sm text-slate-500">
+              Showing <span className="text-slate-300">{((currentPage - 1) * limit) + 1}</span> to <span className="text-slate-300">{Math.min(currentPage * limit, ordersData.totalOrders)}</span> of <span className="text-slate-300">{ordersData.totalOrders}</span>
+            </p>
+          </div>
+
+          <Pagination>
+            <PaginationContent className="gap-1">
+              <PaginationItem>
                 <Button
                   variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(1)}
-                  disabled={currentPage === 1 || isLoadingPage}
-                  className="h-7 sm:h-8 w-7 sm:w-8 p-0"
-                >
-                  <span className="sr-only">First Page</span>
-                  <span>«</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
+                  size="icon"
+                  className="h-8 w-8 bg-slate-900 border-slate-800 text-slate-400 disabled:opacity-30"
                   onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1 || isLoadingPage}
-                  className="h-7 sm:h-8 w-7 sm:w-8 p-0"
+                  disabled={currentPage === 1}
                 >
-                  <span className="sr-only">Previous Page</span>
-                  <span>‹</span>
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
-                
-                {/* Generate page links */}
-                {Array.from({ length: Math.min(5, ordersData.totalPages) }, (_, i) => {
-                  // Calculate which page numbers to show
-                  let pageNum = i + 1;
-                  if (ordersData.totalPages > 5) {
-                    if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= ordersData.totalPages - 2) {
-                      pageNum = ordersData.totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                  }
-                  
-                  return (
-                    <Button
-                      key={pageNum}
-                      variant={pageNum === currentPage ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handlePageChange(pageNum)}
-                      disabled={isLoadingPage}
-                      className="h-7 sm:h-8 w-7 sm:w-8 p-0 hidden xs:flex xs:items-center xs:justify-center"
-                    >
-                      <span className="sr-only">Page {pageNum}</span>
-                      <span>{pageNum}</span>
-                    </Button>
-                  );
-                })}
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === ordersData.totalPages || isLoadingPage}
-                  className="h-7 sm:h-8 w-7 sm:w-8 p-0"
-                >
-                  <span className="sr-only">Next Page</span>
-                  <span>›</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(ordersData.totalPages)}
-                  disabled={currentPage === ordersData.totalPages || isLoadingPage}
-                  className="h-7 sm:h-8 w-7 sm:w-8 p-0"
-                >
-                  <span className="sr-only">Last Page</span>
-                  <span>»</span>
-                </Button>
+              </PaginationItem>
+
+              <div className="flex items-center gap-1 mx-2">
+                <span className="text-sm font-bold text-blue-400 px-2 min-w-[32px] text-center">
+                  {currentPage}
+                </span>
+                <span className="text-slate-600 text-xs">/</span>
+                <span className="text-sm font-medium text-slate-500 px-2">
+                  {ordersData.totalPages}
+                </span>
               </div>
-            </div>
-          )}
+
+              <PaginationItem>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 bg-slate-900 border-slate-800 text-slate-400 disabled:opacity-30"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === ordersData.totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
-      </Card>
+      )}
     </div>
   )
 }

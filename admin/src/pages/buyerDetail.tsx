@@ -30,7 +30,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
-// import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 
 interface BuyerDetails {
   buyer: {
@@ -59,6 +59,21 @@ interface BuyerDetails {
     };
     isIdentityVerified: boolean;
     profilePhoto?: string;
+    expoPushToken?: string;
+    followersCount?: number;
+    shippingAddresses?: Array<{
+      addressType?: string;
+      country: string;
+      state: string;
+      city: string;
+      addressLine1: string;
+      addressLine2?: string;
+      zipCode: string;
+      _id?: string;
+      firstName?: string;
+      lastName?: string;
+      phoneNumber?: string;
+    }>;
   };
   metrics: {
     ordersCount: number;
@@ -117,13 +132,40 @@ function BuyerDetail() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [hardDelete, setHardDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  
+
   // Wallet operation states
   const [showWalletDialog, setShowWalletDialog] = useState(false);
   const [walletOperation, setWalletOperation] = useState<'add' | 'deduct'>('add');
   const [walletAmount, setWalletAmount] = useState("");
   const [walletReason, setWalletReason] = useState("");
   const [processingWallet, setProcessingWallet] = useState(false);
+
+  // Profile Edit states
+  const [showEditProfileDialog, setShowEditProfileDialog] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    firstName: "",
+    lastName: "",
+    phoneNumber: "",
+    emailVerified: false,
+    phoneVerified: false,
+    isDisabled: false,
+    isIdentityVerified: false
+  });
+  const [updatingProfile, setUpdatingProfile] = useState(false);
+
+  useEffect(() => {
+    if (buyerDetails?.buyer) {
+      setEditFormData({
+        firstName: buyerDetails.buyer.firstName || "",
+        lastName: buyerDetails.buyer.lastName || "",
+        phoneNumber: buyerDetails.buyer.phoneNumber || "",
+        emailVerified: buyerDetails.buyer.emailVerified,
+        phoneVerified: buyerDetails.buyer.phoneVerified,
+        isDisabled: buyerDetails.buyer.isDisabled,
+        isIdentityVerified: buyerDetails.buyer.isIdentityVerified
+      });
+    }
+  }, [buyerDetails]);
 
   useEffect(() => {
     fetchBuyerDetails();
@@ -192,10 +234,10 @@ function BuyerDetail() {
 
     setProcessingWallet(true);
     try {
-      const endpoint = walletOperation === 'add' 
+      const endpoint = walletOperation === 'add'
         ? `/api/admin/buyers/${id}/wallet/add`
         : `/api/admin/buyers/${id}/wallet/deduct`;
-      
+
       await api.post(endpoint, {
         amount: parseFloat(walletAmount),
         reason: walletReason || `Admin ${walletOperation === 'add' ? 'added' : 'deducted'} funds`,
@@ -249,6 +291,26 @@ function BuyerDetail() {
     return (firstName?.[0] || "") + (lastName?.[0] || "");
   };
 
+  const handleUpdateProfile = async () => {
+    try {
+      setUpdatingProfile(true);
+      await api.put(`/api/admin/buyers/${id}`, editFormData);
+      toast({
+        description: "Buyer profile updated successfully",
+      });
+      setShowEditProfileDialog(false);
+      fetchBuyerDetails();
+    } catch (err: any) {
+      console.error("Error updating profile:", err);
+      toast({
+        variant: "destructive",
+        description: err.response?.data?.message || "Failed to update profile",
+      });
+    } finally {
+      setUpdatingProfile(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -260,16 +322,25 @@ function BuyerDetail() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h2 className="text-2xl text-white font-medium">Buyer Profile</h2>
+        <h2 className="text-2xl text-white font-black tracking-tight">Buyer Profile</h2>
         <div className="ml-auto flex items-center gap-2">
           <Button
+            variant="outline"
+            className="border-slate-800 text-slate-400 hover:text-white hover:bg-slate-900 rounded-xl"
+            onClick={() => setShowEditProfileDialog(true)}
+          >
+            Edit
+          </Button>
+          <Button
             variant="destructive"
+            className="bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20 rounded-xl"
             onClick={() => setShowDeleteDialog(true)}
           >
-            <Trash2 className="h-4 w-4 mr-2" /> Delete Buyer
+            <Trash2 className="h-4 w-4 mr-2" /> Delete
           </Button>
         </div>
       </div>
+
 
       {/* Buyer Overview Card */}
       <Card className="overflow-hidden">
@@ -288,88 +359,98 @@ function BuyerDetail() {
                   </AvatarFallback>
                 )}
               </Avatar>
-              
+
               <div>
-                <h3 className="text-lg font-medium">{buyer.firstName} {buyer.lastName}</h3>
-                <p className="text-sm text-muted-foreground">@{buyer.username}</p>
-                <p className="text-sm">{buyer.email}</p>
-                <p className="text-sm">{buyer.phoneNumber}</p>
-                
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  <Badge variant={buyer.isDisabled ? "destructive" : "outline"} className="text-xs">
+                <h3 className="text-xl font-black text-white tracking-tight">{buyer.firstName} {buyer.lastName}</h3>
+                <p className="text-xs font-medium text-slate-500 tracking-wide uppercase mt-0.5">@{buyer.username}</p>
+                <div className="mt-3 space-y-1">
+                  <p className="text-sm text-slate-400">{buyer.email}</p>
+                  <p className="text-sm text-slate-400">{buyer.phoneNumber}</p>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 mt-4">
+                  <Badge className={cn(
+                    "text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-0.5",
+                    buyer.isDisabled ? "bg-rose-500/10 text-rose-500 border-rose-500/20" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  )}>
                     {buyer.isDisabled ? "Disabled" : "Active"}
                   </Badge>
-                  <Badge variant={buyer.emailVerified ? "secondary" : "outline"} className="text-xs">
-                    {buyer.emailVerified ? "Email Verified" : "Email Unverified"}
-                  </Badge>
-                  <Badge variant={buyer.isIdentityVerified ? "secondary" : "outline"} className="text-xs">
-                    {buyer.isIdentityVerified ? "ID Verified" : "ID Unverified"}
-                  </Badge>
+                  {buyer.emailVerified && (
+                    <Badge className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 text-[10px] font-black uppercase tracking-wider rounded-full px-2.5 py-0.5">
+                      Verified
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
 
             <Separator orientation="vertical" className="hidden md:block" />
 
-            <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="space-y-1.5">
-                {/* <div className="flex items-center text-sm text-muted-foreground gap-1.5">
-                  <ShoppingBag className="h-3.5 w-3.5" />
-                  <span>Orders</span>
-                </div>
-                <div className="text-xl font-medium">{metrics.ordersCount}</div> */}
-                {/* <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Completed</span>
-                    <span>{metrics.completedOrders}/{metrics.ordersCount}</span>
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="p-4 bg-slate-950/40 border-slate-800/60 rounded-2xl backdrop-blur-md">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Spent</span>
+                  <div className="mt-2 flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-indigo-500" />
+                    <span className="text-2xl font-black text-white tracking-tight">₦{metrics.totalSpent?.toLocaleString() || 0}</span>
                   </div>
-                  <Progress value={(metrics.completedOrders / metrics.ordersCount) * 100 || 0} className="h-1.5" />
-                </div> */}
-              </div>
+                  <div className="mt-1 text-[10px] font-bold text-emerald-500/80 uppercase">
+                    Balance: ₦{metrics.walletBalance?.toLocaleString() || 0}
+                  </div>
+                </div>
+              </Card>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center text-sm text-muted-foreground gap-1.5">
-                  <CreditCard className="h-3.5 w-3.5" />
-                  <span>Spent</span>
+              <Card className="p-4 bg-slate-950/40 border-slate-800/60 rounded-2xl backdrop-blur-md">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Wishlist</span>
+                  <div className="mt-2 flex items-center gap-2">
+                    <Heart className="h-5 w-5 text-rose-500" />
+                    <span className="text-2xl font-black text-white tracking-tight">{metrics.wishlistCount}</span>
+                  </div>
                 </div>
-                <div className="text-xl font-medium">{formatCurrency(metrics.totalSpent)}</div>
-                <div className="text-xs text-muted-foreground">
-                  Balance: {formatCurrency(metrics.walletBalance)}
-                </div>
-              </div>
+              </Card>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center text-sm text-muted-foreground gap-1.5">
-                  <Heart className="h-3.5 w-3.5" />
-                  <span>Wishlist</span>
+              <Card className="p-4 bg-slate-950/40 border-slate-800/60 rounded-2xl backdrop-blur-md">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Chats</span>
+                  <div className="mt-2 flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-blue-500" />
+                    <span className="text-2xl font-black text-white tracking-tight">{metrics.conversationsCount}</span>
+                  </div>
                 </div>
-                <div className="text-xl font-medium">{metrics.wishlistCount}</div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center text-sm text-muted-foreground gap-1.5">
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  <span>Conversations</span>
-                </div>
-                <div className="text-xl font-medium">{metrics.conversationsCount}</div>
-              </div>
-
-              <div className="col-span-2 md:col-span-4 text-xs text-muted-foreground">
-                <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  <p>Joined {formatDate(buyer.createdAt)}</p>
-                  <p>Country: {buyer.country || "Not specified"}</p>
-                  <p>Transactions: {metrics.walletTransactions.totalTransactions}</p>
-                </div>
-              </div>
+              </Card>
             </div>
           </div>
+
+          <div className="mt-6 flex flex-wrap gap-4 text-xs font-black text-slate-500 uppercase tracking-widest">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/40 rounded-full border border-slate-800">
+              Joined {formatDate(buyer.createdAt)}
+            </div>
+            {buyer.country && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/40 rounded-full border border-slate-800">
+                {buyer.country}
+              </div>
+            )}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/40 rounded-full border border-slate-800">
+              {metrics.walletTransactions.totalTransactions} Transactions
+            </div>
+          </div>
+
+          {buyer.expoPushToken && (
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50 col-span-2 md:col-span-4">
+              <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded truncate max-w-[200px]" title={buyer.expoPushToken}>
+                Push Token: {buyer.expoPushToken?.substring(0, 15)}...
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Detailed Information */}
       <Tabs defaultValue="orders" className="w-full">
-        <TabsList className="grid grid-cols-4 mb-4">
+        <TabsList className="grid grid-cols-5 mb-4">
           <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="addresses">Addresses</TabsTrigger>
           <TabsTrigger value="wishlist">Wishlist</TabsTrigger>
           <TabsTrigger value="wallet">Wallet</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
@@ -378,67 +459,16 @@ function BuyerDetail() {
         <TabsContent value="orders" className="space-y-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-medium">Order Summary</CardTitle>
+              <CardTitle className="text-lg font-medium">Order History</CardTitle>
             </CardHeader>
             <CardContent>
-              {/* <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Completed</p>
-                  <p className="text-lg font-medium text-green-600 dark:text-green-400">{metrics.completedOrders}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Pending</p>
-                  <p className="text-lg font-medium text-amber-600 dark:text-amber-400">{metrics.pendingOrders}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Cancelled</p>
-                  <p className="text-lg font-medium text-red-600 dark:text-red-400">{metrics.cancelledOrders}</p>
-                </div>
-              </div> */}
-
-              <h3 className="text-sm font-medium mb-3">Recent Orders</h3>
-              {recentActivity.orders.length > 0 ? (
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Order #</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Items</TableHead>
-                        <TableHead>Amount</TableHead>
-                       
-                        <TableHead>Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {recentActivity.orders.map((order) => (
-                        <TableRow key={order._id}>
-                          <TableCell className="font-medium">{order.order_id}</TableCell>
-                          <TableCell>{formatDate(order.createdAt)}</TableCell>
-                          <TableCell>{order.items}</TableCell>
-                          <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
-                          
-                          <TableCell>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => navigate(`/dashboard/order-detail/${order._id}`)}
-                            >
-                              View Order
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground text-sm">
-                  No orders found for this buyer
-                </div>
-              )}
+              <OrdersList buyerId={id} />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="addresses" className="space-y-4">
+          <AddressList buyer={buyer} onUpdate={fetchBuyerDetails} />
         </TabsContent>
 
         <TabsContent value="wishlist" className="space-y-4">
@@ -453,10 +483,10 @@ function BuyerDetail() {
                     <div key={item._id} className="border rounded-md overflow-hidden">
                       <div className="aspect-square bg-muted">
                         {item.image && (
-                          <img 
-                            src={item.image} 
-                            alt={item.name} 
-                            className="w-full h-full object-cover" 
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
                           />
                         )}
                       </div>
@@ -483,28 +513,28 @@ function BuyerDetail() {
               <CardTitle className="text-lg font-medium">Wallet Overview</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Current Balance</p>
-                  <p className="text-lg font-medium">{formatCurrency(metrics.walletBalance)}</p>
+              <div className="grid grid-cols-2 gap-6 mb-8 mt-2">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Balance</span>
+                  <div className="text-2xl font-black text-white tracking-tight mt-1">{formatCurrency(metrics.walletBalance)}</div>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Total Transactions</p>
-                  <p className="text-lg font-medium">{metrics.walletTransactions.totalTransactions}</p>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Activity</span>
+                  <div className="text-2xl font-black text-white tracking-tight mt-1">{metrics.walletTransactions.totalTransactions}</div>
                 </div>
               </div>
 
               <div className="flex gap-2 mb-6">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => handleWalletOperation('add')}
                   className="flex-1"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Funds
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => handleWalletOperation('deduct')}
                   className="flex-1"
                 >
@@ -584,22 +614,22 @@ function BuyerDetail() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+      </Tabs >
 
       {/* Wallet Operation Dialog */}
-      <Dialog open={showWalletDialog} onOpenChange={setShowWalletDialog}>
+      < Dialog open={showWalletDialog} onOpenChange={setShowWalletDialog} >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
               {walletOperation === 'add' ? 'Add Funds to Wallet' : 'Deduct Funds from Wallet'}
             </DialogTitle>
             <DialogDescription>
-              {walletOperation === 'add' 
+              {walletOperation === 'add'
                 ? 'Enter the amount to add to the buyer\'s wallet.'
                 : 'Enter the amount to deduct from the buyer\'s wallet.'}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="amount">Amount</Label>
@@ -613,7 +643,7 @@ function BuyerDetail() {
                 onChange={(e) => setWalletAmount(e.target.value)}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="reason">Reason (Optional)</Label>
               <Textarea
@@ -624,12 +654,12 @@ function BuyerDetail() {
               />
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowWalletDialog(false)}>
               Cancel
             </Button>
-            <Button 
+            <Button
               variant={walletOperation === 'add' ? 'default' : 'destructive'}
               onClick={executeWalletOperation}
               disabled={processingWallet || !walletAmount || isNaN(parseFloat(walletAmount)) || parseFloat(walletAmount) <= 0}
@@ -639,10 +669,10 @@ function BuyerDetail() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog >
 
       {/* Delete Buyer Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      < Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog} >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Buyer Account</DialogTitle>
@@ -668,12 +698,258 @@ function BuyerDetail() {
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDeleteBuyer} disabled={deleting}>
-              {deleting && <Loader2 className="h-4 w-4 animate-spin mr-2" />} 
+              {deleting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {hardDelete ? "Hard Delete" : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Profile Dialog */}
+      <Dialog open={showEditProfileDialog} onOpenChange={setShowEditProfileDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Buyer Profile</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First Name</Label>
+                <Input
+                  id="firstName"
+                  value={editFormData.firstName}
+                  onChange={(e) => setEditFormData({ ...editFormData, firstName: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  value={editFormData.lastName}
+                  onChange={(e) => setEditFormData({ ...editFormData, lastName: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phoneNumber">Phone Number</Label>
+              <Input
+                id="phoneNumber"
+                value={editFormData.phoneNumber}
+                onChange={(e) => setEditFormData({ ...editFormData, phoneNumber: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="emailVerified"
+                  checked={editFormData.emailVerified}
+                  onCheckedChange={(checked) => setEditFormData({ ...editFormData, emailVerified: checked })}
+                />
+                <Label htmlFor="emailVerified">Email Verified</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="phoneVerified"
+                  checked={editFormData.phoneVerified}
+                  onCheckedChange={(checked) => setEditFormData({ ...editFormData, phoneVerified: checked })}
+                />
+                <Label htmlFor="phoneVerified">Phone Verified</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="isDisabled"
+                  checked={editFormData.isDisabled}
+                  onCheckedChange={(checked) => setEditFormData({ ...editFormData, isDisabled: checked })}
+                />
+                <Label htmlFor="isDisabled">Disabled</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="isIdentityVerified"
+                  checked={editFormData.isIdentityVerified}
+                  onCheckedChange={(checked) => setEditFormData({ ...editFormData, isIdentityVerified: checked })}
+                />
+                <Label htmlFor="isIdentityVerified">ID Verified</Label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditProfileDialog(false)}>Cancel</Button>
+            <Button onClick={handleUpdateProfile} disabled={updatingProfile}>
+              {updatingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div >
+  );
+}
+
+function OrdersList({ buyerId }: { buyerId: string | undefined }) {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const navigate = useNavigate();
+  const limit = 10;
+
+  useEffect(() => {
+    if (buyerId) {
+      fetchOrders();
+    }
+  }, [buyerId, page]);
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get(`/api/admin/buyers/${buyerId}/orders`, {
+        params: {
+          page,
+          limit,
+        },
+      });
+
+      const { orders, totalPages, totalOrders } = response.data;
+      setOrders(orders || []);
+      setTotalPages(totalPages || 1);
+      setTotalOrders(totalOrders || 0);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-NG", {
+      style: "currency",
+      currency: "NGN",
+      minimumFractionDigits: 0
+    }).format(amount);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+      case 'delivered':
+        return 'text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400';
+      case 'processing':
+      case 'shipped':
+        return 'text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400';
+      case 'cancelled':
+      case 'returned':
+        return 'text-red-600 bg-red-100 dark:bg-red-900/30 dark:text-red-400';
+      default:
+        return 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400';
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {loading ? (
+        <div className="flex justify-center p-8">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : orders.length > 0 ? (
+        <>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order #</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Seller</TableHead>
+                  <TableHead>Items</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.map((order) => (
+                  <TableRow key={order._id}>
+                    <TableCell className="font-medium text-xs sm:text-sm">
+                      #{order.order_id || order._id.substring(0, 8)}
+                    </TableCell>
+                    <TableCell className="text-xs sm:text-sm">{formatDate(order.createdAt)}</TableCell>
+                    <TableCell className="text-xs sm:text-sm">
+                      {order.seller?.businessName || order.seller?.storeName || 'Unknown Seller'}
+                    </TableCell>
+                    <TableCell className="text-xs sm:text-sm">
+                      {order.items?.length || 0} items
+                    </TableCell>
+                    <TableCell className="font-medium text-xs sm:text-sm">
+                      {formatCurrency(order.totalAmount)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`text-[10px] sm:text-xs border-0 ${getStatusColor(order.status)}`}>
+                        {order.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate(`/dashboard/orders/${order._id}`)}
+                      >
+                        View
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-sm text-muted-foreground">
+                Showing {orders.length} of {totalOrders} orders
+              </p>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="text-center py-12 text-muted-foreground border rounded-md border-dashed">
+          <p>No orders found for this buyer</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -701,7 +977,7 @@ function TransactionsList({ buyerId }: { buyerId: string | undefined }) {
           limit,
         },
       });
-      
+
       const { data, pagination } = response.data;
       setTransactions(data.transactions || []);
       setTotalPages(pagination.pages || 1);
@@ -756,8 +1032,8 @@ function TransactionsList({ buyerId }: { buyerId: string | undefined }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium mt-6 mb-3">Transaction History</h3>
-      
+      <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-6 mb-3">Transactions</h3>
+
       {loading ? (
         <div className="flex justify-center p-4">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -792,7 +1068,7 @@ function TransactionsList({ buyerId }: { buyerId: string | undefined }) {
               </TableBody>
             </Table>
           </div>
-          
+
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
@@ -829,4 +1105,204 @@ function TransactionsList({ buyerId }: { buyerId: string | undefined }) {
   );
 }
 
-export default BuyerDetail; 
+
+function AddressList({ buyer, onUpdate }: { buyer: any; onUpdate: () => void }) {
+  const [showDialog, setShowDialog] = useState(false);
+  const [currentAddress, setCurrentAddress] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    phoneNumber: "",
+    addressLine1: "",
+    addressLine2: "",
+    city: "",
+    state: "",
+    country: "",
+    zipCode: "",
+    isDefault: false
+  });
+  const { toast } = useToast();
+  const params = useParams();
+
+  const resetForm = () => {
+    setFormData({
+      firstName: "",
+      lastName: "",
+      phoneNumber: "",
+      addressLine1: "",
+      addressLine2: "",
+      city: "",
+      state: "",
+      country: "",
+      zipCode: "",
+      isDefault: false
+    });
+    setCurrentAddress(null);
+  };
+
+  const handleEdit = (address: any) => {
+    setCurrentAddress(address);
+    setFormData({
+      firstName: address.firstName || "",
+      lastName: address.lastName || "",
+      phoneNumber: address.phoneNumber || "",
+      addressLine1: address.addressLine1 || "",
+      addressLine2: address.addressLine2 || "",
+      city: address.city || "",
+      state: address.state || "",
+      country: address.country || "",
+      zipCode: address.zipCode || "",
+      isDefault: address.isDefault || false
+    });
+    setShowDialog(true);
+  };
+
+  const handleSave = async () => {
+    if (!formData.addressLine1 || !formData.city || !formData.country) {
+      toast({ variant: "destructive", description: "Please fill in required fields" });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      let updatedAddresses = [...(buyer?.shippingAddresses || [])];
+
+      if (currentAddress) {
+        // Update existing
+        updatedAddresses = updatedAddresses.map(addr =>
+          addr._id === currentAddress._id ? { ...addr, ...formData } : addr
+        );
+      } else {
+        // Add new
+        updatedAddresses.push(formData);
+      }
+
+      await api.put(`/api/admin/buyers/${params.id}`, { shippingAddresses: updatedAddresses });
+      toast({ description: "Address saved successfully" });
+      setShowDialog(false);
+      resetForm();
+      onUpdate();
+    } catch (error: any) {
+      toast({ variant: "destructive", description: error.response?.data?.message || "Failed to save address" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (addressId: string) => {
+    if (!confirm("Are you sure you want to delete this address?")) return;
+
+    try {
+      const updatedAddresses = buyer?.shippingAddresses?.filter((a: any) => a._id !== addressId) || [];
+      await api.put(`/api/admin/buyers/${params.id}`, { shippingAddresses: updatedAddresses });
+      toast({ description: "Address deleted successfully" });
+      onUpdate();
+    } catch (error: any) {
+      toast({ variant: "destructive", description: error.response?.data?.message || "Failed to delete address" });
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="text-lg font-medium">Shipping Addresses</CardTitle>
+        <Button size="sm" onClick={() => { resetForm(); setShowDialog(true); }}>
+          <Plus className="h-4 w-4 mr-2" /> Add Address
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {buyer?.shippingAddresses && buyer.shippingAddresses.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {buyer.shippingAddresses.map((address: any, index: number) => (
+              <div key={index} className="border rounded-lg p-4 relative">
+                <div className="absolute top-2 right-2 flex gap-1">
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEdit(address)}>
+                    <CreditCard className="h-3 w-3" /> {/* Edit Icon placeholder, using CreditCard for now or change to Edit2 if imported */}
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDelete(address._id)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="text-sm font-medium mb-1">{address.firstName} {address.lastName}</div>
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  <p>{address.addressLine1}</p>
+                  {address.addressLine2 && <p>{address.addressLine2}</p>}
+                  <p>{address.city}, {address.state} {address.zipCode}</p>
+                  <p>{address.country}</p>
+                  {address.phoneNumber && <p className="mt-1">{address.phoneNumber}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-muted-foreground text-sm border-dashed border rounded-md">
+            No addresses found
+          </div>
+        )}
+
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{currentAddress ? 'Edit Address' : 'Add New Address'}</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>First Name</Label>
+                  <Input value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Last Name</Label>
+                  <Input value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Address Line 1</Label>
+                <Input value={formData.addressLine1} onChange={e => setFormData({ ...formData, addressLine1: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Address Line 2</Label>
+                <Input value={formData.addressLine2} onChange={e => setFormData({ ...formData, addressLine2: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>City</Label>
+                  <Input value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>State</Label>
+                  <Input value={formData.state} onChange={e => setFormData({ ...formData, state: e.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Country</Label>
+                  <Input value={formData.country} onChange={e => setFormData({ ...formData, country: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Zip Code</Label>
+                  <Input value={formData.zipCode} onChange={e => setFormData({ ...formData, zipCode: e.target.value })} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Phone Number</Label>
+                <Input value={formData.phoneNumber} onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
+              <Button onClick={handleSave} disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Address
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+}
+
+
+export default BuyerDetail;

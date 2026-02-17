@@ -36,12 +36,12 @@ import { useAuth } from '@/context/authContext';
 // Logout component that will clear localStorage and redirect to login
 const Logout = () => {
   const { logout } = useAuth();
-  
+
   // Call logout immediately when component renders
   useEffect(() => {
     logout();
   }, [logout]);
-  
+
   return <Navigate to="/login" />;
 };
 
@@ -63,7 +63,7 @@ function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="/dashboard/sellers" element={<Sellers />} />
-            <Route path="/dashboard/seller/:id" element={<SellerDetail />} />
+            <Route path="/dashboard/seller-detail/:id" element={<SellerDetail />} />
             <Route path="/dashboard/categories" element={<Categories />} />
             <Route path="/dashboard/major-categories" element={<MajorCategories />} />
             <Route path="/dashboard/buyers" element={<Buyers />} />

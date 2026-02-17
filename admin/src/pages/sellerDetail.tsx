@@ -25,6 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import {
   AlertCircle,
   ArrowLeft,
@@ -53,7 +54,6 @@ import {
   Star,
   Store,
   Tags,
-  User,
   UserCheck,
   Users,
   Video,
@@ -343,7 +343,7 @@ function SellerDetail() {
 
   // Tab state
   const [activeTab, setActiveTab] = useState('overview');
-  
+
   // Bulk update condition state
   const [showBulkUpdateConditionModal, setShowBulkUpdateConditionModal] = useState(false);
   const [selectedCondition, setSelectedCondition] = useState('New');
@@ -359,7 +359,7 @@ function SellerDetail() {
   useEffect(() => {
     // Set loading state
     setLoading(true);
-    
+
     const fetchSellerData = async () => {
       try {
         const response = await api.get(`/api/admin/sellers/${id}/details`);
@@ -416,7 +416,7 @@ function SellerDetail() {
 
   const handleToggleFeature = async () => {
     if (!seller) return;
-    
+
     setActionLoading('feature');
     try {
       await SellerService.toggleFeature(seller._id);
@@ -430,7 +430,7 @@ function SellerDetail() {
 
   const handleToggleVerification = async () => {
     if (!seller) return;
-    
+
     setActionLoading('verify');
     try {
       if (seller.isVerified) {
@@ -448,7 +448,7 @@ function SellerDetail() {
 
   const handleToggleDisabled = async () => {
     if (!seller) return;
-    
+
     setActionLoading('disable');
     try {
       if (seller.isDisabled) {
@@ -466,7 +466,7 @@ function SellerDetail() {
 
   const handleToggleInternational = async () => {
     if (!seller) return;
-    
+
     setActionLoading('international');
     try {
       if (seller.isInternational) {
@@ -488,7 +488,7 @@ function SellerDetail() {
 
   const handleRejectVerification = async () => {
     if (!seller || !rejectReason) return;
-    
+
     setActionLoading('reject');
     try {
       await SellerService.rejectVerification(seller._id, {
@@ -529,7 +529,7 @@ function SellerDetail() {
     try {
       // If it's a new filter, we start from page 1, otherwise we use the next page
       const page = isNewFilter ? 1 : productsPagination.currentPage + 1;
-      
+
       if (isNewFilter) {
         setLoadingProducts(true);
       } else {
@@ -546,12 +546,12 @@ function SellerDetail() {
       };
 
       const response = await SellerService.getSellerProducts(id, params);
-      
+
       console.log("API Response:", response.data); // Log the response to check structure
-      
+
       // Extract products and pagination from the response based on API structure
       const products = response.data.products || [];
-      
+
       // Handle pagination data based on the API response structure
       const pagination = response.data.pagination || {
         currentPage: page,
@@ -559,7 +559,7 @@ function SellerDetail() {
         totalProducts: products.length,
         limit: productsPagination.productsPerPage
       };
-      
+
       setProductsPagination({
         currentPage: pagination.currentPage,
         totalPages: pagination.totalPages,
@@ -642,7 +642,7 @@ function SellerDetail() {
         reason: disableProductReason
       });
       toast.success("Product disabled successfully");
-      setSellerProducts(products => products.map(p => 
+      setSellerProducts(products => products.map(p =>
         p._id === selectedProduct._id ? { ...p, status: 'draft' } : p
       ));
       setShowDisableProductModal(false);
@@ -659,8 +659,8 @@ function SellerDetail() {
   // Get the product discount percentage
   const getDiscountPercentage = (product: Product) => {
     if (!product.discount?.isActive || !product.discount.value) return 0;
-    return product.discount.type === 'percentage' ? 
-      product.discount.value : 
+    return product.discount.type === 'percentage' ?
+      product.discount.value :
       Math.round((product.discount.value / product.price) * 100);
   };
 
@@ -673,12 +673,12 @@ function SellerDetail() {
 
     try {
       setWalletLoading(true);
-      
+
       const response = await SellerService.addToSellerWallet(id, {
         amount: parseFloat(walletAmount),
         reason: walletReason || "Manual fund addition by admin"
       });
-      
+
       // Update the seller object with the new wallet balance
       setSeller(prevSeller => {
         if (!prevSeller) return null;
@@ -687,9 +687,9 @@ function SellerDetail() {
           walletBalance: response.data.newBalance || (prevSeller.walletBalance + parseFloat(walletAmount))
         };
       });
-      
+
       toast.success(`Successfully added ${formatPrice(parseFloat(walletAmount))} to seller's wallet`);
-      
+
       // Reset form and close modal
       setWalletAmount('');
       setWalletReason('');
@@ -711,12 +711,12 @@ function SellerDetail() {
 
     try {
       setWalletLoading(true);
-      
+
       const response = await SellerService.deductFromSellerWallet(id, {
         amount: parseFloat(walletAmount),
         reason: walletReason || "Manual fund deduction by admin"
       });
-      
+
       // Update the seller object with the new wallet balance
       setSeller(prevSeller => {
         if (!prevSeller) return null;
@@ -725,9 +725,9 @@ function SellerDetail() {
           walletBalance: response.data.newBalance || (prevSeller.walletBalance - parseFloat(walletAmount))
         };
       });
-      
+
       toast.success(`Successfully deducted ${formatPrice(parseFloat(walletAmount))} from seller's wallet`);
-      
+
       // Reset form and close modal
       setWalletAmount('');
       setWalletReason('');
@@ -748,11 +748,11 @@ function SellerDetail() {
 
     try {
       setIsDeletingAllProducts(true);
-      
+
       await api.delete(`/api/admin/sellers/${id}/products`, {
         data: { reason: deleteAllProductsReason }
       });
-      
+
       // Reset product list and counts
       setSellerProducts([]);
       setProductsPagination(prev => ({
@@ -761,7 +761,7 @@ function SellerDetail() {
         totalPages: 0,
         totalProducts: 0
       }));
-      
+
       toast.success("All products for this seller have been deleted");
       setShowDeleteAllProductsModal(false);
       setDeleteAllProductsReason("");
@@ -782,12 +782,12 @@ function SellerDetail() {
 
     try {
       setIsUpdatingCondition(true);
-      
+
       await SellerService.bulkUpdateProductCondition(id, selectedCondition);
-      
+
       // Refresh product list
       fetchSellerProducts(true);
-      
+
       toast.success(`Successfully updated all products to condition: ${selectedCondition}`);
       setShowBulkUpdateConditionModal(false);
     } catch (error: any) {
@@ -852,12 +852,12 @@ function SellerDetail() {
               Go back
             </Link>
           </Button>
-        
+
         </div>
         <div className="flex items-center gap-2">
           {/* Add Edit Button */}
-          <Button 
-            variant="default" 
+          <Button
+            variant="default"
             size="sm"
             onClick={() => setShowEditModal(true)}
             className="bg-blue-600 hover:bg-blue-700"
@@ -865,7 +865,7 @@ function SellerDetail() {
             <Pencil className="h-4 w-4 mr-2" />
             Edit Seller
           </Button>
-          
+
           {/* Action Buttons */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -877,7 +877,7 @@ function SellerDetail() {
             <DropdownMenuContent align="end">
               {/* Verification Actions */}
               <DropdownMenuLabel>Verification</DropdownMenuLabel>
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={handleToggleVerification}
                 disabled={actionLoading === 'verify'}
                 className="flex items-center cursor-pointer"
@@ -891,9 +891,9 @@ function SellerDetail() {
                 )}
                 {seller?.isVerified ? "Revoke Verification" : "Verify Seller"}
               </DropdownMenuItem>
-              
+
               {!seller?.isVerified && (
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={() => setShowRejectModal(true)}
                   disabled={actionLoading !== null}
                   className="flex items-center cursor-pointer"
@@ -902,12 +902,12 @@ function SellerDetail() {
                   Reject Verification
                 </DropdownMenuItem>
               )}
-              
+
               <DropdownMenuSeparator />
-              
+
               {/* Store Status */}
               <DropdownMenuLabel>Store Status</DropdownMenuLabel>
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={handleToggleDisabled}
                 disabled={actionLoading === 'disable'}
                 className="flex items-center cursor-pointer"
@@ -921,12 +921,12 @@ function SellerDetail() {
                 )}
                 {seller?.isDisabled ? "Enable Seller" : "Disable Seller"}
               </DropdownMenuItem>
-              
+
               <DropdownMenuSeparator />
-              
+
               {/* Featured Status */}
               <DropdownMenuLabel>Featured Status</DropdownMenuLabel>
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={handleToggleFeature}
                 disabled={actionLoading === 'feature'}
                 className="flex items-center cursor-pointer"
@@ -938,12 +938,12 @@ function SellerDetail() {
                 )}
                 {seller?.isFeatured ? "Remove from Featured" : "Mark as Featured"}
               </DropdownMenuItem>
-              
+
               <DropdownMenuSeparator />
-              
+
               {/* International Status */}
               <DropdownMenuLabel>International Status</DropdownMenuLabel>
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={handleToggleInternational}
                 disabled={actionLoading === 'international'}
                 className="flex items-center cursor-pointer"
@@ -955,7 +955,7 @@ function SellerDetail() {
                 )}
                 {seller?.isInternational ? "Remove International Status" : "Mark as International"}
               </DropdownMenuItem>
-              
+
               {/* Vacation Mode */}
               <DropdownMenuLabel>Vacation Mode</DropdownMenuLabel>
               <DropdownMenuItem
@@ -974,7 +974,7 @@ function SellerDetail() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          
+
           {/* Delete All Products Button */}
           {/* <Button 
             variant="destructive" 
@@ -992,8 +992,8 @@ function SellerDetail() {
       <div className="relative rounded-lg overflow-hidden bg-gradient-to-b from-zinc-800 to-zinc-900">
         {seller.storeBanner?.url ? (
           <div className="h-48 w-full">
-            <img 
-              src={seller.storeBanner.url} 
+            <img
+              src={seller.storeBanner.url}
               alt="Store Banner"
               className="w-full h-full object-cover opacity-40"
             />
@@ -1005,40 +1005,26 @@ function SellerDetail() {
         )}
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-zinc-950/90 to-transparent">
           <div className="flex flex-col md:flex-row items-center gap-6">
-            <Avatar className="h-24 w-24 border-4 border-zinc-950">
-              {seller.storeAvatar?.url ? (
-                <AvatarImage src={seller.storeAvatar.url} />
-              ) : (
-                <AvatarFallback className="bg-zinc-800">
-                  {seller.accountType === "business" ? 
-                    <Building className="h-12 w-12 text-zinc-700" /> : 
-                    <User className="h-12 w-12 text-zinc-700" />
-                  }
-                </AvatarFallback>
-              )}
+            <Avatar className="h-24 w-24 rounded-3xl border-4 border-slate-950 shadow-2xl">
+              <AvatarImage src={seller.storeAvatar?.url} />
+              <AvatarFallback className="bg-slate-900 text-slate-400 font-black text-2xl uppercase">
+                {getDisplayName(seller).slice(0, 2)}
+              </AvatarFallback>
             </Avatar>
             <div className="text-center md:text-left">
               <h2 className="text-3xl font-bold text-white">{getDisplayName(seller)}</h2>
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-2">
-                <Badge variant="outline" className={`
-                  px-2 py-1 
-                  ${seller.accountType === "business" ? "bg-blue-500/10 text-blue-400" : "bg-purple-500/10 text-purple-400"}
-                `}>
-                  {seller.accountType === "business" ? 
-                    <Building className="h-3 w-3 mr-1" /> : 
-                    <User className="h-3 w-3 mr-1" />
-                  }
-                  {seller.accountType === "business" ? "Business" : "Individual"}
+                <Badge variant="outline" className={cn(
+                  "px-3 py-1 rounded-full backdrop-blur-md font-black text-[10px] uppercase tracking-wider",
+                  seller.accountType === "business" ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" : "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                )}>
+                  {seller.accountType}
                 </Badge>
-                <Badge variant="outline" className={`
-                  px-2 py-1
-                  ${seller.isVerified ? "bg-green-500/10 text-green-400" : "bg-yellow-500/10 text-yellow-400"}
-                `}>
-                  {seller.isVerified ? 
-                    <CheckCircle2 className="h-3 w-3 mr-1" /> : 
-                    <Clock className="h-3 w-3 mr-1" />
-                  }
-                  {seller.isVerified ? "Verified" : "Pending Verification"}
+                <Badge variant="outline" className={cn(
+                  "px-3 py-1 rounded-full backdrop-blur-md font-black text-[10px] uppercase tracking-wider",
+                  seller.isVerified ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                )}>
+                  {seller.isVerified ? "Verified" : "Pending"}
                 </Badge>
                 {seller.isFeatured && (
                   <Badge variant="outline" className="bg-yellow-500/10 text-yellow-400 px-2 py-1">
@@ -1090,47 +1076,47 @@ function SellerDetail() {
         <TabsContent value="overview" className="space-y-6">
           {/* Statistics Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Card className="p-4 bg-zinc-900 border-zinc-800">
+            <Card className="p-4 bg-slate-950/40 border-slate-800/60 rounded-2xl backdrop-blur-md">
               <div className="flex flex-col">
-                <span className="text-sm text-zinc-400">Store Visits</span>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Visits</span>
                 <div className="mt-2 flex items-center gap-2">
-                  <Eye className="h-5 w-5 text-blue-400" />
-                  <span className="text-2xl font-semibold text-white">{seller.storeVisits?.toLocaleString() || 0}</span>
+                  <Eye className="h-5 w-5 text-indigo-500" />
+                  <span className="text-2xl font-black text-white tracking-tight">{seller.storeVisits?.toLocaleString() || 0}</span>
                 </div>
               </div>
             </Card>
-            
-            <Card className="p-4 bg-zinc-900 border-zinc-800">
+
+            <Card className="p-4 bg-slate-950/40 border-slate-800/60 rounded-2xl backdrop-blur-md">
               <div className="flex flex-col">
-                <span className="text-sm text-zinc-400">Wallet Balance</span>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Balance</span>
                 <div className="mt-2 flex items-center gap-2">
-                  <Wallet className="h-5 w-5 text-green-400" />
-                  <span className="text-2xl font-semibold text-white">NGN {seller.walletBalance?.toLocaleString() || 0}</span>
+                  <Wallet className="h-5 w-5 text-emerald-500" />
+                  <span className="text-2xl font-black text-white tracking-tight">₦{seller.walletBalance?.toLocaleString() || 0}</span>
                 </div>
               </div>
             </Card>
-            
-            <Card className="p-4 bg-zinc-900 border-zinc-800">
+
+            <Card className="p-4 bg-slate-950/40 border-slate-800/60 rounded-2xl backdrop-blur-md">
               <div className="flex flex-col">
-                <span className="text-sm text-zinc-400">Avg. Rating</span>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Rating</span>
                 <div className="mt-2 flex items-center gap-2">
-                  <Star className="h-5 w-5 text-yellow-400" />
-                  <span className="text-2xl font-semibold text-white">{seller.stats?.averageRating || 0}</span>
+                  <Star className="h-5 w-5 text-amber-500" />
+                  <span className="text-2xl font-black text-white tracking-tight">{seller.stats?.averageRating || 0}</span>
                 </div>
               </div>
             </Card>
-            
-            <Card className="p-4 bg-zinc-900 border-zinc-800">
+
+            <Card className="p-4 bg-slate-950/40 border-slate-800/60 rounded-2xl backdrop-blur-md">
               <div className="flex flex-col">
-                <span className="text-sm text-zinc-400">Total Reviews</span>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Reviews</span>
                 <div className="mt-2 flex items-center gap-2">
-                  <MessageCircle className="h-5 w-5 text-purple-400" />
-                  <span className="text-2xl font-semibold text-white">{seller.stats?.totalReviews || 0}</span>
+                  <MessageCircle className="h-5 w-5 text-indigo-500" />
+                  <span className="text-2xl font-black text-white tracking-tight">{seller.stats?.totalReviews || 0}</span>
                 </div>
               </div>
             </Card>
           </div>
-          
+
           {/* Additional Metrics */}
           {metrics && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -1143,7 +1129,7 @@ function SellerDetail() {
                   </div>
                 </div>
               </Card>
-              
+
               <Card className="p-4 bg-zinc-900 border-zinc-800">
                 <div className="flex flex-col">
                   <span className="text-sm text-zinc-400">Total Products</span>
@@ -1153,7 +1139,7 @@ function SellerDetail() {
                   </div>
                 </div>
               </Card>
-              
+
               <Card className="p-4 bg-zinc-900 border-zinc-800">
                 <div className="flex flex-col">
                   <span className="text-sm text-zinc-400">Streams</span>
@@ -1163,12 +1149,12 @@ function SellerDetail() {
                   </div>
                 </div>
               </Card>
-              
+
               <Card className="p-4 bg-zinc-900 border-zinc-800">
                 <div className="flex flex-col">
                   <span className="text-sm text-zinc-400">Total Revenue</span>
                   <div className="mt-2 flex items-center gap-2">
-                   NGN
+                    NGN
                     <span className="text-2xl font-semibold text-white">{metrics.totalRevenue?.toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
@@ -1178,7 +1164,7 @@ function SellerDetail() {
               </Card>
             </div>
           )}
-          
+
           {/* Two-column layout for details */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Left Column */}
@@ -1220,7 +1206,7 @@ function SellerDetail() {
                   )}
                 </div>
               </Card>
-              
+
               {/* Business Address */}
               {seller.accountType === "business" ? (
                 <Card className="p-5 bg-zinc-900 border-zinc-800">
@@ -1256,7 +1242,7 @@ function SellerDetail() {
                 </Card>
               )}
             </div>
-            
+
             {/* Middle/Right Column */}
             <div className="md:col-span-2 space-y-6">
               {/* Store Information */}
@@ -1318,7 +1304,7 @@ function SellerDetail() {
                 </Card>
               )}
 
-            
+
 
               {/* Store Policy */}
               {seller.storePolicy && (
@@ -1378,8 +1364,8 @@ function SellerDetail() {
                 </Card>
               )}
 
-             
-              
+
+
               {/* Bank Details */}
               {seller.bankDetails ? (
                 <Card className="p-5 bg-zinc-900 border-zinc-800">
@@ -1423,7 +1409,7 @@ function SellerDetail() {
                   <div className="text-zinc-400">Not provided</div>
                 </Card>
               )}
-              
+
               {/* Categories */}
               {seller.categories && seller.categories.length > 0 && (
                 <Card className="p-5 bg-zinc-900 border-zinc-800">
@@ -1439,8 +1425,8 @@ function SellerDetail() {
                           <div className="flex flex-wrap gap-2 mt-2">
                             {category.subCategories && category.subCategories.length > 0 ? (
                               category.subCategories.map((sub) => (
-                                <Badge 
-                                  key={sub._id} 
+                                <Badge
+                                  key={sub._id}
                                   variant="outline"
                                   className="bg-zinc-700/50 text-zinc-300"
                                 >
@@ -1462,7 +1448,7 @@ function SellerDetail() {
             </div>
           </div>
         </TabsContent>
-        
+
         {/* Placeholder for other tabs */}
         <TabsContent value="sales">
           <div className="space-y-6">
@@ -1472,7 +1458,7 @@ function SellerDetail() {
                 <Package className="h-5 w-5 text-zinc-400" />
                 Recent Orders
               </h3>
-              
+
               {recentActivity?.orders && recentActivity.orders.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
@@ -1498,9 +1484,9 @@ function SellerDetail() {
                           <td className="py-3 text-sm">₦{order.totalAmount?.toLocaleString()}</td>
                           <td className="py-3 text-sm">
                             <Badge variant="outline" className={`
-                              ${order.items[0]?.status === 'completed' ? 'bg-green-500/10 text-green-400' : 
-                                order.items[0]?.status === 'cancelled' ? 'bg-red-500/10 text-red-400' : 
-                                'bg-yellow-500/10 text-yellow-400'}
+                              ${order.items[0]?.status === 'completed' ? 'bg-green-500/10 text-green-400' :
+                                order.items[0]?.status === 'cancelled' ? 'bg-red-500/10 text-red-400' :
+                                  'bg-yellow-500/10 text-yellow-400'}
                             `}>
                               {order.items[0]?.status || 'pending'}
                             </Badge>
@@ -1517,7 +1503,7 @@ function SellerDetail() {
                 </div>
               )}
             </Card>
-            
+
             {/* Sales Analytics */}
             {analytics?.salesByMonth && (
               <Card className="p-5 bg-zinc-900 border-zinc-800">
@@ -1525,7 +1511,7 @@ function SellerDetail() {
                   <LineChart className="h-5 w-5 text-zinc-400" />
                   Monthly Sales
                 </h3>
-                
+
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
                     <thead>
@@ -1543,7 +1529,7 @@ function SellerDetail() {
                           </td>
                           <td className="py-3 text-sm">{month.count}</td>
                           <td className="py-3 text-sm text-green-400">
-                          ₦{month.totalSales.toLocaleString(undefined, {
+                            ₦{month.totalSales.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2
                             })}
@@ -1557,7 +1543,7 @@ function SellerDetail() {
             )}
           </div>
         </TabsContent>
-        
+
         <TabsContent value="products">
           <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -1620,7 +1606,7 @@ function SellerDetail() {
                     className="bg-zinc-800 text-white border border-zinc-700 rounded-md px-4 py-2 text-sm w-64 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
                   />
                   {productsFilter.search && (
-                    <button 
+                    <button
                       onClick={() => {
                         setProductsFilter(prev => ({ ...prev, search: '' }));
                       }}
@@ -1629,7 +1615,7 @@ function SellerDetail() {
                       <X className="h-4 w-4" />
                     </button>
                   )}
-                  <button 
+                  <button
                     onClick={applyProductsFilter}
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 text-zinc-400 hover:text-white"
                   >
@@ -1647,7 +1633,7 @@ function SellerDetail() {
                   <option value="draft">Draft</option>
                   <option value="offline_auction">Offline Auction</option>
                 </select>
-               
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -1700,8 +1686,8 @@ function SellerDetail() {
                             <TableCell className="align-top">
                               {product.images && product.images.length > 0 && (
                                 <div className="relative group">
-                                  <img 
-                                    src={product.images[0].url} 
+                                  <img
+                                    src={product.images[0].url}
                                     alt={product.name}
                                     className="w-16 h-16 object-cover rounded-md"
                                   />
@@ -1767,26 +1753,24 @@ function SellerDetail() {
                             </TableCell>
                             <TableCell className="align-top">
                               <div className="flex flex-col gap-2">
-                                <span className={`px-2 py-1 rounded-full text-xs flex items-center justify-center w-fit ${
-                                  product.stock > 20 
-                                    ? 'bg-green-500/20 text-green-400'
-                                    : product.stock > 0
+                                <span className={`px-2 py-1 rounded-full text-xs flex items-center justify-center w-fit ${product.stock > 20
+                                  ? 'bg-green-500/20 text-green-400'
+                                  : product.stock > 0
                                     ? 'bg-yellow-500/20 text-yellow-400'
                                     : 'bg-red-500/20 text-red-400'
-                                }`}>
-                                  {product.stock > 20 
-                                    ? 'In Stock' 
-                                    : product.stock > 0 
-                                    ? 'Low Stock'
-                                    : 'Out of Stock'}
+                                  }`}>
+                                  {product.stock > 20
+                                    ? 'In Stock'
+                                    : product.stock > 0
+                                      ? 'Low Stock'
+                                      : 'Out of Stock'}
                                 </span>
-                                <Badge variant={product.status === 'active' ? 'default' : 'outline'} className={`text-xs w-fit ${
-                                  product.status === 'active' 
-                                    ? 'bg-green-500/20 text-green-400' 
-                                    : product.status === 'draft'
+                                <Badge variant={product.status === 'active' ? 'default' : 'outline'} className={`text-xs w-fit ${product.status === 'active'
+                                  ? 'bg-green-500/20 text-green-400'
+                                  : product.status === 'draft'
                                     ? 'text-zinc-400'
                                     : 'bg-blue-500/20 text-blue-400'
-                                }`}>
+                                  }`}>
                                   {product.status.charAt(0).toUpperCase() + product.status.slice(1)}
                                 </Badge>
                                 <Badge variant="outline" className="text-xs w-fit bg-zinc-700 text-zinc-300">
@@ -1812,9 +1796,9 @@ function SellerDetail() {
                             </TableCell>
                             <TableCell className="align-top">
                               <div className="flex space-x-2">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
+                                <Button
+                                  variant="outline"
+                                  size="sm"
                                   className="text-red-400 hover:text-red-300 border-zinc-700 hover:bg-red-500/10"
                                   onClick={() => {
                                     setSelectedProduct(product);
@@ -1823,18 +1807,18 @@ function SellerDetail() {
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
-                                
-                                                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="text-amber-400 hover:text-amber-300 border-zinc-700 hover:bg-amber-500/10"
-                  onClick={() => {
-                    setSelectedProduct(product);
-                    setShowDisableProductModal(true);
-                  }}
-                >
-                  <MinusCircle className="h-3.5 w-3.5" />
-                </Button>
+
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-amber-400 hover:text-amber-300 border-zinc-700 hover:bg-amber-500/10"
+                                  onClick={() => {
+                                    setSelectedProduct(product);
+                                    setShowDisableProductModal(true);
+                                  }}
+                                >
+                                  <MinusCircle className="h-3.5 w-3.5" />
+                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -1859,7 +1843,7 @@ function SellerDetail() {
                   {/* Load more button */}
                   {!loadingProducts && !loadingMore && productsPagination.currentPage < productsPagination.totalPages && (
                     <div className="mt-6 flex justify-center">
-                      <Button 
+                      <Button
                         onClick={handleLoadMoreProducts}
                         disabled={loadingMore}
                         className="bg-indigo-600/20 text-indigo-400 border border-indigo-600/30 hover:bg-indigo-600/40"
@@ -1880,7 +1864,7 @@ function SellerDetail() {
             </Card>
           </div>
         </TabsContent>
-        
+
         <TabsContent value="finances">
           <div className="space-y-6">
             {/* Wallet Management */}
@@ -1913,7 +1897,7 @@ function SellerDetail() {
               <div className="flex flex-col sm:flex-row gap-6">
                 <div className="flex-1 bg-zinc-800 rounded-lg p-5 flex flex-col justify-between">
                   <div>
-                    <div className="text-sm text-zinc-400">Current Balance</div>
+                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Balance</div>
                     <div className="text-3xl font-bold text-white mt-2">
                       {formatPrice(seller?.walletBalance || 0)}
                     </div>
@@ -1967,14 +1951,14 @@ function SellerDetail() {
                 </div>
               </div>
             </Card>
-            
+
             {/* Recent Transactions */}
             <Card className="p-5 bg-zinc-900 border-zinc-800">
               <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-zinc-400" />
                 Recent Transactions
               </h3>
-              
+
               {recentActivity?.transactions && recentActivity.transactions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
@@ -1995,10 +1979,10 @@ function SellerDetail() {
                           </td>
                           <td className="py-3 text-sm">
                             <Badge variant="outline" className={`
-                              ${transaction.type === 'order_payment' ? 'bg-green-500/10 text-green-400' : 
-                                transaction.type === 'withdrawal' ? 'bg-blue-500/10 text-blue-400' : 
-                                transaction.type === 'processing_fee' ? 'bg-orange-500/10 text-orange-400' : 
-                                'bg-zinc-500/10 text-zinc-400'}
+                              ${transaction.type === 'order_payment' ? 'bg-green-500/10 text-green-400' :
+                                transaction.type === 'withdrawal' ? 'bg-blue-500/10 text-blue-400' :
+                                  transaction.type === 'processing_fee' ? 'bg-orange-500/10 text-orange-400' :
+                                    'bg-zinc-500/10 text-zinc-400'}
                             `}>
                               {transaction.type.replace('_', ' ')}
                             </Badge>
@@ -2009,9 +1993,9 @@ function SellerDetail() {
                           </td>
                           <td className="py-3 text-sm">
                             <Badge variant="outline" className={`
-                              ${transaction.status === 'completed' ? 'bg-green-500/10 text-green-400' : 
-                                transaction.status === 'failed' ? 'bg-red-500/10 text-red-400' : 
-                                'bg-yellow-500/10 text-yellow-400'}
+                              ${transaction.status === 'completed' ? 'bg-green-500/10 text-green-400' :
+                                transaction.status === 'failed' ? 'bg-red-500/10 text-red-400' :
+                                  'bg-yellow-500/10 text-yellow-400'}
                             `}>
                               {transaction.status}
                             </Badge>
@@ -2028,14 +2012,14 @@ function SellerDetail() {
                 </div>
               )}
             </Card>
-            
+
             {/* Withdrawals */}
             <Card className="p-5 bg-zinc-900 border-zinc-800">
               <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
                 <Wallet className="h-5 w-5 text-zinc-400" />
                 Withdrawal History
               </h3>
-              
+
               {recentActivity?.withdrawals && recentActivity.withdrawals.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
@@ -2056,10 +2040,10 @@ function SellerDetail() {
                             {new Date(withdrawal.requestDate).toLocaleDateString()}
                           </td>
                           <td className="py-3 text-sm">
-                            {withdrawal.bankDetails?.accountName} 
+                            {withdrawal.bankDetails?.accountName}
                             <span className="text-zinc-500">
-                              {withdrawal.bankDetails?.accountNumber ? 
-                                ` (${withdrawal.bankDetails.accountNumber.slice(-4).padStart(withdrawal.bankDetails.accountNumber.length, '*')})` 
+                              {withdrawal.bankDetails?.accountNumber ?
+                                ` (${withdrawal.bankDetails.accountNumber.slice(-4).padStart(withdrawal.bankDetails.accountNumber.length, '*')})`
                                 : ''}
                             </span>
                           </td>
@@ -2068,9 +2052,9 @@ function SellerDetail() {
                           </td>
                           <td className="py-3 text-sm">
                             <Badge variant="outline" className={`
-                              ${withdrawal.status === 'completed' ? 'bg-green-500/10 text-green-400' : 
-                                withdrawal.status === 'rejected' ? 'bg-red-500/10 text-red-400' : 
-                                'bg-yellow-500/10 text-yellow-400'}
+                              ${withdrawal.status === 'completed' ? 'bg-green-500/10 text-green-400' :
+                                withdrawal.status === 'rejected' ? 'bg-red-500/10 text-red-400' :
+                                  'bg-yellow-500/10 text-yellow-400'}
                             `}>
                               {withdrawal.status}
                             </Badge>
@@ -2089,7 +2073,7 @@ function SellerDetail() {
             </Card>
           </div>
         </TabsContent>
-        
+
         {/* Followers Tab */}
         <TabsContent value="followers">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2099,7 +2083,7 @@ function SellerDetail() {
                 <Users className="h-5 w-5 text-zinc-400" />
                 Followers ({seller.followers?.length || 0})
               </h3>
-              
+
               {seller.followers && seller.followers.length > 0 ? (
                 <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
                   {seller.followers.map((follower) => (
@@ -2111,7 +2095,7 @@ function SellerDetail() {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-zinc-100 truncate">
-                          {follower.firstName && follower.lastName 
+                          {follower.firstName && follower.lastName
                             ? `${follower.firstName} ${follower.lastName}`
                             : follower.name || "Anonymous User"}
                         </p>
@@ -2127,8 +2111,8 @@ function SellerDetail() {
                         </div>
                       </div>
                       {follower.lastInteraction && (
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className="bg-blue-500/10 text-blue-400 text-xs whitespace-nowrap"
                           title={`Last interaction: ${new Date(follower.lastInteraction).toLocaleString()}`}
                         >
@@ -2146,14 +2130,14 @@ function SellerDetail() {
                 </div>
               )}
             </Card>
-            
+
             {/* Customers List */}
             <Card className="p-5 bg-zinc-900 border-zinc-800">
               <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
                 <UserCheck className="h-5 w-5 text-zinc-400" />
                 Top Customers ({seller.customers?.length || 0})
               </h3>
-              
+
               {seller.customers && seller.customers.length > 0 ? (
                 <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
                   {seller.customers.map((customer) => (
@@ -2192,7 +2176,7 @@ function SellerDetail() {
             </Card>
           </div>
         </TabsContent>
-        
+
         <TabsContent value="documents">
           {seller?.verificationDocuments?.documents && seller.verificationDocuments.documents.length > 0 ? (
             <Card className="p-5 bg-zinc-900 border-zinc-800">
@@ -2202,8 +2186,8 @@ function SellerDetail() {
               </h3>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {seller.verificationDocuments.documents.map((doc) => (
-                  <div 
-                    key={doc._id} 
+                  <div
+                    key={doc._id}
                     className="bg-zinc-800 p-4 rounded-lg flex items-center justify-between"
                   >
                     <div className="flex items-center gap-3 overflow-hidden">
@@ -2236,7 +2220,7 @@ function SellerDetail() {
               </h3>
             </Card>
           )}
-          
+
           {/* Reviews Section */}
           {seller?.reviews && seller.reviews.length > 0 && (
             <Card className="p-5 bg-zinc-900 border-zinc-800 mt-6">
@@ -2251,9 +2235,9 @@ function SellerDetail() {
                       <div className="flex items-center gap-2">
                         <div className="flex">
                           {[...Array(5)].map((_, i) => (
-                            <Star 
-                              key={i} 
-                              className={`h-4 w-4 ${i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-zinc-600"}`} 
+                            <Star
+                              key={i}
+                              className={`h-4 w-4 ${i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-zinc-600"}`}
                             />
                           ))}
                         </div>
@@ -2284,7 +2268,7 @@ function SellerDetail() {
           )}
         </TabsContent>
       </Tabs>
-      
+
       {/* Rejection Modal */}
       <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
         <DialogContent className="bg-zinc-950 text-zinc-100 border border-zinc-800 max-w-md">
@@ -2294,7 +2278,7 @@ function SellerDetail() {
               Reject Seller Verification
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-400">
@@ -2307,7 +2291,7 @@ function SellerDetail() {
                 className="bg-zinc-900 border-zinc-800"
               />
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-400">
                 Additional Details
@@ -2356,7 +2340,7 @@ function SellerDetail() {
               Edit Seller Information
             </DialogTitle>
           </DialogHeader>
-          
+
           {seller && (
             <EditSellerForm
               sellerId={seller._id}
@@ -2384,8 +2368,8 @@ function SellerDetail() {
             <div className="bg-zinc-800 p-4 rounded-md mb-4">
               <div className="flex items-center gap-3">
                 {selectedProduct.images && selectedProduct.images.length > 0 && (
-                  <img 
-                    src={selectedProduct.images[0].url} 
+                  <img
+                    src={selectedProduct.images[0].url}
                     alt={selectedProduct.name}
                     className="w-12 h-12 object-cover rounded-md"
                   />
@@ -2437,8 +2421,8 @@ function SellerDetail() {
             <div className="bg-zinc-800 p-4 rounded-md mb-4">
               <div className="flex items-center gap-3">
                 {selectedProduct.images && selectedProduct.images.length > 0 && (
-                  <img 
-                    src={selectedProduct.images[0].url} 
+                  <img
+                    src={selectedProduct.images[0].url}
                     alt={selectedProduct.name}
                     className="w-12 h-12 object-cover rounded-md"
                   />
@@ -2451,7 +2435,7 @@ function SellerDetail() {
                 </div>
               </div>
             </div>
-            
+
             <div className="py-4">
               <label htmlFor="disable-reason" className="block text-sm font-medium mb-2 text-zinc-300">
                 Reason for disabling
@@ -2469,7 +2453,7 @@ function SellerDetail() {
                 <span>This information will be logged for administrative purposes.</span>
               </div>
             </div>
-            
+
             <DialogFooter>
               <Button
                 variant="outline"
@@ -2511,7 +2495,7 @@ function SellerDetail() {
               Add funds to {seller?.storeName || getDisplayName(seller || {} as Seller)}'s wallet balance.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-300">
@@ -2527,7 +2511,7 @@ function SellerDetail() {
                 className="bg-zinc-800 border-zinc-700 text-white"
               />
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-300">
                 Reason
@@ -2541,7 +2525,7 @@ function SellerDetail() {
               />
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button
               variant="outline"
@@ -2582,13 +2566,13 @@ function SellerDetail() {
               Deduct funds from {seller?.storeName || getDisplayName(seller || {} as Seller)}'s wallet balance.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-2">
             <div className="py-2 rounded-md bg-zinc-800 px-3 flex justify-between">
-              <span className="text-zinc-300">Current Balance:</span>
+              <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Balance:</span>
               <span className="font-medium text-white">{formatPrice(seller?.walletBalance || 0)}</span>
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-300">
                 Amount (₦)*
@@ -2608,7 +2592,7 @@ function SellerDetail() {
                 </p>
               )}
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-300">
                 Reason*
@@ -2622,7 +2606,7 @@ function SellerDetail() {
               />
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button
               variant="outline"
@@ -2638,9 +2622,9 @@ function SellerDetail() {
             <Button
               onClick={handleDeductFunds}
               disabled={
-                walletLoading || 
-                !walletAmount || 
-                parseFloat(walletAmount) <= 0 || 
+                walletLoading ||
+                !walletAmount ||
+                parseFloat(walletAmount) <= 0 ||
                 parseFloat(walletAmount) > (seller?.walletBalance || 0) ||
                 !walletReason
               }
@@ -2669,7 +2653,7 @@ function SellerDetail() {
               Are you sure you want to delete all products for this seller? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-300">
@@ -2684,7 +2668,7 @@ function SellerDetail() {
               />
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button
               variant="outline"
@@ -2724,7 +2708,7 @@ function SellerDetail() {
               This will update the condition for all products of {seller ? getDisplayName(seller) : "this seller"}.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-300">
@@ -2740,7 +2724,7 @@ function SellerDetail() {
                 <option value="Refurbished">Refurbished</option>
               </select>
             </div>
-            
+
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-3 text-amber-400 text-sm">
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
@@ -2751,7 +2735,7 @@ function SellerDetail() {
               </div>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button
               variant="outline"
