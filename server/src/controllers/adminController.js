@@ -3631,6 +3631,82 @@ exports.verifyTransferStatus = async (req, res) => {
   }
 };
 
+// Manually complete withdrawal
+exports.manualCompleteWithdrawal = async (req, res) => {
+  try {
+    const { withdrawalId } = req.params;
+
+    const withdrawal = await Withdrawal.findById(withdrawalId).populate('seller');
+
+    if (!withdrawal) {
+      return res.status(404).json({
+        success: false,
+        message: 'Withdrawal not found'
+      });
+    }
+
+    if (withdrawal.status === 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Withdrawal is already completed'
+      });
+    }
+
+    withdrawal.status = 'completed';
+    withdrawal.paymentInfo = {
+      ...(withdrawal.paymentInfo || {}),
+      paystackStatus: 'manual_completion',
+      completedAt: new Date(),
+      manuallyCompletedBy: req.user.id
+    };
+
+    withdrawal.notes.push({
+      content: 'Withdrawal marked as completed manually by admin',
+      addedBy: 'admin',
+      date: new Date()
+    });
+
+    await withdrawal.save();
+
+    // Send success email
+    try {
+      if (withdrawal.seller && withdrawal.seller.email) {
+        await termiiEmailService.sendRawHTMLEmail({
+          email: withdrawal.seller.email,
+          subject: 'Withdrawal Completed - Auqli',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Withdrawal Completed</h2>
+              <p>Dear ${withdrawal.seller.firstName},</p>
+              <p>Your withdrawal request (Ref: ${withdrawal.reference}) has been marked as completed.</p>
+              <p>Amount: ₦${withdrawal.amount.toLocaleString()}</p>
+              <p>If you have not received your funds, please contact support.</p>
+              <p>Best regards,<br>The Auqli Team</p>
+            </div>
+          `
+        });
+      }
+    } catch (emailError) {
+      console.error('Failed to send email notification:', emailError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Withdrawal marked as completed successfully',
+      data: {
+        withdrawal
+      }
+    });
+  } catch (error) {
+    console.error('Error manually completing withdrawal:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to manually complete withdrawal',
+      error: error.message
+    });
+  }
+};
+
 // Add email notification function
 async function sendStatusUpdateEmail(withdrawal) {
   const emailContent = {
@@ -7029,6 +7105,13 @@ exports.getPlatformMetrics = async (req, res) => {
     const today = new Date();
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(today.getDate() - 30);
+
+    // 90 Days Logic for Revenue
+    const ninetyDaysAgo = new Date(today);
+    ninetyDaysAgo.setDate(today.getDate() - 90);
+    const oneEightyDaysAgo = new Date(today);
+    oneEightyDaysAgo.setDate(today.getDate() - 180);
+
     const startOfToday = new Date(today.setHours(0, 0, 0, 0));
     const startOfYesterday = new Date(startOfToday);
     startOfYesterday.setDate(startOfYesterday.getDate() - 1);
@@ -7060,7 +7143,7 @@ exports.getPlatformMetrics = async (req, res) => {
       BankChangeRequest.countDocuments()
     ]);
 
-    // Counts from 30 days ago (for monthly growth comparison)
+    // Counts from 30 days ago (for monthly growth comparison - kept for non-revenue metrics)
     const [
       buyers30DaysAgo,
       sellers30DaysAgo,
@@ -7160,20 +7243,34 @@ exports.getPlatformMetrics = async (req, res) => {
     ]);
 
     // Get financial metrics
-    // Total Revenue
+    // Total Revenue (Last 90 Days)
     const totalRevenueResult = await Order.aggregate([
-      { $match: { paid: true, isStale: { $ne: true }, items: { $not: { $elemMatch: { status: 'cancelled' } } } } },
+      {
+        $match: {
+          paid: true,
+          isStale: { $ne: true },
+          items: { $not: { $elemMatch: { status: 'cancelled' } } },
+          createdAt: { $gte: ninetyDaysAgo }
+        }
+      },
       { $group: { _id: null, total: { $sum: '$totalAmount' } } }
     ]);
     const totalOrderAmount = totalRevenueResult[0]?.total || 0;
 
-    // Revenue 30 Days Ago
-    const revenue30DaysAgoResult = await Order.aggregate([
-      { $match: { paid: true, isStale: { $ne: true }, items: { $not: { $elemMatch: { status: 'cancelled' } } }, createdAt: { $lt: thirtyDaysAgo } } },
+    // Revenue Previous Period (90 Days before the last 90 days)
+    const revenuePreviousResult = await Order.aggregate([
+      {
+        $match: {
+          paid: true,
+          isStale: { $ne: true },
+          items: { $not: { $elemMatch: { status: 'cancelled' } } },
+          createdAt: { $gte: oneEightyDaysAgo, $lt: ninetyDaysAgo }
+        }
+      },
       { $group: { _id: null, total: { $sum: '$totalAmount' } } }
     ]);
-    const revenue30DaysAgo = revenue30DaysAgoResult[0]?.total || 0;
-    const revenueGrowth = calculatePercentageChange(totalOrderAmount, revenue30DaysAgo);
+    const revenuePreviousPeriod = revenuePreviousResult[0]?.total || 0;
+    const revenueGrowth = calculatePercentageChange(totalOrderAmount, revenuePreviousPeriod);
 
     const totalWithdrawalResult = await Withdrawal.aggregate([
       { $match: { status: 'completed' } },
@@ -7183,14 +7280,14 @@ exports.getPlatformMetrics = async (req, res) => {
 
 
     // --- TIME SERIES DATA (For Charts) ---
-    // Daily Revenue & Orders (Last 30 Days)
+    // Daily Revenue & Orders (Last 90 Days)
     const dailyStats = await Order.aggregate([
       {
         $match: {
           paid: true,
           isStale: { $ne: true },
           items: { $not: { $elemMatch: { status: 'cancelled' } } },
-          createdAt: { $gte: thirtyDaysAgo }
+          createdAt: { $gte: ninetyDaysAgo }
         }
       },
       {
@@ -7205,7 +7302,15 @@ exports.getPlatformMetrics = async (req, res) => {
 
     // Fill in missing dates for charts
     const chartData = [];
-    for (let d = new Date(thirtyDaysAgo); d <= today; d.setDate(d.getDate() + 1)) {
+    const chartEndDate = new Date(); // Use new date to avoid mutating 'today' in loop if it was used elsewhere
+
+    // We need to iterate 90 days
+    for (let i = 0; i <= 90; i++) {
+      const d = new Date(ninetyDaysAgo);
+      d.setDate(d.getDate() + i);
+
+      if (d > chartEndDate) break;
+
       const dateStr = d.toISOString().split('T')[0];
       const dayData = dailyStats.find(s => s._id === dateStr);
       chartData.push({
@@ -7215,7 +7320,7 @@ exports.getPlatformMetrics = async (req, res) => {
       });
     }
 
-    // Daily User Signups (Last 30 Days)
+    // Daily User Signups (Last 30 Days) - Keeping this 30 days for now unless requested
     const dailySignups = await Promise.all([
       Buyer.aggregate([
         { $match: { createdAt: { $gte: thirtyDaysAgo } } },
@@ -7412,8 +7517,8 @@ exports.getPlatformMetrics = async (req, res) => {
         cancelledStreamRate
       },
       financialMetrics: {
-        totalOrderAmount: totalOrderAmount.length > 0 ? totalOrderAmount[0].total : 0,
-        totalWithdrawalAmount: totalWithdrawalAmount.length > 0 ? totalWithdrawalAmount[0].total : 0
+        totalOrderAmount: totalOrderAmount,
+        totalWithdrawalAmount: totalWithdrawalAmount
       },
       recentActivity: {
         orders: recentOrders,
