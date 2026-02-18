@@ -83,7 +83,11 @@ export const fetchSellerProducts = createAsyncThunk('product/fetchSellerProducts
                 limit: params.limit,
                 sortBy: params.sortBy,
                 status: params.status,
-                search: params.search
+                search: params.search,
+                minPrice: params.minPrice,
+                maxPrice: params.maxPrice,
+                startDate: params.startDate,
+                endDate: params.endDate
             }
         });
         if (response.status === 200) {

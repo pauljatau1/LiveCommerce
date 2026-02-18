@@ -36,3 +36,29 @@ export interface ProductsSearchParams {
     category?: string;
     status?: string;
 }
+
+export interface ProductFilters {
+    search?: string;
+    status?: 'active' | 'draft' | 'all';
+    stockFilter?: 'all' | 'in-stock' | 'out-of-stock';
+    blipsFilter?: 'all' | '0' | '1' | '4+';
+    minPrice?: number;
+    maxPrice?: number;
+    startDate?: string | null;
+    endDate?: string | null;
+}
+
+export interface ProductTableProps {
+    products: ProductApiModel[];
+    loading: boolean;
+    pagination: {
+        currentPage: number;
+        totalPages: number;
+        totalProducts: number;
+    };
+    onFiltersChange: (filters: ProductFilters) => void;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (pageSize: number) => void;
+    selectedRowKeys?: string[];
+    onSelectionChange?: (selectedKeys: string[]) => void;
+}
