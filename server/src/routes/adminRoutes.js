@@ -1210,6 +1210,30 @@ router.put('/withdrawals/:withdrawalId/status',
 
 /**
  * @swagger
+ * /api/admin/withdrawals/{withdrawalId}/manual-complete:
+ *   post:
+ *     summary: Manually mark a withdrawal as completed
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: withdrawalId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Withdrawal manually marked as completed
+ */
+router.post('/withdrawals/:withdrawalId/manual-complete',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.manualCompleteWithdrawal
+);
+
+/**
+ * @swagger
  * /api/admin/financial/transactions:
  *   get:
  *     summary: Get financial transactions with filtering
