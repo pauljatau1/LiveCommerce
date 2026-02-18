@@ -33,6 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -116,6 +117,8 @@ function Withdrawals() {
   const [otpValue, setOtpValue] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isManualCompleteOpen, setIsManualCompleteOpen] = useState(false);
+  const [manualCompleteId, setManualCompleteId] = useState<string | null>(null);
 
   const fetchWithdrawals = async () => {
     try {
@@ -284,6 +287,29 @@ function Withdrawals() {
       const errorMessage = error.response?.data?.error || "Failed to finalize transfer";
       toast.error(errorMessage);
     }
+  };
+
+  const handleManualComplete = async () => {
+    if (!manualCompleteId) return;
+
+    try {
+      setIsLoading(true);
+      await api.post(`/api/admin/withdrawals/${manualCompleteId}/manual-complete`);
+      toast.success("Withdrawal manually marked as completed");
+      await fetchWithdrawals();
+      setIsManualCompleteOpen(false);
+      setManualCompleteId(null);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to mark as completed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const openManualComplete = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setManualCompleteId(id);
+    setIsManualCompleteOpen(true);
   };
 
   const formatCurrency = (amount: number) => {
@@ -550,9 +576,20 @@ function Withdrawals() {
                           </>
                         )}
                         {withdrawal.status === 'processing' && (
-                          <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-800 animate-pulse">
-                            Awaiting Paystack...
-                          </Badge>
+                          <div className="flex gap-2">
+                            <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-400 border-blue-800 animate-pulse">
+                              Awaiting Paystack...
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2.5 text-xs text-green-400 border-green-500/20 hover:bg-green-500/10"
+                              onClick={(e) => openManualComplete(withdrawal._id, e)}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                              Mark Done
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </TableCell>
@@ -693,6 +730,43 @@ function Withdrawals() {
         </DialogContent>
       </Dialog>
 
+      {/* Manual Complete Confirmation Modal */}
+      <Dialog open={isManualCompleteOpen} onOpenChange={setIsManualCompleteOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-gray-900 border-gray-800">
+          <DialogHeader>
+            <DialogTitle className="text-white">Confirm Manual Completion</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Are you sure you want to manually mark this withdrawal as completed?
+              This will update the status to 'completed' without waiting for Paystack confirmation.
+              Use this only if you are sure the funds have been transferred.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="border-gray-700"
+              onClick={() => setIsManualCompleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              onClick={handleManualComplete}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Confirm Completion'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Details Modal */}
       <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
         <DialogContent className="sm:max-w-[650px] bg-gray-900 border-gray-800 max-h-[85vh] overflow-y-auto">
@@ -798,12 +872,26 @@ function Withdrawals() {
                       </div>
                     )}
                     {selectedWithdrawal.paymentInfo.failureReason && (
-                      <div className="col-span-2">
-                        <p className="text-[10px] text-muted-foreground">Failure Reason</p>
-                        <p className="text-red-400 text-xs">{selectedWithdrawal.paymentInfo.failureReason}</p>
+                      <div className="col-span-2 bg-red-500/10 p-2 rounded border border-red-500/20">
+                        <p className="text-[10px] text-red-400 font-bold mb-1">Failure Reason</p>
+                        <p className="text-red-300 text-xs">{selectedWithdrawal.paymentInfo.failureReason}</p>
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* Manual Complete Action */}
+              {selectedWithdrawal.status === 'processing' && (
+                <div className="flex justify-end pt-4 border-t border-white/10">
+                  <Button
+                    variant="outline"
+                    className="text-green-400 border-green-500/20 hover:bg-green-500/10"
+                    onClick={(e) => openManualComplete(selectedWithdrawal._id, e)}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Manually Mark as Completed
+                  </Button>
                 </div>
               )}
 
@@ -840,10 +928,10 @@ function Withdrawals() {
             </div>
           )}
         </DialogContent>
-      </Dialog>
+      </Dialog >
 
       {/* Status Update (Reject) Modal */}
-      <Dialog open={isStatusModalOpen} onOpenChange={setIsStatusModalOpen}>
+      < Dialog open={isStatusModalOpen} onOpenChange={setIsStatusModalOpen} >
         <DialogContent className="bg-gray-900 border-gray-800">
           <DialogHeader>
             <DialogTitle className="text-white">
@@ -887,8 +975,8 @@ function Withdrawals() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-    </div>
+      </Dialog >
+    </div >
   );
 }
 

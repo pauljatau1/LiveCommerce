@@ -256,7 +256,7 @@ function Dashboard() {
       {/* Primary Analytics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatCard
-          title="Revenue (30d)"
+          title="Revenue (3m)"
           value={formatCurrency(metrics?.financialMetrics.totalOrderAmount || 0)}
           growth={metrics?.growth.revenue}
           icon={DollarSign}
@@ -296,7 +296,7 @@ function Dashboard() {
           <CardHeader className="flex flex-row items-center justify-between p-6 pb-2">
             <div>
               <CardTitle className="text-lg font-bold text-white">Platform Growth Velocity</CardTitle>
-              <p className="text-[11px] text-slate-500 font-medium">Revenue vs Transaction volume across 30-day window</p>
+              <p className="text-[11px] text-slate-500 font-medium">Revenue vs Transaction volume across 90-day window</p>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
