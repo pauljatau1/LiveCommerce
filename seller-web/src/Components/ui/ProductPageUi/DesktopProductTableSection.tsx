@@ -12,6 +12,8 @@ import FilterIcon from '@/assets/icons/FilterIcon';
 import ArrowDownIcon from '@/assets/icons/ArrowDownIcon';
 import GlassImage from '@/Components/ui/GlassImageV2';
 import PlusIcon from '@/assets/icons/PlusIcon2';
+import { mapSortTypeToAPI } from '@/util/helpers';
+import type { ProductApiModel } from '@/types/products';
 
 // Brand color theme for Ant Design components
 const brandTheme = {
@@ -33,21 +35,6 @@ const brandTheme = {
   },
 };
 
-// Map UI sort type to API sortBy parameter
-const mapSortTypeToAPI = (uiSortType: string) => {
-  switch (uiSortType) {
-    case 'newest-to-oldest':
-      return 'newest';
-    case 'oldest-to-newest':
-      return 'oldest';
-    case 'price-high-to-low':
-      return 'price_desc';
-    case 'price-low-to-high':
-      return 'price_asc';
-    default:
-      return 'newest';
-  }
-};
 
 export default function DesktopProductTableSection() {
   const dispatch = useDispatch();
@@ -260,7 +247,7 @@ export default function DesktopProductTableSection() {
   }, [products, stockFilter, blipsFilter]);
 
   // Table columns
-  const columns: ColumnsType<any> = [
+  const columns: ColumnsType<ProductApiModel> = [
     {
       title: 'PRODUCT NAME',
       dataIndex: 'name',
