@@ -6,6 +6,9 @@ const getTrendingProductsService = require('../services/getTrendingProducts.serv
 const getProductByIdService = require('../services/getProductById.service');
 const getProductService = require('../services/getProduct.service');
 const deepSearchProductsService = require('../services/deepSearchProducts.service');
+const setProductsAsDraftService = require('../services/setProductsAsDraft.service');
+const deleteProductsService = require('../services/deleteProducts.service');
+const getSellerProductsService = require('../services/getSellerProducts.service');
 
 exports.getPersonalizedProducts = async (req, res) => {
   try {
@@ -94,6 +97,7 @@ exports.getProduct = async (req, res) => {
   }
 };
 
+
 exports.deepSearchProducts = async (req, res) => {
   try {
     const result = await deepSearchProductsService.execute(req);
@@ -102,6 +106,22 @@ exports.deepSearchProducts = async (req, res) => {
     console.error('Error in deepSearchProducts (v2):', error);
     res.status(500).json({ message: 'Failed to deep search products', error: error.message });
   }
+};
+
+
+exports.setProductsAsDraft = async (req, res) => {
+  const result = await require('../services/setProductsAsDraft.service').execute(req);
+  return res.status(result.status).json(result.body);
+};
+
+exports.deleteProducts = async (req, res) => {
+  const result = await require('../services/deleteProducts.service').execute(req);
+  return res.status(result.status).json(result.body);
+};
+
+exports.getSellerProducts = async (req, res) => {
+  const result = await require('../services/getSellerProducts.service').execute(req);
+  return res.status(result.status).json(result.body);
 };
 
 
