@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Switch, DatePicker, ConfigProvider, Checkbox } from 'antd';
@@ -19,7 +20,11 @@ import {
 } from '@/Components/ui/drawer';
 import { mapSortTypeToAPI, getWeekRange, getMonthRange, getYearRange, formatLastUpdatedDate } from '@/util/helpers';
 import type { ProductApiModel } from '@/types/products';
-import { useNavigate } from 'react-router-dom';
+import StockIcon from '@/assets/icons/StockIcon';
+import BlipIcon from '@/assets/icons/BlipIcon';
+import NairaIcon from '@/assets/icons/NairaIcon';
+
+
 
 // Brand color theme for Ant Design components
 const brandTheme = {
@@ -703,11 +708,11 @@ export default function MobileProductTableSection() {
         {/* @ts-ignore - DrawerContent type definition issue */}
         <DrawerContent className="">
           <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Filter Products</h2>
+            <div className="relative flex items-center justify-center">
+              <h2 className="text-base font-semibold text-[#111827]">Filter Products</h2>
               <button
                 onClick={() => setIsDrawerOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                className="absolute right-0 p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -715,94 +720,98 @@ export default function MobileProductTableSection() {
           </div>
           <div className="px-4 pb-6 space-y-6">
             {/* Price Filter */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-lg">₦</span>
-                <h3 className="text-sm font-semibold text-gray-700">Price</h3>
+            <div className="flex mt-3 items-start gap-3">
+              <div className="w-10 h-10 flex-shrink-0 rounded-full bg-[#F6F6F6] flex items-center justify-center">
+                <NairaIcon width={16} height={16} color="#737375" />
               </div>
-              <div className="space-y-2">
-                {['all', 'under-5k', '20k-plus'].map((filter) => (
-                  <button
-                    key={filter}
-                    onClick={() => {
-                      setPriceFilter(filter as any);
-                      setIsDrawerOpen(false);
-                      setCurrentPage(1);
-                    }}
-                    className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      priceFilter === filter
-                        ? 'bg-[#0BB248] text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {filter === 'all' ? 'All Prices' : filter === 'under-5k' ? 'Under ₦ 5K' : '₦ 5K and above'}
-                  </button>
-                ))}
+              <div className="flex-1 space-y-2">
+                <h3 className="text-sm font-semibold text-gray-700">Price</h3>
+                <div className="flex items-center gap-2 p-[4px] rounded-xl bg-[#E4ECF7]">
+                  {['all', 'under-5k', '20k-plus'].map((filter) => (
+                    <button
+                      key={filter}
+                      onClick={() => {
+                        setPriceFilter(filter as any);
+                        setIsDrawerOpen(false);
+                        setCurrentPage(1);
+                      }}
+                      className={`flex-1 whitespace-nowrap px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                        priceFilter === filter
+                          ? 'bg-[#FFFFFF] text-[#0BB248] hover:bg-[#FFFFFF]/80'
+                          : 'bg-transparent text-[#888787]'
+                      }`}
+                    >
+                      {filter === 'all' ? 'All Prices' : filter === 'under-5k' ? 'Under ₦5K' : 'Above ₦5K'}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Stock Level Filter */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <FilterIcon width={16} height={16} color="#737375" />
-                <h3 className="text-sm font-semibold text-gray-700">Stock Level</h3>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#F6F6F6] flex items-center justify-center">
+                <StockIcon width={16} height={16} color="#737375" />
               </div>
-              <div className="space-y-2">
-                {['all', 'in-stock', 'out-of-stock'].map((filter) => (
-                  <button
-                    key={filter}
-                    onClick={() => {
-                      setStockFilter(filter as any);
-                      setIsDrawerOpen(false);
-                      setCurrentPage(1);
-                    }}
-                    className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      stockFilter === filter
-                        ? 'bg-[#0BB248] text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {filter === 'all' ? 'All Stocks' : filter === 'in-stock' ? 'In Stock' : 'Out of Stock'}
-                  </button>
-                ))}
+              <div className="flex-1 space-y-2">
+                <h3 className="text-sm font-semibold text-gray-700">Stock Level</h3>
+                <div className="flex items-center gap-2 p-[4px] rounded-xl bg-[#E4ECF7]">
+                  {['all', 'in-stock', 'out-of-stock'].map((filter) => (
+                    <button
+                      key={filter}
+                      onClick={() => {
+                        setStockFilter(filter as any);
+                        setIsDrawerOpen(false);
+                        setCurrentPage(1);
+                      }}
+                      className={`flex-1 whitespace-nowrap px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                        stockFilter === filter
+                          ? filter === 'out-of-stock'
+                            ? 'bg-[#FFFFFF] text-[#FCD116] hover:bg-[#FFFFFF]/80'
+                            : 'bg-[#FFFFFF] text-[#0BB248] hover:bg-[#FFFFFF]/80'
+                          : filter === 'out-of-stock'
+                            ? 'bg-transparent text-[#FCD116]'
+                            : 'bg-transparent text-[#0BB248]'
+                      }`}
+                    >
+                      {filter === 'all' ? 'All Stocks' : filter === 'in-stock' ? 'In Stock' : 'Out of Stock'}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Blips Filter */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Icon icon="icon-park-solid:play" width={16} height={16} />
-                <h3 className="text-sm font-semibold text-gray-700">Blips</h3>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#F6F6F6] flex items-center justify-center">
+                <BlipIcon width={16} height={16} color="#737375" />
               </div>
-              <div className="space-y-2">
-                {['all', '0', '1', '4+'].map((filter) => (
-                  <button
-                    key={filter}
-                    onClick={() => {
-                      setBlipsFilter(filter as any);
-                      setIsDrawerOpen(false);
-                      setCurrentPage(1);
-                    }}
-                    className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      blipsFilter === filter
-                        ? 'bg-[#0BB248] text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {filter === 'all' ? 'All Blips' : filter === '0' ? '0 Blip' : filter === '1' ? '1 Blip' : '4+ Blips'}
-                  </button>
-                ))}
+              <div className="flex-1 space-y-2">
+                <h3 className="text-sm font-semibold text-gray-700">Blips</h3>
+                <div className="flex items-center gap-2 p-[4px] rounded-xl bg-[#E4ECF7]">
+                  {['all', '0', '1', '4+'].map((filter) => (
+                    <button
+                      key={filter}
+                      onClick={() => {
+                        setBlipsFilter(filter as any);
+                        setIsDrawerOpen(false);
+                        setCurrentPage(1);
+                      }}
+                      className={`flex-1 whitespace-nowrap px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                        blipsFilter === filter
+                          ? 'bg-[#FFFFFF] text-[#0BB248] hover:bg-[#FFFFFF]/80'
+                          : 'bg-transparent text-[#888787]'
+                      }`}
+                    >
+                      {filter === 'all' ? 'All Blips' : filter === '0' ? '0 Blip' : filter === '1' ? '1 Blip' : '4+ Blips'}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Action Buttons */}
             <div className="flex gap-3 pt-4">
-              <button
-                onClick={() => setIsDrawerOpen(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
               <button
                 onClick={() => {
                   setIsDrawerOpen(false);
@@ -811,6 +820,12 @@ export default function MobileProductTableSection() {
                 className="flex-1 px-4 py-2 bg-[#0BB248] text-white rounded-lg text-sm font-semibold hover:bg-[#0BB248]/90 transition-colors"
               >
                 Apply
+              </button>
+              <button
+                onClick={() => setIsDrawerOpen(false)}
+                className="flex-1 px-4 py-2 border border-[#0BB248] rounded-lg text-sm font-semibold text-[#0BB248] bg-white hover:bg-[#0BB248]/5 transition-colors"
+              >
+                Cancel
               </button>
             </div>
           </div>
