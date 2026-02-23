@@ -3711,11 +3711,12 @@ exports.manualCompleteWithdrawal = async (req, res) => {
 
     // Deduct from seller wallet balance
     try {
-      const seller = await Seller.findById(withdrawal.seller._id);
+      const sellerId = withdrawal.seller?._id || withdrawal.seller;
+      const seller = await Seller.findById(sellerId);
       if (seller) {
         seller.walletBalance = Math.max(0, seller.walletBalance - withdrawal.amount);
         await seller.save();
-        console.log(`💰 [Manual] Deducted ₦${withdrawal.amount} from seller wallet. New balance: ₦${seller.walletBalance}`);
+        console.log(`💰 Deducted ₦${withdrawal.amount} from seller wallet. New balance: ₦${seller.walletBalance}`);
       }
     } catch (walletErr) {
       console.error('Failed to deduct seller wallet balance:', walletErr.message);
