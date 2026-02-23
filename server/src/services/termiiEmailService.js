@@ -137,18 +137,9 @@ async function sendTemplatedEmail(emailData) {
   } = emailData;
 
   // Step 3: Validate required fields
-  // This ensures all necessary data is provided before making API call
-  if (!email) {
-    throw new Error('Recipient email address is required');
-  }
-  if (!subject) {
-    throw new Error('Email subject is required');
-  }
-  if (!templateId) {
-    throw new Error('Template ID is required');
-  }
-  if (!emailConfigurationId) {
-    throw new Error('Email configuration ID is required');
+  if (!email || !subject || !templateId || !emailConfigurationId) {
+    console.error('Missing required fields for Termii email:', { email: !!email, subject: !!subject, templateId: !!templateId, emailConfigurationId: !!emailConfigurationId });
+    return { code: 'error', message: 'Missing required configuration', failed: true };
   }
 
   // Step 4: Construct Termii API request payload
@@ -172,17 +163,25 @@ async function sendTemplatedEmail(emailData) {
     if (response.data && response.data.code === 'ok') {
       return response.data;
     } else {
-      // If response doesn't indicate success, throw error
-      throw new Error(`Failed to send email: ${response.data?.message || 'Invalid response from Termii API'}`);
+      // If response doesn't indicate success, log error and return safe response
+      console.error(`Termii email attempt failed: ${response.data?.message || 'Invalid response from Termii API'}`);
+      return {
+        code: 'error',
+        message: response.data?.message || 'Invalid response from Termii API',
+        failed: true
+      };
     }
   } catch (error) {
     // Step 7: Handle errors from Termii API
     // Log error details for debugging while maintaining security
     console.error('Error sending email via Termii:', error.response?.data || error.message);
 
-    // Throw error with meaningful message
-    // This prevents exposing internal API details to users
-    throw new Error(`Failed to send email. Please try again later. ${error.response?.data?.message || error.message}`);
+    // Return safe error object instead of throwing
+    return {
+      code: 'error',
+      message: `Failed to send email. Please try again later. ${error.response?.data?.message || error.message}`,
+      failed: true
+    };
   }
 }
 
@@ -228,20 +227,9 @@ async function sendRawHTMLEmail(emailData) {
   } = emailData;
 
   // Step 2: Validate required fields
-  if (!email) {
-    throw new Error('Recipient email address is required');
-  }
-  if (!subject) {
-    throw new Error('Email subject is required');
-  }
-  if (!html) {
-    throw new Error('HTML email body is required');
-  }
-  if (!templateId) {
-    throw new Error('Template ID is required');
-  }
-  if (!emailConfigurationId) {
-    throw new Error('Email configuration ID is required');
+  if (!email || !subject || !html || !templateId || !emailConfigurationId) {
+    console.error('Missing required fields for Termii raw HTML email:', { email: !!email, subject: !!subject, html: !!html, templateId: !!templateId, emailConfigurationId: !!emailConfigurationId });
+    return { code: 'error', message: 'Missing required configuration', failed: true };
   }
 
   // Step 3: Send email using template with HTML body as variable

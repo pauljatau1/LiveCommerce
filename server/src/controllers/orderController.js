@@ -3,6 +3,7 @@ const Product = require('../models/Product');
 const Seller = require('../models/Seller');
 const Notification = require('../models/Notification');
 const Buyer = require('../models/Buyer');
+const Withdrawal = require('../models/Withdrawal');
 const axios = require('axios'); // For Paystack API calls
 const termiiEmailService = require('../services/termiiEmailService');
 const mongoose = require('mongoose');
@@ -4809,148 +4810,272 @@ exports.handlePaystackWebhook = async (req, res) => {
   }
 
   const event = req.body;
+  console.log(`Received Paystack webhook event: ${event.event}`, {
+    reference: event.data.reference,
+    amount: event.data.amount,
+    status: event.data.status
+  });
 
-  // Check if it's a charge.success event
-  if (event.event === 'charge.success') {
-    console.log(`Received successful payment event from Paystack:`, {
-      reference: event.data.reference,
-      amount: event.data.amount / 100,
-      status: event.data.status,
-      metadata: event.data.metadata || {}
-    });
+  try {
+    switch (event.event) {
+      case 'charge.success':
+        // Handle successful order payment
+        return await handleChargeSuccess(event, res);
 
-    const metadata = event.data.metadata || {};
+      case 'transfer.success':
+        // Handle successful transfer (withdrawal)
+        return await handleTransferSuccess(event, res);
 
-    // If there's no metadata or orderId, just acknowledge the webhook
-    if (!metadata || !metadata.orderId) {
-      return res.status(200).json({ message: 'Webhook received, but no order metadata' });
+      case 'transfer.failed':
+      case 'transfer.reversed':
+        // Handle failed or reversed transfer (withdrawal)
+        return await handleTransferFailed(event, res);
+
+      case 'charge.failed':
+        // Handle failed payment
+        return await handleFailedPayment(event.data, res);
+
+      default:
+        console.log(`Unhandled Paystack event: ${event.event}`);
+        return res.status(200).json({ message: 'Webhook received' });
     }
-
-    try {
-      // Find the order
-      const order = await Order.findById(metadata.orderId);
-
-      if (!order) {
-        console.log(`Order not found for Paystack payment: ${metadata.orderId}`);
-        return res.status(200).json({ message: 'Order not found, but acknowledging webhook' });
-      }
-
-      // Check if this is a Paystack order that's not already paid
-      if (order.paymentInfo.method !== 'paystack' || order.paid) {
-        console.log(`Order ${order.order_id} is either not a Paystack order or already paid`);
-        return res.status(200).json({ message: 'Order already processed or not Paystack order' });
-      }
-
-      // Mark the order as paid
-      order.paid = true;
-      order.paymentInfo.status = 'paid';
-      order.paymentInfo.transactionId = event.data.id;
-      order.paymentInfo.paymentReference = event.data.reference;
-      order.paymentInfo.paidAt = new Date();
-
-      // Update product stock now that the order is paid
-      await updateProductStockForPaidOrder(order);
-
-      // Get the buyer for notification and send Slack email
-      const webhookBuyer = await Buyer.findById(order.buyer._id);
-      if (webhookBuyer) {
-        await sendSlackNotificationForPaidOrder(order, webhookBuyer);
-      }
-
-      // Cancel the stale job for this order
-      try {
-        const agenda = require('../config/agenda');
-        await agenda.cancel({ name: 'mark-order-stale', 'data.orderId': order._id.toString() });
-        console.log(`Cancelled stale job for order ${order.order_id}`);
-      } catch (jobErr) {
-        console.error('Error cancelling stale job:', jobErr);
-        // Continue processing even if job cancellation fails
-      }
-
-      // Check if this is a hybrid payment (wallet + Paystack)
-      const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
-
-      if (isHybridPayment) {
-        console.log(`Processing hybrid payment for order ${order.order_id}`, {
-          totalAmount: order.totalAmount,
-          walletAmountUsed: order.paymentInfo.walletAmountUsed,
-          paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
-        });
-
-        // Confirm that the wallet amount was properly deducted
-        // In a more robust implementation, you might want to create a pending wallet transaction
-        // and only confirm it here, but for now we assume it was already deducted during order creation
-      }
-
-      await order.save();
-
-      // Get the buyer for email notification
-      const buyer = await Buyer.findById(order.buyer);
-
-      // Always send order confirmation email for paid Paystack order, regardless of notification status
-      if (buyer && buyer.email) {
-        try {
-          console.log(`Sending order confirmation email to ${buyer.email} for paid Paystack order ${order.order_id}`);
-          await sendOrderConfirmationEmail(buyer, order);
-        } catch (emailError) {
-          console.error('Error sending order confirmation email for paid Paystack order:', emailError);
-          // Continue processing even if email fails
-        }
-      }
-
-      // After order payment is processed, check if there are other recent orders from the same buyer
-      // that need notifications, and process them in a batch
-      try {
-        const agenda = require('../config/agenda');
-        console.log(`Scheduling batch notification processing for buyer: ${order.buyer}`);
-
-        agenda.now('process-buyer-order-notifications', {
-          buyerId: order.buyer.toString(),
-          excludeOrderId: order._id.toString(),
-          batchProcess: true
-        });
-      } catch (notifyErr) {
-        console.error('Error scheduling notification processing:', notifyErr);
-      }
-
-      return res.status(200).json({ message: 'Payment processed successfully' });
-    } catch (error) {
-      console.error('Error processing Paystack webhook:', error);
-      // Still return 200 to acknowledge the webhook
-      return res.status(200).json({ message: 'Error processing webhook, but acknowledging receipt' });
-    }
+  } catch (error) {
+    console.error('Error processing Paystack webhook:', error);
+    return res.status(500).json({ message: 'Internal server error processing webhook' });
   }
-
-  // Handle payment failed event
-  if (event.event === 'charge.failed') {
-    console.log(`Received payment failure event from Paystack:`, {
-      reference: event.data.reference,
-      amount: event.data.amount / 100,
-      status: event.data.status,
-      metadata: event.data.metadata || {}
-    });
-
-    const metadata = event.data.metadata || {};
-
-    // If there's no metadata or orderId, just acknowledge the webhook
-    if (!metadata || !metadata.orderId) {
-      return res.status(200).json({ message: 'Webhook received, but no order metadata for failed payment' });
-    }
-
-    try {
-      // Process the failed payment
-      const result = await handleFailedPayment(event.data, res);
-      return result;
-    } catch (error) {
-      console.error('Error processing failed payment webhook:', error);
-      // Still return 200 to acknowledge the webhook
-      return res.status(200).json({ message: 'Error processing failed payment webhook, but acknowledging receipt' });
-    }
-  }
-
-  // For other events, just acknowledge receipt
-  return res.status(200).json({ message: 'Webhook received' });
 };
+
+// Helper function for charge.success (extracted from original code)
+async function handleChargeSuccess(event, res) {
+  console.log(`Processing charge.success for reference: ${event.data.reference}`);
+
+  const metadata = event.data.metadata || {};
+
+  // If there's no metadata or orderId, just acknowledge the webhook
+  if (!metadata || !metadata.orderId) {
+    return res.status(200).json({ message: 'Webhook received, but no order metadata' });
+  }
+
+  try {
+    // Find the order
+    const order = await Order.findById(metadata.orderId);
+
+    if (!order) {
+      console.log(`Order not found for Paystack payment: ${metadata.orderId}`);
+      return res.status(200).json({ message: 'Order not found, but acknowledging webhook' });
+    }
+
+    // Check if this is a Paystack order that's not already paid
+    if (order.paymentInfo.method !== 'paystack' || order.paid) {
+      console.log(`Order ${order.order_id} is either not a Paystack order or already paid`);
+      return res.status(200).json({ message: 'Order already processed or not Paystack order' });
+    }
+
+    // Mark the order as paid
+    order.paid = true;
+    order.paymentInfo.status = 'paid';
+    order.paymentInfo.transactionId = event.data.id;
+    order.paymentInfo.paymentReference = event.data.reference;
+    order.paymentInfo.paidAt = new Date();
+
+    // Update product stock now that the order is paid
+    await updateProductStockForPaidOrder(order);
+
+    // Get the buyer for notification and send Slack email
+    const webhookBuyer = await Buyer.findById(order.buyer._id);
+    if (webhookBuyer) {
+      await sendSlackNotificationForPaidOrder(order, webhookBuyer);
+    }
+
+    // Cancel the stale job for this order
+    try {
+      const agenda = require('../config/agenda');
+      await agenda.cancel({ name: 'mark-order-stale', 'data.orderId': order._id.toString() });
+      console.log(`Cancelled stale job for order ${order.order_id}`);
+    } catch (jobErr) {
+      console.error('Error cancelling stale job:', jobErr);
+      // Continue processing even if job cancellation fails
+    }
+
+    // Check if this is a hybrid payment (wallet + Paystack)
+    const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
+
+    if (isHybridPayment) {
+      console.log(`Processing hybrid payment for order ${order.order_id}`, {
+        totalAmount: order.totalAmount,
+        walletAmountUsed: order.paymentInfo.walletAmountUsed,
+        paystackAmount: order.totalAmount - order.paymentInfo.walletAmountUsed
+      });
+    }
+
+    await order.save();
+
+    // Get the buyer for email notification
+    const buyer = await Buyer.findById(order.buyer);
+
+    // Always send order confirmation email for paid Paystack order, regardless of notification status
+    if (buyer && buyer.email) {
+      try {
+        console.log(`Sending order confirmation email to ${buyer.email} for paid Paystack order ${order.order_id}`);
+        await sendOrderConfirmationEmail(buyer, order);
+      } catch (emailError) {
+        console.error('Error sending order confirmation email for paid Paystack order:', emailError);
+        // Continue processing even if email fails
+      }
+    }
+
+    // After order payment is processed, check if there are other recent orders from the same buyer
+    // that need notifications, and process them in a batch
+    try {
+      const agenda = require('../config/agenda');
+      console.log(`Scheduling batch notification processing for buyer: ${order.buyer}`);
+
+      agenda.now('process-buyer-order-notifications', {
+        buyerId: order.buyer.toString(),
+        excludeOrderId: order._id.toString(),
+        batchProcess: true
+      });
+    } catch (notifyErr) {
+      console.error('Error scheduling notification processing:', notifyErr);
+    }
+
+    return res.status(200).json({ message: 'Payment processed successfully' });
+  } catch (error) {
+    console.error('Error in handleChargeSuccess:', error);
+    // Still return 200 to acknowledge the webhook to Paystack (to prevent retries if it's a logic error on our end)
+    return res.status(200).json({ message: 'Error processing payment' });
+  }
+}
+
+// Helper function for transfer.success
+async function handleTransferSuccess(event, res) {
+  console.log(`Processing transfer.success for reference: ${event.data.reference}`);
+
+  try {
+    const Withdrawal = mongoose.model('Withdrawal'); // Import Withdrawal model
+    const withdrawal = await Withdrawal.findOne({
+      $or: [
+        { 'paymentInfo.transferReference': event.data.reference },
+        { reference: event.data.reference }
+      ]
+    }).populate('seller');
+
+    if (!withdrawal) {
+      console.log('Withdrawal not found for transfer.success event', event.data.reference);
+      return res.status(200).json({ message: 'Withdrawal not found' });
+    }
+
+    if (withdrawal.status === 'completed') {
+      console.log('Withdrawal already marked as completed');
+      return res.status(200).json({ message: 'Withdrawal already completed' });
+    }
+
+    withdrawal.status = 'completed';
+    withdrawal.paymentInfo = {
+      ...withdrawal.paymentInfo,
+      paystackStatus: 'success',
+      completedAt: new Date(),
+      statusDetails: event.data
+    };
+
+    withdrawal.notes.push({
+      content: 'Transfer confirmed successful via webhook',
+      addedBy: 'system',
+      date: new Date()
+    });
+
+    await withdrawal.save();
+
+    // Send success email
+    if (withdrawal.seller && withdrawal.seller.email) {
+      await termiiEmailService.sendRawHTMLEmail({
+        email: withdrawal.seller.email,
+        subject: 'Withdrawal Completed - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Withdrawal Completed</h2>
+            <p>Dear ${withdrawal.seller.firstName},</p>
+            <p>Your withdrawal request (Ref: ${withdrawal.reference}) has been successfully processed.</p>
+            <p>Amount: ₦${withdrawal.amount.toLocaleString()}</p>
+            <p>The funds should reflect in your bank account shortly.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      });
+    }
+
+    return res.status(200).json({ message: 'Withdrawal marked as completed' });
+  } catch (error) {
+    console.error('Error in handleTransferSuccess:', error);
+    return res.status(200).json({ message: 'Error processing transfer success' });
+  }
+}
+
+// Helper function for transfer.failed
+async function handleTransferFailed(event, res) {
+  console.log(`Processing transfer.failed/reversed for reference: ${event.data.reference}`);
+
+  try {
+    const Withdrawal = mongoose.model('Withdrawal'); // Import Withdrawal model
+    const withdrawal = await Withdrawal.findOne({
+      $or: [
+        { 'paymentInfo.transferReference': event.data.reference },
+        { reference: event.data.reference }
+      ]
+    }).populate('seller');
+
+    if (!withdrawal) {
+      console.log('Withdrawal not found for transfer.failed event', event.data.reference);
+      return res.status(200).json({ message: 'Withdrawal not found' });
+    }
+
+    if (withdrawal.status === 'failed') {
+      console.log('Withdrawal already marked as failed');
+      return res.status(200).json({ message: 'Withdrawal already marked as failed' });
+    }
+
+    withdrawal.status = 'failed';
+    withdrawal.paymentInfo = {
+      ...withdrawal.paymentInfo,
+      paystackStatus: event.data.status,
+      failedAt: new Date(),
+      statusDetails: event.data
+    };
+
+    withdrawal.notes.push({
+      content: `Transfer failed: ${event.data.reason || 'Unknown reason'}`,
+      addedBy: 'system',
+      date: new Date()
+    });
+
+    await withdrawal.save();
+
+    // Send failure email
+    if (withdrawal.seller && withdrawal.seller.email) {
+      await termiiEmailService.sendRawHTMLEmail({
+        email: withdrawal.seller.email,
+        subject: 'Withdrawal Failed - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Withdrawal Failed</h2>
+            <p>Dear ${withdrawal.seller.firstName},</p>
+            <p>We encountered an issue with your withdrawal request (Ref: ${withdrawal.reference}).</p>
+            <p>Reason: ${event.data.reason || 'Transaction failed'}</p>
+            <p>Our team has been notified and will investigate. Your funds are safe.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      });
+    }
+
+    return res.status(200).json({ message: 'Withdrawal marked as failed' });
+  } catch (error) {
+    console.error('Error in handleTransferFailed:', error);
+    return res.status(200).json({ message: 'Error processing transfer failure' });
+  }
+}
+
+
 
 // Helper function to handle wallet top-ups
 async function handleWalletTopUp(paymentData, res) {
