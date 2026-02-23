@@ -2536,6 +2536,24 @@ router.get('/sellers/:sellerId/details',
   adminController.getSellerDetails
 );
 
+router.get('/sellers/:sellerId/orders',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getSellerOrdersAdmin
+);
+
+router.get('/sellers/:sellerId/transactions',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getSellerTransactionsAdmin
+);
+
+router.get('/sellers/:sellerId/withdrawals',
+  authMiddleware.verifyToken,
+  authMiddleware.isAdmin,
+  adminController.getSellerWithdrawalsAdmin
+);
+
 /**
  * @swagger
  * /api/admin/sellers/{sellerId}/update:
