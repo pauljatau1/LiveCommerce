@@ -248,30 +248,54 @@ exports.toggleWebhook = async (req, res) => {
 
 exports.handlePaystackWebhook = async (req, res) => {
   const secret = process.env.PAYSTACK_SECRET_KEY;
+  console.log('--- Paystack Webhook Received ---');
 
-  // Validate webhook signature
-  const hash = crypto
-    .createHmac('sha512', secret)
-    .update(JSON.stringify(req.body))
-    .digest('hex');
+  // Paystack sends signature in x-paystack-signature header
+  const signature = req.headers['x-paystack-signature'];
+  console.log('Paystack Signature Header:', signature);
 
-  if (hash !== req.headers['x-paystack-signature']) {
-    return res.status(400).json({ message: 'Invalid signature' });
+  // If using express.raw, req.body is a Buffer
+  const rawBody = req.body;
+  let event;
+
+  try {
+    // 1. Verify Signature using the RAW body
+    const hash = crypto
+      .createHmac('sha512', secret)
+      .update(rawBody)
+      .digest('hex');
+
+    if (hash !== signature) {
+      console.warn('⚠️ Paystack Webhook Signature Mismatch!');
+      console.log('Calculated Hash:', hash);
+      return res.status(400).json({ message: 'Invalid signature' });
+    }
+
+    // 2. Parse the body to get the event data
+    event = JSON.parse(rawBody.toString());
+    console.log('Event Type Identified:', event.event);
+    console.log('Reference:', event.data?.reference);
+  } catch (err) {
+    console.error('❌ Error parsing Paystack webhook body:', err.message);
+    return res.status(400).json({ message: 'Invalid payload' });
   }
-
-  const event = req.body;
 
   try {
     switch (event.event) {
       case 'transfer.success':
+        console.log('Handling transfer.success...');
         await handleTransferSuccess(event.data);
         break;
       case 'transfer.failed':
+        console.log('Handling transfer.failed...');
         await handleTransferFailed(event.data);
         break;
       case 'transfer.reversed':
+        console.log('Handling transfer.reversed...');
         await handleTransferReversed(event.data);
         break;
+      default:
+        console.log(`Unhandled Paystack event: ${event.event}`);
     }
 
     res.sendStatus(200);
@@ -286,6 +310,8 @@ async function handleTransferSuccess(data) {
   session.startTransaction();
 
   try {
+    console.log(`Processing transfer.success for reference: ${data.reference}`);
+
     const withdrawal = await Withdrawal.findOne({
       'paymentInfo.transferReference': data.reference
     }).populate('seller').session(session);
@@ -293,9 +319,11 @@ async function handleTransferSuccess(data) {
     if (!withdrawal) {
       await session.abortTransaction();
       session.endSession();
-      console.log(`No withdrawal found for transfer reference: ${data.reference}`);
+      console.warn(`❌ No withdrawal record found in DB matching transfer reference: ${data.reference}`);
       return;
     }
+
+    console.log(`Found withdrawal: ${withdrawal.reference} (_id: ${withdrawal._id}) currently in status: ${withdrawal.status}`);
 
     // Mark as completed
     withdrawal.status = 'completed';

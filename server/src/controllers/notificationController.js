@@ -1142,7 +1142,12 @@ exports.simulateTerminalWebhook2 = async (req, res) => {
 
     // Import the signature verification and handler from terminalWebhook.js
     const { verifyTerminalWebhookSignature, handleTerminalWebhook } = require('../webhooks/terminalWebhook');
-    const verification = verifyTerminalWebhookSignature(signature, secretKey, req.body);
+
+    // For simulation from admin panel, allow bypass with 'simulated' signature
+    let verification = { status: true, message: 'Simulated Webhook' };
+    if (signature !== 'simulated') {
+      verification = verifyTerminalWebhookSignature(signature, secretKey, req.body);
+    }
 
     console.log('Signature verification result:', verification);
 

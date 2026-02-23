@@ -11,7 +11,7 @@ const addressSchema = new mongoose.Schema({
   line2: { type: String },
   city: { type: String },
   state: { type: String },
-  country: { type: String }, 
+  country: { type: String },
   zip: { type: String }
 });
 
@@ -63,7 +63,7 @@ const orderSchema = new mongoose.Schema({
     type: String,
     unique: true,
     required: true,
-    default: function() {
+    default: function () {
       // Generate a random 5-character alphanumeric string
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       let result = 'OR';
@@ -108,7 +108,7 @@ const orderSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Buyer',
       required: true
-    },  
+    },
     firstName: {
       type: String,
     },
@@ -117,7 +117,7 @@ const orderSchema = new mongoose.Schema({
     },
     username: {
       type: String,
-    },  
+    },
     profileImage: [{
       url: { type: String },
     }]
@@ -161,7 +161,7 @@ const orderSchema = new mongoose.Schema({
     },
     estimatedPickupDate: {
       type: String,
-      
+
     },
     tracking: {
       number: String,
@@ -310,7 +310,7 @@ const orderSchema = new mongoose.Schema({
 });
 
 // Add a pre-save middleware to handle seller wallet updates
-orderSchema.pre('save', async function(next) {
+orderSchema.pre('save', async function (next) {
   if (this.isModified('isOpen') && !this.isOpen) {
     try {
       console.log('Order closing process started:', {
@@ -331,14 +331,14 @@ orderSchema.pre('save', async function(next) {
         console.log('Order closing already processed for this session, skipping:', this._id);
         return next();
       }
-      
+
       // Mark this order as processed to avoid duplicate processing
       this._orderClosingProcessed = true;
 
       // Check if the order was cancelled (any item has 'cancelled' status or closedReason contains 'cancel')
-      const isCancelled = this.items.some(item => item.status === 'cancelled') || 
-                        (this.closedReason && this.closedReason.toLowerCase().includes('cancel'));
-      
+      const isCancelled = this.items.some(item => item.status === 'cancelled') ||
+        (this.closedReason && this.closedReason.toLowerCase().includes('cancel'));
+
       // Skip payment release for cancelled orders
       if (isCancelled) {
         console.log(`Order ${this.order_id} was cancelled. Skipping payment release to seller.`, {
@@ -353,7 +353,7 @@ orderSchema.pre('save', async function(next) {
       await this.populate('items.product', 'name category');
 
       const Category = mongoose.model('Category');
-      
+
       console.log('Populated items:', this.items.map(item => ({
         productName: item.productName,
         product: item.product,
@@ -369,7 +369,7 @@ orderSchema.pre('save', async function(next) {
       })));
 
       // Get categories by name
-      const categoryNames = [...new Set(this.items.map(item => 
+      const categoryNames = [...new Set(this.items.map(item =>
         typeof item.product?.category === 'string' ? item.product.category.toLowerCase() : null
       ).filter(Boolean))];
 
@@ -377,7 +377,7 @@ orderSchema.pre('save', async function(next) {
 
       // Let's try a case-insensitive search
       const categories = await Category.find({
-        name: { 
+        name: {
           $regex: new RegExp('^' + categoryNames.join('|') + '$', 'i')
         }
       });
@@ -394,7 +394,7 @@ orderSchema.pre('save', async function(next) {
         categories.map(cat => [cat.name.toLowerCase(), cat.platformFee])
       );
 
-      console.log('Category fee map created:', 
+      console.log('Category fee map created:',
         Object.fromEntries(categoryFeeMap.entries())
       );
 
@@ -406,10 +406,10 @@ orderSchema.pre('save', async function(next) {
         const itemTotal = item.price * item.quantity;
         totalAmount += itemTotal;
 
-        const categoryName = typeof item.product?.category === 'string' 
-          ? item.product.category.toLowerCase() 
+        const categoryName = typeof item.product?.category === 'string'
+          ? item.product.category.toLowerCase()
           : null;
-        
+
         console.log('Looking up fee for category:', {
           categoryName,
           availableCategories: Array.from(categoryFeeMap.keys()),
@@ -445,7 +445,7 @@ orderSchema.pre('save', async function(next) {
       // Update seller's wallet
       const Seller = mongoose.model('Seller');
       const Transaction = mongoose.model('Transaction');
-      
+
       // Use findOneAndUpdate to prevent race conditions
       const updatedSeller = await Seller.findOneAndUpdate(
         { _id: this.seller },
@@ -481,7 +481,7 @@ orderSchema.pre('save', async function(next) {
           status: 'completed'
         })
       );
-      
+
       console.log(`Creating payment transactions for order ${this.order_id}`, {
         paymentMethod: this.paymentInfo?.method,
         isCashOnDelivery: this.paymentInfo?.isCashOnDelivery,
@@ -543,7 +543,7 @@ orderSchema.pre('save', async function(next) {
       try {
         const sgMail = require('@sendgrid/mail');
         sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-        
+
         const sellerEmail = {
           to: updatedSeller.email,
           from: {
@@ -563,16 +563,16 @@ orderSchema.pre('save', async function(next) {
                 
                 <li style="margin-top: 10px;"><strong>Platform Fees Breakdown:</strong></li>
                 ${this.items.map(item => {
-                  const categoryFee = categoryFeeMap.get(typeof item.product?.category === 'string' ? item.product.category.toLowerCase() : null) || 0;
-                  const itemTotal = item.price * item.quantity;
-                  const itemPlatformFee = itemTotal * (categoryFee / 100);
-                  return `
+            const categoryFee = categoryFeeMap.get(typeof item.product?.category === 'string' ? item.product.category.toLowerCase() : null) || 0;
+            const itemTotal = item.price * item.quantity;
+            const itemPlatformFee = itemTotal * (categoryFee / 100);
+            return `
                     <li style="margin-left: 20px;">
                       ${item.productName} (${categoryFee}% fee): ₦${itemPlatformFee.toLocaleString()}
                       <br><small style="color: #666;">Item Total: ₦${itemTotal.toLocaleString()}</small>
                     </li>
                   `;
-                }).join('')}
+          }).join('')}
                 <li style="margin-top: 5px;">Total Platform Fees: ₦${totalPlatformFee.toLocaleString()}</li>
                 
                 <li style="margin-top: 10px;">Payment Processing Fee (1.5%): ₦${paymentProcessingFee.toLocaleString()}</li>
@@ -595,18 +595,13 @@ orderSchema.pre('save', async function(next) {
 
         // Send directly with sgMail instead of using the notification controller
         await sgMail.send(sellerEmail);
-        
+
         console.log('Email sent successfully');
       } catch (emailError) {
         console.error('Email sending failed:', {
           error: emailError.message,
           details: emailError.response?.body?.errors,
-          stack: emailError.stack,
-          config: {
-            to: updatedSeller.email,
-            from: sellerEmail.from,
-            subject: sellerEmail.subject
-          }
+          stack: emailError.stack
         });
         // Continue execution despite email error
       }
@@ -623,7 +618,7 @@ orderSchema.pre('save', async function(next) {
 });
 
 // Update the existing auto-close middleware
-orderSchema.pre('save', async function(next) {
+orderSchema.pre('save', async function (next) {
   if (this.isNew) {
     const Order = this.constructor;
     let isUnique = false;
@@ -685,7 +680,7 @@ orderSchema.pre('save', async function(next) {
   next();
 });
 
-orderSchema.pre('save', async function(next) {
+orderSchema.pre('save', async function (next) {
   // Check if refund request status is being changed to approved
   if (this.isModified('refundRequest.status') && this.refundRequest.status === 'approved') {
     // Close the order
