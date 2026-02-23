@@ -341,6 +341,52 @@ function SellerDetail() {
   const [isDeletingAllProducts, setIsDeletingAllProducts] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
+  // Orders State
+  const [sellerOrders, setSellerOrders] = useState<any[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [loadingMoreOrders, setLoadingMoreOrders] = useState(false);
+  const [ordersPagination, setOrdersPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalOrders: 0,
+    ordersPerPage: 10
+  });
+  const [ordersFilter, setOrdersFilter] = useState({
+    status: '',
+    paid: 'true', // Default to paid
+    isStale: 'false', // Default to active
+    search: ''
+  });
+
+  // Finances State
+  const [sellerTransactions, setSellerTransactions] = useState<any[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [loadingMoreTransactions, setLoadingMoreTransactions] = useState(false);
+  const [transactionsPagination, setTransactionsPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalTransactions: 0,
+    transactionsPerPage: 10
+  });
+  const [transactionsFilter, setTransactionsFilter] = useState({
+    type: '',
+    status: ''
+  });
+
+  // Withdrawals State
+  const [sellerWithdrawals, setSellerWithdrawals] = useState<any[]>([]);
+  const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
+  const [loadingMoreWithdrawals, setLoadingMoreWithdrawals] = useState(false);
+  const [withdrawalsPagination, setWithdrawalsPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalWithdrawals: 0,
+    withdrawalsPerPage: 10
+  });
+  const [withdrawalsFilter, setWithdrawalsFilter] = useState({
+    status: ''
+  });
+
   // Tab state
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -580,6 +626,192 @@ function SellerDetail() {
       setLoadingMore(false);
     }
   };
+
+  // --- Orders ---
+  const fetchSellerOrders = async (isNewFilter = false) => {
+    if (!id) return;
+
+    try {
+      const page = isNewFilter ? 1 : ordersPagination.currentPage + 1;
+
+      if (isNewFilter) setLoadingOrders(true);
+      else setLoadingMoreOrders(true);
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: ordersPagination.ordersPerPage.toString(),
+      });
+
+      if (ordersFilter.status) params.append('status', ordersFilter.status);
+      if (ordersFilter.paid) params.append('paid', ordersFilter.paid);
+      if (ordersFilter.isStale !== '') params.append('isStale', ordersFilter.isStale);
+      if (ordersFilter.search) params.append('search', ordersFilter.search);
+
+      const response = await api.get(`/api/admin/sellers/${id}/orders?${params.toString()}`);
+
+      if (response.data && response.data.success) {
+        const { orders, currentPage, totalPages, totalOrders } = response.data.data;
+
+        setOrdersPagination(prev => ({ ...prev, currentPage, totalPages, totalOrders }));
+
+        if (isNewFilter) {
+          setSellerOrders(orders);
+        } else {
+          setSellerOrders(prev => [...prev, ...orders]);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching seller orders:", error);
+      toast.error("Failed to load seller's orders");
+    } finally {
+      setLoadingOrders(false);
+      setLoadingMoreOrders(false);
+    }
+  };
+
+  const handleLoadMoreOrders = () => {
+    if (ordersPagination.currentPage < ordersPagination.totalPages) {
+      fetchSellerOrders(false);
+    }
+  };
+
+  const applyOrdersFilter = () => {
+    setOrdersPagination(prev => ({ ...prev, currentPage: 1 }));
+    fetchSellerOrders(true);
+  };
+
+  const resetOrdersFilter = () => {
+    setOrdersFilter({ status: '', paid: 'true', isStale: 'false', search: '' });
+    setOrdersPagination(prev => ({ ...prev, currentPage: 1 }));
+    // useEffect will not trigger automatically on reset, we must call fetch but state might not be updated yet
+    setTimeout(() => fetchSellerOrders(true), 0);
+  };
+
+  const handleOrderFilterChange = (key: string, value: string) => {
+    setOrdersFilter(prev => ({ ...prev, [key]: value }));
+  };
+
+  // --- Transactions ---
+  const fetchSellerTransactions = async (isNewFilter = false) => {
+    if (!id) return;
+
+    try {
+      const page = isNewFilter ? 1 : transactionsPagination.currentPage + 1;
+
+      if (isNewFilter) setLoadingTransactions(true);
+      else setLoadingMoreTransactions(true);
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: transactionsPagination.transactionsPerPage.toString(),
+      });
+
+      if (transactionsFilter.type) params.append('type', transactionsFilter.type);
+      if (transactionsFilter.status) params.append('status', transactionsFilter.status);
+
+      const response = await api.get(`/api/admin/sellers/${id}/transactions?${params.toString()}`);
+
+      if (response.data && response.data.success) {
+        const { transactions, currentPage, totalPages, totalTransactions } = response.data.data;
+
+        setTransactionsPagination(prev => ({ ...prev, currentPage, totalPages, totalTransactions }));
+
+        if (isNewFilter) {
+          setSellerTransactions(transactions);
+        } else {
+          setSellerTransactions(prev => [...prev, ...transactions]);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching seller transactions:", error);
+      toast.error("Failed to load seller's finances");
+    } finally {
+      setLoadingTransactions(false);
+      setLoadingMoreTransactions(false);
+    }
+  };
+
+  const handleLoadMoreTransactions = () => {
+    if (transactionsPagination.currentPage < transactionsPagination.totalPages) {
+      fetchSellerTransactions(false);
+    }
+  };
+
+  const handleTransactionFilterChange = (key: string, value: string) => {
+    setTransactionsFilter(prev => ({ ...prev, [key]: value }));
+  };
+
+  const applyTransactionsFilter = () => {
+    setTransactionsPagination(prev => ({ ...prev, currentPage: 1 }));
+    fetchSellerTransactions(true);
+  };
+
+  // --- Withdrawals ---
+  const fetchSellerWithdrawals = async (isNewFilter = false) => {
+    if (!id) return;
+
+    try {
+      const page = isNewFilter ? 1 : withdrawalsPagination.currentPage + 1;
+
+      if (isNewFilter) setLoadingWithdrawals(true);
+      else setLoadingMoreWithdrawals(true);
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: withdrawalsPagination.withdrawalsPerPage.toString(),
+      });
+
+      if (withdrawalsFilter.status) params.append('status', withdrawalsFilter.status);
+
+      const response = await api.get(`/api/admin/sellers/${id}/withdrawals?${params.toString()}`);
+
+      if (response.data && response.data.success) {
+        const { withdrawals, currentPage, totalPages, totalWithdrawals } = response.data.data;
+
+        setWithdrawalsPagination(prev => ({ ...prev, currentPage, totalPages, totalWithdrawals }));
+
+        if (isNewFilter) {
+          setSellerWithdrawals(withdrawals);
+        } else {
+          setSellerWithdrawals(prev => [...prev, ...withdrawals]);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching seller withdrawals:", error);
+      toast.error("Failed to load seller's withdrawals");
+    } finally {
+      setLoadingWithdrawals(false);
+      setLoadingMoreWithdrawals(false);
+    }
+  };
+
+  const handleLoadMoreWithdrawals = () => {
+    if (withdrawalsPagination.currentPage < withdrawalsPagination.totalPages) {
+      fetchSellerWithdrawals(false);
+    }
+  };
+
+  const handleWithdrawalFilterChange = (key: string, value: string) => {
+    setWithdrawalsFilter(prev => ({ ...prev, [key]: value }));
+  };
+
+  const applyWithdrawalsFilter = () => {
+    setWithdrawalsPagination(prev => ({ ...prev, currentPage: 1 }));
+    fetchSellerWithdrawals(true);
+  };
+
+  useEffect(() => {
+    if (id && activeTab === 'sales' && sellerOrders.length === 0) {
+      fetchSellerOrders(true);
+    }
+  }, [id, activeTab]);
+
+  useEffect(() => {
+    if (id && activeTab === 'finances' && sellerTransactions.length === 0) {
+      fetchSellerTransactions(true);
+      fetchSellerWithdrawals(true);
+    }
+  }, [id, activeTab]);
 
   // Load more products
   const handleLoadMoreProducts = () => {
@@ -1452,54 +1684,166 @@ function SellerDetail() {
         {/* Placeholder for other tabs */}
         <TabsContent value="sales">
           <div className="space-y-6">
-            {/* Recent Orders */}
+            {/* Orders */}
             <Card className="p-5 bg-zinc-900 border-zinc-800">
-              <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
-                <Package className="h-5 w-5 text-zinc-400" />
-                Recent Orders
-              </h3>
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Package className="h-5 w-5 text-zinc-400" />
+                  Orders ({ordersPagination.totalOrders || 0})
+                </h3>
 
-              {recentActivity?.orders && recentActivity.orders.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="text-left text-xs text-zinc-400 border-b border-zinc-800">
-                        <th className="pb-2 font-medium">Order ID</th>
-                        <th className="pb-2 font-medium">Customer</th>
-                        <th className="pb-2 font-medium">Date</th>
-                        <th className="pb-2 font-medium">Amount</th>
-                        <th className="pb-2 font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800">
-                      {recentActivity.orders.slice(0, 5).map((order: any) => (
-                        <tr key={order._id} className="text-zinc-200">
-                          <td className="py-3 text-sm font-medium">{order.order_id}</td>
-                          <td className="py-3 text-sm">
-                            {order.buyer?.firstName} {order.buyer?.lastName}
-                          </td>
-                          <td className="py-3 text-sm text-zinc-400">
-                            {new Date(order.createdAt).toLocaleDateString()}
-                          </td>
-                          <td className="py-3 text-sm">₦{order.totalAmount?.toLocaleString()}</td>
-                          <td className="py-3 text-sm">
-                            <Badge variant="outline" className={`
-                              ${order.items[0]?.status === 'completed' ? 'bg-green-500/10 text-green-400' :
-                                order.items[0]?.status === 'cancelled' ? 'bg-red-500/10 text-red-400' :
-                                  'bg-yellow-500/10 text-yellow-400'}
-                            `}>
-                              {order.items[0]?.status || 'pending'}
-                            </Badge>
-                          </td>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="relative w-full md:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <Input
+                      placeholder="Search orders..."
+                      className="pl-9 h-9 bg-zinc-950 border-zinc-800 text-sm"
+                      value={ordersFilter.search}
+                      onChange={(e) => handleOrderFilterChange('search', e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && applyOrdersFilter()}
+                    />
+                  </div>
+
+                  <select
+                    className="h-9 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-800 text-zinc-100"
+                    value={ordersFilter.status}
+                    onChange={(e) => {
+                      handleOrderFilterChange('status', e.target.value);
+                      setTimeout(applyOrdersFilter, 0);
+                    }}
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+
+                  <select
+                    className="h-9 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-800 text-zinc-100"
+                    value={ordersFilter.paid}
+                    onChange={(e) => {
+                      handleOrderFilterChange('paid', e.target.value);
+                      setTimeout(applyOrdersFilter, 0);
+                    }}
+                  >
+                    <option value="">All Payment Statuses</option>
+                    <option value="true">Paid</option>
+                    <option value="false">Unpaid</option>
+                  </select>
+
+                  <select
+                    className="h-9 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-800 text-zinc-100"
+                    value={ordersFilter.isStale}
+                    onChange={(e) => {
+                      handleOrderFilterChange('isStale', e.target.value);
+                      setTimeout(applyOrdersFilter, 0);
+                    }}
+                  >
+                    <option value="">All Activity States</option>
+                    <option value="false">Active Orders</option>
+                    <option value="true">Stale Orders</option>
+                  </select>
+
+                  <Button variant="outline" size="sm" onClick={resetOrdersFilter} className="h-9 border-zinc-800 text-zinc-300">
+                    <Filter className="h-4 w-4 mr-2" />
+                    Reset
+                  </Button>
+                </div>
+              </div>
+
+              {loadingOrders ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+                </div>
+              ) : sellerOrders && sellerOrders.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="text-left text-xs text-zinc-400 border-b border-zinc-800">
+                          <th className="pb-2 font-medium">Order ID</th>
+                          <th className="pb-2 font-medium">Customer</th>
+                          <th className="pb-2 font-medium">Date</th>
+                          <th className="pb-2 font-medium">Channel</th>
+                          <th className="pb-2 font-medium">Items</th>
+                          <th className="pb-2 font-medium">Total Amount</th>
+                          <th className="pb-2 font-medium">Seller Earning</th>
+                          <th className="pb-2 font-medium">Payment</th>
+                          <th className="pb-2 font-medium">Status</th>
+                          <th className="pb-2 font-medium text-right">Action</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800">
+                        {sellerOrders.map((order: any) => (
+                          <tr key={order._id} className="text-zinc-200">
+                            <td className="py-3 text-sm font-medium">{order.order_id}</td>
+                            <td className="py-3 text-sm">
+                              {order.buyer?.firstName} {order.buyer?.lastName}
+                            </td>
+                            <td className="py-3 text-sm text-zinc-400">
+                              {new Date(order.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="py-3 text-sm">
+                              <Badge variant="outline" className="bg-zinc-800/50 text-zinc-400 border-zinc-700">
+                                {order.channel || 'marketplace'}
+                              </Badge>
+                            </td>
+                            <td className="py-3 text-sm text-zinc-400">
+                              {order.items?.length || 0} items
+                            </td>
+                            <td className="py-3 text-sm">₦{(order.totalAmount || 0).toLocaleString()}</td>
+                            <td className="py-3 text-sm font-medium text-emerald-400">
+                              ₦{(order.sellerAmount || 0).toLocaleString()}
+                            </td>
+                            <td className="py-3 text-sm">
+                              <Badge variant="outline" className={order.paid ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}>
+                                {order.paid ? 'Paid' : 'Unpaid'}
+                              </Badge>
+                            </td>
+                            <td className="py-3 text-sm">
+                              <Badge variant="outline" className={`
+                                ${order.status === 'delivered' || order.status === 'confirmed' ? 'bg-green-500/10 text-green-400' :
+                                  order.status === 'cancelled' || order.status === 'failed' ? 'bg-red-500/10 text-red-400' :
+                                    order.status === 'shipped' || order.status === 'in-transit' || order.status === 'in_transit' || order.status === 'picked-up' ? 'bg-purple-500/10 text-purple-400' :
+                                      order.status === 'processing' ? 'bg-blue-500/10 text-blue-400' :
+                                        'bg-yellow-500/10 text-yellow-400'}
+                              `}>
+                                {order.status || 'pending'}
+                              </Badge>
+                            </td>
+                            <td className="py-3 text-sm text-right">
+                              <Link to={`/dashboard/order-detail/${order._id}`}>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-zinc-800 text-zinc-400 hover:text-white">
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {ordersPagination.currentPage < ordersPagination.totalPages && (
+                    <div className="flex justify-center pt-4 border-t border-zinc-800">
+                      <Button
+                        variant="outline"
+                        onClick={handleLoadMoreOrders}
+                        disabled={loadingMoreOrders}
+                        className="bg-zinc-950 border-zinc-800 text-zinc-300 hover:text-white"
+                      >
+                        {loadingMoreOrders ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        Load More Orders
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="text-center py-6 text-zinc-400">
+                <div className="text-center py-12 text-zinc-400">
                   <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                  <p>No recent orders</p>
+                  <p>No orders found matching the selected filters.</p>
                 </div>
               )}
             </Card>
@@ -1954,56 +2298,109 @@ function SellerDetail() {
 
             {/* Recent Transactions */}
             <Card className="p-5 bg-zinc-900 border-zinc-800">
-              <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-zinc-400" />
-                Recent Transactions
-              </h3>
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-zinc-400" />
+                  Transactions History ({transactionsPagination.totalTransactions || 0})
+                </h3>
 
-              {recentActivity?.transactions && recentActivity.transactions.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="text-left text-xs text-zinc-400 border-b border-zinc-800">
-                        <th className="pb-2 font-medium">Date</th>
-                        <th className="pb-2 font-medium">Type</th>
-                        <th className="pb-2 font-medium">Description</th>
-                        <th className="pb-2 font-medium">Amount</th>
-                        <th className="pb-2 font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800">
-                      {recentActivity.transactions.slice(0, 5).map((transaction: any) => (
-                        <tr key={transaction._id} className="text-zinc-200">
-                          <td className="py-3 text-sm text-zinc-400">
-                            {new Date(transaction.createdAt).toLocaleDateString()}
-                          </td>
-                          <td className="py-3 text-sm">
-                            <Badge variant="outline" className={`
-                              ${transaction.type === 'order_payment' ? 'bg-green-500/10 text-green-400' :
-                                transaction.type === 'withdrawal' ? 'bg-blue-500/10 text-blue-400' :
-                                  transaction.type === 'processing_fee' ? 'bg-orange-500/10 text-orange-400' :
-                                    'bg-zinc-500/10 text-zinc-400'}
-                            `}>
-                              {transaction.type.replace('_', ' ')}
-                            </Badge>
-                          </td>
-                          <td className="py-3 text-sm">{transaction.description}</td>
-                          <td className={`py-3 text-sm font-medium ${transaction.type === 'processing_fee' ? 'text-red-400' : 'text-green-400'}`}>
-                            {transaction.type === 'processing_fee' ? '-' : ''}₦{transaction.amount.toLocaleString()}
-                          </td>
-                          <td className="py-3 text-sm">
-                            <Badge variant="outline" className={`
-                              ${transaction.status === 'completed' ? 'bg-green-500/10 text-green-400' :
-                                transaction.status === 'failed' ? 'bg-red-500/10 text-red-400' :
-                                  'bg-yellow-500/10 text-yellow-400'}
-                            `}>
-                              {transaction.status}
-                            </Badge>
-                          </td>
+                <div className="flex flex-wrap items-center gap-3">
+                  <select
+                    className="h-9 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-800 text-zinc-100"
+                    value={transactionsFilter.type}
+                    onChange={(e) => {
+                      handleTransactionFilterChange('type', e.target.value);
+                      setTimeout(applyTransactionsFilter, 0);
+                    }}
+                  >
+                    <option value="">All Types</option>
+                    <option value="order_payment">Order Payment</option>
+                    <option value="withdrawal">Withdrawal</option>
+                    <option value="processing_fee">Processing Fee</option>
+                    <option value="refund">Refund</option>
+                  </select>
+
+                  <select
+                    className="h-9 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-800 text-zinc-100"
+                    value={transactionsFilter.status}
+                    onChange={(e) => {
+                      handleTransactionFilterChange('status', e.target.value);
+                      setTimeout(applyTransactionsFilter, 0);
+                    }}
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                  </select>
+                </div>
+              </div>
+
+              {loadingTransactions ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+                </div>
+              ) : sellerTransactions && sellerTransactions.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="text-left text-xs text-zinc-400 border-b border-zinc-800">
+                          <th className="pb-2 font-medium">Date</th>
+                          <th className="pb-2 font-medium">Type</th>
+                          <th className="pb-2 font-medium">Description</th>
+                          <th className="pb-2 font-medium">Amount</th>
+                          <th className="pb-2 font-medium">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800">
+                        {sellerTransactions.map((transaction: any) => (
+                          <tr key={transaction._id} className="text-zinc-200">
+                            <td className="py-3 text-sm text-zinc-400">
+                              {new Date(transaction.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="py-3 text-sm">
+                              <Badge variant="outline" className={`
+                                ${transaction.type === 'order_payment' ? 'bg-green-500/10 text-green-400' :
+                                  transaction.type === 'withdrawal' ? 'bg-blue-500/10 text-blue-400' :
+                                    transaction.type === 'processing_fee' ? 'bg-orange-500/10 text-orange-400' :
+                                      'bg-zinc-500/10 text-zinc-400'}
+                              `}>
+                                {(transaction.type || '').replace('_', ' ')}
+                              </Badge>
+                            </td>
+                            <td className="py-3 text-sm">{transaction.description}</td>
+                            <td className={`py-3 text-sm font-medium ${transaction.type === 'processing_fee' ? 'text-red-400' : 'text-green-400'}`}>
+                              {transaction.type === 'processing_fee' ? '-' : ''}₦{(transaction.amount || 0).toLocaleString()}
+                            </td>
+                            <td className="py-3 text-sm">
+                              <Badge variant="outline" className={`
+                                ${transaction.status === 'completed' ? 'bg-green-500/10 text-green-400' :
+                                  transaction.status === 'failed' ? 'bg-red-500/10 text-red-400' :
+                                    'bg-yellow-500/10 text-yellow-400'}
+                              `}>
+                                {transaction.status}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {transactionsPagination.currentPage < transactionsPagination.totalPages && (
+                    <div className="flex justify-center pt-4 border-t border-zinc-800">
+                      <Button
+                        variant="outline"
+                        onClick={handleLoadMoreTransactions}
+                        disabled={loadingMoreTransactions}
+                        className="bg-zinc-950 border-zinc-800 text-zinc-300 hover:text-white"
+                      >
+                        {loadingMoreTransactions ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        Load More Transactions
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-6 text-zinc-400">
@@ -2015,54 +2412,92 @@ function SellerDetail() {
 
             {/* Withdrawals */}
             <Card className="p-5 bg-zinc-900 border-zinc-800">
-              <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
-                <Wallet className="h-5 w-5 text-zinc-400" />
-                Withdrawal History
-              </h3>
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-zinc-400" />
+                  Withdrawal History ({withdrawalsPagination.totalWithdrawals || 0})
+                </h3>
 
-              {recentActivity?.withdrawals && recentActivity.withdrawals.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="text-left text-xs text-zinc-400 border-b border-zinc-800">
-                        <th className="pb-2 font-medium">Reference</th>
-                        <th className="pb-2 font-medium">Date</th>
-                        <th className="pb-2 font-medium">Account</th>
-                        <th className="pb-2 font-medium">Amount</th>
-                        <th className="pb-2 font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800">
-                      {recentActivity.withdrawals.map((withdrawal: any) => (
-                        <tr key={withdrawal._id} className="text-zinc-200">
-                          <td className="py-3 text-sm font-medium">{withdrawal.reference}</td>
-                          <td className="py-3 text-sm text-zinc-400">
-                            {new Date(withdrawal.requestDate).toLocaleDateString()}
-                          </td>
-                          <td className="py-3 text-sm">
-                            {withdrawal.bankDetails?.accountName}
-                            <span className="text-zinc-500">
-                              {withdrawal.bankDetails?.accountNumber ?
-                                ` (${withdrawal.bankDetails.accountNumber.slice(-4).padStart(withdrawal.bankDetails.accountNumber.length, '*')})`
-                                : ''}
-                            </span>
-                          </td>
-                          <td className="py-3 text-sm font-medium text-green-400">
-                            ₦{withdrawal.amount.toLocaleString()}
-                          </td>
-                          <td className="py-3 text-sm">
-                            <Badge variant="outline" className={`
-                              ${withdrawal.status === 'completed' ? 'bg-green-500/10 text-green-400' :
-                                withdrawal.status === 'rejected' ? 'bg-red-500/10 text-red-400' :
-                                  'bg-yellow-500/10 text-yellow-400'}
-                            `}>
-                              {withdrawal.status}
-                            </Badge>
-                          </td>
+                <div className="flex flex-wrap items-center gap-3">
+                  <select
+                    className="h-9 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-800 text-zinc-100"
+                    value={withdrawalsFilter.status}
+                    onChange={(e) => {
+                      handleWithdrawalFilterChange('status', e.target.value);
+                      setTimeout(applyWithdrawalsFilter, 0);
+                    }}
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="completed">Completed</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+              </div>
+
+              {loadingWithdrawals ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+                </div>
+              ) : sellerWithdrawals && sellerWithdrawals.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="text-left text-xs text-zinc-400 border-b border-zinc-800">
+                          <th className="pb-2 font-medium">Reference</th>
+                          <th className="pb-2 font-medium">Date</th>
+                          <th className="pb-2 font-medium">Account</th>
+                          <th className="pb-2 font-medium">Amount</th>
+                          <th className="pb-2 font-medium">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800">
+                        {sellerWithdrawals.map((withdrawal: any) => (
+                          <tr key={withdrawal._id} className="text-zinc-200">
+                            <td className="py-3 text-sm font-medium">{withdrawal.reference}</td>
+                            <td className="py-3 text-sm text-zinc-400">
+                              {new Date(withdrawal.requestDate || withdrawal.createdAt).toLocaleDateString()}
+                            </td>
+                            <td className="py-3 text-sm">
+                              {withdrawal.bankDetails?.accountName}
+                              <span className="text-zinc-500">
+                                {withdrawal.bankDetails?.accountNumber ?
+                                  ` (${withdrawal.bankDetails.accountNumber.slice(-4).padStart(withdrawal.bankDetails.accountNumber.length, '*')})`
+                                  : ''}
+                              </span>
+                            </td>
+                            <td className="py-3 text-sm font-medium text-green-400">
+                              ₦{(withdrawal.amount || 0).toLocaleString()}
+                            </td>
+                            <td className="py-3 text-sm">
+                              <Badge variant="outline" className={`
+                                ${withdrawal.status === 'completed' ? 'bg-green-500/10 text-green-400' :
+                                  withdrawal.status === 'rejected' ? 'bg-red-500/10 text-red-400' :
+                                    'bg-yellow-500/10 text-yellow-400'}
+                              `}>
+                                {withdrawal.status}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {withdrawalsPagination.currentPage < withdrawalsPagination.totalPages && (
+                    <div className="flex justify-center pt-4 border-t border-zinc-800">
+                      <Button
+                        variant="outline"
+                        onClick={handleLoadMoreWithdrawals}
+                        disabled={loadingMoreWithdrawals}
+                        className="bg-zinc-950 border-zinc-800 text-zinc-300 hover:text-white"
+                      >
+                        {loadingMoreWithdrawals ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        Load More Withdrawals
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-6 text-zinc-400">

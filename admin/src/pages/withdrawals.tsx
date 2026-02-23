@@ -671,7 +671,7 @@ function Withdrawals() {
                         type="text"
                         value={otpValue}
                         onChange={(e) => setOtpValue(e.target.value)}
-                        className="mt-1 bg-white/5 border-white/10 text-center text-lg font-mono tracking-[0.3em]"
+                        className="mt-1 bg-white/5 border-white/10 text-center text-white text-lg font-mono tracking-[0.3em]"
                         placeholder="• • • • • •"
                         maxLength={6}
                       />

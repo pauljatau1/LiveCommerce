@@ -418,7 +418,7 @@ function Orders() {
           <form onSubmit={handleSearchSubmit} className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
             <Input
-              placeholder="Search by Order ID, Customer, or Seller..."
+              placeholder="Search by Order, Customer, Seller, Product or Shipment ID..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               className="pl-10 bg-slate-900 border-slate-800 text-white placeholder:text-slate-500 focus:ring-blue-500"
@@ -471,6 +471,19 @@ function Orders() {
                         <SelectItem value="all">All Orders</SelectItem>
                         <SelectItem value="false">Active Orders</SelectItem>
                         <SelectItem value="true">Stale Orders</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] uppercase font-bold text-slate-500 px-1">Open Status</p>
+                    <Select value={filters.isOpen || "all"} onValueChange={(v) => handleFilterChange('isOpen', v)}>
+                      <SelectTrigger className="h-8 bg-slate-950 border-slate-800 text-white">
+                        <SelectValue placeholder="Open Status" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-950 border-slate-800 text-white">
+                        <SelectItem value="all">All Orders</SelectItem>
+                        <SelectItem value="true">Open</SelectItem>
+                        <SelectItem value="false">Closed</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -642,6 +655,12 @@ function Orders() {
                       <div className="flex flex-col items-center gap-1.5">
                         <Badge variant="outline" className={cn("border-0 shadow-none font-bold uppercase text-[10px] h-5 px-2", getStatusColor(order.status))}>
                           {order.status}
+                        </Badge>
+                        <Badge variant="outline" className={cn(
+                          "border-0 shadow-none font-bold uppercase text-[9px] h-4 px-1",
+                          order.isOpen ? "bg-blue-500/10 text-blue-400" : "bg-slate-500/10 text-slate-400"
+                        )}>
+                          {order.isOpen ? 'OPEN' : 'CLOSED'}
                         </Badge>
                         {order.isStorePickup && (
                           <Badge className="bg-amber-500/10 text-amber-500 border-0 text-[8px] h-3 px-1 uppercase letter-wide">Pickup</Badge>

@@ -200,7 +200,7 @@ function Sellers() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-orange-500 transition-colors" />
             <Input
               placeholder="Search merchants..."
-              className="pl-12 h-12 bg-slate-900/40 border-slate-800/60 rounded-2xl text-sm focus:ring-orange-500/20 focus:border-orange-500 transistion-all"
+              className="pl-12 h-12 text-white bg-slate-900/40 border-slate-800/60 rounded-2xl text-sm focus:ring-orange-500/20 focus:border-orange-500 transistion-all"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)}
