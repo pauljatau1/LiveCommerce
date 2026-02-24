@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Table, Switch, Dropdown, ConfigProvider, Tag, type MenuProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { Search, RefreshCw, X } from 'lucide-react';
-import { fetchSellerProducts, toggleVacationMode, searchSellerProducts } from '@/Redux/Slices/ProductSlice';
+import { fetchSellerProducts, toggleVacationMode, searchSellerProducts, bulkSetProductsDraft } from '@/Redux/Slices/ProductSlice';
 import { Skeleton } from '@/Components/shared/Skeleton';
 import { Icon } from '@iconify/react';
 import ProductEmptyState from './ProductEmptyState';
@@ -14,6 +14,7 @@ import GlassImage from '@/Components/ui/GlassImageV2';
 import PlusIcon from '@/assets/icons/PlusIcon2';
 import { mapSortTypeToAPI } from '@/util/helpers';
 import type { ProductApiModel } from '@/types/products';
+import DeleteProductsConfirmDialog from '@/Components/ProductPage/DeleteProductsConfirmDialog';
 
 // Brand color theme for Ant Design components
 const brandTheme = {
@@ -62,6 +63,7 @@ export default function DesktopProductTableSection() {
 
   // Row selection state - persisted across pages
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // Initial fetch on mount
   useEffect(() => {
@@ -92,6 +94,11 @@ export default function DesktopProductTableSection() {
     // Add status filter
     if (statusFilter !== 'all') {
       params.status = statusFilter;
+    }
+
+    // Add stock filter (server-side)
+    if (stockFilter === 'out-of-stock') {
+      params.status = 'out_of_stock';
     }
 
     // Add price filters
@@ -129,6 +136,10 @@ export default function DesktopProductTableSection() {
 
       if (statusFilter !== 'all') {
         params.status = statusFilter;
+      }
+
+      if (stockFilter === 'out-of-stock') {
+        params.status = 'out_of_stock';
       }
 
       dispatch(searchSellerProducts(params) as any);
@@ -223,15 +234,13 @@ export default function DesktopProductTableSection() {
     ],
   };
 
-  // Filter products by stock and blips (client-side filtering)
+  // Filter products by stock (in-stock only) and blips (client-side filtering)
   const filteredProducts = useMemo(() => {
     let filtered = [...(products || [])];
 
-    // Stock filter
+    // Stock filter (in-stock filtered client-side, out-of-stock filtered server-side)
     if (stockFilter === 'in-stock') {
       filtered = filtered.filter((p: any) => p.stock > 0);
-    } else if (stockFilter === 'out-of-stock') {
-      filtered = filtered.filter((p: any) => p.stock <= 0);
     }
 
     // Blips filter
@@ -629,10 +638,8 @@ export default function DesktopProductTableSection() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => {
-                          // Delete functionality placeholder
-                          // selectedRowKeys contains all selected items across all pages
-                          console.log('Delete selected (all pages):', selectedRowKeys);
-                          // TODO: Implement actual delete API call with all selectedRowKeys
+                          if (selectedRowKeys.length === 0) return;
+                          setIsDeleteDialogOpen(true);
                         }}
                         className="px-4 py-2 bg-[#0BB248] text-white rounded-full text-xs font-semibold hover:bg-[#0BB248]/90 transition-colors"
                       >
@@ -640,10 +647,8 @@ export default function DesktopProductTableSection() {
                       </button>
                       <button
                         onClick={() => {
-                          // Set as draft functionality placeholder
-                          // selectedRowKeys contains all selected items across all pages
-                          console.log('Set as draft (all pages):', selectedRowKeys);
-                          // TODO: Implement actual set as draft API call with all selectedRowKeys
+                          if (selectedRowKeys.length === 0) return;
+                          dispatch(bulkSetProductsDraft(selectedRowKeys as any) as any);
                         }}
                         className="px-4 py-2 border border-[#0BB248] text-[#0BB248] rounded-full text-xs font-semibold hover:bg-[#0BB24817] transition-colors"
                       >
@@ -718,6 +723,14 @@ export default function DesktopProductTableSection() {
           )}
         </div>
       </div>
+
+      <DeleteProductsConfirmDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        productIds={selectedRowKeys}
+        products={products as ProductApiModel[]}
+        onDeleted={handleRefresh}
+      />
 
       <style>{`
         .products-table .ant-table-thead > tr > th {

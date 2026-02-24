@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Switch, DatePicker, ConfigProvider, Checkbox } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { Search, X, ChevronDown, ChevronUp } from 'lucide-react';
-import { fetchSellerProducts, toggleVacationMode, searchSellerProducts } from '@/Redux/Slices/ProductSlice';
+import { fetchSellerProducts, toggleVacationMode, searchSellerProducts, bulkDeleteProducts, bulkSetProductsDraft } from '@/Redux/Slices/ProductSlice';
 import { Skeleton } from '@/Components/shared/Skeleton';
 import { Icon } from '@iconify/react';
 import eyeBoldIcon from '@iconify-icons/solar/eye-bold';
@@ -23,6 +23,7 @@ import type { ProductApiModel } from '@/types/products';
 import StockIcon from '@/assets/icons/StockIcon';
 import BlipIcon from '@/assets/icons/BlipIcon';
 import NairaIcon from '@/assets/icons/NairaIcon';
+import DeleteProductsConfirmDialog from '@/Components/ProductPage/DeleteProductsConfirmDialog';
 
 
 
@@ -77,6 +78,8 @@ export default function MobileProductTableSection() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteDialogProducts, setDeleteDialogProducts] = useState<ProductApiModel[]>([]);
 
   // Drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -125,6 +128,11 @@ export default function MobileProductTableSection() {
       params.status = statusFilter;
     }
 
+    // Add stock filter (server-side)
+    if (stockFilter === 'out-of-stock') {
+      params.status = 'out_of_stock';
+    }
+
     // Add price filters
     if (priceFilter === 'under-5k') {
       params.maxPrice = 5000;
@@ -160,6 +168,10 @@ export default function MobileProductTableSection() {
 
       if (statusFilter !== 'all') {
         params.status = statusFilter;
+      }
+
+      if (stockFilter === 'out-of-stock') {
+        params.status = 'out_of_stock';
       }
 
       dispatch(searchSellerProducts(params) as any);
@@ -223,15 +235,13 @@ export default function MobileProductTableSection() {
     setCurrentPage(1);
   };
 
-  // Filter products by stock and blips (client-side filtering)
+  // Filter products by stock (in-stock only) and blips (client-side filtering)
   const filteredProducts = useMemo(() => {
     let filtered = [...(products || [])];
 
-    // Stock filter
+    // Stock filter (in-stock filtered client-side, out-of-stock filtered server-side)
     if (stockFilter === 'in-stock') {
       filtered = filtered.filter((p: any) => p.stock > 0);
-    } else if (stockFilter === 'out-of-stock') {
-      filtered = filtered.filter((p: any) => p.stock <= 0);
     }
 
     // Blips filter
@@ -449,8 +459,13 @@ export default function MobileProductTableSection() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    console.log('Delete selected:', selectedRowKeys);
-                    // TODO: Implement delete functionality
+                    if (selectedRowKeys.length === 0) return;
+                    const selectedProducts = (products as ProductApiModel[]).filter((p) =>
+                      selectedRowKeys.includes(p._id)
+                    );
+                    if (!selectedProducts.length) return;
+                    setDeleteDialogProducts(selectedProducts);
+                    setDeleteDialogOpen(true);
                   }}
                   className={`px-4 py-2 rounded-full text-xs font-semibold transition-colors ${
                     selectedRowKeys.length > 0
@@ -462,8 +477,10 @@ export default function MobileProductTableSection() {
                 </button>
                 <button
                   onClick={() => {
-                    console.log(`${statusFilter === 'active' ? 'Set as Draft' : 'Activate'} selected:`, selectedRowKeys);
-                    // TODO: Implement activate/draft functionality
+                    if (selectedRowKeys.length === 0) return;
+                    if (statusFilter === 'active') {
+                      dispatch(bulkSetProductsDraft(selectedRowKeys as any) as any);
+                    }
                   }}
                   className={`px-4 py-2 rounded-full text-xs font-semibold transition-colors border ${
                     selectedRowKeys.length > 0
@@ -657,8 +674,8 @@ export default function MobileProductTableSection() {
                             </button>
                             <button
                               onClick={() => {
-                                // TODO: Implement delete functionality
-                                console.log('Delete product:', product._id);
+                                setDeleteDialogProducts([product as ProductApiModel]);
+                                setDeleteDialogOpen(true);
                               }}
                               className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
                               title="Delete Product"
@@ -702,6 +719,14 @@ export default function MobileProductTableSection() {
           )}
         </div>
       </div>
+
+      <DeleteProductsConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        productIds={deleteDialogProducts.map((p) => p._id)}
+        products={deleteDialogProducts}
+        onDeleted={handleRefresh}
+      />
 
       {/* Filter Drawer */}
       <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
