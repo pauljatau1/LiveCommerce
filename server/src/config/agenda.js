@@ -166,8 +166,21 @@ agenda.define('closeOrder', async (job) => {
       shippingStatus
     });
 
+    // DB-level guard: check if payment has already been processed for this order
+    // This prevents double-crediting if both the Order pre-save middleware and this job run
+    const existingPaymentTxn = await Transaction.findOne({
+      orderId: orderCheck._id,
+      seller: orderCheck.seller,
+      type: 'order_payment'
+    });
+    if (existingPaymentTxn) {
+      console.log(`Payment already processed for order ${orderCheck.order_id}, skipping duplicate wallet credit in agenda job.`);
+      return;
+    }
+
     // Calculate fees and amounts
     console.log('Fetching categories for fee calculation');
+
     const categories = await Category.find({});
     const categoryFeeMap = new Map(
       categories.map(cat => [cat.name.toLowerCase(), cat.platformFee])
