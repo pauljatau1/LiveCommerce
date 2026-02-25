@@ -260,7 +260,7 @@
 /* For Firefox */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #2D3748 transparent;
+  scrollbar-color: #cbd5e1 #f1f5f9;
 }
 
 /* Custom scrollbar for Activity Feed - Hidden by default, visible on parent hover */
