@@ -1939,12 +1939,50 @@ exports.getAllOrders = async (req, res) => {
     // Search by order ID, buyer name, or product name
     if (search) {
       const searchRegex = new RegExp(search, 'i');
+
+      // Find matching buyers and sellers
+      const Buyer = mongoose.model('Buyer');
+      const Seller = mongoose.model('Seller');
+
+      const matchingBuyers = await Buyer.find({
+        $or: [
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+          { email: searchRegex },
+          { username: searchRegex }
+        ]
+      }).select('_id');
+
+      const matchingSellers = await Seller.find({
+        $or: [
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+          { storeName: searchRegex },
+          { businessName: searchRegex },
+          { email: searchRegex }
+        ]
+      }).select('_id');
+
+      const buyerIds = matchingBuyers.map(b => b._id);
+      const sellerIds = matchingSellers.map(s => s._id);
+
       query.$or = [
         { order_id: searchRegex },
         { 'buyerDetails.firstName': searchRegex },
         { 'buyerDetails.lastName': searchRegex },
-        { 'items.productName': searchRegex }
+        { 'buyerDetails.username': searchRegex },
+        { 'items.productName': searchRegex },
+        { 'shipping.shipment_id': searchRegex },
+        { 'shipping.tracking.number': searchRegex }
       ];
+
+      if (buyerIds.length > 0) {
+        query.$or.push({ buyer: { $in: buyerIds } });
+      }
+
+      if (sellerIds.length > 0) {
+        query.$or.push({ seller: { $in: sellerIds } });
+      }
     }
 
     const orders = await Order.find(query)
@@ -3450,6 +3488,9 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
 
       await withdrawal.save({ session });
       await session.commitTransaction();
+      console.log('--- Transfer Initiation Complete ---');
+      console.log('Reference saved to DB:', withdrawal.reference);
+      console.log('Paystack Ref from Response:', transferResponse.data.data.reference);
       console.log('Transaction committed successfully');
 
       res.json({
@@ -3631,6 +3672,118 @@ exports.verifyTransferStatus = async (req, res) => {
   }
 };
 
+// Manually complete withdrawal
+exports.manualCompleteWithdrawal = async (req, res) => {
+  try {
+    const { withdrawalId } = req.params;
+
+    const withdrawal = await Withdrawal.findById(withdrawalId).populate('seller');
+
+    if (!withdrawal) {
+      return res.status(404).json({
+        success: false,
+        message: 'Withdrawal not found'
+      });
+    }
+
+    if (withdrawal.status === 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Withdrawal is already completed'
+      });
+    }
+
+    withdrawal.status = 'completed';
+    withdrawal.paymentInfo = {
+      ...(withdrawal.paymentInfo || {}),
+      paystackStatus: 'manual_completion',
+      completedAt: new Date(),
+      manuallyCompletedBy: req.user.id
+    };
+
+    withdrawal.notes.push({
+      content: 'Withdrawal marked as completed manually by admin',
+      addedBy: 'admin',
+      date: new Date()
+    });
+
+    await withdrawal.save();
+
+    // Deduct from seller wallet balance
+    try {
+      const sellerId = withdrawal.seller?._id || withdrawal.seller;
+      const seller = await Seller.findById(sellerId);
+      if (seller) {
+        seller.walletBalance = Math.max(0, seller.walletBalance - withdrawal.amount);
+        await seller.save();
+        console.log(`💰 Deducted ₦${withdrawal.amount} from seller wallet. New balance: ₦${seller.walletBalance}`);
+      }
+    } catch (walletErr) {
+      console.error('Failed to deduct seller wallet balance:', walletErr.message);
+    }
+
+    // Create transaction record
+    try {
+      await Transaction.create([{
+        seller: withdrawal.seller._id,
+        type: 'withdrawal',
+        amount: withdrawal.amount,
+        status: 'completed',
+        bankDetails: withdrawal.bankDetails,
+        description: `Manual withdrawal to bank account ${withdrawal.bankDetails?.accountNumber}`,
+        reference: withdrawal.reference
+      }]);
+    } catch (txErr) {
+      console.error('Failed to create transaction record:', txErr.message);
+    }
+
+    // Send success email in background
+    setImmediate(() => {
+      try {
+        if (withdrawal.seller && withdrawal.seller.email) {
+          termiiEmailService.sendRawHTMLEmail({
+            email: withdrawal.seller.email,
+            subject: 'Withdrawal Completed - Auqli',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>Withdrawal Completed</h2>
+                <p>Dear ${withdrawal.seller.firstName},</p>
+                <p>Your withdrawal request (Ref: ${withdrawal.reference}) has been marked as completed.</p>
+                <p>Amount: ₦${withdrawal.amount.toLocaleString()}</p>
+                <p>If you have not received your funds, please contact support.</p>
+                <p>Best regards,<br>The Auqli Team</p>
+              </div>
+            `
+          }).then(res => {
+            if (res && res.failed) {
+              console.log('Background Termii email notification skipped/failed (expected):', res.message);
+            }
+          }).catch(emailError => {
+            console.error('Background Termii email promise rejection:', emailError.response?.data || emailError.message);
+          });
+        }
+      } catch (err) {
+        console.error('Error in background email task:', err);
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Withdrawal marked as completed successfully',
+      data: {
+        withdrawal
+      }
+    });
+  } catch (error) {
+    console.error('Error manually completing withdrawal:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to manually complete withdrawal',
+      error: error.message
+    });
+  }
+};
+
 // Add email notification function
 async function sendStatusUpdateEmail(withdrawal) {
   const emailContent = {
@@ -3746,29 +3899,83 @@ exports.finalizeTransfer = async (req, res) => {
           otp
         });
 
+        const paystackStatus = finalizeResponse.data.data?.status;
         console.log('Finalize response:', {
           status: finalizeResponse.data.status,
           message: finalizeResponse.data.message,
+          paystackTransferStatus: paystackStatus,
           data: finalizeResponse.data.data
         });
 
-        // Update withdrawal status
-        withdrawal.status = 'processing';
+        // Auto-complete if Paystack confirms the transfer as success
+        // (Webhooks can't reach localhost in dev, so we handle it here too)
+        const isComplete = paystackStatus === 'success';
+        const isFailed = paystackStatus === 'failed' || paystackStatus === 'reversed';
+
+        let newWithdrawalStatus = 'processing';
+        if (isComplete) {
+          newWithdrawalStatus = 'completed';
+          console.log('✅ Transfer marked COMPLETED directly from Paystack finalize response.');
+        } else if (isFailed) {
+          newWithdrawalStatus = 'failed';
+          console.log('❌ Transfer marked FAILED from Paystack finalize response.');
+        } else {
+          console.log(`ℹ️ Transfer status is "${paystackStatus}", keeping as processing.`);
+        }
+
+        withdrawal.status = newWithdrawalStatus;
         withdrawal.paymentInfo = {
           ...withdrawal.paymentInfo,
+          paystackStatus: paystackStatus,
           lastChecked: new Date(),
           finalizeAttempted: true,
           finalizeResponse: finalizeResponse.data,
-          transfer_code: transfer_code
+          transfer_code: transfer_code,
+          ...(isComplete && { completedAt: new Date() })
         };
+
+        if (isComplete) {
+          withdrawal.processedDate = new Date();
+          withdrawal.notes.push({
+            content: `Transfer completed successfully. Paystack reference: ${reference}`,
+            addedBy: 'system',
+            date: new Date()
+          });
+
+          // Deduct from seller wallet balance if not already done
+          const seller = await Seller.findById(withdrawal.seller._id);
+          if (seller) {
+            seller.walletBalance = Math.max(0, seller.walletBalance - withdrawal.amount);
+            await seller.save();
+            console.log(`💰 Deducted ₦${withdrawal.amount} from seller wallet. New balance: ₦${seller.walletBalance}`);
+          }
+
+          // Create transaction record
+          await Transaction.create([{
+            seller: withdrawal.seller._id,
+            type: 'withdrawal',
+            amount: withdrawal.amount,
+            status: 'completed',
+            bankDetails: withdrawal.bankDetails,
+            description: `Withdrawal to bank account ${withdrawal.bankDetails?.accountNumber}`,
+            reference: reference
+          }]);
+        } else if (isFailed) {
+          withdrawal.notes.push({
+            content: `Transfer failed. Paystack status: ${paystackStatus}`,
+            addedBy: 'system',
+            date: new Date()
+          });
+        }
 
         await withdrawal.save();
 
         return res.json({
           success: true,
-          message: 'Transfer finalized successfully',
+          message: isComplete ? 'Transfer completed successfully!' : 'Transfer finalized and queued',
           data: {
-            status: finalizeResponse.data.data.status,
+            status: paystackStatus,
+            withdrawalStatus: newWithdrawalStatus,
             reference,
             withdrawal: {
               _id: withdrawal._id,
@@ -6233,6 +6440,204 @@ exports.getSellerDetails = async (req, res) => {
   }
 };
 
+// Paginated Seller Orders for Admin
+exports.getSellerOrdersAdmin = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { page = 1, limit = 10, search, status, paid, isStale } = req.query;
+
+    // Validate sellerId
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ success: false, message: 'Invalid seller ID format' });
+    }
+
+    const query = { seller: new mongoose.Types.ObjectId(sellerId) };
+
+    if (status && status !== 'all') {
+      query['items.status'] = status;
+    }
+
+    if (paid !== undefined && paid !== 'all' && paid !== '') {
+      query.paid = paid === 'true';
+    }
+
+    if (isStale !== undefined && isStale !== 'all' && isStale !== '') {
+      query.isStale = isStale === 'true';
+    }
+
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { order_id: searchRegex },
+        { 'buyerDetails.firstName': searchRegex },
+        { 'buyerDetails.lastName': searchRegex },
+        { 'items.productName': searchRegex }
+      ];
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const categories = await Category.find({}).lean();
+    const categoryFeeMap = new Map(categories.map(c => [c.name.toLowerCase(), c.platformFee || 0]));
+
+    const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('buyer', 'firstName lastName email')
+      .populate('items.product', 'name price images category')
+      .lean();
+
+    // Calculate seller amount for each order
+    const ordersWithSellerAmount = orders.map(order => {
+      // Calculate product total safely: totalAmount includes shipping
+      const shippingFee = Number(order.shipping?.fee?.amount) || 0;
+      const totalAmount = Number(order.totalAmount) || 0;
+      let productTotal = totalAmount - shippingFee;
+
+      // Fallback/Accuracy check: Sum of items
+      let itemsTotal = 0;
+      let totalPlatformFee = 0;
+
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach(item => {
+          const price = Number(item.price) || 0;
+          const quantity = Number(item.quantity) || 1;
+          const itemTotal = price * quantity;
+          itemsTotal += itemTotal;
+
+          let categoryFeePercent = 0;
+          if (item.product && typeof item.product === 'object') {
+            const categoryName = item.product.category;
+            if (typeof categoryName === 'string') {
+              categoryFeePercent = categoryFeeMap.get(categoryName.toLowerCase()) || 0;
+            }
+          }
+
+          totalPlatformFee += itemTotal * (categoryFeePercent / 100);
+        });
+      }
+
+      // If productTotal from header is unreliable (e.g., negative or zero), use itemsTotal
+      if (productTotal <= 0 && itemsTotal > 0) {
+        productTotal = itemsTotal;
+      }
+
+      const paymentProcessingFee = productTotal * 0.015; // 1.5%
+      const sellerAmount = productTotal - totalPlatformFee - paymentProcessingFee;
+
+      return {
+        ...order,
+        sellerAmount: Math.max(0, Number(sellerAmount.toFixed(2)))
+      };
+    });
+
+    const total = await Order.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        orders: ordersWithSellerAmount,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalOrders: total
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching seller orders:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch seller orders', error: error.message });
+  }
+};
+
+// Paginated Seller Transactions/Finances for Admin
+exports.getSellerTransactionsAdmin = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { page = 1, limit = 10, type, status } = req.query;
+
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ success: false, message: 'Invalid seller ID format' });
+    }
+
+    const query = { seller: new mongoose.Types.ObjectId(sellerId) };
+
+    if (type && type !== 'all') {
+      query.type = type;
+    }
+
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const transactions = await Transaction.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    const total = await Transaction.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        transactions,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalTransactions: total
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching seller transactions:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch seller transactions', error: error.message });
+  }
+};
+
+// Paginated Seller Withdrawals for Admin
+exports.getSellerWithdrawalsAdmin = async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const { page = 1, limit = 10, status } = req.query;
+
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ success: false, message: 'Invalid seller ID format' });
+    }
+
+    const query = { seller: new mongoose.Types.ObjectId(sellerId) };
+
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const withdrawals = await Withdrawal.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    const total = await Withdrawal.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        withdrawals,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalWithdrawals: total
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching seller withdrawals:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch seller withdrawals', error: error.message });
+  }
+};
+
 /**
  * Update seller information by admin
  * @param {Object} req - Express request object
@@ -7029,6 +7434,13 @@ exports.getPlatformMetrics = async (req, res) => {
     const today = new Date();
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(today.getDate() - 30);
+
+    // 90 Days Logic for Revenue
+    const ninetyDaysAgo = new Date(today);
+    ninetyDaysAgo.setDate(today.getDate() - 90);
+    const oneEightyDaysAgo = new Date(today);
+    oneEightyDaysAgo.setDate(today.getDate() - 180);
+
     const startOfToday = new Date(today.setHours(0, 0, 0, 0));
     const startOfYesterday = new Date(startOfToday);
     startOfYesterday.setDate(startOfYesterday.getDate() - 1);
@@ -7060,7 +7472,7 @@ exports.getPlatformMetrics = async (req, res) => {
       BankChangeRequest.countDocuments()
     ]);
 
-    // Counts from 30 days ago (for monthly growth comparison)
+    // Counts from 30 days ago (for monthly growth comparison - kept for non-revenue metrics)
     const [
       buyers30DaysAgo,
       sellers30DaysAgo,
@@ -7160,20 +7572,34 @@ exports.getPlatformMetrics = async (req, res) => {
     ]);
 
     // Get financial metrics
-    // Total Revenue
+    // Total Revenue (Last 90 Days)
     const totalRevenueResult = await Order.aggregate([
-      { $match: { paid: true, isStale: { $ne: true }, items: { $not: { $elemMatch: { status: 'cancelled' } } } } },
+      {
+        $match: {
+          paid: true,
+          isStale: { $ne: true },
+          items: { $not: { $elemMatch: { status: 'cancelled' } } },
+          createdAt: { $gte: ninetyDaysAgo }
+        }
+      },
       { $group: { _id: null, total: { $sum: '$totalAmount' } } }
     ]);
     const totalOrderAmount = totalRevenueResult[0]?.total || 0;
 
-    // Revenue 30 Days Ago
-    const revenue30DaysAgoResult = await Order.aggregate([
-      { $match: { paid: true, isStale: { $ne: true }, items: { $not: { $elemMatch: { status: 'cancelled' } } }, createdAt: { $lt: thirtyDaysAgo } } },
+    // Revenue Previous Period (90 Days before the last 90 days)
+    const revenuePreviousResult = await Order.aggregate([
+      {
+        $match: {
+          paid: true,
+          isStale: { $ne: true },
+          items: { $not: { $elemMatch: { status: 'cancelled' } } },
+          createdAt: { $gte: oneEightyDaysAgo, $lt: ninetyDaysAgo }
+        }
+      },
       { $group: { _id: null, total: { $sum: '$totalAmount' } } }
     ]);
-    const revenue30DaysAgo = revenue30DaysAgoResult[0]?.total || 0;
-    const revenueGrowth = calculatePercentageChange(totalOrderAmount, revenue30DaysAgo);
+    const revenuePreviousPeriod = revenuePreviousResult[0]?.total || 0;
+    const revenueGrowth = calculatePercentageChange(totalOrderAmount, revenuePreviousPeriod);
 
     const totalWithdrawalResult = await Withdrawal.aggregate([
       { $match: { status: 'completed' } },
@@ -7183,14 +7609,14 @@ exports.getPlatformMetrics = async (req, res) => {
 
 
     // --- TIME SERIES DATA (For Charts) ---
-    // Daily Revenue & Orders (Last 30 Days)
+    // Daily Revenue & Orders (Last 90 Days)
     const dailyStats = await Order.aggregate([
       {
         $match: {
           paid: true,
           isStale: { $ne: true },
           items: { $not: { $elemMatch: { status: 'cancelled' } } },
-          createdAt: { $gte: thirtyDaysAgo }
+          createdAt: { $gte: ninetyDaysAgo }
         }
       },
       {
@@ -7205,7 +7631,15 @@ exports.getPlatformMetrics = async (req, res) => {
 
     // Fill in missing dates for charts
     const chartData = [];
-    for (let d = new Date(thirtyDaysAgo); d <= today; d.setDate(d.getDate() + 1)) {
+    const chartEndDate = new Date(); // Use new date to avoid mutating 'today' in loop if it was used elsewhere
+
+    // We need to iterate 90 days
+    for (let i = 0; i <= 90; i++) {
+      const d = new Date(ninetyDaysAgo);
+      d.setDate(d.getDate() + i);
+
+      if (d > chartEndDate) break;
+
       const dateStr = d.toISOString().split('T')[0];
       const dayData = dailyStats.find(s => s._id === dateStr);
       chartData.push({
@@ -7215,7 +7649,7 @@ exports.getPlatformMetrics = async (req, res) => {
       });
     }
 
-    // Daily User Signups (Last 30 Days)
+    // Daily User Signups (Last 30 Days) - Keeping this 30 days for now unless requested
     const dailySignups = await Promise.all([
       Buyer.aggregate([
         { $match: { createdAt: { $gte: thirtyDaysAgo } } },
@@ -7412,8 +7846,8 @@ exports.getPlatformMetrics = async (req, res) => {
         cancelledStreamRate
       },
       financialMetrics: {
-        totalOrderAmount: totalOrderAmount.length > 0 ? totalOrderAmount[0].total : 0,
-        totalWithdrawalAmount: totalWithdrawalAmount.length > 0 ? totalWithdrawalAmount[0].total : 0
+        totalOrderAmount: totalOrderAmount,
+        totalWithdrawalAmount: totalWithdrawalAmount
       },
       recentActivity: {
         orders: recentOrders,

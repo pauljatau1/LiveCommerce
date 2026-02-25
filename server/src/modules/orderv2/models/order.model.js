@@ -335,6 +335,19 @@ orderSchema.pre('save', async function (next) {
       // Mark this order as processed to avoid duplicate processing
       this._orderClosingProcessed = true;
 
+      // DB-level guard: check if an order_payment transaction already exists for this order
+      // to prevent double-crediting if the middleware fires more than once on the same order
+      const Transaction = mongoose.model('Transaction');
+      const existingPaymentTxn = await Transaction.findOne({
+        orderId: this._id,
+        seller: this.seller,
+        type: 'order_payment'
+      });
+      if (existingPaymentTxn) {
+        console.log(`Payment already processed for order ${this.order_id}, skipping duplicate wallet credit.`);
+        return next();
+      }
+
       // Check if the order was cancelled (any item has 'cancelled' status or closedReason contains 'cancel')
       const isCancelled = this.items.some(item => item.status === 'cancelled') ||
         (this.closedReason && this.closedReason.toLowerCase().includes('cancel'));
@@ -360,38 +373,17 @@ orderSchema.pre('save', async function (next) {
         category: item.product?.category
       })));
 
-      // First, let's log all categories in the database
-      const allCategories = await Category.find({});
-      console.log('All categories in database:', allCategories.map(c => ({
-        id: c._id,
-        name: c.name.toLowerCase(),
-        platformFee: c.platformFee
-      })));
-
-      // Get categories by name
-      const categoryNames = [...new Set(this.items.map(item =>
-        typeof item.product?.category === 'string' ? item.product.category.toLowerCase() : null
+      // Get unique category names (preserve original case for lookup)
+      const rawCategoryNames = [...new Set(this.items.map(item =>
+        typeof item.product?.category === 'string' ? item.product.category : null
       ).filter(Boolean))];
 
-      console.log('Looking up categories by names:', categoryNames);
+      console.log('Looking up categories by names:', rawCategoryNames);
 
-      // Let's try a case-insensitive search
-      const categories = await Category.find({
-        name: {
-          $regex: new RegExp('^' + categoryNames.join('|') + '$', 'i')
-        }
-      });
-
-      console.log('Found categories after search:', categories.map(c => ({
-        id: c._id,
-        name: c.name,
-        platformFee: c.platformFee,
-        searchedFor: categoryNames
-      })));
-
-      // Create map with case-insensitive keys
+      // Fetch all categories and build a case-insensitive fee map to avoid regex pitfalls
+      const allCategories = await Category.find({});
       const categoryFeeMap = new Map(
-        categories.map(cat => [cat.name.toLowerCase(), cat.platformFee])
+        allCategories.map(cat => [cat.name.toLowerCase(), cat.platformFee || 0])
       );
 
       console.log('Category fee map created:',
@@ -444,7 +436,8 @@ orderSchema.pre('save', async function (next) {
 
       // Update seller's wallet
       const Seller = mongoose.model('Seller');
-      const Transaction = mongoose.model('Transaction');
+      // Transaction model already declared above (for DB-level guard)
+
 
       // Use findOneAndUpdate to prevent race conditions
       const updatedSeller = await Seller.findOneAndUpdate(
