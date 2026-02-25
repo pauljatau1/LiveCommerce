@@ -630,3 +630,13 @@ export const waitForIntercomReady = async (maxRetries: number = 10, delay: numbe
   }
   return false;
 };
+
+// Helper to format date
+export const formatDate = (dateString?: string) => {
+  if (!dateString) return 'N/A';
+  return new Date(dateString).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+};

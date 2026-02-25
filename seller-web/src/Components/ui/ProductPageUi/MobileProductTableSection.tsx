@@ -24,6 +24,7 @@ import StockIcon from '@/assets/icons/StockIcon';
 import BlipIcon from '@/assets/icons/BlipIcon';
 import NairaIcon from '@/assets/icons/NairaIcon';
 import DeleteProductsConfirmDialog from '@/Components/ProductPage/DeleteProductsConfirmDialog';
+import ProductDetailsModal from '@/Components/ProductPage/ProductDetailsModal';
 
 
 
@@ -80,6 +81,8 @@ export default function MobileProductTableSection() {
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteDialogProducts, setDeleteDialogProducts] = useState<ProductApiModel[]>([]);
+  const [productDetailsModalOpen, setProductDetailsModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<ProductApiModel | null>(null);
 
   // Drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -655,8 +658,8 @@ export default function MobileProductTableSection() {
                           <div className="flex items-center justify-between border-t border-gray-100 pt-3">
                             <button
                               onClick={() => {
-                                // TODO: Implement view details functionality
-                                console.log('View details for:', product._id);
+                                setSelectedProduct(product);
+                                setProductDetailsModalOpen(true);
                               }}
                               className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors"
                               title="View Details"
@@ -726,6 +729,13 @@ export default function MobileProductTableSection() {
         productIds={deleteDialogProducts.map((p) => p._id)}
         products={deleteDialogProducts}
         onDeleted={handleRefresh}
+      />
+
+      {/* Product Details Modal */}
+      <ProductDetailsModal
+        open={productDetailsModalOpen}
+        onOpenChange={setProductDetailsModalOpen}
+        product={selectedProduct}
       />
 
       {/* Filter Drawer */}

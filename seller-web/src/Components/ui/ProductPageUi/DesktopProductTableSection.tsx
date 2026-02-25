@@ -15,6 +15,7 @@ import PlusIcon from '@/assets/icons/PlusIcon2';
 import { mapSortTypeToAPI } from '@/util/helpers';
 import type { ProductApiModel } from '@/types/products';
 import DeleteProductsConfirmDialog from '@/Components/ProductPage/DeleteProductsConfirmDialog';
+import ProductDetailsModal from '@/Components/ProductPage/ProductDetailsModal';
 
 // Brand color theme for Ant Design components
 const brandTheme = {
@@ -64,6 +65,8 @@ export default function DesktopProductTableSection() {
   // Row selection state - persisted across pages
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [productDetailsModalOpen, setProductDetailsModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<ProductApiModel | null>(null);
 
   // Initial fetch on mount
   useEffect(() => {
@@ -334,8 +337,14 @@ export default function DesktopProductTableSection() {
     {
       title: '',
       key: 'action',
-      render: () => (
-        <button className="px-2 py-1 border border-solid border-[#0BB248] text-[#0BB248] whitespace-nowrap rounded-lg text-xs font-semibold hover:bg-[#0BB24817] transition-colors">
+      render: (_: any, record: ProductApiModel) => (
+        <button 
+          className="px-2 py-1 border border-solid border-[#0BB248] text-[#0BB248] whitespace-nowrap rounded-lg text-xs font-semibold hover:bg-[#0BB24817] transition-colors"
+          onClick={() => {
+            setSelectedProduct(record);
+            setProductDetailsModalOpen(true);
+          }}
+        >
           View Details
         </button>
       ),
@@ -730,6 +739,13 @@ export default function DesktopProductTableSection() {
         productIds={selectedRowKeys}
         products={products as ProductApiModel[]}
         onDeleted={handleRefresh}
+      />
+
+      {/* Product Details Modal */}
+      <ProductDetailsModal
+        open={productDetailsModalOpen}
+        onOpenChange={setProductDetailsModalOpen}
+        product={selectedProduct}
       />
 
       <style>{`
