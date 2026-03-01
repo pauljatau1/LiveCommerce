@@ -12,6 +12,8 @@ import type { SellerBlip } from '@/types/products';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useNavigate } from 'react-router-dom';
+import ProductBlipsDetailsModal from './ProductBlipsDetailsModal';
+import CreateBlipModal from './CreateBlipModal';
 
 dayjs.extend(relativeTime);
 
@@ -37,6 +39,9 @@ export default function DesktopProductBlipsTableSection() {
   // @ts-ignore - Assuming state structure based on other components
   const { blips, isLoadingBlips, blipsPagination } = useSelector((state: any) => state.product);
 
+  // Create Blip Modal state
+  const [isCreateBlipModalOpen, setIsCreateBlipModalOpen] = useState(false);
+
   // Filter states
   const [priceFilter, setPriceFilter] = useState<'all' | 'under-5k' | '5k-20k' | '20k-plus'>('all');
 
@@ -46,6 +51,10 @@ export default function DesktopProductBlipsTableSection() {
 
   // Row selection state
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+  
+  // Details Modal state
+  const [selectedBlip, setSelectedBlip] = useState<SellerBlip | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   // Initial fetch on mount
   useEffect(() => {
@@ -188,7 +197,11 @@ export default function DesktopProductBlipsTableSection() {
       width: '10%',
       render: (_, record) => (
         <button
-          
+          onClick={() => {
+            // @ts-ignore
+            setSelectedBlip(record);
+            setIsDetailsModalOpen(true);
+          }}
           className="px-3 py-1.5 border border-[#0BB248] text-[#0BB248] text-xs font-medium rounded-lg whitespace-nowrap hover:bg-[#0BB248]/10 transition-colors"
         >
           View Details
@@ -215,6 +228,10 @@ export default function DesktopProductBlipsTableSection() {
       default: return 'All Prices';
     }
   };
+
+  const onAddBlips = () => {
+    setIsCreateBlipModalOpen(true);
+  }
 
   return (
     <ConfigProvider theme={brandTheme}>
@@ -297,6 +314,28 @@ export default function DesktopProductBlipsTableSection() {
             />
           )}
         </div>
+
+        {/* Blips Details Modal */}
+        {selectedBlip && (
+            <ProductBlipsDetailsModal
+                isOpen={isDetailsModalOpen}
+                onClose={() => {
+                    setIsDetailsModalOpen(false);
+                    setSelectedBlip(null);
+                }}
+                // @ts-ignore
+                productId={selectedBlip.productId || selectedBlip.product?._id}
+                // @ts-ignore
+                blipId={selectedBlip.blipId || selectedBlip._id}
+                onAddBlips={onAddBlips}
+            />
+        )}
+
+        {/* Create Blip Modal */}
+        <CreateBlipModal
+          open={isCreateBlipModalOpen}
+          onOpenChange={() => setIsCreateBlipModalOpen(false)}
+        />
       </div>
       <style>{`
         .products-table .ant-table-thead > tr > th {

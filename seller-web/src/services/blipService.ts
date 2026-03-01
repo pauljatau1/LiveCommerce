@@ -6,6 +6,7 @@ const BLIP_ENDPOINTS = {
   uploadProductBlipsRoute: (productId: string) => `/products/${productId}/blips`,
   sellerProducts: (sellerId: string) => `/products/seller/${sellerId}`,
   productDetails: (productId: string) => `/products/${productId}`,
+  deleteBlip: (productId: string, blipId: string) => `/products/${productId}/blips/${blipId}`,
 };
 
 async function uploadProductBlips(params: {
@@ -58,10 +59,18 @@ async function fetchProductBlipsCount(productId: string): Promise<number> {
   }
 }
 
+async function deleteProductBlip(params: {
+  productId: string;
+  blipId: string;
+}): Promise<void> {
+  await apiService.delete(BLIP_ENDPOINTS.deleteBlip(params.productId, params.blipId));
+}
+
 export const blipService = {
   uploadProductBlips,
   fetchSellerProducts,
   fetchProductBlipsCount,
+  deleteProductBlip,
 };
 
 export default blipService;

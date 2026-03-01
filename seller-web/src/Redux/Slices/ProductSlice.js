@@ -24,6 +24,7 @@ const initialState = {
     blipComments: [],
     isLoadingBlipDetails: false,
     isLoadingBlipComments: false,
+    isSendingBlipReplies: false,
     blipCommentsPagination: {
         total: 0,
         pages: 0,
@@ -631,11 +632,13 @@ const productSlice = createSlice({
             state.error = action.error.message;
             notificationService.showError('Failed to fetch blip comments. Please try again', 'dismissible');
         })
-        .addCase(addReplyToBlipComment.pending, () => {
+        .addCase(addReplyToBlipComment.pending, (state) => {
             // Optionally add a loading state for replies
+            state.isSendingBlipReplies = true;
         })
         .addCase(addReplyToBlipComment.fulfilled, (state, action) => {
             // Find the comment and add the new reply
+            state.isSendingBlipReplies = false;
             const { reply } = action.payload;
             const commentId = action.meta.arg.commentId;
             
