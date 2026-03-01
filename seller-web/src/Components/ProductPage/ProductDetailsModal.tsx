@@ -127,9 +127,9 @@ export default function ProductDetailsModal({
                 <span className="text-sm font-semibold text-[#5C5F62]">
                   {product.stock} Available
                 </span>
-                <span className="text-xs text-[#718096]">
-                  SKU-{product.sku}
-                </span>
+                {
+                  product?.sku && <span className="text-xs text-[#718096]">SKU-{product.sku} </span>
+                }
                 {product.stock <= (product.productInfo?.lowStockThreshold || 5) && (
                    <span className="bg-[#F7936F26] text-[#F7936F] text-[10px] px-2 py-0.5 rounded font-bold uppercase">
                      Low Stock
