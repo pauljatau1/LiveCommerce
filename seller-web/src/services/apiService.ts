@@ -70,7 +70,7 @@ import axios, {
       // API configuration
       this.api = axios.create({
         baseURL: API_CONFIG.BASE_URL,
-        timeout: API_CONFIG.TIMEOUT,
+        //timeout: API_CONFIG.TIMEOUT,
         headers: {
           "Content-Type": "application/json",
         },

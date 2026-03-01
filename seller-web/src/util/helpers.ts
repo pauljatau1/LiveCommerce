@@ -1,3 +1,5 @@
+import dayjs from 'dayjs';
+
 // Extend Window interface to include Intercom
 declare global {
   interface Window {
@@ -554,6 +556,70 @@ export const isIntercomReady = (): boolean => {
  * @param {number} delay - Delay between retries in milliseconds
  * @returns {Promise<boolean>} Promise that resolves when Intercom is ready
  */
+// Product-related helper functions
+
+/**
+ * Map UI sort type to API sortBy parameter
+ */
+export const mapSortTypeToAPI = (uiSortType: string): string => {
+  switch (uiSortType) {
+    case 'newest-to-oldest':
+      return 'newest';
+    case 'oldest-to-newest':
+      return 'oldest';
+    case 'price-high-to-low':
+      return 'price_desc';
+    case 'price-low-to-high':
+      return 'price_asc';
+    default:
+      return 'newest';
+  }
+};
+
+/**
+ * Get week date range (start and end of current week)
+ */
+export const getWeekRange = () => {
+  const today = dayjs();
+  const startOfWeek = today.startOf('week');
+  const endOfWeek = today.endOf('week');
+  return { start: startOfWeek, end: endOfWeek };
+};
+
+/**
+ * Get month date range (start and end of current month)
+ */
+export const getMonthRange = () => {
+  const today = dayjs();
+  const startOfMonth = today.startOf('month');
+  const endOfMonth = today.endOf('month');
+  return { start: startOfMonth, end: endOfMonth };
+};
+
+/**
+ * Get year date range (start and end of current year)
+ */
+export const getYearRange = () => {
+  const today = dayjs();
+  const startOfYear = today.startOf('year');
+  const endOfYear = today.endOf('year');
+  return { start: startOfYear, end: endOfYear };
+};
+
+/**
+ * Format date for last updated display (e.g., "Sept. 15, 2025")
+ */
+export const formatLastUpdatedDate = (dateString: string | null | undefined): string => {
+  if (!dateString) return 'N/A';
+  try {
+    const date = dayjs(dateString);
+    return date.format('MMM. D, YYYY');
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'N/A';
+  }
+};
+
 export const waitForIntercomReady = async (maxRetries: number = 10, delay: number = 200): Promise<boolean> => {
   for (let i = 0; i < maxRetries; i++) {
     if (isIntercomReady()) {
@@ -563,4 +629,14 @@ export const waitForIntercomReady = async (maxRetries: number = 10, delay: numbe
     await new Promise(resolve => setTimeout(resolve, delay));
   }
   return false;
+};
+
+// Helper to format date
+export const formatDate = (dateString?: string) => {
+  if (!dateString) return 'N/A';
+  return new Date(dateString).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 };

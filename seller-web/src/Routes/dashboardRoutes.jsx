@@ -12,7 +12,7 @@ const OrdersDashboard = lazy(() => import('../Pages/Orders/Orders'));
 const OrderDetails = lazy(() => import('../Pages/Orders/OrderDetails'));
 const Returns = lazy(() => import('../Pages/Orders/Returns'));
 const ReturnDetail = lazy(() => import('../Pages/Orders/ReturnDetail'));
-const ProductsPage = lazy(() => import('../Pages/ProductsPage/ProductsPage'));
+const ProductsPageV2 = lazy(() => import('../Pages/ProductsPage/ProductsPageV2'));
 const AddProduct = lazy(() => import('../Pages/ProductsPage/AddProduct'));
 const EditProduct = lazy(() => import('../Pages/ProductsPage/EditProduct'));
 const Drafts = lazy(() => import('../Pages/ProductsPage/Drafts'));
@@ -52,7 +52,7 @@ export const dashboardRoutes = [
             { path: 'order/:id', element: <OrderDetails /> },
             { path: 'returns', element: <Returns /> },
             { path: 'return/:id', element: <ReturnDetail /> },
-            { path: 'products', element: <ProductsPage /> },
+            { path: 'products', element: <ProductsPageV2 /> },
             {
                 path: 'add-products',
                 element: (

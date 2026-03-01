@@ -205,7 +205,7 @@ const HeaderNotificationsModal = ({ open, onOpenChange }: HeaderNotificationsMod
                     )}
                 </div>
 
-                {notifications && notifications.length && !isLoading && (
+                {notifications && notifications.length > 0 && !isLoading && (
                     <div className="px-6 py-4 border-t border-gray-200 flex justify-center">
                         <button
                             onClick={handleViewAll}
