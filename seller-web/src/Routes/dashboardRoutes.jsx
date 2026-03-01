@@ -15,8 +15,8 @@ const ReturnDetail = lazy(() => import('../Pages/Orders/ReturnDetail'));
 const ProductsPageV2 = lazy(() => import('../Pages/ProductsPage/ProductsPageV2'));
 const AddProduct = lazy(() => import('../Pages/ProductsPage/AddProduct'));
 const EditProduct = lazy(() => import('../Pages/ProductsPage/EditProduct'));
-const Drafts = lazy(() => import('../Pages/ProductsPage/Drafts'));
-const Blips = lazy(() => import('../Pages/ProductsPage/Blips'));
+//const Drafts = lazy(() => import('../Pages/ProductsPage/Drafts'));
+//const Blips = lazy(() => import('../Pages/ProductsPage/Blips'));
 const MarketingPage = lazy(() => import('../Pages/MarketingPage/MarketingPage'));
 const Coupons = lazy(() => import('../Pages/MarketingPage/Coupons'));
 const CouponsList = lazy(() => import('../Pages/MarketingPage/CouponsList'));
@@ -69,8 +69,9 @@ export const dashboardRoutes = [
                     </VariantsProvider>
                 ),
             },
-            { path: 'drafts', element: <Drafts /> },
-            { path: 'blips', element: <Blips /> }, { path: 'marketing', element: <MarketingPage /> },
+            //{ path: 'drafts', element: <Drafts /> },
+            //{ path: 'blips', element: <Blips /> }, 
+            { path: 'marketing', element: <MarketingPage /> },
 
             {
                 path: 'coupons',
