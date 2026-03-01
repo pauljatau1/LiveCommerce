@@ -117,7 +117,7 @@ const blipSchema = new mongoose.Schema({
     buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' },
     comment: { type: String },
     createdAt: { type: Date, default: Date.now },
-    likes: [{ 
+    likes: [{
       user: { type: mongoose.Schema.Types.ObjectId, refPath: 'comments.likes.userType' },
       userType: { type: String, enum: ['Buyer', 'Seller'] },
       createdAt: { type: Date, default: Date.now }
@@ -128,7 +128,7 @@ const blipSchema = new mongoose.Schema({
       userType: { type: String, enum: ['Buyer', 'Seller'] },
       comment: { type: String },
       createdAt: { type: Date, default: Date.now },
-      likes: [{ 
+      likes: [{
         user: { type: mongoose.Schema.Types.ObjectId, refPath: 'comments.replies.likes.userType' },
         userType: { type: String, enum: ['Buyer', 'Seller'] },
         createdAt: { type: Date, default: Date.now }
@@ -213,7 +213,7 @@ const productSchema = new mongoose.Schema({
     totalReviews: { type: Number }
   },
   lowStockAlert: { type: Number, default: 5 },
-  sku: { type: String},
+  sku: { type: String },
   upc: { type: String },
   condition: { type: String },
   tags: [{ type: String }],
@@ -260,10 +260,10 @@ const productSchema = new mongoose.Schema({
     deliveryTime: { type: String },
   },
   warehouseLocation: { type: String },
-  status: { 
-    type: String, 
-    enum: ['draft', 'active', 'offline_auction'], 
-    default: 'draft' 
+  status: {
+    type: String,
+    enum: ['draft', 'active', 'offline_auction'],
+    default: 'draft'
   },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
@@ -1074,17 +1074,17 @@ const productSchema = new mongoose.Schema({
   auction: {
     minBid: {
       type: Number,
-      required: function() {
+      required: function () {
         return this.status === 'offline_auction';
       }
     },
     maxBid: {
       type: Number,
-      required: function() {
+      required: function () {
         return this.status === 'offline_auction';
       },
       validate: {
-        validator: function(value) {
+        validator: function (value) {
           if (this.status === 'offline_auction') {
             return value > this.auction.minBid;
           }
@@ -1096,23 +1096,23 @@ const productSchema = new mongoose.Schema({
     endOnMaxBid: {
       type: Boolean,
       default: false,
-      required: function() {
+      required: function () {
         return this.status === 'offline_auction';
       }
     },
     startDate: {
       type: Date,
-      required: function() {
+      required: function () {
         return this.status === 'offline_auction';
       }
     },
     endDate: {
       type: Date,
-      required: function() {
+      required: function () {
         return this.status === 'offline_auction';
       },
       validate: {
-        validator: function(value) {
+        validator: function (value) {
           if (this.status === 'offline_auction') {
             return value > this.auction.startDate;
           }
@@ -1140,7 +1140,7 @@ const productSchema = new mongoose.Schema({
         type: Number,
         required: true,
         validate: {
-          validator: function(value) {
+          validator: function (value) {
             const product = this.parent().parent();
             // Only validate minimum bid
             if (value < product.auction.minBid) {
@@ -1163,7 +1163,7 @@ const productSchema = new mongoose.Schema({
     }],
     currentHighestBid: {
       amount: { type: Number, default: null },
-      buyer: { 
+      buyer: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Buyer',
         default: null
@@ -1213,12 +1213,12 @@ productSchema.pre('save', async function (next) {
     if (this.isModified('blips')) {
       this.blips.forEach(blip => {
         blip.likesCount = blip.likes.length;
-        
+
         // Update comment likes count and replies count
         blip.comments.forEach(comment => {
           comment.likesCount = comment.likes ? comment.likes.length : 0;
           comment.repliesCount = comment.replies ? comment.replies.length : 0;
-          
+
           // Update reply likes count
           if (comment.replies) {
             comment.replies.forEach(reply => {
@@ -1226,7 +1226,7 @@ productSchema.pre('save', async function (next) {
             });
           }
         });
-        
+
         // Calculate total comments count (comments + all replies)
         const totalReplies = blip.comments.reduce((total, comment) => {
           return total + (comment.replies ? comment.replies.length : 0);
@@ -1238,7 +1238,7 @@ productSchema.pre('save', async function (next) {
     // Only process if it's an offline auction and status isn't manually set to ended
     if (this.status === 'offline_auction' && this.auction.status !== 'ended') {
       const now = new Date();
-      
+
       // Calculate auction status and days left
       if (this.auction.startDate > now) {
         this.auction.status = 'scheduled';
@@ -1309,7 +1309,7 @@ productSchema.methods.isLowStock = function () {
 productSchema.plugin(require('mongoose-autopopulate'));
 
 // Add validation for price requirement on regular products
-productSchema.pre('validate', function(next) {
+productSchema.pre('validate', function (next) {
   if (this.status === 'active' && !this.price) {
     this.invalidate('price', 'Price is required for active products');
   }
@@ -1317,7 +1317,7 @@ productSchema.pre('validate', function(next) {
 });
 
 // Add this before module.exports
-productSchema.methods.placeBid = async function(buyerId, bidAmount) {
+productSchema.methods.placeBid = async function (buyerId, bidAmount) {
   if (this.status !== 'offline_auction') {
     throw new Error('This product is not an auction item');
   }
@@ -1344,7 +1344,7 @@ productSchema.methods.placeBid = async function(buyerId, bidAmount) {
 
     // First update the auction status directly in the database
     const result = await this.constructor.findOneAndUpdate(
-      { 
+      {
         _id: this._id,
         'auction.status': { $ne: 'ended' } // Only update if not already ended
       },
@@ -1409,25 +1409,25 @@ productSchema.methods.placeBid = async function(buyerId, bidAmount) {
 };
 
 // Add this before module.exports
-productSchema.methods.endAuction = async function(maxBidReached = false, io = null) {
+productSchema.methods.endAuction = async function (maxBidReached = false, io = null) {
   console.log(`Starting endAuction method for product: ${this._id}, maxBidReached: ${maxBidReached}`);
-  
-  if (this.status !== 'offline_auction' || 
-      (this.auction.status !== 'ongoing' && !maxBidReached)) {
+
+  if (this.status !== 'offline_auction' ||
+    (this.auction.status !== 'ongoing' && !maxBidReached)) {
     console.error(`Cannot end auction - invalid status: product status=${this.status}, auction status=${this.auction.status}`);
     throw new Error('Cannot end auction - invalid status');
   }
 
   console.log(`Setting auction status to ended for product: ${this._id}`);
   this.auction.status = 'ended';
-  
+
   // Always set the winner to the highest bidder when ending auction
   if (this.auction.currentHighestBid && this.auction.currentHighestBid.buyer) {
     console.log(`Setting winner for auction: ${this._id}`, {
       buyerId: this.auction.currentHighestBid.buyer,
       bidAmount: this.auction.currentHighestBid.amount
     });
-    
+
     // Set the winner
     this.auction.winner = {
       buyer: this.auction.currentHighestBid.buyer,
@@ -1444,25 +1444,25 @@ productSchema.methods.endAuction = async function(maxBidReached = false, io = nu
         bid.status = 'lost';
       }
     });
-    
+
     // Schedule order creation job
     try {
       console.log(`Attempting to schedule order creation for auction winner: ${this._id}`);
       const agenda = require('../config/agenda').agenda;
-      
+
       // Check if agenda is properly initialized
       if (!agenda) {
         console.error('Agenda instance is not available or not properly initialized');
         throw new Error('Agenda not initialized');
       }
-      
+
       // Check if an order already exists for this auction
       const Order = mongoose.model('Order');
-      const existingOrder = await Order.findOne({ 
+      const existingOrder = await Order.findOne({
         channel: 'auction',
         'items.product': this._id
       });
-      
+
       if (existingOrder) {
         console.log('Order already exists for auction product:', {
           productId: this._id,
@@ -1471,7 +1471,7 @@ productSchema.methods.endAuction = async function(maxBidReached = false, io = nu
         });
         return;
       }
-      
+
       await agenda.now('create-auction-winner-order', { productId: this._id });
       console.log('Successfully scheduled auction winner order creation for product:', this._id);
     } catch (error) {
@@ -1487,7 +1487,7 @@ productSchema.methods.endAuction = async function(maxBidReached = false, io = nu
 
   await this.save();
   console.log(`Auction ${this._id} successfully ended and saved`);
-  
+
   // Emit WebSocket event if io is provided
   if (io) {
     // Populate winner details
@@ -1496,7 +1496,7 @@ productSchema.methods.endAuction = async function(maxBidReached = false, io = nu
         path: 'auction.winner.buyer',
         select: 'firstName lastName profileImage'
       });
-    
+
     const winnerData = populatedProduct && populatedProduct.auction.winner ? {
       productId: this._id,
       winner: {
@@ -1513,10 +1513,10 @@ productSchema.methods.endAuction = async function(maxBidReached = false, io = nu
       productId: this._id,
       winner: null
     };
-    
+
     // Emit to authenticated namespace
     io.to(`auction_${this._id}`).emit('auction_ended', winnerData);
-    
+
     // Also emit to public namespace if available
     if (io.of && typeof io.of === 'function') {
       try {
@@ -1529,50 +1529,50 @@ productSchema.methods.endAuction = async function(maxBidReached = false, io = nu
       }
     }
   }
-  
+
   return this.auction.winner;
 };
 
 // Middleware to update seller stats when product reviews change
-productSchema.post('save', async function() {
+productSchema.post('save', async function () {
   try {
     // Only trigger updates if this product has reviews
     if (this.reviews && this.reviews.length > 0) {
       // Calculate product review statistics
       const ratings = this.reviews.map(review => review.rating).filter(Boolean);
       const totalRatings = ratings.length;
-      
+
       if (totalRatings > 0) {
         // Calculate average product rating
         const sumRatings = ratings.reduce((sum, rating) => sum + rating, 0);
         const averageRating = parseFloat((sumRatings / totalRatings).toFixed(1));
-        
+
         // Update product stats if needed
         if (this.stats.averageRating !== averageRating || this.stats.totalReviews !== totalRatings) {
           // Use updateOne to avoid triggering the post-save middleware again
           await this.constructor.updateOne(
             { _id: this._id },
-            { 
-              $set: { 
+            {
+              $set: {
                 'stats.averageRating': averageRating,
                 'stats.totalReviews': totalRatings
               }
             }
           );
-          
+
           console.log(`Updated product (${this._id}) stats: avgRating=${averageRating}, totalReviews=${totalRatings}`);
         }
       }
-      
+
       // Get the seller and update their stats
       const Seller = mongoose.model('Seller');
       const seller = await Seller.findById(this.seller);
-      
+
       if (seller) {
         // Set flag to update product rating stats
         seller._updateProductRatingStats = true;
         await seller.save();
-        
+
         console.log(`Updated seller (${seller._id}) stats based on product (${this._id}) reviews`);
       }
     }
@@ -1581,4 +1581,4 @@ productSchema.post('save', async function() {
   }
 });
 
-module.exports = mongoose.model('Product', productSchema);
+module.exports = mongoose.models.Product || mongoose.model('Product', productSchema);
