@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { BASE_URL } from "../../Constants/Server";
+import { BASE_URL, BASE_URL_V2 } from "../../Constants/Server";
 import { tokenUtils, sellerUtils } from "@/util/auth";
 import { notificationService } from "@/util/notificationService";
 import axios from 'axios';
@@ -24,6 +24,7 @@ const initialState = {
     blipComments: [],
     isLoadingBlipDetails: false,
     isLoadingBlipComments: false,
+    isSendingBlipReplies: false,
     blipCommentsPagination: {
         total: 0,
         pages: 0,
@@ -83,7 +84,11 @@ export const fetchSellerProducts = createAsyncThunk('product/fetchSellerProducts
                 limit: params.limit,
                 sortBy: params.sortBy,
                 status: params.status,
-                search: params.search
+                search: params.search,
+                minPrice: params.minPrice,
+                maxPrice: params.maxPrice,
+                startDate: params.startDate,
+                endDate: params.endDate
             }
         });
         if (response.status === 200) {
@@ -134,6 +139,64 @@ export const deleteProduct = createAsyncThunk('product/deleteProduct', async (pr
         return rejectWithValue(error.message);
     }
 });
+
+export const bulkDeleteProducts = createAsyncThunk(
+    'product/bulkDeleteProducts',
+    async (productIds, { rejectWithValue }) => {
+        try {
+            const storedToken = tokenUtils.getBearerToken();
+
+            const response = await axios.delete(
+                `${BASE_URL_V2}/products/bulk`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${storedToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    data: { productIds }
+                }
+            );
+
+            if (response.status === 200 || response.status === 204) {
+                return response.data || { productIds };
+            }
+        } catch (error) {
+            if (!error.response) {
+                return rejectWithValue('Network error: Please check your internet connection.');
+            }
+            return rejectWithValue(error.response?.data?.message || error.message);
+        }
+    }
+);
+
+export const bulkSetProductsDraft = createAsyncThunk(
+    'product/bulkSetProductsDraft',
+    async (productIds, { rejectWithValue }) => {
+        try {
+            const storedToken = tokenUtils.getBearerToken();
+
+            const response = await axios.put(
+                `${BASE_URL_V2}/products/draft`,
+                { productIds },
+                {
+                    headers: {
+                        Authorization: `Bearer ${storedToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            if (response.status === 200) {
+                return response.data || { productIds };
+            }
+        } catch (error) {
+            if (!error.response) {
+                return rejectWithValue('Network error: Please check your internet connection.');
+            }
+            return rejectWithValue(error.response?.data?.message || error.message);
+        }
+    }
+);
 
 export const getProductDetailsById = createAsyncThunk('product/getProductDetailsById', async (productId) => {
     try {
@@ -384,6 +447,22 @@ const productSlice = createSlice({
         state.deleteStatus = false;
         state.error = action.error.message;
         notificationService.showError('Failed to delete product. Please try again', 'dismissible');
+    }).addCase(bulkDeleteProducts.pending, (state) => {
+        state.isLoading = true;
+    }).addCase(bulkDeleteProducts.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const ids = action.meta.arg || action.payload?.productIds || [];
+        if (Array.isArray(ids) && ids.length > 0) {
+            state.products = state.products.filter(product => !ids.includes(product._id));
+        }
+        notificationService.showSuccess('Selected products have been deleted successfully', 'dismissible');
+    }).addCase(bulkDeleteProducts.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || action.error.message;
+        notificationService.showError(
+            `Failed to delete selected products. ${action.payload || action.error.message || 'Please try again'}`,
+            'dismissible'
+        );
     }).addCase(getProductDetailsById.pending, (state) => {
         state.isLoading = true;
         state.isProductDetailsFetched = false;
@@ -395,6 +474,26 @@ const productSlice = createSlice({
         state.isLoading = false;
         state.error = action.error.message;
         notificationService.showError('Failed to fetch product details. Please try again', 'dismissible');
+    }).addCase(bulkSetProductsDraft.pending, (state) => {
+        state.isLoading = true;
+    }).addCase(bulkSetProductsDraft.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const ids = action.meta.arg || action.payload?.productIds || [];
+        if (Array.isArray(ids) && ids.length > 0) {
+            state.products = state.products.map(product =>
+                ids.includes(product._id)
+                    ? { ...product, status: 'draft' }
+                    : product
+            );
+        }
+        notificationService.showSuccess('Selected products have been moved to drafts', 'dismissible');
+    }).addCase(bulkSetProductsDraft.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || action.error.message;
+        notificationService.showError(
+            `Failed to move selected products to drafts. ${action.payload || action.error.message || 'Please try again'}`,
+            'dismissible'
+        );
     }).addCase(updateProduct.pending, (state) => {
         state.isLoading = true;
     }).addCase(updateProduct.fulfilled, (state, action) => {
@@ -533,11 +632,13 @@ const productSlice = createSlice({
             state.error = action.error.message;
             notificationService.showError('Failed to fetch blip comments. Please try again', 'dismissible');
         })
-        .addCase(addReplyToBlipComment.pending, () => {
+        .addCase(addReplyToBlipComment.pending, (state) => {
             // Optionally add a loading state for replies
+            state.isSendingBlipReplies = true;
         })
         .addCase(addReplyToBlipComment.fulfilled, (state, action) => {
             // Find the comment and add the new reply
+            state.isSendingBlipReplies = false;
             const { reply } = action.payload;
             const commentId = action.meta.arg.commentId;
             

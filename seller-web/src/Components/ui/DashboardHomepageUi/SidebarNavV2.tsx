@@ -5,7 +5,7 @@ import { useIntercom } from 'react-use-intercom';
 import { isAxiosError } from "axios";
 import { sellerService } from "@/services/sellerService";
 import { useAuthContext } from "@/Hooks/useAuthContextV2";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { calculateUnreadMessages, calculateNewNotifications, isIntercomReady, waitForIntercomReady } from "@/util/helpers";
 import { sideBarNavData, sideBarNavData2, sideBarNavData3, sideBarNavData4, sideBarNavData5 } from "@/Utilities/data";
@@ -43,6 +43,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
     const { show, showNewMessage, boot } = useIntercom();
     const { logout, isLoading } = useAuthContext();
     const [showLogoutModal, setShowLogoutModal] = useState(false);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     // Fetch notifications and conversations using the same query keys as HeaderV2
     // React Query will automatically share the cache between components
@@ -108,11 +109,14 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
         }
 
         if (item?.subNav && item?.subNav?.length > 0) {
-            const exactParent = location?.pathname === item?.path;
+            const exactParent = location?.pathname === item?.path || location?.pathname.includes(item?.path) && !item?.subNav?.some((subItem: ISubItem) => location?.pathname.includes(subItem?.path));
             return exactParent;
         }
 
-        return location?.pathname === item?.path;
+        console.log('item?.path', item?.path);
+        console.log('location?.pathname', location?.pathname);
+
+        return location?.pathname === item?.path || location?.pathname.includes(item?.path);
     }
 
     const isSubNavActive = (item: ISubItem) => {
@@ -161,7 +165,32 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
     * This handles cases where users navigate directly to a subnav URL or click on subnav links
     */
     useEffect(() => {
-        const mergedSideBarData = [...sideBarNavData, ...sideBarNavData2, ...sideBarNavData3, ...sideBarNavData4];
+        const mergedSideBarData = [...sideBarNavData, ...sideBarNavData2, ...sideBarNavData3, ...sideBarNavData4, ...sideBarNavData5];
+        
+        // Find the active item to scroll to
+        const activeItem = mergedSideBarData.find(item => {
+             // Check if the item itself is active
+            if (isItemActive(item)) return true;
+            
+            // Check if any subnav item is active
+            if (item.subNav && item.subNav.length > 0) {
+                return item.subNav.some((subItem: ISubItem) => isSubNavActive(subItem));
+            }
+            
+            return false;
+        });
+
+        if (activeItem && scrollContainerRef.current) {
+            const element = document.getElementById(`sidebar-item-${activeItem.id}`);
+            if (element) {
+                // Scroll the element into view within the container
+                // Using setTimeout to ensure DOM is ready and expansion has occurred
+                setTimeout(() => {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+            }
+        }
+
         mergedSideBarData?.forEach(item => {
             if (item.subNav && item.subNav.length > 0) {
                 const subNavPaths = item?.subNav?.map((subItem: ISubItem) => subItem.path);
@@ -198,7 +227,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                             <AuqliLogo height={33.3} />
                         </div>
                         <div className="px-[20px]">
-                            <div className="border-l-[1px] border-l-[#FFFFFF1A] flex flex-col gap-3 overflow-y-auto h-[500px]
+                            <div ref={scrollContainerRef} className="border-l-[1px] border-l-[#FFFFFF1A] flex flex-col gap-3 overflow-y-auto h-[500px]
                     [&::-webkit-scrollbar]:w-1.5
                     [&::-webkit-scrollbar-track]:bg-transparent
                     [&::-webkit-scrollbar-thumb]:bg-transparent
@@ -214,7 +243,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
 
                                         return (
                                             <>
-                                                <div key={item.id} className={`flex items-center justify-between w-[95%] hover:bg-white/10 hover:backdrop-blur-sm  cursor-pointer pl-[15px] pr-[20px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
+                                                <div id={`sidebar-item-${item.id}`} key={item.id} className={`flex items-center justify-between w-[95%] hover:bg-white/10 hover:backdrop-blur-sm  cursor-pointer pl-[15px] pr-[20px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
                                                         ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '} `} >
                                                     <NavLink to={`${item?.name == 'KYC Verification' ? '/dashboard/kyc-verification/address' : item.path}`} key={item.id} onClick={() => handleSubNavOpen(item.id)} className="flex py-[8px] h-full w-full items-center gap-3">
                                                         <Icon icon={item.icon} width={18} height={18} />
@@ -278,7 +307,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
 
                                             return (
                                                 <>
-                                                    <div key={item.id} className={`flex items-center justify-between w-[95%] hover:bg-white/10 hover:backdrop-blur-sm  cursor-pointer pl-[15px] pr-[20px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
+                                                    <div id={`sidebar-item-${item.id}`} key={item.id} className={`flex items-center justify-between w-[95%] hover:bg-white/10 hover:backdrop-blur-sm  cursor-pointer pl-[15px] pr-[20px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
                                                         ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '} `} >
                                                         <NavLink to={item.path} key={item.id} onClick={() => handleSubNavOpen(item.id)} className="flex py-[8px] h-full w-full items-center gap-3">
                                                             <Icon icon={item.icon} width={18} height={18} />
@@ -337,7 +366,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                             //console.log('nav data 2 id', item.id);
 
                                             return (
-                                                <div key={item.id} className={`flex items-center justify-between w-[95%] hover:bg-white/10 hover:backdrop-blur-sm cursor-pointer pl-[15px] pr-[20px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
+                                                <div id={`sidebar-item-${item.id}`} key={item.id} className={`flex items-center justify-between w-[95%] hover:bg-white/10 hover:backdrop-blur-sm cursor-pointer pl-[15px] pr-[20px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
                                                     ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '} `} >
                                                     <NavLink to={item.path} key={item.id} className="flex py-[8px] h-full w-full items-center gap-3">
                                                         <Icon icon={item.icon} width={18} height={18} />
@@ -373,7 +402,7 @@ export default function SidebarNav({ isSidebarOpen, setIsSidebarOpen, hideSideba
                                         //console.log('nav data 3 id', item.id);
 
                                         return (
-                                            <div key={item.id} className={`flex items-center justify-between w-[95%] hover:bg-white/10 hover:backdrop-blur-sm  cursor-pointer pl-[15px] pr-[20px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
+                                            <div id={`sidebar-item-${item.id}`} key={item.id} className={`flex items-center justify-between w-[95%] hover:bg-white/10 hover:backdrop-blur-sm  cursor-pointer pl-[15px] pr-[20px] rounded-tr-full rounded-br-full transition-all duration-300 ease-in-out
                                                 ${isActive ? 'border-l-[2px] border-l-[#16783A] text-[#16783A] font-semibold hover:text-green-400 hover:bg-[#16783A]/30 ' : 'text-white/60 hover:text-white '} `} >
                                                 <NavLink to={item.path} key={item.id} className="flex py-[8px] h-full w-full items-center gap-3">
                                                     <Icon icon={item.icon} width={18} height={18} />

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import axios from 'axios';
 import PropTypes from 'prop-types';
 import Loader from '@/Components/Loader';
+import { blipService } from '@/services/blipService';
 
 // Lazy load VideoPlayer to reduce initial bundle size
 const VideoPlayer = lazy(() => import('@/Shared/VideoPlayer'));
@@ -203,23 +204,12 @@ const BlipUploadModal = ({ open, onClose, productId, product, setOpenShareLinkPo
         setDeletingBlipId(blipId);
 
         try {
-            const sellerToken = token?.data;
-            if (!sellerToken) return;
-            const response = await axios.delete(
-                `${BASE_URL}/products/${productId}/blips/${blipId}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${sellerToken}`
-                    }
-                }
-            );
+            await blipService.deleteProductBlip({ productId, blipId });
 
-            if (response.status === 200) {
-                showNotification('Blip video deleted successfully', 'information', 'dismissible');
+            showNotification('Blip video deleted successfully', 'information', 'dismissible');
 
-                // Remove the deleted blip from the list
-                setExistingBlips(prev => prev.filter(blip => blip._id !== blipId));
-            }
+            // Remove the deleted blip from the list
+            setExistingBlips(prev => prev.filter(blip => blip._id !== blipId));
         } catch (error) {
             console.error('Error deleting blip:', error);
             showNotification(`Failed to delete blip video: ${error.response?.data?.message || 'Please try again'}`, 'error', 'dismissible');
