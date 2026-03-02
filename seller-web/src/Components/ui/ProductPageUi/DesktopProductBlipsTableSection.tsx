@@ -282,8 +282,7 @@ export default function DesktopProductBlipsTableSection() {
             </div>
           ) : filteredBlips.length === 0 ? (
             <div className="p-12 text-center">
-              <ProductEmptyState />
-              <p className="mt-4 text-gray-500">No blips found</p>
+              <ProductEmptyState status="blip" />
             </div>
           ) : (
             <Table
