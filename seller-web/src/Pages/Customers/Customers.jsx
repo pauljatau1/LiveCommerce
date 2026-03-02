@@ -435,7 +435,7 @@ function Customers() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Link to={`/dashboard/customer/${follower.buyerId || follower._id}`}>
+                            <Link to={`/dashboard/customers/customer/${follower.buyerId || follower._id}`}>
                               <Button className="bg-gray-50 hover:bg-gray-100 text-gray-700 flex items-center gap-2">
                                 <FiEye className="w-4 h-4" />
                                 View Details

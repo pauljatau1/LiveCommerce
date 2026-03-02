@@ -268,7 +268,7 @@ const MobileOrdersCards: React.FC<MobileOrdersCardsProps> = ({ orders, loading }
                 </div>
 
                 {/* View Order Button */}
-                <Link to={`/dashboard/order/${order?._id}`}>
+                <Link to={`/dashboard/orders/order/${order?._id}`}>
                   <button className="w-full mt-2 px-4 py-2 rounded border border-green-600 text-green-600 text-xs font-semibold font-['Lexend'] hover:bg-green-50 transition-colors">
                     View Order Details
                   </button>

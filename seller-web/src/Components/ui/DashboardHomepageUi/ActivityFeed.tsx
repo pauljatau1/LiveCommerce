@@ -92,7 +92,7 @@ export default function ActivityFeed() {
             case "order_in_transit":
                 // Navigate to the specific order if orderId is available in the notification data
                 if (notification.data && notification.data.orderId) {
-                    navigate(`/dashboard/order/${notification.data.orderId}`);
+                    navigate(`/dashboard/orders/order/${notification.data.orderId}`);
                 } else {
                     navigate("/dashboard/orders");
                 }
@@ -117,7 +117,7 @@ export default function ActivityFeed() {
             case "blip_like":
             case "blip_comment":
                 // Just navigate to the blips page without opening any specific details
-                navigate("/dashboard/blips");
+                navigate("/dashboard/products");
                 break;
 
             case "buyer_message": {

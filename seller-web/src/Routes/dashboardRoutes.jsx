@@ -46,28 +46,46 @@ export const dashboardRoutes = [
         children: [
             { index: true, element: <Navigate to="home" replace /> },
             { path: 'home', element: <HomePage /> },
-            { path: 'customers', element: <Customers /> },
-            { path: 'customer/:id', element: <CustomerDetail /> },
-            { path: 'orders', element: <OrdersDashboard /> },
-            { path: 'order/:id', element: <OrderDetails /> },
+            { path: 'customers',
+                children: [
+                    { index: true, element: <Navigate to="list" replace /> },
+                    { path: 'list', element: <Customers /> },
+                    { path: 'customer/:id', element: <CustomerDetail /> },
+                ]   
+             },
+            { path: 'orders',
+                children: [
+                    { index: true, element: <Navigate to="list" replace /> },
+                    { path: 'list', element: <OrdersDashboard /> },
+                    { path: 'order/:id', element: <OrderDetails /> },
+                ] 
+
+            },
             { path: 'returns', element: <Returns /> },
             { path: 'return/:id', element: <ReturnDetail /> },
-            { path: 'products', element: <ProductsPageV2 /> },
             {
-                path: 'add-products',
-                element: (
-                    <VariantsProvider>
-                        <AddProduct />
-                    </VariantsProvider>
-                ),
-            },
-            {
-                path: 'edit-product/:id',
-                element: (
-                    <VariantsProvider>
-                        <EditProduct />
-                    </VariantsProvider>
-                ),
+                path: 'products',
+                children: [
+                    { index: true, element: <Navigate to="list" replace /> },
+                    { path: 'list', element: <ProductsPageV2 /> },
+                    {
+                        path: 'edit-product/:id',
+                        element: (
+                            <VariantsProvider>
+                                <EditProduct />
+                            </VariantsProvider>
+                        ),
+                    },
+                    {
+                        path: 'add-products',
+                        element: (
+                            <VariantsProvider>
+                                <AddProduct />
+                            </VariantsProvider>
+                        ),
+                    },
+                ]
+
             },
             { path: 'drafts', element: <Drafts /> },
             { path: 'blips', element: <Blips /> }, { path: 'marketing', element: <MarketingPage /> },
@@ -94,7 +112,7 @@ export const dashboardRoutes = [
                 path: 'live-streams',
                 element: (
                     <LivestreamProvider>
-                            <LiveStreamLayout />
+                        <LiveStreamLayout />
                     </LivestreamProvider>
                 ),
                 children: [
@@ -102,12 +120,12 @@ export const dashboardRoutes = [
                     { path: 'live-stream', element: <LiveStream /> },
                     {/** commented out create-live-auction and submit-live-auction routes' components and replaced with
                          NotFoundPage since live auctions is now a coming soon feature per management */},
-                    {/* path: 'create-live-auction', element: <CreateLiveAuction/>}, */},
+                    {/* path: 'create-live-auction', element: <CreateLiveAuction/>}, */ },
                     { path: 'create-live-show', element: <CreateLiveShow /> },
                     { path: 'past-shows', element: <PastShows /> },
                     { path: 'scheduled-shows', element: <ScheduleShows /> },
                     { path: 'submit-live-show', element: <SubmitLiveShow /> },
-                    {/* path: 'submit-live-auction', element: <SubmitLiveAuction/>}, */},
+                    {/* path: 'submit-live-auction', element: <SubmitLiveAuction/>}, */ },
                     { path: 'live-stream-studio/:id', element: <LivestreamStudio /> },
                 ],
             },
