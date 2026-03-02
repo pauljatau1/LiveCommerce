@@ -96,7 +96,7 @@ export const sideBarNavData = [
             {
                 id: ObjectID().toHexString(),
                 name: 'Add Products',
-                path: 'add-products',
+                path: 'products/add-products',
             },
             //{
             //    id: ObjectID().toHexString(),
@@ -271,7 +271,7 @@ export const sideBarNavData5 = [
         id: ObjectID().toHexString(),
         name: 'Live Shows',
         icon: 'mynaui:video',
-        path: '/dashboard/live-streams/live-stream',
+        path: '/dashboard/live-streams',
         hasMessageCount: false,
         subNav: [
             {

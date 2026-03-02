@@ -61,7 +61,7 @@ export default function ProductDetailsModal({
 
   const handleEdit = () => {
     onOpenChange(false);
-    navigate(`/dashboard/edit-product/${product._id}`);
+    navigate(`/dashboard/products/edit-product/${product._id}`);
   };
 
   const handleDelete = () => {

@@ -157,7 +157,7 @@ export default function OrdersTable({ orders }) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Link to={`/dashboard/order/${order._id}`}>
+                  <Link to={`/dashboard/orders/order/${order._id}`}>
                     <Button variant="secondary" className="bg-green-600 font-inter px-2 lg:px-3 text-white hover:bg-green-700">
                       View Details
                     </Button>
