@@ -2202,7 +2202,11 @@ exports.getSellerProducts = async (req, res) => {
 
     // Add additional status filter if provided
     if (status) {
-      query.status = status;
+      if (status === 'out_of_stock') {
+        query.stock = { $lte: 0 };
+      } else {
+        query.status = status;
+      }
     }
     if (visibility) {
       query.visibility = visibility;

@@ -10,6 +10,15 @@ router.get('/personalized', optionalAuthMiddleware, productController.getPersona
 // Create product (authenticated)
 router.post('/', verifyToken, productController.createProduct);
 
+// Set products as draft (authenticated)
+router.put('/draft', verifyToken, productController.setProductsAsDraft);
+
+// Bulk delete products (authenticated)
+router.delete('/bulk', verifyToken, productController.deleteProducts);
+
+// Get seller products (authenticated)
+router.get('/seller', verifyToken, productController.getSellerProducts);
+
 // Get all products
 router.get('/', optionalAuthMiddleware, productController.getAllProducts);
 
