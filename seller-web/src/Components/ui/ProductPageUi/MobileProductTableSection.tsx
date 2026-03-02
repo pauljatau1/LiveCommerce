@@ -668,7 +668,7 @@ export default function MobileProductTableSection() {
                             </button>
                             <button
                               onClick={() => {
-                                navigate(`/dashboard/edit-product/${product._id}`);
+                                navigate(`/dashboard/products/edit-product/${product._id}`);
                               }}
                               className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors"
                               title="Edit Product"
