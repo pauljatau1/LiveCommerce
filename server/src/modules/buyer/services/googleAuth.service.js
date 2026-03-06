@@ -153,8 +153,9 @@ async function findOrCreateBuyer(payload, expoPushToken) {
         let buyer = await findByGoogleId(googleId);
 
         if (buyer) {
-            // Update existing Google OAuth user with latest information
-            if (picture) {
+            // Update existing Google OAuth user: only set profile picture from Google if user has none
+            const hasNoProfilePicture = !buyer.profileImage?.url || String(buyer.profileImage.url).trim() === '';
+            if (picture && hasNoProfilePicture) {
                 buyer.profileImage = buyer.profileImage || {};
                 buyer.profileImage.url = picture;
             }
@@ -193,7 +194,9 @@ async function findOrCreateBuyer(payload, expoPushToken) {
 
                 buyer.googleId = googleId;
                 buyer.authProvider = 'google';
-                if (picture) {
+                // Only set profile picture from Google when linking if user has no existing picture
+                const hasNoProfilePicture = !buyer.profileImage?.url || String(buyer.profileImage.url).trim() === '';
+                if (picture && hasNoProfilePicture) {
                     buyer.profileImage = buyer.profileImage || {};
                     buyer.profileImage.url = picture;
                 }
