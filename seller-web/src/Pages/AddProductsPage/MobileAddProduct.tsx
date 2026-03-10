@@ -9,7 +9,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { addProductSchema, AddProductFormValues } from '../../schemas/addProductSchema';
 import { useDispatch, useSelector } from 'react-redux';
-import { createProduct, resetResponse } from '../../Redux/Slices/ProductSlice';
+import { createProduct, resetResponse, updateProduct } from '../../Redux/Slices/ProductSlice';
 import { useNotification } from '../../Hooks/useNotification';
 import { BASE_URL } from '../../Constants/Server';
 import axios from 'axios';
@@ -47,7 +47,15 @@ const normalizeSearchText = (s: any) =>
         .replace(/\s+/g, '')
         .replace(/[^a-z0-9]/g, '');
 
-const MobileAddProduct = () => {
+type ProductFormMode = 'add' | 'edit';
+
+type MobileAddProductProps = {
+    mode?: ProductFormMode;
+    productId?: string;
+    initialProduct?: any;
+};
+
+const MobileAddProduct = ({ mode = 'add', productId, initialProduct }: MobileAddProductProps) => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { showNotification } = useNotification();
@@ -59,13 +67,15 @@ const MobileAddProduct = () => {
     const [loadingCategories, setLoadingCategories] = useState(false);
 
     const [linkWarning, setLinkWarning] = useState(false);
-    const [detectedLinks, setDetectedLinks] = useState<string[]>([]);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const variantContextRef = useRef<VariantContextType | null>(null);
     const [showBackToTop, setShowBackToTop] = useState(false);
+    const [variantCtx, setVariantCtx] = useState<VariantContextType | null>(null);
+    const prefilledProductIdRef = useRef<string | null>(null);
+    const prefilledVariantsIdRef = useRef<string | null>(null);
 
-    const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm<AddProductFormValues>({
+    const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<AddProductFormValues>({
         resolver: zodResolver(addProductSchema) as any,
         defaultValues: {
             status: 'active',
@@ -98,6 +108,56 @@ const MobileAddProduct = () => {
     }, []);
 
     useEffect(() => {
+        if (mode !== 'edit') return;
+        const id = initialProduct?._id || initialProduct?.id;
+        if (!id) return;
+        if (prefilledProductIdRef.current === id) return;
+
+        const rawImages = Array.isArray(initialProduct?.images) ? initialProduct.images : [];
+        const normalizedImages = rawImages.map((img: any, idx: number) => ({
+            url: img?.url || img?.data || '',
+            contentType: img?.contentType || 'image/jpeg',
+            isDefault: typeof img?.isDefault === 'boolean' ? img.isDefault : idx === 0
+        }));
+
+        const weightValue =
+            typeof initialProduct?.shippingInfo?.weight?.value === 'number'
+                ? initialProduct.shippingInfo.weight.value
+                : typeof initialProduct?.weight === 'number'
+                    ? initialProduct.weight
+                    : undefined;
+
+        reset({
+            status: initialProduct?.status || 'active',
+            title: initialProduct?.name || '',
+            description: initialProduct?.description || '',
+            category: initialProduct?.category || '',
+            subCategory: initialProduct?.subCategory || '',
+            brand: initialProduct?.brand || '',
+            basePrice: typeof initialProduct?.price === 'number' ? initialProduct.price : undefined,
+            discountPrice: typeof initialProduct?.salePrice === 'number' ? initialProduct.salePrice : undefined,
+            quantity: typeof initialProduct?.stock === 'number' ? initialProduct.stock : undefined,
+            weight: typeof weightValue === 'number' ? weightValue : undefined,
+            weightUnit: initialProduct?.shippingInfo?.weight?.unit || 'kg',
+            freeShipping: Boolean(initialProduct?.shippingInfo?.freeShipping),
+            images: normalizedImages,
+            tags: Array.isArray(initialProduct?.tags) ? initialProduct.tags : [],
+            condition: initialProduct?.condition || '',
+            variants: []
+        });
+
+        prefilledProductIdRef.current = id;
+    }, [initialProduct, mode, reset]);
+
+    useEffect(() => {
+        if (mode !== 'edit') return;
+        if (!initialProduct?.category) return;
+        if (!categories.length) return;
+        const category = categories.find((cat: any) => cat.name === initialProduct.category);
+        setSubCategories(category ? category.subCategories : []);
+    }, [categories, initialProduct, mode]);
+
+    useEffect(() => {
         const handleScroll = () => {
             setShowBackToTop(window.scrollY > 600);
         };
@@ -125,11 +185,9 @@ const MobileAddProduct = () => {
 
         if (foundLinks.length > 0) {
             setLinkWarning(true);
-            setDetectedLinks([...new Set(foundLinks)]);
             showNotification('Links are not allowed in description', 'warning', 'fixed');
         } else {
             setLinkWarning(false);
-            setDetectedLinks([]);
         }
     };
 
@@ -204,6 +262,90 @@ const MobileAddProduct = () => {
         setValue('images', newImages, { shouldValidate: true });
     };
 
+    const mapToVariantImage = useCallback((img: any, idx: number) => {
+        return {
+            url: img?.url || img?.data || '',
+            contentType: img?.contentType || 'image/jpeg',
+            isDefault: typeof img?.isDefault === 'boolean' ? img.isDefault : idx === 0
+        };
+    }, []);
+
+    useEffect(() => {
+        if (mode !== 'edit') return;
+        const id = initialProduct?._id || initialProduct?.id;
+        if (!id) return;
+        if (!variantCtx) return;
+        if (prefilledVariantsIdRef.current === id) return;
+
+        const rawVariants = Array.isArray(initialProduct?.variants) ? initialProduct.variants : [];
+        if (!rawVariants.length) {
+            variantCtx.setOptions([]);
+            variantCtx.setVariantStructure([]);
+            prefilledVariantsIdRef.current = id;
+            return;
+        }
+
+        const option1Name = rawVariants?.[0]?.name || 'Option 1';
+        const option2Name = rawVariants?.[0]?.subVariants?.[0]?.name;
+        const option3Name = rawVariants?.[0]?.subVariants?.[0]?.subSubVariants?.[0]?.name;
+
+        const option1Values = Array.from(new Set(rawVariants.map((v: any) => v?.value).filter(Boolean)));
+        const option2Values = Array.from(
+            new Set(
+                rawVariants
+                    .flatMap((v: any) => (Array.isArray(v?.subVariants) ? v.subVariants : []))
+                    .map((sv: any) => sv?.value)
+                    .filter(Boolean)
+            )
+        );
+        const option3Values = Array.from(
+            new Set(
+                rawVariants
+                    .flatMap((v: any) => (Array.isArray(v?.subVariants) ? v.subVariants : []))
+                    .flatMap((sv: any) => (Array.isArray(sv?.subSubVariants) ? sv.subSubVariants : []))
+                    .map((ssv: any) => ssv?.value)
+                    .filter(Boolean)
+            )
+        );
+
+        const options = [
+            option1Values.length ? { id: 'option-1', name: option1Name, values: option1Values } : null,
+            option2Name && option2Values.length ? { id: 'option-2', name: option2Name, values: option2Values } : null,
+            option3Name && option3Values.length ? { id: 'option-3', name: option3Name, values: option3Values } : null,
+        ].filter(Boolean) as any[];
+
+        const variantStructure = rawVariants.map((mv: any) => ({
+            name: mv?.name || option1Name,
+            value: mv?.value || '',
+            price: typeof mv?.price === 'number' ? mv.price : String(mv?.price ?? ''),
+            totalStock: typeof mv?.totalStock === 'number' ? mv.totalStock : String(mv?.totalStock ?? ''),
+            images: Array.isArray(mv?.images) ? mv.images.map(mapToVariantImage) : [],
+            subVariants: Array.isArray(mv?.subVariants)
+                ? mv.subVariants.map((sv: any) => ({
+                    name: sv?.name || option2Name || 'Option 2',
+                    value: sv?.value || '',
+                    price: typeof sv?.price === 'number' ? sv.price : String(sv?.price ?? ''),
+                    stock: typeof sv?.stock === 'number' ? sv.stock : String(sv?.stock ?? ''),
+                    images: Array.isArray(sv?.images) ? sv.images.map(mapToVariantImage) : [],
+                    subSubVariants: Array.isArray(sv?.subSubVariants)
+                        ? sv.subSubVariants.map((ssv: any) => ({
+                            name: ssv?.name || option3Name || 'Option 3',
+                            value: ssv?.value || '',
+                            price: typeof ssv?.price === 'number' ? ssv.price : String(ssv?.price ?? ''),
+                            stock: typeof ssv?.stock === 'number' ? ssv.stock : String(ssv?.stock ?? ''),
+                            sku: ssv?.sku,
+                            images: Array.isArray(ssv?.images) ? ssv.images.map(mapToVariantImage) : []
+                        }))
+                        : []
+                }))
+                : []
+        }));
+
+        variantCtx.setOptions(options);
+        variantCtx.setVariantStructure(variantStructure);
+        prefilledVariantsIdRef.current = id;
+    }, [initialProduct, mapToVariantImage, mode, variantCtx]);
+
     const onSubmit = async (data: AddProductFormValues) => {
         if (linkWarning) {
             showNotification('Please remove links from description before submitting', 'error', 'dismissible');
@@ -275,6 +417,13 @@ const MobileAddProduct = () => {
             else if (data.weightUnit === 'lb') weightInKg = data.weight / 2.20462;
             else if (data.weightUnit === 'oz') weightInKg = data.weight / 35.274;
 
+            const resolvedProductId = productId || initialProduct?._id || initialProduct?.id;
+            const resolvedSku =
+                mode === 'edit'
+                    ? (initialProduct?.sku || initialProduct?.SKU || '')
+                    : `SKU-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+            const resolvedUpc = mode === 'edit' ? initialProduct?.upc : undefined;
+
             const productData = {
                 name: data.title,
                 description: data.description,
@@ -286,7 +435,8 @@ const MobileAddProduct = () => {
                 status: data.status,
                 category: data.category,
                 subCategory: data.subCategory,
-                sku: `SKU-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
+                sku: resolvedSku,
+                ...(resolvedUpc ? { upc: resolvedUpc } : {}),
                 brand: data.brand || '',
                 images: processedImages,
                 variants: processedVariants,
@@ -302,8 +452,13 @@ const MobileAddProduct = () => {
                 }
             };
 
-            // @ts-ignore
-            await dispatch(createProduct(productData) as any).unwrap();
+            if (mode === 'edit' && resolvedProductId) {
+                // @ts-ignore
+                await dispatch(updateProduct({ productId: resolvedProductId, formData: productData }) as any).unwrap();
+            } else {
+                // @ts-ignore
+                await dispatch(createProduct(productData) as any).unwrap();
+            }
         } catch (error) {
             console.error('Submission error:', error);
         }
@@ -311,11 +466,11 @@ const MobileAddProduct = () => {
 
     useEffect(() => {
         if (response === 'success') {
-            showNotification("Product added successfully!", "information", "dismissible");
+            showNotification(mode === 'edit' ? "Product updated successfully!" : "Product added successfully!", "information", "dismissible");
             navigate("/dashboard/products");
             dispatch(resetResponse());
         }
-    }, [response, navigate, dispatch, showNotification]);
+    }, [dispatch, mode, navigate, response, showNotification]);
 
     const categoryFilterOption = useCallback((input: string, option: any) => {
         const opt: any = option;
@@ -826,7 +981,7 @@ const MobileAddProduct = () => {
 
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                     <VariantsProvider>
-                        <VariantSection variantContextRef={variantContextRef} />
+                        <VariantSection variantContextRef={variantContextRef} onReady={setVariantCtx} />
                     </VariantsProvider>
                 </div>
 
@@ -844,7 +999,7 @@ const MobileAddProduct = () => {
                             : "Your product content is incomplete. Please add more details"}
                     </p>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col pt-6 items-center gap-4">
                         <div className="relative w-24 h-24 flex items-center justify-center">
                             <CustomCircularProgress
                                 percentage={completionPercentage}
@@ -856,12 +1011,12 @@ const MobileAddProduct = () => {
                             />
                         </div>
 
-                        <div className="flex flex-col gap-3 text-sm">
+                        <div className="flex flex-col gap-3 mt-3 text-sm">
                             <div className="flex items-center gap-2">
                                 <div className={cn("w-5 h-5 rounded-full flex items-center justify-center", watchedValues.title && watchedValues.title.length >= 3 ? "bg-[#08915640] text-[#089156]" : "bg-gray-100 text-gray-400")}>
                                     <Check size={10} />
                                 </div>
-                                <span className={watchedValues.title && watchedValues.title.length >= 3 ? "text-green-600 font-medium" : "text-gray-500"}>
+                                <span className={watchedValues.title && watchedValues.title.length >= 3 ? "text-green-600 text-xs font-medium" : "text-xs text-gray-500"}>
                                     Product Title - {watchedValues.title && watchedValues.title.length >= 3 ? "COMPLETE" : "Needs details"}
                                 </span>
                             </div>
@@ -869,7 +1024,7 @@ const MobileAddProduct = () => {
                                 <div className={cn("w-5 h-5 rounded-full flex items-center justify-center", watchedValues.description && watchedValues.description.length >= 10 ? "bg-[#08915640] text-[#089156]" : "bg-gray-100 text-gray-400")}>
                                     <Check size={10} />
                                 </div>
-                                <span className={watchedValues.description && watchedValues.description.length >= 10 ? "text-green-600 font-medium" : "text-gray-500"}>
+                                <span className={watchedValues.description && watchedValues.description.length >= 10 ? "text-green-600 text-xs font-medium" : "text-xs text-gray-500"}>
                                     Product Description - {watchedValues.description && watchedValues.description.length >= 10 ? "COMPLETE" : "Too short"}
                                 </span>
                             </div>
@@ -877,7 +1032,7 @@ const MobileAddProduct = () => {
                                 <div className={cn("w-5 h-5 rounded-full flex items-center justify-center", watchedValues.category ? "bg-[#08915640] text-[#089156]" : "bg-gray-100 text-gray-400")}>
                                     <Check size={10} />
                                 </div>
-                                <span className={watchedValues.category ? "text-green-600 font-medium" : "text-gray-500"}>
+                                <span className={watchedValues.category ? "text-green-600 text-xs font-medium" : "text-xs text-gray-500"}>
                                     Product Category - {watchedValues.category ? "COMPLETE" : "Missing"}
                                 </span>
                             </div>
@@ -894,7 +1049,7 @@ const MobileAddProduct = () => {
                 </div>
             </div>
 
-            <div className="fixed z-50 left-0 right-0 bottom-0 bg-white border-t border-gray-200 px-4 py-3">
+            <div className="fixed z-30 left-0 right-0 bottom-0 bg-white border-t border-gray-200 px-4 py-3">
                 {completionPercentage < 100 ? (
                     <Button
                         type="button"
@@ -920,7 +1075,7 @@ const MobileAddProduct = () => {
                             onClick={handleSubmit(onSubmit)}
                             disabled={isLoading}
                         >
-                            <UploadIcon color='#fff' /> {isLoading ? 'Publishing...' : 'Publish'}
+                            <UploadIcon color='#fff' /> {isLoading ? (mode === 'edit' ? 'Updating...' : 'Publishing...') : (mode === 'edit' ? 'Update' : 'Publish')}
                         </Button>
                     </div>
                 )}
@@ -1010,7 +1165,7 @@ const MobileAddProduct = () => {
                                 className="w-full h-11 mt-6 bg-[#0BB248] hover:bg-[#0AA043] text-white font-semibold"
                                 onClick={() => handleSubmit(onSubmit)()}
                             >
-                                Publish
+                                {mode === 'edit' ? 'Update' : 'Publish'}
                             </Button>
                         </div>
 

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import DesktopAddProduct from '../AddProductsPage/DesktopAddProduct';
 import MobileAddProduct from '../AddProductsPage/MobileAddProduct';
+import { useDevice } from '@/Contexts/DeviceContext';
 
 export default function AddProductPage() {
     // Type assertion for outlet context
@@ -10,23 +11,12 @@ export default function AddProductPage() {
         setNavName: (name: string) => void; 
     }>();
 
-    const [isMobile, setIsMobile] = useState(false);
+    const { isMobile } = useDevice();
 
     useEffect(() => {
         setHeaderName('Products');
         setNavName('Add Product');
     }, [setHeaderName, setNavName]);
-
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768); // Standard mobile breakpoint
-        };
-        
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
 
     return (
         <div className="w-full h-full">

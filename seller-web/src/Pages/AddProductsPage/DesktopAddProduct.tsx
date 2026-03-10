@@ -6,12 +6,12 @@ import {
     DialogDescription,
     DialogFooter,
 } from "@/Components/ui/dialog";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { addProductSchema, AddProductFormValues } from '../../schemas/addProductSchema';
 import { useDispatch, useSelector } from 'react-redux';
-import { createProduct, resetResponse } from '../../Redux/Slices/ProductSlice';
+import { createProduct, resetResponse, updateProduct } from '../../Redux/Slices/ProductSlice';
 import { useNotification } from '../../Hooks/useNotification';
 import { BASE_URL } from '../../Constants/Server';
 import axios from 'axios';
@@ -45,7 +45,15 @@ const URL_PATTERNS = [
     /\b[a-zA-Z0-9][-a-zA-Z0-9]*[a-zA-Z0-9]*\.(com|org|net|edu|gov|mil|int|co|uk|ca|au|de|fr|jp|cn|in|br|ru|it|es|nl|se|no|dk|fi|pl|be|ch|at|cz|hu|ro|bg|hr|si|sk|lt|lv|ee|ie|pt|gr|is|lu|mt|cy|tr|il|za|ng|ke|gh|ug|tz|mw|zm|zw|bw|sz|ls|na|ao|mz|mg|mu|sc|km|dj|so|er|et|sd|ly|eg|ma|tn|dz|mr|ml|bf|ne|td|cf|cm|gq|ga|cg|cd|st|gw|gn|sl|lr|ci|gh|tg|bj|sn|gm|cv|mr|eh)\b/gi,
 ];
 
-const DesktopAddProduct = () => {
+type ProductFormMode = 'add' | 'edit';
+
+type DesktopAddProductProps = {
+    mode?: ProductFormMode;
+    productId?: string;
+    initialProduct?: any;
+};
+
+const DesktopAddProduct = ({ mode = 'add', productId, initialProduct }: DesktopAddProductProps) => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { showNotification } = useNotification();
@@ -59,15 +67,17 @@ const DesktopAddProduct = () => {
 
     // State for editor link warning
     const [linkWarning, setLinkWarning] = useState(false);
-    const [detectedLinks, setDetectedLinks] = useState<string[]>([]);
 
     // State for image upload
     const fileInputRef = useRef<HTMLInputElement>(null);
     const variantContextRef = useRef<VariantContextType | null>(null);
     const [imageUploadLoading, setImageUploadLoading] = useState(false);
+    const [variantCtx, setVariantCtx] = useState<VariantContextType | null>(null);
+    const prefilledProductIdRef = useRef<string | null>(null);
+    const prefilledVariantsIdRef = useRef<string | null>(null);
 
     // Form setup
-    const { control, handleSubmit, watch, setValue, formState: { errors, isValid, } } = useForm<AddProductFormValues>({
+    const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<AddProductFormValues>({
         resolver: zodResolver(addProductSchema) as any,
         defaultValues: {
             status: 'active',
@@ -102,6 +112,56 @@ const DesktopAddProduct = () => {
         fetchCategories();
     }, []);
 
+    useEffect(() => {
+        if (mode !== 'edit') return;
+        const id = initialProduct?._id || initialProduct?.id;
+        if (!id) return;
+        if (prefilledProductIdRef.current === id) return;
+
+        const rawImages = Array.isArray(initialProduct?.images) ? initialProduct.images : [];
+        const normalizedImages = rawImages.map((img: any, idx: number) => ({
+            url: img?.url || img?.data || '',
+            contentType: img?.contentType || 'image/jpeg',
+            isDefault: typeof img?.isDefault === 'boolean' ? img.isDefault : idx === 0
+        }));
+
+        const weightValue =
+            typeof initialProduct?.shippingInfo?.weight?.value === 'number'
+                ? initialProduct.shippingInfo.weight.value
+                : typeof initialProduct?.weight === 'number'
+                    ? initialProduct.weight
+                    : undefined;
+
+        reset({
+            status: initialProduct?.status || 'active',
+            title: initialProduct?.name || '',
+            description: initialProduct?.description || '',
+            category: initialProduct?.category || '',
+            subCategory: initialProduct?.subCategory || '',
+            brand: initialProduct?.brand || '',
+            basePrice: typeof initialProduct?.price === 'number' ? initialProduct.price : undefined,
+            discountPrice: typeof initialProduct?.salePrice === 'number' ? initialProduct.salePrice : undefined,
+            quantity: typeof initialProduct?.stock === 'number' ? initialProduct.stock : undefined,
+            weight: typeof weightValue === 'number' ? weightValue : undefined,
+            weightUnit: initialProduct?.shippingInfo?.weight?.unit || 'kg',
+            freeShipping: Boolean(initialProduct?.shippingInfo?.freeShipping),
+            images: normalizedImages,
+            tags: Array.isArray(initialProduct?.tags) ? initialProduct.tags : [],
+            condition: initialProduct?.condition || '',
+            variants: []
+        });
+
+        prefilledProductIdRef.current = id;
+    }, [initialProduct, mode, reset]);
+
+    useEffect(() => {
+        if (mode !== 'edit') return;
+        if (!initialProduct?.category) return;
+        if (!categories.length) return;
+        const category = categories.find((cat: any) => cat.name === initialProduct.category);
+        setSubCategories(category ? category.subCategories : []);
+    }, [categories, initialProduct, mode]);
+
     // Handle Category Change to filter SubCategories
     const handleCategoryChange = (categoryName: string) => {
         setValue('category', categoryName);
@@ -127,7 +187,6 @@ const DesktopAddProduct = () => {
 
         if (foundLinks.length > 0) {
             setLinkWarning(true);
-            setDetectedLinks([...new Set(foundLinks)]);
             showNotification('Links are not allowed in description', 'warning', 'fixed');
 
             // Remove links logic could be complex with HTML editor, simplified for now:
@@ -137,13 +196,11 @@ const DesktopAddProduct = () => {
             // Let's auto-remove after a delay or prevent further typing if possible.
             // Since SunEditor is a controlled component via onChange, we can strip it here.
 
-            let cleanContent = content;
             // Very basic strip implementation - might need refinement
             // This part is tricky without breaking HTML structure. 
             // Better to rely on validation blocking submission if links exist.
         } else {
             setLinkWarning(false);
-            setDetectedLinks([]);
         }
     };
 
@@ -208,6 +265,90 @@ const DesktopAddProduct = () => {
         }));
         setValue('images', newImages, { shouldValidate: true });
     };
+
+    const mapToVariantImage = useCallback((img: any, idx: number) => {
+        return {
+            url: img?.url || img?.data || '',
+            contentType: img?.contentType || 'image/jpeg',
+            isDefault: typeof img?.isDefault === 'boolean' ? img.isDefault : idx === 0
+        };
+    }, []);
+
+    useEffect(() => {
+        if (mode !== 'edit') return;
+        const id = initialProduct?._id || initialProduct?.id;
+        if (!id) return;
+        if (!variantCtx) return;
+        if (prefilledVariantsIdRef.current === id) return;
+
+        const rawVariants = Array.isArray(initialProduct?.variants) ? initialProduct.variants : [];
+        if (!rawVariants.length) {
+            variantCtx.setOptions([]);
+            variantCtx.setVariantStructure([]);
+            prefilledVariantsIdRef.current = id;
+            return;
+        }
+
+        const option1Name = rawVariants?.[0]?.name || 'Option 1';
+        const option2Name = rawVariants?.[0]?.subVariants?.[0]?.name;
+        const option3Name = rawVariants?.[0]?.subVariants?.[0]?.subSubVariants?.[0]?.name;
+
+        const option1Values = Array.from(new Set(rawVariants.map((v: any) => v?.value).filter(Boolean)));
+        const option2Values = Array.from(
+            new Set(
+                rawVariants
+                    .flatMap((v: any) => (Array.isArray(v?.subVariants) ? v.subVariants : []))
+                    .map((sv: any) => sv?.value)
+                    .filter(Boolean)
+            )
+        );
+        const option3Values = Array.from(
+            new Set(
+                rawVariants
+                    .flatMap((v: any) => (Array.isArray(v?.subVariants) ? v.subVariants : []))
+                    .flatMap((sv: any) => (Array.isArray(sv?.subSubVariants) ? sv.subSubVariants : []))
+                    .map((ssv: any) => ssv?.value)
+                    .filter(Boolean)
+            )
+        );
+
+        const options = [
+            option1Values.length ? { id: 'option-1', name: option1Name, values: option1Values } : null,
+            option2Name && option2Values.length ? { id: 'option-2', name: option2Name, values: option2Values } : null,
+            option3Name && option3Values.length ? { id: 'option-3', name: option3Name, values: option3Values } : null,
+        ].filter(Boolean) as any[];
+
+        const variantStructure = rawVariants.map((mv: any) => ({
+            name: mv?.name || option1Name,
+            value: mv?.value || '',
+            price: typeof mv?.price === 'number' ? mv.price : String(mv?.price ?? ''),
+            totalStock: typeof mv?.totalStock === 'number' ? mv.totalStock : String(mv?.totalStock ?? ''),
+            images: Array.isArray(mv?.images) ? mv.images.map(mapToVariantImage) : [],
+            subVariants: Array.isArray(mv?.subVariants)
+                ? mv.subVariants.map((sv: any) => ({
+                    name: sv?.name || option2Name || 'Option 2',
+                    value: sv?.value || '',
+                    price: typeof sv?.price === 'number' ? sv.price : String(sv?.price ?? ''),
+                    stock: typeof sv?.stock === 'number' ? sv.stock : String(sv?.stock ?? ''),
+                    images: Array.isArray(sv?.images) ? sv.images.map(mapToVariantImage) : [],
+                    subSubVariants: Array.isArray(sv?.subSubVariants)
+                        ? sv.subSubVariants.map((ssv: any) => ({
+                            name: ssv?.name || option3Name || 'Option 3',
+                            value: ssv?.value || '',
+                            price: typeof ssv?.price === 'number' ? ssv.price : String(ssv?.price ?? ''),
+                            stock: typeof ssv?.stock === 'number' ? ssv.stock : String(ssv?.stock ?? ''),
+                            sku: ssv?.sku,
+                            images: Array.isArray(ssv?.images) ? ssv.images.map(mapToVariantImage) : []
+                        }))
+                        : []
+                }))
+                : []
+        }));
+
+        variantCtx.setOptions(options);
+        variantCtx.setVariantStructure(variantStructure);
+        prefilledVariantsIdRef.current = id;
+    }, [initialProduct, mapToVariantImage, mode, variantCtx]);
 
     // Calculate completion percentage
     const calculateCompletion = () => {
@@ -307,6 +448,13 @@ const DesktopAddProduct = () => {
             else if (data.weightUnit === 'lb') weightInKg = data.weight / 2.20462;
             else if (data.weightUnit === 'oz') weightInKg = data.weight / 35.274;
 
+            const resolvedProductId = productId || initialProduct?._id || initialProduct?.id;
+            const resolvedSku =
+                mode === 'edit'
+                    ? (initialProduct?.sku || initialProduct?.SKU || '')
+                    : `SKU-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+            const resolvedUpc = mode === 'edit' ? initialProduct?.upc : undefined;
+
             const productData = {
                 name: data.title,
                 description: data.description,
@@ -318,7 +466,8 @@ const DesktopAddProduct = () => {
                 status: data.status,
                 category: data.category,
                 subCategory: data.subCategory,
-                sku: `SKU-${Math.random().toString(36).substring(2, 10).toUpperCase()}`, // Generate SKU
+                sku: resolvedSku,
+                ...(resolvedUpc ? { upc: resolvedUpc } : {}),
                 brand: data.brand || '',
                 images: processedImages,
                 variants: processedVariants,
@@ -335,8 +484,13 @@ const DesktopAddProduct = () => {
             };
 
             console.log('Submitting Product Data:', productData);
-            //@ts-ignore - Dispatch expects ProductActionPayload, but createProduct returns ProductActionPayload & { response: string }
-            await dispatch(createProduct(productData) as any).unwrap();
+            if (mode === 'edit' && resolvedProductId) {
+                //@ts-ignore - Dispatch expects ProductActionPayload, but updateProduct expects shape { productId, formData }
+                await dispatch(updateProduct({ productId: resolvedProductId, formData: productData }) as any).unwrap();
+            } else {
+                //@ts-ignore - Dispatch expects ProductActionPayload, but createProduct returns ProductActionPayload & { response: string }
+                await dispatch(createProduct(productData) as any).unwrap();
+            }
 
             // Success handling moved to useEffect watching 'response' state or handled by unwrap
             // Since productSlice sets response='success', we can rely on that or unwrap result.
@@ -350,11 +504,11 @@ const DesktopAddProduct = () => {
 
     useEffect(() => {
         if (response === 'success') {
-            showNotification("Product added successfully!", "information", "dismissible");
+            showNotification(mode === 'edit' ? "Product updated successfully!" : "Product added successfully!", "information", "dismissible");
             navigate("/dashboard/products");
             dispatch(resetResponse());
         }
-    }, [response, navigate, dispatch, showNotification]);
+    }, [dispatch, mode, navigate, response, showNotification]);
 
     return (
         <div className="grid grid-cols-[1.5fr_1fr] gap-6 py-6 bg-gray-50 min-h-screen">
@@ -791,7 +945,7 @@ const DesktopAddProduct = () => {
                 {/* Variants Section */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <VariantsProvider>
-                        <VariantSection variantContextRef={variantContextRef} />
+                        <VariantSection variantContextRef={variantContextRef} onReady={setVariantCtx} />
                     </VariantsProvider>
                 </div>
 
@@ -815,7 +969,7 @@ const DesktopAddProduct = () => {
                                 onClick={handleSubmit(onSubmit)}
                                 disabled={isLoading}
                             >
-                                <UploadIcon color='#fff' /> {isLoading ? 'Publishing...' : 'Publish Product'}
+                                <UploadIcon color='#fff' /> {isLoading ? (mode === 'edit' ? 'Updating...' : 'Publishing...') : (mode === 'edit' ? 'Update Product' : 'Publish Product')}
                             </Button>
                         </>
                     )}
@@ -1140,7 +1294,7 @@ const DesktopAddProduct = () => {
                                     className="w-full h-11 bg-[#0BB248] hover:bg-[#0AA043] text-white font-semibold"
                                     onClick={() => handleSubmit(onSubmit)()}
                                 >
-                                    Publish
+                                    {mode === 'edit' ? 'Update' : 'Publish'}
                                 </Button>
                                 <Button
                                     variant="outline"

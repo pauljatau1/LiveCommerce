@@ -128,7 +128,7 @@ export default function AddressSettings() {
   // Then use them in the dialog memo
   const AddressDialog = React.useMemo(() => {
     console.log("Creating dialog component");
-    return () => (
+    const AddressDialogComponent = () => (
       <Dialog 
         open={!!editingAddress} 
         onOpenChange={(open) => {
@@ -248,6 +248,8 @@ export default function AddressSettings() {
         </DialogContent>
       </Dialog>
     );
+    AddressDialogComponent.displayName = "AddressDialog";
+    return AddressDialogComponent;
   }, [editingAddress, addressForm, isLoading, handleInputChange, handleSelectChange, handleSubmitAddress, availableCities]);
 
   // Population effect

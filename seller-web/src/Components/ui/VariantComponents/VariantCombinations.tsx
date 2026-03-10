@@ -110,20 +110,20 @@ const VariantCombinations = memo(() => {
                     <img
                         src={images[0].url}
                         alt="Variant"
-                        className="w-11 h-11 rounded-md object-cover border border-gray-200"
+                        className="w-10 h-10 rounded-md object-cover border border-gray-200"
                     />
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
                             handleRemoveImage(variantPath);
                         }}
-                        className="absolute -top-2 -right-2 w-8 h-8 flex items-center justify-center bg-white text-red-500 rounded-full shadow-sm opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                        className="absolute -top-1 -right-1 bg-white text-red-500 rounded-full p-0.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                         <X size={12} />
                     </button>
                 </div>
             ) : (
-                <label className="w-11 h-11 flex items-center justify-center cursor-pointer hover:bg-gray-100 rounded-lg transition-colors" onClick={e => e.stopPropagation()}>
+                <label className="cursor-pointer p-2 hover:bg-gray-100 rounded-lg transition-colors" onClick={e => e.stopPropagation()}>
                     <input
                         type="file"
                         accept="image/*"

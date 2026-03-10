@@ -22,7 +22,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       timeoutId = window.setTimeout(() => {
         const width = window.innerWidth;
         setIsDesktop(width > 1024);
-        setIsMobile(width < 640);
+        setIsMobile(width < 1024);
       }, 150);
     };
 
