@@ -1,13 +1,13 @@
-import { createContext, useContext, useState, useCallback, useMemo } from 'react';
-import PropTypes from 'prop-types';
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
+import { VariantOption, MainVariant, VariantContextType, SubVariant, SubSubVariant, VariantImage } from '../types/variants';
 
-const VariantContext = createContext();
+const VariantContext = createContext<VariantContextType | undefined>(undefined);
 
-export const VariantsProvider = ({ children }) => {
-    const [options, setOptions] = useState([]);
-    const [variantStructure, setVariantStructure] = useState([]);
+export const VariantsProvider = ({ children }: { children: ReactNode }) => {
+    const [options, setOptions] = useState<VariantOption[]>([]);
+    const [variantStructure, setVariantStructure] = useState<MainVariant[]>([]);
 
-    const addOption = useCallback((newOption) => {
+    const addOption = useCallback((newOption: VariantOption) => {
         setOptions(prev => [...prev, newOption]);
         
         // Use functional updates to access current state instead of depending on it
@@ -47,11 +47,11 @@ export const VariantsProvider = ({ children }) => {
                 // Third option becomes sub-subvariants for each subvariant
                 setVariantStructure(prev => 
                     prev.map(mainVariant => {
-                        const calculatedStock = mainVariant.subVariants.length * newOption.values.length;
+                        const calculatedStock = (mainVariant.subVariants || []).length * newOption.values.length;
                         return {
                             ...mainVariant,
                             totalStock: calculatedStock,
-                            subVariants: mainVariant.subVariants.map(subVariant => ({
+                            subVariants: (mainVariant.subVariants || []).map(subVariant => ({
                                 ...subVariant,
                                 subSubVariants: newOption.values.map(value => ({
                                     name: newOption.name,
@@ -71,7 +71,7 @@ export const VariantsProvider = ({ children }) => {
         });
     }, []); // Remove dependency on options
 
-    const updateOption = useCallback((updatedOption) => {
+    const updateOption = useCallback((updatedOption: VariantOption) => {
         setOptions(prevOptions => {
             const optionIndex = prevOptions.findIndex(opt => opt.id === updatedOption.id);
             
@@ -93,7 +93,7 @@ export const VariantsProvider = ({ children }) => {
                             };
                         }
                         // If no existing variant, create new one by cloning template sub-structures
-                        let clonedSubVariants = [];
+                        let clonedSubVariants: SubVariant[] = [];
                         if (templateMain && Array.isArray(templateMain.subVariants) && templateMain.subVariants.length > 0) {
                             clonedSubVariants = templateMain.subVariants.map(templateSub => ({
                                 name: templateSub.name,
@@ -130,12 +130,12 @@ export const VariantsProvider = ({ children }) => {
                     // Find a template subVariant (first available) to clone its sub-sub variants if needed
                     const templateSubVar = mainVar.subVariants && mainVar.subVariants.length > 0
                         ? mainVar.subVariants[0]
-                        : null;
+                        : undefined;
                     return {
                         ...mainVar,
                         subVariants: updatedOption.values.map(newValue => {
                             // Find existing sub variant to preserve its sub-sub variants
-                            const existingSubVar = mainVar.subVariants.find(sv => sv.value === newValue);
+                            const existingSubVar = (mainVar.subVariants || []).find(sv => sv.value === newValue);
                             if (existingSubVar) {
                                 return {
                                     ...existingSubVar,
@@ -169,10 +169,10 @@ export const VariantsProvider = ({ children }) => {
                 // Update all subVariants' subSubVariants to align with updated values
                 setVariantStructure(prev => prev.map(mainVar => ({
                     ...mainVar,
-                    subVariants: mainVar.subVariants.map(subVar => ({
+                    subVariants: (mainVar.subVariants || []).map(subVar => ({
                         ...subVar,
                         subSubVariants: updatedOption.values.map(newValue => {
-                            const existingSSV = subVar.subSubVariants.find(ssv => ssv.value === newValue);
+                            const existingSSV = (subVar.subSubVariants || []).find(ssv => ssv.value === newValue);
                             if (existingSSV) {
                                 return {
                                     ...existingSSV,
@@ -200,7 +200,7 @@ export const VariantsProvider = ({ children }) => {
         });
     }, []); // Remove dependency on variantStructure
 
-    const deleteOption = useCallback((optionId) => {
+    const deleteOption = useCallback((optionId: string) => {
         setOptions(currentOptions => {
             const optionIndex = currentOptions.findIndex(opt => opt.id === optionId);
             
@@ -222,7 +222,7 @@ export const VariantsProvider = ({ children }) => {
                 setVariantStructure(prev => 
                     prev.map(mainVariant => ({
                         ...mainVariant,
-                        subVariants: mainVariant.subVariants.map(subVar => ({
+                        subVariants: (mainVariant.subVariants || []).map(subVar => ({
                             ...subVar,
                             subSubVariants: [] // Clear only sub-subvariants
                         }))
@@ -235,20 +235,8 @@ export const VariantsProvider = ({ children }) => {
         });
     }, []); // Remove dependency on options
 
-    const updateVariantValue = useCallback((variantPath, field, value) => {
-        if (field === 'images') {
-            console.log('🔧 VariantContext updateVariantValue called for IMAGES:', {
-                variantPath,
-                field,
-                value,
-                valueLength: Array.isArray(value) ? value.length : 'not array'
-            });
-        }
-        
+    const updateVariantValue = useCallback((variantPath: string, field: string, value: string | number | VariantImage[]) => {
         setVariantStructure(prev => {
-            if (field === 'images') {
-                console.log('📊 VariantContext current variantStructure before image update:', prev);
-            }
             const [mainValue, subValue, subSubValue] = variantPath.split('_');
             
             const newStructure = prev.map(mainVariant => {
@@ -256,48 +244,40 @@ export const VariantsProvider = ({ children }) => {
                     if (!subValue) {
                         // Updating main variant
                         if (field === 'images') {
-                            console.log('🖼️ VariantContext updating MAIN variant images:', {
-                                mainVariant: mainVariant.value,
-                                oldImages: mainVariant.images,
-                                newValue: value,
-                                finalImages: Array.isArray(value) ? value : [value]
-                            });
-                            const updatedVariant = { 
+                            return { 
                                 ...mainVariant, 
-                                images: Array.isArray(value) ? value : [value] 
+                                images: Array.isArray(value) ? (value as VariantImage[]) : [] 
                             };
-                            console.log('✅ VariantContext MAIN variant after update:', updatedVariant);
-                            return updatedVariant;
                         }
-                        return { ...mainVariant, [field]: value };
+                        return { ...mainVariant, [field]: value as string | number };
                     }
                     
                     const updatedMainVariant = {
                         ...mainVariant,
-                        subVariants: mainVariant.subVariants.map(subVariant => {
+                        subVariants: (mainVariant.subVariants || []).map(subVariant => {
                             if (subVariant.value === subValue) {
                                 if (!subSubValue) {
                                     // Updating sub variant
                                     if (field === 'images') {
                                         return { 
                                             ...subVariant, 
-                                            images: Array.isArray(value) ? value : [value] 
+                                            images: Array.isArray(value) ? (value as VariantImage[]) : [] 
                                         };
                                     }
-                                    return { ...subVariant, [field]: value };
+                                    return { ...subVariant, [field]: value as string | number };
                                 }
                                 // Updating sub-sub variant
                                 return {
                                     ...subVariant,
-                                    subSubVariants: subVariant.subSubVariants.map(subSubVariant => {
+                                    subSubVariants: (subVariant.subSubVariants || []).map(subSubVariant => {
                                         if (subSubVariant.value === subSubValue) {
                                             if (field === 'images') {
                                                 return { 
                                                     ...subSubVariant, 
-                                                    images: Array.isArray(value) ? value : [value] 
+                                                    images: Array.isArray(value) ? (value as VariantImage[]) : [] 
                                                 };
                                             }
-                                            return { ...subSubVariant, [field]: value };
+                                            return { ...subSubVariant, [field]: value as string | number };
                                         }
                                         return subSubVariant;
                                     })
@@ -309,10 +289,10 @@ export const VariantsProvider = ({ children }) => {
                     
                     // Auto-update main variant totalStock when subvariant stock changes
                     if (field === 'stock' && (subValue || subSubValue)) {
-                        const calculatedStock = updatedMainVariant.subVariants.reduce((total, subVar) => 
-                            total + (parseInt(subVar.stock) || 0) +
-                            subVar.subSubVariants.reduce((subTotal, subSubVar) => 
-                                subTotal + (parseInt(subSubVar.stock) || 0), 0
+                        const calculatedStock = (updatedMainVariant.subVariants || []).reduce((total, subVar) => 
+                            total + (parseInt(subVar.stock as string) || 0) +
+                            (subVar.subSubVariants || []).reduce((subTotal, subSubVar) => 
+                                subTotal + (parseInt(subSubVar.stock as string) || 0), 0
                             ), 0) || 1;
                         
                         // Always update mainVariant totalStock when subvariant stock changes
@@ -324,19 +304,16 @@ export const VariantsProvider = ({ children }) => {
                 return mainVariant;
             });
             
-            if (field === 'images') {
-                console.log('📊 VariantContext updated variantStructure after image update:', newStructure);
-            }
             return newStructure;
         });
     }, []);
 
     // Helper function to calculate minimum required stock for a main variant
-    const calculateMinimumStock = useCallback((mainVariant) => {
-        return mainVariant.subVariants.reduce((total, subVar) => 
-            total + (parseInt(subVar.stock) || 0) +
-            subVar.subSubVariants.reduce((subTotal, subSubVar) => 
-                subTotal + (parseInt(subSubVar.stock) || 0), 0
+    const calculateMinimumStock = useCallback((mainVariant: MainVariant) => {
+        return (mainVariant.subVariants || []).reduce((total, subVar) => 
+            total + (parseInt(subVar.stock as string) || 0) +
+            (subVar.subSubVariants || []).reduce((subTotal, subSubVar) => 
+                subTotal + (parseInt(subSubVar.stock as string) || 0), 0
             ), 0) || 1;
     }, []);
 
@@ -366,10 +343,6 @@ export const VariantsProvider = ({ children }) => {
             {children}
         </VariantContext.Provider>
     );
-};
-
-VariantsProvider.propTypes = {
-    children: PropTypes.node.isRequired
 };
 
 export const useVariants = () => {

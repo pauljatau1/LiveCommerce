@@ -13,7 +13,7 @@ const OrderDetails = lazy(() => import('../Pages/Orders/OrderDetails'));
 const Returns = lazy(() => import('../Pages/Orders/Returns'));
 const ReturnDetail = lazy(() => import('../Pages/Orders/ReturnDetail'));
 const ProductsPageV2 = lazy(() => import('../Pages/ProductsPage/ProductsPageV2'));
-const AddProduct = lazy(() => import('../Pages/ProductsPage/AddProduct'));
+const AddProduct = lazy(() => import('../Pages/ProductsPage/AddProductPage'));
 const EditProduct = lazy(() => import('../Pages/ProductsPage/EditProduct'));
 //const Drafts = lazy(() => import('../Pages/ProductsPage/Drafts'));
 //const Blips = lazy(() => import('../Pages/ProductsPage/Blips'));
