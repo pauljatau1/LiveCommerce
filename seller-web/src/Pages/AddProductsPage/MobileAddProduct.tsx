@@ -1049,7 +1049,7 @@ const MobileAddProduct = ({ mode = 'add', productId, initialProduct }: MobileAdd
                 </div>
             </div>
 
-            <div className="fixed z-50 left-0 right-0 bottom-0 bg-white border-t border-gray-200 px-4 py-3">
+            <div className="fixed z-30 left-0 right-0 bottom-0 bg-white border-t border-gray-200 px-4 py-3">
                 {completionPercentage < 100 ? (
                     <Button
                         type="button"
