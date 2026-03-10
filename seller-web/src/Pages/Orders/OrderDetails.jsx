@@ -11,6 +11,7 @@ import {
   confirmPickup as confirmPickupThunk,
   fetchManifestUrl as fetchManifestUrlThunk,
   fetchInternationalTracking as fetchInternationalTrackingThunk,
+  updateInternationalTracking as updateInternationalTrackingThunk,
   updateInternationalStatus as updateInternationalStatusThunk,
   cancelOrderBySeller as cancelOrderBySellerThunk,
 } from '@/Redux/Slices/OrdersSlice'
@@ -188,7 +189,7 @@ export default function OrderDetails() {
 
     setUpdatingTracking(true);
     try {
-      await dispatch(updateInternationalTracking({
+      await dispatch(updateInternationalTrackingThunk({
         orderId: id,
         payload: {
           trackingNumber,

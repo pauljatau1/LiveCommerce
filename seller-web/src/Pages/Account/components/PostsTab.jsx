@@ -30,6 +30,7 @@ export default function PostsTab({ sellerId }) {
   const { showNotification } = useNotification();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [slideIndices, setSlideIndices] = useState({});
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
