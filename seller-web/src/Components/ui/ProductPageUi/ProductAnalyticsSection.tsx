@@ -1,30 +1,54 @@
-import { useSelector } from "react-redux";
+import { Tabs, TabsList, TabsTrigger } from "@/Components/ui/tabs";
 
-export default function ProductAnalyticsSection() {
-    const { productStatistics } = useSelector((state: any) => state.product);
-
-    return (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 bg-[#FFFFFF] lg:bg-transparent px-[24px] lg:px-0 py-[16px] lg:py-0 rounded-[16px] " >
-            <div className="w-full min-w-[140px] whitespace-nowrap h-[95px] lg:h-[107px] bg-[#FFFFFF] p-[24px] lg:-[32px] border border-solid border-[#EDF2F7] rounded-[16px] flex flex-col items-center justify-center shadow-[0px_3px_8px_-1px_rgba(50,50,71,0.05)] hover:shadow-[0px_4px_12px_-1px_rgba(50,50,71,0.08)] transition-shadow duration-300 cursor-pointer " >
-                <h3 className="text-lg lg:text-xl 4xl:text-2xl font-lexend font-semibold text-[#000000] " >{productStatistics?.totalProducts || 0}</h3>
-                <p className="text-xs lg:text-sm font-lexend font-normal text-[#718096] " >Total Products</p>
-            </div>
-            <div className="w-full min-w-[140px] whitespace-nowrap h-[95px] lg:h-[107px] bg-[#FFFFFF] p-[24px] lg:-[32px] border border-solid border-[#EDF2F7] rounded-[16px] flex flex-col items-center justify-center shadow-[0px_3px_8px_-1px_rgba(50,50,71,0.05)] hover:shadow-[0px_4px_12px_-1px_rgba(50,50,71,0.08)] transition-shadow duration-300 cursor-pointer " >
-                <h3 className="text-lg lg:text-xl 4xl:text-2xl font-lexend font-semibold text-[#000000] " >{productStatistics?.activeProducts || 0}</h3>
-                <p className="text-xs lg:text-sm font-lexend font-normal text-[#718096] " >Active Products</p>
-            </div>
-            <div className="w-full min-w-[140px] whitespace-nowrap h-[95px] lg:h-[107px] bg-[#FFFFFF] p-[24px] lg:-[32px] border border-solid border-[#EDF2F7] rounded-[16px] flex flex-col items-center justify-center shadow-[0px_3px_8px_-1px_rgba(50,50,71,0.05)] hover:shadow-[0px_4px_12px_-1px_rgba(50,50,71,0.08)] transition-shadow duration-300 cursor-pointer " >
-                <h3 className="text-lg lg:text-xl 4xl:text-2xl font-lexend font-semibold text-[#000000] " >{productStatistics?.draftProducts || 0}</h3>
-                <p className="text-xs lg:text-sm font-lexend font-normal text-[#718096] " >Drafts Products</p>
-            </div>
-            <div className="hidden lg:flex w-full min-w-[140px] whitespace-nowrap h-[95px] lg:h-[107px] bg-[#FFFFFF] p-[24px] lg:-[32px] border border-solid border-[#EDF2F7] rounded-[16px] flex-col items-center justify-center shadow-[0px_3px_8px_-1px_rgba(50,50,71,0.05)] hover:shadow-[0px_4px_12px_-1px_rgba(50,50,71,0.08)] transition-shadow duration-300 cursor-pointer " >
-                <h3 className="text-lg lg:text-xl 4xl:text-2xl font-lexend font-semibold text-[#000000] " >{productStatistics?.productsWithBlips || 0}</h3>
-                <p className="text-xs lg:text-sm font-lexend font-normal text-[#718096] " >With Blips</p>
-            </div>
-            <div className="w-full min-w-[140px] whitespace-nowrap h-[95px] lg:h-[107px] bg-[#FFFFFF] p-[24px] lg:-[32px] border border-solid border-[#EDF2F7] rounded-[16px] flex flex-col items-center justify-center shadow-[0px_3px_8px_-1px_rgba(50,50,71,0.05)] hover:shadow-[0px_4px_12px_-1px_rgba(50,50,71,0.08)] transition-shadow duration-300 cursor-pointer " >
-                <h3 className="text-lg lg:text-xl 4xl:text-2xl font-lexend font-semibold text-[#000000] " >{productStatistics?.productsWithoutBlips || 0}</h3>
-                <p className="text-xs lg:text-sm font-lexend font-normal text-[#718096] " >Product Without Blips</p>
-            </div>
-        </div>
-    )
+export default function OrdersDesktopTabs({ value, onChange }) {
+  return (
+    <Tabs value={value} onValueChange={onChange} className="mb-8 hidden sm:block">
+      <TabsList className="border-b gap-x-6 flex-wrap items-center justify-start h-auto p-0 bg-transparent">
+        <TabsTrigger
+          value="all"
+          className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+          title="All active orders (excludes abandoned orders)"
+        >
+          All Orders
+        </TabsTrigger>
+        <TabsTrigger
+          value="process"
+          className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+          title="Orders with pending shipping status (excludes abandoned orders)"
+        >
+          To Process
+        </TabsTrigger>
+        <TabsTrigger
+          value="transit"
+          className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+          title="Orders that have been picked up (excludes abandoned orders)"
+        >
+          In Transit
+        </TabsTrigger>
+        <TabsTrigger
+          value="delivered"
+          className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+          title="Orders with delivered shipping status (excludes abandoned orders)"
+        >
+          Delivered
+        </TabsTrigger>
+        <TabsTrigger
+          value="cancelled"
+          className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+          title="Orders with cancelled shipping status (excludes abandoned orders)"
+        >
+          Cancelled
+        </TabsTrigger>
+        <TabsTrigger
+          value="abandoned"
+          className="text-sm lg:text-base font-semibold w-fit data-[state=active]:text-green-600 data-[state=active]:bg-transparent font-inter data-[state=active]:border-b-2 data-[state=active]:border-green-600 rounded-none px-0 pb-2"
+          title="Stale orders that were abandoned (isStale=true)"
+        >
+          Abandoned
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+  );
 }
+
+

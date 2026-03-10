@@ -1,7 +1,7 @@
 import { memo, useState, useCallback } from 'react';
 import { useVariants } from '../../../Contexts/VariantContext';
 import { VariantOption } from '../../../types/variants';
-import AddOptionCard from './AddOptionCard';
+
 import { Edit2, Trash2, X, Check } from 'lucide-react';
 import { Tooltip } from 'antd';
 
@@ -33,7 +33,7 @@ const VariantCard = memo(({ variant, onEdit, onDelete }: VariantCardProps) => {
                     <Tooltip title="Edit this variant option">
                         <button
                             onClick={onEdit}
-                            className="p-2 text-gray-500 hover:text-[#0BB248] hover:bg-green-50 rounded-full transition-colors"
+                            className="w-11 h-11 flex items-center justify-center text-gray-500 hover:text-[#0BB248] hover:bg-green-50 rounded-full transition-colors"
                         >
                             <Edit2 size={16} />
                         </button>
@@ -41,7 +41,7 @@ const VariantCard = memo(({ variant, onEdit, onDelete }: VariantCardProps) => {
                     <Tooltip title="Delete this variant option">
                         <button
                             onClick={handleDelete}
-                            className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                            className="w-11 h-11 flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                         >
                             <Trash2 size={16} />
                         </button>

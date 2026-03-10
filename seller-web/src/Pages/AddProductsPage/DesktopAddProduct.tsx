@@ -1,3 +1,11 @@
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "@/Components/ui/dialog";
 import React, { useState, useEffect, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,6 +34,7 @@ import UploadIcon from '@/assets/icons/UploadIcon';
 import { VariantsProvider } from '../../Contexts/VariantContext';
 import VariantSection from '../../Components/ui/VariantComponents/VariantSection';
 import { VariantContextType } from '../../types/variants';
+import { Icon } from '@iconify/react';
 
 const { Option } = Select;
 
@@ -43,6 +52,7 @@ const DesktopAddProduct = () => {
     const { isLoading, response } = useSelector((state: any) => state.product);
 
     // State for categories
+    const [previewOpen, setPreviewOpen] = useState(false);
     const [categories, setCategories] = useState<any[]>([]);
     const [subCategories, setSubCategories] = useState<any[]>([]);
     const [loadingCategories, setLoadingCategories] = useState(false);
@@ -57,7 +67,7 @@ const DesktopAddProduct = () => {
     const [imageUploadLoading, setImageUploadLoading] = useState(false);
 
     // Form setup
-    const { control, handleSubmit, watch, setValue, formState: { errors, isValid,} } = useForm<AddProductFormValues>({
+    const { control, handleSubmit, watch, setValue, formState: { errors, isValid, } } = useForm<AddProductFormValues>({
         resolver: zodResolver(addProductSchema) as any,
         defaultValues: {
             status: 'active',
@@ -412,6 +422,45 @@ const DesktopAddProduct = () => {
                                         showSearch
                                         placeholder="Select Category"
                                         optionFilterProp="children"
+                                        filterOption={(input, option) => {
+                                            const normalize = (s: any) =>
+                                                (s ?? '')
+                                                    .toString()
+                                                    .toLowerCase()
+                                                    .replace(/\s+/g, '')
+                                                    .replace(/[^a-z0-9]/g, '');
+                                            const opt: any = option;
+                                            const children = opt?.children;
+                                            const valueStr = (opt?.value ?? '').toString();
+                                            let textContent = '';
+                                            if (typeof children === 'string') {
+                                                textContent = children;
+                                            } else if (Array.isArray(children)) {
+                                                textContent = children
+                                                    .map((c: any) => (typeof c === 'string' ? c : ''))
+                                                    .join(' ');
+                                            } else {
+                                                textContent = valueStr;
+                                            }
+                                            const q = normalize(input);
+                                            return (
+                                                normalize(textContent).includes(q) ||
+                                                normalize(valueStr).includes(q)
+                                            );
+                                        }}
+                                        filterSort={(a, b) => {
+                                            const toText = (opt: any) => {
+                                                const children = opt?.children;
+                                                if (typeof children === 'string') return children.toLowerCase();
+                                                if (Array.isArray(children))
+                                                    return children
+                                                        .map((c: any) => (typeof c === 'string' ? c : ''))
+                                                        .join(' ')
+                                                        .toLowerCase();
+                                                return (opt?.value ?? '').toString().toLowerCase();
+                                            };
+                                            return toText(a).localeCompare(toText(b));
+                                        }}
                                         onChange={handleCategoryChange}
                                         value={field.value || undefined}
                                         className="w-full text-sm text-[#27272E]"
@@ -754,7 +803,11 @@ const DesktopAddProduct = () => {
                         </Button>
                     ) : (
                         <>
-                            <Button variant="outline" className="flex-1 h-[38px] text-sm text-[#0BB248] font-semibold border-[#0BB248] hover:bg-green-50 hover:text-[#0BB248] gap-2">
+                            <Button
+                                variant="outline"
+                                className="flex-1 h-[38px] text-sm text-[#0BB248] font-semibold border-[#0BB248] hover:bg-green-50 hover:text-[#0BB248] gap-2"
+                                onClick={() => setPreviewOpen(true)}
+                            >
                                 <EyeOpenIcon color='#0BB248' /> Preview
                             </Button>
                             <Button
@@ -765,7 +818,7 @@ const DesktopAddProduct = () => {
                                 <UploadIcon color='#fff' /> {isLoading ? 'Publishing...' : 'Publish Product'}
                             </Button>
                         </>
-                    )} 
+                    )}
                 </div>
 
             </div>
@@ -951,6 +1004,167 @@ const DesktopAddProduct = () => {
                     </div>
                 </div>
             </div>
+
+            
+            {/* Preview Modal */}
+            <Dialog
+                open={previewOpen}
+                onOpenChange={() => setPreviewOpen(false)}
+            >
+                <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto custom-scrollbar  " >
+                    <div className="grid grid-cols-[1.2fr_1fr] gap-6">
+                        <div className="bg-white rounded-xl p-4 ">
+                            <div className="w-full h-36 rounded-lg flex items-center gap-[24px] overflow-hidden mb-4">
+                                {watchedValues.images?.[0]?.url && (
+                                    <GlassImage
+                                        src={watchedValues.images[0].url}
+                                        alt="Cover"
+                                        imageClassName="w-[61px] h-[61px] object-cover"
+                                        containerClassName='w-[61px] h-[61px] object-cover'
+                                    />
+                                )}
+                                <div className="w-full flex items-center justify-between">
+                                    <div className='space-y-2 '>
+
+                                        <p className={cn(
+                                            "px-2 py-1 w-fit rounded text-xs font-semibold",
+                                            watchedValues.status === 'active'
+                                                ? "bg-[#DEFFEE] text-[#66CB9F] "
+                                                : "bg-yellow-100 text-yellow-700"
+                                        )}>
+                                            {watchedValues.status?.toUpperCase()}
+                                        </p>
+                                        <h2 className="text-lg max-w-[250px] line-clamp-1 font-semibold text-gray-900">{watchedValues.title || 'Untitled Product'}</h2>
+                                    </div>
+                                    <div className='flex items-center' >
+                                        <div className='space-y-2'>
+                                            {watchedValues.quantity ? (
+                                                <p className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                                                    {watchedValues.quantity} Available
+                                                </p>
+                                            ) : null}
+                                            <p className="px-2 py-1 rounded text-xs font-semibold bg-emerald-50 text-emerald-700">
+                                                {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' })
+                                                    .format(Number(watchedValues.basePrice || 0))}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {!!watchedValues.tags?.length && (
+                                <div className="mt-1 flex flex-wrap gap-2">
+                                    {watchedValues.tags.map((t, i) => (
+                                        <span key={i} className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">#{t}</span>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="mt-4">
+                                <h3 className="font-semibold text-gray-900 text-sm">Category</h3>
+                                <p className="text-sm text-[#718096] ">
+                                    {watchedValues.category || '—'}{watchedValues.subCategory ? ` - ${watchedValues.subCategory}` : ''}
+                                </p>
+                            </div>
+
+                            <div className="mt-4">
+                                <h3 className="font-semibold text-gray-900 text-sm">Product Description</h3>
+                                <div
+                                    className="prose prose-sm max-w-none text-[#718096] mt-1"
+                                    dangerouslySetInnerHTML={{ __html: watchedValues.description || '' }}
+                                />
+                            </div>
+
+                            <div className="mt-4">
+                                <h3 className="font-semibold text-gray-900 text-sm">Brand Name</h3>
+                                <p className="text-sm text-gray-700">{watchedValues.brand || '—'}</p>
+                            </div>
+
+                            <div className="mt-4">
+                                <h3 className="font-semibold text-gray-900 text-sm">Inventory & Shipping</h3>
+                                <div className="mt-1 grid grid-cols-2 gap-2 text-sm text-gray-700">
+                                    <div>Quantity: <span className="font-medium">{watchedValues.quantity ?? '—'}</span></div>
+                                    <div className='w-fit bg-[#E4ECF7] text-[#505780] px-2 py-1 rounded flex items-center gap-1 text-xs font-semibold'>Weight: <span className="font-medium flex"><Icon icon="mdi:weight-kg" className="w-4 h-4" />{watchedValues.weight ?? '—'} {watchedValues.weightUnit}</span></div>
+                                    <div>Dimensions:
+                                        <span className="font-medium">
+                                            {' '}
+                                            {watchedValues.dimensions?.length || 0} × {watchedValues.dimensions?.width || 0} × {watchedValues.dimensions?.height || 0} cm
+                                        </span>
+                                    </div>
+                                    <div>Free Shipping:
+                                        <span className={cn("ml-1 font-medium",
+                                            watchedValues.freeShipping ? "text-emerald-600" : "text-gray-600"
+                                        )}>
+                                            {watchedValues.freeShipping ? 'Yes' : 'No'}
+                                        </span>
+                                    </div>
+                                </div>
+                                {watchedValues.freeShipping && (
+                                    <div className="mt-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-2 py-1 inline-flex items-center">
+                                        Free Shipping to be covered by seller.
+                                    </div>
+                                )}
+                            </div>
+
+                            {!!variantContextRef.current?.variantStructure?.length && (
+                                <div className="mt-4">
+                                    <h3 className="font-semibold text-gray-900 text-sm">Variants</h3>
+                                    <div className="mt-1 space-y-1 text-sm text-gray-700">
+                                        {variantContextRef.current?.variantStructure.map((mv, idx) => (
+                                            <div key={idx} className="border rounded p-2">
+                                                <div className="font-medium">{mv.name}: {mv.value}</div>
+                                                {!!mv.subVariants?.length && (
+                                                    <div className="ml-2 text-gray-600">
+                                                        {mv.subVariants.map((sv, j) => (
+                                                            <div key={j}>
+                                                                {sv.name}: {sv.value}
+                                                                {!!sv.subSubVariants?.length && (
+                                                                    <div className="ml-2 text-gray-500">
+                                                                        {sv.subSubVariants.map((ssv, k) => (
+                                                                            <div key={k}>{ssv.name}: {ssv.value}</div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="mt-6">
+                                <Button
+                                    className="w-full h-11 bg-[#0BB248] hover:bg-[#0AA043] text-white font-semibold"
+                                    onClick={() => handleSubmit(onSubmit)()}
+                                >
+                                    Publish
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="w-full h-10 mt-2"
+                                    onClick={() => setPreviewOpen(false)}
+                                >
+                                    Back to Editing
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl p-4">
+                            <h3 className="text-base font-semibold text-[#686A6C] mb-3">Preview</h3>
+                            <div className="grid grid-cols-2 gap-3">
+                                {(watchedValues.images || []).map((img, i) => (
+                                    <div key={i} className="w-full aspect-square  overflow-hidden">
+                                        <GlassImage src={img.url} alt={`Preview ${i + 1}`} imageClassName="w-full h-full border border-solid rounded-lg border-[#D1D5DB] object-cover" containerClassName='w-full h-full object-cover' />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

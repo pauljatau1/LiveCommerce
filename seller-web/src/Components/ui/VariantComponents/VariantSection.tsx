@@ -70,19 +70,19 @@ const VariantSection = memo(({ variantContextRef }: VariantSectionProps) => {
     return (
         <Card className="relative border-none shadow-none bg-transparent p-0">
             <CardHeader className="px-0 pt-0">
-                <div className="flex items-center justify-between">
-                    <div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
                         <CardTitle className="font-bold text-[#344054] uppercase text-xs 3xl:text-sm ">Product Variants</CardTitle>
                         <Label htmlFor="variants-mode" className="font-medium text-[#272D30] text-xs 3xl:text-sm ">
                             Does this product have variations
                         </Label>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center justify-end">
                         <Switch
                             id="variants-mode"
                             checked={isEnabled}
                             onCheckedChange={handleToggle}
-                            className="data-[state=checked]:bg-[#0BB248]"
+                            className="data-[state=checked]:bg-[#0BB248] h-7 w-12"
                         />
                     </div>
                 </div>
@@ -118,7 +118,7 @@ const VariantSection = memo(({ variantContextRef }: VariantSectionProps) => {
                         {!showAddOption && options.length < 3 && (
                             <button
                                 onClick={() => setShowAddOption(true)}
-                                className="w-full flex items-center justify-center gap-2 rounded-lg px-3 py-3 border-2 border-dashed border-gray-300 text-gray-500 text-sm hover:border-[#0BB248] hover:text-[#0BB248] hover:bg-green-50 transition-all duration-300 ease-in-out font-medium"
+                                className="w-full min-h-11 flex items-center justify-center gap-2 rounded-lg px-3 py-3 border-2 border-dashed border-gray-300 text-gray-500 text-sm hover:border-[#0BB248] hover:text-[#0BB248] hover:bg-green-50 transition-all duration-300 ease-in-out font-medium"
                             >
                                 <Plus size={18} />
                                 Add another option

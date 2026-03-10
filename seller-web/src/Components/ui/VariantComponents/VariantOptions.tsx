@@ -3,6 +3,7 @@ import { useVariants } from '../../../Contexts/VariantContext';
 import { VariantOption } from '../../../types/variants';
 import { HelpCircle, Trash2 } from 'lucide-react';
 import { Tooltip } from 'antd';
+import ObjectID from 'bson-objectid';
 
 interface VariantOptionsProps {
     onDone: () => void;
@@ -20,7 +21,7 @@ const VariantOptions = memo(({ onDone, editingVariant }: VariantOptionsProps) =>
         const validValues = optionValues.filter(value => value.trim() !== '');
         if (optionName && validValues.length > 0) {
             const optionData: VariantOption = {
-                id: editingVariant?.id || crypto.randomUUID(),
+                id: editingVariant?.id || ObjectID().toHexString(),
                 name: optionName,
                 values: validValues
             };
@@ -79,14 +80,14 @@ const VariantOptions = memo(({ onDone, editingVariant }: VariantOptionsProps) =>
                         {editingVariant && (
                             <button 
                                 onClick={handleDelete}
-                                className="text-red-500 hover:text-red-700 transition-colors p-2 hover:bg-red-50 rounded-full"
+                                className="w-11 h-11 flex items-center justify-center text-red-500 hover:text-red-700 transition-colors hover:bg-red-50 rounded-full"
                             >
                                 <Trash2 size={18} />
                             </button>
                         )}
                         <button 
                             onClick={handleDone} 
-                            className="text-sm font-medium text-[#0BB248] hover:text-[#099238] transition-colors"
+                            className="min-h-11 px-4 rounded-lg text-sm font-semibold text-[#0BB248] hover:text-[#099238] transition-colors border border-[#0BB248]/30 hover:border-[#0BB248] hover:bg-green-50"
                         >
                             Done
                         </button>
@@ -140,7 +141,7 @@ const VariantOptions = memo(({ onDone, editingVariant }: VariantOptionsProps) =>
                                             newValues.splice(index, 1);
                                             setOptionValues(newValues);
                                         }}
-                                        className="text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-2"
+                                        className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                                     >
                                         <Trash2 size={16} />
                                     </button>
