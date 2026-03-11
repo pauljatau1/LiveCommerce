@@ -168,28 +168,30 @@ export default function CouponsList() {
       case 'special':
         return specialCoupons;
       default:
-        // Use Map to enforce uniqueness based on our key generation function
-        const uniqueCouponsMap = new Map();
-        
-        // Process regular coupons first
-        coupons.forEach(coupon => {
-          const key = getCouponKey(coupon);
-          uniqueCouponsMap.set(key, coupon);
-        });
-        
-        // Process special coupons, only adding if they don't conflict with regular coupons
-        specialCoupons.forEach(coupon => {
-          const key = getCouponKey(coupon);
-          // Only add if not already in the map
-          if (!uniqueCouponsMap.has(key)) {
+        {
+          // Use Map to enforce uniqueness based on our key generation function
+          const uniqueCouponsMap = new Map();
+          
+          // Process regular coupons first
+          coupons.forEach(coupon => {
+            const key = getCouponKey(coupon);
             uniqueCouponsMap.set(key, coupon);
-          }
-        });
-        
-        // Convert map values back to array
-        const combinedCoupons = Array.from(uniqueCouponsMap.values());
-        console.log("Combined coupons after Map deduplication:", combinedCoupons);
-        return combinedCoupons;
+          });
+          
+          // Process special coupons, only adding if they don't conflict with regular coupons
+          specialCoupons.forEach(coupon => {
+            const key = getCouponKey(coupon);
+            // Only add if not already in the map
+            if (!uniqueCouponsMap.has(key)) {
+              uniqueCouponsMap.set(key, coupon);
+            }
+          });
+          
+          // Convert map values back to array
+          const combinedCoupons = Array.from(uniqueCouponsMap.values());
+          console.log("Combined coupons after Map deduplication:", combinedCoupons);
+          return combinedCoupons;
+        }
     }
   }
 

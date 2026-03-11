@@ -1,18 +1,18 @@
 import { memo, useState, useCallback, useEffect } from 'react';
 import { useVariants } from '../../../Contexts/VariantContext';
 import { useNotification } from '@/Hooks/useNotification';
-import PropTypes from 'prop-types';
+import { MainVariant, SubVariant, SubSubVariant } from '../../../types/variants';
 
-const VariantCombinations = memo(() => {
+const VariantCombinationsMobile = memo(() => {
+    const [expandedVariants, setExpandedVariants] = useState<Set<string>>(new Set());
     const { variantStructure, updateVariantValue, calculateMinimumStock } = useVariants();
-    const [expandedVariants, setExpandedVariants] = useState(new Set());
-    const [stockWarnings, setStockWarnings] = useState(new Map());
+    const [stockWarnings, setStockWarnings] = useState<Map<string, string>>(new Map());
     const { showNotification } = useNotification();
 
     // Monitor variantStructure changes for image debugging (throttled)
     useEffect(() => {
         const logTimeout = setTimeout(() => {
-            console.log('🔍 DESKTOP VariantCombinations - variantStructure changed, checking images:', 
+            console.log('🔍 MOBILE VariantCombinations - variantStructure changed, checking images:', 
                 variantStructure.map(v => ({ value: v.value, images: v.images, imageCount: v.images?.length || 0 }))
             );
         }, 100); // Throttle logging to reduce console spam
@@ -20,11 +20,45 @@ const VariantCombinations = memo(() => {
         return () => clearTimeout(logTimeout);
     }, [variantStructure]);
 
-    const handleInputChange = useCallback((variantPath, field, value) => {
-        updateVariantValue(variantPath, field, value);
+    const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>, variantPath: string) => {
+        console.log('🔄 MOBILE handleImageUpload called with variantPath:', variantPath);
+        const file = e.target.files?.[0];
+        if (file) {
+            console.log('📁 MOBILE File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
+            // Check file size (7MB = 7 * 1024 * 1024 bytes)
+            const MAX_FILE_SIZE = 7 * 1024 * 1024;
+            if (file.size > MAX_FILE_SIZE) {
+                console.log('❌ MOBILE File too large:', file.size);
+                showNotification('Image size must be less than 7MB', 'error', 'dismissible');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                console.log('📸 MOBILE image reader.result length:', (reader.result as string)?.length);
+                console.log('📸 MOBILE About to call updateVariantValue with variantPath:', variantPath);
+                
+                updateVariantValue(variantPath, 'images', [{
+                    url: reader.result as string,
+                    contentType: file.type,
+                    isDefault: true
+                }]);
+                console.log('✅ MOBILE updateVariantValue called for images');
+                showNotification('Variant image uploaded successfully', 'information', 'dismissible');
+            };
+            reader.readAsDataURL(file);
+        } else {
+            console.log('❌ MOBILE No file selected');
+        }
+    }, [updateVariantValue, showNotification]);
+
+    const handleRemoveImage = useCallback((variantPath: string) => {
+        console.log('🗑️ MOBILE handleRemoveImage called with variantPath:', variantPath);
+        updateVariantValue(variantPath, 'images', []);
+        console.log('✅ MOBILE Remove image updateVariantValue called');
     }, [updateVariantValue]);
 
-    const handleTotalStockChange = useCallback((variantPath, value, minStock) => {
+    const handleTotalStockChange = useCallback((variantPath: string, value: string, minStock: number) => {
         // Allow empty string for full editability
         if (value === '') {
             updateVariantValue(variantPath, 'totalStock', '');
@@ -58,7 +92,7 @@ const VariantCombinations = memo(() => {
     useEffect(() => {
         variantStructure.forEach(mainVariant => {
             const minStock = calculateMinimumStock(mainVariant);
-            const currentStock = parseInt(mainVariant.totalStock) || 0;
+            const currentStock = parseInt(String(mainVariant.totalStock)) || 0;
             
             if (mainVariant.totalStock !== undefined && 
                 (mainVariant.totalStock === '' || currentStock < minStock)) {
@@ -73,50 +107,8 @@ const VariantCombinations = memo(() => {
         });
     }, [variantStructure, calculateMinimumStock]);
 
-    const handleImageUpload = useCallback(async (e, variantPath) => {
-        console.log('🔄 DESKTOP handleImageUpload called with variantPath:', variantPath);
-        const file = e.target.files[0];
-        if (file) {
-            console.log('📁 DESKTOP File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
-            // Check file size (7MB = 7 * 1024 * 1024 bytes)
-            const MAX_FILE_SIZE = 7 * 1024 * 1024;
-            if (file.size > MAX_FILE_SIZE) {
-                console.log('❌ DESKTOP File too large:', file.size);
-                showNotification('Image size must be less than 7MB', 'error', 'dismissible');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                console.log('📸 DESKTOP image reader.result length:', reader.result?.length);
-                console.log('📸 DESKTOP About to call updateVariantValue with variantPath:', variantPath);
-                console.log('📸 DESKTOP Image object being passed:', {
-                    url: reader.result?.substring(0, 50) + '...',
-                    contentType: file.type,
-                    isDefault: true
-                });
-                updateVariantValue(variantPath, 'images', [{
-                    url: reader.result,
-                    contentType: file.type,
-                    isDefault: true
-                }]);
-                console.log('✅ DESKTOP updateVariantValue called for images');
-                showNotification('Variant image uploaded successfully', 'information', 'dismissible');
-            };
-            reader.readAsDataURL(file);
-        } else {
-            console.log('❌ DESKTOP No file selected');
-        }
-    }, [updateVariantValue]);
-
-    const handleRemoveImage = useCallback((variantPath) => {
-        console.log('🗑️ DESKTOP handleRemoveImage called with variantPath:', variantPath);
-        updateVariantValue(variantPath, 'images', []);
-        console.log('✅ DESKTOP Remove image updateVariantValue called');
-    }, [updateVariantValue]);
-
-    const ImageUploadButton = ({ variantPath, images = [] }) => {
-        console.log('🎨 DESKTOP ImageUploadButton render - variantPath:', variantPath, 'images:', images, 'images.length:', images?.length);
+    const ImageUploadButton = ({ variantPath, images = [] }: { variantPath: string, images: any[] }) => {
+        console.log('🎨 MOBILE ImageUploadButton render - variantPath:', variantPath, 'images:', images, 'images.length:', images?.length);
         return (
             <div className="flex items-center gap-2">
                 {images && images.length > 0 ? (
@@ -131,13 +123,13 @@ const VariantCombinations = memo(() => {
                             e.stopPropagation();
                             handleRemoveImage(variantPath);
                         }}
-                        className="absolute -top-1 -right-1 flex bg-white text-white rounded-full p-0.5"
+                        className="absolute -top-1 -right-1 flex bg-white text-white rounded-full p-0.5 shadow-sm"
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
                             viewBox="0 0 24 24"
-                            className="w-4 h-4"
-                            fill="#17171B"
+                            className="w-4 h-4 text-[#17171B]"
+                            fill="currentColor"
                         >
                             <path
                                 fillRule="evenodd"
@@ -158,7 +150,7 @@ const VariantCombinations = memo(() => {
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 24 24"
-                        className="w-6 h-6 text-gray-400 hover:text-gray-600"
+                        className="w-6 h-6 text-gray-400 hover:text-[#0BB248] transition-colors"
                     >
                         <path
                             fill="currentColor"
@@ -177,12 +169,7 @@ const VariantCombinations = memo(() => {
         );
     };
 
-    ImageUploadButton.propTypes = {
-        variantPath: PropTypes.string.isRequired,
-        images: PropTypes.array.isRequired
-    };
-
-    const toggleExpand = (variantId) => {
+    const toggleExpand = (variantId: string) => {
         setExpandedVariants(prev => {
             const newSet = new Set(prev);
             if (newSet.has(variantId)) {
@@ -194,19 +181,19 @@ const VariantCombinations = memo(() => {
         });
     };
 
-    const renderSubSubVariant = (mainVariant, subVariant, subSubVariant) => (
+    const renderSubSubVariant = (mainVariant: MainVariant, subVariant: SubVariant, subSubVariant: SubSubVariant) => (
         <div
             key={`${mainVariant.value}-${subVariant.value}-${subSubVariant.value}`}
-            className="flex items-center justify-between py-2 pl-12 border-t"
+            className="border-t"
         >
-            <div className="flex items-center gap-2">
+            <div className="p-3 pl-12 bg-gray-50 flex items-center gap-2">
                 <ImageUploadButton
                     variantPath={`${mainVariant.value}_${subVariant.value}_${subSubVariant.value}`}
                     images={subSubVariant.images || []}
                 />
-                <span>{subSubVariant.value}</span>
+                <span className="text-sm text-gray-600">{subSubVariant.value}</span>
             </div>
-            <div className="flex gap-4">
+            <div className="mt-2 space-y-2 p-3 pl-12">
                 <input
                     type="number"
                     value={subSubVariant.price || ''}
@@ -215,12 +202,10 @@ const VariantCombinations = memo(() => {
                         'price',
                         e.target.value
                     )}
-
                     placeholder="₦0.00"
-                    className="w-24 px-3 py-1 border rounded"
+                    className="w-full px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0BB248]/20 focus:border-[#0BB248] border rounded-lg transition-all"
                 />
                 <input
-
                     type="number"
                     value={subSubVariant.stock || ''}
                     onChange={(e) => updateVariantValue(
@@ -228,73 +213,74 @@ const VariantCombinations = memo(() => {
                         'stock',
                         e.target.value
                     )}
-
                     placeholder="Stock"
-                    className="w-24 px-3 py-1 border rounded"
+                    className="w-full px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0BB248]/20 focus:border-[#0BB248] border rounded-lg transition-all"
                 />
             </div>
         </div>
     );
 
-    const renderSubVariant = (mainVariant, subVariant) => (
+    const renderSubVariant = (mainVariant: MainVariant, subVariant: SubVariant) => (
         <div key={`${mainVariant.value}-${subVariant.value}`}>
             <div
-                className="flex items-center justify-between py-2 pl-8 border-t cursor-pointer"
+                className="border-t cursor-pointer"
                 onClick={() => toggleExpand(`${mainVariant.value}-${subVariant.value}`)}
             >
-                <div className="flex items-center gap-2">
-                    <ImageUploadButton
-                        variantPath={`${mainVariant.value}_${subVariant.value}`}
-                        images={subVariant.images || []}
-                    />
-                    {expandedVariants.has(`${mainVariant.value}-${subVariant.value}`) ? (
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            className="w-4 h-4"
-                        >
-                            <path
-                                fill="currentColor"
-                                d="m12.37 15.835l6.43-6.63C19.201 8.79 18.958 8 18.43 8H5.57c-.528 0-.771.79-.37 1.205l6.43 6.63c.213.22.527.22.74 0"
-                            />
-                        </svg>
-                    ) : (
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            className="w-4 h-4"
-                        >
-                            <path
-                                fill="currentColor"
-                                d="M15.835 11.63L9.205 5.2C8.79 4.799 8 5.042 8 5.57v12.86c0 .528.79.771 1.205.37l6.63-6.43a.5.5 0 0 0 0-.74"
-                            />
-                        </svg>
-                    )}
-                    <span>{subVariant.value}</span>
+                <div className="p-3 pl-6 bg-gray-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <ImageUploadButton
+                            variantPath={`${mainVariant.value}_${subVariant.value}`}
+                            images={subVariant.images || []}
+                        />
+                        {expandedVariants.has(`${mainVariant.value}-${subVariant.value}`) ? (
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                className="w-4 h-4"
+                            >
+                                <path
+                                    fill="currentColor"
+                                    d="m12.37 15.835l6.43-6.63C19.201 8.79 18.958 8 18.43 8H5.57c-.528 0-.771.79-.37 1.205l6.43 6.63c.213.22.527.22.74 0"
+                                />
+                            </svg>
+                        ) : (
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                className="w-4 h-4"
+                            >
+                                <path
+                                    fill="currentColor"
+                                    d="M15.835 11.63L9.205 5.2C8.79 4.799 8 5.042 8 5.57v12.86c0 .528.79.771 1.205.37l6.63-6.43a.5.5 0 0 0 0-.74"
+                                />
+                            </svg>
+                        )}
+                        <span className="text-sm">{subVariant.value}</span>
+                    </div>
                 </div>
-                <div className="flex gap-4">
+                <div className="p-3 pl-6 space-y-2">
                     <input
-                        type='number'
+                        type="number"
                         value={subVariant.price || ''}
-                        onChange={(e) => handleInputChange(
+                        onChange={(e) => updateVariantValue(
                             `${mainVariant.value}_${subVariant.value}`,
                             'price',
                             e.target.value
                         )}
                         placeholder="₦0.00"
-                        className="w-24 px-3 text-sm md:text-base py-1 focus:outline-none focus:ring-2 focus:ring-[#02020238] focus:ring-offset-2 border rounded"
+                        className="w-full text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0BB248]/20 focus:border-[#0BB248] border rounded-lg transition-all"
                         onClick={e => e.stopPropagation()}
                     />
                     <input
                         type="number"
                         value={subVariant.stock || ''}
-                        onChange={(e) => handleInputChange(
+                        onChange={(e) => updateVariantValue(
                             `${mainVariant.value}_${subVariant.value}`,
                             'stock',
                             e.target.value
                         )}
                         placeholder="Stock"
-                        className="w-24 px-3 text-sm md:text-base py-1 focus:outline-none focus:ring-2 focus:ring-[#02020238] focus:ring-offset-2 border rounded"
+                        className="w-full text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0BB248]/20 focus:border-[#0BB248] border rounded-lg transition-all"
                         onClick={e => e.stopPropagation()}
                     />
                 </div>
@@ -308,64 +294,67 @@ const VariantCombinations = memo(() => {
     );
 
     return (
-        <div className="mt-6 flex flex-col h-full max-h-[600px]">
-            <div className="flex justify-between mb-2 px-4 sticky top-0 bg-white z-10">
+        <div className="mt-6">
+            <div className="flex justify-between mb-2 px-4">
                 <h3 className="font-medium">Variant Combinations</h3>
-                <div className="flex gap-8">
+                <div className="hidden md:flex gap-4 text-sm text-gray-600">
                     <span>Price</span>
-                    <span>Available</span>
+                    <span>Quantity</span>
                 </div>
             </div>
-            <div className="border rounded-lg overflow-y-scroll [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-gray-600 ">
+            <div className="border rounded-lg divide-y">
                 {variantStructure.map(mainVariant => (
                     <div key={mainVariant.value}>
                         <div
-                            className="flex items-center justify-between p-4 cursor-pointer"
+                            className="cursor-pointer"
                             onClick={() => toggleExpand(mainVariant.value)}
                         >
-                            <div className="flex items-center gap-2">
-                                <ImageUploadButton
-                                    variantPath={mainVariant.value}
-                                    images={mainVariant.images || []}
-                                />
-                                {expandedVariants.has(mainVariant.value) ? (
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        className="w-4 h-4"
-                                    >
-                                        <path
-                                            fill="currentColor"
-                                            d="m12.37 15.835l6.43-6.63C19.201 8.79 18.958 8 18.43 8H5.57c-.528 0-.771.79-.37 1.205l6.43 6.63c.213.22.527.22.74 0"
-                                        />
-                                    </svg>
-                                ) : (
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        className="w-4 h-4"
-                                    >
-                                        <path
-                                            fill="currentColor"
-                                            d="M15.835 11.63L9.205 5.2C8.79 4.799 8 5.042 8 5.57v12.86c0 .528.79.771 1.205.37l6.63-6.43a.5.5 0 0 0 0-.74"
-                                        />
-                                    </svg>
-                                )}
-                                <span>{mainVariant.value}</span>
+                            <div className="p-3 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <ImageUploadButton
+                                        variantPath={mainVariant.value}
+                                        images={mainVariant.images || []}
+                                    />
+                                    {expandedVariants.has(mainVariant.value) ? (
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 24 24"
+                                            className="w-4 h-4"
+                                        >
+                                            <path
+                                                fill="currentColor"
+                                                d="m12.37 15.835l6.43-6.63C19.201 8.79 18.958 8 18.43 8H5.57c-.528 0-.771.79-.37 1.205l6.43 6.63c.213.22.527.22.74 0"
+                                            />
+                                        </svg>
+                                    ) : (
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 24 24"
+                                            className="w-4 h-4"
+                                        >
+                                            <path
+                                                fill="currentColor"
+                                                d="M15.835 11.63L9.205 5.2C8.79 4.799 8 5.042 8 5.57v12.86c0 .528.79.771 1.205.37l6.63-6.43a.5.5 0 0 0 0-.74"
+                                            />
+                                        </svg>
+                                    )}
+                                    <span>{mainVariant.value}</span>
+                                </div>
                             </div>
-                            <div className="flex gap-4">
+                            <div className="px-3 pb-3 space-y-2">
                                 <input
-                                    type='number'
+                                    type="number"
                                     value={mainVariant.price || ''}
-                                    onChange={(e) => handleInputChange(
+                                    onChange={(e) => updateVariantValue(
                                         mainVariant.value,
                                         'price',
                                         e.target.value
                                     )}
                                     placeholder="₦0.00"
-                                    className="w-24 px-3 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-[#02020238] focus:ring-offset-2 py-1 border rounded"
+                                    className="w-full px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0BB248]/20 focus:border-[#0BB248] border rounded-lg transition-all"
                                     onClick={e => e.stopPropagation()}
                                 />
+
                                 <input
                                     type="text"
                                     value={mainVariant.totalStock !== undefined ? mainVariant.totalStock : calculateMinimumStock(mainVariant)}
@@ -375,18 +364,18 @@ const VariantCombinations = memo(() => {
                                         calculateMinimumStock(mainVariant)
                                     )}
                                     placeholder="Stock"
-                                    className="w-24 px-3 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-[#02020238] focus:ring-offset-2 py-1 border rounded"
+                                    className="w-full px-3 py-1.5 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-[#0BB248]/20 focus:border-[#0BB248] border rounded-lg transition-all"
                                     onClick={e => e.stopPropagation()}
                                 />
                             </div>
                         </div>
                         
                         {stockWarnings.has(mainVariant.value) && (
-                            <div className="px-4 pb-2">
+                            <div className="px-3 pb-2">
                                 <p className="text-red-500 text-xs lg:text-sm font-medium">{stockWarnings.get(mainVariant.value)}</p>
                             </div>
                         )}
-
+                        
                         {expandedVariants.has(mainVariant.value) &&
                             mainVariant.subVariants?.map(subVariant =>
                                 renderSubVariant(mainVariant, subVariant)
@@ -399,6 +388,6 @@ const VariantCombinations = memo(() => {
     );
 });
 
-VariantCombinations.displayName = 'VariantCombinations';
+VariantCombinationsMobile.displayName = 'VariantCombinationsMobile';
 
-export default VariantCombinations; 
+export default VariantCombinationsMobile;

@@ -168,7 +168,7 @@ export default function CreateBlipModal({ open, onOpenChange }: CreateBlipModalP
         queryClient.invalidateQueries({ queryKey: ["product-blips-count", selectedProduct._id] });
         refetch()
       }
-      dispatch(fetchSellerBlips({ page: 1, limit: 10 }) as any);
+      dispatch((fetchSellerBlips as any)({ page: 1, limit: 10 }));
       onOpenChange(false);
     },
     onError: (error) => {

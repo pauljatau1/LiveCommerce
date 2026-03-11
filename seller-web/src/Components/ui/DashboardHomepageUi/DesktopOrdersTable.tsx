@@ -249,7 +249,7 @@ const DesktopOrdersTable: React.FC<DesktopOrdersTableProps> = ({
       title: '',
       key: 'action',
       render: (_: unknown, record: Order) => (
-        <Link to={`/dashboard/order/${record?._id}`}>
+        <Link to={`/dashboard/orders/order/${record?._id}`}>
           <button className="px-4 py-2 rounded border border-green-600 text-green-600 text-[10px] font-semibold font-['Lexend'] hover:bg-green-50 transition-colors">
             View
           </button>
