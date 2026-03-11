@@ -56,9 +56,7 @@ export default function ReturnsDashboard() {
             const data = await response.json()
             
             // Extract unique statuses from the returns data
-            const statuses = new Set(['all-status', ...data.returns?.map(item => 
-                item.status.toLowerCase()
-            )])
+            const statuses = new Set(['all-status', ...(data.returns?.map(item => item.status.toLowerCase()) ?? [])])
             setAvailableStatuses(statuses)
             setReturns(data.returns)
             setTotalPages(data.pagination.pages)

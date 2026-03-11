@@ -47,7 +47,7 @@ export const pickupAddressSchema = z.object({
  * Account type selection schema
  */
 export const accountTypeSchema = z.enum(["individual", "business"], {
-  required_error: "Please select an account type",
+  message: "Please select an account type",
 });
 
 export type ProfileCompletionFormData = z.infer<typeof profileCompletionSchema>;

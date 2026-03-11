@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
-import { Calendar } from "lucide-react";
-import { Truck, Tag, Hash, Package, DollarSign } from "lucide-react";
+import { Calendar, Truck, Tag, Hash, Package, DollarSign, Clock } from "lucide-react";
 
 export default function ShippingDetailsCard({ shipping, deliveryEstimate }) {
   if (!shipping) return null;

@@ -9,9 +9,12 @@ interface AccountTypeStepProps {
 }
 
 export function AccountTypeStep({ accountType, onAccountTypeChange }: AccountTypeStepProps) {
+  const RadioGroupAny = RadioGroup as any;
+  const RadioGroupItemAny = RadioGroupItem as any;
+
   return (
     <div className="py-6">
-      <RadioGroup
+      <RadioGroupAny
         value={accountType}
         onValueChange={onAccountTypeChange}
         className="space-y-6"
@@ -24,7 +27,7 @@ export function AccountTypeStep({ accountType, onAccountTypeChange }: AccountTyp
           }`}
           onClick={() => onAccountTypeChange("individual")}
         >
-          <RadioGroupItem value="individual" id="individual" className="mt-1" />
+          <RadioGroupItemAny value="individual" id="individual" className="mt-1" />
           <div className="flex-1 space-y-2">
             <div className="flex items-center">
               <Label htmlFor="individual" className="font-medium text-lg flex items-center gap-2 cursor-pointer">
@@ -58,7 +61,7 @@ export function AccountTypeStep({ accountType, onAccountTypeChange }: AccountTyp
           }`}
           onClick={() => onAccountTypeChange("business")}
         >
-          <RadioGroupItem value="business" id="business" className="mt-1" />
+          <RadioGroupItemAny value="business" id="business" className="mt-1" />
           <div className="flex-1 space-y-2">
             <div className="flex items-center">
               <Label htmlFor="business" className="font-medium text-lg flex items-center gap-2 cursor-pointer">
@@ -86,7 +89,7 @@ export function AccountTypeStep({ accountType, onAccountTypeChange }: AccountTyp
             </div>
           </div>
         </div>
-      </RadioGroup>
+      </RadioGroupAny>
     </div>
   );
 }
