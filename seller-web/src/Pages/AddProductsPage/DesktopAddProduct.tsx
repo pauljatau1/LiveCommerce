@@ -677,7 +677,7 @@ const DesktopAddProduct = ({ mode = 'add', productId, initialProduct }: DesktopA
                 <div className="relative">
                     <div className="flex justify-between items-center mb-2">
                         <Label className="font-medium text-[#344054] text-sm 3xl:text-base ">Product Description</Label>
-                        <Button
+                        {/* POSTPONED FEATURE <Button
                             variant="outline"
                             size="sm"
                             className="h-[24px] text-xs font-semibold font-lexend rounded-full"
@@ -689,7 +689,7 @@ const DesktopAddProduct = ({ mode = 'add', productId, initialProduct }: DesktopA
                             <span className="bg-gradient-to-r from-[#00DBDE] to-[#FC00FF] bg-clip-text text-transparent">
                                 ✨ GENERATE WITH A.I?
                             </span>
-                        </Button>
+                        </Button>*/}
                     </div>
                     <Controller
                         name="description"

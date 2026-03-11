@@ -623,7 +623,7 @@ const MobileAddProduct = ({ mode = 'add', productId, initialProduct }: MobileAdd
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative">
                     <div className="flex items-center justify-between mb-2">
                         <Label className="font-medium text-[#344054] text-sm">Product Description</Label>
-                        <Button
+                        {/* POSTPONED FEATURE <Button
                             type="button"
                             variant="outline"
                             size="sm"
@@ -637,7 +637,7 @@ const MobileAddProduct = ({ mode = 'add', productId, initialProduct }: MobileAdd
                             <span className="bg-gradient-to-r from-[#00DBDE] to-[#FC00FF] bg-clip-text text-transparent">
                                 ✨ GENERATE WITH A.I?
                             </span>
-                        </Button>
+                        </Button>*/}
                     </div>
 
                     <Controller
