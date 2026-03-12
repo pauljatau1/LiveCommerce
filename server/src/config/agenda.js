@@ -20,6 +20,12 @@ const verifySendGridConfig = () => {
   }
 };
 
+const Buyer = require('../models/Buyer');
+const Seller = require('../models/Seller');
+const Referral = require('../models/Referral');
+const { processReferralReward } = require('../modules/referral/services/referral-reward.service');
+const { sendPushNotification } = require('../controllers/notificationController');
+
 const restoreProductStock = async (order, reason = 'Order cancelled/expired') => {
   try {
     console.log(`Restoring stock for order ${order.order_id} - Reason: ${reason}`);
@@ -3026,9 +3032,78 @@ const startAgenda = async () => {
 
 
 
+// ── JOB 1: Process referral reward ──
+agenda.define('process-referral-reward', async (job) => {
+  const { orderId, buyerId } = job.attrs.data;
+  await processReferralReward({ orderId, buyerId });
+});
+
+// ── JOB 2: Expire referral ──
+agenda.define('expire-referral', async (job) => {
+  const { referralId } = job.attrs.data;
+  const referral = await Referral.findById(referralId);
+  if (!referral || referral.status !== 'pending') return;
+  await Referral.updateOne({ _id: referralId }, { status: 'expired' });
+});
+
+// ── JOB 3: Day 3 auto reminder ──
+agenda.define('referral-day3-reminder', async (job) => {
+  const { referralId } = job.attrs.data;
+  const referral = await Referral.findById(referralId).lean();
+  if (!referral || referral.status !== 'pending' || referral.day3ReminderSent) return;
+  const referee = await Buyer.findById(referral.referee)
+    .select('expoPushToken firstName')
+    .lean();
+  if (referee?.expoPushToken) {
+    await sendPushNotification(
+      referee.expoPushToken,
+      'You have a welcome credit waiting 🎁',
+      'Complete your first purchase on Auqli before your credit expires.',
+      { type: 'referral_reminder', referralId }
+    );
+  }
+  await Referral.updateOne({ _id: referralId }, {
+    day3ReminderSent: true,
+    lastReminderAt:   new Date(),
+  });
+});
+
+// ── JOB 4: Day 7 expiry reminder ──
+agenda.define('referral-day7-reminder', async (job) => {
+  const { referralId } = job.attrs.data;
+  const referral = await Referral.findById(referralId).lean();
+  if (!referral || referral.status !== 'pending' || referral.day7ReminderSent) return;
+  const referee = await Buyer.findById(referral.referee)
+    .select('expoPushToken firstName')
+    .lean();
+  if (referee?.expoPushToken) {
+    await sendPushNotification(
+      referee.expoPushToken,
+      'Last chance — your welcome credit expires today ⏰',
+      'Shop now on Auqli and unlock your welcome credit before midnight.',
+      { type: 'referral_expiry', referralId }
+    );
+  }
+  await Referral.updateOne({ _id: referralId }, {
+    day7ReminderSent: true,
+    lastReminderAt:   new Date(),
+  });
+});
+
+// ── HELPER: Schedule all reminder jobs when referral is created ──
+async function scheduleReferralReminders(referralId, expiresAt) {
+  const day3Date = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  const day7Date = new Date(expiresAt.getTime() - 60 * 60 * 1000); // 1hr before expiry
+
+  await agenda.schedule(day3Date, 'referral-day3-reminder', { referralId: referralId.toString() });
+  await agenda.schedule(day7Date, 'referral-day7-reminder', { referralId: referralId.toString() });
+  await agenda.schedule(expiresAt, 'expire-referral',        { referralId: referralId.toString() });
+}
+
 // Export agenda instance and startAgenda function
 module.exports = {
   agenda,
   startAgenda,
-  isAgendaInitialized
+  isAgendaInitialized,
+  scheduleReferralReminders
 }; 

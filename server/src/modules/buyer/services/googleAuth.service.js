@@ -142,11 +142,14 @@ async function generateUniqueUsername(name, email) {
  *
  * @param {Object} payload - Verified Google token payload
  * @param {string} [expoPushToken] - Optional Expo push token for notifications
+ * @param {string} [referralCode] - Optional referral code
+ * @param {string} [deviceId] - Optional device id
  * @returns {Promise<Object>} The buyer object (existing or newly created)
  * @throws {ValidationError} If account linking conflicts occur
  */
-async function findOrCreateBuyer(payload, expoPushToken) {
-    const { sub: googleId, email, name, picture, email_verified } = payload;
+async function findOrCreateBuyer(payload, expoPushToken, referralCode, deviceId) {
+    const { email, name, picture, sub: googleId } = payload;
+    const mongoose = require('mongoose');
 
     try {
         // Step 1: Check if user exists by Google ID (primary lookup)
@@ -240,23 +243,24 @@ async function findOrCreateBuyer(payload, expoPushToken) {
             googleId,
             authProvider: 'google',
             emailVerified: true,
-            authProvider: 'google',
-            emailVerified: true,
             profileImage: picture ? { url: picture } : undefined,
             expoPushToken: expoPushToken // Save optional push token
         });
 
         const savedBuyer = await saveBuyer(newBuyer);
 
-        // Save expoPushToken to Firebase if provided
-        if (expoPushToken) {
-            try {
-                const { saveToken } = require('../../../../Firebase');
-                await saveToken(savedBuyer._id, expoPushToken);
-            } catch (err) {
-                console.error('Failed to save push token to Firebase:', err);
-            }
+        // Handle Referral Attribution (non-blocking)
+        const { attributeReferral } = require('../../referral/services/referral.service');
+        
+        if (deviceId) {
+            await mongoose.model('Buyer').updateOne({ _id: savedBuyer._id }, { deviceId: deviceId });
         }
+
+        attributeReferral({
+            newBuyerId:   savedBuyer._id,
+            referralCode: referralCode || null,
+            deviceId:     deviceId || null,
+        }).catch(() => {});
 
         console.log(`New Google OAuth buyer account created: ${email}`);
         return savedBuyer;
@@ -320,8 +324,8 @@ async function authenticateWithGoogle(data) {
     const payload = await verifyGoogleToken(data.token);
 
     // Step 3: Find existing user or create new account
-    // Pass expoPushToken from request data
-    const buyer = await findOrCreateBuyer(payload, data.expoPushToken);
+    // Pass expoPushToken, referralCode, and deviceId from request data
+    const buyer = await findOrCreateBuyer(payload, data.expoPushToken, data.referralCode, data.deviceId);
 
     // Step 4: Generate JWT token for application session management
     const token = generateToken(buyer._id, 'Buyer', '2w');
