@@ -2,6 +2,7 @@ const Buyer    = require('../../../models/Buyer');
 const Seller   = require('../../../models/Seller');
 const Referral = require('../../../models/Referral');
 const Order    = require('../../../models/Order');
+const Transaction = require('../../../models/Transaction');
 
 const SELLER_REWARD_PCT   = 0.05;  // 5% of order value
 const SELLER_REWARD_CAP   = 3000;  // NGN
@@ -130,6 +131,17 @@ async function processReferralReward({ orderId, buyerId }) {
           },
         }
       );
+      
+      await Transaction.create({
+        seller: referral.referrer,
+        type: 'referral_reward',
+        amount: referrerReward,
+        status: 'completed',
+        description: 'Referral reward for inviting a buyer',
+        metadata: {
+          categoryName: 'Referral',
+        }
+      });
       console.log(`[referral-reward] Referrer (Seller) update result:`, sellerReferrerUpdate);
       await checkSellerMilestone(referral.referrer);
     }

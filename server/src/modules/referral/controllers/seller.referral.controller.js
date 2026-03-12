@@ -84,20 +84,28 @@ exports.getHistory = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum)
+      .populate('referee', 'firstName lastName email profileImage createdAt')
       .lean();
 
     const total = await Referral.countDocuments(query);
 
-    // refereeId as string only
+    // map populated ref and add amountEarned
     const formatted = referrals.map(r => ({
       id: r._id.toString(),
-      refereeId: r.referee.toString(),
+      referee: r.referee ? {
+        id: r.referee._id.toString(),
+        name: `${r.referee.firstName || ''} ${r.referee.lastName || ''}`.trim(),
+        email: r.referee.email,
+        profileImage: r.referee.profileImage,
+        registeredAt: r.referee.createdAt
+      } : null,
       status: r.status,
       linkTarget: r.linkTarget,
       expiresAt: r.expiresAt,
       completedAt: r.completedAt,
       rewardIssued: r.rewardIssued,
       orderValue: r.orderValue,
+      amountEarned: r.orderValue ? Math.min(r.orderValue * 0.05, 3000) : 0,
       createdAt: r.createdAt
     }));
 
@@ -133,7 +141,9 @@ exports.getSingleReferral = async (req, res) => {
       _id: referralId,
       referrer: sellerId,
       referrerModel: 'Seller'
-    }).lean();
+    })
+      .populate('referee', 'firstName lastName email profileImage createdAt')
+      .lean();
 
     if (!referral) {
       return res.status(404).json({ success: false, message: 'Referral not found' });
@@ -143,13 +153,20 @@ exports.getSingleReferral = async (req, res) => {
       success: true,
       data: {
         id: referral._id.toString(),
-        refereeId: referral.referee.toString(),
+        referee: referral.referee ? {
+          id: referral.referee._id.toString(),
+          name: `${referral.referee.firstName || ''} ${referral.referee.lastName || ''}`.trim(),
+          email: referral.referee.email,
+          profileImage: referral.referee.profileImage,
+          registeredAt: referral.referee.createdAt
+        } : null,
         status: referral.status,
         linkTarget: referral.linkTarget,
         expiresAt: referral.expiresAt,
         completedAt: referral.completedAt,
         rewardIssued: referral.rewardIssued,
         orderValue: referral.orderValue,
+        amountEarned: referral.orderValue ? Math.min(referral.orderValue * 0.05, 3000) : 0,
         createdAt: referral.createdAt,
         reminders: {
           day3Sent: referral.day3ReminderSent,

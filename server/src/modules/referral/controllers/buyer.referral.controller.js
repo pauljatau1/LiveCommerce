@@ -78,7 +78,7 @@ exports.getHistory = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum)
-      .populate('referee', 'firstName lastName email profileImage')
+      .populate('referee', 'firstName lastName email profileImage createdAt')
       .lean();
 
     const total = await Referral.countDocuments(query);
@@ -89,7 +89,8 @@ exports.getHistory = async (req, res) => {
         id: r.referee._id.toString(),
         name: `${r.referee.firstName || ''} ${r.referee.lastName || ''}`.trim(),
         email: r.referee.email,
-        profileImage: r.referee.profileImage
+        profileImage: r.referee.profileImage,
+        registeredAt: r.referee.createdAt
       } : null,
       status: r.status,
       expiresAt: r.expiresAt,
