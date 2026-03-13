@@ -117,3 +117,55 @@ Sends a manual push notification to a specific referee nudging them to complete 
 1. **Wallet Transactions:** Whenever a referral transitions to `completed`, a native `credit` receipt is added to `/api/buyer/wallet/transactions` logging the earned amount.
 2. **First Order Trigger:** The frontend can detect if an order payout triggered a reward by parsing the response of the checkout/payment endpoint via `isReferralRewardQualified: true`.
 3. **Pending Expiry:** Pending referrals expire natively after 7 days if the referee does not make a paid purchase.
+
+---
+
+## 4. Buyer Registration (Adding a Referral Code)
+
+When a new buyer signs up, the frontend must pass the `referralCode` extracted from the invite link (`?ref=CODE`) to the backend registration endpoints. This ensures the new buyer is correctly attributed to the referrer.
+
+### Local Registration
+*   **URL:** `/api/buyer/auth/register`
+*   **Method:** `POST`
+
+**Request Body Example:**
+```json
+{
+  "firstName": "David",
+  "lastName": "Dave",
+  "email": "davdav@gmail.com",
+  "password": "SecurePassword123!",
+  "referralCode": "FYDMZERR" // <-- Include this extracted from the URL
+}
+```
+
+### Google Authentication
+*   **URL:** `/api/buyer/auth/google-auth`
+*   **Method:** `POST`
+
+**Request Body Example:**
+```json
+{
+  "token": "google_id_token_here",
+  "referralCode": "FYDMZERR" // <-- Include this extracted from the URL
+}
+```
+
+### Apple Authentication
+*   **URL:** `/api/buyer/auth/apple-auth`
+*   **Method:** `POST`
+
+**Request Body Example:**
+```json
+{
+  "identityToken": "apple_identity_token_here",
+  "user": {
+    "name": {
+      "firstName": "David",
+      "lastName": "Dave"
+    },
+    "email": "davdav@gmail.com"
+  },
+  "referralCode": "FYDMZERR" // <-- Include this extracted from the URL
+}
+```
