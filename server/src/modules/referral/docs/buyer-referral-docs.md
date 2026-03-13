@@ -68,6 +68,8 @@ Retrieve a paginated list of all users invited by the authenticated buyer.
         "expiresAt": "2026-03-19T01:13:59.413Z",
         "completedAt": "2026-03-12T01:20:37.799Z",
         "rewardIssued": true,
+        "rewardAmount": 500,
+        "daysRemaining": 0,
         "createdAt": "2026-03-12T01:13:59.414Z"
       }
     ],

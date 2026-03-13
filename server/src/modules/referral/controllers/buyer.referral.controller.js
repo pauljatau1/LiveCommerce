@@ -96,6 +96,8 @@ exports.getHistory = async (req, res) => {
       expiresAt: r.expiresAt,
       completedAt: r.completedAt,
       rewardIssued: r.rewardIssued,
+      rewardAmount: 500,
+      daysRemaining: Math.max(0, Math.ceil((new Date(r.expiresAt) - new Date()) / (1000 * 60 * 60 * 24))),
       createdAt: r.createdAt
     }));
 
