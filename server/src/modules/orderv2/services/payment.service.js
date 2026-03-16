@@ -148,6 +148,7 @@ exports.payForOrder = async (orderId, paymentDetails) => {
             // Evaluate Referral Reward Eligibility right before queueing
             let isFirstPurchase = false;
             let isReferralRewardQualified = false;
+            let referralRewardData = null;
             try {
                 const previousOrdersCount = await Order.countDocuments({
                     buyer: order.buyer,
@@ -166,6 +167,17 @@ exports.payForOrder = async (orderId, paymentDetails) => {
 
                     if (pendingReferral && new Date() <= pendingReferral.expiresAt && !pendingReferral.flaggedForReview) {
                         isReferralRewardQualified = true;
+                        
+                        try {
+                            const buyer = await Buyer.findById(order.buyer).select('referralCode');
+                            referralRewardData = {
+                                rewardAmount: 500, // Flat referee welcome reward
+                                referrerCode: pendingReferral.referralCode,
+                                refereeCode: buyer ? buyer.referralCode : null
+                            };
+                        } catch (err) {
+                            console.error('Error fetching buyer for referral codes in payment:', err);
+                        }
                     }
                 }
             } catch (err) {
@@ -220,6 +232,7 @@ exports.payForOrder = async (orderId, paymentDetails) => {
                 paid: order.paid,
                 isFirstPurchase: isFirstPurchase,
                 isReferralRewardQualified: isReferralRewardQualified,
+                referralRewardData: referralRewardData,
                 smsStatus: smsStatus
             };
         } else {
