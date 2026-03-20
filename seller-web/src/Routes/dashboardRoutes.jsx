@@ -17,7 +17,7 @@ const AddProduct = lazy(() => import('../Pages/ProductsPage/AddProductPage'));
 const EditProduct = lazy(() => import('../Pages/ProductsPage/EditProductPage'));
 //const Drafts = lazy(() => import('../Pages/ProductsPage/Drafts'));
 //const Blips = lazy(() => import('../Pages/ProductsPage/Blips'));
-const MarketingPage = lazy(() => import('../Pages/MarketingPage/MarketingPage'));
+const MarketingPage = lazy(() => import('../Pages/MarketingPage/MarketingPageV2'));
 const Coupons = lazy(() => import('../Pages/MarketingPage/Coupons'));
 const CouponsList = lazy(() => import('../Pages/MarketingPage/CouponsList'));
 const InboxCampaigns = lazy(() => import('../Pages/MarketingPage/InboxCampaigns'));
