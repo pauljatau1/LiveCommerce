@@ -1,5 +1,7 @@
 "use client"
 
+// Legacy marketing page (v1). Replaced by MarketingPageV2.tsx; keep for one release cycle after QA sign-off.
+
 import { useState, useEffect } from "react"
 import { useOutletContext, Link } from "react-router-dom"
 import { Button } from "@/Components/ui/button"
@@ -7,7 +9,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/Components/ui/card"
 import { Badge } from "@/Components/ui/badge"
 import { HiSpeakerphone } from "react-icons/hi"
 import { IoTicketSharp, IoFlashSharp } from "react-icons/io5"
-import { BiMessageRoundedDots } from "react-icons/bi"
+import { TbMailOpenedFilled } from "react-icons/tb"
 import { PiUsersThreeFill } from "react-icons/pi"
 import { LuMessageSquareMore } from "react-icons/lu"
 import { BsQuestionCircleFill } from "react-icons/bs"
@@ -15,7 +17,7 @@ import ComingSoonTag from "@/Components/ComingSoonTag";
 import AuqliUniversity from "@/Components/AuqliUniversity";
 
 // Marketing features data
-const marketingFeatures = [
+export const marketingFeatures = [
   {
     icon: HiSpeakerphone,
     title: "Auqli Ads",
@@ -42,7 +44,7 @@ const marketingFeatures = [
     link: "/flash-sales",
   },
   {
-    icon: BiMessageRoundedDots,
+    icon: TbMailOpenedFilled,
     title: "Inbox Campaigns",
     description:
       "Directly send messages to your followers using our in-built direct marketing feature for your business!",
