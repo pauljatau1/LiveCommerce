@@ -38,7 +38,7 @@ exports.getOverview = async (req, res) => {
       seller.referralCode = code;
     }
 
-    const referralLink = `${process.env.APP_BASE_URL || 'https://auqli.com'}/invite?ref=${seller.referralCode}`;
+    const referralLink = `${process.env.APP_BASE_URL || 'http://app.auqli.live'}/invite?ref=${seller.referralCode}`;
 
     res.status(200).json({
       success: true,
