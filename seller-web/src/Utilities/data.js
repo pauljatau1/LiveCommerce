@@ -102,12 +102,12 @@ export const sideBarNavData = [
             //    id: ObjectID().toHexString(),
             //    name: 'Drafts',
             //    path: 'drafts'
-           // },
+            // },
             // {
             //    id: ObjectID().toHexString(),
             //    name: 'Product Blips',
             //    path: 'blips'
-           // }
+            // }
         ]
     },
     {
@@ -118,28 +118,28 @@ export const sideBarNavData = [
         hasMessageCount: false
     },
     //{
-      //  id: ObjectID().toHexString(),
-      //  name: 'Returns Center',
-      //  icon: 'heroicons:arrow-path',
-      //  path: '/dashboard/returns',
-      //  hasMessageCount: false,
-        // subNav: [
-        //     {
-        //         id: ObjectID().toHexString(),
-        //         name: 'Pending Returns',
-        //         path: 'pending'
-        //     },
-        //     {
-        //         id: ObjectID().toHexString(),
-        //         name: 'Approved Returns',
-        //         path: 'approved'
-        //     },
-        //     {
-        //         id: ObjectID().toHexString(),
-        //         name: 'Rejected Returns',
-        //         path: 'rejected'
-        //     }
-        // ]
+    //  id: ObjectID().toHexString(),
+    //  name: 'Returns Center',
+    //  icon: 'heroicons:arrow-path',
+    //  path: '/dashboard/returns',
+    //  hasMessageCount: false,
+    // subNav: [
+    //     {
+    //         id: ObjectID().toHexString(),
+    //         name: 'Pending Returns',
+    //         path: 'pending'
+    //     },
+    //     {
+    //         id: ObjectID().toHexString(),
+    //         name: 'Approved Returns',
+    //         path: 'approved'
+    //     },
+    //     {
+    //         id: ObjectID().toHexString(),
+    //         name: 'Rejected Returns',
+    //         path: 'rejected'
+    //     }
+    // ]
     //},
     {
         id: ObjectID().toHexString(),
@@ -170,11 +170,11 @@ export const sideBarNavData = [
                 name: 'Inbox Campaigns',
                 path: 'inbox-campaigns'
             },
-            // {
-            //     id: ObjectID().toHexString(),
-            //     name: 'Referrals',
-            //     path: 'referrals'
-            // }
+            {
+                id: ObjectID().toHexString(),
+                name: 'Referrals',
+                path: 'referrals'
+            }
         ]
     },
     {
@@ -208,12 +208,12 @@ export const sideBarNavData2 = [
 
 export const sideBarNavData3 = [
     //{
-      //  id: ObjectID().toHexString(),
-      //  name: 'Notifications',
-      //  icon: 'bi:bell',
-      //  path: '/dashboard/notifications',
-      //  subNav: [],
-      //  hasMessageCount: true
+    //  id: ObjectID().toHexString(),
+    //  name: 'Notifications',
+    //  icon: 'bi:bell',
+    //  path: '/dashboard/notifications',
+    //  subNav: [],
+    //  hasMessageCount: true
 
     //},
     //{
@@ -242,26 +242,26 @@ export const sideBarNavData4 = [
         path: "/dashboard/settings",
         hasMessageCount: false,
         subNav: [
-    //        {
-    //            id: ObjectID().toHexString(),
-    //            name: "Shop Settings",
-    //            path: "/dashboard/settings"
-    //        },
-    //       {
-    //            id: ObjectID().toHexString(),
-    //            name: "Manage Reviews",
-    //            path: "/dashboard/shop-manager/manage-reviews"
-    //        },
-    //        {
-    //            id: ObjectID().toHexString(),
-    //            name: "View Account/My Shop",
-    //            path: "/dashboard/shop-manager/view-account"
-    //        },
-    //        {
-    //            id: ObjectID().toHexString(),
-    //            name: "Refer a Seller & Earn",
-    //            path: "/dashboard/shop-manager/referral"
-    //        }
+            //        {
+            //            id: ObjectID().toHexString(),
+            //            name: "Shop Settings",
+            //            path: "/dashboard/settings"
+            //        },
+            //       {
+            //            id: ObjectID().toHexString(),
+            //            name: "Manage Reviews",
+            //            path: "/dashboard/shop-manager/manage-reviews"
+            //        },
+            //        {
+            //            id: ObjectID().toHexString(),
+            //            name: "View Account/My Shop",
+            //            path: "/dashboard/shop-manager/view-account"
+            //        },
+            //        {
+            //            id: ObjectID().toHexString(),
+            //            name: "Refer a Seller & Earn",
+            //            path: "/dashboard/shop-manager/referral"
+            //        }
         ]
     }
 ]

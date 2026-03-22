@@ -1,13 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { Button } from '@/Components/ui/button';
 import { ConfigProvider, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { Search, RefreshCw, X, ChevronLeft, ChevronRight, Copy, Check, Link2, Share2, Gift } from 'lucide-react';
 import { referralService, Referral } from '@/services/referralService';
 import { Skeleton } from '@/Components/shared/Skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { useNotification } from '@/Hooks/useNotification';
 import { OutletContextType } from '@/types';
 import OrdersDatePicker from '@/Components/ui/DashboardHomepageUi/OrdersDatePicker';
@@ -17,6 +16,11 @@ import LinksIcon from '@/assets/icons/LinksIcon';
 import AnnouncementIcon from '@/assets/icons/AnnouncementIcon';
 import GiftIcon from '@/assets/icons/GiftIcon';
 import { formatMetricValue } from '@/util/helpers';
+
+// Modals & Components
+import ShareReferralLinkModal from '@/Components/marketing/ShareReferralLinkModal';
+import ReferralDetailsModal from '@/Components/marketing/ReferralDetailsModal';
+import MobileReferralList from '@/Components/marketing/MobileReferralList';
 
 
 
@@ -45,18 +49,20 @@ export default function ReferralPage() {
   const { showNotification } = useNotification();
 
   // Filters and pagination
-  const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [dateRange, setDateRange] = useState<{ startDate: string | null; endDate: string | null }>({
     startDate: null,
     endDate: null,
   });
 
-  // Modals
+  // Modals & Selection
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedReferralId, setSelectedReferralId] = useState<string | null>(null);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
 
   // Copy state
   const [isCopied, setIsCopied] = useState(false);
@@ -72,11 +78,18 @@ export default function ReferralPage() {
     queryFn: () => referralService.getOverview(),
   });
 
-  const { data: history, isLoading: isLoadingHistory, refetch: refetchHistory } = useQuery({
-    queryKey: ['referralHistory', currentPage, itemsPerPage, statusFilter, dateRange],
-    queryFn: () => {
+  const { 
+    data: historyPages, 
+    isRefetching: isLoadingHistory, 
+    refetch: refetchHistory,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useInfiniteQuery({
+    queryKey: ['referralHistory', itemsPerPage, statusFilter, dateRange, searchQuery],
+    queryFn: ({ pageParam = 1 }) => {
       const params: any = {
-        page: currentPage,
+        page: pageParam,
         limit: itemsPerPage,
       };
       
@@ -89,9 +102,29 @@ export default function ReferralPage() {
         params.to = new Date(dateRange.endDate).toISOString();
       }
 
+      if (searchQuery) {
+        params.search = searchQuery;
+      }
+
       return referralService.getHistory(params);
     },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.pagination.page < lastPage.pagination.pages) {
+        return lastPage.pagination.page + 1;
+      }
+      return undefined;
+    },
+    initialPageParam: 1,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
   });
+
+  const allReferrals = useMemo(() => {
+    return historyPages?.pages.flatMap(page => page.referrals) || [];
+  }, [historyPages]);
 
   const { data: selectedReferral, isLoading: isLoadingDetails } = useQuery({
     queryKey: ['referralDetail', selectedReferralId],
@@ -106,38 +139,20 @@ export default function ReferralPage() {
 
   const handleDateRangeChange = (startDate: string | null, endDate: string | null) => {
     setDateRange({ startDate, endDate });
-    setCurrentPage(1);
   };
 
-  const handleCopyLink = async () => {
-    const link = overview?.referralLink || '';
-    if (!link) return;
-    
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(link);
-      } else {
-        const textArea = document.createElement('textarea');
-        textArea.value = link;
-        textArea.style.position = 'absolute';
-        textArea.style.left = '-999999px';
-        document.body.prepend(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        textArea.remove();
-      }
-      setIsCopied(true);
-      showNotification('Referral link copied to clipboard!', 'information');
-      setTimeout(() => setIsCopied(false), 2000);
-    } catch (error) {
-      console.error('Copy failed:', error);
-      showNotification('Failed to copy link', 'error');
-    }
+  const handleSearchSubmit = (e: React.FormEvent | React.KeyboardEvent | React.MouseEvent) => {
+    e.preventDefault();
+    setSearchQuery(searchInput);
   };
 
   const handleViewDetails = (referralId: string) => {
     setSelectedReferralId(referralId);
     setIsDetailsModalOpen(true);
+  };
+
+  const onSelectChange = (newSelectedRowKeys: React.Key[]) => {
+    setSelectedRowKeys(newSelectedRowKeys as string[]);
   };
 
   // Status Filter Menu
@@ -152,7 +167,6 @@ export default function ReferralPage() {
         ),
         onClick: () => {
           setStatusFilter('all');
-          setCurrentPage(1);
         },
       },
       {
@@ -164,7 +178,6 @@ export default function ReferralPage() {
         ),
         onClick: () => {
           setStatusFilter('pending');
-          setCurrentPage(1);
         },
       },
       {
@@ -176,7 +189,6 @@ export default function ReferralPage() {
         ),
         onClick: () => {
           setStatusFilter('completed');
-          setCurrentPage(1);
         },
       },
     ],
@@ -187,7 +199,7 @@ export default function ReferralPage() {
       title: 'NAME',
       dataIndex: ['referee', 'name'],
       key: 'name',
-      render: (text) => <span className="font-medium text-[#101828]">{text}</span>,
+      render: (text) => <p className="font-medium max-w-[200px] truncate text-[#101828]">{text}sddddddddddddddddddddddddddddddddd</p>,
     },
     {
       title: 'STATUS',
@@ -216,7 +228,7 @@ export default function ReferralPage() {
       render: (_, record) => (
         <Button
           variant="outline"
-          className="h-8 border-[#0BB248] text-[#0BB248] hover:bg-[#0BB248]/10 px-4"
+          className="h-8 border-[#0BB248] text-[#0BB248] hover:text-[#0BB248] hover:bg-[#0BB248]/10 px-4"
           onClick={() => handleViewDetails(record.id)}
         >
           View
@@ -286,13 +298,13 @@ export default function ReferralPage() {
               <div className="mt-0.5 rounded bg-[#E7F7ED] p-1">
                 <Check className="h-3 w-3 text-[#0BB248]" />
               </div>
-              <span className="text-sm text-[#344054]">Invite new sellers & earn <strong>₦2000</strong> (or 10%) after their first sales</span>
+              <span className="text-sm text-[#344054]">Invite new sellers & earn <strong>5%</strong> order value as wallet credit, up to a maximum of <strong>₦3,000</strong> per transaction.</span>
             </li>
             <li className="flex items-start gap-3">
               <div className="mt-0.5 rounded bg-[#E7F7ED] p-1">
                 <Check className="h-3 w-3 text-[#0BB248]" />
               </div>
-              <span className="text-sm text-[#344054]">You earn fee waivers for successful referrals</span>
+              <span className="text-sm text-[#344054]">Your reward is automatically added to your wallet for future use.</span>
             </li>
           </ul>
         </div>
@@ -304,13 +316,13 @@ export default function ReferralPage() {
               <div className="mt-0.5 rounded bg-[#E7F7ED] p-1">
                 <Check className="h-3 w-3 text-[#0BB248]" />
               </div>
-              <span className="text-sm text-[#344054]"><strong>₦500</strong> discount on first order for referred buyer</span>
+              <span className="text-sm text-[#344054]">Earn <strong>10%</strong> cashback on every eligible purchase, up to a maximum of <strong>₦2,000</strong> per transaction.</span>
             </li>
             <li className="flex items-start gap-3">
               <div className="mt-0.5 rounded bg-[#E7F7ED] p-1">
                 <Check className="h-3 w-3 text-[#0BB248]" />
               </div>
-              <span className="text-sm text-[#344054]">Referrer gets store credit after purchase</span>
+              <span className="text-sm text-[#344054]">Your reward is automatically added to your wallet for future use.</span>
             </li>
           </ul>
         </div>
@@ -343,21 +355,28 @@ export default function ReferralPage() {
 
       {/* Referral History Table Section */}
       <div className="space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="md:bg-[#FFFFFF] md:p-3 md:rounded-lg flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <h2 className="text-xl 3xl:text-2xl font-bold text-[#101828]">Referral History</h2>
           
           <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Search Referrals" 
-                className="h-10 pl-10 pr-4 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0BB248]/20 focus:border-[#0BB248] w-full md:w-[300px]"
-              />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded bg-[#0BB248] flex items-center justify-center cursor-pointer">
-                <Search className="h-3 w-3 text-white" />
-              </div>
-            </div>
+            {/*<div className="relative w-full">
+              <form onSubmit={handleSearchSubmit}>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input 
+                  type="text" 
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search Referrals" 
+                  className="h-10 pl-10 pr-4 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0BB248]/20 focus:border-[#0BB248] w-full lg:w-[300px]"
+                />
+                <button 
+                  type="submit" 
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded bg-[#0BB248] flex items-center justify-center cursor-pointer border-none outline-none hover:bg-[#0a9a3d]"
+                >
+                  <Search className="h-3 w-3 text-white" />
+                </button>
+              </form>
+            </div>*/}
 
             <OrdersDatePicker 
               onDateRangeChange={handleDateRangeChange}
@@ -378,77 +397,57 @@ export default function ReferralPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          {isLoadingHistory ? (
+          {isLoadingHistory && allReferrals.length === 0 ? (
             <div className="p-8 space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
             </div>
-          ) : history?.referrals && history.referrals.length > 0 ? (
+          ) : allReferrals.length > 0 ? (
             <>
-              <ConfigProvider theme={brandTheme}>
-                <Table
-                  columns={columns}
-                  dataSource={history.referrals}
-                  rowKey="id"
-                  pagination={false}
-                  rowSelection={{
-                    type: 'checkbox',
-                  }}
-                  className="w-full"
+              {/* Desktop View */}
+              <div className="hidden md:block">
+                <ConfigProvider theme={brandTheme}>
+                  <Table
+                    columns={columns}
+                    dataSource={allReferrals}
+                    rowKey="id"
+                    pagination={false}
+                    rowSelection={{
+                      type: 'checkbox',
+                      selectedRowKeys,
+                      onChange: onSelectChange,
+                    }}
+                    className="w-full"
+                  />
+                </ConfigProvider>
+              </div>
+
+              {/* Mobile View */}
+              <div className="block md:hidden bg-[#F8FAFC] p-4">
+                <MobileReferralList 
+                  referrals={allReferrals}
+                  isLoading={isFetchingNextPage}
+                  onViewDetails={handleViewDetails}
+                  selectedKeys={selectedRowKeys}
+                  onSelectChange={setSelectedRowKeys}
                 />
-              </ConfigProvider>
+              </div>
               
               {/* Pagination */}
-              {history.pagination.pages > 1 && (
-                <div className="flex items-center justify-between p-4 border-t border-gray-100">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Entries per page</span>
-                    <select 
-                      className="h-8 border border-gray-200 rounded text-sm outline-none"
-                      value={itemsPerPage}
-                      onChange={(e) => {
-                        setItemsPerPage(Number(e.target.value));
-                        setCurrentPage(1);
-                      }}
-                    >
-                      <option value={10}>10</option>
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button 
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      className="h-8 w-8 rounded flex items-center justify-center border border-gray-200 text-gray-500 disabled:opacity-50"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    {Array.from({ length: history.pagination.pages }).map((_, idx) => {
-                      const page = idx + 1;
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`h-8 w-8 rounded flex items-center justify-center text-sm ${
-                            currentPage === page 
-                              ? 'bg-[#0BB248] text-white font-medium' 
-                              : 'text-gray-600 hover:bg-gray-50'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      );
-                    })}
-                    <button 
-                      onClick={() => setCurrentPage(p => Math.min(history.pagination.pages, p + 1))}
-                      disabled={currentPage === history.pagination.pages}
-                      className="h-8 w-8 rounded flex items-center justify-center border border-gray-200 text-gray-500 disabled:opacity-50"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
+              {hasNextPage && (
+                <div className="flex items-center justify-center p-6 border-t border-gray-100 bg-white">
+                  <Button 
+                    onClick={() => fetchNextPage()} 
+                    disabled={isFetchingNextPage}
+                    variant="outline"
+                    className="border-[#0BB248] text-[#0BB248] hover:bg-[#0BB248]/5"
+                  >
+                    {isFetchingNextPage ? (
+                      <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
+                    {isFetchingNextPage ? 'Loading more...' : 'Load More'}
+                  </Button>
                 </div>
               )}
             </>
@@ -483,205 +482,19 @@ export default function ReferralPage() {
       </div>
 
       {/* Share Link Modal */}
-      <Dialog open={isShareModalOpen} onOpenChange={setIsShareModalOpen}>
-        <DialogContent className="sm:max-w-[500px] text-center py-8">
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-xl font-bold text-[#101828] text-center">Invite Sellers & Earn Together</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6">
-            <p className="text-[#344054] font-medium">Share your referral link. Earn rewards when they sell.</p>
-            
-            <div className="text-left space-y-2">
-              <label className="text-sm font-semibold text-[#101828]">Your Referral Link</label>
-              <div className="flex items-center gap-2 bg-[#F8FAFC] border border-gray-200 rounded-lg p-1 pl-3">
-                <input 
-                  type="text" 
-                  readOnly 
-                  value={overview?.referralLink || ''} 
-                  className="flex-1 bg-transparent text-sm text-gray-600 outline-none truncate"
-                />
-                <Button 
-                  variant="outline" 
-                  className="h-8 border-[#0BB248] text-[#0BB248] hover:text-[#0BB248] hover:bg-[#0BB248]/10 text-xs gap-1 px-3 bg-white"
-                  onClick={handleCopyLink}
-                >
-                  {isCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  {isCopied ? 'Copied' : 'Copy'}
-                </Button>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-gray-100">
-              <p className="text-sm font-bold text-[#101828] mb-4">Share to your socials</p>
-              <div className="flex items-center justify-center gap-4">
-                {/* Social icons placeholders */}
-                <button className="h-10 w-10 rounded-full border border-[#0BB248] text-[#0BB248] flex items-center justify-center hover:bg-[#0BB248]/5">
-                  IG
-                </button>
-                <button className="h-10 w-10 rounded-full border border-[#0BB248] text-[#0BB248] flex items-center justify-center hover:bg-[#0BB248]/5">
-                  TW
-                </button>
-                <button className="h-10 w-10 rounded-full border border-[#0BB248] text-[#0BB248] flex items-center justify-center hover:bg-[#0BB248]/5">
-                  FB
-                </button>
-                <button className="h-10 w-10 rounded-full border border-[#0BB248] text-[#0BB248] flex items-center justify-center hover:bg-[#0BB248]/5">
-                  TK
-                </button>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-4">
-              <Button variant="outline" className="border-[#0BB248] text-[#0BB248] hover:bg-[#0BB248]/10" onClick={() => setIsShareModalOpen(false)}>
-                Back
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ShareReferralLinkModal 
+        isOpen={isShareModalOpen}
+        onOpenChange={setIsShareModalOpen}
+        referralLink={overview?.referralLink || ''}
+      />
 
       {/* Referral Details Modal */}
-      <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="text-center font-bold text-lg">Referral Details</DialogTitle>
-          </DialogHeader>
-          {isLoadingDetails ? (
-            <div className="py-12 flex justify-center">
-              <RefreshCw className="h-8 w-8 text-[#0BB248] animate-spin" />
-            </div>
-          ) : selectedReferral ? (
-            <div className="space-y-6 pt-2">
-              <p className="text-sm text-gray-500 text-center">This is an overview of the referral details of this user</p>
-              
-              <div className="grid grid-cols-2 gap-y-6 gap-x-4 border-b border-gray-100 pb-6">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Name</p>
-                  <p className="text-sm font-semibold text-[#101828]">{selectedReferral.referee.name}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Status</p>
-                  <div className="flex items-center gap-1.5">
-                    <span className={`h-1.5 w-1.5 rounded-full ${selectedReferral.status === 'completed' ? 'bg-[#0BB248]' : selectedReferral.status === 'pending' ? 'bg-[#F97316]' : 'bg-gray-400'}`} />
-                    <span className="text-sm font-medium capitalize text-[#101828]">{selectedReferral.status}</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Invited on</p>
-                  <p className="text-sm font-semibold text-[#101828]">
-                    {new Date(selectedReferral.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Joined on</p>
-                  <p className="text-sm font-semibold text-[#101828]">
-                    {new Date(selectedReferral.referee.registeredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">{selectedReferral.status === 'completed' ? 'Reward Earned' : 'Potential Reward'}</p>
-                  <p className="text-sm font-bold text-[#0BB248]">
-                    ₦{new Intl.NumberFormat('en-NG').format(selectedReferral.amountEarned || 2000)} {selectedReferral.status !== 'completed' && <span className="text-xs text-gray-500 font-normal">(Estimated)</span>}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Reward Status</p>
-                  <div className="flex items-center gap-1.5">
-                    {selectedReferral.rewardIssued ? (
-                      <>
-                        <div className="h-4 w-4 rounded-sm bg-[#0BB248] flex items-center justify-center">
-                          <Check className="h-3 w-3 text-white" />
-                        </div>
-                        <span className="text-sm font-medium text-[#101828]">Paid</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="h-4 w-4 rounded-sm bg-red-100 flex items-center justify-center">
-                          <X className="h-3 w-3 text-red-500" />
-                        </div>
-                        <span className="text-sm font-medium text-[#101828]">Not Yet Earned</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <p className="text-sm font-medium text-[#101828]">
-                  First sale : <span className="font-normal">{selectedReferral.completedAt ? new Date(selectedReferral.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not Completed.'}</span>
-                </p>
-                
-                <div>
-                  <p className="text-sm font-bold text-[#101828] mb-4">Referral Timeline</p>
-                  
-                  {/* Timeline */}
-                  <div className="relative border-l-2 border-gray-100 ml-3 space-y-6">
-                    {/* Invite Sent */}
-                    <div className="relative pl-6">
-                      <div className="absolute -left-[9px] top-0 h-4 w-4 rounded-full bg-[#0BB248] flex items-center justify-center">
-                        <Check className="h-2.5 w-2.5 text-white" />
-                      </div>
-                      <p className="text-sm font-bold text-[#101828]">Invite Sent</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Sent on {new Date(selectedReferral.createdAt).toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
-                      </p>
-                    </div>
-                    
-                    {/* Signed Up */}
-                    <div className="relative pl-6">
-                      <div className={`absolute -left-[9px] top-0 h-4 w-4 rounded-full flex items-center justify-center ${selectedReferral.referee.registeredAt ? 'bg-[#0BB248]' : 'bg-gray-200'}`}>
-                        {selectedReferral.referee.registeredAt && <Check className="h-2.5 w-2.5 text-white" />}
-                      </div>
-                      <p className={`text-sm font-bold ${selectedReferral.referee.registeredAt ? 'text-[#101828]' : 'text-gray-400'}`}>Signed Up</p>
-                      {selectedReferral.referee.registeredAt && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Signed Up on {new Date(selectedReferral.referee.registeredAt).toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
-                        </p>
-                      )}
-                    </div>
-                    
-                    {/* First Sale (if applicable, based on completedAt) */}
-                    <div className="relative pl-6">
-                      <div className={`absolute -left-[9px] top-0 h-4 w-4 rounded-full flex items-center justify-center ${selectedReferral.completedAt ? 'bg-[#0BB248]' : 'bg-gray-200'}`}>
-                        {selectedReferral.completedAt && <Check className="h-2.5 w-2.5 text-white" />}
-                      </div>
-                      <p className={`text-sm font-bold ${selectedReferral.completedAt ? 'text-[#101828]' : 'text-gray-400'}`}>First Sale</p>
-                      {selectedReferral.completedAt && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Sold on {new Date(selectedReferral.completedAt).toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Reward Confirmed */}
-                    <div className="relative pl-6">
-                      <div className={`absolute -left-[9px] top-0 h-4 w-4 rounded-full flex items-center justify-center ${selectedReferral.rewardIssued ? 'bg-[#0BB248]' : 'bg-gray-200'}`}>
-                        {selectedReferral.rewardIssued && <Check className="h-2.5 w-2.5 text-white" />}
-                      </div>
-                      <p className={`text-sm font-bold ${selectedReferral.rewardIssued ? 'text-[#101828]' : 'text-gray-400'}`}>Reward Confirmed</p>
-                      {selectedReferral.rewardIssued && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Received reward on {new Date(selectedReferral.completedAt || selectedReferral.createdAt).toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex justify-center pt-4">
-                <Button 
-                  className="bg-[#0BB248] hover:bg-[#0a9a3d] text-white px-8" 
-                  onClick={() => setIsDetailsModalOpen(false)}
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="py-8 text-center text-red-500">Failed to load details</div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <ReferralDetailsModal 
+        isOpen={isDetailsModalOpen}
+        onOpenChange={setIsDetailsModalOpen}
+        isLoading={isLoadingDetails}
+        selectedReferral={selectedReferral}
+      />
     </div>
   );
 }
