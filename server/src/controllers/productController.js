@@ -4,6 +4,7 @@ const Seller = require('../models/Seller');
 const { s3 } = require('../config/awsConfig')
 const { v4: uuidv4 } = require('uuid');
 const Category = require('../models/Category');
+const MajorCategory = require('../models/MajorCategory');
 const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const NotificationController = require('../controllers/notificationController');
@@ -354,6 +355,7 @@ exports.getAllProducts = async (req, res) => {
       page = 1,
       limit = 10,
       category = '',
+      major_category: majorCategory = '',
       minPrice = 0,
       maxPrice = Number.MAX_SAFE_INTEGER,
       sortBy = 'newest',
@@ -374,8 +376,22 @@ exports.getAllProducts = async (req, res) => {
     if (req.query.visibility) {
       query.visibility = req.query.visibility;
     }
+    // Category filter: prioritize category over major_category when both are present
     if (category) {
       query.category = category;
+    } else if (majorCategory) {
+      // Fetch products for the major category (all categories under that major category)
+      const majorCategoryDoc = await MajorCategory.findOne({
+        name: { $regex: new RegExp(`^${majorCategory.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+        isActive: true
+      }).populate('categories', 'name');
+      if (majorCategoryDoc && majorCategoryDoc.categories?.length) {
+        const categoryNames = majorCategoryDoc.categories.map(cat => cat.name);
+        query.category = { $in: categoryNames };
+      } else {
+        // No matching major category or it has no categories - return no products
+        query.category = { $in: [] };
+      }
     }
     // Add price range filter
     if (req.query.minPrice || req.query.maxPrice) {
@@ -445,6 +461,7 @@ exports.getAllProducts = async (req, res) => {
         },
         filters: {
           category,
+          major_category: majorCategory || undefined,
           priceRange: {
             min: minPrice,
             max: maxPrice !== Number.MAX_SAFE_INTEGER ? maxPrice : 'no limit'
