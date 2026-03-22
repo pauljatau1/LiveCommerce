@@ -58,8 +58,8 @@ export const marketingFeatures = [
     description:
       "Refer people and earn when they join Auqli and makes a purchase. Increase followers and get passive income",
     status: "free",
-    isComingSoon: true,
-    link: "/referral",
+    isComingSoon: false,
+    link: "/dashboard/referrals",
   },
   {
     icon: LuMessageSquareMore,

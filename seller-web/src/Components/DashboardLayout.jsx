@@ -68,7 +68,7 @@ const DashboardLayout = () => {
             showBackButton={showBackButton}
             fullScreenMode={fullScreenMode}
           />
-          <div className={`flex-1 min-h-0 bg-[#F7FAFC] overflow-y-auto [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-gray-600
+          <div className={`scroll-container flex-1 min-h-0 bg-[#F7FAFC] overflow-y-auto [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-gray-600
               ${fullScreenMode ? (
               isLiveStreamPage ? '' : 'mt-[88px]'
             ) : (
