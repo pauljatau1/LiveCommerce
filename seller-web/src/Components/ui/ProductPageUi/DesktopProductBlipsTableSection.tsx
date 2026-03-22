@@ -1,32 +1,21 @@
-import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Switch, DatePicker, ConfigProvider, Checkbox } from 'antd';
-import type { Dayjs } from 'dayjs';
-import { Search, X, ChevronDown, ChevronUp } from 'lucide-react';
-import { fetchSellerProducts, toggleVacationMode, searchSellerProducts, bulkDeleteProducts, bulkSetProductsDraft } from '@/Redux/Slices/ProductSlice';
+import { Table, ConfigProvider, Dropdown, MenuProps } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { fetchSellerBlips } from '@/Redux/Slices/ProductSlice';
 import { Skeleton } from '@/Components/shared/Skeleton';
 import { Icon } from '@iconify/react';
-import eyeBoldIcon from '@iconify-icons/solar/eye-bold';
-import penBoldIcon from '@iconify-icons/solar/pen-bold';
-import trashBinTrashBoldIcon from '@iconify-icons/solar/trash-bin-trash-bold';
 import ProductEmptyState from './ProductEmptyState';
-import FilterIcon from '@/assets/icons/FilterIcon';
+import ArrowDownIcon from '@/assets/icons/ArrowDownIcon';
 import GlassImage from '@/Components/ui/GlassImageV2';
-import PlusIcon from '@/assets/icons/PlusIcon2';
-import {
-  Drawer,
-  DrawerContent,
-} from '@/Components/ui/drawer';
-import { mapSortTypeToAPI, getWeekRange, getMonthRange, getYearRange, formatLastUpdatedDate } from '@/util/helpers';
-import type { ProductApiModel } from '@/types/products';
-import StockIcon from '@/assets/icons/StockIcon';
-import BlipIcon from '@/assets/icons/BlipIcon';
-import NairaIcon from '@/assets/icons/NairaIcon';
-import DeleteProductsConfirmDialog from '@/Components/ProductPage/DeleteProductsConfirmDialog';
-import ProductDetailsModal from '@/Components/ProductPage/ProductDetailsModal';
+import type { SellerBlip } from '@/types/products';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import { useNavigate } from 'react-router-dom';
+import ProductBlipsDetailsModal from './ProductBlipsDetailsModal';
+import CreateBlipModal from './CreateBlipModal';
 
-
+dayjs.extend(relativeTime);
 
 // Brand color theme for Ant Design components
 const brandTheme = {
@@ -37,835 +26,360 @@ const brandTheme = {
     borderRadius: 8,
   },
   components: {
-    Switch: {
-      colorPrimary: '#0BB248',
-      colorPrimaryHover: '#0a9a3d',
-    },
-    DatePicker: {
-      colorPrimary: '#0BB248',
-      activeBorderColor: '#0BB248',
-      hoverBorderColor: '#0BB248',
+    Table: {
+      headerBg: '#FAFAFA',
+      headerColor: '#94A3B8',
     },
   },
 };
 
-
-export default function MobileProductTableSection() {
+export default function DesktopProductBlipsTableSection() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { products, isLoading, vacationMode, vacationRequestPending, pagination } = useSelector((state: any) => state.product);
+  // @ts-ignore - Assuming state structure based on other components
+  const { blips, isLoadingBlips, blipsPagination } = useSelector((state: any) => state.product);
+
+  // Create Blip Modal state
+  const [isCreateBlipModalOpen, setIsCreateBlipModalOpen] = useState(false);
 
   // Filter states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchMode, setIsSearchMode] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'draft'>('active');
-  const [stockFilter, setStockFilter] = useState<'all' | 'in-stock' | 'out-of-stock'>('all');
-  const [blipsFilter, setBlipsFilter] = useState<'all' | '0' | '1' | '4+'>('all');
   const [priceFilter, setPriceFilter] = useState<'all' | 'under-5k' | '5k-20k' | '20k-plus'>('all');
-  const [dateRange, setDateRange] = useState<{ startDate: string | null; endDate: string | null }>({
-    startDate: null,
-    endDate: null,
-  });
-  const [fromDate, setFromDate] = useState<Dayjs | null>(null);
-  const [toDate, setToDate] = useState<Dayjs | null>(null);
-  const [quickDateFilter, setQuickDateFilter] = useState<'week' | 'month' | 'year' | null>(null);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
-  const [sortType] = useState('newest-to-oldest');
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Selection states
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  // Row selection state
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
-  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteDialogProducts, setDeleteDialogProducts] = useState<ProductApiModel[]>([]);
-  const [productDetailsModalOpen, setProductDetailsModalOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<ProductApiModel | null>(null);
-
-  // Drawer state
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  
+  // Details Modal state
+  const [selectedBlip, setSelectedBlip] = useState<SellerBlip | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   // Initial fetch on mount
   useEffect(() => {
-    fetchProducts();
+    fetchBlips();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Reset page when filters change
+  // Fetch blips when pagination changes
   useEffect(() => {
-    setCurrentPage(1);
-  }, [statusFilter, stockFilter, blipsFilter, priceFilter, dateRange, sortType]);
-
-  // Fetch products when filters or pagination changes
-  useEffect(() => {
-    if (!isSearchMode) {
-      fetchProducts();
-    }
+    fetchBlips();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, itemsPerPage, statusFilter, priceFilter, dateRange, sortType, stockFilter, blipsFilter, isSearchMode]);
+  }, [currentPage, itemsPerPage]);
 
-  // Update dateRange when fromDate or toDate changes
-  useEffect(() => {
-    if (fromDate && toDate) {
-      setDateRange({
-        startDate: fromDate.toISOString(),
-        endDate: toDate.toISOString(),
-      });
-      setQuickDateFilter(null);
-    } else if (!fromDate && !toDate) {
-      setDateRange({ startDate: null, endDate: null });
-    }
-  }, [fromDate, toDate]);
-
-  const fetchProducts = () => {
-    const params: any = {
+  const fetchBlips = () => {
+    // @ts-ignore - Thunk argument typing
+    dispatch(fetchSellerBlips({
       page: currentPage,
-      limit: itemsPerPage,
-      sortBy: mapSortTypeToAPI(sortType),
-    };
-
-    // Add status filter
-    if (statusFilter !== 'all') {
-      params.status = statusFilter;
-    }
-
-    // Add stock filter (server-side)
-    if (stockFilter === 'out-of-stock') {
-      params.status = 'out_of_stock';
-    }
-
-    // Add price filters
-    if (priceFilter === 'under-5k') {
-      params.maxPrice = 5000;
-    } else if (priceFilter === '5k-20k') {
-      params.minPrice = 5000;
-      params.maxPrice = 20000;
-    } else if (priceFilter === '20k-plus') {
-      params.minPrice = 20000;
-    }
-
-    // Add date range filters
-    if (dateRange.startDate && dateRange.endDate) {
-      params.startDate = dateRange.startDate;
-      params.endDate = dateRange.endDate;
-    }
-
-    dispatch(fetchSellerProducts(params) as any);
+      limit: itemsPerPage
+    }));
   };
 
-  // Handle search
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      setIsSearchMode(true);
-      setCurrentPage(1);
+  const handlePriceFilterChange = ({ key }: { key: string }) => {
+    setPriceFilter(key as any);
+  };
 
-      const params: any = {
-        page: 1,
-        limit: itemsPerPage,
-        sortBy: mapSortTypeToAPI(sortType),
-        search: searchQuery.trim(),
-      };
+  const filteredBlips = useMemo(() => {
+    if (!blips) return [];
 
-      if (statusFilter !== 'all') {
-        params.status = statusFilter;
+    let filtered = [...blips];
+
+    // Client-side Price filter
+    if (priceFilter !== 'all') {
+      if (priceFilter === 'under-5k') {
+        filtered = filtered.filter((b: SellerBlip) => b.price < 5000);
+      } else if (priceFilter === '5k-20k') {
+        filtered = filtered.filter((b: SellerBlip) => b.price >= 5000 && b.price <= 20000);
+      } else if (priceFilter === '20k-plus') {
+        filtered = filtered.filter((b: SellerBlip) => b.price > 20000);
       }
-
-      if (stockFilter === 'out-of-stock') {
-        params.status = 'out_of_stock';
-      }
-
-      dispatch(searchSellerProducts(params) as any);
-    }
-  };
-
-  // Clear search
-  const handleClearSearch = () => {
-    setSearchQuery('');
-    setIsSearchMode(false);
-    setCurrentPage(1);
-    fetchProducts();
-  };
-
-  // Handle vacation mode toggle
-  const handleVacationModeToggle = async (checked: boolean) => {
-    try {
-      // @ts-ignore - Redux thunk typing issue
-      await dispatch(toggleVacationMode(checked));
-      handleRefresh();
-    } catch (error) {
-      console.error('Error toggling vacation mode:', error);
-    }
-  };
-
-  // Handle refresh
-  const handleRefresh = () => {
-    if (isSearchMode) {
-      handleSearch(new Event('submit') as any);
-    } else {
-      fetchProducts();
-    }
-  };
-
-  // Handle quick date filter
-  const handleQuickDateFilter = (filter: 'week' | 'month' | 'year') => {
-    setQuickDateFilter(filter);
-    let range;
-    if (filter === 'week') {
-      range = getWeekRange();
-    } else if (filter === 'month') {
-      range = getMonthRange();
-    } else {
-      range = getYearRange();
-    }
-    setFromDate(range.start);
-    setToDate(range.end);
-    setDateRange({
-      startDate: range.start.toISOString(),
-      endDate: range.end.toISOString(),
-    });
-    setCurrentPage(1);
-  };
-
-  // Reset date filter
-  const handleResetDate = () => {
-    setFromDate(null);
-    setToDate(null);
-    setQuickDateFilter(null);
-    setDateRange({ startDate: null, endDate: null });
-    setCurrentPage(1);
-  };
-
-  // Filter products by stock (in-stock only) and blips (client-side filtering)
-  const filteredProducts = useMemo(() => {
-    let filtered = [...(products || [])];
-
-    // Stock filter (in-stock filtered client-side, out-of-stock filtered server-side)
-    if (stockFilter === 'in-stock') {
-      filtered = filtered.filter((p: any) => p.stock > 0);
-    }
-
-    // Blips filter
-    if (blipsFilter === '0') {
-      filtered = filtered.filter((p: any) => !p.blips || p.blips.length === 0);
-    } else if (blipsFilter === '1') {
-      filtered = filtered.filter((p: any) => p.blips && p.blips.length === 1);
-    } else if (blipsFilter === '4+') {
-      filtered = filtered.filter((p: any) => p.blips && p.blips.length >= 4);
     }
 
     return filtered;
-  }, [products, stockFilter, blipsFilter]);
+  }, [blips, priceFilter]);
 
-  // Toggle card expansion
-  const toggleCard = (productId: string) => {
-    setExpandedCards((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(productId)) {
-        newSet.delete(productId);
-      } else {
-        newSet.add(productId);
-      }
-      return newSet;
-    });
+  const columns: ColumnsType<SellerBlip> = [
+    {
+      title: 'PRODUCT NAME',
+      key: 'productName',
+      width: '25%',
+      render: (_, record) => (
+        <div className="flex items-center gap-3">
+          {/* Status Indicator */}
+          <div className={`w-2 h-2 rounded-full ${record.status === 'active' ? 'bg-[#0BB248]' : 'bg-[#FCD116]'}`} />
+
+          {/* Image */}
+          <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100">
+            <GlassImage
+              src={record.images} // Assuming images is a string URL as per sample
+              alt={record.productName}
+              containerClassName="w-full h-full"
+              imageClassName="w-full h-full object-cover"
+            />
+          </div>
+
+          {/* Name and Category (Category not in sample, using hardcoded or generic if missing) */}
+          <div className="flex flex-col">
+            <span className="text-sm max-w-[200px] truncate font-medium text-[#17171B] hover:text-[#0BB248] cursor-pointer" onClick={() => navigate(record.productLink || '#')}>
+              {record.productName}
+            </span>
+            <span className="text-xs text-[#64748B]">
+              {/* Category not explicitly in sample blip object, maybe in product details but not here. Using generic or omitting if not available. */}
+              {/* The Figma image shows "Men's Fashion". I'll omit if not available or check if I can infer it. */}
+            </span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: (
+        <div className="flex items-center gap-1 cursor-pointer">
+          PRICE
+          <ArrowDownIcon width={14} height={14} color="#94A3B8" />
+        </div>
+      ),
+      dataIndex: 'price',
+      key: 'price',
+      width: '15%',
+      render: (price) => (
+        <span className="text-sm font-medium text-[#425466]">
+          ₦ {new Intl.NumberFormat('en-NG').format(price)}
+        </span>
+      ),
+    },
+    {
+      title: 'STOCK COUNT',
+      dataIndex: 'stock',
+      key: 'stock',
+      width: '15%',
+      render: (stock) => (
+        <span className={`text-sm font-medium ${stock <= 10 ? 'text-[#EF4444]' : 'text-[#425466]'}`}>
+          {stock}
+        </span>
+      ),
+    },
+    {
+      title: 'ENGAGEMENT',
+      key: 'engagement',
+      width: '20%',
+      render: (_, record) => (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-md">
+            <Icon icon="solar:heart-bold" className="text-[#EF4444] w-3 h-3" />
+            <span className="text-xs font-medium text-[#0F172A]">{record.blipEngagement?.likesCount || 0}</span>
+          </div>
+          <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-md">
+            <Icon icon="solar:chat-round-dots-bold" className="text-[#F59E0B] w-3 h-3" />
+            <span className="text-xs font-medium text-[#0F172A]">{record.blipEngagement?.commentsCount || 0}</span>
+          </div>
+          <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-md">
+            <Icon icon="solar:eye-bold" className="text-[#64748B] w-3 h-3" />
+            <span className="text-xs font-medium text-[#0F172A]">{record.blipEngagement?.viewCount || 0}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'CREATED AT',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      width: '15%',
+      render: (date) => (
+        <span className="text-sm text-[#425466]">
+          {dayjs(date).fromNow()}
+        </span>
+      ),
+    },
+    {
+      title: '',
+      key: 'action',
+      width: '10%',
+      render: (_, record) => (
+        <button
+          onClick={() => {
+            // @ts-ignore
+            setSelectedBlip(record);
+            setIsDetailsModalOpen(true);
+          }}
+          className="px-3 py-1.5 border border-[#0BB248] text-[#0BB248] text-xs font-medium rounded-lg whitespace-nowrap hover:bg-[#0BB248]/10 transition-colors"
+        >
+          View Details
+        </button>
+      )
+    }
+  ];
+
+  const priceMenu: MenuProps = {
+    items: [
+      { key: 'all', label: 'All Prices' },
+      { key: 'under-5k', label: 'Under ₦5,000' },
+      { key: '5k-20k', label: '₦5,000 - ₦20,000' },
+      { key: '20k-plus', label: 'Above ₦20,000' },
+    ],
+    onClick: handlePriceFilterChange,
   };
 
-  // Toggle selection mode
-  const toggleSelectionMode = () => {
-    setIsSelectionMode(!isSelectionMode);
-    if (isSelectionMode) {
-      setSelectedRowKeys([]);
+  const getPriceFilterLabel = () => {
+    switch (priceFilter) {
+      case 'under-5k': return 'Under ₦5,000';
+      case '5k-20k': return '₦5,000 - ₦20,000';
+      case '20k-plus': return 'Above ₦20,000';
+      default: return 'All Prices';
     }
   };
 
-  // Handle product selection
-  const handleProductSelect = (productId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedRowKeys([...selectedRowKeys, productId]);
-    } else {
-      setSelectedRowKeys(selectedRowKeys.filter(id => id !== productId));
-    }
-  };
-
+  const onAddBlips = () => {
+    setIsCreateBlipModalOpen(true);
+  }
 
   return (
     <ConfigProvider theme={brandTheme}>
       <div className="w-full space-y-4">
-        {/* Search Bar */}
-        <form onSubmit={handleSearch} className="w-full">
-          <div className="relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search Products"
-              className="w-full h-[38px] pl-3 pr-10 py-2 text-sm border-[1.5px] border-[#16783A52] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0BB248] focus:border-transparent placeholder:text-[#425466] placeholder:text-xs placeholder:font-lexend placeholder:font-normal"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                if (isSearchMode) {
-                  handleClearSearch();
-                } else {
-                  handleSearch(new Event('submit') as any);
-                }
-              }}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 w-[26px] h-[26px] flex items-center justify-center bg-[#0BB248] text-white rounded-lg p-2 hover:bg-[#0BB248]/90 transition-colors"
-            >
-              {isSearchMode ? (
-                <X className="w-4 h-4 text-white" />
-              ) : (
-                <Search className="w-4 h-4 text-white" />
-              )}
+        {/* Filter Section */}
+        <div className="flex items-center justify-end">
+          <Dropdown menu={priceMenu} trigger={['click']}>
+            <button className="h-[38px] px-4 flex items-center gap-2 bg-white border border-[#E2E8F0] rounded-lg text-xs font-lexend font-medium text-[#0BB248] hover:bg-gray-50 transition-colors">
+              <Icon icon="solar:tag-price-bold" className="w-4 h-4" />
+              {getPriceFilterLabel()}
+              <ArrowDownIcon width={12} height={12} color="#0BB248" />
             </button>
-          </div>
-        </form>
+          </Dropdown>
+        </div>
 
-        {/* Filter Products Button */}
-        <button
-          onClick={() => setIsDrawerOpen(true)}
-          className="w-full h-[38px] px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg flex items-center justify-between hover:bg-gray-200 transition-colors"
-        >
-          <span className="text-sm font-medium text-gray-700">Filter Products</span>
-          <FilterIcon width={16} height={16} color="#737375" />
-        </button>
+        {/* Table Section */}
+        <div className="bg-white border border-[#E2E8F0] rounded-xl overflow-hidden">
+          {isLoadingBlips ? (
+            <div className="p-4 space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_120px] gap-4 px-6 py-4 border-b border-[#E5E7EB] last:border-b-0 items-center"
+                >
+                  {/* Product Name Column */}
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="w-3 h-3 rounded-sm" />
+                    <Skeleton className="w-8 h-8 rounded-sm flex-shrink-0" />
+                    <div className="flex flex-col gap-1.5 flex-1">
+                      <Skeleton className="h-4 w-[180px]" />
+                      <Skeleton className="h-3 w-[120px]" />
+                    </div>
+                  </div>
 
-        {/* Vacation Mode Section */}
-        <div className="px-4 py-3 bg-white rounded-lg border border-[#E5E7EB] flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-[#344054]">VACATION MODE</h3>
-            <p className="text-xs font-lexend text-[#272D30]">Temporary Close Your Store</p>
-          </div>
-          {vacationRequestPending ? (
-            <div className="w-11 h-6 flex items-center justify-center">
-              <div className="w-4 h-4 border-2 border-[#0BB248] border-t-transparent rounded-full animate-spin" />
+                  {/* Price Column */}
+                  <Skeleton className="h-4 w-[80px]" />
+
+                  {/* Stock Count Column */}
+                  <Skeleton className="h-4 w-[60px]" />
+
+                  {/* Blips Column */}
+                  <Skeleton className="h-6 w-[65px] rounded-md" />
+
+                  {/* Action Column */}
+                  <Skeleton className="h-7 w-[90px] rounded-lg" />
+                </div>
+              ))}
+            </div>
+          ) : filteredBlips.length === 0 ? (
+            <div className="p-12 text-center">
+              <ProductEmptyState status="blip" />
             </div>
           ) : (
-            <Switch
-              checked={vacationMode}
-              onChange={handleVacationModeToggle}
-              className="data-[state=checked]:bg-[#0BB248]"
+            <Table
+              columns={columns}
+              dataSource={filteredBlips}
+              rowKey="_id" // Using _id from blip object
+              pagination={{
+                current: currentPage,
+                pageSize: itemsPerPage,
+                total: blipsPagination?.totalBlips || 0,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '20', '50', '100'],
+                onChange: (page, pageSize) => {
+                  setCurrentPage(page);
+                  setItemsPerPage(pageSize);
+                },
+                onShowSizeChange: (_current, size) => {
+                  setCurrentPage(1);
+                  setItemsPerPage(size);
+                },
+              }}
+              rowSelection={{
+                selectedRowKeys,
+                onChange: (keys) => setSelectedRowKeys(keys as string[]),
+              }}
+              scroll={{ x: 1000 }}
+              className="products-table"
             />
           )}
         </div>
 
-        {/* Product List Section */}
-        <div className="bg-white rounded-lg border border-[#E5E7EB] overflow-hidden">
-          {/* Status Tabs */}
-          <div className="px-4 py-3 border-b border-[#E5E7EB]">
-            <div className="flex items-center gap-2 p-[4px] rounded-lg bg-[#E4ECF7]">
-              <button
-                onClick={() => {
-                  setStatusFilter('active');
-                  setCurrentPage(1);
+        {/* Blips Details Modal */}
+        {selectedBlip && (
+            <ProductBlipsDetailsModal
+                isOpen={isDetailsModalOpen}
+                onClose={() => {
+                    setIsDetailsModalOpen(false);
+                    setSelectedBlip(null);
                 }}
-                className={`flex-1 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                  statusFilter === 'active'
-                    ? 'bg-[#FFFFFF] text-[#0BB248] hover:bg-[#FFFFFF]/80'
-                    : 'bg-transparent text-[#0BB248]'
-                }`}
-              >
-                Active
-              </button>
-              <button
-                onClick={() => {
-                  setStatusFilter('draft');
-                  setCurrentPage(1);
-                }}
-                className={`flex-1 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                  statusFilter === 'draft'
-                    ? 'bg-[#FFFFFF] text-[#FCD116] hover:bg-[#FFFFFF]/80'
-                    : 'bg-transparent text-[#FCD116]'
-                }`}
-              >
-                Drafts
-              </button>
-            </div>
-          </div>
+                // @ts-ignore
+                productId={selectedBlip.productId || selectedBlip.product?._id}
+                // @ts-ignore
+                blipId={selectedBlip.blipId || selectedBlip._id}
+                onAddBlips={onAddBlips}
+            />
+        )}
 
-          {/* Date Range Section */}
-          <div className="px-4 py-3 border-b border-[#E5E7EB] space-y-3">
-            <div className="flex items-center gap-2">
-              <DatePicker
-                placeholder="From"
-                value={fromDate}
-                onChange={(date) => setFromDate(date)}
-                format="DD-MM-YYYY"
-                className="flex-1"
-                size="small"
-              />
-              <DatePicker
-                placeholder="To"
-                value={toDate}
-                onChange={(date) => setToDate(date)}
-                format="DD-MM-YYYY"
-                className="flex-1"
-                size="small"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleQuickDateFilter('week')}
-                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  quickDateFilter === 'week'
-                    ? 'bg-[#0BB248] text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                This Week
-              </button>
-              <button
-                onClick={() => handleQuickDateFilter('month')}
-                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  quickDateFilter === 'month'
-                    ? 'bg-[#0BB248] text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                This Month
-              </button>
-              <button
-                onClick={() => handleQuickDateFilter('year')}
-                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  quickDateFilter === 'year'
-                    ? 'bg-[#0BB248] text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                This Year
-              </button>
-            </div>
-            {(fromDate || toDate) && (
-              <button
-                onClick={handleResetDate}
-                className="text-xs text-[#0BB248] font-medium hover:underline"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-
-          {/* Selection Mode Header */}
-          {isSelectionMode && (
-            <div className="px-4 py-3 border-b border-[#E5E7EB] flex items-center justify-between bg-gray-50">
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={toggleSelectionMode}
-                  className="flex items-center gap-2 text-sm font-medium text-gray-700"
-                >
-                  <X className="w-4 h-4" />
-                  <span>Cancel</span>
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (selectedRowKeys.length === 0) return;
-                    const selectedProducts = (products as ProductApiModel[]).filter((p) =>
-                      selectedRowKeys.includes(p._id)
-                    );
-                    if (!selectedProducts.length) return;
-                    setDeleteDialogProducts(selectedProducts);
-                    setDeleteDialogOpen(true);
-                  }}
-                  className={`px-4 py-2 rounded-full text-xs font-semibold transition-colors ${
-                    selectedRowKeys.length > 0
-                      ? 'bg-[#0BB248] text-white hover:bg-[#0BB248]/90'
-                      : 'bg-gray-200 text-gray-500'
-                  }`}
-                >
-                  Delete {selectedRowKeys.length > 0 ? `(${selectedRowKeys.length})` : ''}
-                </button>
-                <button
-                  onClick={() => {
-                    if (selectedRowKeys.length === 0) return;
-                    if (statusFilter === 'active') {
-                      dispatch(bulkSetProductsDraft(selectedRowKeys as any) as any);
-                    }
-                  }}
-                  className={`px-4 py-2 rounded-full text-xs font-semibold transition-colors border ${
-                    selectedRowKeys.length > 0
-                      ? 'border-[#0BB248] text-[#0BB248] bg-white hover:bg-[#0BB24817]'
-                      : 'border-gray-300 text-gray-500 bg-gray-50'
-                  }`}
-                >
-                  {statusFilter === 'active' ? 'Set as Draft' : 'Activate'} {selectedRowKeys.length > 0 ? `(${selectedRowKeys.length})` : ''}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Select All Checkbox (when not in selection mode) */}
-          {!isSelectionMode && (
-            <div className="px-4 py-3 border-b border-[#E5E7EB]">
-              <button
-                onClick={toggleSelectionMode}
-                className="flex items-center text-xs font-lexend font-medium text-gray-700"
-              >
-                <Icon icon="bx:checkbox" width={18} height={18} color="#374151" />
-                <span>SELECT ITEMS</span>
-              </button>
-            </div>
-          )}
-
-          {/* Products List */}
-          <div className="px-4 py-3">
-            {isLoading ? (
-              <div className="space-y-3">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="p-4 border border-[#E5E7EB] rounded-lg space-y-3">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-1/2" />
-                    <Skeleton className="h-4 w-20" />
-                  </div>
-                ))}
-              </div>
-            ) : filteredProducts.length === 0 ? (
-              <ProductEmptyState />
-            ) : (
-              <div className="space-y-3">
-                {filteredProducts.map((product: ProductApiModel) => {
-                  const isExpanded = expandedCards.has(product._id);
-                  const isSelected = selectedRowKeys.includes(product._id);
-                  const blipsCount = product.blips?.length || 0;
-                  const unitsSold = product.stats?.soldCount || 0;
-                  const lastUpdated = product.stats?.lastRestocked || product.stats?.lastViewed || product.updatedAt || product.createdAt;
-
-                  return (
-                    <div
-                      key={product._id}
-                      className="bg-white border border-[#E5E7EB] rounded-lg overflow-hidden"
-                    >
-                      {/* Product Card Header */}
-                      <div
-                        className={`p-4 ${!isSelectionMode ? 'cursor-pointer' : ''}`}
-                        onClick={() => !isSelectionMode && toggleCard(product._id)}
-                      >
-                        <div className="flex items-start gap-3">
-                          {/* Checkbox (only visible in selection mode) */}
-                          {isSelectionMode && (
-                            <Checkbox
-                              checked={isSelected}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                handleProductSelect(product._id, e.target.checked);
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              className="mt-1"
-                            />
-                          )}
-
-                          {/* Product Image */}
-                          <GlassImage
-                            src={product.images?.[0]?.url}
-                            alt={product.name}
-                            containerClassName="w-12 h-12 rounded-full object-cover flex-shrink-0"
-                            imageClassName="w-12 h-12 rounded-full object-cover"
-                          />
-
-                          {/* Product Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <div className={`w-2 h-2 flex-shrink-0 rounded-full ${product.status === 'active' ? 'bg-[#0BB248]' : 'bg-[#FCD116]'}`} />
-                                  <h3 className="text-sm font-semibold text-[#17171B] truncate">{product.name}</h3>
-                                </div>
-                                <p className="text-xs text-gray-500 mb-2">{product.category}</p>
-                                <p className="text-sm font-medium text-[#425466]">
-                                  ₦{new Intl.NumberFormat('en-NG').format(product.price)}
-                                </p>
-                              </div>
-                              {!isSelectionMode && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleCard(product._id);
-                                  }}
-                                  className="flex-shrink-0"
-                                >
-                                  {isExpanded ? (
-                                    <ChevronUp className="w-5 h-5 text-gray-600" />
-                                  ) : (
-                                    <ChevronDown className="w-5 h-5 text-gray-600" />
-                                  )}
-                                </button>
-                              )}
-                            </div>
-
-                            {/* Blips Tag */}
-                            <div className="mt-2">
-                              {blipsCount === 0 ? (
-                                <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#0BB24817] rounded-md">
-                                  <PlusIcon width={12} height={12} color="#14AE5C" />
-                                  <span className="text-[10px] font-semibold text-[#14AE5C]">None</span>
-                                </div>
-                              ) : (
-                                <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#0BB248] rounded-md">
-                                  <Icon icon="icon-park-solid:play" width={12} height={12} color="#FFFFFF" />
-                                  <span className="text-[10px] font-semibold text-white">
-                                    {blipsCount} Blip{blipsCount !== 1 ? 's' : ''}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Expanded Content */}
-                      {isExpanded && !isSelectionMode && (
-                        <div className="px-4 pb-4 border-t border-gray-100 pt-4 space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <div className="text-xs text-gray-500 font-['Lexend'] mb-1">Stock</div>
-                              <div className={`text-sm font-medium flex items-center gap-2 ${product.stock <= 10 ? 'text-red-600' : 'text-[#425466]'}`}>
-                                <span>{product.stock}</span>
-                                {product.stock <= 10 && (
-                                  <span className="px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-semibold rounded">
-                                    LOW STOCK
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-xs text-gray-500 font-['Lexend'] mb-1">Unit sold</div>
-                              <div className="text-sm font-medium text-[#425466]">
-                                {unitsSold}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-xs text-gray-500 font-['Lexend'] mb-1">Last Updated</div>
-                              <div className="text-sm font-medium text-[#425466]">
-                                {formatLastUpdatedDate(lastUpdated)}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-xs text-gray-500 font-['Lexend'] mb-1">Status</div>
-                              <div className={`inline-block px-2 py-1 rounded-md text-[10px] font-semibold ${
-                                product.status === 'active'
-                                  ? 'bg-[#0BB24817] text-[#0BB248]'
-                                  : 'bg-[#FCD11617] text-[#FCD116]'
-                              }`}>
-                                {product.status?.toUpperCase()}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* Action Buttons */}
-                          <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-                            <button
-                              onClick={() => {
-                                setSelectedProduct(product);
-                                setProductDetailsModalOpen(true);
-                              }}
-                              className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors"
-                              title="View Details"
-                            >
-                              <Icon icon={eyeBoldIcon} className="w-4 h-4 text-gray-400 " />
-                            </button>
-                            <button
-                              onClick={() => {
-                                navigate(`/dashboard/products/edit-product/${product._id}`);
-                              }}
-                              className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors"
-                              title="Edit Product"
-                            >
-                              <Icon icon={penBoldIcon} className="w-4 h-4 text-gray-400 " />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setDeleteDialogProducts([product as ProductApiModel]);
-                                setDeleteDialogOpen(true);
-                              }}
-                              className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
-                              title="Delete Product"
-                            >
-                              <Icon icon={trashBinTrashBoldIcon} className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Pagination */}
-          {pagination && pagination.totalProducts > itemsPerPage && (
-            <div className="px-4 py-3 border-t border-[#E5E7EB] flex items-center justify-between">
-              <span className="text-xs text-gray-500">
-                {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, pagination.totalProducts)} of {pagination.totalProducts}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 border border-gray-300 rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Prev
-                </button>
-                <span className="text-xs text-gray-700">{currentPage}</span>
-                <button
-                  onClick={() => setCurrentPage(prev => prev + 1)}
-                  disabled={currentPage * itemsPerPage >= pagination.totalProducts}
-                  className="px-3 py-1 border border-gray-300 rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Create Blip Modal */}
+        <CreateBlipModal
+          open={isCreateBlipModalOpen}
+          onOpenChange={() => setIsCreateBlipModalOpen(false)}
+        />
       </div>
-
-      <DeleteProductsConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        productIds={deleteDialogProducts.map((p) => p._id)}
-        products={deleteDialogProducts}
-        onDeleted={handleRefresh}
-      />
-
-      {/* Product Details Modal */}
-      <ProductDetailsModal
-        open={productDetailsModalOpen}
-        onOpenChange={setProductDetailsModalOpen}
-        product={selectedProduct}
-      />
-
-      {/* Filter Drawer */}
-      <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-        {/* @ts-ignore - DrawerContent type definition issue */}
-        <DrawerContent className="">
-          <div className="p-4 border-b border-gray-200">
-            <div className="relative flex items-center justify-center">
-              <h2 className="text-base font-semibold text-[#111827]">Filter Products</h2>
-              <button
-                onClick={() => setIsDrawerOpen(false)}
-                className="absolute right-0 p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-          <div className="px-4 pb-6 space-y-6">
-            {/* Price Filter */}
-            <div className="flex mt-3 items-start gap-3">
-              <div className="w-10 h-10 flex-shrink-0 rounded-full bg-[#F6F6F6] flex items-center justify-center">
-                <NairaIcon width={16} height={16} color="#737375" />
-              </div>
-              <div className="flex-1 space-y-2">
-                <h3 className="text-sm font-semibold text-gray-700">Price</h3>
-                <div className="flex items-center gap-2 p-[4px] rounded-xl bg-[#E4ECF7]">
-                  {['all', 'under-5k', '20k-plus'].map((filter) => (
-                    <button
-                      key={filter}
-                      onClick={() => {
-                        setPriceFilter(filter as any);
-                        setIsDrawerOpen(false);
-                        setCurrentPage(1);
-                      }}
-                      className={`flex-1 whitespace-nowrap px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                        priceFilter === filter
-                          ? 'bg-[#FFFFFF] text-[#0BB248] hover:bg-[#FFFFFF]/80'
-                          : 'bg-transparent text-[#888787]'
-                      }`}
-                    >
-                      {filter === 'all' ? 'All Prices' : filter === 'under-5k' ? 'Under ₦5K' : 'Above ₦5K'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Stock Level Filter */}
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#F6F6F6] flex items-center justify-center">
-                <StockIcon width={16} height={16} color="#737375" />
-              </div>
-              <div className="flex-1 space-y-2">
-                <h3 className="text-sm font-semibold text-gray-700">Stock Level</h3>
-                <div className="flex items-center gap-2 p-[4px] rounded-xl bg-[#E4ECF7]">
-                  {['all', 'in-stock', 'out-of-stock'].map((filter) => (
-                    <button
-                      key={filter}
-                      onClick={() => {
-                        setStockFilter(filter as any);
-                        setIsDrawerOpen(false);
-                        setCurrentPage(1);
-                      }}
-                      className={`flex-1 whitespace-nowrap px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                        stockFilter === filter
-                          ? filter === 'out-of-stock'
-                            ? 'bg-[#FFFFFF] text-[#FCD116] hover:bg-[#FFFFFF]/80'
-                            : 'bg-[#FFFFFF] text-[#0BB248] hover:bg-[#FFFFFF]/80'
-                          : filter === 'out-of-stock'
-                            ? 'bg-transparent text-[#FCD116]'
-                            : 'bg-transparent text-[#0BB248]'
-                      }`}
-                    >
-                      {filter === 'all' ? 'All Stocks' : filter === 'in-stock' ? 'In Stock' : 'Out of Stock'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Blips Filter */}
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#F6F6F6] flex items-center justify-center">
-                <BlipIcon width={16} height={16} color="#737375" />
-              </div>
-              <div className="flex-1 space-y-2">
-                <h3 className="text-sm font-semibold text-gray-700">Blips</h3>
-                <div className="flex items-center gap-2 p-[4px] rounded-xl bg-[#E4ECF7]">
-                  {['all', '0', '1', '4+'].map((filter) => (
-                    <button
-                      key={filter}
-                      onClick={() => {
-                        setBlipsFilter(filter as any);
-                        setIsDrawerOpen(false);
-                        setCurrentPage(1);
-                      }}
-                      className={`flex-1 whitespace-nowrap px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                        blipsFilter === filter
-                          ? 'bg-[#FFFFFF] text-[#0BB248] hover:bg-[#FFFFFF]/80'
-                          : 'bg-transparent text-[#888787]'
-                      }`}
-                    >
-                      {filter === 'all' ? 'All Blips' : filter === '0' ? '0 Blip' : filter === '1' ? '1 Blip' : '4+ Blips'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-4">
-              <button
-                onClick={() => {
-                  setIsDrawerOpen(false);
-                  fetchProducts();
-                }}
-                className="flex-1 px-4 py-2 bg-[#0BB248] text-white rounded-lg text-sm font-semibold hover:bg-[#0BB248]/90 transition-colors"
-              >
-                Apply
-              </button>
-              <button
-                onClick={() => setIsDrawerOpen(false)}
-                className="flex-1 px-4 py-2 border border-[#0BB248] rounded-lg text-sm font-semibold text-[#0BB248] bg-white hover:bg-[#0BB248]/5 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </DrawerContent>
-      </Drawer>
+      <style>{`
+        .products-table .ant-table-thead > tr > th {
+          background-color: #FAFAFA;
+          color: #94A3B8;
+          font-size: 10px;
+          font-weight: 600;
+          font-family: 'Lexend', sans-serif;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          border-bottom: 1px solid #EDF2F7;
+          padding: 18px 24px;
+        }
+        .products-table .ant-table-tbody > tr > td {
+          background-color: white;
+          border-bottom: 1px solid #EDF2F7;
+          padding: 16px 24px;
+        }
+        .products-table .ant-table-tbody > tr:hover > td {
+          background-color: #F9FAFB;
+        }
+        .products-table .ant-pagination {
+          margin-top: 24px;
+        }
+        .products-table .ant-pagination .ant-pagination-item-active {
+          background-color: #0BB248;
+          border-color: #0BB248;
+        }
+        .products-table .ant-pagination .ant-pagination-item-active a {
+          color: #fff;
+        }
+        .products-table .ant-pagination .ant-pagination-item:hover {
+          border-color: #0BB248;
+        }
+        .products-table .ant-pagination .ant-pagination-item:hover a {
+          color: #0BB248;
+        }
+        .products-table .ant-checkbox-checked .ant-checkbox-inner {
+          background-color: #0BB248;
+          border-color: #0BB248;
+        }
+        .products-table .ant-checkbox-wrapper:hover .ant-checkbox-inner {
+          border-color: #0BB248;
+        }
+      `}</style>
     </ConfigProvider>
   );
 }
