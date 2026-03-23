@@ -44,6 +44,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 // Types
 interface Seller {
@@ -60,9 +62,27 @@ interface Seller {
   createdAt: string;
   walletBalance: number;
   productCount?: number;
+  ordersCount?: number;
   storeAvatar?: { url: string };
   isProfileComplete: boolean;
   storeName?: string;
+  sellerAddress?: {
+    state?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+  };
+  businessAddress?: {
+    state?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+  };
+  warehouseDetails?: {
+    address?: {
+      state?: string;
+      addressLine1?: string;
+      addressLine2?: string;
+    };
+  };
 }
 
 function Sellers() {
@@ -70,6 +90,7 @@ function Sellers() {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [selectedTab, setSelectedTab] = useState("all");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -146,6 +167,104 @@ function Sellers() {
     return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(val);
   };
 
+  const exportAllSellers = async () => {
+    if (exporting) return;
+    setExporting(true);
+
+    try {
+      const response = await api.get("/api/admin/sellers/export");
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || "Failed to export sellers");
+      }
+
+      const allSellers: Seller[] = response.data.sellers || [];
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+
+      doc.setFontSize(16);
+      doc.text("Auqli Sellers Report", 40, 40);
+      doc.setFontSize(10);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 40, 60);
+
+      const head = [[
+        "Name",
+        "Email",
+        "Phone Number",
+        "Date Joined",
+        "Verification",
+        "Products Listed",
+        "Orders Gotten",
+        "Store Name",
+        "Location"
+      ]];
+
+      const body = allSellers.map((seller) => {
+        const merchantName =
+          seller.storeName ||
+          seller.businessName ||
+          `${seller.firstName || ""} ${seller.lastName || ""}`.trim() ||
+          seller._id;
+
+        const locationSource =
+          seller.sellerAddress ||
+          seller.businessAddress ||
+          seller.warehouseDetails?.address;
+        const locationState = locationSource?.state || "-";
+        const locationAddress = [locationSource?.addressLine1, locationSource?.addressLine2]
+          .filter(Boolean)
+          .join(", ") || "-";
+
+        return [
+          merchantName,
+          seller.email || "-",
+          seller.phoneNumber || "-",
+          seller.createdAt ? formatDate(seller.createdAt) : "-",
+          seller.isVerified ? "YES" : "NO",
+          String(seller.productCount || 0),
+          String(seller.ordersCount || 0),
+          seller.storeName || seller.businessName || "-",
+          `${locationState} | ${locationAddress}`
+        ];
+      });
+
+      autoTable(doc, {
+        head,
+        body,
+        startY: 80,
+        theme: "grid",
+        headStyles: {
+          fillColor: [249, 115, 22],
+          textColor: [255, 255, 255],
+          fontStyle: "bold"
+        },
+        styles: {
+          fontSize: 8,
+          cellPadding: 3,
+          overflow: "linebreak"
+        },
+        columnStyles: {
+          0: { cellWidth: 90 },
+          1: { cellWidth: 100 },
+          2: { cellWidth: 75 },
+          3: { cellWidth: 60 },
+          4: { cellWidth: 55 },
+          5: { cellWidth: 60 },
+          6: { cellWidth: 60 },
+          7: { cellWidth: 90 },
+          8: { cellWidth: 255 }
+        }
+      });
+
+      const today = new Date();
+      const fileName = `sellers-report-${today.toISOString().slice(0, 10)}.pdf`;
+      doc.save(fileName);
+      toast({ description: "Sellers export started downloading." });
+    } catch (err: any) {
+      toast({ variant: "destructive", description: err?.message || "Failed to export sellers" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const StatCard = ({ title, value, icon: Icon, colorClass }: any) => (
     <Card className="border-slate-800/60 bg-slate-950/40 overflow-hidden relative group rounded-2xl">
       <div className={cn("absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 opacity-10 blur-2xl transition-all duration-500 group-hover:scale-150 rounded-full", colorClass.replace('text-', 'bg-'))} />
@@ -178,9 +297,17 @@ function Sellers() {
           <Button
             variant="outline"
             className="bg-slate-900 border-slate-800 hover:bg-slate-800 text-slate-300 gap-2 h-11 px-5 rounded-2xl shadow-xl transition-all active:scale-95"
+            onClick={exportAllSellers}
+            disabled={exporting}
           >
-            <FileDown className="h-4 w-4 text-orange-500" />
-            <span className="font-bold uppercase text-[11px] tracking-widest">Export Data</span>
+            {exporting ? (
+              <Loader2 className="h-4 w-4 text-orange-500 animate-spin" />
+            ) : (
+              <FileDown className="h-4 w-4 text-orange-500" />
+            )}
+            <span className="font-bold uppercase text-[11px] tracking-widest">
+              {exporting ? "Exporting..." : "Export Data"}
+            </span>
           </Button>
         </div>
       </div>
