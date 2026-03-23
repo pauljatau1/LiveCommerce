@@ -297,6 +297,7 @@ const productSchema = new mongoose.Schema({
     customShippingCost: { type: Number },
     restrictedLocations: [String],
   },
+  isFreeShippingEnabled: { type: Boolean, default: false },
   seo: {
     metaTitle: { type: String },
     metaDescription: { type: String },

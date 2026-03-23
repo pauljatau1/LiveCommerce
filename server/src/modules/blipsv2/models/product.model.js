@@ -36,6 +36,7 @@ const productSchema = new mongoose.Schema({
   reviews: [{
     rating: Number
   }],
+  isFreeShippingEnabled: { type: Boolean, default: false },
   createdAt: Date
 });
 
