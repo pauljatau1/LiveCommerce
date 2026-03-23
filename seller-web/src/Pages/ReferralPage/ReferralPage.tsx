@@ -68,8 +68,8 @@ export default function ReferralPage() {
   const [isCopied, setIsCopied] = useState(false);
 
   useEffect(() => {
-    setHeaderName('Referral');
-    setNavName('');
+    setHeaderName('Marketing');
+    setNavName('Referrals');
   }, [setHeaderName, setNavName]);
 
   // Tanstack Queries
