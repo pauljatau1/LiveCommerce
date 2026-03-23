@@ -516,6 +516,98 @@ exports.getAllSellers = async (req, res) => {
   }
 };
 
+exports.exportSellers = async (req, res) => {
+  try {
+    // Optional filters (kept minimal; UI currently exports all sellers)
+    const filter = {};
+    if (req.query.search) {
+      filter.$or = [
+        { firstName: { $regex: req.query.search, $options: "i" } },
+        { lastName: { $regex: req.query.search, $options: "i" } },
+        { businessName: { $regex: req.query.search, $options: "i" } },
+        { storeName: { $regex: req.query.search, $options: "i" } }
+      ];
+    }
+    if (req.query.accountType) {
+      filter.accountType = req.query.accountType;
+    }
+    if (req.query.isVerified !== undefined) {
+      filter.isVerified = req.query.isVerified === "true";
+    }
+    if (req.query.isDisabled !== undefined) {
+      filter.isDisabled = req.query.isDisabled === "true";
+    }
+
+    const sellers = await Seller.find(filter)
+      .select(
+        "firstName lastName email phoneNumber isVerified isFeatured isDisabled accountType businessName storeName walletBalance createdAt storeAvatar sellerAddress businessAddress warehouseDetails"
+      )
+      .lean()
+      .sort({ createdAt: -1 });
+
+    const sellerIds = sellers.map((s) => s._id);
+
+    // Product count for each seller (needed by the UI/PDF)
+    let productCountBySellerId = new Map();
+    if (sellerIds.length > 0) {
+      const productCounts = await Product.aggregate([
+        { $match: { seller: { $in: sellerIds } } },
+        { $group: { _id: "$seller", count: { $sum: 1 } } }
+      ]);
+
+      productCountBySellerId = new Map(
+        productCounts.map((pc) => [String(pc._id), pc.count])
+      );
+    }
+
+    // Orders gotten for each seller
+    let orderCountBySellerId = new Map();
+    if (sellerIds.length > 0) {
+      const orderCounts = await Order.aggregate([
+        { $match: { seller: { $in: sellerIds }, isStale: { $ne: true } } },
+        { $group: { _id: "$seller", count: { $sum: 1 } } }
+      ]);
+
+      orderCountBySellerId = new Map(
+        orderCounts.map((oc) => [String(oc._id), oc.count])
+      );
+    }
+
+    const sellersPayload = sellers.map((s) => ({
+      _id: s._id,
+      firstName: s.firstName,
+      lastName: s.lastName,
+      email: s.email,
+      phoneNumber: s.phoneNumber,
+      businessName: s.businessName,
+      storeName: s.storeName,
+      isVerified: !!s.isVerified,
+      isFeatured: !!s.isFeatured,
+      isDisabled: !!s.isDisabled,
+      accountType: s.accountType,
+      walletBalance: s.walletBalance ?? 0,
+      createdAt: s.createdAt,
+      storeAvatar: s.storeAvatar,
+      productCount: productCountBySellerId.get(String(s._id)) || 0,
+      ordersCount: orderCountBySellerId.get(String(s._id)) || 0,
+      sellerAddress: s.sellerAddress,
+      businessAddress: s.businessAddress,
+      warehouseDetails: s.warehouseDetails
+    }));
+
+    return res.json({
+      success: true,
+      sellers: sellersPayload
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to export sellers",
+      error: error.message
+    });
+  }
+};
+
 exports.disableSeller = async (req, res) => {
   const { sellerId } = req.params;
 
