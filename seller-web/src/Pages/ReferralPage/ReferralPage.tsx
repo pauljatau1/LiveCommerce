@@ -199,7 +199,7 @@ export default function ReferralPage() {
       title: 'NAME',
       dataIndex: ['referee', 'name'],
       key: 'name',
-      render: (text) => <p className="font-medium max-w-[200px] truncate text-[#101828]">{text}sddddddddddddddddddddddddddddddddd</p>,
+      render: (text) => <p className="font-medium max-w-[200px] truncate text-[#101828]">{text}</p>,
     },
     {
       title: 'STATUS',

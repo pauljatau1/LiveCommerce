@@ -51,12 +51,12 @@ export default function MobileReferralList({
 
   return (
     <div className="space-y-4">
-      {referrals.map((referral) => {
-        const isSelected = selectedKeys.includes(referral.id);
+      {referrals?.map((referral) => {
+        const isSelected = selectedKeys.includes(referral?.id || '');
         
         return (
           <div 
-            key={referral.id} 
+            key={referral?.id || ''} 
             className={`p-4 bg-white rounded-xl border ${isSelected ? 'border-[#0BB248] bg-[#0BB248]/5' : 'border-gray-100'} shadow-sm transition-colors`}
           >
             <div className="flex gap-3 mb-3">
@@ -64,7 +64,7 @@ export default function MobileReferralList({
                 <div className="pt-0.5">
                   <Checkbox 
                     checked={isSelected}
-                    onChange={(e) => handleSelect(referral.id, e.target.checked)}
+                    onChange={(e) => handleSelect(referral?.id || '', e.target.checked)}
                   />
                 </div>
               )}
@@ -72,13 +72,13 @@ export default function MobileReferralList({
               <div className="flex-1">
                 <div className="flex justify-between items-start">
                   <h3 className="font-medium text-[#101828] text-[15px] truncate pr-2">
-                    {referral.referee.name}
+                    {referral?.referee?.name || '-'}
                   </h3>
                   
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className={`h-1.5 w-1.5 rounded-full ${referral.status === 'completed' ? 'bg-[#0BB248]' : referral.status === 'pending' ? 'bg-[#F97316]' : 'bg-gray-400'}`} />
+                    <span className={`h-1.5 w-1.5 rounded-full ${referral?.status === 'completed' ? 'bg-[#0BB248]' : referral?.status === 'pending' ? 'bg-[#F97316]' : 'bg-gray-400'}`} />
                     <span className="text-xs font-medium text-[#344054] capitalize">
-                      {referral.status}
+                      {referral?.status || '-'}
                     </span>
                   </div>
                 </div>
@@ -86,9 +86,9 @@ export default function MobileReferralList({
                 <div className="flex justify-between items-end mt-4">
                   <div>
                     <p className="text-xs text-gray-500 mb-0.5">Reward</p>
-                    <p className={`text-sm font-semibold ${referral.status === 'completed' ? 'text-[#0BB248]' : 'text-[#344054]'}`}>
-                      {referral.status === 'completed' 
-                        ? `₦${formatMetricValue(referral.amountEarned)}` 
+                    <p className={`text-sm font-semibold ${referral?.status === 'completed' ? 'text-[#0BB248]' : 'text-[#344054]'}`}>
+                      {referral?.status === 'completed' 
+                        ? `₦${formatMetricValue(referral?.amountEarned)}` 
                         : '-'}
                     </p>
                   </div>
@@ -97,7 +97,7 @@ export default function MobileReferralList({
                     variant="outline"
                     size="sm"
                     className="h-8 border-[#0BB248] text-[#0BB248] hover:bg-[#0BB248]/10 px-4"
-                    onClick={() => onViewDetails(referral.id)}
+                    onClick={() => onViewDetails(referral?.id)}
                   >
                     View
                   </Button>
