@@ -58,7 +58,8 @@ async function processReferralReward({ orderId, buyerId }) {
       console.log(`[referral-reward] ❌ Could not find the order document ${orderId}`);
       return;
     }
-    const orderValue = order.totalAmount;
+    const shippingFee = order.shipping && order.shipping.fee && order.shipping.fee.amount > 0 ? order.shipping.fee.amount : 0;
+    const orderValue = order.totalAmount - shippingFee;
     console.log(`[referral-reward] 💰 Order value is NGN ${orderValue}`);
 
     // 6. Calculate rewards
