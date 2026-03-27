@@ -17,7 +17,7 @@ const AddProduct = lazy(() => import('../Pages/ProductsPage/AddProductPage'));
 const EditProduct = lazy(() => import('../Pages/ProductsPage/EditProductPage'));
 //const Drafts = lazy(() => import('../Pages/ProductsPage/Drafts'));
 //const Blips = lazy(() => import('../Pages/ProductsPage/Blips'));
-const MarketingPage = lazy(() => import('../Pages/MarketingPage/MarketingPage'));
+const MarketingPage = lazy(() => import('../Pages/MarketingPage/MarketingPageV2'));
 const Coupons = lazy(() => import('../Pages/MarketingPage/Coupons'));
 const CouponsList = lazy(() => import('../Pages/MarketingPage/CouponsList'));
 const InboxCampaigns = lazy(() => import('../Pages/MarketingPage/InboxCampaigns'));
@@ -39,6 +39,7 @@ const SubmitLiveShow = lazy(() => import('../Pages/LiveStream/SubmitLiveShow'));
 //const SubmitLiveAuction = lazy(() => import('../Pages/LiveStream/SubmitLiveAuction'));
 const LivestreamStudio = lazy(() => import('../Pages/LiveStream/LivestreamStudio'));
 const NotificationsPage = lazy(() => import('../Pages/Notififcations/NotificationsPage'));
+const ReferralPage = lazy(() => import('../Pages/ReferralPage/ReferralPage'));
 
 export const dashboardRoutes = [
     {
@@ -90,6 +91,7 @@ export const dashboardRoutes = [
             //{ path: 'drafts', element: <Drafts /> },
             //{ path: 'blips', element: <Blips /> }, 
             { path: 'marketing', element: <MarketingPage /> },
+            { path: 'referrals', element: <ReferralPage /> },
 
             {
                 path: 'coupons',
