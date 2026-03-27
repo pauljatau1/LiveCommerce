@@ -6,6 +6,9 @@ const { sendOrderPaymentConfirmationSMS } = require('../helpers/sms.helper');
 const Product = require('../../../models/Product');
 const Buyer = require('../../../models/Buyer');
 const Seller = require('../../../models/Seller');
+const Referral = require('../../../models/Referral');
+const Order = require('../../../models/Order');
+const { agenda } = require('../../../config/agenda');
 
 // Set this to true to enable free shipping promo, false to disable
 const FREE_SHIPPING_PROMO = true;
@@ -142,6 +145,59 @@ exports.payForOrder = async (orderId, paymentDetails) => {
             await session.commitTransaction();
             session.endSession();
 
+            // Evaluate Referral Reward Eligibility right before queueing
+            let isFirstPurchase = false;
+            let isReferralRewardQualified = false;
+            let referralRewardData = null;
+            try {
+                const previousOrdersCount = await Order.countDocuments({
+                    buyer: order.buyer,
+                    paid: true,
+                    _id: { $ne: order._id }
+                });
+
+                isFirstPurchase = previousOrdersCount === 0;
+
+                if (isFirstPurchase) {
+                    const pendingReferral = await Referral.findOne({
+                        referee: order.buyer,
+                        status: 'pending',
+                        rewardIssued: false
+                    });
+
+                    if (pendingReferral && new Date() <= pendingReferral.expiresAt && !pendingReferral.flaggedForReview) {
+                        isReferralRewardQualified = true;
+                        
+                        try {
+                            const buyer = await Buyer.findById(order.buyer).select('referralCode');
+                            referralRewardData = {
+                                rewardAmount: 500, // Flat referee welcome reward
+                                referrerCode: pendingReferral.referralCode,
+                                refereeCode: buyer ? buyer.referralCode : null
+                            };
+                        } catch (err) {
+                            console.error('Error fetching buyer for referral codes in payment:', err);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error evaluating referral flags during payment:', err);
+            }
+
+            // Handle referral reward processing
+            try {
+                if (agenda && isReferralRewardQualified) {
+                    const extractedBuyerId = order.buyer._id ? order.buyer._id.toString() : order.buyer.toString();
+                    await agenda.now('process-referral-reward', {
+                        orderId: order._id.toString(),
+                        buyerId: extractedBuyerId,
+                    });
+                    console.log(`Queued referral reward check for order ${order.order_id} via direct /pay endpoint`);
+                }
+            } catch (err) {
+                console.error('Error queueing referral reward check in payment.service:', err);
+            }
+
             // Send notifications
             let smsStatus = { buyerSMS: { success: false }, sellerSMS: { success: false } };
             try {
@@ -174,6 +230,9 @@ exports.payForOrder = async (orderId, paymentDetails) => {
                 order_id: order.order_id,
                 status: order.status,
                 paid: order.paid,
+                isFirstPurchase: isFirstPurchase,
+                isReferralRewardQualified: isReferralRewardQualified,
+                referralRewardData: referralRewardData,
                 smsStatus: smsStatus
             };
         } else {

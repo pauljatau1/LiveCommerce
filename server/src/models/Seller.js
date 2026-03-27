@@ -358,6 +358,41 @@ const sellerSchema = new mongoose.Schema({
     }
   },
   offersStorePickup: { type: Boolean, default: false },
+  referralCode: {
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true,
+  },
+  referralStats: {
+    totalReferred:      { type: Number, default: 0 },
+    completedReferrals: { type: Number, default: 0 },
+    totalGMV:           { type: Number, default: 0 },
+    totalEarned:        { type: Number, default: 0 }, // Analytics only
+  },
+  referralMilestone: {
+    type: String,
+    enum: ['none', 'starter', 'builder', 'champion'],
+    default: 'none',
+  },
+  deviceId: {
+    type: String,
+    default: null,
+  }
+});
+
+function generateReferralCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 8 }, () =>
+    chars[Math.floor(Math.random() * chars.length)]
+  ).join('');
+}
+
+sellerSchema.pre('save', function (next) {
+  if (!this.referralCode) {
+    this.referralCode = generateReferralCode();
+  }
+  next();
 });
 
 // Middleware to update isNew property after 3 days

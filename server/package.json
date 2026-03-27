@@ -4,13 +4,13 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "start": "node server.js",
+        "start": "node scripts/migrate-referral-codes.js && node server.js",
         "test": "jest --forceExit",
         "test:ci": "jest --forceExit --ci",
         "test:debug": "node --trace-warnings node_modules/.bin/jest --forceExit",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage --forceExit",
-        "dev": "nodemon server.js",
+        "dev": "node scripts/migrate-referral-codes.js && nodemon server.js",
         "migrate:up": "migrate-mongo up",
         "migrate:down": "migrate-mongo down",
         "migrate:create": "migrate-mongo create"
