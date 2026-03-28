@@ -1,5 +1,5 @@
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useOutletContext, useNavigate, useLocation } from "react-router-dom";
 import { OutletContextType } from "@/types";
 import { useState, useEffect } from 'react'
 import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
@@ -15,8 +15,10 @@ import CreateBlipModal from "@/Components/ui/ProductPageUi/CreateBlipModal";
 export default function ProductsPageV2() {
   const { setHeaderName, setNavName } = useOutletContext<OutletContextType>()
   const navigate = useNavigate();
+  const location = useLocation();
   const { isDesktop } = useDevice();
-  const [activeTab, setActiveTab] = useState('products');
+  const initialTab = (location.state as { initialTab?: string } | null)?.initialTab;
+  const [activeTab, setActiveTab] = useState(initialTab === 'product-blips' ? 'product-blips' : 'products');
   const [isCreateBlipModalOpen, setIsCreateBlipModalOpen] = useState(false);
 
   useIntercomVisibility(true);
