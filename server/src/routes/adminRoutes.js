@@ -120,6 +120,22 @@ router.get('/sellers', authMiddleware.verifyToken, adminController.getAllSellers
 
 /**
  * @swagger
+ * /api/admin/sellers/export:
+ *   get:
+ *     summary: Export all sellers (basic information)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Sellers export data retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/sellers/export', authMiddleware.verifyToken, adminController.exportSellers);
+
+/**
+ * @swagger
  * /api/admin/sellers/{sellerId}/disable:
  *   put:
  *     summary: Disable a seller
