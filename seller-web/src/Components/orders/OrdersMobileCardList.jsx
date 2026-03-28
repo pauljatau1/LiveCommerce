@@ -138,7 +138,7 @@ export default function OrdersMobileCardList({ orders }) {
                   </div>
                 </div>
 
-                <Link to={`/dashboard/order/${order._id}`} className="block w-full">
+                <Link to={`/dashboard/orders/order/${order._id}`} className="block w-full">
                   <Button variant="secondary" className="bg-green-600 text-white hover:bg-green-700 w-full text-xs py-1">
                     View Order Details
                   </Button>
