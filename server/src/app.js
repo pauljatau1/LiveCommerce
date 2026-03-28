@@ -269,6 +269,13 @@ app.get('/health', (req, res) => {
   }
 });
 
+
+
+
+// Referral routes
+const buyerReferralRoutes = require('./modules/referral/routes/buyer.referral.routes');
+const sellerReferralRoutes = require('./modules/referral/routes/seller.referral.routes');
+
 // Use routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/buyer', buyerRoutes);
@@ -302,6 +309,10 @@ app.use('/api/v2/admin', adminRoutesV2);
 app.use('/api/v2/sellers', sellerRoutesV2);
 app.use('/api/v2/blips', blipsRoutesV2);
 app.use('/api/v2/products', productRoutesV2);
+
+// Mount referral routes
+app.use('/api/v2/buyers/referral', buyerReferralRoutes);
+app.use('/api/v2/sellers/referral', sellerReferralRoutes);
 
 // Swagger documentation route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));

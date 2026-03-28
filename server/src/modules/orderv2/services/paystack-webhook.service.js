@@ -158,4 +158,15 @@ async function processOrderAsPaid(order, paymentData) {
   }
 
   await order.save();
+
+  // Handle referral reward processing (deferred to background job so it doesn't block webhook)
+  try {
+    await agenda.now('process-referral-reward', {
+      orderId: order._id.toString(),
+      buyerId: order.buyer.toString(),
+    });
+    console.log(`Queued referral reward check for order ${order.order_id}`);
+  } catch (err) {
+    console.error('Error queueing referral reward check:', err);
+  }
 }
