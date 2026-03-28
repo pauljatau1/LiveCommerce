@@ -111,6 +111,7 @@ const Buyer = require('../../../models/Buyer');
  * // Returns: { user: { firstName: 'Jane', lastName: 'Doe', ... }, token: 'jwt_token_here' }
  */
 async function register(data) {
+  const mongoose = require('mongoose');
   // Step 1: Validate registration data using the validator
   // This ensures all required fields are present and valid
   await buyerValidator.validateRegisterData(data);
@@ -143,6 +144,20 @@ async function register(data) {
   const userResponse = newBuyer.toObject ? newBuyer.toObject() : { ...newBuyer };
   delete userResponse.password;
   delete userResponse.otp;
+
+  // Step 7: Handle Referral Attribution (non-blocking)
+  const { attributeReferral } = require('../../referral/services/referral.service');
+  
+  if (data.deviceId) {
+    await mongoose.model('Buyer').updateOne({ _id: newBuyer._id }, { deviceId: data.deviceId });
+  }
+
+  attributeReferral({
+    newBuyerId:   newBuyer._id,
+    referralCode: data.referralCode || null,
+    deviceId:     data.deviceId || null,
+  }).catch(() => {});
+
   return { user: userResponse, token: token };
 }
 

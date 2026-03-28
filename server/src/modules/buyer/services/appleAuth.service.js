@@ -264,13 +264,16 @@ function normalizeExpoPushToken(token) {
  *
  * @param {Object} payload - Verified Apple token payload
  * @param {string} [expoPushToken] - Optional Expo push token for notifications
+ * @param {string} [referralCode] - Optional referral code
+ * @param {string} [deviceId] - Optional device id
  * @param {string} [firstName] - First name (only on first sign-in)
  * @param {string} [lastName] - Last name (only on first sign-in)
  * @param {string} [email] - Email (only on first sign-in, may be private relay email)
  * @returns {Promise<Object>} The buyer object (existing or newly created)
  * @throws {ValidationError} If account linking conflicts occur
  */
-async function findOrCreateBuyer(payload, expoPushToken, firstName, lastName, email) {
+async function findOrCreateBuyer(payload, expoPushToken, referralCode, deviceId, firstName, lastName, email) {
+    const mongoose = require('mongoose');
     const appleId = payload.sub;
     const tokenEmail = payload.email; // May be present in token
     const userEmail = email || tokenEmail; // Prefer explicitly passed email
@@ -391,6 +394,19 @@ async function findOrCreateBuyer(payload, expoPushToken, firstName, lastName, em
             }
         }
 
+        // Handle Referral Attribution (non-blocking)
+        const { attributeReferral } = require('../../referral/services/referral.service');
+        
+        if (deviceId) {
+            await mongoose.model('Buyer').updateOne({ _id: savedBuyer._id }, { deviceId: deviceId });
+        }
+
+        attributeReferral({
+            newBuyerId:   savedBuyer._id,
+            referralCode: referralCode || null,
+            deviceId:     deviceId || null,
+        }).catch(() => {});
+
         console.log(`New Apple OAuth buyer account created: ${finalEmail}`);
         return savedBuyer;
 
@@ -442,6 +458,8 @@ async function findOrCreateBuyer(payload, expoPushToken, firstName, lastName, em
  * @param {string} [data.email] - User's email (only on first sign-in)
  * @param {boolean} [data.fromDev] - Whether from dev environment
  * @param {string} [data.expoPushToken] - Optional Expo push token
+ * @param {string} [data.referralCode] - Optional referral code
+ * @param {string} [data.deviceId] - Optional device id
  * @returns {Promise<Object>} Authenticated user data and JWT token
  * @throws {ValidationError} If token verification fails or validation errors occur
  */
@@ -469,6 +487,8 @@ async function authenticateWithApple(data) {
     const buyer = await findOrCreateBuyer(
         payload,
         data.expoPushToken,
+        data.referralCode,
+        data.deviceId,
         data.firstName,
         data.lastName,
         data.email
