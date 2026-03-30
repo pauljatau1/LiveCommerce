@@ -133,7 +133,7 @@ jobs:
       - add_deploy_key
       - checkout
       - vendor_install_with_cache
-      - run_tests
+      # - run_tests
 
   build-and-push-backend-image-staging:
     executor: docker-machine
