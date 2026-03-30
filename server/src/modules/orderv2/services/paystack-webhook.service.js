@@ -12,6 +12,10 @@ const Seller = require('../../../models/Seller');
 const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || require('../../../config/paystack');
 
 exports.handlePaystackWebhook = async (req) => {
+
+  // temporarily disable paystack webhook
+  return { status: 200, data: { message: 'Webhook received' } };
+
   // Verify the event is from Paystack
   const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET_KEY || paystackSecretKey)
     .update(JSON.stringify(req.body))

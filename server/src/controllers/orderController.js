@@ -25,6 +25,7 @@ const crypto = require('crypto');
 const notificationController = require('../controllers/notificationController');
 const mixpanel = require('../config/mixpanel');
 const { trackPurchase } = require('../controllers/campaignController');
+const { cancelOrderByBuyer } = require('../modules/orderv2/services/cancel-order-by-buyer.service');
 
 // Initialize Paystack
 const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || "sk_test_REDACTED";
@@ -3377,6 +3378,9 @@ exports.cancelShipment = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { reason } = req.body || {};
+    const userId = req.user.id;
+
+    return cancelOrderByBuyer(orderId, userId, reason);
 
     // Find order and check permissions
     const order = await Order.findById(orderId)
