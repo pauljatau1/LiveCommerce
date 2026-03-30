@@ -3380,6 +3380,7 @@ exports.cancelShipment = async (req, res) => {
     const { reason } = req.body || {};
     const userId = req.user.id;
 
+    //use cancel order service
     return cancelOrderByBuyer(orderId, userId, reason);
 
     // Find order and check permissions
