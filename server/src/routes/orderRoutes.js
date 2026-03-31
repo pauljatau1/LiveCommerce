@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const orderController = require('../controllers/orderController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const { cancelOrderByBuyer } = require('../modules/orderv2/controllers/order.controller');
 
 // First, add a special middleware for the order/:orderId route
 // to handle refund-requests and other special routes
@@ -1370,7 +1371,7 @@ router.put('/:orderId/open-status',
  */
 router.post('/:orderId/cancel-shipment', 
   authMiddleware.verifyToken, 
-  orderController.cancelShipment
+  cancelOrderByBuyer
 );
 
 /**
