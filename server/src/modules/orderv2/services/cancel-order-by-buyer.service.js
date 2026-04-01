@@ -55,7 +55,7 @@ exports.cancelOrderByBuyer = async (orderId, buyerId, reason) => {
     session.endSession();
 
     // Send email notifications
-    await sendCancellationEmails(order, reason, walletRefundResult);
+    sendCancellationEmails(order, reason, walletRefundResult);
 
     // Send SMS notifications to buyer and seller (non-blocking)
     // This will not affect order processing if SMS sending fails
@@ -64,7 +64,7 @@ exports.cancelOrderByBuyer = async (orderId, buyerId, reason) => {
       const buyer = await Buyer.findById(order.buyer).select('phoneNumber firstName lastName');
       const seller = await Seller.findById(order.seller).select('phoneNumber firstName lastName businessName storeName');
       const hasRefund = order.paid || (order.paymentInfo && order.paymentInfo.method === 'wallet');
-      await sendOrderCancellationSMS(order, reason, hasRefund, buyer, seller);
+      sendOrderCancellationSMS(order, reason, hasRefund, buyer, seller);
     } catch (smsError) {
       // Log error but don't throw - SMS failures should not affect order processing
       console.error(`Error sending SMS notifications for cancelled order ${order.order_id}:`, smsError);
