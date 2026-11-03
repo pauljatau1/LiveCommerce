@@ -1,0 +1,336 @@
+version: 2.1
+parameters:
+  working_dir:
+    type: string
+    default: "/tmp/project"
+  build_path:
+    type: string
+    default: "dist"
+  docker_base_image_version:
+    type: string
+    default: "node:20.19.1"
+  docker_job_image:
+    type: string
+    default: "cimg/python:3.9.1"
+
+executors:
+  docker-machine:
+    working_directory: << pipeline.parameters.working_dir >>
+    machine:
+      image: "ubuntu-2004:2024.05.1"
+      docker_layer_caching: true
+  build:
+    working_directory: << pipeline.parameters.working_dir >>
+    docker:
+      - image: << pipeline.parameters.docker_base_image_version >>
+    resource_class: "medium"
+
+orbs:
+  aws-ecr: circleci/aws-ecr@9.3.4
+  aws-ecs: circleci/aws-ecs@2.2.1
+  aws-cli: circleci/aws-cli@5.1.1
+
+commands:
+  login_with_web_identity:
+    description: Login using AWS IAM Identity provider via CircleCI OIDC
+    parameters:
+      account_id:
+        type: string
+        default: "298884149618"
+    steps:
+      - run:
+          name: Login web identity
+          command: |
+            if ! dpkg -s jq &>/dev/null; then
+              if [[ $(whoami) == "root" ]]; then
+                apt-get update && apt-get install jq -y
+              else
+                sudo apt-get update && sudo apt-get install jq -y
+              fi
+            fi
+            AWS_STS_CREDENTIALS=$(aws sts assume-role-with-web-identity \
+                  --duration-seconds 3600 \
+                  --output "json" \
+                  --query "Credentials" \
+                  --role-arn "arn:aws:iam::<< parameters.account_id >>:role/auqli-inc-oidc-role" \
+                  --role-session-name "<< parameters.account_id >>-oidc-credentials" \
+                  --web-identity-token "${CIRCLE_OIDC_TOKEN}")
+            export AWS_ACCESS_KEY_ID=$(echo $AWS_STS_CREDENTIALS | jq .AccessKeyId | xargs)
+            export AWS_SECRET_ACCESS_KEY=$(echo $AWS_STS_CREDENTIALS | jq .SecretAccessKey | xargs)
+            export AWS_SESSION_TOKEN=$(echo $AWS_STS_CREDENTIALS | jq .SessionToken | xargs)
+
+            echo "export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> "$BASH_ENV"
+            echo "export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> "$BASH_ENV"
+            echo "export AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> "$BASH_ENV"
+            source "$BASH_ENV"
+  vendor_install_with_cache:
+    description: Install npm vendor dependencies
+    parameters:
+      save_cache:
+        type: boolean
+        default: true
+    steps:
+      - restore_cache:
+          name: Restore existing vendor cache
+          key: v1-seller-{{ .Environment.CIRCLE_WORKFLOW_ID }}
+      - run:
+          name: Install dependencies
+          command: |
+            npm install
+            npm run build
+          environment:
+            VITE_RELEASE_HASH: $CIRCLE_SHA1
+      - store_artifacts:
+          path: package-lock.json
+      - when:
+          condition: << parameters.save_cache >>
+          steps:
+            save_cache:
+              name: Save vendor cache
+              key: v1-seller-{{ .Environment.CIRCLE_WORKFLOW_ID }}
+              paths:
+                - << pipeline.parameters.build_path >>
+  vendor_restore_cache:
+    description: Restore vendor cache
+    steps:
+      - restore_cache:
+          name: Restore vendor cache
+          keys:
+            - v1-seller-{{ .Environment.CIRCLE_WORKFLOW_ID }}
+  build_backend_image:
+    description: Build backend image (nodejs)
+    parameters:
+      account_id:
+        type: string
+        default: "298884149618"
+    steps:
+      - login_with_web_identity:
+          account_id: << parameters.account_id >>
+      - aws-ecr/build_and_push_image:
+          container_registry_login: false
+          auth:
+            - run:
+                name: Login to ECR
+                command: aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin << parameters.account_id >>.dkr.ecr.eu-central-1.amazonaws.com
+          checkout: true
+          account_id: << parameters.account_id >>
+          repo: auqli_seller
+          region: eu-central-1
+          tag: 'latest,$CIRCLE_SHA1'
+          extra_build_args: >
+            --build-arg ACCOUNT_ID=<< parameters.account_id >>
+  add_deploy_key:
+    description: Add circleci ssh key
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "d2:7f:c2:33:48:9f:84:c4:3a:8e:52:09:e9:5e:0e:9a"
+  invalidate_cache_staging:
+    description: Install aws-cli
+    steps:
+      - aws-cli/install
+      - login_with_web_identity:
+          account_id: "298884149618"
+      - run:
+         name: Invalidate CDN cache
+         command: aws cloudfront create-invalidation --distribution-id E2A1RA51EP2VY4 --paths "/index.html"
+  invalidate_cache_production:
+    description: Install aws-cli
+    steps:
+      - aws-cli/install
+      - login_with_web_identity:
+          account_id: "090877363449"
+      - run:
+         name: Invalidate CDN cache
+         command: aws cloudfront create-invalidation --distribution-id E1UAP4XRDDBXUX --paths "/index.html"
+  deploy_to_s3_staging:
+    description: Install aws-cli
+    steps:
+      - aws-cli/install
+      - login_with_web_identity:
+          account_id: "298884149618"
+      - run:
+         name: Deploy new code
+         command: |
+           aws s3 sync dist/ s3://seller-wsrodxnwdcwytxfzvqfuxmqntrnwqccd --delete
+           aws s3 sync public/ s3://seller-wsrodxnwdcwytxfzvqfuxmqntrnwqccd
+  deploy_to_s3_production:
+    description: Install aws-cli
+    steps:
+      - aws-cli/install
+      - login_with_web_identity:
+          account_id: "090877363449"
+      - run:
+         name: Deploy new code
+         command: |
+           aws s3 sync dist/ s3://seller-whcwxwprdjwgbhuswvmzvtdfgakeriuj --delete
+           aws s3 sync public/ s3://seller-whcwxwprdjwgbhuswvmzvtdfgakeriuj
+  quality_gate_command:
+    description: Quality gate
+    steps:
+      - run: 
+          name: Install dependencies
+          command: npm install eslint prettier 
+      - run:
+         name: Run eslint
+         command: npx eslint -f html . -o report.html || true
+      - store_artifacts:
+          path: report.html
+      - run:
+         name: Run prettier
+         command: npx prettier . --check || true
+
+jobs:
+  build:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - vendor_install_with_cache
+
+  remove_cache_production:
+    executor: build
+    steps:
+      - invalidate_cache_production
+
+  remove_cache_staging:
+    executor: build
+    steps:
+      - invalidate_cache_staging
+
+  build-and-push-backend-image-staging:
+    executor: docker-machine
+    steps:
+      - add_deploy_key
+      - checkout
+      - vendor_restore_cache
+      - build_backend_image:
+          account_id: "298884149618"
+
+  build-and-push-backend-image-production:
+    executor: docker-machine
+    steps:
+      - add_deploy_key
+      - checkout
+      - vendor_restore_cache
+      - build_backend_image:
+          account_id: "090877363449"
+
+  deploy_to_staging:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - vendor_restore_cache
+      - deploy_to_s3_staging
+
+  deploy_to_production:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - vendor_restore_cache
+      - deploy_to_s3_production
+
+  quality_gate:
+    executor: build
+    steps:
+      - checkout
+      - vendor_install_with_cache:
+          save_cache: false
+      - quality_gate_command
+
+
+workflows:
+  build-test-and-approval-deploy:
+    jobs:
+      - build:
+          name: build_staging
+          context:
+            - auqli_seller_staging_context
+          filters:
+            branches:
+              ignore:
+                - main
+
+      - quality_gate:
+          name: quality_gate
+          context:
+            - auqli_seller_staging_context
+          filters:
+            branches:
+              ignore:
+                - main
+
+      - approve-staging-backend-deploy:
+          type: approval
+          requires:
+            - build_staging
+          filters:
+            branches:
+              ignore:
+                - main
+
+      - deploy_to_staging:
+          name: deploy-to-staging-backend
+          context:
+            - foundations_auqli_staging
+          requires:
+            - approve-staging-backend-deploy
+          filters:
+            branches:
+              ignore:
+                - main
+
+      - remove_cache_staging:
+          requires:
+            - deploy-to-staging-backend
+          filters:
+            branches:
+              ignore:
+                - main
+
+      - build:
+          name: build_production
+          context:
+            - auqli_seller_production_context
+          filters:
+            branches:
+              only:
+                - main
+            tags:
+              only: .*
+
+      - approve-production-backend-deploy:
+          type: approval
+          requires:
+            - build_production
+          filters:
+            branches:
+              only:
+                - main
+            tags:
+              only: .*
+
+      - deploy_to_production:
+          name: deploy-to-production-backend
+          context:
+            - auqli_seller_production_context
+          requires:
+            - approve-production-backend-deploy
+          filters:
+            branches:
+              only:
+                - main
+            tags:
+              only: .*
+
+      - remove_cache_production:
+          requires:
+            - deploy-to-production-backend
+          filters:
+            branches:
+              only:
+                - main
+            tags:
+              only: .*

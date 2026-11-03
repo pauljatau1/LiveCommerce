@@ -1,0 +1,2709 @@
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
+import { Card } from "@/Components/ui/card";
+import { Button } from "@/Components/ui/button";
+import { Input } from "@/Components/ui/form/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
+import { ScrollArea } from "@/Components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar";
+import { Menu } from 'lucide-react';
+import {
+  PaperclipIcon,
+  SmileIcon,
+  SendHorizontal,
+  MessageSquare,
+  Check,
+  CheckCheck,
+  Eye,
+  MessageSquarePlus,
+  Search,
+  MoreVertical,
+  ArrowLeft,
+  X,
+  MapPin,
+  Star,
+  ShoppingBag,
+  Banknote,
+  Loader2,
+  RefreshCw,
+  Package
+} from 'lucide-react';
+import { BASE_URL, BASE_URL_V2 } from "@/Constants/Server";
+import { io } from "socket.io-client";
+import { useLivestreamSocket } from "@/Contexts/LivestreamSocketContext";
+import { useNavigate, useLocation, useOutletContext } from 'react-router-dom';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/Components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/Components/ui/drawer";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/Components/ui/select";
+import { useIntercomVisibility } from '../../Hooks/useIntercomVisibility';
+import { useAuthContext } from "@/Hooks/useAuthContextV2";
+import { useNotification } from '@/Hooks/useNotification';
+
+// Lazy load EmojiPicker to reduce initial bundle size
+const EmojiPicker = lazy(() => 
+  import("@/Components/ui/emoji-picker").then(module => ({ 
+    default: module.EmojiPicker 
+  }))
+);
+
+
+// Helper function to format message timestamps
+const formatMessageTime = (timestamp) => {
+  if (!timestamp) return '';
+
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffInHours = (now - date) / (1000 * 60 * 60);
+
+  // If message is from today, show time
+  if (diffInHours < 24) {
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  // If message is from yesterday, show "Yesterday"
+  if (diffInHours < 48) {
+    return 'Yesterday';
+  }
+
+  // If message is from this week, show day name
+  if (diffInHours < 168) {
+    return date.toLocaleDateString([], {
+      weekday: 'long'
+    });
+  }
+
+  // Otherwise show full date
+  return date.toLocaleDateString([], {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+};
+
+// Move QuickReplyDialog outside of ChatInterface
+const QuickReplyDialog = ({
+  open,
+  onOpenChange,
+  title,
+  setTitle,
+  content,
+  setContent,
+  onCreateReply,
+}) => (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="sm:max-w-[425px]">
+      <DialogHeader>
+        <DialogTitle>Create Quick Reply</DialogTitle>
+      </DialogHeader>
+      <div className="grid gap-4 py-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Title</label>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="E.g., Greeting, Thank you, etc."
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Message Content</label>
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Type your message template..."
+            className="w-full min-h-[100px] p-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500/20"
+          />
+        </div>
+      </div>
+      <div className="flex justify-end gap-3">
+        <Button
+          variant="outline"
+          onClick={() => {
+            onOpenChange(false);
+            setTitle("");
+            setContent("");
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={onCreateReply}
+          className="bg-green-600 text-white hover:bg-green-700"
+          disabled={!title.trim() || !content.trim()}
+        >
+          Create Reply
+        </Button>
+      </div>
+    </DialogContent>
+  </Dialog>
+);
+
+const OrderMessage = ({ order }) => {
+  const formatCurrency = (amount) => {
+    return amount ? amount.toLocaleString('en-NG', {
+      style: 'currency',
+      currency: 'NGN'
+    }) : '₦0';
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'processing': return 'bg-blue-100 text-blue-800';
+      case 'shipped': return 'bg-purple-100 text-purple-800';
+      case 'delivered': return 'bg-green-100 text-green-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg p-3 mb-2 shadow-sm">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-sm font-medium">Order #{order.id}</h4>
+        <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(order.status)}`}>
+          {order.status}
+        </span>
+      </div>
+      <div className="space-y-2">
+        {order.items.map((item, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <img src={item.image} alt={item.name} className="w-10 h-10 object-cover rounded" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">{item.name}</p>
+              <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+            </div>
+            <p className="text-sm font-medium">{formatCurrency(item.price)}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 pt-2 border-t">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-500">Total</span>
+          <span className="font-medium">{formatCurrency(order.totalAmount)}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Add CampaignMessage component
+const CampaignMessage = ({ campaign }) => {
+  return (
+    <div className="bg-white rounded-lg p-3 mb-2 shadow-sm">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-sm font-semibold text-green-700">{campaign.title}</h4>
+        <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">
+          Campaign
+        </span>
+      </div>
+      
+      <p className="text-sm text-gray-600 mb-3">{campaign.message}</p>
+      
+      {campaign.media && campaign.media.length > 0 && (
+        <div className="mb-3">
+          {campaign.media.map((media, index) => (
+            media.type === 'image' ? (
+              <img
+                key={index}
+                src={media.url}
+                alt="Campaign media"
+                className="w-full h-32 object-cover rounded-lg"
+              />
+            ) : (
+              <video
+                key={index}
+                src={media.url}
+                className="w-full rounded-lg"
+                controls
+              />
+            )
+          ))}
+        </div>
+      )}
+      
+      {campaign.products && campaign.products.length > 0 && (
+        <div className="space-y-2">
+          <h5 className="text-xs font-medium text-gray-500 mb-2">Featured Products</h5>
+          <div className="grid grid-cols-2 gap-2">
+            {campaign.products.map((product, index) => (
+              <div key={index} className="bg-gray-50 rounded-lg p-2">
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="w-full h-20 object-cover rounded-md mb-2"
+                />
+                <h6 className="text-xs font-medium truncate">{product.name}</h6>
+                <p className="text-xs text-green-600">₦{product.price.toLocaleString()}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {campaign.scheduledFor && (
+        <div className="mt-2 pt-2 border-t">
+          <p className="text-xs text-gray-500">
+            Scheduled for: {new Date(campaign.scheduledFor).toLocaleString()}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default function ChatInterface() {
+  const { setHeaderName, setNavName } = useOutletContext()
+  const { showNotification } = useNotification();
+  const { token } = useAuthContext();
+  const [conversations, setConversations] = useState([]);
+  const [currentConversation, setCurrentConversation] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [messageInput, setMessageInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sellerProducts, setSellerProducts] = useState([]);
+  const [sellerId, setSellerId] = useState(null);
+  const [isSending, setIsSending] = useState(false);
+  const messagesEndRef = useRef(null);
+  const { socket } = useLivestreamSocket();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [customers, setCustomers] = useState([]);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [newMessageOpen, setNewMessageOpen] = useState(false);
+  const [initialMessage, setInitialMessage] = useState("");
+  const [showChatList, setShowChatList] = useState(true);
+  const [showQuickTools, setShowQuickTools] = useState(false);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [buyerDetails, setBuyerDetails] = useState(null);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const messagesContainerRef = useRef(null);
+  const [quickReplies, setQuickReplies] = useState([]);
+  const [newQuickReplyOpen, setNewQuickReplyOpen] = useState(false);
+  const [quickReplyTitle, setQuickReplyTitle] = useState("");
+  const [quickReplyContent, setQuickReplyContent] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+  
+  // Add product list state
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [productPagination, setProductPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalProducts: 0
+  });
+  const [productParams, setProductParams] = useState({
+    page: 1,
+    limit: 8,
+    search: ""
+  });
+  const [hasMoreProducts, setHasMoreProducts] = useState(true);
+  const [loadingMoreProducts, setLoadingMoreProducts] = useState(false);
+  const [isProductDrawerOpen, setIsProductDrawerOpen] = useState(false);
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
+  const [showTypingIndicator, setShowTypingIndicator] = useState(false);
+  
+  // Add state to track messages by conversation ID for persistence
+  const [messagesByConversation, setMessagesByConversation] = useState({});
+
+    // Hide the Intercom launcher for this component - high priority
+  // This should run before any other effects
+  useIntercomVisibility(true);
+
+  useEffect(() => {
+    setHeaderName('Messages')
+    setNavName('')
+  }, [])
+
+  // Fetch seller profile and products with pagination support
+  useEffect(() => {
+    const fetchSellerProfile = async () => {
+      try {
+        const sellerToken = token?.data;
+        const response = await fetch(`${BASE_URL_V2}/sellers/profile`, {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        });
+        const profileData = await response.json();
+        setSellerId(profileData.data._id);
+
+        // Fetch products once we have the seller ID
+        fetchSellerProductsWithParams(profileData.data._id);
+      } catch (error) {
+        console.error('Error fetching seller profile:', error);
+        showNotification('Failed to load seller profile', 'error', 'dismissible');
+      }
+    };
+    fetchSellerProfile();
+  }, []);
+
+  // Separate function to fetch products with pagination
+  const fetchSellerProductsWithParams = async (sellerId, params = productParams, append = false) => {
+    if (append) {
+      setLoadingMoreProducts(true);
+    } else {
+      setIsLoadingProducts(true);
+    }
+    
+    try {
+      const queryParams = new URLSearchParams({
+        page: params.page,
+        limit: params.limit,
+        ...(params.search && { search: params.search })
+      });
+      
+      const response = await fetch(`${BASE_URL}/products/seller/${sellerId}?${queryParams}`);
+      const data = await response.json();
+      
+      if (append) {
+        // Append new products to existing ones
+        setSellerProducts(prev => [...prev, ...data.products]);
+      } else {
+        // Replace products
+        setSellerProducts(data.products);
+      }
+      
+      setProductPagination({
+        currentPage: data.currentPage,
+        totalPages: data.totalPages,
+        totalProducts: data.totalProducts
+      });
+      
+      // Check if there are more products to load
+      setHasMoreProducts(data.currentPage < data.totalPages);
+      
+      // Update the page in productParams to reflect the current page
+      setProductParams(prev => ({
+        ...prev,
+        page: data.currentPage
+      }));
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      showNotification('Failed to load products', 'error', 'dismissible');
+    } finally {
+      if (append) {
+        setLoadingMoreProducts(false);
+      } else {
+        setIsLoadingProducts(false);
+      }
+    }
+  };
+
+  // Load more products - Fixed to properly increment page
+  const handleLoadMoreProducts = () => {
+    if (loadingMoreProducts || !hasMoreProducts) return;
+    
+    // Calculate next page based on current state
+    const nextPage = productParams.page + 1;
+    
+    // Create new params with next page
+    const newParams = {
+      ...productParams,
+      page: nextPage
+    };
+    
+    // Log for debugging
+    console.log('Loading more products, page:', nextPage);
+    
+    // Fetch more products and append them
+    fetchSellerProductsWithParams(sellerId, newParams, true);
+  };
+
+  // Handle product search
+  const handleProductSearch = (e) => {
+    e.preventDefault();
+    if (!productSearchQuery.trim()) {
+      return;
+    }
+    
+    setIsLoadingProducts(true);
+    
+    // Use the dedicated search endpoint
+    searchSellerProducts(productSearchQuery);
+  };
+
+  // Clear product search
+  const handleClearProductSearch = () => {
+    setProductSearchQuery("");
+    
+    // Reset to regular product fetching when clearing search
+    const newParams = {
+      ...productParams,
+      page: 1,
+      search: ""
+    };
+    
+    setProductParams(newParams);
+    fetchSellerProductsWithParams(sellerId, newParams, false);
+  };
+
+  // New dedicated function for product search using the correct endpoint
+  const searchSellerProducts = async (query) => {
+    if (!sellerId) return;
+    
+    setIsLoadingProducts(true);
+    
+    try {
+      // Use the correct search endpoint with the query parameter
+      const queryParams = new URLSearchParams({
+        query: query,
+        page: 1,
+        limit: productParams.limit
+      });
+      
+      console.log('Searching products with query:', query);
+      
+      const response = await fetch(`${BASE_URL}/products/seller/${sellerId}/search?${queryParams}`);
+      const data = await response.json();
+      
+      // The response structure might be different for the search endpoint
+      if (data.data && Array.isArray(data.data)) {
+        setSellerProducts(data.data);
+        
+        if (data.pagination) {
+          setProductPagination({
+            currentPage: data.pagination.currentPage,
+            totalPages: data.pagination.totalPages,
+            totalProducts: data.pagination.totalProducts
+          });
+          
+          setHasMoreProducts(data.pagination.hasMore || data.pagination.currentPage < data.pagination.totalPages);
+        }
+      } else {
+        console.error('Unexpected search response format:', data);
+        showNotification('Error in search response format', 'error', 'dismissible');
+      }
+    } catch (error) {
+      console.error('Error searching products:', error);
+      showNotification('Failed to search products', 'error', 'dismissible');
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
+  
+  // Load more products after search
+  const handleLoadMoreProductsAfterSearch = () => {
+    if (loadingMoreProducts || !hasMoreProducts) return;
+    
+    // If we're in search mode and have a query
+    if (productSearchQuery.trim()) {
+      setLoadingMoreProducts(true);
+      
+      const nextPage = productPagination.currentPage + 1;
+      
+      // Use the search endpoint with the next page
+      const queryParams = new URLSearchParams({
+        query: productSearchQuery,
+        page: nextPage,
+        limit: productParams.limit
+      });
+      
+      console.log('Loading more search results, page:', nextPage);
+      
+      fetch(`${BASE_URL}/products/seller/${sellerId}/search?${queryParams}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.data && Array.isArray(data.data)) {
+            // Append new search results
+            setSellerProducts(prev => [...prev, ...data.data]);
+            
+            if (data.pagination) {
+              setProductPagination({
+                currentPage: data.pagination.currentPage,
+                totalPages: data.pagination.totalPages,
+                totalProducts: data.pagination.totalProducts
+              });
+              
+              setHasMoreProducts(data.pagination.hasMore || data.pagination.currentPage < data.pagination.totalPages);
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Error loading more search results:', error);
+          showNotification('Failed to load more search results', 'error', 'dismissible');
+        })
+        .finally(() => {
+          setLoadingMoreProducts(false);
+        });
+    } else {
+      // Regular load more for non-search mode
+      handleLoadMoreProducts();
+    }
+  };
+
+  // Handle product pagination
+  const handleProductPageChange = (newPage) => {
+    if (newPage < 1 || newPage > productPagination.totalPages) return;
+    
+    const newParams = {
+      ...productParams,
+      page: newPage
+    };
+    setProductParams(newParams);
+    fetchSellerProductsWithParams(sellerId, newParams);
+  };
+
+  // Handle changing products per page
+  const handleProductsPerPageChange = (newLimit) => {
+    const newParams = {
+      ...productParams,
+      page: 1, // Reset to first page
+      limit: newLimit
+    };
+    setProductParams(newParams);
+    fetchSellerProductsWithParams(sellerId, newParams);
+  };
+
+  // Fetch conversations
+  useEffect(() => {
+    const fetchConversations = async () => {
+      setIsLoadingConversations(true);
+      try {
+        const sellerToken = token?.data;
+        const response = await fetch(`${BASE_URL}/conversations`, {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        });
+        const data = await response.json();
+        setConversations(data.conversations);
+      } catch (error) {
+        console.error('Error fetching conversations:', error);
+        showNotification('Failed to load conversations', 'error', 'dismissible');
+      } finally {
+        setIsLoadingConversations(false);
+      }
+    };
+    fetchConversations();
+  }, []);
+
+  // Handle location state to open chat with specific customer or specific conversation
+  useEffect(() => {
+    const handleLocationState = async () => {
+      const state = location.state;
+
+      if (!state) return;
+
+      // Open chat with a specific customer (existing behaviour)
+      if (state.openChatWithCustomer && state.customerId) {
+        const { customerId, customerName } = state;
+        
+        // Check if there's already a conversation with this customer
+        const existingConversation = conversations.find(conv => 
+          conv.participant.id === customerId
+        );
+  
+        if (existingConversation) {
+          // Open existing conversation
+          setCurrentConversation(existingConversation);
+          setShowChatList(false); // Hide chat list on mobile
+          
+          // Don't mark as loaded - let the normal message fetching handle it
+          // This ensures messages are properly fetched when returning to the conversation
+        } else {
+          // Create new conversation without sending a default message
+          setIsCreatingConversation(true);
+          try {
+            // Create a conversation object without sending a message
+            const newConversation = {
+              _id: `temp_${Date.now()}`, // Temporary ID until we get the real one
+              participant: {
+                id: customerId,
+                name: customerName,
+                model: 'Buyer'
+              },
+              lastMessage: {
+                content: '',
+                createdAt: new Date().toISOString()
+              },
+              unreadCount: 0,
+              isNew: true // Flag to indicate this is a new conversation
+            };
+  
+            // Update conversations list and set current
+            setConversations(prev => [newConversation, ...prev]);
+            setCurrentConversation(newConversation);
+            setShowChatList(false); // Hide chat list on mobile
+            
+            showNotification('Chat opened with customer', 'information', 'dismissible');
+          } catch (error) {
+            console.error('Error opening chat:', error);
+            showNotification('Failed to open chat with customer', 'error', 'dismissible');
+          } finally {
+            setIsCreatingConversation(false);
+          }
+        }
+
+        // Clear the location state to prevent re-triggering
+        navigate('/dashboard/messages', { replace: true });
+        return;
+      }
+
+      // Open an existing conversation directly by ID (for buyer_message notifications)
+      if (state.openConversationById && state.conversationId) {
+        const targetConversationId = state.conversationId;
+
+        const existingConversation = conversations.find(conv => 
+          conv._id === targetConversationId
+        );
+
+        if (existingConversation) {
+          setCurrentConversation(existingConversation);
+          setShowChatList(false); // Hide chat list on mobile
+        } else {
+          console.warn('Conversation with ID not found:', targetConversationId);
+        }
+
+        // Clear the location state to prevent re-triggering
+        navigate('/dashboard/messages', { replace: true });
+      }
+    };
+
+    // Only run after conversations are loaded
+    if (!isLoadingConversations && conversations.length >= 0) {
+      handleLocationState();
+    }
+  }, [location.state, conversations, isLoadingConversations]);
+
+  // Add a state to track if initial messages are loaded for a conversation
+  const [initialMessagesLoaded, setInitialMessagesLoaded] = useState({});
+  
+  // Fetch messages when conversation changes
+  useEffect(() => {
+    if (!currentConversation) return;
+    console.log('Conversation changed, fetching messages');
+    
+    const conversationId = currentConversation._id;
+    
+    // Check if we have cached messages for this conversation
+    if (messagesByConversation[conversationId]) {
+      console.log('Using cached messages for conversation:', conversationId);
+      setMessages(messagesByConversation[conversationId]);
+      return;
+    }
+    
+    // Check if we already loaded messages for this conversation
+    if (initialMessagesLoaded[conversationId]) {
+      console.log('Messages already loaded for this conversation, skipping fetch');
+      return;
+    }
+    
+    // Reset pagination state when conversation changes
+    setCurrentPage(1);
+    setHasMoreMessages(true);
+    setMessages([]);
+    fetchMessages(1);
+  }, [currentConversation?._id, messagesByConversation]); // Only depend on the conversation ID, not the entire object
+
+  // Create a more robust scrollToBottom function with direct DOM manipulation
+  const scrollToBottom = (immediate = true) => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      
+      // Use a more aggressive approach with multiple checks
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 0);
+      
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 50);
+      
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 150);
+    }
+  };
+
+  // Update the fetchMessages function to handle pagination with debounce
+  const fetchMessages = async (page = 1) => {
+    if (!currentConversation) return;
+    
+    const conversationId = currentConversation._id;
+    
+    // Skip fetching if this is a temporary conversation (new conversation without messages yet)
+    if (conversationId.startsWith('temp_')) {
+      console.log('Skipping fetch for temporary conversation:', conversationId);
+      setIsLoadingMessages(false);
+      return;
+    }
+    
+    // Only show loading state for the first page AND when no messages are loaded yet
+    if (page === 1 && messages.length === 0) {
+      setIsLoadingMessages(true);
+    } else if (page > 1) {
+      setLoadingMoreMessages(true);
+    }
+    
+    console.log('Fetching messages for conversation:', conversationId, 'page:', page);
+
+    try {
+      const sellerToken = token?.data;
+      const response = await fetch(
+        `${BASE_URL}/messages/${conversationId}?page=${page}&limit=20`,
+        {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        }
+      );
+      const data = await response.json();
+      console.log('Received messages:', data.messages);
+
+      // Only update if we're still on the same conversation
+      if (currentConversation?._id === conversationId) {
+        // Keep messages in their API-returned order (newest first)
+        if (page === 1) {
+          // First page, just set the messages
+          // Prevent duplicate messages by checking IDs
+          const uniqueMessages = data.messages || [];
+          setMessages(uniqueMessages);
+          
+          // Store messages in persistent state
+          setMessagesByConversation(prev => ({
+            ...prev,
+            [conversationId]: uniqueMessages
+          }));
+          
+          // Mark this conversation as having loaded messages
+          setInitialMessagesLoaded(prev => ({
+            ...prev,
+            [conversationId]: true
+          }));
+        } else {
+          // Additional pages, append to existing messages while maintaining order (newest first)
+          // Prevent duplicate messages by checking IDs
+          setMessages(prevMessages => {
+            const existingIds = new Set(prevMessages.map(msg => msg._id));
+            const newMessages = (data.messages || []).filter(msg => !existingIds.has(msg._id));
+            const updatedMessages = [...prevMessages, ...newMessages];
+            
+            // Update persistent state
+            setMessagesByConversation(prev => ({
+              ...prev,
+              [conversationId]: updatedMessages
+            }));
+            
+            return updatedMessages;
+          });
+        }
+        
+        // Update pagination state
+        setCurrentPage(data.pagination.currentPage);
+        setTotalPages(data.pagination.totalPages);
+        setHasMoreMessages(data.pagination.hasMore);
+        
+        // If it's the first page, scroll to bottom
+        if (page === 1) {
+          setTimeout(() => scrollToBottom(true), 50);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      showNotification('Failed to load messages', 'error', 'dismissible');
+    } finally {
+      // Only update loading state if we're still on the same conversation
+      if (currentConversation?._id === conversationId) {
+        if (page === 1) {
+          setIsLoadingMessages(false);
+        } else {
+          setLoadingMoreMessages(false);
+        }
+        setInitialLoad(false);
+      }
+    }
+  };
+
+  // Add scroll handler to load more messages
+  const handleScroll = () => {
+    if (messagesContainerRef.current && !loadingMoreMessages && hasMoreMessages) {
+      const { scrollTop } = messagesContainerRef.current;
+      
+      // When user scrolls close to the top, load more messages
+      if (scrollTop < 100) {
+        const nextPage = currentPage + 1;
+        if (nextPage <= totalPages) {
+          fetchMessages(nextPage);
+        }
+      }
+    }
+  };
+
+  // Add effect to handle scroll events
+  useEffect(() => {
+    const messagesContainer = messagesContainerRef.current;
+    if (messagesContainer) {
+      messagesContainer.addEventListener('scroll', handleScroll);
+      return () => {
+        messagesContainer.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, [messagesContainerRef.current, loadingMoreMessages, hasMoreMessages, currentPage, totalPages]);
+
+  // Add an additional effect specifically for initial load
+  useEffect(() => {
+    if (!isLoadingMessages && currentConversation && messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [isLoadingMessages, currentConversation]);
+
+  // Add this effect to mark messages as read when opening a conversation
+  useEffect(() => {
+    const markConversationAsRead = async () => {
+      if (!currentConversation) return;
+
+      try {
+        const sellerToken = token?.data;
+        await fetch(`${BASE_URL}/conversations/${currentConversation._id}/read`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        });
+
+        // Update local conversations list to remove unread count
+        setConversations(prev =>
+          prev.map(conv =>
+            conv._id === currentConversation._id
+              ? { ...conv, unreadCount: 0 }
+              : conv
+          )
+        );
+      } catch (error) {
+        console.error('Error marking conversation as read:', error);
+      }
+    };
+
+    markConversationAsRead();
+  }, [currentConversation]);
+
+  // Update the socket effect to properly handle real-time messages
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('receive_message', (newMessage) => {
+      console.log('Socket: Received new message:', newMessage);
+      
+      // Handle the message object if it's wrapped
+      const messageData = newMessage.message || newMessage;
+
+      // Update messages if the message belongs to current conversation
+      if (messageData.conversation === currentConversation?._id) {
+        // Add new messages at the beginning (newest first) without triggering a full reload
+        setMessages(prev => {
+          // Check if message already exists to prevent duplicates
+          const messageExists = prev.some(msg => msg._id === messageData._id);
+          if (messageExists) {
+            return prev;
+          }
+          const updatedMessages = [messageData, ...prev];
+          
+          // Update persistent state
+          setMessagesByConversation(prevState => ({
+            ...prevState,
+            [messageData.conversation]: updatedMessages
+          }));
+          
+          return updatedMessages;
+        });
+        
+        // Force immediate scroll to bottom for new messages
+        setTimeout(() => scrollToBottom(true), 50);
+      }
+
+      // Update conversations list without triggering message reload
+      setConversations(prev =>
+        prev.map(conv => {
+          // Handle both real conversation IDs and temporary conversations
+          const isTargetConv = conv._id === messageData.conversation || 
+                              (conv.isNew && messageData.conversation === currentConversation?._id);
+          
+          if (isTargetConv) {
+            return {
+              ...conv,
+              lastMessage: {
+                content: messageData.content,
+                createdAt: messageData.createdAt
+              },
+              // Only increment unread count if not currently viewing this conversation
+              unreadCount: currentConversation?._id === conv._id 
+                ? 0 
+                : (conv.unreadCount || 0) + 1
+            };
+          }
+          return conv;
+        })
+      );
+    });
+
+    // Listen for user status changes without triggering message refetching
+    socket.on('user_status_change', (data) => {
+      console.log('User status changed:', data);
+      
+      // Update conversations list without changing current conversation object reference
+      setConversations(prev => prev.map(conv => {
+        if (conv.participant.id === data.userId) {
+          return {
+            ...conv,
+            participant: {
+              ...conv.participant,
+              isOnline: data.isOnline,
+              lastActive: data.lastActive
+            }
+          };
+        }
+        return conv;
+      }));
+
+      // Update current conversation participant status without changing the entire object
+      if (currentConversation?.participant?.id === data.userId) {
+        // Use a function that doesn't trigger the conversation change effect
+        setCurrentConversation(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            participant: {
+              ...prev.participant,
+              isOnline: data.isOnline,
+              lastActive: data.lastActive
+            }
+          };
+        });
+      }
+    });
+
+    // Add a typing indicator event
+    socket.on('typing_indicator', (data) => {
+      // Only show typing indicator if it's for the current conversation
+      if (data.conversationId === currentConversation?._id && 
+          data.senderId !== sellerId) {
+        // Handle typing indicator without reloading messages
+        console.log('User is typing...');
+      }
+    });
+
+    return () => {
+      socket.off('receive_message');
+      socket.off('typing_indicator');
+      socket.off('user_status_change');
+    };
+  }, [socket, currentConversation?.participant?.id, sellerId]); // Only depend on participant ID
+
+  // Update the handleSendMessage function to work with the new order
+  const handleSendMessage = async () => {
+    if (!messageInput.trim()) {
+      showNotification("Please enter a message", 'error', 'dismissible');
+      return;
+    }
+    if (!currentConversation?.participant?.id) {
+      showNotification("Please select a conversation first", 'error', 'dismissible');
+      return;
+    }
+
+    setIsSending(true);
+    const tempId = Date.now().toString();
+    const newMessageContent = messageInput;
+    setMessageInput("");
+
+    // Create temporary message for immediate display
+    const tempMessage = {
+      _id: tempId,
+      sender: {
+        model: 'Seller',
+        id: sellerId,
+      },
+      content: newMessageContent,
+      messageType: 'text',
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      isDelivered: false,
+      conversation: currentConversation._id,
+    };
+
+    console.log('Adding temporary message:', tempMessage);
+
+    // Add temporary message at the beginning of the array (newest first)
+    setMessages(prev => {
+      const updatedMessages = [tempMessage, ...prev];
+      
+      // Update persistent state
+      if (currentConversation?._id) {
+        setMessagesByConversation(prevState => ({
+          ...prevState,
+          [currentConversation._id]: updatedMessages
+        }));
+      }
+      
+      return updatedMessages;
+    });
+
+    // Force immediate scroll to bottom after adding temp message
+    scrollToBottom(true);
+
+    try {
+      const sellerToken = token?.data;
+      if (!sellerToken) {
+        throw new Error('Authentication token not found');
+      }
+
+      const response = await fetch(`${BASE_URL}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          recipientId: currentConversation.participant.id,
+          recipientModel: currentConversation.participant.model || 'Buyer',
+          content: newMessageContent
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const serverResponse = await response.json();
+      console.log('Received server message:', serverResponse);
+
+      // Extract the actual message from the response
+      const serverMessage = serverResponse.message;
+
+      // Check if this was a temporary conversation and update it with the real conversation ID
+      if (currentConversation._id.startsWith('temp_')) {
+        const realConversationId = serverMessage.conversation;
+        
+        // Update the current conversation with the real ID
+        const updatedConversation = {
+          ...currentConversation,
+          _id: realConversationId,
+          isNew: false
+        };
+        
+        setCurrentConversation(updatedConversation);
+        
+        // Update the conversations list to replace the temporary conversation
+        setConversations(prev => 
+          prev.map(conv => 
+            conv._id === currentConversation._id ? updatedConversation : conv
+          )
+        );
+        
+        // Update messages with the real conversation ID
+        setMessages(prev => {
+          const updatedMessages = prev.map(msg =>
+            msg._id === tempId ? serverMessage : msg
+          );
+          
+          // Update persistent state with the real conversation ID
+          setMessagesByConversation(prevState => ({
+            ...prevState,
+            [realConversationId]: updatedMessages
+          }));
+          
+          return updatedMessages;
+        });
+        
+        // Refetch conversations list to get the proper conversation data from server
+        const refetchConversations = async () => {
+          try {
+            const sellerToken = token?.data;
+            const response = await fetch(`${BASE_URL}/conversations`, {
+              headers: {
+                'Authorization': `Bearer ${sellerToken}`
+              }
+            });
+            const data = await response.json();
+            
+            // Update conversations list with fresh data from server
+            setConversations(data.conversations);
+            
+            // Update current conversation with the fresh data
+            const freshConversation = data.conversations.find(conv => 
+              conv._id === realConversationId
+            );
+            if (freshConversation) {
+              setCurrentConversation(freshConversation);
+            }
+          } catch (error) {
+            console.error('Error refetching conversations:', error);
+          }
+        };
+        
+        // Refetch after a short delay to ensure server has processed the new conversation
+        setTimeout(refetchConversations, 500);
+      } else {
+        // Normal case - just update messages
+        setMessages(prev => {
+          const updatedMessages = prev.map(msg =>
+            msg._id === tempId ? serverMessage : msg
+          );
+          
+          // Update persistent state
+          if (currentConversation?._id) {
+            setMessagesByConversation(prevState => ({
+              ...prevState,
+              [currentConversation._id]: updatedMessages
+            }));
+          }
+          
+          return updatedMessages;
+        });
+      }
+
+      // Update conversations list
+      setConversations(prev =>
+        prev.map(conv => {
+          // Handle both temporary and real conversation IDs
+          const isCurrentConv = conv._id === currentConversation._id || 
+                               (currentConversation._id.startsWith('temp_') && conv.isNew);
+          
+          if (isCurrentConv) {
+            return {
+              ...conv,
+              lastMessage: {
+                content: newMessageContent,
+                createdAt: new Date().toISOString()
+              }
+            };
+          }
+          return conv;
+        })
+      );
+
+      console.log('Emitting socket event for new message');
+      // Emit socket event for real-time delivery
+      socket.emit('new_message', {
+        conversationId: currentConversation._id,
+        message: serverMessage
+      });
+
+      // Ensure scroll to bottom after server confirmation
+      scrollToBottom(true);
+
+    } catch (error) {
+      console.error('Error in handleSendMessage:', error);
+      // Remove temporary message if send failed
+      setMessages(prev => {
+        const updatedMessages = prev.filter(msg => msg._id !== tempId);
+        
+        // Update persistent state
+        if (currentConversation?._id) {
+          setMessagesByConversation(prevState => ({
+            ...prevState,
+            [currentConversation._id]: updatedMessages
+          }));
+        }
+        
+        return updatedMessages;
+      });
+      setMessageInput(newMessageContent); // Restore message input
+      showNotification(error.message || "Failed to send message. Please try again.", 'error', 'dismissible');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // Updated file upload with newest-first order
+  const handleFileUpload = async (file) => {
+    if (!file || !currentConversation) return;
+
+    if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
+      showNotification("Please select a valid image file (JPEG, PNG, or GIF)", 'error', 'dismissible');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification("File size should be less than 5MB", 'error', 'dismissible');
+      return;
+    }
+
+    const tempId = Date.now().toString();
+    const tempUrl = URL.createObjectURL(file);
+
+    // Create temporary message for immediate display
+    const tempMessage = {
+      _id: tempId,
+      sender: {
+        model: 'Seller',
+        id: sellerId,
+      },
+      content: 'Sending image...',
+      messageType: 'image',
+      media: [{ url: tempUrl }],
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      isDelivered: false,
+      conversation: currentConversation._id,
+    };
+
+    // Add message to UI immediately at the beginning (newest first)
+    setMessages(prev => {
+      const updatedMessages = [tempMessage, ...(prev || [])];
+      
+      // Update persistent state
+      if (currentConversation?._id) {
+        setMessagesByConversation(prevState => ({
+          ...prevState,
+          [currentConversation._id]: updatedMessages
+        }));
+      }
+      
+      return updatedMessages;
+    });
+    
+    // Force immediate scroll to bottom
+    scrollToBottom(true);
+
+    const formData = new FormData();
+    formData.append('recipientId', currentConversation.participant.id);
+    formData.append('recipientModel', currentConversation.participant.model || 'Buyer');
+    formData.append('messageType', 'image');
+    formData.append('content', 'Image message');
+    formData.append('media', file);
+
+    try {
+      const sellerToken = token?.data;
+      const response = await fetch(`${BASE_URL}/messages/media`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload image');
+      }
+
+      const serverResponse = await response.json();
+      const serverMessage = serverResponse.message || serverResponse;
+
+      // Replace temporary message with server response
+      setMessages(prev =>
+        prev.map(msg =>
+          msg._id === tempId
+            ? {
+                ...serverMessage,
+                conversation: currentConversation._id,
+                sender: {
+                  model: 'Seller',
+                  id: sellerId,
+                }
+              }
+            : msg
+        )
+      );
+
+      // Update conversations list
+      setConversations(prev =>
+        prev.map(conv =>
+          conv._id === currentConversation._id
+            ? {
+                ...conv,
+                lastMessage: {
+                  content: 'Image message',
+                  createdAt: new Date().toISOString()
+                }
+              }
+            : conv
+        )
+      );
+
+      // Emit socket event for real-time delivery
+      socket.emit('new_message', {
+        conversationId: currentConversation._id,
+        message: serverMessage
+      });
+
+      // Force immediate scroll to bottom after server confirmation
+      scrollToBottom(true);
+
+      showNotification("Image sent successfully", 'information', 'dismissible');
+    } catch (error) {
+      // Remove temporary message if upload failed
+      setMessages(prev => {
+        const updatedMessages = prev.filter(msg => msg._id !== tempId);
+        
+        // Update persistent state
+        if (currentConversation?._id) {
+          setMessagesByConversation(prevState => ({
+            ...prevState,
+            [currentConversation._id]: updatedMessages
+          }));
+        }
+        
+        return updatedMessages;
+      });
+      console.error('Error uploading image:', error);
+      showNotification("Failed to send image. Please try again.", 'error', 'dismissible');
+    }
+  };
+
+  // Updated handleSendProduct with newest-first order
+  const handleSendProduct = async (product) => {
+    if (!currentConversation) return;
+
+    const tempId = Date.now().toString();
+
+    // Create temporary message for immediate display
+    const tempMessage = {
+      _id: tempId,
+      sender: {
+        model: 'Seller',
+        id: sellerId,
+      },
+      content: `Product: ${product.name} - ${product.price}`,
+      messageType: 'product',
+      product: product,
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      isDelivered: false,
+      conversation: currentConversation._id,
+    };
+
+    // Add message to UI immediately at the beginning (newest first)
+    setMessages(prev => {
+      const updatedMessages = [tempMessage, ...(prev || [])];
+      
+      // Update persistent state
+      if (currentConversation?._id) {
+        setMessagesByConversation(prevState => ({
+          ...prevState,
+          [currentConversation._id]: updatedMessages
+        }));
+      }
+      
+      return updatedMessages;
+    });
+    
+    // Force immediate scroll to bottom
+    scrollToBottom(true);
+
+    try {
+      const sellerToken = token?.data;
+      const response = await fetch(`${BASE_URL}/messages/product`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          recipientId: currentConversation.participant.id,
+          recipientModel: currentConversation.participant.model || 'Buyer',
+          productId: product._id,
+          content: `Check out this product: ${product.name}`
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send product message');
+      }
+
+      const serverResponse = await response.json();
+      const serverMessage = serverResponse.message || serverResponse;
+
+      // Replace temporary message with server response
+      setMessages(prev =>
+        prev.map(msg =>
+          msg._id === tempId
+            ? {
+                ...serverMessage,
+                conversation: currentConversation._id,
+                sender: {
+                  model: 'Seller',
+                  id: sellerId,
+                }
+              }
+            : msg
+        )
+      );
+
+      // Update conversations list
+      setConversations(prev =>
+        prev.map(conv =>
+          conv._id === currentConversation._id
+            ? {
+                ...conv,
+                lastMessage: {
+                  content: `Check out this product: ${product.name}`,
+                  createdAt: new Date().toISOString()
+                }
+              }
+            : conv
+        )
+      );
+
+      // Emit socket event for real-time delivery
+      socket.emit('new_message', {
+        conversationId: currentConversation._id,
+        message: serverMessage
+      });
+
+      showNotification("Product shared successfully", 'information', 'dismissible');
+    } catch (error) {
+      // Remove temporary message if send failed
+      setMessages(prev => {
+        const updatedMessages = prev.filter(msg => msg._id !== tempId);
+        
+        // Update persistent state
+        if (currentConversation?._id) {
+          setMessagesByConversation(prevState => ({
+            ...prevState,
+            [currentConversation._id]: updatedMessages
+          }));
+        }
+        
+        return updatedMessages;
+      });
+      console.error('Error sending product message:', error);
+      showNotification("Failed to share product. Please try again.", 'error', 'dismissible');
+    }
+  };
+
+  // Update chat list rendering with new styling
+  const renderChatList = () => (
+    <ScrollArea className="h-full">
+      {isLoadingConversations ? (
+        <div className="flex flex-col items-center justify-center h-40">
+          <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-2" />
+          <p className="text-sm text-gray-500">Loading conversations...</p>
+        </div>
+      ) : conversations && conversations.length > 0 ? (
+        conversations.map((conv) => (
+          <div
+            key={conv._id}
+            className={`p-3 hover:bg-gray-50 cursor-pointer transition-colors border-b ${
+              currentConversation?._id === conv._id ? 'bg-green-50' : ''
+            }`}
+            onClick={async () => {
+              // Check if we're already on this conversation
+              if (currentConversation?._id === conv._id) {
+                return; // Don't do anything if clicking the same conversation
+              }
+              
+              // First clear the current messages to avoid showing wrong messages
+              setMessages([]);
+              
+              // Only show loading if we haven't loaded messages for this conversation before
+              if (!initialMessagesLoaded[conv._id]) {
+                setIsLoadingMessages(true);
+              }
+              
+              // Immediately set the current conversation for instant UI update
+              setCurrentConversation(conv);
+              
+              // Reset buyer details but preserve participant info for immediate display
+              setBuyerDetails(null);
+              
+              // Update URL state for history
+              navigate('/dashboard/messages', {
+                state: {
+                  conversationId: conv._id,
+                  participantId: conv.participant.id,
+                  participantName: conv.participant.name
+                },
+                replace: true // Use replace to avoid navigation history stacking
+              });
+
+              // If we already have messages for this conversation, don't fetch again
+              // The useEffect will handle fetching if needed
+            }}
+          >
+            <div className="flex items-start gap-2">
+              <div className="relative">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={conv.participant.avatar || "/placeholder.svg"} />
+                  <AvatarFallback>{conv.participant.name[0]}</AvatarFallback>
+                </Avatar>
+                {/* Online status indicator */}
+                <span className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${
+                  conv.participant.isOnline ? 'bg-green-500' : 'bg-gray-300'
+                }`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-center mb-0.5">
+                  <h3 className="text-xs font-semibold text-gray-900 truncate">
+                    {conv.participant.name}
+                  </h3>
+                  <span className="text-[10px] text-gray-500">
+                    {formatMessageTime(conv.lastMessage.createdAt)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-gray-600 truncate">
+                    {conv.lastMessage.content.slice(0, 22)}{conv.lastMessage.content.length > 22 ? '...' : ''}
+                  </p>
+                  {conv.unreadCount > 0 && (
+                    <span className="ml-1 bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                      {conv.unreadCount}
+                    </span>
+                  )}
+                </div>
+                {/* Last active status */}
+                {!conv.participant.isOnline && conv.participant.lastActive && (
+                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    Last active {formatLastActive(conv.participant.lastActive)}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="flex flex-col items-center justify-center h-full p-4 text-gray-500">
+          <MessageSquare className="h-8 w-8 text-gray-300 mb-2" />
+          <p className="text-sm">No conversations yet</p>
+        </div>
+      )}
+    </ScrollArea>
+  );
+
+  // Empty state component
+  const EmptyState = () => (
+    <div className="flex-1 flex flex-col items-center justify-center bg-white">
+      {isCreatingConversation ? (
+        <>
+          <Loader2 className="h-16 w-16 animate-spin text-green-600 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Opening Chat...</h3>
+          <p className="text-gray-500">Setting up your chat with the customer</p>
+        </>
+      ) : currentConversation?.isNew ? (
+        <>
+          <MessageSquare className="h-16 w-16 text-green-600 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">New Chat</h3>
+          <p className="text-gray-500">Start the conversation by sending a message</p>
+        </>
+      ) : (
+        <>
+          <MessageSquare className="h-16 w-16 text-gray-300 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Conversation Selected</h3>
+          <p className="text-gray-500">Select a conversation from the list to start messaging</p>
+        </>
+      )}
+    </div>
+  );
+
+  // Add helper to determine if mobile view
+  const isMobileView = () => window.innerWidth < 768;
+
+  // Update useEffect to handle mobile navigation
+  useEffect(() => {
+    if (currentConversation && isMobileView()) {
+      setShowChatList(false);
+    }
+  }, [currentConversation]);
+
+  // Add effect to ensure message input is visible on conversation change
+  useEffect(() => {
+    if (currentConversation) {
+      // Add a small timeout to allow the DOM to update
+      setTimeout(() => {
+        // Ensure the message container is scrolled to the bottom
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+        
+        // Ensure the message input is visible by scrolling the entire view if needed
+        const messageInput = document.querySelector('.message-input-container');
+        if (messageInput) {
+          messageInput.scrollIntoView({ behavior: 'auto', block: 'end' });
+        }
+      }, 100);
+    }
+  }, [currentConversation]);
+
+  // Add back button component for mobile
+  const BackButton = () => (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="md:hidden"
+      onClick={() => {
+        setShowChatList(true);
+        setCurrentConversation(null);
+      }}
+    >
+      <ArrowLeft className="h-4 w-4 mr-2" />
+      Back
+    </Button>
+  );
+
+  // Messages rendering with infinite scroll support
+  const renderMessages = () => (
+    <div 
+      ref={messagesContainerRef}
+      className="flex-1 p-3 overflow-y-auto"
+    >
+      {isLoadingMessages && messages.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-40">
+          <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-2" />
+          <p className="text-sm text-gray-500">Loading messages...</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {/* Loading indicator for more messages */}
+          {loadingMoreMessages && (
+            <div className="flex justify-center py-2">
+              <Loader2 className="h-5 w-5 animate-spin text-green-600" />
+            </div>
+          )}
+          
+          {messages && messages.length > 0 ? (
+            /* Display messages in reverse order (oldest first, newest last) */
+            [...messages].reverse().map((message) => {
+              if (!message || !message.sender) return null;
+              const isSeller = message.sender?.model === 'Seller';
+
+              return (
+                <div
+                  key={message._id}
+                  className={`flex ${isSeller ? 'justify-end' : 'justify-start'}`}
+                >
+                  {!isSeller && (
+                    <Avatar className="h-7 w-7 mr-1 mt-1">
+                      <AvatarImage src={currentConversation?.participant?.avatar || "/placeholder.svg"} />
+                      <AvatarFallback>{currentConversation?.participant?.name?.[0]}</AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div
+                    className={`max-w-[75%] md:max-w-[70%] rounded-2xl px-3 py-2 ${
+                      isSeller
+                        ? 'bg-green-100 text-gray-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {message.messageType === 'image' && message.media?.length > 0 && (
+                      <img
+                        src={message.media[0].url}
+                        alt="Message attachment"
+                        className="max-w-full rounded-lg mb-2"
+                        onLoad={() => {
+                          if (messagesContainerRef.current) {
+                            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+                          }
+                        }}
+                      />
+                    )}
+
+                    {message.messageType === 'product' && message.product && (
+                      <div className="bg-white rounded-lg p-2 mb-2 shadow-sm">
+                        <img
+                          src={message.product.image}
+                          alt={message.product.name}
+                          className="w-full h-20 object-cover rounded-md"
+                          onLoad={() => {
+                            if (messagesContainerRef.current) {
+                              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+                            }
+                          }}
+                        />
+                        <h4 className="text-xs font-medium mt-2">{message.product.name}</h4>
+                        <p className="text-xs font-medium text-green-600 mt-1">
+                          ₦ {message.product.price.toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+
+                    {message.messageType === 'order' && message.order && (
+                      <OrderMessage order={message.order} />
+                    )}
+
+                    {message.messageType === 'campaign' && message.campaign && (
+                      <CampaignMessage campaign={message.campaign} />
+                    )}
+
+                    {/* Only show content as text if it's not a campaign message */}
+                    {(!message.messageType || message.messageType === 'text' || 
+                      (message.messageType !== 'campaign' && message.content)) && (
+                      <p className="text-xs md:text-sm break-words">{message.content}</p>
+                    )}
+
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-[9px] md:text-[10px] text-gray-500">
+                        {formatMessageTime(message.createdAt)}
+                      </span>
+                      {isSeller && (
+                        <span className="text-gray-400">
+                          {message.isRead ? 
+                            <CheckCheck className="h-3 w-3" /> : 
+                            <Check className="h-3 w-3" />
+                          }
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : !isLoadingMessages ? (
+            <div className="flex items-center justify-center h-full text-xs md:text-sm text-gray-500">
+              Start the conversation!
+            </div>
+          ) : null}
+          <div ref={messagesEndRef} />
+        </div>
+      )}
+    </div>
+  );
+
+  // Update Quick Tools with improved styling and product search/pagination
+  const renderQuickTools = () => (
+    <div className={`
+      ${showQuickTools ? 'translate-x-0' : 'translate-x-full'}
+      md:translate-x-0
+      transition-transform
+      fixed md:relative
+      right-0 top-0 bottom-0
+      md:right-auto md:top-auto md:bottom-auto
+      w-[280px]
+      border-l bg-white
+      block sm:hidden
+      z-20
+      md:flex
+      flex-col
+    `}>
+      <Tabs defaultValue="products" className="flex-1 flex z-20 flex-col">
+        <TabsList className="w-full border-b p-0">
+          <TabsTrigger value="products" className="flex-1 rounded-none text-sm">
+            Products
+          </TabsTrigger>
+          <TabsTrigger value="replies" className="flex-1 rounded-none text-sm">
+            Quick Replies
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="products" className="flex-1 m-0 p-0 flex flex-col">
+          {/* Products Search */}
+          <div className="p-3 border-b">
+            <form onSubmit={handleProductSearch} className="flex gap-1">
+              <Input 
+                placeholder="Search products..." 
+                value={productSearchQuery}
+                onChange={(e) => setProductSearchQuery(e.target.value)}
+                className="h-8 text-xs"
+              />
+              <Button type="submit" size="sm" className="h-8 px-2 bg-green-600 hover:bg-green-700">
+                <Search className="h-4 w-4" />
+              </Button>
+            </form>
+            {productSearchQuery && (
+              <div className="mt-2 flex items-center justify-between">
+                <p className="text-xs text-gray-500">
+                  {productSearchQuery ? `Search: "${productSearchQuery}"` : ''}
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-6 px-2 text-xs flex items-center gap-1"
+                  onClick={handleClearProductSearch}
+                >
+                  <X className="h-3 w-3" />
+                  <span>Clear</span>
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Products List */}
+          {isLoadingProducts ? (
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-green-600" />
+            </div>
+          ) : (
+            <>
+              <div className="flex-1 overflow-y-auto max-h-[calc(100vh-200px)]">
+                <div className="p-3 space-y-2">
+                  {sellerProducts.length > 0 ? (
+                    sellerProducts.map((product) => (
+                      <Card key={product._id} className="p-2 hover:shadow-sm transition-shadow border rounded-md">
+                        <div className="flex gap-2">
+                          <img
+                            src={product.images[0]?.url}
+                            alt={product.name}
+                            className="w-12 h-12 object-cover rounded-md"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-xs font-medium text-gray-900 truncate">{product.name.length > 30 ? `${product.name.substring(0, 30)}...` : product.name}</h4>
+                            <p className="text-xs text-gray-600 mt-0.5">
+                              {new Intl.NumberFormat('en-NG', {
+                                style: 'currency',
+                                currency: 'NGN'
+                              }).format(product.price)}
+                            </p>
+                            <Button
+                              size="sm"
+                              className="mt-1 h-7 text-xs bg-green-600 hover:bg-green-700"
+                              onClick={() => {
+                                handleSendProduct(product);
+                                setIsProductDrawerOpen(false);
+                              }}
+                              disabled={!currentConversation}
+                            >
+                              Send
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 text-sm">No products found</p>
+                      {productSearchQuery && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-2 flex items-center gap-1"
+                          onClick={handleClearProductSearch}
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          <span>Show all products</span>
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Load More Button - Sticky at bottom */}
+              <div className="p-3 border-t sticky bottom-0 bg-white">
+                {productSearchQuery && sellerProducts.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs font-medium mb-2"
+                    onClick={handleClearProductSearch}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Show all products
+                  </Button>
+                )}
+                {hasMoreProducts ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs font-medium bg-green-50 hover:bg-green-100"
+                    onClick={productSearchQuery.trim() ? handleLoadMoreProductsAfterSearch : handleLoadMoreProducts}
+                    disabled={loadingMoreProducts}
+                  >
+                    {loadingMoreProducts ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <span>Load More (8)</span>
+                        <span className="ml-1 text-gray-500">({sellerProducts.length}/{productPagination.totalProducts})</span>
+                      </>
+                    )}
+                  </Button>
+                ) : sellerProducts.length > 0 ? (
+                  <p className="text-xs text-gray-500 text-center">
+                    All products loaded ({sellerProducts.length})
+                  </p>
+                ) : null}
+              </div>
+            </>
+          )}
+        </TabsContent>
+        <TabsContent value="replies" className="flex-1 p-4 m-0">
+          <QuickReplyDialog 
+            open={newQuickReplyOpen}
+            onOpenChange={setNewQuickReplyOpen}
+            title={quickReplyTitle}
+            setTitle={setQuickReplyTitle}
+            content={quickReplyContent}
+            setContent={setQuickReplyContent}
+            onCreateReply={handleCreateQuickReply}
+          />
+          {quickReplies.length > 0 ? (
+            <ScrollArea className="h-full">
+              <div className="space-y-3">
+                {quickReplies.map((reply) => (
+                  <Card key={reply.id} className="p-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="text-sm font-medium">{reply.title}</h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => handleDeleteQuickReply(reply.id)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">{reply.content}</p>
+                    <Button
+                      size="sm"
+                      className="w-full bg-green-600 hover:bg-green-700"
+                      onClick={() => handleSendQuickReply(reply.content)}
+                      disabled={!currentConversation}
+                    >
+                      Use Reply
+                    </Button>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="text-center py-8">
+              <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No quick replies available yet.</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-4"
+                onClick={() => setNewQuickReplyOpen(true)}
+              >
+                Create Quick Reply
+              </Button>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+
+  // Update customer fetching to match Customers.jsx pattern
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const sellerToken = token?.data;
+        if (sellerToken) {
+          const response = await fetch(`${BASE_URL}/seller/followers?page=1&limit=20`, {
+            headers: {
+              'Authorization': `Bearer ${sellerToken}`
+            }
+          });
+          
+          const data = await response.json();
+          if (data && Array.isArray(data.followers)) {
+            setCustomers(data.followers);
+          } else {
+            console.error('Followers data is missing or invalid');
+          }
+        } else {
+          console.error('Seller token not found in localStorage');
+        }
+      } catch (error) {
+        console.error('Error fetching customers:', error);
+        showNotification('Failed to load customers', 'error', 'dismissible');
+      }
+    };
+
+    fetchCustomers();
+  }, []);
+
+  // Memoize the dialog component to prevent unnecessary re-renders
+  const NewMessageDialog = () => (
+    <Dialog open={newMessageOpen} onOpenChange={setNewMessageOpen}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Start New Conversation</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Select Customer</label>
+            <Select
+              value={selectedCustomer}
+              onValueChange={setSelectedCustomer}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a customer" />
+              </SelectTrigger>
+              <SelectContent>
+                {customers.map((customer) => (
+                  <SelectItem 
+                    key={customer._id} 
+                    value={customer._id || customer.buyerId}
+                  >
+                    {customer.firstName 
+                      ? `${customer.firstName} ${customer.lastName}`
+                      : customer.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Initial Message</label>
+            <textarea
+              value={initialMessage}
+              onChange={(e) => setInitialMessage(e.target.value)}
+              placeholder="Type your message..."
+              className="w-full min-h-[100px] p-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500/20"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setNewMessageOpen(false);
+              setSelectedCustomer(null);
+              setInitialMessage("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleStartNewConversation}
+            className="bg-green-600 text-white hover:bg-green-700"
+            disabled={!selectedCustomer || !initialMessage.trim()}
+          >
+            Start Conversation
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
+  // Update handleStartNewConversation to immediately update the header
+  const handleStartNewConversation = async () => {
+    if (!selectedCustomer || !initialMessage.trim()) {
+      showNotification('Please select a customer and enter a message', 'error', 'dismissible');
+      return;
+    }
+
+    try {
+      const sellerToken = token?.data;
+      const response = await fetch(`${BASE_URL}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sellerToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          recipientId: selectedCustomer,
+          recipientModel: 'Buyer',
+          content: initialMessage
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to start conversation');
+      }
+
+      const newMessageData = await response.json();
+      
+      // Find customer details from our customers list
+      const customerDetails = customers.find(c => (c._id === selectedCustomer || c.buyerId === selectedCustomer));
+      
+      // Create new conversation object
+      const newConversation = {
+        _id: newMessageData.message.conversation,
+        participant: {
+          id: selectedCustomer,
+          name: customerDetails.firstName 
+            ? `${customerDetails.firstName} ${customerDetails.lastName}`
+            : customerDetails.name,
+          model: 'Buyer'
+        },
+        lastMessage: {
+          content: initialMessage,
+          createdAt: new Date().toISOString()
+        },
+        unreadCount: 0
+      };
+
+      // Reset buyerDetails to ensure we display participant name immediately
+      setBuyerDetails(null);
+      
+      // Update conversations list and set current
+      setConversations(prev => [newConversation, ...prev]);
+      setCurrentConversation(newConversation);
+      setMessages([newMessageData.message]);
+      
+      // Reset and close dialog
+      setSelectedCustomer(null);
+      setInitialMessage("");
+      setNewMessageOpen(false);
+      
+      showNotification('Conversation started successfully', 'information', 'dismissible');
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+      showNotification('Failed to start conversation', 'error', 'dismissible');
+    }
+  };
+
+  // Add effect to fetch buyer details when conversation changes
+  useEffect(() => {
+    const fetchBuyerDetails = async () => {
+      if (!currentConversation?.participant?.id) return;
+      
+      try {
+        const sellerToken = token?.data;
+        const response = await fetch(`${BASE_URL}/seller/buyer/${currentConversation.participant.id}`, {
+          headers: {
+            'Authorization': `Bearer ${sellerToken}`
+          }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch buyer details');
+        
+        const data = await response.json();
+        setBuyerDetails(data);
+      } catch (error) {
+        console.error('Error fetching buyer details:', error);
+        showNotification('Failed to load buyer details', 'error', 'dismissible');
+      }
+    };
+
+    fetchBuyerDetails();
+  }, [currentConversation?.participant?.id]);
+
+
+
+  // Add emoji handler
+  const handleEmojiSelect = (emoji) => {
+    setMessageInput(prev => prev + emoji.native);
+    setShowEmojiPicker(false);
+  };
+
+  // Update the message input area
+  const renderMessageInput = () => (
+    <div className="px-3 py-2 border-t bg-white relative message-input-container">
+      <div className="flex items-center gap-2">
+        <div className="flex-1 relative">
+          <Input
+            value={messageInput}
+            onChange={(e) => setMessageInput(e.target.value)}
+            placeholder="Type a message..."
+            className="flex-1 text-sm rounded-full bg-gray-50 pr-24"
+            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            enterKeyHint="send"
+          />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full md:hidden"
+              onClick={() => setIsProductDrawerOpen(true)}
+            >
+              <Package className="h-4 w-4 text-gray-500" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full hidden md:block"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            >
+              <SmileIcon className="h-4 w-4 text-gray-500" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-full"
+              onClick={() => document.getElementById('file-upload').click()}
+            >
+              <PaperclipIcon className="h-4 w-4 text-gray-500" />
+            </Button>
+          </div>
+        </div>
+        
+        <input
+          type="file"
+          id="file-upload"
+          className="hidden"
+          accept="image/*"
+          onChange={(e) => handleFileUpload(e.target.files[0])}
+        />
+        
+        <Button
+          size="icon"
+          className="h-9 w-9 rounded-full bg-green-600 hover:bg-green-700"
+          onClick={handleSendMessage}
+          disabled={isSending}
+        >
+          {isSending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <SendHorizontal className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+
+      {showEmojiPicker && (
+        <EmojiPicker onEmojiSelect={handleEmojiSelect} />
+      )}
+
+      <ProductsDrawer />
+    </div>
+  );
+
+  // Load quick replies from localStorage on component mount
+  useEffect(() => {
+    const savedReplies = localStorage.getItem('quickReplies');
+    if (savedReplies) {
+      setQuickReplies(JSON.parse(savedReplies));
+    }
+  }, []);
+
+  // Save quick replies to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('quickReplies', JSON.stringify(quickReplies));
+  }, [quickReplies]);
+
+  const handleCreateQuickReply = () => {
+    if (!quickReplyTitle.trim() || !quickReplyContent.trim()) {
+      showNotification('Please fill in both title and content', 'error', 'dismissible');
+      return;
+    }
+
+    const newReply = {
+      id: Date.now(),
+      title: quickReplyTitle,
+      content: quickReplyContent
+    };
+
+    setQuickReplies(prev => [...prev, newReply]);
+    setNewQuickReplyOpen(false);
+    setQuickReplyTitle("");
+    setQuickReplyContent("");
+    showNotification('Quick reply created successfully', 'information', 'dismissible');
+  };
+
+  const handleDeleteQuickReply = (id) => {
+    setQuickReplies(prev => prev.filter(reply => reply.id !== id));
+    showNotification('Quick reply deleted', 'information', 'dismissible');
+  };
+
+  const handleSendQuickReply = (content) => {
+    setMessageInput(content);
+    handleSendMessage();
+  };
+
+  // Add this after other socket event listeners in the useEffect
+  useEffect(() => {
+    if (!socket) return;
+
+    // Listen for user status changes
+    socket.on('user_status_change', (data) => {
+      console.log('User status changed:', data);
+      setConversations(prev => prev.map(conv => {
+        if (conv.participant.id === data.userId) {
+          return {
+            ...conv,
+            participant: {
+              ...conv.participant,
+              isOnline: data.isOnline,
+              lastActive: data.lastActive
+            }
+          };
+        }
+        return conv;
+      }));
+
+      // Update current conversation if it's the same user
+      if (currentConversation?.participant?.id === data.userId) {
+        setCurrentConversation(prev => ({
+          ...prev,
+          participant: {
+            ...prev.participant,
+            isOnline: data.isOnline,
+            lastActive: data.lastActive
+          }
+        }));
+      }
+    });
+
+    // Emit user activity periodically
+    const activityInterval = setInterval(() => {
+      socket.emit('user_activity');
+    }, 30000); // Every 30 seconds
+
+    return () => {
+      socket.off('user_status_change');
+      clearInterval(activityInterval);
+    };
+  }, [socket, currentConversation]);
+
+  // Centralized typing indicator listener at parent level
+  useEffect(() => {
+    if (!socket || !currentConversation?._id) return;
+
+    const handleTypingStarted = (data) => {
+      if (data.conversationId === currentConversation._id && data.senderId !== sellerId) {
+        setShowTypingIndicator(true);
+      }
+    };
+
+    const handleTypingStopped = (data) => {
+      if (data.conversationId === currentConversation._id && data.senderId !== sellerId) {
+        setShowTypingIndicator(false);
+      }
+    };
+
+    socket.on('typing_started', handleTypingStarted);
+    socket.on('typing_stopped', handleTypingStopped);
+
+    return () => {
+      socket.off('typing_started', handleTypingStarted);
+      socket.off('typing_stopped', handleTypingStopped);
+    };
+  }, [socket, currentConversation?._id, sellerId]);
+
+  // Add this helper function for formatting last active time
+  const formatLastActive = (lastActive) => {
+    if (!lastActive) return '';
+    
+    const date = new Date(lastActive);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'just now';
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays === 1) return 'yesterday';
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+    
+    return date.toLocaleDateString();
+  };
+
+  const renderUserDetailsHeader = useMemo(() => {
+    if (!currentConversation?.participant) return null;
+
+    const formatCurrency = (amount) => {
+      return new Intl.NumberFormat('en-NG', {
+        style: 'currency',
+        currency: 'NGN'
+      }).format(amount);
+    };
+
+    const primaryAddress = buyerDetails?.shippingAddresses?.[0];
+    const displayName = buyerDetails ? 
+      `${buyerDetails.buyerInfo.firstName} ${buyerDetails.buyerInfo.lastName}` : 
+      currentConversation.participant.name;
+
+    return (
+      <div className="bg-white border-b p-3">
+        <div className="flex items-center gap-2 mb-3 md:hidden">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="p-0 hover:bg-transparent"
+            onClick={() => {
+              setShowChatList(true);
+              setCurrentConversation(null);
+            }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-xs font-medium">Back to chats</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Avatar className="h-12 w-12 md:h-16 md:w-16">
+              <AvatarImage 
+                src={buyerDetails?.buyerInfo?.profileImageUrl || currentConversation.participant.avatar || "/placeholder.svg"} 
+                alt={displayName}
+              />
+              <AvatarFallback>
+                {displayName[0]}
+              </AvatarFallback>
+            </Avatar>
+            <span className={`absolute bottom-0 right-0 h-3 w-3 md:h-4 md-w-4 rounded-full border-2 border-white ${
+              currentConversation.participant.isOnline ? 'bg-green-500' : 'bg-gray-300'
+            }`} />
+          </div>
+          
+          <div className="flex-1">
+            <div className="flex items-center gap-1">
+              <h2 className="text-base md:text-xl font-semibold truncate max-w-[180px] md:max-w-none">
+                {displayName}
+              </h2>
+              {showTypingIndicator ? (
+                <span className="text-xs md:text-sm text-green-500 flex items-center">
+                  typing
+                  <span className="ml-1 flex">
+                    <span className="animate-bounce mx-0.5 h-1 w-1 bg-green-500 rounded-full" style={{ animationDelay: '0ms' }}></span>
+                    <span className="animate-bounce mx-0.5 h-1 w-1 bg-green-500 rounded-full" style={{ animationDelay: '200ms' }}></span>
+                    <span className="animate-bounce mx-0.5 h-1 w-1 bg-green-500 rounded-full" style={{ animationDelay: '400ms' }}></span>
+                  </span>
+                </span>
+              ) : (
+                <span className={`text-xs md:text-sm ${
+                  currentConversation.participant.isOnline ? 'text-green-500' : 'text-gray-400'
+                }`}>
+                  {currentConversation.participant.isOnline ? 'Online' : 
+                    currentConversation.participant.lastActive ? 
+                      `Last seen ${formatLastActive(currentConversation.participant.lastActive)}` : 
+                      'Offline'
+                  }
+                </span>
+              )}
+            </div>
+
+            {!buyerDetails && (
+              <div className="flex items-center text-xs text-gray-500 mt-1">
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                <span>Loading details...</span>
+              </div>
+            )}
+
+            {buyerDetails && (
+              <div className="hidden sm:flex items-center gap-3 text-xs text-gray-600 mt-1">
+                {primaryAddress && (
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    <span>{primaryAddress.state}, {primaryAddress.country}</span>
+                  </div>
+                )}
+                {buyerDetails?.orderStats?.withSeller && (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <ShoppingBag className="h-3 w-3" />
+                      <span>{buyerDetails.orderStats.withSeller.totalOrders} Orders</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Banknote className="h-3 w-3" />
+                      <span>{formatCurrency(buyerDetails.orderStats.withSeller.totalSpent)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }, [buyerDetails, currentConversation, showTypingIndicator, setShowChatList, setCurrentConversation]);
+
+  // Add the ProductsDrawer component definition
+  const ProductsDrawer = () => (
+    <Drawer open={isProductDrawerOpen} onOpenChange={setIsProductDrawerOpen}>
+      <DrawerContent className="h-[85vh]">
+        <DrawerHeader>
+          <DrawerTitle>Products</DrawerTitle>
+        </DrawerHeader>
+        <div className="p-4 space-y-4">
+          {/* Search */}
+          <form onSubmit={handleProductSearch} className="flex gap-1">
+            <Input 
+              placeholder="Search products..." 
+              value={productSearchQuery}
+              onChange={(e) => setProductSearchQuery(e.target.value)}
+              className="h-9 text-sm"
+            />
+            <Button type="submit" size="sm" className="h-9 px-2 bg-green-600 hover:bg-green-700">
+              <Search className="h-4 w-4" />
+            </Button>
+          </form>
+
+          {/* Products List */}
+          <div className="space-y-3 overflow-y-auto max-h-[60vh]">
+            {isLoadingProducts ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-green-600" />
+              </div>
+            ) : sellerProducts.length > 0 ? (
+              sellerProducts.map((product) => (
+                <Card key={product._id} className="p-2">
+                  <div className="flex gap-2">
+                    <img
+                      src={product.images[0]?.url}
+                      alt={product.name}
+                      className="w-12 h-12 object-cover rounded-md"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-gray-900 truncate">
+                        {product.name}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        {new Intl.NumberFormat('en-NG', {
+                          style: 'currency',
+                          currency: 'NGN'
+                        }).format(product.price)}
+                      </p>
+                      <Button
+                        size="sm"
+                        className="mt-1 h-7 text-xs bg-green-600 hover:bg-green-700"
+                        onClick={() => {
+                          handleSendProduct(product);
+                          setIsProductDrawerOpen(false);
+                        }}
+                        disabled={!currentConversation}
+                      >
+                        Send
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500 text-sm">No products found</p>
+              </div>
+            )}
+          </div>
+
+          {/* Load More Button */}
+          {hasMoreProducts && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-xs font-medium"
+              onClick={handleLoadMoreProducts}
+              disabled={loadingMoreProducts}
+            >
+              {loadingMoreProducts ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                  Loading...
+                </>
+              ) : (
+                'Load More Products'
+              )}
+            </Button>
+          )}
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+
+  // Add debounced message input handler to emit typing events
+  const [isTyping, setIsTyping] = useState(false);
+  
+  useEffect(() => {
+    let typingTimeout;
+    
+    if (messageInput && currentConversation && socket) {
+      if (!isTyping) {
+        setIsTyping(true);
+        // Emit typing started event
+        socket.emit('typing_started', {
+          conversationId: currentConversation._id,
+          senderId: sellerId
+        });
+      }
+      
+      // Clear existing timeout
+      clearTimeout(typingTimeout);
+      
+      // Set new timeout to stop typing indicator
+      typingTimeout = setTimeout(() => {
+        setIsTyping(false);
+        // Emit typing stopped event
+        socket.emit('typing_stopped', {
+          conversationId: currentConversation._id,
+          senderId: sellerId
+        });
+      }, 2000); // 2 seconds after user stops typing
+    }
+    
+    return () => clearTimeout(typingTimeout);
+  }, [messageInput, currentConversation, socket, sellerId, isTyping]);
+
+  return (
+    <div className="h-[calc(100vh-4rem)] flex flex-col">
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* Chat list - hidden on mobile when conversation is open */}
+        <div className={`
+          ${showChatList ? 'flex' : 'hidden'} 
+          md:flex
+          w-full md:w-[300px] 
+          bg-white border-r 
+          flex-col
+        `}>
+          <div className="p-3 border-b space-y-3">
+            <NewMessageDialog />
+            <Input
+              placeholder="Search messages..."
+              className="bg-gray-50 text-sm h-9"
+              prefix={<MessageSquare className="h-4 w-4 text-gray-400" />}
+            />
+          </div>
+          {renderChatList()}
+        </div>
+
+        {/* Main chat area - shown on mobile when conversation is selected */}
+        <div className={`
+          ${(!showChatList || !isMobileView()) ? 'flex' : 'hidden'}
+          md:flex
+          flex-1 flex-col 
+          bg-white
+          overflow-hidden
+          lg:mt-[50px]
+        `}>
+          {currentConversation ? (
+            <>
+              {renderUserDetailsHeader}
+              <div className="flex-1 overflow-hidden flex flex-col">
+                {renderMessages()}
+              </div>
+              {renderMessageInput()}
+            </>
+          ) : (
+            <EmptyState />
+          )}
+        </div>
+
+        {/* Quick tools panel - slides in from right on mobile */}
+        <div className={`
+          ${showQuickTools ? 'translate-x-0' : 'translate-x-full'}
+          md:translate-x-0
+          transition-transform
+          fixed md:relative
+          right-0 top-0 bottom-0
+          md:right-auto md:top-auto md:bottom-auto
+          w-[280px]
+          border-l bg-white
+          block sm:hidden
+          z-20
+          md:flex
+          flex-col
+        `}>
+          <div className="px-4 border-b flex justify-between items-center">
+            {/* <h2 className="text-sm font-semibold text-gray-900">Quick Tools</h2> */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="md:hidden"
+              onClick={() => setShowQuickTools(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          {renderQuickTools()}
+        </div>
+      </div> 
+    </div>
+  );
+}

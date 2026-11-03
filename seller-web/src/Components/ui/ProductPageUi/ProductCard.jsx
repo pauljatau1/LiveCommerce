@@ -1,0 +1,1425 @@
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "../../ui/popover";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription
+} from "../../ui/dialog";
+import { Icon } from '@iconify/react';
+import { Link } from 'react-router-dom';
+import { useNotification } from '@/Hooks/useNotification';
+import NotificationBanner from '@/Components/ui/NotificationBanner';
+import { BASE_URL } from '../../../Constants/Server';
+import { BiPlayCircle } from 'react-icons/bi';
+import { useAuthContext } from '@/Hooks/useAuthContextV2';
+import { useDispatch, useSelector } from 'react-redux';
+import { useState, useCallback, useEffect } from 'react';
+import { deleteProduct, fetchSellerProducts } from '../../../Redux/Slices/ProductSlice';
+import PropTypes from 'prop-types';
+import CircularProgress from '@mui/material/CircularProgress';
+import Modal from '@mui/material/Modal';
+import Box from '@mui/material/Box';
+import TextField from '@mui/material/TextField';
+import axios from 'axios';
+import React from 'react';
+import ShareLinkPopUp from '../ShareLinkPopUp';
+import BlipUploadModal from './BlipUploadModal';
+import StockUpdateModal from '@/Components/ui/ProductPageUi/StockUpdateModal';
+
+
+// Auction Performance Modal component
+const AuctionPerformanceModal = ({ open, onClose, auctionId, setShowRerunDialog }) => {
+    const { token } = useAuthContext();
+    const { showNotification } = useNotification();
+    const [auctionData, setAuctionData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [isRerunLoading, setIsRerunLoading] = useState(false);
+
+    const fetchAuctionData = useCallback(async (id) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await axios.get(`${BASE_URL}/products/${id}`, {
+                headers: {
+                    Authorization: `Bearer ${token?.data}`
+                }
+            });
+
+            if (response.status === 200) {
+                setAuctionData(response.data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch auction data:", err);
+            setError("Failed to load auction data. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    const handleRerunAuction = async () => {
+        if (!auctionData || !auctionData._id) return;
+
+        setIsRerunLoading(true);
+        try {
+            // Rerun with default values from the API (will use previous settings)
+            const response = await axios.post(`${BASE_URL}/products/${auctionData._id}/rerun-auction`, {}, {
+                headers: {
+                    Authorization: `Bearer ${token?.data}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.status === 200) {
+                showNotification("Auction rerun successfully", 'information', 'dismissible');
+                fetchAuctionData(auctionData._id); // Refresh data
+            }
+        } catch (err) {
+            console.error("Failed to rerun auction:", err);
+            showNotification(`Failed to rerun auction: ${err.response?.data?.message || "Please try again later"}`, 'error', 'dismissible');
+        } finally {
+            setIsRerunLoading(false);
+        }
+    };
+
+    // Format date for display
+    const formatDate = (dateString) => {
+        if (!dateString) return "N/A";
+        const date = new Date(dateString);
+        return date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    // Format currency
+    const formatCurrency = (amount) => {
+        if (!amount && amount !== 0) return "N/A";
+        return new Intl.NumberFormat('en-NG', {
+            style: 'currency',
+            currency: 'NGN',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(amount);
+    };
+
+    React.useEffect(() => {
+        if (open && auctionId) {
+            fetchAuctionData(auctionId);
+        }
+    }, [open, auctionId, fetchAuctionData]);
+
+    // Determine if there's a current leader (highest bidder) in the auction
+    const getCurrentLeader = () => {
+        if (!auctionData?.auction?.bids || auctionData.auction.bids.length === 0) return null;
+
+        // Sort bids by amount in descending order and get the highest
+        const sortedBids = [...auctionData.auction.bids].sort((a, b) => b.amount - a.amount);
+        return sortedBids[0];
+    };
+
+    const currentLeader = auctionData?.auction?.currentHighestBid || getCurrentLeader();
+    const isEnded = auctionData?.auction?.status === 'ended';
+    const canRerun = isEnded && auctionData?.status === 'offline_auction';
+
+    return (
+        <Dialog open={open} onOpenChange={onClose}>
+            <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+                <DialogHeader className="space-y-3">
+                    <DialogTitle className="text-xl sm:text-2xl font-bold text-[#17171B]">Auction Performance</DialogTitle>
+                    <DialogDescription className="text-sm sm:text-base">
+                        Detailed information about this auction&apos;s performance
+                    </DialogDescription>
+                </DialogHeader>
+
+                {loading ? (
+                    <div className="flex justify-center py-12">
+                        <CircularProgress color="inherit" />
+                    </div>
+                ) : error ? (
+                    <div className="text-center py-8 text-red-500">
+                        <Icon icon="solar:danger-bold" className="w-12 h-12 mx-auto mb-2" />
+                        <p>{error}</p>
+                    </div>
+                ) : auctionData ? (
+                    <div className="space-y-6">
+                        {/* Product Basic Info - More responsive */}
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <div className="w-full sm:w-auto">
+                                <img
+                                    src={auctionData.images[0].url}
+                                    alt={auctionData.name}
+                                    className="w-full sm:w-24 h-24 rounded-lg object-cover"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="text-lg font-medium">{auctionData.name}</h3>
+                                <p className="text-sm text-gray-500">{auctionData.category} • {auctionData.subCategory}</p>
+                            </div>
+                        </div>
+
+                        {/* Auction Stats - More responsive grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-500">Status</p>
+                                <p className="text-lg font-medium capitalize">
+                                    {auctionData.auction?.status || "N/A"}
+                                </p>
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-500">Min Bid</p>
+                                <p className="text-lg font-medium">
+                                    {formatCurrency(auctionData.auction?.minBid)}
+                                </p>
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-500">Max Bid</p>
+                                <p className="text-lg font-medium">
+                                    {formatCurrency(auctionData.auction?.maxBid)}
+                                </p>
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-500">Current Highest Bid</p>
+                                <p className="text-lg font-medium">
+                                    {formatCurrency(auctionData.auction?.currentHighestBid?.amount)}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Auction Timeline - Better mobile layout */}
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                            <h4 className="font-medium mb-4">Auction Timeline</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-sm text-gray-500">Start Date</p>
+                                    <p className="font-medium">{formatDate(auctionData.auction?.startDate)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">End Date</p>
+                                    <p className="font-medium">{formatDate(auctionData.auction?.endDate)}</p>
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <p className="text-sm text-gray-500">End on Max Bid</p>
+                                    <p className="font-medium">{auctionData.auction?.endOnMaxBid ? "Yes" : "No"}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Winner Info / Current Leader */}
+                        {isEnded && auctionData.auction?.winner ? (
+                            <div className="border border-green-100 bg-green-50 p-4 rounded-lg">
+                                <h4 className="font-medium text-green-800 mb-4">Auction Winner</h4>
+                                <div className="flex items-center gap-3">
+                                    {auctionData.auction.winner.buyer?.profileImage && (
+                                        <img
+                                            src={auctionData.auction.winner.buyer.profileImage.url}
+                                            alt={`${auctionData.auction.winner.buyer.firstName} ${auctionData.auction.winner.buyer.lastName}`}
+                                            className="w-10 h-10 rounded-full object-cover"
+                                        />
+                                    )}
+                                    <div>
+                                        <p className="font-medium">{auctionData.auction.winner.buyer?.firstName} {auctionData.auction.winner.buyer?.lastName}</p>
+                                        <p className="text-sm text-green-800">
+                                            Winning Bid: {formatCurrency(auctionData.auction.winner.bidAmount)}
+                                        </p>
+                                        <p className="text-xs text-gray-600">
+                                            Won on: {formatDate(auctionData.auction.winner.winningDate)}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : currentLeader ? (
+                            <div className="border border-purple-100 bg-purple-50 p-4 rounded-lg">
+                                <h4 className="font-medium text-purple-800 mb-4">Current Leader</h4>
+                                <div className="flex items-center gap-3">
+                                    {currentLeader.buyer?.profileImage && (
+                                        <img
+                                            src={currentLeader.buyer.profileImage.url}
+                                            alt={`${currentLeader.buyer.firstName} ${currentLeader.buyer.lastName}`}
+                                            className="w-10 h-10 rounded-full object-cover"
+                                        />
+                                    )}
+                                    <div>
+                                        <p className="font-medium">{currentLeader.buyer?.firstName} {currentLeader.buyer?.lastName}</p>
+                                        <p className="text-sm text-purple-800">
+                                            Leading Bid: {formatCurrency(currentLeader.amount)}
+                                        </p>
+                                        <p className="text-xs text-gray-600">
+                                            Bid on: {formatDate(currentLeader.createdAt)}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : null}
+
+                        {/* Rerun Auction Button for ended auctions */}
+                        {canRerun && (
+                            <div className="flex justify-center">
+                                <button
+                                    onClick={() => {
+                                        onClose();
+                                        setShowRerunDialog(true);
+                                    }}
+                                    className="bg-[#17171B] text-white px-6 py-3 rounded-md hover:bg-[#17171B]/90 transition-all duration-200 flex items-center gap-2"
+                                >
+                                    <Icon icon="solar:restart-bold" className="w-5 h-5" />
+                                    <span>Rerun Auction</span>
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Bid History - Responsive table */}
+                        {auctionData.auction?.bids && auctionData.auction.bids.length > 0 && (
+                            <div className="overflow-x-auto">
+                                <div className="min-w-full">
+                                    <h4 className="font-medium mb-4">Bid History ({auctionData.auction.bids.length})</h4>
+                                    <div className="border rounded-lg overflow-hidden">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Bidder
+                                                    </th>
+                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Amount
+                                                    </th>
+                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Date
+                                                    </th>
+                                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Status
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {auctionData.auction.bids.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map((bid) => (
+                                                    <tr key={bid._id}>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="flex items-center">
+                                                                {bid.buyer?.profileImage && (
+                                                                    <div className="flex-shrink-0 h-8 w-8 mr-3">
+                                                                        <img className="h-8 w-8 rounded-full" src={bid.buyer.profileImage.url} alt="" />
+                                                                    </div>
+                                                                )}
+                                                                <div>
+                                                                    <div className="text-sm font-medium text-gray-900">
+                                                                        {bid.buyer?.firstName} {bid.buyer?.lastName}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="text-sm text-gray-900">{formatCurrency(bid.amount)}</div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="text-sm text-gray-500">{formatDate(bid.createdAt)}</div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${bid.status === 'won' ? 'bg-green-100 text-green-800' :
+                                                                bid.amount === currentLeader?.amount ? 'bg-purple-100 text-purple-800' :
+                                                                    'bg-gray-100 text-gray-800'
+                                                                }`}>
+                                                                {bid.status === 'won' ? 'Won' :
+                                                                    bid.amount === currentLeader?.amount ? 'Leading' : 'Lost'}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Analytics - Responsive grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-500">Product Views</p>
+                                <p className="text-xl font-medium">{auctionData.stats?.views || 0}</p>
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-500">Total Bids</p>
+                                <p className="text-xl font-medium">{auctionData.auction?.bids?.length || 0}</p>
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-500">Last Viewed</p>
+                                <p className="text-sm font-medium">{formatDate(auctionData.stats?.lastViewed)}</p>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-center py-8 text-gray-500">
+                        <p>No auction data available</p>
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+AuctionPerformanceModal.propTypes = {
+    open: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired,
+    auctionId: PropTypes.string,
+    setShowRerunDialog: PropTypes.func.isRequired
+};
+
+
+
+// Product Details Modal component
+const ProductDetailsModal = ({ open, onClose, productId, handleDelete }) => {
+    const { token } = useAuthContext();
+    const [productData, setProductData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    const fetchProductData = useCallback(async (id) => {
+        setLoading(true);
+        setError(null);
+        try {
+
+            const response = await axios.get(`${BASE_URL}/products/${id}`, {
+                headers: {
+                    Authorization: `Bearer ${token?.data}`
+                }
+            });
+
+            if (response.status === 200) {
+                setProductData(response.data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch product data:", err);
+            setError("Failed to load product data. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // Format date for display
+    const formatDate = (dateString) => {
+        if (!dateString) return "N/A";
+        const date = new Date(dateString);
+        return date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    // Format currency
+    const formatCurrency = (amount) => {
+        if (!amount && amount !== 0) return "N/A";
+        return new Intl.NumberFormat('en-NG', {
+            style: 'currency',
+            currency: 'NGN',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(amount);
+    };
+
+    React.useEffect(() => {
+        if (open && productId) {
+            fetchProductData(productId);
+        }
+    }, [open, productId, fetchProductData]);
+
+    return (
+        <Dialog open={open} onOpenChange={onClose}>
+            <DialogContent className="max-w-[900px] max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle className="text-xl font-bold">Product Details</DialogTitle>
+                    <DialogDescription>
+                        Comprehensive information about this product
+                    </DialogDescription>
+                </DialogHeader>
+
+                {loading ? (
+                    <div className="flex justify-center py-12">
+                        <CircularProgress color="inherit" />
+                    </div>
+                ) : error ? (
+                    <div className="text-center py-8 text-red-500">
+                        <Icon icon="solar:danger-bold" className="w-12 h-12 mx-auto mb-2" />
+                        <p>{error}</p>
+                    </div>
+                ) : productData ? (
+                    <div className="space-y-6">
+                        {/* Product Basic Info */}
+                        <div className="flex gap-6">
+                            <div className="w-1/3">
+                                <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
+                                    <img
+                                        src={productData.images[0]?.resizedImages?.find(img => img.width === 320)?.url || productData.images[0]?.url}
+                                        alt={productData.name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 mt-2">
+                                    {productData.images.slice(1).map((image, index) => (
+                                        <div key={index} className="aspect-square rounded-lg overflow-hidden bg-gray-100">
+                                            <img
+                                                src={image?.resizedImages?.find(img => img.width === 150)?.url || image.url}
+                                                alt={`${productData.name} ${index + 2}`}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="w-2/3 space-y-4">
+                                <div>
+                                    <h2 className="text-xl font-semibold">{productData.name}</h2>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className={`px-2 py-1 rounded-full text-xs ${productData.status === 'active'
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-yellow-100 text-yellow-800'
+                                            }`}>
+                                            {productData.status.charAt(0).toUpperCase() + productData.status.slice(1)}
+                                        </span>
+                                        <span className="text-sm text-gray-500">SKU: {productData.sku}</span>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-gray-500">Category</p>
+                                        <p className="font-medium">{productData.category} • {productData.subCategory}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-gray-500">Brand</p>
+                                        <p className="font-medium">{productData.brand || 'N/A'}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-gray-500">Price</p>
+                                        <p className="font-medium">{formatCurrency(productData.price)}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-gray-500">Current Stock</p>
+                                        <p className="font-medium">{productData.stock}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <p className="text-sm text-gray-500">Description</p>
+                                    <div className="text-sm prose prose-sm max-w-none overflow-auto max-h-[200px]"
+                                        dangerouslySetInnerHTML={{ __html: productData.description || '' }}>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Stats and Performance */}
+                        <div>
+                            <h3 className="text-lg font-semibold mb-3">Performance Metrics</h3>
+                            <div className="grid grid-cols-4 gap-4">
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <p className="text-sm text-gray-500">Total Views</p>
+                                    <p className="text-xl font-medium">{productData.stats?.views || 0}</p>
+                                </div>
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <p className="text-sm text-gray-500">Units Sold</p>
+                                    <p className="text-xl font-medium">{productData.stats?.soldCount || 0}</p>
+                                </div>
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <p className="text-sm text-gray-500">Last Viewed</p>
+                                    <p className="text-sm font-medium">{formatDate(productData.stats?.lastViewed)}</p>
+                                </div>
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <p className="text-sm text-gray-500">Last Restocked</p>
+                                    <p className="text-sm font-medium">{formatDate(productData.stats?.lastRestocked)}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Inventory Information */}
+                        <div>
+                            <h3 className="text-lg font-semibold mb-3">Inventory Details</h3>
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <p className="text-sm text-gray-500">Current Stock</p>
+                                    <p className="text-xl font-medium">{productData.inventory?.currentStock || 0}</p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Low Stock Alert: {productData.inventory?.lowStockThreshold || 0} units
+                                    </p>
+                                </div>
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <p className="text-sm text-gray-500">Minimum Purchase</p>
+                                    <p className="text-xl font-medium">{productData.minimumPurchaseQuantity || 1} unit(s)</p>
+                                </div>
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <p className="text-sm text-gray-500">Product Condition</p>
+                                    <p className="text-xl font-medium capitalize">{productData.condition || 'N/A'}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-end gap-3 pt-4">
+                            <Link
+                                to={`/dashboard/edit-product/${productData._id}`}
+                                className="px-4 py-2 bg-[#17171B] text-white rounded-md hover:bg-[#17171B]/90 transition-all duration-200 flex items-center gap-2"
+                            >
+                                <Icon icon="solar:pen-bold" className="w-4 h-4" />
+                                Edit Product
+                            </Link>
+                            <button
+                                onClick={() => {
+                                    onClose();
+                                    handleDelete(productId);
+                                }}
+                                className="px-4 py-2 border border-red-500 text-red-500 rounded-md hover:bg-red-50 transition-all duration-200 flex items-center gap-2"
+                            >
+                                <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4" />
+                                Delete Product
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-center py-8 text-gray-500">
+                        <p>No product data available</p>
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+ProductDetailsModal.propTypes = {
+    open: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired,
+    productId: PropTypes.string,
+    handleDelete: PropTypes.func.isRequired
+};
+
+// Add RerunAuctionDialog component before the ProductCard component
+const RerunAuctionDialog = ({ open, onClose, onSubmit, isLoading, defaultValues }) => {
+    const [formData, setFormData] = useState({
+        startDate: '',
+        endDate: '',
+        minBid: defaultValues?.minBid || '',
+        maxBid: defaultValues?.maxBid || '',
+        endOnMaxBid: defaultValues?.endOnMaxBid || false
+    });
+    const [formErrors, setFormErrors] = useState({});
+
+    const handleStartNow = () => {
+        setFormData(prev => ({
+            ...prev,
+            startDate: new Date().toISOString().slice(0, 16)
+        }));
+    };
+
+    useEffect(() => {
+        if (defaultValues) {
+            setFormData(prev => ({
+                ...prev,
+                minBid: defaultValues.minBid || '',
+                maxBid: defaultValues.maxBid || '',
+                endOnMaxBid: defaultValues.endOnMaxBid || false
+            }));
+        }
+    }, [defaultValues]);
+
+    const validateForm = () => {
+        const errors = {};
+        if (!formData.endDate) {
+            errors.endDate = "End date is required";
+        } else {
+            const endDate = new Date(formData.endDate);
+            const now = new Date();
+            if (endDate <= now) {
+                errors.endDate = "End date must be in the future";
+            }
+            if (formData.startDate && new Date(formData.startDate) >= endDate) {
+                errors.startDate = "Start date must be before end date";
+            }
+        }
+        if (formData.minBid && formData.maxBid && Number(formData.minBid) >= Number(formData.maxBid)) {
+            errors.minBid = "Minimum bid must be less than maximum bid";
+            errors.maxBid = "Maximum bid must be greater than minimum bid";
+        }
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+        // Clear error when field is changed
+        if (formErrors[name]) {
+            setFormErrors(prev => ({
+                ...prev,
+                [name]: undefined
+            }));
+        }
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!validateForm()) {
+            return;
+        }
+        const submitData = {
+            ...formData,
+            minBid: formData.minBid ? Number(formData.minBid) : undefined,
+            maxBid: formData.maxBid ? Number(formData.maxBid) : undefined
+        };
+        onSubmit(submitData);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-[500px] p-6">
+                <DialogHeader className="space-y-3">
+                    <DialogTitle className="text-2xl font-bold text-[#17171B]">Rerun Auction</DialogTitle>
+                    <DialogDescription className="text-base">
+                        Configure the new auction parameters. End date is required, other fields are optional.
+                    </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-6 mt-4">
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium text-gray-700">Start Date</label>
+                                <button
+                                    type="button"
+                                    onClick={handleStartNow}
+                                    className="text-sm text-[#17171B] hover:text-[#17171B]/80 font-medium flex items-center gap-1"
+                                >
+                                    <Icon icon="solar:play-bold" className="w-4 h-4" />
+                                    Start Now
+                                </button>
+                            </div>
+                            <input
+                                type="datetime-local"
+                                name="startDate"
+                                value={formData.startDate}
+                                onChange={handleChange}
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${formErrors.startDate ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                                    }`}
+                                min={new Date().toISOString().slice(0, 16)}
+                            />
+                            {formErrors.startDate && (
+                                <p className="text-sm text-red-500 flex items-center gap-1">
+                                    <Icon icon="solar:danger-bold" className="w-4 h-4" />
+                                    {formErrors.startDate}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">End Date (Required)</label>
+                            <input
+                                type="datetime-local"
+                                name="endDate"
+                                value={formData.endDate}
+                                onChange={handleChange}
+                                required
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${formErrors.endDate ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                                    }`}
+                                min={new Date().toISOString().slice(0, 16)}
+                            />
+                            {formErrors.endDate && (
+                                <p className="text-sm text-red-500 flex items-center gap-1">
+                                    <Icon icon="solar:danger-bold" className="w-4 h-4" />
+                                    {formErrors.endDate}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">Minimum Bid</label>
+                                <input
+                                    type="number"
+                                    name="minBid"
+                                    value={formData.minBid}
+                                    onChange={handleChange}
+                                    placeholder={`Previous: ₦${defaultValues?.minBid || 0}`}
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${formErrors.minBid ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                                        }`}
+                                    min="0"
+                                />
+                                {formErrors.minBid && (
+                                    <p className="text-sm text-red-500 flex items-center gap-1">
+                                        <Icon icon="solar:danger-bold" className="w-4 h-4" />
+                                        {formErrors.minBid}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">Maximum Bid</label>
+                                <input
+                                    type="number"
+                                    name="maxBid"
+                                    value={formData.maxBid}
+                                    onChange={handleChange}
+                                    placeholder={`Previous: ₦${defaultValues?.maxBid || 0}`}
+                                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#17171B]/20 focus:border-[#17171B] transition-all ${formErrors.maxBid ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                                        }`}
+                                    min="0"
+                                />
+                                {formErrors.maxBid && (
+                                    <p className="text-sm text-red-500 flex items-center gap-1">
+                                        <Icon icon="solar:danger-bold" className="w-4 h-4" />
+                                        {formErrors.maxBid}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2 bg-gray-50 p-4 rounded-lg">
+                            <input
+                                type="checkbox"
+                                name="endOnMaxBid"
+                                id="endOnMaxBid"
+                                checked={formData.endOnMaxBid}
+                                onChange={handleChange}
+                                className="rounded border-gray-300 text-[#17171B] focus:ring-[#17171B]"
+                            />
+                            <label htmlFor="endOnMaxBid" className="text-sm font-medium text-gray-700">
+                                End auction when max bid is reached
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-6 py-3 border rounded-lg hover:bg-gray-50 font-medium transition-all"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isLoading || !formData.endDate}
+                            className="px-6 py-3 bg-[#17171B] text-white rounded-lg hover:bg-[#17171B]/90 disabled:opacity-50 font-medium transition-all flex items-center gap-2"
+                        >
+                            {isLoading ? (
+                                <>
+                                    <CircularProgress size={20} color="inherit" />
+                                    <span>Processing...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Icon icon="solar:restart-bold" className="w-5 h-5" />
+                                    <span>Rerun Auction</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+RerunAuctionDialog.propTypes = {
+    open: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired,
+    onSubmit: PropTypes.func.isRequired,
+    isLoading: PropTypes.bool.isRequired,
+    defaultValues: PropTypes.object
+};
+
+
+
+const ProductCard = ({ item, setIsStockUpdated, isAuction = false }) => {
+    const { showNotification, notification, hideNotification } = useNotification();
+    const { token, seller } = useAuthContext();
+    // Separate states for mobile and desktop popovers
+    const [isMobilePopoverOpen, setIsMobilePopoverOpen] = useState(false);
+    const [isDesktopPopoverOpen, setIsDesktopPopoverOpen] = useState(false);
+    const [openStockModal, setOpenStockModal] = useState(false);
+    const [openAuctionModal, setOpenAuctionModal] = useState(false);
+    const [openProductDetails, setOpenProductDetails] = useState(false);
+    const [openBlipUploadModal, setOpenBlipUploadModal] = useState(false);
+    const dispatch = useDispatch();
+    const { isLoading, deleteStatus, deletedProductId } = useSelector(state => state.product);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isRerunLoading, setIsRerunLoading] = useState(false);
+    const [showRerunDialog, setShowRerunDialog] = useState(false);
+    const [openShareLinkPopUp, setOpenShareLinkPopUp] = useState(false);
+    const [linkType, setLinkType] = useState("Product");
+    const [deepLink, setDeepLink] = useState(item?.productLink);
+
+    // Add the missing state declaration for delete confirmation dialog
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const pagination = useSelector((state) => state.product.pagination);
+
+    useEffect(() => {
+        setDeepLink(item?.productLink)
+        setLinkType("Product")
+    }, [item, openBlipUploadModal])
+
+    const getStockStatus = (stock) => {
+        if (stock > 50) return { text: 'In Stock', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
+        if (stock > 0) return { text: 'Low Stock', class: 'bg-[#FFA500]/10 text-[#FFA500]' };
+        return { text: 'Out of Stock', class: 'bg-[#DF0707]/10 text-[#DF0707]' };
+    };
+
+    const getUploadStatus = (status) => {
+        if (status === "active") return { text: 'Active', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
+        if (status === "draft") return { text: 'Draft', class: 'bg-[#FFA500]/10 text-[#FFA500]' };
+        if (status === "offline_auction") return { text: 'Offline Auction', class: 'bg-[#9333EA]/10 text-[#9333EA]' };
+        // Default case
+        return { text: '', class: 'bg-green-200 text-gray-500' };
+    };
+
+    const getAuctionStatus = (auction) => {
+        if (!auction) return { text: 'N/A', class: 'bg-gray-100 text-gray-500' };
+        if (auction.status === 'ended') return { text: 'Ended', class: 'bg-[#DF0707]/10 text-[#DF0707]' };
+        if (auction.status === 'ongoing') return { text: 'Ongoing', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
+        if (auction.status === 'active') return { text: 'Active', class: 'bg-[#0BB248]/10 text-[#0BB248]' };
+        if (new Date(auction.startDate) > new Date()) return { text: 'Scheduled', class: 'bg-[#FFA500]/10 text-[#FFA500]' };
+        return { text: auction.status || 'Unknown', class: 'bg-gray-100 text-gray-500' };
+    };
+
+    const getTimeLeft = (auction) => {
+        if (!auction) return 'N/A';
+        if (auction.status === 'ended') return 'Ended';
+
+        const now = new Date();
+        const end = new Date(auction.endDate);
+        if (now > end) return 'Ended';
+
+        const diff = end - now;
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+        if (days > 0) return `${days}d ${hours}h`;
+        return `${hours}h`;
+    };
+
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('en-NG', {
+            style: 'currency',
+            currency: 'NGN',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(amount);
+    };
+
+    const status = isAuction ? getAuctionStatus(item.auction) : getStockStatus(item?.stock);
+    const uploadStatus = getUploadStatus(item.status);
+
+    const handleProductDelete = useCallback(async (productId) => {
+        await dispatch(deleteProduct(productId)).unwrap();
+        const params = {
+            page: 1,
+            limit: 10
+        };
+        dispatch(fetchSellerProducts(params));
+    }, [dispatch]);
+
+    console.log(item)
+
+    const SpecificDeletedProduct = item._id === deletedProductId;
+    console.log('attempted deleted product', deletedProductId)
+    console.log('specific deleted product', SpecificDeletedProduct)
+
+    const handleStockUpdate = async (stockChange, operation) => {
+        try {
+            setIsSubmitting(true);
+            const response = await axios.put(`${BASE_URL}/products/${item._id}/inventory`, {
+                quantity: stockChange,
+                operation: operation // "add" or "subtract"
+            }, {
+                headers: {
+                    Authorization: `Bearer ${token?.data}`
+                }
+            });
+            if (response.status === 200) {
+                setOpenStockModal(false);
+                setIsStockUpdated(prev => !prev);
+                showNotification(`Stock ${operation === 'add' ? 'increased' : 'decreased'} successfully`, 'information', 'dismissible');
+            }
+        } catch (error) {
+            showNotification(`Failed to update stock: ${error.response?.data?.message || "Please try again"}`, 'error', 'dismissible');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDeleteStatusLoading = () => {
+        if (item._id === deletedProductId) {
+            return deleteStatus
+        }
+        return false
+    }
+
+    // Update handleRerunAuction function
+    const handleRerunAuction = async (formData) => {
+        setIsRerunLoading(true);
+        try {
+            const response = await axios.post(`${BASE_URL}/products/${item._id}/rerun-auction`, formData, {
+                headers: {
+                    Authorization: `Bearer ${token?.data}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.status === 200) {
+                showNotification("Auction rerun successfully", 'information', 'dismissible');
+                setShowRerunDialog(false);
+                setIsStockUpdated(prev => !prev);
+            }
+        } catch (error) {
+            showNotification(`Failed to rerun auction: ${error.response?.data?.message || "Please try again later"}`, 'error', 'dismissible');
+        } finally {
+            setIsRerunLoading(false);
+        }
+    };
+
+    // Update the rerun button click handler
+    const handleRerunClick = (e) => {
+        e.stopPropagation();
+        setShowRerunDialog(true);
+    };
+
+    // Check if the auction is ended and can be rerun
+    const canRerunAuction = isAuction &&
+        item.auction?.status === 'ended' &&
+        item.status === 'offline_auction';
+
+    // Desktop Card Layout
+    const DesktopCard = () => (
+        <div className="hidden lg:grid grid-cols-[80px_1.5fr_0.8fr_0.8fr_0.8fr_80px_120px_120px] gap-4 px-6 py-4 items-center">
+            <img
+                src={item?.images[0]?.resizedImages?.find(img => img.width === 150)?.url || item?.images[0]?.url}
+                alt={item?.name}
+                className="w-16 h-16 rounded-lg object-cover"
+            />
+            <div>
+                <Link to={`/dashboard/edit-product/${item._id}`} className="hover:text-[#17171B]/70 transition-all duration-200">
+                    <h3 className="font-medium text-[#17171B] line-clamp-2">{item?.name}</h3>
+                </Link>
+                <p className="text-sm text-gray-500">{item?.category}</p>
+            </div>
+            <div>
+                <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${uploadStatus.class}`}>
+                    {uploadStatus.text}
+                </div>
+            </div>
+            <div>
+                {isAuction ? (
+                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${status.class}`}>
+                        {status.text}
+                    </div>
+                ) : (
+                    <p className="text-sm text-gray-500">{item?.stats?.soldCount || 0}</p>
+                )}
+                {canRerunAuction && (
+                    <button
+                        onClick={handleRerunClick}
+                        className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-[#17171B] hover:bg-[#17171B]/90 text-white rounded-md text-xs transition-all duration-200"
+                        title="Schedule a new auction with this product"
+                    >
+                        <Icon icon="solar:restart-bold" className="w-3 h-3" />
+                        <span>Rerun Auction</span>
+                    </button>
+                )}
+            </div>
+            <div className="text-sm font-medium text-[#17171B]">
+                {isAuction ? (
+                    formatCurrency(item.auction?.currentHighestBid?.amount || 0)
+                ) : (
+                    formatCurrency(item?.price)
+                )}
+            </div>
+            <div className="text-center">
+                {isAuction ? (
+                    <span className="text-sm text-gray-500">{getTimeLeft(item.auction)}</span>
+                ) : (
+                    <span className="text-sm text-gray-500">{item?.stock}</span>
+                )}
+            </div>
+            {!isAuction && (
+                <div className="text-center">
+                    <button
+                        onClick={() => setOpenBlipUploadModal(true)}
+                        className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all ${item?.blips?.length > 0
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                            : 'bg-red-100 text-red-600 hover:bg-red-200'
+                            }`}
+                        title="Blips are short promotional videos that showcase your product in action"
+                    >
+                        <BiPlayCircle className="w-4 h-4" />
+                        <span>{item?.blips?.length > 0 ? `${item?.blips.length} Blips` : 'Add Blip'}</span>
+                    </button>
+                </div>
+            )}
+            <div className="flex items-center gap-2">
+                {!isAuction && (
+                    <>
+                        <button
+                            onClick={() => setOpenProductDetails(true)}
+                            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-blue-100 text-blue-700 transition-all duration-200"
+                            title="View detailed information about this product"
+                        >
+                            <Icon icon="solar:eye-bold" className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setOpenBlipUploadModal(true)}
+                            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-green-100 text-green-600 transition-all duration-200"
+                            title="Upload a short promotional video for this product"
+                        >
+                            <BiPlayCircle className="w-4 h-4" />
+                        </button>
+                    </>
+                )}
+                {isAuction && (
+                    <button
+                        onClick={() => setOpenAuctionModal(true)}
+                        className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-purple-100 text-purple-700 transition-all duration-200"
+                        title="View auction statistics and bidding history"
+                    >
+                        <Icon icon="solar:graph-bold" className="w-4 h-4" />
+                    </button>
+                )}
+                <Popover open={isDesktopPopoverOpen} onOpenChange={setIsDesktopPopoverOpen}>
+                    <PopoverTrigger asChild>
+                        <button
+                            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-[#17171B]/5 transition-all duration-200"
+                            title="More actions"
+                        >
+                            <Icon icon="solar:menu-dots-bold" width="18" height="18" color="#17171B" />
+                        </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48" align="end">
+                        <div className="flex flex-col">
+                            <Link
+                                to={`/dashboard/edit-product/${item._id}`}
+                                className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200"
+                            >
+                                <Icon icon="solar:pen-bold" width="14" height="14" />
+                                <span className="text-sm">Edit Product</span>
+                            </Link>
+                            {!isAuction && (
+                                <button
+                                    onClick={() => setOpenStockModal(true)}
+                                    className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
+                                >
+                                    <Icon icon="fluent:box-edit-24-filled" width="14" height="14" />
+                                    <span className="text-sm">Update Stock</span>
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setOpenShareLinkPopUp(true)}
+                                className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
+                            >
+                                <Icon icon="fluent:share-20-filled" width="14" height="14" />
+                                <span className="text-sm">Share product</span>
+                            </button>
+                            <button
+                                onClick={() => setShowDeleteDialog(true)}
+                                className="flex items-center gap-2 w-full px-3 py-2 hover:bg-red-50 text-red-600 rounded-md transition-all duration-200 text-left"
+                                disabled={handleDeleteStatusLoading()}
+                            >
+                                {
+                                    handleDeleteStatusLoading() ? (
+                                        <Icon icon="mdi:loader" className="animate-spin" width="14" height="14" />
+                                    ) : (
+                                        <Icon icon="solar:trash-bin-trash-bold" width="14" height="14" />
+                                    )
+                                }
+                                <span className="text-sm">{handleDeleteStatusLoading() ? 'Deleting...' : 'Delete Product'}</span>
+                            </button>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+            </div>
+        </div>
+    );
+
+    // Mobile Card Layout
+    const MobileCard = () => (
+        <div className="lg:hidden flex items-center gap-3 px-4 py-3 relative">
+            <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
+                <img
+                    src={item?.images[0]?.resizedImages?.find(img => img.width === 150)?.url || item?.images[0]?.url}
+                    alt={item?.name}
+                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-cover flex-shrink-0"
+                />
+                <div className="space-y-0.5 sm:space-y-1 min-w-0">
+                    <Link to={`/dashboard/edit-product/${item._id}`} className="hover:text-[#17171B]/70 transition-all duration-200">
+                        <h3 className="font-medium text-[#17171B] line-clamp-2 text-sm sm:text-base">{item?.name}</h3>
+                    </Link>
+                    <p className="text-xs sm:text-sm text-gray-500 truncate">{item?.category}</p>
+                    {isAuction ? (
+                        <>
+                            <p className="text-xs sm:text-sm font-medium text-[#17171B]">
+                                Current Bid: {formatCurrency(item.auction?.currentHighestBid?.amount || 0)}
+                            </p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                                <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${status.class}`}>
+                                    {status.text}
+                                </div>
+                                {canRerunAuction && (
+                                    <button
+                                        onClick={handleRerunClick}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#17171B] hover:bg-[#17171B]/90 text-white rounded-md text-xs transition-all duration-200"
+                                        title="Schedule a new auction with this product"
+                                    >
+                                        <Icon icon="solar:restart-bold" className="w-3 h-3" />
+                                        <span className="text-xs">Rerun</span>
+                                    </button>
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="flex items-center gap-3">
+                                <p className="text-xs sm:text-sm font-medium text-[#17171B]">{formatCurrency(item?.price)}</p>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${uploadStatus?.class}`}>
+                                    {uploadStatus?.text}
+                                </span>
+                            </div>
+                            <div className="flex gap-3 text-xs text-gray-500">
+                                <p>Stock: {item?.stock}</p>
+                                <p>Sold: {item?.stats?.soldCount || 0}</p>
+                                <p>Blips: {item?.blips?.length || 0}</p>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+            <div className="absolute right-4 top-4">
+                <Popover open={isMobilePopoverOpen} onOpenChange={setIsMobilePopoverOpen}>
+                    <PopoverTrigger asChild>
+                        <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#17171B]/5 transition-all duration-200">
+                            <Icon icon="solar:menu-dots-bold" width="16" height="16" color="#17171B" />
+                        </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48" align="end">
+                        <div className="flex flex-col">
+                            <Link
+                                to={`/dashboard/edit-product/${item._id}`}
+                                className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200"
+                            >
+                                <Icon icon="solar:pen-bold" width="14" height="14" />
+                                <span className="text-sm">Edit Product</span>
+                            </Link>
+                            {!isAuction ? (
+                                <>
+                                    <button
+                                        id={`product-details-${item._id}`}
+                                        onClick={() => setOpenProductDetails(true)}
+                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
+                                    >
+                                        <Icon icon="solar:eye-bold" width="14" height="14" />
+                                        <span className="text-sm">View Details</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setOpenStockModal(true)}
+                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
+                                    >
+                                        <Icon icon="fluent:box-edit-24-filled" width="14" height="14" />
+                                        <span className="text-sm">Update Stock</span>
+                                    </button>
+                                    <button
+                                        id={`upload-blip-${item._id}`}
+                                        onClick={() => setOpenBlipUploadModal(true)}
+                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
+                                    >
+                                        <BiPlayCircle width="14" height="14" />
+                                        <span className="text-sm">Blip{item?.blips?.length > 0 ? ` (${item?.blips.length})` : ''} </span>
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        id={`auction-performance-${item._id}`}
+                                        onClick={() => setOpenAuctionModal(true)}
+                                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
+                                    >
+                                        <Icon icon="solar:graph-bold" width="14" height="14" />
+                                        <span className="text-sm">Auction Performance</span>
+                                    </button>
+                                    {canRerunAuction && (
+                                        <button
+                                            id={`rerun-auction-${item._id}`}
+                                            onClick={() => setShowRerunDialog(true)}
+                                            className="flex items-center gap-2 w-full px-3 py-2 hover:bg-[#17171B]/5 rounded-md transition-all duration-200 text-left"
+                                        >
+                                            <Icon icon="solar:restart-bold" width="14" height="14" />
+                                            <span className="text-sm">Rerun Auction</span>
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                            <button
+                                id={`delete-product-${item._id}`}
+                                onClick={() => setShowDeleteDialog(true)}
+                                className="flex items-center gap-2 w-full px-3 py-2 hover:bg-red-50 text-red-600 rounded-md transition-all duration-200 text-left"
+                                disabled={handleDeleteStatusLoading()}
+                            >
+                                {
+                                    handleDeleteStatusLoading() ? (
+                                        <Icon icon="mdi:loader" className="animate-spin" width="14" height="14" />
+                                    ) : (
+                                        <Icon icon="solar:trash-bin-trash-bold" width="14" height="14" />
+                                    )
+                                }
+                                <span className="text-sm">{handleDeleteStatusLoading() ? 'Deleting...' : 'Delete Product'}</span>
+                            </button>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+            </div>
+        </div>
+    );
+
+    return (
+        <>
+            <div className="bg-white">
+                {DesktopCard()}
+                {MobileCard()}
+            </div>
+
+            {/* Stock Update Modal */}
+            <StockUpdateModal
+                open={openStockModal}
+                onClose={() => setOpenStockModal(false)}
+                item={item}
+                onUpdate={handleStockUpdate}
+                isSubmitting={isSubmitting}
+            />
+
+            {/* Share Link Popup */}
+            <ShareLinkPopUp
+                open={openShareLinkPopUp}
+                onOpenChange={setOpenShareLinkPopUp}
+                link={deepLink}
+                linkType={linkType}
+            />
+
+            {/* Product Details Modal */}
+            <ProductDetailsModal
+                open={openProductDetails}
+                onClose={() => setOpenProductDetails(false)}
+                productId={item._id}
+                handleDelete={() => setShowDeleteDialog(true)}
+            />
+
+            {/* Auction Performance Modal */}
+            <AuctionPerformanceModal
+                open={openAuctionModal}
+                onClose={() => setOpenAuctionModal(false)}
+                auctionId={item._id}
+                setShowRerunDialog={setShowRerunDialog}
+            />
+
+            {/* Rerun Auction Dialog */}
+            <RerunAuctionDialog
+                open={showRerunDialog}
+                onClose={() => setShowRerunDialog(false)}
+                onSubmit={handleRerunAuction}
+                isLoading={isRerunLoading}
+                defaultValues={{
+                    startDate: new Date(),
+                    endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
+                    startingBid: item.auction?.startingBid || item.price
+                }}
+            />
+
+            {/* Blip Upload Modal */}
+            <BlipUploadModal
+                open={openBlipUploadModal}
+                onClose={() => setOpenBlipUploadModal(false)}
+                productId={item._id}
+                product={item}
+                setOpenShareLinkPopUp={setOpenShareLinkPopUp}
+                changeLinkType={setLinkType}
+                changeDeepLink={setDeepLink}
+            />
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <DialogContent className="sm:max-w-[500px] max-w-[90vw] mx-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg sm:text-xl text-red-600">Confirm Product Deletion</DialogTitle>
+                        <DialogDescription className="text-sm sm:text-base">
+                            Are you sure you want to delete this product? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="py-4 space-y-4">
+                        <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
+                            <img
+                                src={item?.images[0]?.url}
+                                alt={item?.name}
+                                className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-contain bg-white"
+                            />
+                            <div>
+                                <h3 className="font-medium text-[#17171B] text-sm sm:text-base line-clamp-2">{item?.name}</h3>
+                                <p className="text-xs sm:text-sm text-gray-500">SKU: {item?.sku || 'N/A'}</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm">
+                            <h4 className="font-medium text-yellow-800 mb-2">What happens when you delete this product?</h4>
+                            <ul className="list-disc pl-5 space-y-1 text-yellow-700">
+                                <li>The product will be permanently removed from your inventory</li>
+                                <li>Any active orders containing this product will not be affected</li>
+                                <li>Product analytics and historical data will be lost</li>
+                                <li>The product will no longer appear in your store</li>
+                                {isAuction && (
+                                    <li>All auction data and bids associated with this product will be lost</li>
+                                )}
+                            </ul>
+                        </div>
+
+                        <div className="flex gap-3 justify-end pt-2">
+                            <button
+                                onClick={() => setShowDeleteDialog(false)}
+                                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-all duration-200"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    handleProductDelete(item._id);
+                                    setShowDeleteDialog(false);
+                                }}
+                                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-all duration-200 flex items-center gap-2"
+                                disabled={handleDeleteStatusLoading()}
+                            >
+                                {handleDeleteStatusLoading() ? (
+                                    <Icon icon="mdi:loader" className="animate-spin w-4 h-4" />
+                                ) : (
+                                    <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4" />
+                                )}
+                                <span>{handleDeleteStatusLoading() ? 'Deleting...' : 'Delete Product'}</span>
+                            </button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </>
+    )
+}
+
+ProductCard.propTypes = {
+    item: PropTypes.object.isRequired,
+    isAuction: PropTypes.bool,
+    canRerunAuction: PropTypes.bool,
+    handleRerunClick: PropTypes.func,
+    handleStockUpdate: PropTypes.func,
+}
+
+export default ProductCard;

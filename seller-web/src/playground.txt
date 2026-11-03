@@ -1,0 +1,33 @@
+import SearchBar from "@/Components/ui/DashboardHomepageUi/SearchBar"
+import SideBarNav from "@/Components/ui/DashboardHomepageUi/SideBarNav"
+import { useState } from "react";
+
+
+
+
+function Customers() {
+  
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+
+  return (
+    <div className="flex h-screen w-dvh ">
+    {/* Sidebar */}
+    <SideBarNav isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+    {/* Main Content */}
+    <div className="pl-[20px] pr-[20px] md:pl-[42px] md:pr-[28px] pb-14 h-full w-full overflow-y-scroll [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+      {/* Search Bar */}
+      <SearchBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+      {/* Notification */}
+     
+      
+      <div className="pl-[2px] xl:pl-[42px] pr-[18px] xl:pr-[28px]" >
+       {/* content area */}
+        <p>hello customers</p>
+    </div>
+  </div>
+  </div>
+  )
+}
+
+export default Customers

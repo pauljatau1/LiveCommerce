@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <title>Auqli Seller Dashboard</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="/logo-single.png" />
+
+  <!--Fonts-->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cabin:ital,wght@0,400..700;1,400..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Lato:ital,wght@0,100..900;1,100..900&family=Lexend+Deca:wght@100..900&family=Lexend:wght@100..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Space+Grotesk:wght@300..700&display=swap"
+    rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cabin:ital,wght@0,400..700;1,400..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Lato:ital,wght@0,100..900;1,100..900&family=Lexend+Deca:wght@100..900&family=Lexend:wght@100..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Space+Grotesk:wght@300..700&display=swap"
+    rel="stylesheet">
+
+  <!-- Global production check -->
+  <script>
+    window.isProduction = window.location.hostname === 'seller.auqli.live';
+  </script>
+
+  <!-- Google tag (gtag.js)-->
+  <script>
+    if (window.isProduction) {
+      // Load Google Analytics only in production
+      var script = document.createElement('script');
+      script.async = true;
+      script.src = 'https://www.googletagmanager.com/gtag/js?id=G-314W6NNXZ4';
+      document.head.appendChild(script);
+
+
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag('js', new Date());
+      gtag('config', 'G-314W6NNXZ4');
+    }
+  </script>
+  <!-- End Google tag (gtag.js) -->
+
+  <!-- Meta Pixel Code -->
+  <script>
+    if (window.isProduction) {
+      !function (f, b, e, v, n, t, s) {
+        if (f.fbq) return; n = f.fbq = function () {
+          n.callMethod ?
+            n.callMethod.apply(n, arguments) : n.queue.push(arguments)
+        };
+        if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
+        n.queue = []; t = b.createElement(e); t.async = !0;
+        t.src = v; s = b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t, s)
+      }(window, document, 'script',
+        'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', '791882983135313');
+      fbq('track', 'PageView');
+    }
+  </script>
+  
+  <!-- End Meta Pixel Code -->
+
+  <!-- Customer.io -->
+  <script>
+    if (window.isProduction) {
+      !function () {
+        var i = "cioanalytics";
+        window[i] = window[i] || [];
+        var analytics = window[i];
+        if (!analytics.initialize) if (analytics.invoked) window.console && console.error && console.error("Snippet included twice."); else {
+          analytics.invoked = !0; analytics.methods = ["trackSubmit", "trackClick", "trackLink", "trackForm", "pageview", "identify", "reset", "group", "track", "ready", "alias", "debug", "page", "once", "off", "on", "addSourceMiddleware", "addIntegrationMiddleware", "setAnonymousId", "addDestinationMiddleware"]; analytics.factory = function (e) { return function () { var t = Array.prototype.slice.call(arguments); t.unshift(e); analytics.push(t); return analytics } }; for (var e = 0; e < analytics.methods.length; e++) { var key = analytics.methods[e]; analytics[key] = analytics.factory(key) } analytics.load = function (key, e) { var t = document.createElement("script"); t.type = "text/javascript"; t.async = !0; t.setAttribute('data-global-customerio-analytics-key', i); t.src = "https://cdp.customer.io/v1/analytics-js/snippet/" + key + "/analytics.min.js"; var n = document.getElementsByTagName("script")[0]; n.parentNode.insertBefore(t, n); analytics._writeKey = key; analytics._loadOptions = e }; analytics.SNIPPET_VERSION = "4.15.3";
+          //check for existing consent on page load and load analytics if consent is given
+          if (localStorage.getItem('analytics-consent') === 'true' || localStorage.getItem('analytics-consent') === 'false') {
+            analytics.load("403c9b971fd0501b68ee");
+          }
+          analytics.page();
+        }
+      }();
+    }
+  </script>
+
+
+  <script type="text/javascript">
+    if (window.isProduction) {
+      var _cio = _cio || [];
+      (function () {
+        var a, b, c; a = function (f) {
+          return function () {
+            _cio.push([f].
+              concat(Array.prototype.slice.call(arguments, 0)))
+          }
+        }; b = ["load", "identify",
+          "sidentify", "track", "page", "on", "off"]; for (c = 0; c < b.length; c++) { _cio[b[c]] = a(b[c]) };
+        var t = document.createElement('script'),
+          s = document.getElementsByTagName('script')[0];
+        t.async = true;
+        t.id = 'cio-tracker';
+        t.setAttribute('data-site-id', '714ef0f88ce6c4127d56');
+        t.setAttribute('data-use-array-params', 'true');
+
+        // Enabled in-app messaging
+        t.setAttribute('data-use-in-app', 'true');
+
+        t.src = 'https://assets.customer.io/assets/track.js';
+        s.parentNode.insertBefore(t, s);
+      })();
+    }
+  </script>
+  <!-- End Customer.io -->
+  <!-- End Customer.io -->
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+
+  <script>
+    // Only initialize Clarity if consent exists
+    function initClarity(userInfo) {
+      if (!window.isProduction) {
+        return;
+      }
+      const consent = localStorage.getItem('analytics-consent');
+      if (consent === 'true') {
+        (function (c, l, a, r, i, t, y) {
+          c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
+          t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i;
+          y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
+        })(window, document, "clarity", "script", "pe23vgdq2k");
+
+        // If user info is provided, identify the user with the correct syntax
+        if (userInfo) {
+          // Per documentation: clarity("identify", "custom-id", "custom-session-id", "custom-page-id", "friendly-name")
+          // Email as custom-id for cross-device tracking, full name as friendly-name
+          window.clarity("identify", userInfo.email, userInfo.id, window.location.pathname, `${userInfo.firstName} ${userInfo.lastName}`);
+        }
+      }
+    }
+
+    // Check for,  existing consent on page load
+    if (localStorage.getItem('analytics-consent') === 'true' || localStorage.getItem('analytics-consent') === 'false') {
+      const seller = JSON.parse(localStorage.getItem('seller'));
+      // console.log('analytics seller', seller);
+      if (seller) {
+        // Create userInfo object for Clarity identification
+        const userInfo = {
+          id: seller._id,
+          email: seller.email,
+          firstName: seller.firstName,
+          lastName: seller.lastName
+        };
+        initClarity(userInfo);
+      } else {
+        initClarity();
+      }
+    }
+  </script>
+</body>
+
+</html>
