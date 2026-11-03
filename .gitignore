@@ -1,0 +1,22 @@
+# Secrets: never commit these. Use .env.example files for templates.
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.p8
+*.jks
+*.keystore
+credentials.json
+google-services.json
+GoogleService-Info.plist
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+.expo/
+
+# OS and editor files
+.DS_Store
+*.swp
