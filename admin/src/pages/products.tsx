@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Pencil, Trash2, Plus, Loader2, Upload, X } from "lucide-react"
+import { Pencil, Trash2, Plus, Loader2, Upload, X, Eye, Tag, Star, BarChart2, Package2, Store, Info, AlertTriangle, MinusCircle, Edit2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,27 +12,131 @@ import {
 } from "@/components/ui/table"
 import { api } from "@/api/axios"
 import { toast } from "sonner"
+import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
+import { Link } from 'react-router-dom'
+
+interface Seller {
+  _id: string;
+  firstName?: string;
+  lastName?: string;
+  businessName?: string;
+  storeName?: string;
+  email?: string;
+  phoneNumber?: string;
+  personalInfo?: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber?: string;
+  };
+  businessInfo?: {
+    businessName?: string;
+    businessType?: string;
+  };
+  storeInfo?: {
+    storeName?: string;
+    aboutStore?: string;
+    storeAvatar?: {
+      url: string;
+      public_id: string;
+    };
+    storeBanner?: {
+      url: string;
+      public_id: string;
+    };
+    categories?: string[];
+    followerCount?: number;
+  };
+}
+
+interface ProductStats {
+  views?: number;
+  soldCount?: number;
+  averageRating?: number;
+  reviewCount?: number;
+}
+
+interface ProductDiscount {
+  isActive: boolean;
+  type: string;
+  value: number;
+  discountedPrice?: number;
+}
+
+interface ProductInventory {
+  quantity?: number;
+  lowStockThreshold?: number;
+  sku?: string;
+}
 
 interface Product {
-  _id: string
-  name: string
-  category: string
-  price: number
-  stock: number
-  status: string
+  _id: string;
+  id?: string;
+  name: string;
+  brand?: string;
+  category: string;
+  subCategory?: string;
+  price: number;
+  discountedPrice?: number;
+  stock: number;
+  status: string;
+  sku?: string;
+  upc?: string;
+  visibility?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  condition?: string;
+  description?: string;
+  discount?: ProductDiscount;
+  seller?: Seller;
+  stats?: ProductStats;
+  inventory?: ProductInventory;
+  blips?: any[];
+  variants?: any[];
   images: {
-    url: string
-  }[]
+    url: string;
+    _id?: string;
+  }[];
+  reviews?: any[];
+  shippingInfo?: {
+    weight?: {
+      value?: number;
+      unit?: string;
+    };
+    dimensions?: {
+      length?: number;
+      width?: number;
+      height?: number;
+    };
+  };
+  returnPolicy?: {
+    allowed?: boolean;
+    periodInDays?: number;
+    conditions?: string[];
+  };
 }
 
 function Products() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [sellerId, setSellerId] = useState('')
-  const [csvFile, setCsvFile] = useState(null)
+  const [csvFile, setCsvFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
-  const [sellers, setSellers] = useState([])
+  const [sellers, setSellers] = useState<Seller[]>([])
   const [loadingSellers, setLoadingSellers] = useState(false)
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [uploadStats, setUploadStats] = useState({
@@ -40,40 +144,381 @@ function Products() {
     totalProcessed: 0,
     errors: []
   })
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [loadingProductDetails, setLoadingProductDetails] = useState(false)
+  const [productDetailsOpen, setProductDetailsOpen] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [showNoProductsConfirmation, setShowNoProductsConfirmation] = useState(false)
+  const [showNoBlipsConfirmation, setShowNoBlipsConfirmation] = useState(false)
+
+  // Pagination and filtering state
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalProducts: 0,
+    productsPerPage: 15
+  })
+  
+  // Keep current search input and the applied search params separate
+  const [searchInput, setSearchInput] = useState('')
+  const [searchParams, setSearchParams] = useState({
+    query: '',
+    category: '',
+    minPrice: '',
+    maxPrice: '',
+    status: '',
+    sortBy: 'createdAt',
+    sortOrder: 'desc'
+  })
+  const [showFilters, setShowFilters] = useState(false)
+  const [categories, setCategories] = useState<string[]>([])
+
+  // Form state for filters
+  const [filterInputs, setFilterInputs] = useState({
+    category: '',
+    minPrice: '',
+    maxPrice: '',
+    status: '',
+    sortBy: 'createdAt',
+    sortOrder: 'desc'
+  })
+
+  // New state for seller pagination and search in the import modal
+  const [sellerPagination, setSellerPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalSellers: 0,
+    sellersPerPage: 15
+  })
+  const [sellerSearch, setSellerSearch] = useState('')
+  const [sellerSearchInput, setSellerSearchInput] = useState('')
+  const [loadingMoreSellers, setLoadingMoreSellers] = useState(false)
+
+  // State for updating sold count
+  const [soldCountModalOpen, setSoldCountModalOpen] = useState(false);
+  const [productToUpdateSold, setProductToUpdateSold] = useState<Product | null>(null);
+  const [newSoldCount, setNewSoldCount] = useState('');
+  const [updatingSoldCount, setUpdatingSoldCount] = useState(false);
 
   useEffect(() => {
+    setLoading(true)
     fetchProducts()
     fetchSellers()
+    fetchCategories()
   }, [])
 
-  const fetchProducts = async () => {
+  // Update filter inputs when searchParams change (for consistency)
+  useEffect(() => {
+    setFilterInputs({
+      category: searchParams.category,
+      minPrice: searchParams.minPrice,
+      maxPrice: searchParams.maxPrice,
+      status: searchParams.status,
+      sortBy: searchParams.sortBy,
+      sortOrder: searchParams.sortOrder
+    })
+    setSearchInput(searchParams.query)
+  }, [searchParams])
+
+  // Fetch sellers when sellerPagination.currentPage or sellerSearch changes
+  useEffect(() => {
+    if (showImportModal) {
+      fetchSellers()
+    }
+  }, [sellerPagination.currentPage, sellerSearch, showImportModal])
+
+  const fetchCategories = async () => {
     try {
-      const response = await api.get("/api/admin/products")
-      setProducts(response.data)
+      const response = await api.get("/api/admin/categories")
+      if (response.data) {
+        const categoryNames = response.data.map((cat: any) => cat.name)
+        setCategories(categoryNames)
+      }
     } catch (error) {
-      toast.error("Failed to fetch products" + error)
-    } finally {
-      setLoading(false)
+      toast.error("Failed to fetch categories")
     }
   }
+
+  const fetchProducts = async (isNewSearch = false) => {
+    if (isNewSearch) {
+      setIsSearching(true)
+    } else if (pagination.currentPage === 1) {
+      setLoading(true)
+    } else {
+      setLoadingMore(true)
+    }
+    
+    fetchProductsWithParams(searchParams, isNewSearch)
+  }
+
+  const fetchProductsWithParams = async (params: any, isNewSearch = false, specificPage?: number) => {
+    try {
+      const currentPage = specificPage || (isNewSearch ? 1 : pagination.currentPage)
+      
+      // Determine if we should use search or regular endpoint
+      const endpoint = params.query || 
+                      params.category || 
+                      params.minPrice || 
+                      params.maxPrice || 
+                      params.status
+        ? "/api/admin/products/search"
+        : "/api/admin/products"
+
+      // Build query parameters
+      const queryParams = {
+        page: currentPage,
+        limit: pagination.productsPerPage,
+        ...(params.query && { query: params.query }),
+        ...(params.category && { category: params.category }),
+        ...(params.minPrice && { minPrice: params.minPrice }),
+        ...(params.maxPrice && { maxPrice: params.maxPrice }),
+        ...(params.status && { status: params.status }),
+        ...(params.sortBy && { sortBy: params.sortBy }),
+        ...(params.sortOrder && { sortOrder: params.sortOrder })
+      }
+
+      const response = await api.get(endpoint, { params: queryParams })
+      
+      // Update pagination data
+      setPagination({
+        currentPage: response.data.currentPage,
+        totalPages: response.data.totalPages,
+        totalProducts: response.data.totalProducts,
+        productsPerPage: response.data.productsPerPage
+      })
+
+      // If this is a new search, replace products. Otherwise, append
+      if (isNewSearch) {
+        setProducts(response.data.products)
+      } else {
+        setProducts(prev => [...prev, ...response.data.products])
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || "Failed to fetch products"
+      toast.error(errorMessage)
+      // If error occurs, set empty products to prevent showing stale data
+      if (isNewSearch) {
+        setProducts([])
+      }
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
+      setIsSearching(false)
+    }
+  }
+
+  const fetchProductsWithPage = async (params: any, pageNumber: number) => {
+    setLoadingMore(true)
+    await fetchProductsWithParams(params, false, pageNumber)
+  }
+
+  const handleLoadMore = () => {
+    if (pagination.currentPage < pagination.totalPages) {
+      const nextPage = pagination.currentPage + 1
+      setPagination(prev => ({ ...prev, currentPage: nextPage }))
+      fetchProductsWithPage(searchParams, nextPage)
+    }
+  }
+
+  // Handle search input change without triggering search
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchInput(e.target.value)
+  }
+
+  // Clear search input and trigger search with empty query
+  const clearSearchInput = () => {
+    setSearchInput('');
+    
+    // Create new search params with empty query
+    const newSearchParams = {
+      ...searchParams,
+      query: ''
+    };
+    
+    // Update state for consistency
+    setSearchParams(newSearchParams);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    setIsSearching(true);
+    
+    // Use the new params directly
+    fetchProductsWithParams(newSearchParams, true);
+    toast.success("Search cleared");
+  };
+
+  // Perform search when search button is clicked
+  const handleSearch = () => {
+    setPagination(prev => ({ ...prev, currentPage: 1 }))
+    
+    // Create a new searchParams object with the current searchInput
+    const newSearchParams = {
+      ...searchParams,
+      query: searchInput
+    }
+    
+    // Set state for consistency but don't wait for it
+    setSearchParams(newSearchParams)
+    setIsSearching(true)
+    
+    // Use the new searchParams directly in the API call
+    fetchProductsWithParams(newSearchParams, true)
+  }
+
+  // Handle Enter key press in search input - prevent search on Enter
+  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault() // Prevent form submission
+    }
+  }
+
+  // Handle filter changes without immediately applying them
+  const handleFilterInputChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFilterInputs(prev => ({ ...prev, [name]: value }))
+  }
+
+  // Apply all filters at once
+  const applyFilters = () => {
+    setPagination(prev => ({ ...prev, currentPage: 1 }))
+    
+    // Create a new search params object with current filter inputs
+    const newSearchParams = {
+      ...searchParams,
+      ...filterInputs
+    }
+    
+    // Set state for consistency but don't wait for it
+    setSearchParams(newSearchParams)
+    setIsSearching(true)
+    
+    // Use the new searchParams directly in the API call
+    fetchProductsWithParams(newSearchParams, true)
+  }
+
+  // Reset all filters
+  const resetFilters = () => {
+    const resetValues = {
+      query: '',
+      category: '',
+      minPrice: '',
+      maxPrice: '',
+      status: '',
+      sortBy: 'createdAt',
+      sortOrder: 'desc'
+    };
+    
+    // Update all state for consistency
+    setSearchInput('');
+    setFilterInputs({
+      category: '',
+      minPrice: '',
+      maxPrice: '',
+      status: '',
+      sortBy: 'createdAt',
+      sortOrder: 'desc'
+    });
+    setSearchParams(resetValues);
+    setIsSearching(true);
+    
+    // Use the reset values directly
+    fetchProductsWithParams(resetValues, true);
+    toast.success("All filters have been reset");
+  };
+  
+  // Clear a single filter
+  const clearFilter = (filterName: string) => {
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    
+    // Create new search params with the cleared filter
+    const newSearchParams = {
+      ...searchParams,
+      [filterName]: ''
+    };
+    
+    // Update state for consistency
+    setSearchParams(newSearchParams);
+    setIsSearching(true);
+    
+    // Use the new params directly
+    fetchProductsWithParams(newSearchParams, true);
+    toast.success(`${filterName.charAt(0).toUpperCase() + filterName.slice(1)} filter cleared`);
+  };
 
   const fetchSellers = async () => {
     try {
       setLoadingSellers(true)
-      const response = await api.get("/api/admin/sellers")
-      setSellers(response.data)
+      console.log("Fetching sellers...")
+      
+      // Build query parameters
+      const params = new URLSearchParams()
+      params.append('page', sellerPagination.currentPage.toString())
+      params.append('limit', sellerPagination.sellersPerPage.toString())
+      
+      // Add search parameter if exists
+      if (sellerSearch) {
+        params.append('search', sellerSearch)
+      }
+      
+      const response = await api.get(`/api/admin/sellers?${params.toString()}`)
+      console.log("Sellers API response:", response.data)
+      
+      // Extract sellers from the nested response structure
+      if (response && response.data) {
+        // Check if response.data has a sellers property (new API format)
+        if (response.data.sellers && Array.isArray(response.data.sellers)) {
+          console.log(`Found ${response.data.sellers.length} sellers in nested format`)
+          
+          // If loading more (pagination), append to existing sellers
+          if (sellerPagination.currentPage > 1 && !sellerSearch) {
+            setSellers(prev => [...prev, ...response.data.sellers])
+          } else {
+            setSellers(response.data.sellers)
+          }
+          
+          // Update pagination data
+          setSellerPagination({
+            currentPage: response.data.currentPage || 1,
+            totalPages: response.data.totalPages || 1,
+            totalSellers: response.data.totalSellers || 0,
+            sellersPerPage: response.data.sellersPerPage || 10
+          })
+        } 
+        // Fallback to direct response.data if it's an array (old API format)
+        else if (Array.isArray(response.data)) {
+          console.log(`Found ${response.data.length} sellers in direct format`)
+          
+          // If loading more (pagination), append to existing sellers
+          if (sellerPagination.currentPage > 1 && !sellerSearch) {
+            setSellers(prev => [...prev, ...response.data])
+          } else {
+            setSellers(response.data)
+          }
+        } 
+        else {
+          console.warn("Unexpected sellers API response format:", response.data)
+          setSellers([])
+        }
+      } else {
+        console.warn("Empty response from sellers API")
+        setSellers([])
+      }
     } catch (error) {
+      console.error("Error fetching sellers:", error)
       toast.error("Failed to fetch sellers")
+      setSellers([]) // Ensure sellers is an array even if the API call fails
     } finally {
       setLoadingSellers(false)
+      setLoadingMoreSellers(false)
     }
   }
 
-  const handleFileChange = (e) => {
-    setCsvFile(e.target.files[0])
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setCsvFile(e.target.files[0])
+    }
   }
 
-  const handleSellerChange = (e) => {
+  const handleSellerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSellerId(e.target.value)
   }
 
@@ -98,7 +543,7 @@ function Products() {
     }
   }
 
-  const handleImport = async (e) => {
+  const handleImport = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!sellerId) {
@@ -125,12 +570,15 @@ function Products() {
       })
       
       // Find the seller name for the success message
-      const sellerName = sellers.find(s => s._id === sellerId)?.storeName || 
+      const sellerName = Array.isArray(sellers) ? 
+                        (sellers.find(s => s._id === sellerId)?.storeName || 
                         sellers.find(s => s._id === sellerId)?.businessName || 
-                        'the seller'
+                        sellers.find(s => s._id === sellerId)?.firstName && sellers.find(s => s._id === sellerId)?.lastName ? 
+                          `${sellers.find(s => s._id === sellerId)?.firstName} ${sellers.find(s => s._id === sellerId)?.lastName}` : 
+                        'the seller') : 'the seller';
       
       toast.success(
-        `Successfully imported ${response.data.results.createdProducts.length} products. ${sellerName} has been notified via email with details.`,
+        `Successfully imported ${response.data.results.createdProducts.length} products${response.data.results.errors.length > 0 ? ` with ${response.data.results.errors.length} errors` : ''}. ${sellerName} has been notified via email with details.`,
         { duration: 5000 }
       )
       
@@ -143,7 +591,7 @@ function Products() {
       setUploadSuccess(true)
       
       fetchProducts() // Refresh products list
-    } catch (error) {
+    } catch (error: any) {
       toast.error("Failed to import products: " + (error.response?.data?.message || error.message))
     } finally {
       setUploading(false)
@@ -160,12 +608,258 @@ function Products() {
       totalProcessed: 0,
       errors: []
     })
+    // Reset seller search and pagination
+    setSellerSearchInput('')
+    setSellerSearch('')
+    setSellerPagination({
+      currentPage: 1,
+      totalPages: 1,
+      totalSellers: 0,
+      sellersPerPage: 15
+    })
   }
 
-  if (loading) {
+  // Add a function to handle opening the import modal
+  const handleOpenImportModal = () => {
+    setShowImportModal(true)
+    // Fetch sellers if they haven't been fetched yet - No need to call here, will be called by useEffect
+    // if (!Array.isArray(sellers) || sellers.length === 0) {
+    //   fetchSellers()
+    // }
+  }
+
+  // Function to handle seller search
+  const handleSellerSearch = () => {
+    setSellerSearch(sellerSearchInput)
+    setSellerPagination(prev => ({ ...prev, currentPage: 1 })) // Reset to first page
+    // fetchSellers() - No need to call here, will be called by useEffect
+  }
+  
+  // Function to handle seller search input change
+  const handleSellerSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSellerSearchInput(e.target.value)
+  }
+  
+  // Function to handle seller search on Enter key
+  const handleSellerSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSellerSearch()
+    }
+  }
+  
+  // Function to load more sellers
+  const loadMoreSellers = () => {
+    if (sellerPagination.currentPage < sellerPagination.totalPages) {
+      setLoadingMoreSellers(true)
+      setSellerPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))
+      // fetchSellers() - No need to call here, will be called by useEffect
+    }
+  }
+  
+  // Function to clear seller search
+  const clearSellerSearch = () => {
+    setSellerSearchInput('')
+    setSellerSearch('')
+    setSellerPagination(prev => ({ ...prev, currentPage: 1 }))
+    // fetchSellers() - No need to call here, will be called by useEffect
+  }
+
+  // Format price to readable format with currency
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(price);
+  }
+
+  // Format date to readable format
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
+  }
+
+  // Get relative time (e.g., "2 days ago")
+  const getRelativeTime = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInDays === 0) return 'Today';
+    if (diffInDays === 1) return 'Yesterday';
+    if (diffInDays < 7) return `${diffInDays} days ago`;
+    if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
+    if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`;
+    return `${Math.floor(diffInDays / 365)} years ago`;
+  }
+
+  // Function to get the product discount percentage
+  const getDiscountPercentage = (product: Product) => {
+    if (!product.discount?.isActive || !product.discount.value) return 0;
+    return product.discount.type === 'percentage' ? 
+      product.discount.value : 
+      Math.round((product.discount.value / product.price) * 100);
+  }
+
+  // Handle delete product
+  const handleDeleteProduct = async (productId: string, productName: string) => {
+    if (!confirm(`Are you sure you want to delete "${productName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await api.delete(`/api/admin/products/${productId}`);
+      
+      if (response.data.success) {
+        toast.success("Product deleted successfully");
+        // Remove the deleted product from the list
+        setProducts(products.filter(product => product._id !== productId));
+      }
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      toast.error("Failed to delete product. Please try again.");
+    }
+  };
+
+  // State for disable product modal
+  const [disableModalOpen, setDisableModalOpen] = useState(false);
+  const [productToDisable, setProductToDisable] = useState<{id: string, name: string} | null>(null);
+  const [disableReason, setDisableReason] = useState('');
+  const [disablingProduct, setDisablingProduct] = useState(false);
+
+  // Handle opening disable product modal
+  const openDisableModal = (productId: string, productName: string) => {
+    setProductToDisable({id: productId, name: productName});
+    setDisableReason('');
+    setDisableModalOpen(true);
+  };
+
+  // Handle disable product
+  const handleDisableProduct = async () => {
+    if (!productToDisable) return;
+    
+    try {
+      setDisablingProduct(true);
+      const response = await api.put(`/api/admin/products/${productToDisable.id}/disable`, {
+        reason: disableReason
+      });
+      
+      if (response.data.success) {
+        toast.success("Product disabled successfully");
+        // Update the product status in the list
+        setProducts(products.map(product => 
+          product._id === productToDisable.id ? { ...product, status: 'draft' } : product
+        ));
+        setDisableModalOpen(false);
+      }
+    } catch (error) {
+      console.error("Error disabling product:", error);
+      toast.error("Failed to disable product. Please try again.");
+    } finally {
+      setDisablingProduct(false);
+    }
+  };
+
+  // Send reminder emails to sellers without products
+  const sendRemindersToSellersWithoutProducts = async () => {
+    try {
+      setIsLoading(true);
+      const response = await api.post('/api/admin/sellers/reminders/no-products');
+      toast.success(response.data.message || 'Reminder emails sent to sellers without products');
+      setShowNoProductsConfirmation(false);
+      setIsLoading(false);
+    } catch (error: any) {
+      console.error('Error sending reminder emails:', error);
+      toast.error(error.response?.data?.message || 'Failed to send reminder emails');
+      setShowNoProductsConfirmation(false);
+      setIsLoading(false);
+    }
+  };
+
+  // Send reminder emails to sellers without blips
+  const sendRemindersToSellersWithoutBlips = async () => {
+    try {
+      setIsLoading(true);
+      const response = await api.post('/api/admin/sellers/reminders/no-blips');
+      toast.success(response.data.message || 'Reminder emails sent to sellers without blips');
+      setShowNoBlipsConfirmation(false);
+      setIsLoading(false);
+    } catch (error: any) {
+      console.error('Error sending reminder emails:', error);
+      toast.error(error.response?.data?.message || 'Failed to send reminder emails');
+      setShowNoBlipsConfirmation(false);
+      setIsLoading(false);
+    }
+  };
+
+  // Function to fetch product details
+  const fetchProductDetails = async (productId: string) => {
+    setProductDetailsOpen(true)
+    try {
+      setLoadingProductDetails(true)
+      const response = await api.get(`/api/products/${productId}`)
+      setSelectedProduct(response.data)
+    } catch (error) {
+      console.error("Error fetching product details:", error)
+      toast.error("Failed to load product details")
+    } finally {
+      setLoadingProductDetails(false)
+    }
+  }
+
+  // Handler to open sold count modal
+  const openSoldCountModal = (product: Product) => {
+    setProductToUpdateSold(product);
+    setNewSoldCount(product.stats?.soldCount?.toString() || '');
+    setSoldCountModalOpen(true);
+  };
+
+  // Handler to update sold count
+  const handleUpdateSoldCount = async () => {
+    if (!productToUpdateSold || !newSoldCount) return;
+    const soldCountNum = parseInt(newSoldCount, 10);
+    if (isNaN(soldCountNum) || soldCountNum < 0) {
+      toast.error('Please enter a valid sold count');
+      return;
+    }
+    setUpdatingSoldCount(true);
+    try {
+      const response = await api.patch(`/api/v2/admin/products/${productToUpdateSold._id}/sold-count`, { soldCount: soldCountNum });
+      if (response.data.status) {
+        toast.success(response.data.message || 'Sold count updated');
+        // Update product in list
+        setProducts(prev => prev.map(p =>
+          p._id === productToUpdateSold._id
+            ? { ...p, stats: { ...p.stats, soldCount: soldCountNum } }
+            : p
+        ));
+        setSoldCountModalOpen(false);
+      } else {
+        toast.error(response.data.message || 'Failed to update sold count');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update sold count');
+    } finally {
+      setUpdatingSoldCount(false);
+    }
+  };
+
+  // Initial loading state for the entire page
+  if (loading && pagination.currentPage === 1 && products.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex flex-col items-center justify-center h-[80vh]">
+        <Loader2 className="h-16 w-16 animate-spin text-primary mb-6" />
+        <p className="text-xl text-muted-foreground">Loading products...</p>
       </div>
     )
   }
@@ -175,11 +869,101 @@ function Products() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold text-white">Products</h2>
-          <p className="text-muted-foreground">Manage your product inventory</p>
+          <p className="text-muted-foreground">Manage your product inventory ({pagination.totalProducts} products)</p>
         </div>
         <div className="flex space-x-3">
+          <Dialog open={showNoProductsConfirmation} onOpenChange={setShowNoProductsConfirmation}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="bg-amber-600 text-white hover:bg-amber-700"
+              >
+                <Info className="h-4 w-4 mr-2" />
+                Remind No Products
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Send Reminder Emails</DialogTitle>
+                <DialogDescription>
+                  This will send reminder emails to all sellers who have not uploaded any products yet.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <p className="text-sm text-muted-foreground">
+                  Are you sure you want to send reminder emails to all sellers without products? This action cannot be undone.
+                </p>
+              </div>
+              <DialogFooter className="sm:justify-end">
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button 
+                  type="button" 
+                  className="bg-amber-600 hover:bg-amber-700" 
+                  onClick={sendRemindersToSellersWithoutProducts}
+                  disabled={isLoading}
+                >
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Info className="h-4 w-4 mr-2" />}
+                  Send Reminders
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
+          <Dialog open={showNoBlipsConfirmation} onOpenChange={setShowNoBlipsConfirmation}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
+              >
+                <Store className="h-4 w-4 mr-2" />
+                Remind No Blips
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Send Reminder Emails</DialogTitle>
+                <DialogDescription>
+                  This will send reminder emails to all sellers who have products but no blips.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <p className="text-sm text-muted-foreground">
+                  Are you sure you want to send reminder emails to all sellers without blips? This action cannot be undone.
+                </p>
+              </div>
+              <DialogFooter className="sm:justify-end">
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button 
+                  type="button" 
+                  className="bg-emerald-600 hover:bg-emerald-700" 
+                  onClick={sendRemindersToSellersWithoutBlips}
+                  disabled={isLoading}
+                >
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Store className="h-4 w-4 mr-2" />}
+                  Send Reminders
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
           <Button 
-            onClick={() => setShowImportModal(true)} 
+            onClick={() => setShowFilters(!showFilters)} 
+            variant="outline" 
+            className="bg-slate-700 text-white hover:bg-slate-800"
+          >
+            <BarChart2 className="h-4 w-4 mr-2" />
+            {showFilters ? 'Hide Filters' : 'Show Filters'}
+          </Button>
+          <Button 
+            onClick={handleOpenImportModal} 
             variant="outline" 
             className="bg-indigo-600 text-white hover:bg-indigo-700"
           >
@@ -193,70 +977,817 @@ function Products() {
         </div>
       </div>
 
-      <Card className="p-6">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Image</TableHead>
-              <TableHead>Product Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Stock</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {products.map((product) => (
-              <TableRow key={product._id}>
-                <TableCell>
-                  {product.images && product.images.length > 0 && (
-                    <img 
-                      src={product.images[0].url} 
-                      alt={product.name}
-                      className="w-12 h-12 object-cover rounded-md"
-                    />
-                  )}
-                </TableCell>
-                <TableCell>{product.name}</TableCell>
-                <TableCell>{product.category}</TableCell>
-                <TableCell>NGN {product.price.toFixed(2)}</TableCell>
-                <TableCell>{product.stock}</TableCell>
-                <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-xs ${
-                    product.stock > 20 
-                      ? 'bg-green-100 text-green-800'
-                      : product.stock > 0
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {product.stock > 20 
-                      ? 'In Stock' 
-                      : product.stock > 0 
-                      ? 'Low Stock'
-                      : 'Out of Stock'}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
+      {/* Search and Filters */}
+      <div className="space-y-4">
+        <div className="flex gap-4">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Search products by name, description or SKU..."
+              value={searchInput}
+              onChange={handleSearchInputChange}
+              onKeyDown={handleSearchKeyPress}
+              className="w-full px-4 py-3 rounded-md border border-gray-700 bg-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            {searchInput && (
+              <button 
+                onClick={clearSearchInput}
+                className="absolute right-[110px] top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white p-1 rounded-full hover:bg-slate-700"
+                aria-label="Clear search"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
+            <Button 
+              onClick={handleSearch}
+              disabled={isSearching}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 py-1 px-4 h-10 text-base font-medium"
+            >
+              {isSearching ? <Loader2 className="h-5 w-5 animate-spin" /> : "Search"}
+            </Button>
+          </div>
+        </div>
+
+        {showFilters && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-slate-800 rounded-md">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Category</label>
+              <select
+                name="category"
+                value={filterInputs.category}
+                onChange={handleFilterInputChange}
+                className="w-full px-3 py-2 rounded-md border border-gray-700 bg-slate-900 text-white"
+              >
+                <option value="">All Categories</option>
+                {categories.map(category => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Status</label>
+              <select
+                name="status"
+                value={filterInputs.status}
+                onChange={handleFilterInputChange}
+                className="w-full px-3 py-2 rounded-md border border-gray-700 bg-slate-900 text-white"
+              >
+                <option value="">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="draft">Draft</option>
+                <option value="offline_auction">Offline Auction</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Sort By</label>
+              <select
+                name="sortBy"
+                value={filterInputs.sortBy}
+                onChange={handleFilterInputChange}
+                className="w-full px-3 py-2 rounded-md border border-gray-700 bg-slate-900 text-white"
+              >
+                <option value="created">Date Created</option>
+                <option value="name">Name</option>
+                <option value="price">Price</option>
+                <option value="popularity">Popularity</option>
+                <option value="sold">Sales</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Sort Order</label>
+              <select
+                name="sortOrder"
+                value={filterInputs.sortOrder}
+                onChange={handleFilterInputChange}
+                className="w-full px-3 py-2 rounded-md border border-gray-700 bg-slate-900 text-white"
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Min Price (₦)</label>
+              <input
+                type="number"
+                name="minPrice"
+                value={filterInputs.minPrice}
+                onChange={handleFilterInputChange}
+                placeholder="Minimum price"
+                className="w-full px-3 py-2 rounded-md border border-gray-700 bg-slate-900 text-white"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Max Price (₦)</label>
+              <input
+                type="number"
+                name="maxPrice"
+                value={filterInputs.maxPrice}
+                onChange={handleFilterInputChange}
+                placeholder="Maximum price"
+                className="w-full px-3 py-2 rounded-md border border-gray-700 bg-slate-900 text-white"
+              />
+            </div>
+            
+            <div className="md:col-span-2 flex items-end justify-end space-x-3">
+              <Button
+                onClick={resetFilters}
+                variant="outline"
+                className="border-gray-600 text-gray-300 hover:bg-slate-700"
+              >
+                Reset All
+              </Button>
+              <Button
+                onClick={applyFilters}
+                className="bg-indigo-600 text-white hover:bg-indigo-700"
+                disabled={isSearching}
+              >
+                {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply Filters"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Active filters display */}
+        {(searchParams.query || searchParams.category || searchParams.status || searchParams.minPrice || searchParams.maxPrice) && (
+          <div className="flex flex-wrap gap-2 items-center py-2">
+            <span className="text-sm text-gray-400">Active filters:</span>
+            {searchParams.query && (
+              <Badge className="bg-slate-700 text-white hover:bg-slate-600 cursor-pointer" onClick={() => clearFilter('query')}>
+                Search: {searchParams.query} <X className="h-3 w-3 ml-1" />
+              </Badge>
+            )}
+            {searchParams.category && (
+              <Badge className="bg-slate-700 text-white hover:bg-slate-600 cursor-pointer" onClick={() => clearFilter('category')}>
+                Category: {searchParams.category} <X className="h-3 w-3 ml-1" />
+              </Badge>
+            )}
+            {searchParams.status && (
+              <Badge className="bg-slate-700 text-white hover:bg-slate-600 cursor-pointer" onClick={() => clearFilter('status')}>
+                Status: {searchParams.status} <X className="h-3 w-3 ml-1" />
+              </Badge>
+            )}
+            {searchParams.minPrice && (
+              <Badge className="bg-slate-700 text-white hover:bg-slate-600 cursor-pointer" onClick={() => clearFilter('minPrice')}>
+                Min Price: ₦{searchParams.minPrice} <X className="h-3 w-3 ml-1" />
+              </Badge>
+            )}
+            {searchParams.maxPrice && (
+              <Badge className="bg-slate-700 text-white hover:bg-slate-600 cursor-pointer" onClick={() => clearFilter('maxPrice')}>
+                Max Price: ₦{searchParams.maxPrice} <X className="h-3 w-3 ml-1" />
+              </Badge>
+            )}
+            {(searchParams.sortBy !== 'createdAt' || searchParams.sortOrder !== 'desc') && (
+              <Badge className="bg-slate-700 text-white hover:bg-slate-600 cursor-pointer" onClick={() => {
+                setSearchParams(prev => ({ ...prev, sortBy: 'createdAt', sortOrder: 'desc' }))
+                fetchProducts(true)
+              }}>
+                Sorting: {searchParams.sortBy} ({searchParams.sortOrder}) <X className="h-3 w-3 ml-1" />
+              </Badge>
+            )}
+          </div>
+        )}
+      </div>
+
+      <Card className="p-6 bg-gray-900 border-slate-700">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-slate-700 hover:bg-slate-800/50">
+                <TableHead className="text-slate-300 font-semibold">Image</TableHead>
+                <TableHead className="text-slate-300 font-semibold">Product Details</TableHead>
+                <TableHead className="text-slate-300 font-semibold">Price</TableHead>
+                <TableHead className="text-slate-300 font-semibold">Inventory</TableHead>
+                <TableHead className="text-slate-300 font-semibold">Status</TableHead>
+                <TableHead className="text-slate-300 font-semibold">Sales & Analytics</TableHead>
+                <TableHead className="text-slate-300 font-semibold">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {isSearching ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24">
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                      <p className="text-sm text-muted-foreground">Filtering products...</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : products.length === 0 && !loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center">
+                    No products found matching your criteria.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                products.map((product) => (
+                  <TableRow key={product._id || product.id} className="border-slate-700 hover:bg-slate-800/30 transition-colors duration-200">
+                    <TableCell className="align-top py-4">
+                      {product.images && product.images.length > 0 ? (
+                        <div className="relative group">
+                          <div className="relative">
+                            <img 
+                              src={product.images[0].url} 
+                              alt={product.name}
+                              className="w-20 h-20 object-cover rounded-lg border border-slate-600 shadow-sm group-hover:shadow-md transition-shadow duration-200"
+                            />
+                            {product.images.length > 1 && (
+                              <Badge className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs px-1.5 py-0.5 rounded-full shadow-md">
+                                +{product.images.length - 1}
+                              </Badge>
+                            )}
+                            {/* Overlay on hover */}
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-lg transition-all duration-200 flex items-center justify-center">
+                              <Eye className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-20 h-20 bg-slate-700 rounded-lg border border-slate-600 flex items-center justify-center">
+                          <Package2 className="h-8 w-8 text-slate-500" />
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-md align-top py-4">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-sm mb-2 text-white">{product.name}</span>
+                        <div className="flex flex-col text-xs text-slate-400 space-y-2">
+                          <span className="text-slate-500">ID: {product._id || product.id}</span>
+                          {/* {product.sku && <span className="text-slate-500">SKU: {product.sku}</span>} */}
+                          
+                          {/* Created Date */}
+                          <div className="  text-xs">
+                            <div className="flex items-center gap-1 text-slate-300">
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              <div className="">
+                              <div className="text-slate-200 font-medium">{getRelativeTime(product.createdAt)}</div>
+                              {/* <div className="text-slate-400 text-xs">{formatDate(product.createdAt)}</div> */}
+                            </div>
+                            </div>
+                            {/* <div className="mt-1">
+                              <div className="text-slate-200 font-medium">{getRelativeTime(product.createdAt)}</div>
+                              <div className="text-slate-400 text-xs">{formatDate(product.createdAt)}</div>
+                            </div> */}
+                          </div>
+
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <Badge variant="outline" className="text-xs bg-indigo-900/50 text-indigo-300 border-indigo-700">
+                              {product.category}
+                            </Badge>
+                            {product.subCategory && (
+                              <Badge variant="outline" className="text-xs bg-purple-900/50 text-purple-300 border-purple-700">
+                                {product.subCategory}
+                              </Badge>
+                            )}
+                          </div>
+                          {product.brand && (
+                            <span className="text-xs text-slate-400">Brand: <span className="text-slate-300">{product.brand}</span></span>
+                          )}
+                          {product.seller && (
+                            <div className="flex items-center">
+                              <span className="text-xs inline-flex items-center gap-1 text-slate-400">
+                                <Store className="h-3 w-3" />
+                                <Link to={`/dashboard/seller/${product.seller._id}`} className="hover:text-indigo-400 hover:underline text-slate-300">
+                                  {product.seller.storeName || product.seller.businessName || `${product.seller.firstName || ''} ${product.seller.lastName || ''}`.trim() || 'Unknown Seller'}
+                                </Link>
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-top py-4">
+                      <div className="flex flex-col space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-white">{formatPrice(product.price)}</span>
+                          {product.discount?.isActive && (
+                            <Badge className="bg-red-900/50 text-red-300 text-xs border-red-700">
+                              -{getDiscountPercentage(product)}%
+                            </Badge>
+                          )}
+                        </div>
+                        {product.discount?.isActive && product.discount.discountedPrice && (
+                          <span className="text-xs text-slate-400 line-through">
+                            {formatPrice(product.price)}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-top py-4">
+                      <div className="flex flex-col space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-white text-lg">{product.stock}</span>
+                          <span className="text-xs text-slate-400">units</span>
+                        </div>
+                        {product.inventory?.lowStockThreshold && (
+                          <span className="text-xs text-amber-400 bg-amber-900/20 px-2 py-1 rounded">
+                            Low stock alert: {product.inventory.lowStockThreshold}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-top py-4">
+                      <div className="flex flex-col gap-2">
+                        <span className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center w-fit ${
+                          product.stock > 20 
+                            ? 'bg-green-900/50 text-green-300 border border-green-700'
+                            : product.stock > 0
+                            ? 'bg-yellow-900/50 text-yellow-300 border border-yellow-700'
+                            : 'bg-red-900/50 text-red-300 border border-red-700'
+                        }`}>
+                          {product.stock > 20 
+                            ? 'In Stock' 
+                            : product.stock > 0 
+                            ? 'Low Stock'
+                            : 'Out of Stock'}
+                        </span>
+                        {product.status === 'active' && (
+                          <Badge variant="outline" className="text-xs bg-green-900/50 text-green-300 border-green-700 w-fit">
+                            Active
+                          </Badge>
+                        )}
+                        {product.status === 'draft' && (
+                          <Badge variant="outline" className="text-xs bg-red-900/50 text-red-300 border-red-700 w-fit">
+                            Draft
+                          </Badge>
+                        )}
+                        {product.status === 'offline_auction' && (
+                          <Badge variant="outline" className="text-xs bg-amber-900/50 text-amber-300 border-amber-700 w-fit">
+                            Offline Auction
+                          </Badge>
+                        )}
+                        
+                        {product.condition && (
+                          <Badge variant="outline" className="text-xs capitalize w-fit bg-slate-700 text-slate-300 border-slate-600">
+                            {product.condition}
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-top py-4">
+                      <div className="flex flex-col text-xs gap-2">
+                        <div className="flex items-center gap-2 bg-blue-900/30 px-2 py-1 rounded-md">
+                          <Package2 className="h-3 w-3 text-blue-400" />
+                          <span className="text-slate-300"><span className="font-semibold text-blue-300">{product.stats?.soldCount || 0}</span> sold</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="ml-1 p-1 h-6 w-6 text-blue-400 hover:text-blue-300"
+                            onClick={() => openSoldCountModal(product)}
+                            title="Edit Sold Count"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-2 bg-purple-900/30 px-2 py-1 rounded-md">
+                          <Eye className="h-3 w-3 text-purple-400" />
+                          <span className="text-slate-300"><span className="font-semibold text-purple-300">{product.stats?.views || 0}</span> views</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-amber-900/30 px-2 py-1 rounded-md">
+                          <Star className="h-3 w-3 text-amber-400" />
+                          <span className="text-slate-300"><span className="font-semibold text-amber-300">{product.stats?.averageRating || 0}</span> rating ({product.stats?.reviewCount || 0})</span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-top py-4">
+                      <div className="flex space-x-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-blue-400 hover:text-blue-300 border-blue-600 hover:border-blue-500 bg-blue-900/20 hover:bg-blue-900/40 transition-all duration-200"
+                                onClick={() => fetchProductDetails(product._id)}
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-slate-800 text-slate-200 border-slate-600">
+                              <p>View Product Details</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-red-400 hover:text-red-300 border-red-600 hover:border-red-500 bg-red-900/20 hover:bg-red-900/40 transition-all duration-200"
+                                onClick={() => handleDeleteProduct(product._id, product.name)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-slate-800 text-slate-200 border-slate-600">
+                              <p>Delete Product</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-amber-400 hover:text-amber-300 border-amber-600 hover:border-amber-500 bg-amber-900/20 hover:bg-amber-900/40 transition-all duration-200"
+                                onClick={() => openDisableModal(product._id, product.name)}
+                              >
+                                <MinusCircle className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-slate-800 text-slate-200 border-slate-600">
+                              <p>Disable Product</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+
+          {/* Loading spinner for initial load */}
+          {loading && pagination.currentPage === 1 && (
+            <div className="flex flex-col items-center justify-center my-8 py-10">
+              <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+              <p className="text-muted-foreground">Loading products...</p>
+            </div>
+          )}
+
+          {/* Enhanced Pagination Section */}
+          <div className="mt-8 space-y-4">
+            {/* Pagination info */}
+            <div className="text-center">
+              {isSearching ? (
+                <div className="flex items-center justify-center gap-2 text-slate-400">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Searching products...</span>
+                </div>
+              ) : (
+                <div className="text-slate-400">
+                  <div className="text-sm">
+                    Showing <span className="font-semibold text-white">{products.length}</span> of <span className="font-semibold text-white">{pagination.totalProducts}</span> products
+                  </div>
+                  {pagination.totalPages > 1 && (
+                    <div className="text-xs mt-1">
+                      Page <span className="font-semibold text-white">{pagination.currentPage}</span> of <span className="font-semibold text-white">{pagination.totalPages}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Load More Button */}
+            {!loading && products.length > 0 && pagination.currentPage < pagination.totalPages && (
+              <div className="flex justify-center">
+                <div className="flex flex-col items-center space-y-2">
+                  <Button 
+                    onClick={handleLoadMore} 
+                    disabled={loadingMore}
+                    className="bg-indigo-600 text-white hover:bg-indigo-700 px-8 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 disabled:scale-100"
+                    size="lg"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        Loading More Products...
+                      </>
+                    ) : (
+                      <>
+                        <Package2 className="h-5 w-5 mr-2" />
+                        Load More Products ({pagination.totalProducts - products.length} remaining)
+                      </>
+                    )}
+                  </Button>
+                  
+                  {/* Progress bar */}
+                  <div className="w-64 bg-slate-700 rounded-full h-2">
+                    <div 
+                      className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(products.length / pagination.totalProducts) * 100}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {Math.round((products.length / pagination.totalProducts) * 100)}% loaded
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* End of results message */}
+            {!loading && products.length > 0 && pagination.currentPage >= pagination.totalPages && (
+              <div className="text-center py-4">
+                <div className="inline-flex items-center gap-2 text-slate-400 bg-slate-800 px-4 py-2 rounded-lg">
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>You've reached the end! All {pagination.totalProducts} products loaded.</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </Card>
 
+      {/* Product Details Modal */}
+      <Dialog open={productDetailsOpen} onOpenChange={setProductDetailsOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-900 text-white border-slate-700">
+          {loadingProductDetails ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+              <p className="text-slate-400">Loading product details...</p>
+            </div>
+          ) : selectedProduct ? (
+            <>
+              <DialogHeader className="pb-4">
+                <DialogTitle className="text-xl text-white">{selectedProduct.name}</DialogTitle>
+                <DialogDescription className="flex flex-wrap gap-2 mt-2 text-slate-300">
+                  <Badge variant="outline" className="border-slate-700 text-slate-300">
+                    {selectedProduct.category}
+                  </Badge>
+                  {selectedProduct.subCategory && (
+                    <Badge variant="outline" className="border-slate-700 text-slate-300">{selectedProduct.subCategory}</Badge>
+                  )}
+                  {selectedProduct.brand && (
+                    <Badge variant="secondary" className="bg-slate-800 text-slate-300">{selectedProduct.brand}</Badge>
+                  )}
+                  <Badge className={`${
+                    selectedProduct.status === 'active' ? 'bg-green-900 text-green-300' :
+                    selectedProduct.status === 'draft' ? 'bg-amber-900 text-amber-300' :
+                    'bg-slate-800 text-slate-300'
+                  }`}>
+                    {selectedProduct.status.charAt(0).toUpperCase() + selectedProduct.status.slice(1)}
+                  </Badge>
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Product Images */}
+                <div>
+                  <h4 className="text-sm font-medium mb-2 text-slate-300">Product Images</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectedProduct.images && selectedProduct.images.length > 0 ? (
+                      selectedProduct.images.map((image, index) => (
+                        <div key={image._id || index} className="relative aspect-square">
+                          <img 
+                            src={image.url} 
+                            alt={`${selectedProduct.name} - Image ${index + 1}`}
+                            className={`w-full h-full object-cover rounded-md ${index === 0 ? 'col-span-2 row-span-2' : ''}`}
+                          />
+                        </div>
+                      ))
+                    ) : (
+                      <div className="col-span-2 bg-slate-800 flex items-center justify-center rounded-md p-4 h-40">
+                        <p className="text-slate-500">No images available</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Variants */}
+                  {selectedProduct.variants && selectedProduct.variants.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-sm font-medium mb-2 text-slate-300">Variants</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedProduct.variants.map((variant, index) => (
+                          <div key={variant._id || index} className="flex flex-col items-center">
+                            {variant.images && variant.images.length > 0 && (
+                              <div className="w-12 h-12 rounded-md overflow-hidden mb-1">
+                                <img 
+                                  src={variant.images[0].data} 
+                                  alt={variant.value}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+                            <span className="text-xs text-slate-300">{variant.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Blips */}
+                  {selectedProduct.blips && selectedProduct.blips.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-sm font-medium mb-2 text-slate-300">Blips ({selectedProduct.blips.length})</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedProduct.blips.map((blip, index) => (
+                          <div key={blip._id || index} className="relative">
+                            <div className="w-16 h-28 bg-slate-800 rounded-md overflow-hidden">
+                              {blip.thumbnail ? (
+                                <img 
+                                  src={blip.thumbnail} 
+                                  alt={`Blip ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex items-center justify-center h-full">
+                                  <span className="text-xs text-slate-500">Blip</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="absolute bottom-1 right-1 bg-slate-800 bg-opacity-80 text-white text-xs px-1 rounded-sm">
+                              {blip.viewCount || 0}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Product Details */}
+                <div className="space-y-6">
+                  {/* Price Information */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 text-slate-300">Pricing</h4>
+                    <div className="bg-slate-800 p-4 rounded-md">
+                      <div className="flex items-end gap-2">
+                        <span className="text-2xl font-bold text-white">{formatPrice(selectedProduct.price)}</span>
+                        {selectedProduct.discount?.isActive && (
+                          <Badge className="bg-red-900 text-red-300 mb-1">
+                            -{getDiscountPercentage(selectedProduct)}%
+                          </Badge>
+                        )}
+                      </div>
+                      {selectedProduct.discount?.isActive && (
+                        <span className="text-sm text-slate-400 line-through">
+                          {formatPrice(selectedProduct.price)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Inventory Information */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 text-slate-300">Inventory</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-800 p-4 rounded-md">
+                        <span className="text-sm text-slate-400">Current Stock</span>
+                        <div className="flex items-baseline gap-1 mt-1">
+                          <span className="text-xl font-semibold text-white">{selectedProduct.stock}</span>
+                          <span className="text-xs text-slate-400">units</span>
+                        </div>
+                      </div>
+                      <div className="bg-slate-800 p-4 rounded-md">
+                        <span className="text-sm text-slate-400">SKU</span>
+                        <div className="mt-1">
+                          <span className="text-sm font-medium text-white">{selectedProduct.sku || "N/A"}</span>
+                        </div>
+                      </div>
+                      {selectedProduct.upc && (
+                        <div className="bg-slate-800 p-4 rounded-md">
+                          <span className="text-sm text-slate-400">UPC</span>
+                          <div className="mt-1">
+                            <span className="text-sm font-medium text-white">{selectedProduct.upc}</span>
+                          </div>
+                        </div>
+                      )}
+                      {selectedProduct.inventory?.lowStockThreshold && (
+                        <div className="bg-slate-800 p-4 rounded-md">
+                          <span className="text-sm text-slate-400">Low Stock Alert</span>
+                          <div className="mt-1">
+                            <span className="text-sm font-medium text-white">{selectedProduct.inventory.lowStockThreshold} units</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Seller Information */}
+                  {selectedProduct.seller && (
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 text-slate-300">Seller Information</h4>
+                      <div className="bg-slate-800 p-4 rounded-md">
+                        <div className="flex items-center gap-2">
+                          <Store className="h-4 w-4 text-slate-400" />
+                          <Link to={`/dashboard/seller/${selectedProduct.seller._id}`} className="font-medium text-white hover:text-blue-400 hover:underline">
+                            {selectedProduct.seller.personalInfo?.firstName && selectedProduct.seller.personalInfo?.lastName ? 
+                              `${selectedProduct.seller.personalInfo.firstName} ${selectedProduct.seller.personalInfo.lastName}` :
+                             selectedProduct.seller.storeInfo?.storeName || 
+                             selectedProduct.seller.businessInfo?.businessName || 
+                             'Unknown Seller'}
+                          </Link>
+                        </div>
+                        {selectedProduct.seller.storeInfo?.aboutStore && (
+                          <p className="mt-2 text-sm text-slate-400 line-clamp-2">
+                            {selectedProduct.seller.storeInfo.aboutStore}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Analytics */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 text-slate-300">Analytics</h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-slate-800 p-3 rounded-md flex flex-col items-center">
+                        <Package2 className="h-4 w-4 text-blue-400 mb-1" />
+                        <span className="text-lg font-semibold text-white">{selectedProduct.stats?.soldCount || 0}</span>
+                        <span className="text-xs text-slate-400">Sold</span>
+                      </div>
+                      <div className="bg-slate-800 p-3 rounded-md flex flex-col items-center">
+                        <Eye className="h-4 w-4 text-purple-400 mb-1" />
+                        <span className="text-lg font-semibold text-white">{selectedProduct.stats?.views || 0}</span>
+                        <span className="text-xs text-slate-400">Views</span>
+                      </div>
+                      <div className="bg-slate-800 p-3 rounded-md flex flex-col items-center">
+                        <Star className="h-4 w-4 text-amber-400 mb-1" />
+                        <span className="text-lg font-semibold text-white">{selectedProduct.stats?.averageRating || 0}</span>
+                        <span className="text-xs text-slate-400">Rating ({selectedProduct.stats?.reviewCount || 0})</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Shipping & Return */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedProduct.shippingInfo && (
+                      <div>
+                        <h4 className="text-sm font-medium mb-2 text-slate-300">Shipping</h4>
+                        <div className="bg-slate-800 p-4 rounded-md text-sm">
+                          {selectedProduct.shippingInfo.weight && (
+                            <div className="flex justify-between mb-1">
+                              <span className="text-slate-400">Weight:</span>
+                              <span className="text-white">{selectedProduct.shippingInfo.weight.value} {selectedProduct.shippingInfo.weight.unit}</span>
+                            </div>
+                          )}
+                          {selectedProduct.shippingInfo.dimensions && (
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Dimensions:</span>
+                              <span className="text-white">
+                                {selectedProduct.shippingInfo.dimensions.length} × {selectedProduct.shippingInfo.dimensions.width} × {selectedProduct.shippingInfo.dimensions.height}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {selectedProduct.returnPolicy && (
+                      <div>
+                        <h4 className="text-sm font-medium mb-2 text-slate-300">Return Policy</h4>
+                        <div className="bg-slate-800 p-4 rounded-md text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Returns:</span>
+                            <span className="text-white">{selectedProduct.returnPolicy.allowed ? 'Allowed' : 'Not Allowed'}</span>
+                          </div>
+                          {selectedProduct.returnPolicy.allowed && selectedProduct.returnPolicy.periodInDays && (
+                            <div className="flex justify-between mt-1">
+                              <span className="text-slate-400">Return Period:</span>
+                              <span className="text-white">{selectedProduct.returnPolicy.periodInDays} days</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Product Description */}
+              {selectedProduct.description && (
+                <div className="mt-6">
+                  <Separator className="mb-4 bg-slate-700" />
+                  <h3 className="text-lg font-medium mb-2 text-white">Product Description</h3>
+                  <div 
+                    className="prose prose-sm max-w-none text-slate-300 bg-slate-800 p-4 rounded-md prose-headings:text-white prose-strong:text-white prose-a:text-blue-400"
+                    dangerouslySetInnerHTML={{ __html: selectedProduct.description }}
+                  />
+                </div>
+              )}
+              
+              <div className="flex justify-end mt-4">
+                <DialogClose asChild>
+                  <Button variant="outline" className="bg-slate-800 text-white border-slate-700 hover:bg-slate-700 hover:text-white">Close</Button>
+                </DialogClose>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Info className="h-8 w-8 text-slate-500 mb-4" />
+              <p className="text-slate-400">No product details available</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      
       {/* CSV Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-md p-6 relative">
+          <div className="bg-white rounded-lg w-full max-w-3xl p-6 relative max-h-[95vh] overflow-y-auto">
             <button 
               onClick={resetUploadState}
               className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
@@ -288,7 +1819,7 @@ function Products() {
                 <div className="border rounded-md p-4 max-h-[200px] overflow-y-auto">
                   <h4 className="font-medium mb-2">Product Preview</h4>
                   <ul className="space-y-2">
-                    {uploadStats.createdProducts.slice(0, 5).map((product) => (
+                    {uploadStats.createdProducts.slice(0, 5).map((product: any) => (
                       <li key={product.id} className="flex items-center gap-2 border-b pb-2">
                         {product.image && (
                           <img src={product.image} alt={product.name} className="w-10 h-10 rounded object-cover" />
@@ -306,6 +1837,36 @@ function Products() {
                     )}
                   </ul>
                 </div>
+                
+                {/* Error details section */}
+                {uploadStats.errors.length > 0 && (
+                  <div className="border border-red-200 rounded-md p-4 max-h-[200px] overflow-y-auto bg-red-50">
+                    <h4 className="font-medium mb-2 text-red-700">Failed Products</h4>
+                    <table className="w-full text-sm">
+                      <thead className="text-xs text-red-700 uppercase bg-red-100">
+                        <tr>
+                          <th className="py-2 px-1 text-left">Row</th>
+                          <th className="py-2 px-1 text-left">Product</th>
+                          <th className="py-2 px-1 text-left">Error</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {uploadStats.errors.slice(0, 10).map((error: any, index: number) => (
+                          <tr key={index} className="border-b border-red-200">
+                            <td className="py-2 px-1">{error.row}</td>
+                            <td className="py-2 px-1">{error.productName || 'N/A'}</td>
+                            <td className="py-2 px-1 text-red-600">{error.error}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {uploadStats.errors.length > 10 && (
+                      <p className="text-sm text-gray-500 italic text-center mt-2">
+                        and {uploadStats.errors.length - 10} more errors...
+                      </p>
+                    )}
+                  </div>
+                )}
                 
                 <div className="p-3 bg-amber-50 rounded-md text-sm text-amber-700 border-l-4 border-amber-400">
                   <p className="flex items-center gap-2">
@@ -344,19 +1905,114 @@ function Products() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Select Seller
                     </label>
-                    <select 
-                      value={sellerId}
-                      onChange={handleSellerChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      disabled={loadingSellers || uploading}
-                    >
-                      <option value="">Select a seller</option>
-                      {sellers.map(seller => (
-                        <option key={seller._id} value={seller._id}>
-                          {seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`}
-                        </option>
-                      ))}
-                    </select>
+                    
+                    {/* Seller Search Input */}
+                    <div className="mb-3">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Search sellers by name, email, store..."
+                          value={sellerSearchInput}
+                          onChange={handleSellerSearchInputChange}
+                          onKeyDown={handleSellerSearchKeyPress}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                        {sellerSearchInput && (
+                          <button 
+                            onClick={clearSellerSearch}
+                            className="absolute right-[70px] top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+                            aria-label="Clear search"
+                            type="button"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                        <Button 
+                          type="button"
+                          onClick={handleSellerSearch}
+                          disabled={loadingSellers}
+                          className="absolute right-1 top-1/2 transform -translate-y-1/2 py-1 px-3 h-8 text-sm"
+                        >
+                          {loadingSellers ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Seller Selection */}
+                    <div className="border border-gray-300 rounded-md max-h-[300px] overflow-y-auto">
+                      <div className="p-2 bg-gray-50 border-b border-gray-300 sticky top-0 z-10">
+                        <div className="flex justify-between text-sm text-gray-500">
+                          <span>Select a seller ({sellerPagination.totalSellers} total)</span>
+                          {sellerSearch && (
+                            <span>
+                              Showing results for: <span className="font-medium">{sellerSearch}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="divide-y divide-gray-200">
+                        {Array.isArray(sellers) && sellers.length > 0 ? (
+                          sellers.map(seller => (
+                            <div 
+                              key={seller._id} 
+                              className={`p-3 cursor-pointer hover:bg-gray-50 ${sellerId === seller._id ? 'bg-indigo-50' : ''}`}
+                              onClick={() => setSellerId(seller._id)}
+                            >
+                              <div className="flex items-center">
+                                <input
+                                  type="radio"
+                                  name="sellerId"
+                                  value={seller._id}
+                                  checked={sellerId === seller._id}
+                                  onChange={() => setSellerId(seller._id)}
+                                  className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                                />
+                                <div className="ml-3">
+                                  <p className="font-medium text-sm">
+                                    {seller.storeName || seller.businessName || `${seller.firstName || ''} ${seller.lastName || ''}`.trim() || 'Unknown Seller'}
+                                  </p>
+                                  <p className="text-xs text-gray-500">{seller.email}</p>
+                                  {seller.phoneNumber && (
+                                    <p className="text-xs text-gray-500">Phone: {seller.phoneNumber}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : loadingSellers ? (
+                          <div className="p-4 text-center">
+                            <Loader2 className="h-6 w-6 animate-spin mx-auto text-indigo-600" />
+                            <p className="mt-2 text-sm text-gray-500">Loading sellers...</p>
+                          </div>
+                        ) : (
+                          <div className="p-4 text-center text-gray-500">
+                            {sellerSearch ? 'No sellers found matching your search' : 'No sellers available'}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Load More Button */}
+                      {sellerPagination.currentPage < sellerPagination.totalPages && (
+                        <div className="p-2 border-t border-gray-300">
+                          <button
+                            type="button"
+                            onClick={loadMoreSellers}
+                            disabled={loadingMoreSellers}
+                            className="w-full py-2 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                          >
+                            {loadingMoreSellers ? (
+                              <div className="flex items-center justify-center">
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                Loading more...
+                              </div>
+                            ) : (
+                              `Load more sellers (${sellers.length} of ${sellerPagination.totalSellers})`
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   <div>
@@ -401,7 +2057,7 @@ function Products() {
                     <Button 
                       type="submit"
                       className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                      disabled={uploading}
+                      disabled={uploading || !sellerId || !csvFile}
                     >
                       {uploading ? (
                         <>
@@ -417,6 +2073,102 @@ function Products() {
           </div>
         </div>
       )}
+
+      {/* Disable Product Modal */}
+      <Dialog open={disableModalOpen} onOpenChange={setDisableModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Disable Product</DialogTitle>
+            <DialogDescription>
+              {productToDisable && (
+                <>
+                  You are about to disable <span className="font-medium">{productToDisable.name}</span>. 
+                  The product will be set to draft status and won't be visible to buyers.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <label htmlFor="disable-reason" className="block text-sm font-medium mb-2">
+              Reason for disabling
+            </label>
+            <textarea
+              id="disable-reason"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              rows={3}
+              placeholder="Enter reason for disabling this product..."
+              value={disableReason}
+              onChange={(e) => setDisableReason(e.target.value)}
+            />
+            <div className="mt-2 flex items-center text-sm text-amber-600">
+              <AlertTriangle className="h-4 w-4 mr-1" />
+              <span>This information will be logged for administrative purposes.</span>
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-end">
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button 
+              type="button" 
+              className="bg-amber-600 hover:bg-amber-700" 
+              onClick={handleDisableProduct}
+              disabled={disablingProduct}
+            >
+              {disablingProduct ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <MinusCircle className="h-4 w-4 mr-2" />}
+              Disable Product
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sold Count Update Modal */}
+      <Dialog open={soldCountModalOpen} onOpenChange={setSoldCountModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Sold Count</DialogTitle>
+            <DialogDescription>
+              {productToUpdateSold && (
+                <>
+                  Update sold count for <span className="font-medium">{productToUpdateSold.name}</span>.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <label htmlFor="sold-count-input" className="block text-sm font-medium mb-2">
+              New Sold Count
+            </label>
+            <input
+              id="sold-count-input"
+              type="number"
+              min="0"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={newSoldCount}
+              onChange={e => setNewSoldCount(e.target.value)}
+              disabled={updatingSoldCount}
+            />
+          </div>
+          <DialogFooter className="sm:justify-end">
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={handleUpdateSoldCount}
+              disabled={updatingSoldCount}
+            >
+              {updatingSoldCount ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Edit2 className="h-4 w-4 mr-2" />}
+              Update Sold Count
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

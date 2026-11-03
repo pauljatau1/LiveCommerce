@@ -1,14 +1,20 @@
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/context/authContext';
 import Login from '@/auth/login';
+import Register from '@/auth/register';
 import Dashboard from '@/pages/dashboard';
 import Sellers from '@/pages/sellers';
+import SellerDetail from '@/pages/sellerDetail';
 import Categories from '@/pages/categories';
+import MajorCategories from '@/pages/majorCategories';
 import ProtectedRoute from './ProtectedRoute';
 import MainLayout from '@/components/layouts/MainLayout';
 import Buyers from '@/pages/buyers';
+import BuyerDetail from '@/pages/buyerDetail';
 import Orders from '@/pages/orders';
 import Products from '@/pages/products';
+import Blips from '@/pages/blips';
 import Streams from '@/pages/streams';
 import Withdrawals from '@/pages/withdrawals';
 import Announcements from '@/pages/announcements';
@@ -21,6 +27,23 @@ import BankRequests from '@/pages/bankrequests';
 import Payments from '@/pages/payments';
 import RefundRequests from '@/pages/refund-requests';
 import ReturnRequests from '@/pages/ReturnRequests';
+import PickupRequests from '@/pages/pickupRequests';
+import BuyerNotifications from '@/pages/buyerNotifications';
+import TerminalShipments from '@/pages/terminalShipments';
+import SystemLogs from '@/pages/systemLogs';
+import { useAuth } from '@/context/authContext';
+
+// Logout component that will clear localStorage and redirect to login
+const Logout = () => {
+  const { logout } = useAuth();
+
+  // Call logout immediately when component renders
+  useEffect(() => {
+    logout();
+  }, [logout]);
+
+  return <Navigate to="/login" />;
+};
 
 function App() {
   return (
@@ -28,6 +51,8 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/create-admin" element={<Register />} />
+          <Route path="/logout" element={<Logout />} />
           <Route
             path="/dashboard"
             element={
@@ -38,10 +63,14 @@ function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="/dashboard/sellers" element={<Sellers />} />
+            <Route path="/dashboard/seller-detail/:id" element={<SellerDetail />} />
             <Route path="/dashboard/categories" element={<Categories />} />
+            <Route path="/dashboard/major-categories" element={<MajorCategories />} />
             <Route path="/dashboard/buyers" element={<Buyers />} />
+            <Route path="/dashboard/buyer-detail/:id" element={<BuyerDetail />} />
             <Route path="/dashboard/orders" element={<Orders />} />
             <Route path="/dashboard/products" element={<Products />} />
+            <Route path="/dashboard/blips" element={<Blips />} />
             <Route path="/dashboard/streams" element={<Streams />} />
             <Route path="/dashboard/withdrawals" element={<Withdrawals />} />
             <Route path="/dashboard/announcements" element={<Announcements />} />
@@ -54,6 +83,11 @@ function App() {
             <Route path="/dashboard/payments" element={<Payments />} />
             <Route path="/dashboard/refund-requests" element={<RefundRequests />} />
             <Route path="/dashboard/return-requests" element={<ReturnRequests />} />
+            <Route path="/dashboard/pickup-requests" element={<PickupRequests />} />
+            <Route path="/dashboard/buyer-notifications" element={<BuyerNotifications />} />
+            <Route path="/dashboard/terminal-shipments" element={<TerminalShipments />} />
+            <Route path="/dashboard/system-logs" element={<SystemLogs />} />
+            <Route path="/dashboard/error-logs" element={<SystemLogs />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>

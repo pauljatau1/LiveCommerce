@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Card } from "@/components/ui/card";
+import { useNavigate } from "react-router-dom";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -9,85 +10,44 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Download, Loader2, MoreHorizontal, Building2, Mail, Phone, MapPin, Wallet, Eye, Tags, Users, Store, AlertCircle, CheckCircle2, ShieldCheck, Calendar, Package, User, Briefcase, Building, UserCheck, LineChart, Megaphone, FileText, ExternalLink, XCircle, File, X, Clock, Star } from "lucide-react";
-import { api } from "@/api/axios";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  Building2,
+  Mail,
+  Eye,
+  Store,
+  ShieldCheck,
+  Package,
+  Users,
+  Zap,
+  Search,
+  MoreVertical,
+  FileDown,
+  Loader2,
+  CheckCircle2,
+  Star,
+  XCircle,
+  ShieldIcon,
+  ChevronLeft,
+  ChevronRight
+} from "lucide-react";
+import { api } from "@/api/axios";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
-interface BusinessAddress {
-  country: string;
-  state: string;
-  city: string;
-  addressLine1: string;
-  addressLine2?: string;
-  zipCode: string;
-}
-
-interface VerificationDocument {
-  documentType: string;
-  fileUrl: string;
-  public_id: string;
-  _id: string;
-  uploadedAt: string;
-}
-
-interface BankDetails {
-  bankCountry: string;
-  bankName: string;
-  bankAccountType: string;
-  accountCurrency: string;
-  accountNumber: string;
-  accountName: string;
-  swiftCode?: string;
-  bankIdentifierCode?: string;
-}
-
-interface ShippingOptions {
-  shippingMethod: string;
-  returnsAndExchangePolicy: string;
-}
-
-interface WarehouseDetails {
-  address: BusinessAddress;
-  name: string;
-  contactNumber: string;
-}
-
-interface StoreImage {
-  url: string;
-  public_id: string;
-}
-
-interface Category {
-  name: string;
-  subCategories: Array<{
-    name: string;
-    _id: string;
-  }>;
-  _id: string;
-}
-
+// Types
 interface Seller {
   _id: string;
   businessName?: string;
@@ -95,86 +55,94 @@ interface Seller {
   lastName?: string;
   email: string;
   phoneNumber: string;
-  businessEmail?: string;
-  businessNumber?: string;
-  businessAddress?: BusinessAddress;
-  verificationDocuments?: {
-    type: string;
-    documents: VerificationDocument[];
-  };
-  bankDetails?: BankDetails;
-  shippingOptions?: ShippingOptions;
-  warehouseDetails?: WarehouseDetails;
-  storeAvatar?: StoreImage;
-  storeBanner?: StoreImage;
-  isProfileComplete: boolean;
   isVerified: boolean;
   isFeatured: boolean;
   isDisabled?: boolean;
   accountType?: string;
-  businessType?: string;
   createdAt: string;
-  categories?: Category[];
   walletBalance: number;
-  storeVisits: number;
-  onboardingProcess?: string;
-  stats?: {
-    totalReviews: number;
-    averageRating: number;
+  productCount?: number;
+  ordersCount?: number;
+  storeAvatar?: { url: string };
+  isProfileComplete: boolean;
+  storeName?: string;
+  sellerAddress?: {
+    state?: string;
+    addressLine1?: string;
+    addressLine2?: string;
   };
-  campaignStats?: {
-    totalCampaigns: number;
-    totalRecipients: number;
-    totalOpens: number;
-    totalClicks: number;
-    dailyCampaignCount: number;
+  businessAddress?: {
+    state?: string;
+    addressLine1?: string;
+    addressLine2?: string;
   };
-  emailVerified?: boolean;
-  taxInformation?: string;
+  warehouseDetails?: {
+    address?: {
+      state?: string;
+      addressLine1?: string;
+      addressLine2?: string;
+    };
+  };
 }
 
 function Sellers() {
+  const navigate = useNavigate();
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<"all" | "business" | "individual">("all");
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
-  const [rejectDetails, setRejectDetails] = useState("");
-  const [isRejecting, setIsRejecting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [selectedTab, setSelectedTab] = useState("all");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [stats, setStats] = useState({
+    totalSellers: 0,
+    verifiedSellers: 0,
+    totalProducts: 0,
+    businessAccounts: 0
+  });
 
   useEffect(() => {
     fetchSellers();
-  }, []);
+    fetchStats();
+  }, [page, limit, selectedTab, search]);
 
-  const fetchSellers = async () => {
+  const fetchStats = async () => {
     try {
-      const response = await api.get("/api/admin/sellers");
-      setSellers(response.data);
+      const resp = await api.get('/api/admin/sellers/statistics');
+      if (resp.data.success) {
+        setStats({
+          totalSellers: resp.data.totalSellers || 0,
+          verifiedSellers: resp.data.totalVerifiedSellers || 0,
+          totalProducts: resp.data.totalProducts || 0,
+          businessAccounts: resp.data.totalBusinessAccounts || 0
+        });
+      }
     } catch (err) {
-      setError("Failed to fetch sellers");
-      console.error("Error fetching sellers:", err);
-    } finally {
-      setLoading(false);
+      console.error("Stats fetch failed");
     }
   };
 
-  const toggleFeature = async (sellerId: string) => {
-    setUpdatingId(sellerId);
+  const fetchSellers = async () => {
+    setLoading(true);
     try {
-      await api.put(`/api/admin/sellers/${sellerId}/feature`);
-      setSellers(sellers.map(seller => 
-        seller._id === sellerId 
-          ? {...seller, isFeatured: !seller.isFeatured}
-          : seller
-      ));
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('limit', limit.toString());
+      if (search) params.append('search', search);
+      if (selectedTab !== 'all') params.append('accountType', selectedTab);
+
+      const response = await api.get(`/api/admin/sellers?${params.toString()}`);
+      if (response.data.success) {
+        setSellers(response.data.sellers);
+        setTotalPages(response.data.totalPages);
+      }
     } catch (err) {
-      console.error("Error updating featured status:", err);
+      toast({ variant: "destructive", description: "Failed to fetch merchants" });
     } finally {
-      setUpdatingId(null);
+      setLoading(false);
     }
   };
 
@@ -182,630 +150,419 @@ function Sellers() {
     setUpdatingId(sellerId);
     try {
       await api.put(`/api/admin/sellers/${sellerId}/verify`);
-      setSellers(sellers.map(seller => 
-        seller._id === sellerId 
-          ? {...seller, isVerified: !seller.isVerified}
-          : seller
-      ));
+      setSellers(sellers.map(s => s._id === sellerId ? { ...s, isVerified: !s.isVerified } : s));
+      toast({ description: "Verification status updated" });
     } catch (err) {
-      console.error("Error updating verification status:", err);
+      toast({ variant: "destructive", description: "Update failed" });
     } finally {
       setUpdatingId(null);
     }
   };
 
-  const toggleDisabled = async (sellerId: string, currentState: boolean) => {
-    setUpdatingId(sellerId);
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  };
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(val);
+  };
+
+  const exportAllSellers = async () => {
+    if (exporting) return;
+    setExporting(true);
+
     try {
-      await api.put(`/api/admin/sellers/${sellerId}/${currentState ? 'enable' : 'disable'}`);
-      setSellers(sellers.map(seller => 
-        seller._id === sellerId 
-          ? {...seller, isDisabled: !currentState}
-          : seller
-      ));
-    } catch (err) {
-      console.error("Error updating disabled status:", err);
-    } finally {
-      setUpdatingId(null);
-    }
-  };
+      const response = await api.get("/api/admin/sellers/export");
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || "Failed to export sellers");
+      }
 
-  const getDisplayName = (seller: Seller) => {
-    return seller.businessName || `${seller.firstName} ${seller.lastName}`;
-  };
+      const allSellers: Seller[] = response.data.sellers || [];
+      const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
+      doc.setFontSize(16);
+      doc.text("Auqli Sellers Report", 40, 40);
+      doc.setFontSize(10);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 40, 60);
 
-  const getStatusColor = (seller: Seller) => {
-    if (seller.isDisabled) return "text-destructive";
-    if (!seller.isVerified) return "text-yellow-500";
-    if (seller.isVerified && seller.isProfileComplete) return "text-green-500";
-    return "text-blue-500";
-  };
+      const head = [[
+        "Name",
+        "Email",
+        "Phone Number",
+        "Date Joined",
+        "Verification",
+        "Products Listed",
+        "Orders Gotten",
+        "Store Name",
+        "Location"
+      ]];
 
-  const getStatusText = (seller: Seller) => {
-    if (seller.isDisabled) return "Disabled";
-    if (!seller.isVerified) return "Pending Verification";
-    if (seller.isVerified && !seller.isProfileComplete) return "Onboarding";
-    return "Active";
-  };
+      const body = allSellers.map((seller) => {
+        const merchantName =
+          seller.storeName ||
+          seller.businessName ||
+          `${seller.firstName || ""} ${seller.lastName || ""}`.trim() ||
+          seller._id;
 
-  const filteredSellers = sellers.filter(seller => {
-    if (selectedTab === "all") return true;
-    return seller.accountType === selectedTab;
-  });
+        const locationSource =
+          seller.sellerAddress ||
+          seller.businessAddress ||
+          seller.warehouseDetails?.address;
+        const locationState = locationSource?.state || "-";
+        const locationAddress = [locationSource?.addressLine1, locationSource?.addressLine2]
+          .filter(Boolean)
+          .join(", ") || "-";
 
-  const handleReject = async () => {
-    if (!selectedSeller || !rejectReason) return;
-    
-    setIsRejecting(true);
-    try {
-      await api.put(`/api/admin/sellers/${selectedSeller._id}/reject`, {
-        reason: rejectReason,
-        details: rejectDetails
+        return [
+          merchantName,
+          seller.email || "-",
+          seller.phoneNumber || "-",
+          seller.createdAt ? formatDate(seller.createdAt) : "-",
+          seller.isVerified ? "YES" : "NO",
+          String(seller.productCount || 0),
+          String(seller.ordersCount || 0),
+          seller.storeName || seller.businessName || "-",
+          `${locationState} | ${locationAddress}`
+        ];
       });
-      
-      // Update the seller in the list
-      setSellers(sellers.map(seller => 
-        seller._id === selectedSeller._id 
-          ? {...seller, isVerified: false, onboardingProcess: 'rejected'}
-          : seller
-      ));
-      
-      setShowRejectModal(false);
-      setRejectReason("");
-      setRejectDetails("");
-    } catch (err) {
-      console.error("Error rejecting seller:", err);
+
+      autoTable(doc, {
+        head,
+        body,
+        startY: 80,
+        theme: "grid",
+        headStyles: {
+          fillColor: [249, 115, 22],
+          textColor: [255, 255, 255],
+          fontStyle: "bold"
+        },
+        styles: {
+          fontSize: 8,
+          cellPadding: 3,
+          overflow: "linebreak"
+        },
+        columnStyles: {
+          0: { cellWidth: 90 },
+          1: { cellWidth: 100 },
+          2: { cellWidth: 75 },
+          3: { cellWidth: 60 },
+          4: { cellWidth: 55 },
+          5: { cellWidth: 60 },
+          6: { cellWidth: 60 },
+          7: { cellWidth: 90 },
+          8: { cellWidth: 255 }
+        }
+      });
+
+      const today = new Date();
+      const fileName = `sellers-report-${today.toISOString().slice(0, 10)}.pdf`;
+      doc.save(fileName);
+      toast({ description: "Sellers export started downloading." });
+    } catch (err: any) {
+      toast({ variant: "destructive", description: err?.message || "Failed to export sellers" });
     } finally {
-      setIsRejecting(false);
+      setExporting(false);
     }
   };
 
-  const verificationButtons = (seller) => (
-    <div className="flex items-center gap-2">
-      <Badge 
-        variant="outline" 
-        className={`${
-          seller.isVerified 
-            ? "bg-green-500/10 text-green-500" 
-            : "bg-yellow-500/10 text-yellow-500"
-        }`}
-      >
-        {seller.isVerified ? (
-          <CheckCircle2 className="h-4 w-4 mr-1" />
-        ) : (
-          <Clock className="h-4 w-4 mr-1" />
-        )}
-        {seller.isVerified ? "Verified" : "Pending"}
-      </Badge>
-      {!seller.isVerified && (
-        <>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => toggleVerification(seller._id)}
-            disabled={updatingId === seller._id}
-            className="ml-2"
-          >
-            {updatingId === seller._id ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4" />
-            )}
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => {
-              setSelectedSeller(seller);
-              setShowRejectModal(true);
-            }}
-            disabled={updatingId === seller._id}
-          >
-            <XCircle className="h-4 w-4" />
-          </Button>
-        </>
-      )}
-    </div>
+  const StatCard = ({ title, value, icon: Icon, colorClass }: any) => (
+    <Card className="border-slate-800/60 bg-slate-950/40 overflow-hidden relative group rounded-2xl">
+      <div className={cn("absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 opacity-10 blur-2xl transition-all duration-500 group-hover:scale-150 rounded-full", colorClass.replace('text-', 'bg-'))} />
+      <CardContent className="p-6 flex items-center gap-4 relative z-10">
+        <div className={cn("p-4 rounded-2xl bg-opacity-10 shadow-lg border border-opacity-20", colorClass.replace('text-', 'bg-'), colorClass.replace('text-', 'border-'))}>
+          <Icon className={cn("h-6 w-6", colorClass)} />
+        </div>
+        <div>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">{title}</p>
+          <h3 className="text-2xl font-black text-white mt-1 tracking-tight">{value}</h3>
+        </div>
+      </CardContent>
+    </Card>
   );
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center text-destructive p-4">
-        <p>{error}</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 p-4">
-      <div className="flex justify-between items-center">
+    <div className="space-y-8 p-6 md:p-8 max-w-[1600px] mx-auto min-h-screen">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-white flex items-center gap-2">
-            <Users className="h-8 w-8" />
-            Sellers
-          </h2>
-          <p className="text-muted-foreground">Manage your platform sellers</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-orange-500/10 border border-orange-500/20">
+              <Store className="h-6 w-6 text-orange-500" />
+            </div>
+            Merchants
+          </h1>
+          <p className="text-slate-400 mt-2 text-sm">Manage and monitor platform sellers.</p>
         </div>
-        <div className="flex items-center gap-4">
-          <Badge variant="outline" className="px-4 py-2">
-            <Users className="h-4 w-4 mr-2" />
-            Total: {sellers.length}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            className="bg-slate-900 border-slate-800 hover:bg-slate-800 text-slate-300 gap-2 h-11 px-5 rounded-2xl shadow-xl transition-all active:scale-95"
+            onClick={exportAllSellers}
+            disabled={exporting}
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 text-orange-500 animate-spin" />
+            ) : (
+              <FileDown className="h-4 w-4 text-orange-500" />
+            )}
+            <span className="font-bold uppercase text-[11px] tracking-widest">
+              {exporting ? "Exporting..." : "Export Data"}
+            </span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Total Sellers" value={stats.totalSellers} icon={Users} colorClass="text-blue-500" />
+        <StatCard title="Verified Sellers" value={stats.verifiedSellers} icon={ShieldCheck} colorClass="text-emerald-500" />
+        <StatCard title="Total Products" value={stats.totalProducts} icon={Package} colorClass="text-orange-500" />
+        <StatCard title="Business Accounts" value={stats.businessAccounts} icon={Building2} colorClass="text-purple-500" />
+      </div>
+
+      {/* Modern Filter Shell */}
+      <div className="flex flex-col lg:flex-row items-center justify-between gap-6 bg-slate-950/40 p-4 border border-slate-800/60 rounded-3xl backdrop-blur-md">
+        <div className="flex flex-1 items-center gap-4 w-full">
+          <div className="relative w-full max-w-md group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-orange-500 transition-colors" />
+            <Input
+              placeholder="Search merchants..."
+              className="pl-12 h-12 text-white bg-slate-900/40 border-slate-800/60 rounded-2xl text-sm focus:ring-orange-500/20 focus:border-orange-500 transistion-all"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)}
+            />
+          </div>
+
+          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="hidden lg:block">
+            <TabsList className="bg-slate-900/60 border border-slate-800/60 p-1 rounded-2xl h-12">
+              <TabsTrigger value="all" className="rounded-xl px-4 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">All</TabsTrigger>
+              <TabsTrigger value="business" className="rounded-xl px-4 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">Business</TabsTrigger>
+              <TabsTrigger value="individual" className="rounded-xl px-4 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">Individual</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        <div className="flex items-center gap-3 w-full lg:w-auto overflow-x-auto pb-2 lg:pb-0 scrollbar-none">
+          <Badge variant="outline" className="bg-slate-900 border-slate-800 text-[10px] px-3 py-1.5 rounded-full text-slate-400 gap-2 cursor-pointer hover:border-slate-600">
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            ACTIVE ONLY
           </Badge>
-          <Badge variant="outline" className="px-4 py-2">
-            <Building className="h-4 w-4 mr-2" />
-            Business: {sellers.filter(s => s.accountType === "business").length}
-          </Badge>
-          <Badge variant="outline" className="px-4 py-2">
-            <User className="h-4 w-4 mr-2" />
-            Individual: {sellers.filter(s => s.accountType === "individual").length}
+          <Badge variant="outline" className="bg-slate-900 border-slate-800 text-[10px] px-3 py-1.5 rounded-full text-slate-400 gap-2 cursor-pointer hover:border-slate-600">
+            <div className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+            TOP RATED
           </Badge>
         </div>
       </div>
 
-      <Tabs defaultValue="all" className="w-full" onValueChange={(value) => setSelectedTab(value as any)}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="all">All Sellers</TabsTrigger>
-          <TabsTrigger value="business">Business Accounts</TabsTrigger>
-          <TabsTrigger value="individual">Individual Accounts</TabsTrigger>
-        </TabsList>
-
-        <Card className="p-4 overflow-auto">
-          <div className="min-w-[800px]">
-            <Table>
-              <TableHeader>
+      {/* Merchant Table OS */}
+      <Card className="border-slate-800/60 bg-slate-950/40 rounded-3xl overflow-hidden backdrop-blur-sm shadow-2xl">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-slate-900/40 border-b border-slate-800/60">
+              <TableRow className="hover:bg-transparent border-none">
+                <TableHead className="py-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] pl-8">Merchant Info</TableHead>
+                <TableHead className="py-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.25em]">Status</TableHead>
+                <TableHead className="py-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.25em]">Statistics</TableHead>
+                <TableHead className="py-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.25em]">Registration</TableHead>
+                <TableHead className="py-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] text-right pr-8">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
                 <TableRow>
-                  <TableHead className="w-[300px]">Seller Information</TableHead>
-                  <TableHead className="w-[150px]">Account Type</TableHead>
-                  <TableHead className="w-[180px]">Verification Status</TableHead>
-                  <TableHead className="w-[80px]">Featured</TableHead>
-                  <TableHead className="w-[120px]">Actions</TableHead>
+                  <TableCell colSpan={5} className="h-48 text-center border-none">
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+                      <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Loading merchants...</span>
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSellers.map((seller) => (
-                  <TableRow key={seller._id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10">
+              ) : sellers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-48 text-center border-none italic text-slate-600">
+                    No merchants found.
+                  </TableCell>
+                </TableRow>
+              ) : sellers.map((seller) => (
+                <TableRow key={seller._id} className="border-b border-slate-800/40 hover:bg-slate-900/30 transition-all group">
+                  <TableCell className="py-5 pl-8">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <Avatar className="h-12 w-12 rounded-2xl border-2 border-slate-800 group-hover:border-orange-500/50 transition-all overflow-hidden shadow-xl">
                           <AvatarImage src={seller.storeAvatar?.url} />
-                          <AvatarFallback>
-                            {seller.accountType === "business" ? 
-                              <Store className="h-5 w-5" /> : 
-                              <User className="h-5 w-5" />
-                            }
+                          <AvatarFallback className="bg-slate-800 text-slate-500 font-black tracking-tighter">
+                            {seller.firstName?.[0]}{seller.lastName?.[0]}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
-                          <div className="font-medium flex items-center gap-2">
-                            {getDisplayName(seller)}
-                            {seller.isProfileComplete && (
-                              <CheckCircle2 className="h-4 w-4 text-green-500" />
-                            )}
+                        {seller.isVerified && (
+                          <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-blue-600 border-2 border-slate-950 flex items-center justify-center shadow-lg">
+                            <CheckCircle2 className="h-2.5 w-2.5 text-white" />
                           </div>
-                          <div className="text-sm text-muted-foreground">{seller.email}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant="outline" 
-                        className={`${
-                          seller.accountType === "business" ? "bg-blue-500/10" : "bg-purple-500/10"
-                        }`}
-                      >
-                        {seller.accountType === "business" ? (
-                          <Briefcase className="h-4 w-4 mr-1" />
-                        ) : (
-                          <User className="h-4 w-4 mr-1" />
-                        )}
-                        {seller.accountType || "N/A"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {verificationButtons(seller)}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleFeature(seller._id)}
-                        disabled={updatingId === seller._id}
-                        className={`${
-                          seller.isFeatured 
-                            ? "text-yellow-500 hover:text-yellow-600" 
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        <Star className={`h-5 w-5 ${seller.isFeatured ? "fill-current" : ""}`} />
-                      </Button>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="bg-blue-600 hover:bg-blue-700"
-                          onClick={() => {
-                            setSelectedSeller(seller);
-                            setShowModal(true);
-                          }}
-                        >
-                          View Details
-                        </Button>
-                        {seller.verificationDocuments?.documents?.length > 0 && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <FileText className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-[200px]">
-                              {seller.verificationDocuments.documents.map((doc) => (
-                                <DropdownMenuItem 
-                                  key={doc._id}
-                                  onClick={() => window.open(doc.fileUrl, "_blank")}
-                                  className="flex items-center gap-2"
-                                >
-                                  <File className="h-4 w-4" />
-                                  <span className="capitalize">
-                                    {doc.documentType.replace(/([A-Z])/g, ' $1').trim()}
-                                  </span>
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
                         )}
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
-      </Tabs>
-
-      <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto bg-zinc-950 text-zinc-100 border border-zinc-800">
-          <DialogHeader className="border-b border-zinc-800 pb-4">
-            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-white">
-              <Store className="h-5 w-5" />
-              Seller Details
-            </DialogTitle>
-          </DialogHeader>
-          
-          {selectedSeller && (
-            <div className="space-y-6 py-4">
-              {/* Header Section with Banner */}
-              <div className="relative rounded-lg overflow-hidden bg-gradient-to-b from-zinc-800 to-zinc-900">
-                {selectedSeller.storeBanner?.url && (
-                  <div className="h-48 w-full">
-                    <img 
-                      src={selectedSeller.storeBanner.url} 
-                      alt="Store Banner"
-                      className="w-full h-full object-cover opacity-40"
-                    />
-                  </div>
-                )}
-                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-zinc-950/90 to-transparent">
-                  <div className="flex items-center gap-6">
-                    <Avatar className="h-24 w-24 border-4 border-zinc-950">
-                      <AvatarImage src={selectedSeller.storeAvatar?.url} />
-                      <AvatarFallback className="bg-zinc-800">
-                        {selectedSeller.accountType === "business" ? 
-                          <Store className="h-12 w-12" /> : 
-                          <User className="h-12 w-12" />
-                        }
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h2 className="text-3xl font-bold text-white">{getDisplayName(selectedSeller)}</h2>
-                      <div className="flex items-center gap-3 mt-2">
-                        <Badge variant="outline" className={`
-                          px-3 py-1 
-                          ${selectedSeller.accountType === "business" ? "bg-blue-500/10 text-blue-400" : "bg-purple-500/10 text-purple-400"}
-                        `}>
-                          {selectedSeller.accountType === "business" ? 
-                            <Briefcase className="h-4 w-4 mr-2" /> : 
-                            <User className="h-4 w-4 mr-2" />
-                          }
-                          {selectedSeller.accountType}
-                        </Badge>
-                        <Badge variant="outline" className={`
-                          px-3 py-1
-                          ${selectedSeller.isVerified ? "bg-green-500/10 text-green-400" : "bg-yellow-500/10 text-yellow-400"}
-                        `}>
-                          {selectedSeller.isVerified ? 
-                            <CheckCircle2 className="h-4 w-4 mr-2" /> : 
-                            <Clock className="h-4 w-4 mr-2" />
-                          }
-                          {selectedSeller.isVerified ? "Verified" : "Pending Verification"}
-                        </Badge>
-                        {selectedSeller.isFeatured && (
-                          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-400 px-3 py-1">
-                            <Star className="h-4 w-4 mr-2 fill-current" />
-                            Featured Seller
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-black text-slate-100 group-hover:text-orange-400 transition-colors tracking-tight text-sm uppercase">
+                          {seller.storeName || seller.businessName || `${seller.firstName} ${seller.lastName}`}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[8px] font-black uppercase px-2 py-0 border-slate-800 text-slate-500 rounded-sm">
+                            {seller.accountType || "REGULAR"}
                           </Badge>
-                        )}
+                          <span className="text-[9px] font-mono text-slate-600 uppercase">{seller._id.slice(-6)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
+                  </TableCell>
 
-              {/* Main Content Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Left Column - Contact & Basic Info */}
-                <div className="space-y-6">
-                  <div className="bg-zinc-900 rounded-lg p-5 border border-zinc-800">
-                    <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
-                      <Mail className="h-5 w-5 text-zinc-400" />
-                      Contact Information
-                    </h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm text-zinc-400">Email</label>
-                        <p className="text-zinc-100">{selectedSeller.email}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-zinc-400">Phone</label>
-                        <p className="text-zinc-100">{selectedSeller.phoneNumber}</p>
-                      </div>
-                      {selectedSeller.accountType === "business" && (
-                        <>
-                          <div>
-                            <label className="text-sm text-zinc-400">Business Email</label>
-                            <p className="text-zinc-100">{selectedSeller.businessEmail}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm text-zinc-400">Business Phone</label>
-                            <p className="text-zinc-100">{selectedSeller.businessNumber}</p>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {selectedSeller.businessAddress && (
-                    <div className="bg-zinc-900 rounded-lg p-5 border border-zinc-800">
-                      <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
-                        <MapPin className="h-5 w-5 text-zinc-400" />
-                        Business Address
-                      </h3>
-                      <div className="space-y-2 text-zinc-100">
-                        <p>{selectedSeller.businessAddress.addressLine1}</p>
-                        {selectedSeller.businessAddress.addressLine2 && (
-                          <p>{selectedSeller.businessAddress.addressLine2}</p>
-                        )}
-                        <p>
-                          {selectedSeller.businessAddress.city}, {selectedSeller.businessAddress.state}
-                        </p>
-                        <p>{selectedSeller.businessAddress.zipCode}</p>
-                        <p>{selectedSeller.businessAddress.country}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Middle Column - Stats & Performance */}
-                <div className="space-y-6 md:col-span-2">
-                  {/* Store Statistics */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="bg-zinc-900 p-5 rounded-lg border border-zinc-800">
-                      <h3 className="text-sm font-medium text-zinc-400">Store Visits</h3>
-                      <div className="mt-2 flex items-center gap-2">
-                        <Eye className="h-5 w-5 text-blue-400" />
-                        <span className="text-2xl font-bold text-white">
-                          {selectedSeller.storeVisits || 0}
+                  <TableCell>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className={cn("h-2 w-2 rounded-full", seller.isDisabled ? "bg-rose-500" : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]")} />
+                        <span className={cn("text-xs font-bold uppercase tracking-tighter", seller.isDisabled ? "text-rose-500" : "text-emerald-500")}>
+                          {seller.isDisabled ? "Disabled" : "Active"}
                         </span>
                       </div>
-                    </div>
-                    
-                    <div className="bg-zinc-900 p-5 rounded-lg border border-zinc-800">
-                      <h3 className="text-sm font-medium text-zinc-400">Wallet Balance</h3>
-                      <div className="mt-2 flex items-center gap-2">
-                        <Wallet className="h-5 w-5 text-green-400" />
-                        <span className="text-2xl font-bold text-white">
-                          ${selectedSeller.walletBalance || 0}
-                        </span>
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-3 w-3 text-slate-600" />
+                        <span className="text-[11px] text-slate-400 font-medium truncate max-w-[150px]">{seller.email}</span>
                       </div>
                     </div>
+                  </TableCell>
 
-                    <div className="bg-zinc-900 p-5 rounded-lg border border-zinc-800">
-                      <h3 className="text-sm font-medium text-zinc-400">Total Campaigns</h3>
-                      <div className="mt-2 flex items-center gap-2">
-                        <Megaphone className="h-5 w-5 text-purple-400" />
-                        <span className="text-2xl font-bold text-white">
-                          {selectedSeller.campaignStats?.totalCampaigns || 0}
-                        </span>
+                  <TableCell>
+                    <div className="flex items-center gap-6">
+                      <div className="flex flex-col gap-0.5 min-w-[70px]">
+                        <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Products</span>
+                        <div className="flex items-center gap-1.5">
+                          <Package className="h-3 w-3 text-slate-500" />
+                          <span className="text-xs font-bold text-slate-200">{seller.productCount || 0}</span>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Campaign Performance */}
-                  {selectedSeller.campaignStats && (
-                    <div className="bg-zinc-900 p-5 rounded-lg border border-zinc-800">
-                      <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
-                        <LineChart className="h-5 w-5 text-zinc-400" />
-                        Campaign Performance
-                      </h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div>
-                          <p className="text-sm text-zinc-400">Recipients</p>
-                          <p className="text-xl font-bold text-white mt-1">
-                            {selectedSeller.campaignStats.totalRecipients}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-zinc-400">Opens</p>
-                          <p className="text-xl font-bold text-white mt-1">
-                            {selectedSeller.campaignStats.totalOpens}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-zinc-400">Clicks</p>
-                          <p className="text-xl font-bold text-white mt-1">
-                            {selectedSeller.campaignStats.totalClicks}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-zinc-400">Daily Campaigns</p>
-                          <p className="text-xl font-bold text-white mt-1">
-                            {selectedSeller.campaignStats.dailyCampaignCount}
-                          </p>
+                      <div className="flex flex-col gap-0.5 min-w-[90px]">
+                        <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Balance</span>
+                        <div className="flex items-center gap-1.5">
+                          <Zap className="h-3 w-3 text-orange-500" />
+                          <span className="text-xs font-bold text-slate-200">{formatCurrency(seller.walletBalance || 0)}</span>
                         </div>
                       </div>
                     </div>
-                  )}
+                  </TableCell>
 
-                  {/* Categories */}
-                  {selectedSeller.categories && selectedSeller.categories.length > 0 && (
-                    <div className="bg-zinc-900 p-5 rounded-lg border border-zinc-800">
-                      <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
-                        <Tags className="h-5 w-5 text-zinc-400" />
-                        Store Categories
-                      </h3>
-                      <div className="space-y-3">
-                        {selectedSeller.categories.map((category) => (
-                          <div key={category._id} className="bg-zinc-800 p-3 rounded-lg">
-                            <div className="font-medium text-white">{category.name}</div>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {category.subCategories.map((sub) => (
-                                <Badge 
-                                  key={sub._id} 
-                                  variant="outline"
-                                  className="bg-zinc-700/50 text-zinc-300"
-                                >
-                                  {sub.name}
-                                </Badge>
-                              ))}
-                            </div>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-bold text-slate-300 tracking-tight">{formatDate(seller.createdAt)}</span>
+                      <span className="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">Joined Date</span>
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="text-right pr-8">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/dashboard/seller-detail/${seller._id}`)}
+                        className="bg-slate-900 border-slate-800 hover:bg-slate-800 text-slate-300 h-10 px-4 rounded-xl group/btn transition-all active:scale-95"
+                      >
+                        <Eye className="h-4 w-4 mr-2 text-orange-500 opacity-70 group-hover/btn:opacity-100" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">View</span>
+                      </Button>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-slate-800 border border-transparent hover:border-slate-700">
+                            <MoreVertical className="h-4 w-4 text-slate-500" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56 bg-slate-950 border-slate-800 rounded-2xl shadow-2xl p-2 pb-3">
+                          <div className="px-3 py-2 mb-2 border-b border-slate-800/60">
+                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Merchant Actions</span>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Documents */}
-                  {selectedSeller.verificationDocuments?.documents?.length > 0 && (
-                    <div className="bg-zinc-900 p-5 rounded-lg border border-zinc-800">
-                      <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-zinc-400" />
-                        Verification Documents
-                      </h3>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        {selectedSeller.verificationDocuments.documents.map((doc) => (
-                          <div 
-                            key={doc._id} 
-                            className="bg-zinc-800 p-4 rounded-lg flex items-center justify-between"
+                          <DropdownMenuItem
+                            className="rounded-xl px-3 py-2.5 text-xs font-bold text-slate-300 hover:bg-blue-600/10 hover:text-blue-400 gap-3 cursor-pointer"
+                            onClick={() => toggleVerification(seller._id)}
+                            disabled={updatingId === seller._id}
                           >
-                            <div className="flex items-center gap-3">
-                              <File className="h-5 w-5 text-zinc-400" />
-                              <div>
-                                <p className="text-zinc-100 capitalize">
-                                  {doc.documentType.replace(/([A-Z])/g, ' $1').trim()}
-                                </p>
-                                <p className="text-xs text-zinc-400">
-                                  Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => window.open(doc.fileUrl, "_blank")}
-                              className="text-blue-400 hover:text-blue-300"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
+                            <ShieldCheck className="h-4 w-4" />
+                            {seller.isVerified ? "Revoke Verification" : "Verify Seller"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="rounded-xl px-3 py-2.5 text-xs font-bold text-slate-300 hover:bg-orange-600/10 hover:text-orange-400 gap-3 cursor-pointer">
+                            <Star className="h-4 w-4" />
+                            {seller.isFeatured ? "Unfeature" : "Feature Seller"}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-slate-800/60 my-1 mx-2" />
+                          <DropdownMenuItem className="rounded-xl px-3 py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-600/10 gap-3 cursor-pointer">
+                            <XCircle className="h-4 w-4" />
+                            {seller.isDisabled ? "Enable Seller" : "Disable Seller"}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
 
-      <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
-        <DialogContent className="bg-zinc-950 text-zinc-100 border border-zinc-800">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-white">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-              Reject Seller Verification
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-400">
-                Rejection Reason*
-              </label>
-              <Input
-                placeholder="Enter the main reason for rejection"
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                className="bg-zinc-900 border-zinc-800"
-              />
+        {/* Global Pagination Hub */}
+        <div className="p-6 bg-slate-900/10 border-t border-slate-800/60 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Display</span>
+              <select
+                value={limit}
+                onChange={(e) => { setLimit(parseInt(e.target.value)); setPage(1); }}
+                className="bg-slate-900 border-slate-800 text-[10px] font-black text-slate-300 rounded-lg px-2 h-8 ring-0 focus:ring-1 focus:ring-orange-500/50"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
             </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-400">
-                Additional Details
-              </label>
-              <Textarea
-                placeholder="Provide any additional details or instructions"
-                value={rejectDetails}
-                onChange={(e) => setRejectDetails(e.target.value)}
-                className="bg-zinc-900 border-zinc-800"
-                rows={4}
-              />
-            </div>
+            <div className="h-8 w-px bg-slate-800" />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+              Page {page} of {totalPages}
+            </span>
           </div>
 
-          <DialogFooter>
+          <div className="flex items-center gap-4">
             <Button
-              variant="ghost"
-              onClick={() => setShowRejectModal(false)}
+              variant="outline"
+              size="sm"
+              className="h-10 rounded-xl bg-slate-900 border-slate-800 font-black text-[10px] uppercase tracking-widest hover:bg-orange-600/10 hover:text-orange-500 disabled:opacity-30 px-6"
+              disabled={page === 1}
+              onClick={() => setPage(page - 1)}
             >
-              Cancel
+              Previous
             </Button>
+
+            <div className="flex items-center gap-2">
+              {Array.from({ length: Math.min(3, totalPages) }).map((_, i) => (
+                <div key={i} className={cn("h-1.5 rounded-full transition-all duration-300", page === (i + 1) ? "w-6 bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]" : "w-1.5 bg-slate-800")} />
+              ))}
+            </div>
+
             <Button
-              variant="destructive"
-              onClick={handleReject}
-              disabled={!rejectReason || isRejecting}
+              variant="outline"
+              size="sm"
+              className="h-10 rounded-xl bg-slate-900 border-slate-800 font-black text-[10px] uppercase tracking-widest hover:bg-orange-600/10 hover:text-orange-500 disabled:opacity-30 px-6"
+              disabled={page === totalPages}
+              onClick={() => setPage(page + 1)}
             >
-              {isRejecting ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <XCircle className="h-4 w-4 mr-2" />
-              )}
-              Reject Verification
+              Next
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      </Card>
+
+      {/* Network Integrity Signal */}
+      <div className="flex items-center justify-center gap-2 text-[10px] font-black text-slate-700 uppercase tracking-[0.4em] py-8 border-t border-slate-900">
+        <ShieldIcon className="h-3 w-3 opacity-30" />
+        <span>Auqli Admin v2.0</span>
+      </div>
     </div>
   );
 }
 
-export default Sellers
+export default Sellers;
