@@ -1,0 +1,33 @@
+services:
+  api:
+    image: node:20
+    # command: sh -c "apt-get update  && apt-get install bcrypt -y && cd usr/src/app && npm install && npm run dev"
+    command: sh -c "cd usr/src/app && npm install && npm run dev"
+    #command: "sleep 3600"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongodb
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/api?replicaSet=rs0
+      - NODE_ENV=development
+    volumes:
+      - .:/usr/src/app
+  mongodb:
+    image: mongo:latest
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: echo "try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongodb:27017',priority:1}]}) }" | mongosh --port 27017 --quiet
+      interval: 5s
+      timeout: 30s
+      start_period: 0s
+      start_interval: 1s
+      retries: 30
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+volumes:
+  mongodb_data:

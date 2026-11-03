@@ -1,0 +1,3109 @@
+const Agenda = require('agenda');
+const mongoose = require('mongoose');
+const axios = require('axios');
+
+// Verify SendGrid API key at startup
+const verifySendGridConfig = () => {
+  const apiKey = process.env.SENDGRID_API_KEY;
+
+  if (!apiKey) {
+    console.error('⚠️ SENDGRID_API_KEY is not set in environment variables!');
+    return false;
+  }
+
+  if (apiKey.startsWith('SG.')) {
+    // console.log('✅ SendGrid API key appears to be properly formatted');
+    return true;
+  } else {
+    console.error('⚠️ SendGrid API key does not appear to be properly formatted. Should start with "SG."');
+    return false;
+  }
+};
+
+const Buyer = require('../models/Buyer');
+const Seller = require('../models/Seller');
+const Referral = require('../models/Referral');
+const { processReferralReward } = require('../modules/referral/services/referral-reward.service');
+const { sendPushNotification } = require('../controllers/notificationController');
+
+const restoreProductStock = async (order, reason = 'Order cancelled/expired') => {
+  try {
+    console.log(`Restoring stock for order ${order.order_id} - Reason: ${reason}`);
+
+    // Check if stock was actually reserved (and soldCount incremented)
+    // Stock is reserved if:
+    // 1. Order is paid
+    // 2. Order channel is 'auction' (stock reserved on creation)
+    // 3. Order status implies processing/completion (processing, shipped, delivered)
+    // If it's a draft or pending_payment marketplace order that isn't paid, stock was never decremented, so don't restore it.
+    const isStockReserved = order.paid ||
+      order.channel === 'auction' ||
+      ['processing', 'shipped', 'delivered', 'completed'].includes(order.status);
+
+    if (!isStockReserved) {
+      console.log(`Skipping stock restoration for order ${order.order_id} - Stock was not strictly reserved (Unpaid/Draft & Not Auction)`);
+      return 0;
+    }
+
+    const Product = mongoose.model('Product');
+    let totalStockRestored = 0;
+
+    for (const item of order.items) {
+      // Only restore stock if the item was actually sold (not cancelled already)
+      if (item.status !== 'cancelled') {
+        console.log(`Restoring stock for product ${item.product} - Quantity: ${item.quantity}`);
+
+        const updateResult = await Product.findByIdAndUpdate(
+          item.product,
+          {
+            $inc: {
+              'stats.soldCount': -item.quantity,
+              'stock': item.quantity,
+              'inventory.quantity': item.quantity
+            }
+          },
+          { new: true }
+        );
+
+        if (updateResult) {
+          totalStockRestored += item.quantity;
+          console.log(`Successfully restored ${item.quantity} units of stock for product ${item.product}`);
+          console.log(`Product ${item.product} stock after restoration:`, {
+            stock: updateResult.stock,
+            inventoryQuantity: updateResult.inventory.quantity,
+            soldCount: updateResult.stats.soldCount
+          });
+        } else {
+          console.error(`Failed to restore stock for product ${item.product}`);
+        }
+      } else {
+        console.log(`Skipping stock restoration for product ${item.product} - item already cancelled`);
+      }
+    }
+
+    console.log(`Stock restoration completed for order ${order.order_id} - Total units restored: ${totalStockRestored}`);
+    return totalStockRestored;
+  } catch (error) {
+    console.error(`Error restoring stock for order ${order.order_id}:`, error);
+    throw error;
+  }
+};
+
+// Check SendGrid configuration at startup
+verifySendGridConfig();
+
+const agenda = new Agenda({
+  db: {
+    address: process.env.MONGODB_URI,
+    collection: 'agendaJobs'
+  }
+});
+
+// Define the job processor for order closure
+agenda.define('closeOrder', async (job) => {
+  try {
+    console.log('Starting closeOrder job with data:', job.attrs.data);
+    const { orderId } = job.attrs.data;
+
+    if (!orderId) {
+      console.error('No orderId provided for closeOrder job');
+      return;
+    }
+
+    console.log(`Processing auto-close for order: ${orderId}`);
+
+    const Order = mongoose.model('Order');
+    const Transaction = mongoose.model('Transaction');
+    const Category = mongoose.model('Category');
+    const Seller = mongoose.model('Seller');
+    const termiiEmailService = require('../services/termiiEmailService');
+
+    // First, verify if the order is still open and needs processing
+    const orderCheck = await Order.findById(orderId);
+    if (!orderCheck) {
+      console.error(`Order not found with ID: ${orderId}`);
+      return;
+    }
+
+    if (!orderCheck.isOpen) {
+      console.log(`Order ${orderCheck.order_id} is already closed, skipping auto-close`);
+      return;
+    }
+
+    // For non-COD orders, check if it's paid
+    const isCOD = orderCheck.paymentInfo?.isCashOnDelivery;
+    if (!orderCheck.paid && !isCOD) {
+      console.log(`Order ${orderCheck.order_id} is not paid and not COD, skipping auto-close`);
+      return;
+    }
+
+    console.log(`Processing auto-close for order ${orderCheck.order_id}. Will release payment to seller upon closing.`, {
+      paymentMethod: orderCheck.paymentInfo?.method,
+      isCashOnDelivery: isCOD,
+      isPaid: orderCheck.paid
+    });
+
+    // Now load the full order data with populated references
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName')
+      .populate('seller', 'email firstName businessName walletBalance')
+      .populate('items.product', 'name category');
+
+    if (!order) {
+      console.error(`Error retrieving populated order with ID: ${orderId}`);
+      return;
+    }
+
+    // Verify shipping status is delivered
+    const shippingStatus = order.shipping?.tracking?.status?.toLowerCase();
+    if (shippingStatus !== 'delivered') {
+      console.log(`Order ${order.order_id} shipping status is ${shippingStatus}, not ready for auto-close`);
+      // Reschedule the job for later if the shipping status isn't delivered yet
+      job.schedule('in 5 minutes');
+      await job.save();
+      console.log(`Rescheduled auto-close job for order ${order.order_id} in 5 minutes`);
+      return;
+    }
+
+    console.log(`Found order to close: ${order.order_id}`, {
+      isOpen: order.isOpen,
+      paid: order.paid,
+      itemCount: order.items.length,
+      shippingStatus
+    });
+
+    // DB-level guard: check if payment has already been processed for this order
+    // This prevents double-crediting if both the Order pre-save middleware and this job run
+    const existingPaymentTxn = await Transaction.findOne({
+      orderId: orderCheck._id,
+      seller: orderCheck.seller,
+      type: 'order_payment'
+    });
+    if (existingPaymentTxn) {
+      console.log(`Payment already processed for order ${orderCheck.order_id}, skipping duplicate wallet credit in agenda job.`);
+      return;
+    }
+
+    // Calculate fees and amounts
+    console.log('Fetching categories for fee calculation');
+
+    const categories = await Category.find({});
+    const categoryFeeMap = new Map(
+      categories.map(cat => [cat.name.toLowerCase(), cat.platformFee])
+    );
+
+    console.log(`Found ${categories.length} categories for fee calculation`);
+
+    let totalPlatformFee = 0;
+    let totalAmount = 0;
+
+    order.items.forEach(item => {
+      const itemTotal = item.price * item.quantity;
+      totalAmount += itemTotal;
+
+      const categoryName = typeof item.product?.category === 'string'
+        ? item.product.category.toLowerCase()
+        : null;
+
+      const categoryFee = categoryFeeMap.get(categoryName) || 0;
+      const itemPlatformFee = itemTotal * (categoryFee / 100);
+      totalPlatformFee += itemPlatformFee;
+
+      console.log(`Calculated fees for item: ${item.productName}`, {
+        category: categoryName,
+        categoryFee: `${categoryFee}%`,
+        itemTotal,
+        platformFee: itemPlatformFee
+      });
+    });
+
+    // Calculate payment processing fee (1.5%)
+    const paymentProcessingFee = totalAmount * 0.015;
+    const totalDeductions = totalPlatformFee + paymentProcessingFee;
+    const sellerAmount = totalAmount - totalDeductions;
+
+    console.log('Final calculations for order:', {
+      orderId: order.order_id,
+      totalAmount,
+      platformFee: totalPlatformFee,
+      processingFee: paymentProcessingFee,
+      totalDeductions,
+      sellerAmount
+    });
+
+    // Update seller's wallet and close order
+    console.log(`Updating seller wallet and closing order ${order.order_id}`);
+    let updatedSeller;
+    let updatedOrder;
+
+    try {
+      // Use a session to ensure transaction atomicity
+      const session = await mongoose.startSession();
+      await session.withTransaction(async () => {
+        // Update seller's wallet
+        updatedSeller = await Seller.findByIdAndUpdate(
+          order.seller._id,
+          { $inc: { walletBalance: sellerAmount } },
+          { new: true, session }
+        );
+
+        if (!updatedSeller) {
+          throw new Error(`Failed to update seller ${order.seller._id}`);
+        }
+
+        console.log(`Seller wallet updated:`, {
+          sellerId: updatedSeller._id,
+          previousBalance: order.seller.walletBalance || 0,
+          newBalance: updatedSeller.walletBalance,
+          increment: sellerAmount
+        });
+
+        // Update order status
+        updatedOrder = await Order.findByIdAndUpdate(
+          order._id,
+          {
+            isOpen: false,
+            closedAt: new Date(),
+            closedBy: 'auto',
+            closedReason: 'Auto-closed after delivery with no reported issues'
+          },
+          { new: true, session }
+        );
+
+        if (!updatedOrder) {
+          throw new Error(`Failed to update order ${order._id}`);
+        }
+
+        console.log(`Order closed:`, {
+          orderId: updatedOrder._id,
+          isOpen: updatedOrder.isOpen,
+          closedBy: updatedOrder.closedBy,
+          closedAt: updatedOrder.closedAt
+        });
+
+        // Create transaction records directly with the session
+        const txnPromises = [];
+
+        // Add payment method info to order payment transaction
+        txnPromises.push(
+          new Transaction({
+            seller: order.seller._id,
+            type: 'order_payment',
+            amount: totalAmount,
+            orderId: order._id,
+            description: `Payment for order #${order.order_id}${order.paymentInfo?.isCashOnDelivery ? ' (Cash on Delivery)' : order.paymentInfo?.method ? ` (${order.paymentInfo.method})` : ''}`,
+            metadata: {
+              paymentMethod: order.paymentInfo?.method || 'unknown',
+              isCashOnDelivery: order.paymentInfo?.isCashOnDelivery || false
+            },
+            status: 'completed'
+          }).save({ session })
+        );
+
+        console.log(`Creating transaction records for order ${order.order_id}`, {
+          paymentMethod: order.paymentInfo?.method,
+          isCashOnDelivery: order.paymentInfo?.isCashOnDelivery,
+          totalAmount: totalAmount,
+          sellerAmount: sellerAmount
+        });
+
+        // 2. Platform fee transactions for each item
+        order.items.forEach(item => {
+          const itemTotal = item.price * item.quantity;
+          const categoryName = typeof item.product?.category === 'string'
+            ? item.product.category.toLowerCase()
+            : null;
+          const categoryFee = categoryFeeMap.get(categoryName) || 0;
+          const itemPlatformFee = itemTotal * (categoryFee / 100);
+
+          if (itemPlatformFee > 0) {
+            txnPromises.push(
+              new Transaction({
+                seller: order.seller._id,
+                type: 'platform_fee',
+                amount: itemPlatformFee,
+                orderId: order._id,
+                description: `Platform fee for ${item.productName} in order #${order.order_id}`,
+                metadata: {
+                  categoryFee: categoryFee,
+                  categoryName: categoryName,
+                  itemTotal: itemTotal
+                },
+                status: 'completed'
+              }).save({ session })
+            );
+          }
+        });
+
+        // 3. Processing fee transaction
+        txnPromises.push(
+          new Transaction({
+            seller: order.seller._id,
+            type: 'processing_fee',
+            amount: paymentProcessingFee,
+            orderId: order._id,
+            description: `Payment processing fee for order #${order.order_id}`,
+            metadata: {
+              processingFeePercent: 1.5,
+              itemTotal: totalAmount
+            },
+            status: 'completed'
+          }).save({ session })
+        );
+
+        // Wait for all transaction saves to complete
+        await Promise.all(txnPromises);
+        console.log(`Created and saved ${txnPromises.length} transaction records within session`);
+      });
+
+      await session.endSession();
+
+      console.log(`Successfully closed order ${order.order_id} and updated seller wallet`, {
+        newWalletBalance: updatedSeller.walletBalance
+      });
+    } catch (updateError) {
+      console.error('Error updating seller wallet or closing order:', updateError);
+      // Check if order is still open and reschedule job
+      const retryCheck = await Order.findById(orderId);
+      if (retryCheck && retryCheck.isOpen) {
+        job.schedule('in 10 minutes');
+        await job.save();
+        console.log(`Rescheduled auto-close job for order ${order.order_id} after error`);
+      }
+      return; // Exit early without sending emails
+    }
+
+    // Verify that the order was actually closed
+    const verifyOrder = await Order.findById(orderId);
+    if (verifyOrder && verifyOrder.isOpen) {
+      console.error(`Order ${order.order_id} is still open after close attempt. Forcing update.`);
+
+      try {
+        // Force direct update as last resort
+        await Order.updateOne(
+          { _id: order._id },
+          {
+            $set: {
+              isOpen: false,
+              closedAt: new Date(),
+              closedBy: 'auto',
+              closedReason: 'Auto-closed after delivery (forced update)'
+            }
+          }
+        );
+        console.log(`Forced order closure for ${order.order_id}`);
+      } catch (forceError) {
+        console.error('Error forcing order closure:', forceError);
+      }
+    }
+
+    // Send closure notification emails
+    console.log(`Sending closure notification emails for order ${order.order_id}`);
+    const buyerClosureEmail = {
+      to: order.buyer.email,
+      from: 'Auqli Orders <support@auqli.com>',
+      subject: 'Order Closed Successfully - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Order Closed Successfully</h2>
+          <p>Dear ${order.buyer.firstName},</p>
+          <p>Your order #${order.order_id} has been automatically closed as no issues were reported after delivery.</p>
+          <p>Thank you for shopping with us!</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    const sellerClosureEmail = {
+      to: order.seller.email,
+      from: 'Auqli Orders <support@auqli.com>',
+      subject: 'Order Closed and Payment Released - Auqli',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Order Closed and Payment Released</h2>
+          <p>Dear ${order.seller.firstName},</p>
+          <p>Order #${order.order_id} has been automatically closed and payment has been released to your wallet.</p>
+          <p><strong>Payment Details:</strong></p>
+          <ul>
+            <li>Payment Method: ${order.paymentInfo?.isCashOnDelivery ? 'Cash on Delivery' : (order.paymentInfo?.method || 'Standard Payment')}</li>
+            <li>Total Order Amount: ₦${totalAmount.toLocaleString()}</li>
+            <li style="margin-top: 10px;"><strong>Platform Fees:</strong> ₦${totalPlatformFee.toLocaleString()}</li>
+            <li>Payment Processing Fee (1.5%): ₦${paymentProcessingFee.toLocaleString()}</li>
+            <li>Total Deductions: ₦${totalDeductions.toLocaleString()}</li>
+            <li style="margin-top: 10px; font-weight: bold;">Amount Released: ₦${sellerAmount.toLocaleString()}</li>
+            
+          </ul>
+          <p>Thank you for selling with Auqli!</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `
+    };
+
+    try {
+      await Promise.all([
+        termiiEmailService.sendRawHTMLEmail({
+          email: buyerClosureEmail.to,
+          subject: buyerClosureEmail.subject,
+          html: buyerClosureEmail.html
+        }),
+        termiiEmailService.sendRawHTMLEmail({
+          email: sellerClosureEmail.to,
+          subject: sellerClosureEmail.subject,
+          html: sellerClosureEmail.html
+        })
+      ]);
+      console.log(`Closure notification emails sent successfully for order ${order.order_id}`);
+    } catch (emailError) {
+      console.error('Error sending closure notification emails:', emailError.message);
+    }
+
+    console.log(`Successfully completed closeOrder job for order ${order.order_id}`);
+  } catch (error) {
+    console.error('Error in closeOrder job:', error);
+  }
+});
+
+// Define job for sending order notifications
+agenda.define('send-order-notifications', async (job) => {
+  try {
+    console.log('Starting send-order-notifications job:', job.attrs.data);
+
+    const { orderId, buyerId, sellerId, batchProcess = false } = job.attrs.data;
+    const notificationController = require('../controllers/notificationController');
+
+    // Process batch notifications if this is a batch job
+    if (batchProcess) {
+      console.log('Processing batch notifications for buyer:', buyerId);
+
+      // Check if there's already a job in progress for this buyer
+      const runningJobs = await agenda.jobs({
+        name: 'send-order-notifications',
+        'data.buyerId': buyerId,
+        'data.batchProcess': true,
+        $or: [
+          { lockedAt: { $ne: null } },
+          { nextRunAt: { $lt: new Date() } }
+        ]
+      });
+
+      // If there are already running jobs for this buyer (more than this one), skip
+      if (runningJobs.length > 1) {
+        console.log(`Skipping duplicate batch notification job for buyer: ${buyerId}. Already ${runningJobs.length} jobs in progress.`);
+        return;
+      }
+
+      await notificationController.processBatchOrderNotifications(buyerId);
+      return;
+    }
+
+    // Fetch the necessary data
+    console.log('Fetching order, buyer, and seller data...', {
+      orderId: orderId?.toString(),
+      buyerId,
+      sellerId
+    });
+
+    const Order = mongoose.model('Order');
+    const Buyer = mongoose.model('Buyer');
+    const Seller = mongoose.model('Seller');
+    const Message = mongoose.model('Message');
+    const Conversation = mongoose.model('Conversation');
+
+    let order, buyer, seller;
+    try {
+      order = await Order.findById(orderId)
+        .populate('items.product', 'name images price')
+        .populate('shipping')
+        .populate('delivery_address');
+      console.log('Order fetch result:', order ? 'Found' : 'Not found');
+
+      // Skip if notifications were already sent for this order
+      if (order && order.notificationsSent) {
+        console.log(`Skipping notifications for order ${order.order_id} as they were already sent`);
+        return;
+      }
+    } catch (err) {
+      console.error('Error fetching order:', err);
+    }
+
+    try {
+      buyer = await Buyer.findById(buyerId);
+      console.log('Buyer fetch result:', buyer ? 'Found' : 'Not found');
+    } catch (err) {
+      console.error('Error fetching buyer:', err);
+    }
+
+    try {
+      seller = await Seller.findById(sellerId);
+      console.log('Seller fetch result:', seller ? 'Found' : 'Not found');
+    } catch (err) {
+      console.error('Error fetching seller:', err);
+    }
+
+    console.log('Data fetch results:', {
+      orderFound: !!order,
+      buyerFound: !!buyer,
+      sellerFound: !!seller,
+      orderDetails: order ? {
+        id: order._id.toString(),
+        order_id: order.order_id,
+        items: order.items.length
+      } : null
+    });
+
+    if (!order || !buyer || !seller) {
+      console.error('Missing data for order notifications:', { orderId, buyerId, sellerId });
+      return;
+    }
+
+    // Find or create conversation
+    console.log('Finding or creating conversation...');
+    let conversation = await Conversation.findOne({
+      'participants': {
+        $all: [
+          { $elemMatch: { id: buyerId, model: 'Buyer' } },
+          { $elemMatch: { id: sellerId, model: 'Seller' } }
+        ]
+      }
+    });
+
+    if (!conversation) {
+      console.log('Creating new conversation...');
+      conversation = new Conversation({
+        participants: [
+          { id: buyerId, model: 'Buyer' },
+          { id: sellerId, model: 'Seller' }
+        ]
+      });
+      await conversation.save();
+      console.log('New conversation created:', conversation._id.toString());
+    } else {
+      console.log('Found existing conversation:', conversation._id.toString());
+    }
+
+    // Format order items for the message
+    console.log('Formatting order items...');
+    const formattedItems = order.items.map(item => ({
+      name: item.product.name,
+      quantity: item.quantity,
+      price: item.product.price,
+      image: item.product.images[0]?.url || ''
+    }));
+
+    // Create the order message
+    console.log('Creating order message...');
+    const message = new Message({
+      conversation: conversation._id,
+      sender: { id: sellerId, model: 'Seller' },
+      recipient: { id: buyerId, model: 'Buyer' },
+      content: `Thank you for your order #${order.order_id}. We'll process it right away!`,
+      messageType: 'order',
+      order: {
+        id: order._id,
+        items: formattedItems,
+        shippingFee: order.shipping?.fee?.amount || 0,
+        totalAmount: order.totalAmount,
+        tracking: {
+          number: order.shipping?.tracking?.number,
+          url: order.shipping?.tracking?.url,
+          carrier: order.shipping?.carrier?.name,
+          status: order.shipping?.tracking?.status
+        },
+        delivery_address: {
+          first_name: order.delivery_address?.first_name,
+          last_name: order.delivery_address?.last_name,
+          email: order.delivery_address?.email,
+          phone: order.delivery_address?.phone,
+          line1: order.delivery_address?.line1,
+          line2: order.delivery_address?.line2,
+          city: order.delivery_address?.city,
+          state: order.delivery_address?.state,
+          country: order.delivery_address?.country,
+          zip: order.delivery_address?.zip
+        },
+        status: order.status
+      }
+    });
+
+    await message.save();
+    console.log('Order message saved:', message._id.toString());
+
+    // Update conversation
+    console.log('Updating conversation...');
+    conversation.lastMessage = {
+      content: `Thank you for your order #${order.order_id}. We'll process it right away!`,
+      sender: { id: sellerId, model: 'Seller' },
+      messageType: 'order',
+      createdAt: message.createdAt
+    };
+
+    // Increment unread count for buyer
+    const buyerKey = buyerId.toString();
+    const currentCount = conversation.unreadCount.get(buyerKey) || 0;
+    conversation.unreadCount.set(buyerKey, currentCount + 1);
+
+    await conversation.save();
+    console.log('Conversation updated successfully');
+
+    // Send notifications and emails
+    console.log('Sending notifications...');
+    await notificationController.handleOrderCreationNotifications(order, buyer, seller);
+
+    // Mark order as having had notifications sent
+    console.log(`Marking order ${order.order_id} as having had notifications sent`);
+    await Order.findByIdAndUpdate(orderId, { notificationsSent: true });
+
+    console.log('Order notifications and message sent successfully');
+  } catch (error) {
+    console.error('Error in send-order-notifications job:', error);
+  }
+});
+
+// Add auction status update job
+agenda.define('update-auction-status', async (job) => {
+  try {
+    const { productId, newStatus } = job.attrs.data;
+    const Product = mongoose.model('Product');
+
+    const product = await Product.findById(productId);
+    if (!product || product.status !== 'offline_auction') return;
+
+    product.auction.status = newStatus;
+    await product.save();
+
+    // If starting the auction, notify followers
+    if (newStatus === 'ongoing') {
+      const Seller = mongoose.model('Seller');
+      const seller = await Seller.findById(product.seller).populate('followers.buyerId', 'email firstName');
+
+      if (seller && seller.followers.length > 0) {
+        const termiiEmailService = require('../services/termiiEmailService');
+
+        // Send emails to each follower
+        for (const follower of seller.followers) {
+          try {
+            await termiiEmailService.sendRawHTMLEmail({
+              email: follower.buyerId.email,
+              subject: 'New Auction Started! - Auqli',
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2>New Auction Started!</h2>
+                  <p>Dear ${follower.buyerId.firstName},</p>
+                  <p>A new auction has started for "${product.name}" by ${seller.businessName}.</p>
+                  <p>Starting bid: $${product.auction.minBid}</p>
+                  <p>Don't miss out on this opportunity!</p>
+                 
+                  <p>Best regards,<br>The Auqli Team</p>
+                </div>
+              `
+            });
+          } catch (emailError) {
+            console.error(`Failed to send auction notification to ${follower.buyerId.email}:`, emailError.message);
+          }
+        }
+      }
+    }
+
+    // If ending the auction, check for a winner and create an order
+    if (newStatus === 'ended') {
+      console.log('Auction ended via scheduled job:', productId);
+
+      // End the auction through the product method to ensure winner is set
+      if (product.auction.status !== 'ended') {
+        // Call the product's endAuction method - this will set the winner if there is one
+        try {
+          const updatedProduct = await Product.findById(productId);
+          if (updatedProduct && updatedProduct.auction.status !== 'ended') {
+            await updatedProduct.endAuction();
+            console.log('Called endAuction method for product:', productId);
+          }
+        } catch (endError) {
+          console.error('Error calling endAuction method:', endError);
+        }
+      }
+
+      // Now schedule the end-auction job to handle notifications and order creation
+      try {
+        await job.agenda.now('end-auction', { productId });
+        console.log('Scheduled end-auction job to handle winner notification and order creation');
+      } catch (scheduleError) {
+        console.error('Error scheduling end-auction job:', scheduleError);
+      }
+    }
+
+  } catch (error) {
+    console.error('Error in update-auction-status job:', error);
+  }
+});
+
+// Define job for creating an order for auction winners
+agenda.define('create-auction-winner-order', async (job) => {
+  try {
+    const { productId } = job.attrs.data;
+    const Product = mongoose.model('Product');
+    const Buyer = mongoose.model('Buyer');
+    const Seller = mongoose.model('Seller');
+    const Order = mongoose.model('Order');
+    const Transaction = mongoose.model('Transaction');
+    const axios = require('axios');
+
+    console.log('Starting create-auction-winner-order job for product:', productId);
+
+    // Fetch the product first to get the auction end date
+    const product = await Product.findById(productId)
+      .populate('auction.winner.buyer')
+      .populate('seller');
+
+    if (!product || product.status !== 'offline_auction') {
+      console.log('Product not found or not an auction product:', productId);
+      return;
+    }
+
+    if (!product.auction.winner || !product.auction.winner.buyer) {
+      console.log('No valid auction winner found for product:', productId);
+      return;
+    }
+
+    // Validate that product has stock available
+    if (product.stock < 1) {
+      console.error('Insufficient stock for auction product:', {
+        productId: product._id,
+        productName: product.name,
+        availableStock: product.stock,
+        requiredStock: 1
+      });
+
+      // Reschedule job to retry later or notify admin
+      job.schedule('in 12 hours');
+      await job.save();
+      console.log('Rescheduled order creation job due to insufficient product stock');
+      return;
+    }
+
+    // Get the auction end date to use in the order check
+    const auctionEndDate = product.auction.winner.winningDate || product.auction.endDate;
+
+    // Create a unique ID for this auction run
+    const auctionRunId = `${productId}-${auctionEndDate.getTime()}`;
+
+    console.log(`Checking for existing orders for auction run ID: ${auctionRunId}`);
+
+    // Check if an order already exists for this specific auction run
+    const existingOrder = await Order.findOne({
+      channel: 'auction',
+      'items.product': productId,
+      'metadata.auctionRunId': auctionRunId
+    });
+
+    if (existingOrder) {
+      console.log('Order already exists for this auction run:', {
+        productId,
+        orderId: existingOrder._id,
+        orderStatus: existingOrder.items[0].status,
+        auctionRunId
+      });
+      return;
+    }
+
+    const buyer = product.auction.winner.buyer;
+    const seller = product.seller;
+    const bidAmount = product.auction.winner.bidAmount;
+
+    console.log('Creating order for auction winner:', {
+      buyer: buyer._id,
+      seller: seller._id,
+      product: product._id,
+      bidAmount,
+      auctionEndDate
+    });
+
+    // Default shipping fee of 1000 as requested
+    const shippingFee = 0;
+    const totalAmount = bidAmount + shippingFee;
+
+    // Get the most up-to-date buyer information
+    const freshBuyer = await Buyer.findById(buyer._id);
+
+    if (!freshBuyer) {
+      console.error('Could not find buyer with ID:', buyer._id);
+      return;
+    }
+
+    let holdRemoved = false;
+
+    // Check if there's a hold for this product in the buyer's wallet
+    const holdIndex = freshBuyer.wallet.onHoldItems.findIndex(
+      item => item.productId.toString() === productId.toString()
+    );
+
+    // If there's a hold, remove it first
+    if (holdIndex !== -1) {
+      const holdAmount = freshBuyer.wallet.onHoldItems[holdIndex].amount;
+      console.log(`Found hold of ₦${holdAmount} for auction winner ${freshBuyer._id} on product ${productId}`);
+
+      // Make sure we don't subtract more than what's actually on hold
+      const currentOnHoldAmount = freshBuyer.wallet.onHoldAmount || 0;
+      freshBuyer.wallet.onHoldAmount = Math.max(0, currentOnHoldAmount - holdAmount);
+
+      // Log the before/after values to help with debugging
+      console.log(`Adjusting onHoldAmount from ₦${currentOnHoldAmount} to ₦${freshBuyer.wallet.onHoldAmount} after removing hold for product ${productId}`);
+
+      // Remove the hold item from the array
+      freshBuyer.wallet.onHoldItems.splice(holdIndex, 1);
+
+      await freshBuyer.save();
+      console.log(`Released hold of ₦${holdAmount} for auction winner ${freshBuyer._id} on product ${productId}`);
+      holdRemoved = true;
+    } else {
+      console.log(`No hold found for auction winner ${freshBuyer._id} on product ${productId}. Hold may have been removed already.`);
+    }
+
+    // Check if buyer has enough balance for the order
+    if (freshBuyer.wallet.balance < totalAmount) {
+      console.error('Buyer does not have enough balance for auction order:', {
+        buyerId: freshBuyer._id,
+        walletBalance: freshBuyer.wallet.balance,
+        requiredAmount: totalAmount
+      });
+
+      // Schedule a retry with a delay if balance is insufficient
+      job.schedule('in 1 hour');
+      await job.save();
+      console.log('Rescheduled order creation job for 1 hour later due to insufficient funds');
+      return;
+    }
+
+    // Generate transaction for wallet payment
+    const paymentReference = `AUCT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const transaction = {
+      type: 'debit',
+      amount: totalAmount,
+      paymentReference,
+      description: `Payment for auction item: ${product.name}`,
+      status: 'completed',
+      createdAt: new Date()
+    };
+
+    // Create order in database
+    const order = new Order({
+      buyer: freshBuyer._id,
+      seller: seller._id,
+      channel: 'auction', // Set channel to 'auction' as requested
+      items: [{
+        product: product._id,
+        productName: product.name,
+        seller: seller._id,
+        quantity: 1,
+        price: bidAmount,
+        status: 'processing',
+        statusHistory: [{
+          status: 'processing',
+          timestamp: new Date(),
+          note: 'Order created automatically after auction ended'
+        }]
+      }],
+      totalAmount: bidAmount,
+      delivery_address: {
+        first_name: freshBuyer.firstName,
+        last_name: freshBuyer.lastName,
+        email: freshBuyer.email,
+        phone: freshBuyer.phoneNumber,
+        // Use the first shipping address if available, or empty values
+        ...(freshBuyer.shippingAddresses && freshBuyer.shippingAddresses.length > 0 ? {
+          line1: freshBuyer.shippingAddresses[0].addressLine1,
+          line2: freshBuyer.shippingAddresses[0].addressLine2 || '',
+          city: freshBuyer.shippingAddresses[0].city,
+          state: freshBuyer.shippingAddresses[0].state,
+          country: freshBuyer.shippingAddresses[0].country,
+          zip: freshBuyer.shippingAddresses[0].zipCode
+        } : {
+          line1: '',
+          city: '',
+          state: '',
+          country: 'NG',
+          zip: ''
+        })
+      },
+      buyerDetails: {
+        _id: freshBuyer._id,
+        firstName: freshBuyer.firstName,
+        lastName: freshBuyer.lastName,
+        email: freshBuyer.email,
+        phoneNumber: freshBuyer.phoneNumber,
+        profileImage: freshBuyer.profileImage
+      },
+      shipping: {
+        method: 'standard',
+        fee: {
+          amount: shippingFee,
+          currency: 'NGN'
+        },
+        tracking: {
+          status: 'pending'
+        }
+      },
+      paid: true,
+      paymentInfo: {
+        method: 'wallet',
+        status: 'paid',
+        paymentReference,
+        paidAt: new Date()
+      },
+      metadata: {
+        auctionEndDate: auctionEndDate,
+        auctionRunId: auctionRunId // Add a unique ID for this auction run
+      }
+    });
+
+    // Save the order
+    await order.save();
+    console.log('Order created successfully for auction winner:', order._id);
+
+    // Update product stock
+    await Product.findByIdAndUpdate(
+      product._id,
+      {
+        $inc: {
+          'stats.soldCount': 1,
+          'stock': -1,
+          'inventory.quantity': -1
+        }
+      }
+    );
+    console.log('Product stock updated for auction item:', product._id);
+
+    // Update buyer's wallet - reduce the balance
+    await Buyer.findByIdAndUpdate(
+      freshBuyer._id,
+      {
+        $inc: { 'wallet.balance': -totalAmount },
+        $push: { 'wallet.transactions': transaction }
+      }
+    );
+    console.log('Buyer wallet updated with deduction:', totalAmount);
+
+    // Create Fez Delivery shipment
+    try {
+      console.log('Starting Fez shipment creation for auction order:', {
+        orderId: order._id,
+        orderIdString: order.order_id,
+        buyerAddress: order.delivery_address
+      });
+
+      // Initialize Fez API configuration
+      const FEZ_API_URL = process.env.FEZ_API_URL;
+      console.log('Using Fez API URL:', FEZ_API_URL);
+
+      // Get fresh auth token for Fez
+      const getFezAuthToken = async () => {
+        try {
+
+          const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
+          const authData = {
+            user_id: process.env.FEZ_USER_ID,
+            password: process.env.FEZ_PASSWORD
+          };
+
+          // console.log(`📤 Auth request to: ${authUrl}`);
+          // console.log(`📤 Auth payload: ${JSON.stringify(authData, null, 2)}`);
+
+          const response = await axios.post(authUrl, authData);
+
+          // console.log(`📥 Auth response status: ${response.status}`);
+          // console.log(`📥 Auth response headers: ${JSON.stringify(response.headers, null, 2)}`);
+          // console.log(`📥 Auth response data: ${JSON.stringify(response.data, null, 2)}`);
+
+          if (response.data && response.data.status === 'Success' && response.data.authDetails) {
+            console.log(`✅ Authentication successful! Token: ${response.data.authDetails.authToken.substring(0, 10)}... (expires: ${response.data.authDetails.expireToken})`);
+            return response.data.authDetails.authToken;
+          } else {
+            console.error('❌ Authentication failed: Invalid response format');
+            console.error(`Response data: ${JSON.stringify(response.data, null, 2)}`);
+            throw new Error('Failed to authenticate with Fez Delivery: Invalid response format');
+          }
+        } catch (error) {
+          console.error('❌ Fez authentication error:', error.message);
+
+          if (error.response) {
+            console.error(`Response status: ${error.response.status}`);
+            console.error(`Response data: ${JSON.stringify(error.response.data, null, 2)}`);
+          } else if (error.request) {
+            console.error('No response received from server');
+            console.error(`Request details: ${JSON.stringify(error.request, null, 2)}`);
+          } else {
+            console.error(`Error details: ${error.stack}`);
+          }
+
+          throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
+        }
+      };
+
+      console.log('Calling getFezAuthToken()');
+      const authToken = await getFezAuthToken();
+      console.log('Using fresh token for auction winner order shipment (first 10 chars):', authToken.substring(0, 10) + '...');
+
+      // Prepare buyer's delivery address
+      const shippingAddress = {
+        recipientAddress: order.delivery_address.line1 + (order.delivery_address.line2 ? `, ${order.delivery_address.line2}` : ''),
+        recipientState: order.delivery_address.state || "Lagos",
+        recipientName: `${order.delivery_address.first_name} ${order.delivery_address.last_name}`,
+        recipientPhone: order.delivery_address.phone,
+        recipientEmail: order.delivery_address.email || freshBuyer.email || ''
+      };
+
+      console.log('Prepared shipping address:', shippingAddress);
+
+      // Prepare seller's information
+      const sellerSenderInfo = {
+        senderName: `${seller.firstName} ${seller.lastName}`,
+        senderAddress: seller.address || 'Not provided',
+        senderPhone: seller.phoneNumber || 'Not provided',
+        senderEmail: seller.email || ''
+      };
+
+      console.log('Prepared seller info:', sellerSenderInfo);
+
+      // Create unique batch ID for the seller
+      const sellerBatchId = `AUCT-${seller._id.toString().substring(0, 8)}-${Date.now()}`;
+
+      // Prepare parcel information
+      const sellerParcel = {
+        valueOfItem: bidAmount.toString(),
+        weight: 1, // Default weight of 1kg for auction items
+        itemDescription: `Auction item: ${product.name}`
+      };
+
+      console.log('Prepared parcel info:', sellerParcel);
+
+      // Create Fez Delivery request
+      const fezRequest = {
+        recipientAddress: shippingAddress.recipientAddress,
+        recipientState: shippingAddress.recipientState,
+        recipientName: shippingAddress.recipientName,
+        recipientPhone: shippingAddress.recipientPhone,
+        recipientEmail: shippingAddress.recipientEmail,
+        uniqueID: order.order_id,
+        BatchID: sellerBatchId,
+        valueOfItem: sellerParcel.valueOfItem,
+        weight: Math.max(1, Math.round(sellerParcel.weight)),
+        itemDescription: sellerParcel.itemDescription.substring(0, 200), // Ensure it doesn't exceed 200 chars
+        additionalDetails: `Auction order`,
+        isItemCod: false, // Auction orders are always pre-paid
+        thirdparty: "true",
+        senderName: sellerSenderInfo.senderName,
+        senderAddress: sellerSenderInfo.senderAddress,
+        senderPhone: sellerSenderInfo.senderPhone,
+        senderEmail: sellerSenderInfo.senderEmail,
+        pickUpState: sellerSenderInfo.senderAddress.includes(",") ?
+          sellerSenderInfo.senderAddress.split(",").pop().trim() : "Lagos",
+        pickUpDate: new Date().toISOString().split('T')[0] // Today's date in YYYY-MM-DD format
+      };
+
+      console.log('Sending Fez shipment request for auction order:', {
+        orderUniqueId: order.order_id,
+        requestBody: JSON.stringify(fezRequest, null, 2)
+      });
+
+      // Log request headers
+      const requestHeaders = {
+        'Authorization': `Bearer ${authToken}`,
+        'secret-key': process.env.FEZ_SECRET_KEY,
+        'Content-Type': 'application/json'
+      };
+
+      console.log('Request headers:', {
+        Authorization: requestHeaders.Authorization.substring(0, 15) + '...',
+        'secret-key': requestHeaders['secret-key'].substring(0, 10) + '...',
+        'Content-Type': requestHeaders['Content-Type']
+      });
+
+      // Make API call to Fez Delivery
+      console.log(`Calling Fez API: POST ${FEZ_API_URL}/order`);
+      const fezResponse = await axios.post(`${FEZ_API_URL}/order`, [fezRequest], {
+        headers: requestHeaders
+      });
+
+      console.log('Fez API response for auction order:', {
+        status: fezResponse.status,
+        statusText: fezResponse.statusText,
+        data: JSON.stringify(fezResponse.data, null, 2)
+      });
+
+      // Update order with Fez tracking information
+      if (fezResponse.data && fezResponse.data.status === 'Success') {
+        const orderNos = fezResponse.data.orderNos || {};
+        console.log('orderNos from Fez response:', orderNos);
+        console.log('Looking for order_id:', order.order_id);
+
+        const fezOrderNo = orderNos[order.order_id];
+        console.log('Found fezOrderNo:', fezOrderNo);
+
+        if (fezOrderNo) {
+          const updateFields = {
+            'shipping.tracking.number': fezOrderNo,
+            'shipping.fez_order_number': fezOrderNo,
+            'shipping.tracking.carrier': 'Fez Delivery',
+            'shipping.tracking.url': `https://fezdelivery.co/track?orderNo=${fezOrderNo}`,
+            'shipping.carrier.name': 'Fez Delivery',
+            'shipping.carrier.reference': fezOrderNo,
+            'shipping.shipment_id': fezOrderNo
+          };
+
+          console.log('Updating order with fields:', updateFields);
+
+          const updatedOrder = await Order.findByIdAndUpdate(
+            order._id,
+            { $set: updateFields },
+            { new: true }
+          );
+
+          console.log('Order updated with Fez tracking information:', {
+            orderId: order._id,
+            fezOrderNo,
+            trackingNumber: updatedOrder.shipping.tracking.number,
+            fezOrderNumber: updatedOrder.shipping.fez_order_number,
+            shipmentId: updatedOrder.shipping.shipment_id
+          });
+        } else {
+          console.error('fezOrderNo not found in response for uniqueID:', order.order_id);
+          console.error('Full orderNos object:', orderNos);
+        }
+      } else {
+        console.error('Failed to create Fez shipment for auction order:', {
+          orderId: order._id,
+          responseStatus: fezResponse.data?.status,
+          responseMessage: fezResponse.data?.message,
+          fullResponse: fezResponse.data
+        });
+      }
+    } catch (fezError) {
+      console.error('Error creating Fez shipment for auction order:', {
+        orderId: order._id,
+        error: fezError.message,
+        stack: fezError.stack
+      });
+
+      if (fezError.response) {
+        console.error('Error response:', {
+          status: fezError.response.status,
+          data: fezError.response.data
+        });
+      }
+    }
+
+    // Schedule notification job
+    await agenda.now('send-order-notifications', {
+      orderId: order._id,
+      buyerId: freshBuyer._id,
+      sellerId: seller._id
+    });
+
+    console.log('Order notifications scheduled for auction winner order');
+
+    // Send email to the buyer about the purchase
+    const termiiEmailService = require('../services/termiiEmailService');
+
+    try {
+      await termiiEmailService.sendRawHTMLEmail({
+        email: freshBuyer.email,
+        subject: 'Congratulations on Winning the Auction! - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Congratulations on Winning the Auction!</h2>
+            <p>Dear ${freshBuyer.firstName},</p>
+            <p>You've successfully won the auction for "${product.name}".</p>
+            <p>An order has been automatically created and payment has been processed from your wallet.</p>
+            <p><strong>Order Details:</strong></p>
+            <ul>
+              <li>Order ID: ${order.order_id}</li>
+              <li>Product: ${product.name}</li>
+              <li>Winning Bid: ₦${bidAmount.toLocaleString()}</li>
+              <li>Shipping Fee: ₦${shippingFee.toLocaleString()}</li>
+              <li>Total Amount: ₦${totalAmount.toLocaleString()}</li>
+            </ul>
+            <p>The seller will process your order shortly.</p>
+            <p>Thank you for participating in our auction!</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      });
+
+      // Send email to the seller about the sale
+      await termiiEmailService.sendRawHTMLEmail({
+        email: seller.email,
+        subject: 'Your Auction Item Has Been Sold! - Auqli',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Your Auction Item Has Been Sold!</h2>
+            <p>Dear ${seller.firstName},</p>
+            <p>Your auction for "${product.name}" has successfully concluded with a winning bid.</p>
+            <p>An order has been automatically created and the buyer has been charged.</p>
+            <p><strong>Order Details:</strong></p>
+            <ul>
+              <li>Order ID: ${order.order_id}</li>
+              <li>Product: ${product.name}</li>
+              <li>Winning Bid: ₦${bidAmount.toLocaleString()}</li>
+              <li>Buyer: ${freshBuyer.firstName} ${freshBuyer.lastName}</li>
+            </ul>
+            <p>Please process this order promptly.</p>
+            <p>Thank you for using our auction platform!</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `
+      });
+    } catch (emailError) {
+      console.error('Error sending auction emails:', emailError.message);
+    }
+
+  } catch (error) {
+    console.error('Error in create-auction-winner-order job:', error);
+  }
+});
+
+// Define job for updating order status in messages
+agenda.define('update-order-message-status', async (job) => {
+  try {
+    const { orderId, newStatus } = job.attrs.data;
+
+    const Order = mongoose.model('Order');
+    const Message = mongoose.model('Message');
+
+    // Find all messages that contain this order
+    const messages = await Message.find({
+      'order.id': orderId,
+      messageType: 'order'
+    });
+
+    // Update the order status in all messages
+    await Promise.all(messages.map(message => {
+      message.order.status = newStatus;
+      return message.save();
+    }));
+
+    console.log(`Updated order status to ${newStatus} in ${messages.length} messages for order: ${orderId}`);
+  } catch (error) {
+    console.error('Error in update-order-message-status job:', error);
+  }
+});
+
+// Define job for processing pending message notifications
+agenda.define('process-pending-message-notifications', async (job) => {
+  try {
+    console.log('Starting process-pending-message-notifications job');
+
+    const Seller = mongoose.model('Seller');
+    const termiiEmailService = require('../services/termiiEmailService');
+
+    // Find sellers with pending message notifications
+    const sellers = await Seller.find({
+      'messageNotifications.pendingCount': { $gt: 0 },
+      'messageNotifications.conversationsWithNewMessages.0': { $exists: true }
+    }).populate({
+      path: 'messageNotifications.conversationsWithNewMessages',
+      model: 'Conversation',
+      select: 'participants lastMessage'
+    });
+
+    console.log(`Found ${sellers.length} sellers with pending message notifications`);
+
+    // Process each seller
+    for (const seller of sellers) {
+      try {
+        // Check if the cooldown period has passed (5 minutes)
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+        if (!seller.messageNotifications.lastSentAt ||
+          seller.messageNotifications.lastSentAt < fiveMinutesAgo) {
+
+          console.log(`Processing pending notifications for seller ${seller._id}`);
+
+          // Skip if seller has opted out of email notifications
+          if (seller.notificationPreferences && seller.notificationPreferences.emailNotifications === false) {
+            console.log(`Seller ${seller._id} has opted out of email notifications, skipping`);
+            continue;
+          }
+
+          const conversationCount = seller.messageNotifications.conversationsWithNewMessages.length;
+          let emailSubject = '';
+          let emailContent = '';
+
+          // Build email content based on number of conversations
+          if (conversationCount === 1) {
+            // For a single conversation, get buyer information
+            const conversation = seller.messageNotifications.conversationsWithNewMessages[0];
+            const buyerParticipant = conversation.participants.find(p => p.model === 'Buyer');
+
+            if (!buyerParticipant) {
+              console.log(`No buyer participant found for conversation ${conversation._id}, skipping`);
+              continue;
+            }
+
+            // Get buyer name
+            const Buyer = mongoose.model('Buyer');
+            const buyer = await Buyer.findById(buyerParticipant.id);
+            if (!buyer) {
+              console.log(`Buyer ${buyerParticipant.id} not found, skipping`);
+              continue;
+            }
+
+            const buyerName = `${buyer.firstName} ${buyer.lastName}`;
+            const messagePreview = conversation.lastMessage ?
+              (conversation.lastMessage.content || `Sent ${conversation.lastMessage.messageType}`) :
+              'New message';
+
+            emailSubject = `New message from ${buyerName} - Auqli`;
+            emailContent = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>You have a new message!</h2>
+                <p>Dear ${seller.firstName},</p>
+                <p>${buyerName} has sent you a message: "${messagePreview.length > 50 ? messagePreview.substring(0, 47) + '...' : messagePreview}"</p>
+                <p>Please log in to your Auqli account to respond.</p>
+              
+                <p>Best regards,<br>The Auqli Team</p>
+              </div>
+            `;
+          } else {
+            // For multiple conversations
+            emailSubject = `You have ${conversationCount} conversations with new messages - Auqli`;
+            emailContent = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>You have new messages!</h2>
+                <p>Dear ${seller.firstName},</p>
+                <p>You have ${conversationCount} conversations with new messages on Auqli.</p>
+                <p>Please log in to your Auqli account to respond to your customers.</p>
+               
+                <p>Best regards,<br>The Auqli Team</p>
+              </div>
+            `;
+          }
+
+          // Send the email
+          await termiiEmailService.sendRawHTMLEmail({
+            email: seller.email,
+            subject: emailSubject,
+            html: emailContent
+          });
+          console.log(`Sent pending notification email to seller ${seller._id}`);
+
+          // Update the seller's notification status
+          seller.messageNotifications.lastSentAt = new Date();
+          seller.messageNotifications.pendingCount = 0;
+          seller.messageNotifications.conversationsWithNewMessages = [];
+          await seller.save();
+        } else {
+          console.log(`Cooldown period not passed for seller ${seller._id}, skipping`);
+        }
+      } catch (sellerError) {
+        console.error(`Error processing seller ${seller._id}:`, sellerError);
+        // Continue to next seller
+      }
+    }
+
+    console.log('Finished process-pending-message-notifications job');
+  } catch (error) {
+    console.error('Error in process-pending-message-notifications job:', error);
+  }
+});
+
+// Define job for timer-based bid ending
+agenda.define('bid_timer', async (job) => {
+  try {
+    console.log('[BID_TIMER] Starting bid timer job with data:', job.attrs.data);
+    const { streamId, productId, sellerId, jobId, activeProductIndex, productName } = job.attrs.data;
+
+    if (!streamId || !productId) {
+      console.error('[BID_TIMER] Missing required data for bid timer job');
+      return;
+    }
+
+    console.log(`[BID_TIMER] Starting 30-second timer for product "${productName}" in stream ${streamId}`);
+
+    // Get socket.io instance directly from the socket module
+    const socketManager = require('../socket/socketManager');
+    const io = socketManager.getIO();
+
+    if (!io) {
+      console.error('[BID_TIMER] Socket.io instance not available, cannot emit timer updates');
+      // Still continue with the timer, but won't emit updates
+    } else {
+      console.log('[BID_TIMER] Successfully got socket.io instance');
+    }
+
+    // Duration in seconds
+    const duration = 30;
+
+    // Create and format the time for initial message
+    const formatTime = (seconds) => {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // Function to emit timer updates
+    const emitTimerUpdate = (secondsLeft) => {
+      const formattedTime = formatTime(secondsLeft);
+
+      if (io) {
+        // Create data structure matching frontend expectations
+        const updateData = {
+          streamId,
+          productId,
+          secondsLeft,
+          formattedTime,
+          jobId,
+          productIndex: activeProductIndex,
+          productName,
+          timestamp: new Date()
+        };
+
+        // Emit to stream-specific room
+        const streamRoom = `stream_notifications_${streamId}`;
+        io.to(streamRoom).emit('bid_timer_update', updateData);
+
+        console.log(`[BID_TIMER] Emitted timer update to ${streamRoom} room: ${formattedTime} seconds left for product "${productName}"`);
+      } else {
+        console.log(`[BID_TIMER] Timer update: ${formattedTime} seconds left (not emitted - no socket connection)`);
+      }
+    };
+
+    // Start the countdown by emitting the initial value
+    emitTimerUpdate(duration);
+
+    // Countdown function using setTimeout for each second
+    const countdown = (secondsLeft) => {
+      if (secondsLeft <= 0) {
+        // Timer has reached zero
+        console.log(`[BID_TIMER] Timer reached zero for product "${productName}" in stream ${streamId}`);
+
+        // Emit final timer update
+        if (io) {
+          // Create data structure matching frontend expectations
+          const completeData = {
+            streamId,
+            productId,
+            jobId,
+            productIndex: activeProductIndex,
+            productName,
+            timestamp: new Date()
+          };
+
+          // Emit to stream-specific room
+          const streamRoom = `stream_notifications_${streamId}`;
+          io.to(streamRoom).emit('bid_timer_complete', completeData);
+
+          console.log(`[BID_TIMER] Emitted bid_timer_complete event to ${streamRoom} room`);
+        }
+
+        // Call the endProductBidding endpoint
+        callEndProductBidding();
+        return;
+      }
+
+      // Wait one second, then emit the next timer update
+      setTimeout(() => {
+        secondsLeft -= 1;
+        emitTimerUpdate(secondsLeft);
+        countdown(secondsLeft);
+      }, 1000);
+    };
+
+    // Start the countdown from duration-1 (since we already emitted the initial value)
+    countdown(duration - 1);
+
+    // Function to call the endProductBidding endpoint
+    const callEndProductBidding = async () => {
+      try {
+        console.log(`[BID_TIMER] Calling endProductBidding for product "${productName}" in stream ${streamId}`);
+
+        // Import stream controller
+        const streamController = require('../controllers/streamController');
+
+        // Create mock request and response objects with all necessary properties
+        const mockReq = {
+          params: { streamId },
+          body: {
+            productId,
+            sellerId
+          },
+          app: {
+            get: (name) => {
+              if (name === 'io') return io;
+              return null;
+            }
+          },
+          user: {
+            id: sellerId
+          },
+          get: (name) => {
+            if (name === 'host') return 'auqli.com';
+            return null;
+          }
+        };
+
+        const mockRes = {
+          status: function (code) {
+            this.statusCode = code;
+            return this;
+          },
+          json: function (data) {
+            this.data = data;
+            console.log(`[BID_TIMER] endProductBidding completed with status: ${this.statusCode}`,
+              data?.product ? {
+                bidStatus: data.product.bidStatus,
+                hasOrder: !!data.product.orderId
+              } : 'No product data returned');
+            return this;
+          }
+        };
+
+        // Call the endProductBidding function
+        console.log('[BID_TIMER] Executing endProductBidding with request:', {
+          streamId: mockReq.params.streamId,
+          productId: mockReq.body.productId,
+          sellerId: mockReq.body.sellerId
+        });
+
+        await streamController.endProductBidding(mockReq, mockRes);
+
+        console.log(`[BID_TIMER] Successfully ended bidding for product "${productName}" in stream ${streamId}`);
+      } catch (error) {
+        console.error(`[BID_TIMER] Error calling endProductBidding:`, error);
+      }
+    };
+
+  } catch (error) {
+    console.error('[BID_TIMER] Error in bid_timer job:', error);
+  }
+});
+
+// Define job to mark unpaid orders as stale after 30 minutes (renamed from delete_unpaid_orders)
+agenda.define('mark_unpaid_orders_stale', async (job) => {
+  try {
+    const { orderId } = job.attrs.data;
+    console.log(`Checking if order ${orderId} should be marked as stale due to unpaid status`);
+
+    const Order = mongoose.model('Order');
+
+    // Find the order with populated buyer and seller
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName');
+
+    if (!order) {
+      console.log(`Order ${orderId} not found, may have been already processed`);
+      return;
+    }
+
+    // Check if order is still unpaid and was created with Paystack
+    if (!order.paid && order.paymentInfo.method === 'paystack') {
+      console.log(`Marking unpaid Paystack order ${order.order_id} as stale after 30 minutes`);
+
+      // Log order payment details for debugging
+      console.log(`STALE ORDER PAYMENT DETAILS:`, {
+        orderId: order.order_id,
+        buyerId: order.buyer._id,
+        totalAmount: order.totalAmount,
+        paymentMethod: order.paymentInfo.method,
+        isWalletCredit: order.paymentInfo.isWalletCredit || false,
+        walletAmountUsed: order.paymentInfo.walletAmountUsed || 0,
+        paystackAmount: order.paymentInfo.amount || order.totalAmount,
+        paymentStatus: order.paid ? 'PAID' : 'UNPAID'
+      });
+
+      // If order has Fez shipment, attempt to cancel it
+      if (order.shipping && order.shipping.fez_order_number) {
+        try {
+          console.log(`Attempting to cancel Fez shipment for order ${order.order_id}`);
+
+          // Get Fez auth token
+          const getFezAuthToken = async () => {
+            try {
+              const authUrl = `${process.env.FEZ_API_URL}/user/authenticate`;
+              const authData = {
+                user_id: process.env.FEZ_USER_ID,
+                password: process.env.FEZ_PASSWORD
+              };
+
+              const response = await axios.post(authUrl, authData);
+
+              if (response.data && response.data.status === 'Success' && response.data.authDetails) {
+                return response.data.authDetails.authToken;
+              } else {
+                throw new Error('Failed to authenticate with Fez Delivery');
+              }
+            } catch (error) {
+              console.error('Fez authentication error:', error.message);
+              throw new Error(`Failed to authenticate with Fez Delivery: ${error.message}`);
+            }
+          };
+
+          const authToken = await getFezAuthToken();
+
+          // Delete the order from Fez
+          const deleteResponse = await axios.delete(
+            `${process.env.FEZ_API_URL}/order`,
+            {
+              headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'secret-key': process.env.FEZ_SECRET_KEY,
+                'Content-Type': 'application/json'
+              },
+              data: {
+                orderNo: order.shipping.fez_order_number
+              }
+            }
+          );
+
+          console.log('Fez request cancel shipment', {
+            url: `${process.env.FEZ_API_URL}/order`,
+            payload: {
+              orderNo: order.shipping.fez_order_number
+            }
+          })
+
+          console.log(`Fez shipment deletion response for order ${order.order_id}:`, {
+            status: deleteResponse.status,
+            data: deleteResponse.data
+          });
+        } catch (fezError) {
+          console.error(`Error with Fez operations for order ${order.order_id}:`, fezError.message);
+          console.log('Fez request cancel shipment error', {
+            url: `${process.env.FEZ_API_URL}/order`,
+            payload: {
+              orderNo: order.shipping.fez_order_number
+            },
+            fezError
+          })
+          // Continue with order stale update even if Fez operations fail
+        }
+      }
+
+      // Restore product stock for unpaid orders
+      console.log(`Restoring product stock for unpaid order ${order.order_id}`);
+      try {
+        const stockRestored = await restoreProductStock(order, 'Unpaid order marked as stale');
+        console.log(`Successfully restored ${stockRestored} units of stock for unpaid order ${order.order_id}`);
+      } catch (stockError) {
+        console.error(`Error restoring stock for unpaid order ${order.order_id}:`, stockError);
+        // Continue with order processing even if stock restoration fails
+      }
+
+      // Check if this was a hybrid payment (wallet + Paystack) and refund wallet amount if needed
+      const isHybridPayment = order.paymentInfo.isWalletCredit && order.paymentInfo.walletAmountUsed > 0;
+
+      console.log(`HYBRID PAYMENT CHECK for order ${order.order_id}:`, {
+        isWalletCredit: order.paymentInfo.isWalletCredit || false,
+        walletAmountUsed: order.paymentInfo.walletAmountUsed || 0,
+        isHybridPayment: isHybridPayment,
+        willAttemptRefund: isHybridPayment ? 'YES' : 'NO'
+      });
+
+      if (isHybridPayment) {
+        try {
+          console.log(`Order ${order.order_id} used hybrid payment with wallet amount: ${order.paymentInfo.walletAmountUsed}. Refunding to buyer wallet.`);
+
+          const Buyer = mongoose.model('Buyer');
+          const buyer = await Buyer.findById(order.buyer);
+
+          if (buyer) {
+            // Log wallet balance before refund
+            console.log(`WALLET REFUND - BEFORE: Buyer ${buyer._id} (${buyer.firstName} ${buyer.lastName}) current wallet balance: ₦${buyer.wallet.balance.toLocaleString()}`);
+
+            // Get the wallet amount to refund - use the proportional amount stored in this order
+            const refundAmount = order.paymentInfo.walletAmountUsed;
+
+            // Check if this order is part of a batch (multiple seller orders from one checkout)
+            const isBatchOrder = order.paymentInfo.batchId && order.paymentInfo.batchTotalAmount;
+
+            if (isBatchOrder) {
+              console.log(`Order ${order.order_id} is part of batch ${order.paymentInfo.batchId}`, {
+                batchTotalAmount: order.paymentInfo.batchTotalAmount,
+                batchWalletAmount: order.paymentInfo.batchWalletAmount,
+                thisOrderAmount: order.totalAmount,
+                thisOrderWalletAmount: refundAmount
+              });
+
+              // Check if other orders in this batch have already been refunded
+              // If we don't do this check, we could end up refunding parts of the wallet amount multiple times
+              const Order = mongoose.model('Order');
+              const otherOrdersInBatch = await Order.find({
+                'paymentInfo.batchId': order.paymentInfo.batchId,
+                _id: { $ne: order._id }, // Exclude current order
+                'paymentInfo.refundedWalletAmount': { $exists: true, $gt: 0 } // Look for orders with refunds
+              });
+
+              if (otherOrdersInBatch && otherOrdersInBatch.length > 0) {
+                // Some orders in this batch have already been refunded
+                console.log(`Found ${otherOrdersInBatch.length} other orders in batch ${order.paymentInfo.batchId} that have already been refunded`, {
+                  refundedOrders: otherOrdersInBatch.map(o => ({
+                    orderId: o.order_id,
+                    refundedAmount: o.paymentInfo.refundedWalletAmount
+                  }))
+                });
+              }
+            }
+
+            // Create refund transaction
+            const refundTransaction = {
+              type: 'credit',
+              amount: refundAmount,
+              description: `Refund for unpaid order ${order.order_id} (stale)`,
+              status: 'completed',
+              createdAt: new Date()
+            };
+
+            console.log(`WALLET REFUND - TRANSACTION DETAILS:`, {
+              buyerId: buyer._id,
+              buyerEmail: buyer.email,
+              transactionType: refundTransaction.type,
+              amount: refundTransaction.amount,
+              description: refundTransaction.description,
+              status: refundTransaction.status,
+              createdAt: refundTransaction.createdAt
+            });
+
+            // Update buyer's wallet
+            const previousBalance = buyer.wallet.balance;
+            buyer.wallet.balance += refundAmount;
+            buyer.wallet.transactions.push(refundTransaction);
+
+            await buyer.save();
+
+            // Mark this order as having refunded its wallet amount to prevent double refunds
+            await Order.findByIdAndUpdate(order._id, {
+              'paymentInfo.refundedWalletAmount': refundAmount,
+              'paymentInfo.walletRefundedAt': new Date()
+            });
+
+            // Log wallet balance after refund with detailed information
+            console.log(`WALLET REFUND - AFTER: Buyer ${buyer._id} wallet balance updated:`);
+            console.log(`  - Previous balance: ₦${previousBalance.toLocaleString()}`);
+            console.log(`  - Refund amount: ₦${refundAmount.toLocaleString()}`);
+            console.log(`  - New balance: ₦${buyer.wallet.balance.toLocaleString()}`);
+            console.log(`  - Transaction ID: ${refundTransaction._id}`);
+            console.log(`  - Order ID: ${order.order_id}`);
+
+            console.log(`Successfully refunded ${refundAmount} to buyer ${buyer._id} wallet for stale order ${order.order_id}`);
+          } else {
+            console.error(`Could not find buyer ${order.buyer} to refund wallet amount for stale order ${order.order_id}`);
+            console.error(`WALLET REFUND FAILED - BUYER NOT FOUND:`, {
+              orderId: order.order_id,
+              buyerId: order.buyer,
+              walletAmountUsed: order.paymentInfo.walletAmountUsed,
+              buyerDetails: order.buyer ? {
+                _id: order.buyer._id,
+                email: order.buyer.email,
+                name: `${order.buyer.firstName} ${order.buyer.lastName}`
+              } : 'Not available'
+            });
+          }
+        } catch (refundError) {
+          console.error(`Error refunding wallet amount for stale order ${order.order_id}:`, refundError);
+          console.error(`WALLET REFUND FAILED - ERROR:`, {
+            orderId: order.order_id,
+            buyerId: order.buyer ? order.buyer._id : order.buyer,
+            walletAmountUsed: order.paymentInfo.walletAmountUsed,
+            errorMessage: refundError.message,
+            errorStack: refundError.stack
+          });
+          // Continue with order stale update even if refund fails
+        }
+      }
+
+      // Send notification emails to buyer and seller before marking the order as stale
+      try {
+        const termiiEmailService = require('../services/termiiEmailService');
+
+        // Format item list for email
+        const itemsList = order.items.map(item =>
+          `${item.productName} (Quantity: ${item.quantity}) - ₦${item.price.toLocaleString()}`
+        ).join('<br>');
+
+        // Add wallet refund info if applicable
+        const walletRefundInfo = isHybridPayment ?
+          `<p><strong>Note:</strong> Your wallet credit of ₦${order.paymentInfo.walletAmountUsed.toLocaleString()} has been refunded to your wallet.</p>` : '';
+
+        // Buyer notification email
+        const buyerEmailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Order marked as stale</h2>
+            <p>Dear ${order.buyer.firstName},</p>
+            <p>Your order #${order.order_id} has been marked as stale because the payment was not completed within the required time frame.</p>
+            
+            <p><strong>Order Details:</strong></p>
+            <ul>
+              <li>Order ID: ${order.order_id}</li>
+              <li>Seller: ${order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`}</li>
+              <li>Items:<br>${itemsList}</li>
+              <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
+            </ul>
+            
+            ${walletRefundInfo}
+            
+            <p>If you still wish to purchase these items, please place a new order.</p>
+            <p>Thank you for your understanding.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `;
+
+        // Seller notification email
+        const sellerEmailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Order marked as stale</h2>
+            <p>Dear ${order.seller.firstName},</p>
+            <p>Order #${order.order_id} has been marked as stale because the buyer did not complete the payment within the required time frame.</p>
+            
+            <p><strong>Order Details:</strong></p>
+            <ul>
+              <li>Order ID: ${order.order_id}</li>
+              <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
+              <li>Items:<br>${itemsList}</li>
+              <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
+            </ul>
+            
+            <p>The items have been returned to your inventory.</p>
+            <p>Thank you for your understanding.</p>
+            <p>Best regards,<br>The Auqli Team</p>
+          </div>
+        `;
+
+        // Send both emails
+        await Promise.all([
+          termiiEmailService.sendRawHTMLEmail({
+            email: order.buyer.email,
+            subject: 'Order marked as stale - Payment Not Completed - Auqli',
+            html: buyerEmailHtml
+          }),
+          termiiEmailService.sendRawHTMLEmail({
+            email: order.seller.email,
+            subject: 'Order marked as stale - Payment Not Completed - Auqli',
+            html: sellerEmailHtml
+          })
+        ]);
+
+        console.log(`Sent stale notification emails for unpaid order ${order.order_id}`);
+      } catch (emailError) {
+        console.error(`Error sending stale notification emails for order ${order.order_id}:`, emailError.message);
+        // Continue with marking order as stale even if email sending fails
+      }
+
+      // Update the order to mark it as stale instead of deleting it
+      await Order.findByIdAndUpdate(order._id, { isStale: true });
+      console.log(`Successfully marked unpaid Paystack order ${order.order_id} as stale`);
+    } else {
+      console.log(`Order ${order.order_id} is either paid or not a Paystack order, not marking as stale`);
+    }
+  } catch (error) {
+    console.error('Error in mark_unpaid_orders_stale job:', error);
+  }
+});
+
+// Define job to mark Terminal Africa orders as stale after 30 minutes
+agenda.define('mark_terminal_orders_stale', async (job) => {
+  try {
+    const { orderId } = job.attrs.data;
+    console.log(`Checking if Terminal Africa order ${orderId} should be marked as stale`);
+
+    const Order = mongoose.model('Order');
+    const Product = mongoose.model('Product');
+    const Buyer = mongoose.model('Buyer');
+    const terminalAPI = require('../config/terminalAPI');
+
+    // Find the order with populated buyer and seller
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName storeName');
+
+    if (!order) {
+      console.log(`Order ${orderId} not found, may have been already processed`);
+      return;
+    }
+
+    // Check if order is already stale, cancelled, or closed
+    if (order.isStale) {
+      console.log(`Terminal Africa order ${order.order_id} is already marked as stale, skipping`);
+      return;
+    }
+
+    if (!order.isOpen) {
+      console.log(`Terminal Africa order ${order.order_id} is already closed, skipping`);
+      return;
+    }
+
+    // Check if any items are already cancelled
+    if (order.items.some(item => item.status === 'cancelled')) {
+      console.log(`Terminal Africa order ${order.order_id} has cancelled items, skipping stale marking`);
+      return;
+    }
+
+    // Check if order should be marked as stale based on different criteria
+    let shouldMarkStale = false;
+    let staleReason = '';
+
+    // New criteria: Check if the order is still in 'draft' or 'pending_payment' status.
+    if ((order.status === 'draft' || order.status === 'pending_payment') && !order.isStorePickup && !order.isInternational) {
+      shouldMarkStale = true;
+      staleReason = `Order was not completed and has been marked as stale (status: ${order.status}).`;
+      console.log(`Terminal Africa order ${order.order_id} is being marked as stale with status: ${order.status}`);
+    }
+
+    if (!shouldMarkStale) {
+      console.log(`Terminal Africa order ${order.order_id} doesn't meet stale criteria (status: ${order.status}), skipping`);
+      return;
+    }
+
+    console.log(`Marking Terminal Africa order ${order.order_id} as stale - Reason: ${staleReason}`);
+
+    // Cancel shipment with Terminal Africa if shipment exists
+    const shipmentId = order.shipping?.shipment_id;
+
+    if (shipmentId && !shipmentId.startsWith('MANUAL-') && !shipmentId.startsWith('PICKUP-') && !order.isStorePickup) {
+      try {
+        console.log(`Attempting to cancel Terminal Africa shipment: ${shipmentId} for order ${order.order_id}`);
+
+        const cancelResponse = await terminalAPI.post('/shipments/cancel', {
+          shipment_id: shipmentId
+        });
+
+        console.log('Terminal Africa cancellation response:', {
+          status: cancelResponse.data.status,
+          message: cancelResponse.data.message,
+          orderId: order.order_id
+        });
+
+        if (cancelResponse.data.status) {
+          console.log(`Successfully cancelled Terminal Africa shipment ${shipmentId}`);
+        } else {
+          console.log(`Terminal Africa cancellation failed: ${cancelResponse.data.message}`);
+        }
+      } catch (terminalError) {
+        console.error(`Error cancelling Terminal Africa shipment for order ${order.order_id}:`, terminalError.message);
+        if (terminalError.response) {
+          console.error('Terminal API error response:', terminalError.response.data);
+        }
+        // Continue with order stale update even if Terminal cancellation fails
+      }
+    }
+
+    // Handle wallet refund for hybrid payments
+    const isHybridPayment = order.paymentInfo?.isWalletCredit && order.paymentInfo?.walletAmountUsed > 0;
+    let walletRefunded = false;
+    let walletRefundAmount = 0;
+
+    if (isHybridPayment) {
+      try {
+        console.log(`Terminal Africa order ${order.order_id} used hybrid payment with wallet amount: ${order.paymentInfo.walletAmountUsed}. Refunding to buyer wallet.`);
+
+        const buyer = await Buyer.findById(order.buyer);
+
+        if (buyer) {
+          // Log wallet balance before refund
+          console.log(`TERMINAL WALLET REFUND - BEFORE: Buyer ${buyer._id} current wallet balance: ₦${buyer.wallet.balance.toLocaleString()}`);
+
+          // Get the wallet amount to refund
+          walletRefundAmount = order.paymentInfo.walletAmountUsed;
+
+          // Create refund transaction
+          const refundTransaction = {
+            type: 'credit',
+            amount: walletRefundAmount,
+            description: `Refund for stale Terminal Africa order ${order.order_id}`,
+            status: 'completed',
+            createdAt: new Date()
+          };
+
+          // Update buyer's wallet
+          const previousBalance = buyer.wallet.balance;
+          buyer.wallet.balance += walletRefundAmount;
+          buyer.wallet.transactions.push(refundTransaction);
+
+          await buyer.save();
+
+          // Mark this order as having refunded its wallet amount
+          await Order.findByIdAndUpdate(order._id, {
+            'paymentInfo.refundedWalletAmount': walletRefundAmount,
+            'paymentInfo.walletRefundedAt': new Date()
+          });
+
+          walletRefunded = true;
+
+          console.log(`TERMINAL WALLET REFUND - SUCCESS: Refunded ₦${walletRefundAmount.toLocaleString()} to buyer ${buyer._id}`);
+          console.log(`  - Previous balance: ₦${previousBalance.toLocaleString()}`);
+          console.log(`  - New balance: ₦${buyer.wallet.balance.toLocaleString()}`);
+        } else {
+          console.error(`Could not find buyer ${order.buyer} to refund wallet amount for stale Terminal Africa order ${order.order_id}`);
+        }
+      } catch (refundError) {
+        console.error(`Error refunding wallet amount for stale Terminal Africa order ${order.order_id}:`, refundError);
+        // Continue with order stale update even if refund fails
+      }
+    }
+
+    // Restore product stock for expired Terminal Africa orders
+    console.log(`Restoring product stock for expired Terminal Africa order ${order.order_id}`);
+    try {
+      const stockRestored = await restoreProductStock(order, `Terminal Africa order expired - ${staleReason}`);
+      console.log(`Successfully restored ${stockRestored} units of stock for expired Terminal Africa order ${order.order_id}`);
+    } catch (stockError) {
+      console.error(`Error restoring stock for expired Terminal Africa order ${order.order_id}:`, stockError);
+      // Continue with order processing even if stock restoration fails
+    }
+
+    // Send notification emails to buyer and seller
+    try {
+      const termiiEmailService = require('../services/termiiEmailService');
+
+      // Format item list for email
+      const itemsList = order.items.map(item =>
+        `${item.productName} (Quantity: ${item.quantity}) - ₦${item.price.toLocaleString()}`
+      ).join('<br>');
+
+      // Add wallet refund info if applicable
+      const walletRefundInfo = walletRefunded ?
+        `<p><strong>Note:</strong> Your wallet credit of ₦${walletRefundAmount.toLocaleString()} has been refunded to your wallet.</p>` : '';
+
+      // Buyer notification email
+      const buyerEmailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Order Expired</h2>
+          <p>Dear ${order.buyer.firstName},</p>
+          <p>Your order #${order.order_id} has expired because ${staleReason.toLowerCase()}.</p>
+          
+          <p><strong>Order Details:</strong></p>
+          <ul>
+            <li>Order ID: ${order.order_id}</li>
+            <li>Seller: ${order.seller.storeName || order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`}</li>
+            <li>Items:<br>${itemsList}</li>
+            <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
+            <li>Reason for expiry: ${staleReason}</li>
+          </ul>
+          
+          ${walletRefundInfo}
+          
+          <p>If you still wish to purchase these items, please place a new order.</p>
+          <p>Thank you for your understanding.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `;
+
+      // Seller notification email
+      const sellerEmailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Order Expired - Stock Restored</h2>
+          <p>Dear ${order.seller.firstName},</p>
+          <p>Order #${order.order_id} has expired because ${staleReason.toLowerCase()}.</p>
+          
+          <p><strong>Order Details:</strong></p>
+          <ul>
+            <li>Order ID: ${order.order_id}</li>
+            <li>Buyer: ${order.buyer.firstName} ${order.buyer.lastName}</li>
+            <li>Items:<br>${itemsList}</li>
+            <li>Total Amount: ₦${order.totalAmount.toLocaleString()}</li>
+            <li>Reason for expiry: ${staleReason}</li>
+          </ul>
+          
+          <p>The items have been returned to your inventory automatically.</p>
+          ${walletRefunded ? `<p>The buyer's wallet credit of ₦${walletRefundAmount.toLocaleString()} has been refunded.</p>` : ''}
+          <p>Thank you for your understanding.</p>
+          <p>Best regards,<br>The Auqli Team</p>
+        </div>
+      `;
+
+      // Send both emails
+      await Promise.all([
+        termiiEmailService.sendRawHTMLEmail({
+          email: order.buyer.email,
+          subject: 'Order Expired - Auqli',
+          html: buyerEmailHtml
+        }),
+        termiiEmailService.sendRawHTMLEmail({
+          email: order.seller.email,
+          subject: 'Order Expired - Stock Restored - Auqli',
+          html: sellerEmailHtml
+        })
+      ]);
+
+      console.log(`Sent stale notification emails for Terminal Africa order ${order.order_id}`);
+    } catch (emailError) {
+      console.error(`Error sending stale notification emails for Terminal Africa order ${order.order_id}:`, emailError.message);
+      // Continue with marking order as stale even if email sending fails
+    }
+
+    // Mark the order as stale with additional metadata
+    await Order.findByIdAndUpdate(order._id, {
+      isStale: true,
+      staleReason: staleReason,
+      staleAt: new Date()
+    });
+
+    console.log(`Successfully marked Terminal Africa order ${order.order_id} as stale - Reason: ${staleReason}`);
+
+  } catch (error) {
+    console.error('Error in mark_terminal_orders_stale job:', error);
+  }
+});
+
+// For backward compatibility, keep the old job name but forward to the new one
+agenda.define('delete_unpaid_orders', async (job) => {
+  console.log('Forwarding delete_unpaid_orders job to mark_unpaid_orders_stale');
+  await agenda.now('mark_unpaid_orders_stale', job.attrs.data);
+});
+
+// Define job to delete expired streams after 1 hour
+//! This feature has been suspended to accommodate the reschedule expired stream feature as deleted expired stream defeats the whole purpose of reschedule
+{/*agenda.define('delete_expired_streams', async (job) => {
+  try {
+    console.log('Starting job to delete expired streams');
+    
+    const Stream = mongoose.model('Stream');
+    
+    // Find streams that have been expired for at least 1 hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    
+    // Find all streams with 'expired' status
+    const expiredStreams = await Stream.find({ 
+      status: 'expired',
+      updatedAt: { $lte: oneHourAgo } // Only delete streams that have been expired for at least 1 hour
+    });
+    
+    // console.log(`Found ${expiredStreams.length} expired streams to delete`);
+    
+    if (expiredStreams.length > 0) {
+      // Delete all expired streams
+      const result = await Stream.deleteMany({ 
+        status: 'expired',
+        updatedAt: { $lte: oneHourAgo }
+      });
+      
+      console.log(`Successfully deleted ${result.deletedCount} expired streams`);
+    }
+  } catch (error) {
+    console.error('Error in delete_expired_streams job:', error);
+  }
+});*/}
+
+// Define job for daily livestream analytics at midnight WAT
+
+
+// Define job for weekly livestream analytics
+agenda.define('weekly_livestream_analytics', async (job) => {
+  try {
+    console.log('Starting weekly_livestream_analytics job');
+
+    // Calculate last week
+    const lastWeek = new Date();
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    const year = lastWeek.getFullYear();
+
+    // Get ISO week number
+    const startOfYear = new Date(lastWeek.getFullYear(), 0, 1);
+    const days = Math.floor((lastWeek - startOfYear) / (24 * 60 * 60 * 1000));
+    const weekNumber = Math.ceil((lastWeek.getDay() + 1 + days) / 7);
+
+    const formattedWeek = `${year}-W${weekNumber.toString().padStart(2, '0')}`;
+    console.log(`Running weekly livestream analytics for week: ${formattedWeek}`);
+
+    // Use axios to call our own API endpoint
+    const axios = require('axios');
+    const apiUrl = process.env.NODE_ENV === 'production'
+      ? `${process.env.API_BASE_URL || 'https://api.auqli.com'}/api/analytics/livestreams/weekly?week=${formattedWeek}`
+      : `http://localhost:${process.env.PORT || 5000}/api/analytics/livestreams/weekly?week=${formattedWeek}`;
+
+    console.log(`Calling API endpoint: ${apiUrl}`);
+
+    // Generate JWT for authentication
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { id: 'system', role: 'Admin' },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // Call the API endpoint
+    const response = await axios.get(apiUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    console.log('API response:', {
+      success: response.data.success,
+      week: response.data.data?.week,
+      totalLivestreams: response.data.data?.totalLivestreams
+    });
+
+    console.log('Weekly livestream analytics job completed successfully');
+  } catch (error) {
+    console.error('Error in weekly_livestream_analytics job:', error);
+
+    if (error.response) {
+      console.error('API error response:', {
+        status: error.response.status,
+        data: error.response.data
+      });
+    }
+  }
+});
+
+// Define job for monthly livestream analytics
+agenda.define('monthly_livestream_analytics', async (job) => {
+  try {
+    console.log('Starting monthly_livestream_analytics job');
+
+    // Calculate last month
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    const year = lastMonth.getFullYear();
+    const month = lastMonth.getMonth() + 1; // JavaScript months are 0-indexed
+
+    const formattedMonth = `${year}-${month.toString().padStart(2, '0')}`;
+    console.log(`Running monthly livestream analytics for month: ${formattedMonth}`);
+
+    // Use axios to call our own API endpoint
+    const axios = require('axios');
+    const apiUrl = process.env.NODE_ENV === 'production'
+      ? `${process.env.API_BASE_URL || 'https://api.auqli.com'}/api/analytics/livestreams/monthly?month=${formattedMonth}`
+      : `http://localhost:${process.env.PORT || 5000}/api/analytics/livestreams/monthly?month=${formattedMonth}`;
+
+    console.log(`Calling API endpoint: ${apiUrl}`);
+
+    // Generate JWT for authentication
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { id: 'system', role: 'Admin' },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // Call the API endpoint
+    const response = await axios.get(apiUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    console.log('API response:', {
+      success: response.data.success,
+      month: response.data.data?.month,
+      monthName: response.data.data?.monthName,
+      totalLivestreams: response.data.data?.totalLivestreams
+    });
+
+    console.log('Monthly livestream analytics job completed successfully');
+  } catch (error) {
+    console.error('Error in monthly_livestream_analytics job:', error);
+
+    if (error.response) {
+      console.error('API error response:', {
+        status: error.response.status,
+        data: error.response.data
+      });
+    }
+  }
+});
+
+// Define job for daily cleanup of expired coupons and their product discounts
+agenda.define('daily_coupon_cleanup', async (job) => {
+  try {
+    console.log('Starting daily coupon cleanup job');
+
+    const Coupon = mongoose.model('Coupon');
+    const Product = mongoose.model('Product');
+
+    const now = new Date();
+
+    // Find all coupons that have expired but are still marked as active
+    const expiredCoupons = await Coupon.find({
+      $or: [
+        { endDate: { $lte: now }, status: 'active' },
+        { endDate: { $lte: now }, status: 'inactive' }
+      ]
+    });
+
+    console.log(`Found ${expiredCoupons.length} expired coupons to clean up`);
+
+    let cleanedCoupons = 0;
+    let cleanedProducts = 0;
+
+    for (const coupon of expiredCoupons) {
+      try {
+        // Get all product IDs from the coupon's applicable products
+        const productIds = coupon.applicableProducts.map(ap => ap.product);
+
+        // Update all products to deactivate the discount and clear expired coupon data
+        if (productIds.length > 0) {
+          const productUpdateResult = await Product.updateMany(
+            {
+              _id: { $in: productIds },
+              'discount.couponName': coupon.name,
+              'discount.isActive': true // Only update products with active discounts
+            },
+            {
+              $set: {
+                'discount.isActive': false,
+                'pricing.discountInfo.isActive': false,
+                'variants.$[].discount.isActive': false
+              }
+            }
+          );
+
+          cleanedProducts += productUpdateResult.modifiedCount || 0;
+        }
+
+        // Update the coupon status to expired
+        if (coupon.status !== 'expired') {
+          coupon.status = 'expired';
+          coupon.applicableProducts.forEach(product => {
+            product.status = 'expired';
+            product.lastUpdated = now;
+          });
+          await coupon.save();
+          cleanedCoupons++;
+        }
+      } catch (err) {
+        console.error(`Error cleaning up coupon ${coupon._id}:`, err.message);
+        continue;
+      }
+    }
+
+    console.log(`Daily coupon cleanup completed: ${cleanedCoupons} coupons expired, ${cleanedProducts} products updated`);
+  } catch (error) {
+    console.error('Error in daily_coupon_cleanup job:', error);
+  }
+});
+
+// Define job for crediting welcome bonus to newly verified buyers
+agenda.define('credit_welcome_bonus', async (job) => {
+  try {
+    const { buyerId } = job.attrs.data;
+    console.log(`Starting welcome bonus credit for buyer: ${buyerId}`);
+
+    const Buyer = mongoose.model('Buyer');
+    const termiiEmailService = require('../services/termiiEmailService');
+
+    // Find the buyer
+    const buyer = await Buyer.findById(buyerId);
+    if (!buyer) {
+      console.error(`Buyer not found for welcome bonus: ${buyerId}`);
+      return;
+    }
+
+    // Check if they're eligible (email is verified)
+    if (!buyer.emailVerified) {
+      console.log(`Buyer ${buyerId} not eligible for welcome bonus: email not verified`);
+      return;
+    }
+
+    // Check if they already received a welcome bonus
+    const hasWelcomeBonus = buyer.wallet.transactions.some(
+      t => t.description?.includes('Welcome bonus')
+    );
+
+    if (hasWelcomeBonus) {
+      console.log(`Buyer ${buyerId} already received welcome bonus`);
+      return;
+    }
+
+    // Add the welcome bonus transaction
+    const bonusAmount = 500; // 500 NGN
+    const transaction = {
+      type: 'credit',
+      amount: bonusAmount,
+      paymentReference: `WELCOME-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      description: 'Welcome bonus for verifying your email',
+      status: 'completed',
+      createdAt: new Date()
+    };
+
+    // Update buyer's wallet
+    buyer.wallet.transactions.push(transaction);
+    buyer.wallet.balance += bonusAmount;
+    await buyer.save();
+
+    console.log(`Welcome bonus of ${bonusAmount} NGN credited to buyer ${buyerId}`);
+
+    // Send email notification
+    const formattedAmount = bonusAmount.toLocaleString('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 2
+    });
+
+    const formattedBalance = buyer.wallet.balance.toLocaleString('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 2
+    });
+
+    const msg = {
+      to: buyer.email,
+      from: {
+        email: 'support@auqli.com',
+        name: 'Auqli'
+      },
+      subject: 'Welcome Bonus Added to Your Wallet! 🎉',
+      html: `
+        <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: 'Arial', sans-serif; line-height: 1.6;">
+          <div style="max-width: 600px; margin: 0 auto; border-radius: 8px; overflow: hidden;">
+            <div style="padding: 25px; text-align: center;">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 180px; margin-bottom: 20px;">
+            </div>
+    
+            <div style="background-color: #242424; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+              <h1 style="color: #4CAF50; margin-bottom: 20px; font-size: 24px; text-align: center;">Welcome Bonus Credited! 🎉</h1>
+    
+              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">Hi ${buyer.firstName},</p>
+    
+              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">Welcome to Auqli Nigeria — where real sellers meet real shoppers, in real-time. Thanks for verifying your email! We've added a welcome bonus to your wallet.</p>
+    
+              <div style="background-color: #333333; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; border-left: 4px solid #4CAF50;">
+                <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px;">Your Welcome Bonus</h3>
+                <p style="font-size: 32px; font-weight: bold; margin: 20px 0; color: #4CAF50; background-color: #1a1a1a; padding: 15px; border-radius: 4px; display: inline-block;">${formattedAmount}</p>
+              </div>
+    
+              <div style="background-color: #1a1a1a; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 8px 0; color: #999; width: 50%;">Transaction ID:</td>
+                    <td style="padding: 8px 0; color: #fff;">${transaction.paymentReference}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #999;">Date:</td>
+                    <td style="padding: 8px 0; color: #fff;">${new Date().toLocaleString()}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #999;">Current Balance:</td>
+                    <td style="padding: 8px 0; color: #4CAF50; font-weight: bold;">${formattedBalance}</td>
+                  </tr>
+                </table>
+              </div>
+    
+              <p style="font-size: 16px; color: #bbb; text-align: center;">You can use this amount to shop on Auqli right away!</p>
+    
+              <div style="text-align: center; margin-top: 30px;">
+                <a href="https://app.auqli.live/wallet?itmSource=share" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View Your Wallet</a>
+              </div>
+    
+              <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">You've just joined a whole new way to shop online — one where you don't have to guess what you're buying. Watch sellers go live, see the products in action, ask questions in real-time, and buy instantly — all from your phone.</p>
+    
+              <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 18px; text-align: center;">What Makes Auqli Different?</h3>
+              <ul style="list-style: none; padding: 0; margin: 0;">
+                <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+                  <div style="display: flex; align-items: center;">
+                    <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                    <span>Live Product Demos: See items in real-time — not just photos. From fashion to food, beauty to gadgets, you get the full picture before you buy.</span>
+                  </div>
+                </li>
+                <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+                  <div style="display: flex; align-items: center;">
+                    <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                    <span>Ask Questions Instantly: Wondering about fit, color, or function? Ask live. Sellers answer you directly while streaming.</span>
+                  </div>
+                </li>
+                <li style="margin-bottom: 12px; padding: 8px; border-radius: 4px; background-color: #242424;">
+                  <div style="display: flex; align-items: center;">
+                    <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                    <span>Instant Checkout: Found what you love during a livestream? Add to cart and check out without leaving the stream.</span>
+                  </div>
+                </li>
+                <li style="padding: 8px; border-radius: 4px; background-color: #242424;">
+                  <div style="display: flex; align-items: center;">
+                    <span style="color: #4CAF50; margin-right: 10px; font-size: 18px;">✓</span>
+                    <span>Nigerian Sellers, Real Products: We work with local sellers who understand your style, your pace, your needs — and deliver directly to you.</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+    
+            <div style="text-align: center; padding: 0 30px 30px 30px;">
+              <p style="font-size: 14px; color: #999999; margin-bottom: 20px;">If you have any questions, contact our support team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+              <div style="margin: 20px 0; height: 1px; background-color: #333333;"></div>
+              <p style="font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
+            </div>
+          </div>
+        </div>
+      `
+    };
+
+
+    try {
+      await termiiEmailService.sendRawHTMLEmail({
+        email: buyer.email,
+        subject: msg.subject,
+        html: msg.html
+      });
+      console.log(`Welcome bonus email sent to: ${buyer.email}`);
+    } catch (emailError) {
+      console.error('Error sending welcome bonus email:', emailError.message);
+    }
+
+  } catch (error) {
+    console.error('Error in credit_welcome_bonus job:', error);
+  }
+});
+
+// Define job to send a warning notification before unpaid orders are marked as stale
+agenda.define('send_unpaid_order_warning', async (job) => {
+  try {
+    const { orderId } = job.attrs.data;
+    console.log(`Sending warning notification for unpaid order ${orderId} before it's marked as stale`);
+
+    const Order = mongoose.model('Order');
+    const { getToken } = require('../../Firebase');
+    const { Expo } = require('expo-server-sdk');
+    const expo = new Expo();
+
+    // Find the order with populated buyer
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName');
+
+    if (!order) {
+      console.log(`Order ${orderId} not found, may have been already processed`);
+      return;
+    }
+
+    // Check if order is still unpaid and was created with Paystack
+    if (!order.paid && order.paymentInfo.method === 'paystack') {
+      console.log(`Sending warning notification for unpaid Paystack order ${order.order_id}`);
+
+      try {
+        // Get the buyer's Expo push token
+        const userToken = await getToken(order.buyer._id);
+
+        if (userToken && userToken.token) {
+          // Send push notification to buyer
+          await expo.sendPushNotificationsAsync([{
+            to: userToken.token,
+            title: `Your Order Will Expire Soon`,
+            body: `Your order #${order.order_id} will be marked as stale in 10 minutes if payment is not completed.`,
+            data: {
+              orderId: order.order_id,
+              type: 'order_expiring_soon'
+            }
+          }]);
+
+          console.log(`Successfully sent warning notification for unpaid order ${order.order_id}`);
+        } else {
+          console.log(`No push token found for buyer of order ${order.order_id}`);
+        }
+      } catch (notificationError) {
+        console.error(`Error sending warning notification for order ${order.order_id}:`, notificationError);
+      }
+    } else {
+      console.log(`Order ${order.order_id} is either paid or not a Paystack order, not sending warning`);
+    }
+  } catch (error) {
+    console.error('Error in send_unpaid_order_warning job:', error);
+  }
+});
+
+// Define job to send a warning notification for Terminal Africa orders before they're marked as stale
+agenda.define('send_terminal_order_warning', async (job) => {
+  try {
+    const { orderId } = job.attrs.data;
+    console.log(`Sending warning notification for Terminal Africa order ${orderId} before it's marked as stale`);
+
+    const Order = mongoose.model('Order');
+    const { getToken } = require('../../Firebase');
+    const { Expo } = require('expo-server-sdk');
+    const expo = new Expo();
+
+    // Find the order with populated buyer
+    const order = await Order.findById(orderId)
+      .populate('buyer', 'email firstName lastName')
+      .populate('seller', 'email firstName lastName businessName storeName');
+
+    if (!order) {
+      console.log(`Order ${orderId} not found, may have been already processed`);
+      return;
+    }
+
+    // Check if order will be marked as stale based on different criteria
+    let shouldWarn = false;
+    let warningMessage = '';
+
+    // Check for unpaid Paystack orders
+    if (!order.paid && order.paymentInfo?.method === 'paystack') {
+      shouldWarn = true;
+      warningMessage = `Your order #${order.order_id} will expire in 10 minutes if payment is not completed.`;
+      console.log(`Terminal Africa order ${order.order_id} is unpaid - sending payment warning`);
+    }
+
+    // Check for orders that haven't selected a carrier (only for non-store pickup)
+    else if (!order.shipping?.rate_id && !order.isStorePickup) {
+      shouldWarn = true;
+      warningMessage = `Your order #${order.order_id} will expire in 10 minutes if you don't select a shipping carrier.`;
+      console.log(`Terminal Africa order ${order.order_id} has no carrier selected - sending carrier warning`);
+    }
+
+    if (shouldWarn) {
+      try {
+        // Get the buyer's Expo push token
+        const userToken = await getToken(order.buyer._id);
+
+        if (userToken && userToken.token) {
+          // Send push notification to buyer
+          await expo.sendPushNotificationsAsync([{
+            to: userToken.token,
+            title: `Your Order Will Expire Soon`,
+            body: warningMessage,
+            data: {
+              orderId: order.order_id,
+              type: 'terminal_order_expiring_soon'
+            }
+          }]);
+
+          console.log(`Successfully sent Terminal Africa warning notification for order ${order.order_id}`);
+        } else {
+          console.log(`No push token found for buyer of Terminal Africa order ${order.order_id}`);
+        }
+      } catch (notificationError) {
+        console.error(`Error sending Terminal Africa warning notification for order ${order.order_id}:`, notificationError);
+      }
+    } else {
+      console.log(`Terminal Africa order ${order.order_id} doesn't need warning - either paid with carrier selected or is store pickup`);
+    }
+  } catch (error) {
+    console.error('Error in send_terminal_order_warning job:', error);
+  }
+});
+
+// Define the job for sending stream reminder SMS 2 hours before scheduled start
+agenda.define('stream_reminder_sms', async (job) => {
+  try {
+    const { streamId } = job.attrs.data;
+
+    if (!streamId) {
+      console.error('No streamId provided for stream_reminder_sms job');
+      return;
+    }
+
+    console.log(`[AGENDA] Running stream reminder SMS job for streamId: ${streamId}`);
+
+    // Import the SMS helper function
+    const { sendStreamReminderSMS } = require('../modules/orderv2/helpers/sms.helper');
+
+    // Send reminder SMS to seller and subscribed buyers
+    await sendStreamReminderSMS(streamId);
+
+    console.log(`[AGENDA] Stream reminder SMS job completed for streamId: ${streamId}`);
+  } catch (error) {
+    console.error('Error in stream_reminder_sms job:', error);
+  }
+});
+
+// Define the job for sending push notification and email reminders 15 minutes before stream starts
+agenda.define('stream_reminder_push', async (job) => {
+  try {
+    const { streamId, sellerId, storeName, title } = job.attrs.data;
+
+    if (!streamId) {
+      console.error('[AGENDA] No streamId provided for stream_reminder_push job');
+      return;
+    }
+
+    console.log(`[AGENDA] Running stream reminder (push + email) job for streamId: ${streamId}`);
+
+    // Import required models and services
+    const Stream = mongoose.model('Stream');
+    const Buyer = mongoose.model('Buyer');
+    const { Expo } = require('expo-server-sdk');
+    const expo = new Expo();
+    const termiiEmailService = require('../services/termiiEmailService');
+
+    // Fetch the stream to ensure it's still scheduled and hasn't been cancelled
+    const stream = await Stream.findById(streamId);
+
+    if (!stream) {
+      console.log(`[AGENDA] Stream ${streamId} not found, skipping reminder`);
+      return;
+    }
+
+    // Only send reminder if stream is still scheduled (not cancelled, ended, or already live)
+    if (stream.status !== 'scheduled') {
+      console.log(`[AGENDA] Stream ${streamId} is no longer scheduled (status: ${stream.status}), skipping reminder`);
+      return;
+    }
+
+    // Fetch all buyers (with emails or push tokens)
+    const allBuyers = await Buyer.find({
+      $or: [
+        { expoPushToken: { $exists: true, $ne: null, $ne: '' } },
+        { email: { $exists: true, $ne: null, $ne: '' } }
+      ]
+    })
+      .select('_id email firstName expoPushToken notificationPreferences')
+      .lean();
+
+    if (!allBuyers || allBuyers.length === 0) {
+      console.log(`[AGENDA] No buyers to notify for stream ${streamId}`);
+      return;
+    }
+
+    const reminderNotifications = [];
+    const emailPromises = [];
+    const actualStoreName = storeName || 'A Seller';
+    const streamTitle = title || stream.title || 'Live Stream';
+
+    for (const buyer of allBuyers) {
+      // Respect buyer notification preferences for live shows
+      const livePrefs = buyer.notificationPreferences?.liveShows || {};
+      const wantsLiveShowNotifications = livePrefs.allShows !== false;
+
+      if (!wantsLiveShowNotifications) continue;
+
+      // Add push notification if valid token exists
+      if (buyer.expoPushToken && Expo.isExpoPushToken(buyer.expoPushToken)) {
+        reminderNotifications.push({
+          to: buyer.expoPushToken,
+          sound: 'default',
+          title: `⏰ ${actualStoreName} is Going Live in 15 Minutes!`,
+          body: `"${streamTitle}" is about to start! Get ready to join the ${stream.type === 'auction' ? 'auction' : 'live show'}!`,
+          data: {
+            streamId: stream._id.toString(),
+            streamType: stream.type,
+            sellerId: sellerId || stream.seller.toString(),
+            action: 'view_scheduled_stream',
+            type: 'stream_reminder_15min'
+          },
+          priority: 'high',
+          channelId: 'live_streams'
+        });
+      }
+
+      // Add email notification if email exists
+      if (buyer.email) {
+        const emailHtml = `
+          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; background-color: #ffffff; padding: 24px;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli" style="width: 100px; height: auto;">
+            </div>
+            <h2 style="color: #10b981; margin-top: 0; text-align: center;">⏰ Starting Soon!</h2>
+            <p style="font-size: 16px; line-height: 1.6;">Hi ${buyer.firstName || 'there'},</p>
+            <p style="font-size: 16px; line-height: 1.6;">This is a reminder that <strong>${actualStoreName}</strong>'s live ${stream.type === 'auction' ? 'auction' : 'show'} is starting in 15 minutes.</p>
+            <div style="background-color: #f9fafb; border-left: 4px solid #10b981; padding: 16px; margin: 24px 0;">
+              <p style="font-size: 18px; font-weight: bold; margin: 0; color: #111;">${streamTitle}</p>
+            </div>
+            <p style="font-size: 16px; line-height: 1.6; margin-bottom: 24px;">Be ready to join when it starts!</p>
+            
+            <div style="margin-bottom: 24px;">
+              <p style="font-size: 15px; font-weight: bold; color: #333; margin-bottom: 12px;">Why join?</p>
+              <ul style="list-style: none; padding: 0; margin: 0;">
+                <li style="margin-bottom: 8px; font-size: 14px; color: #555;">✨ Interactive shopping experience</li>
+                <li style="margin-bottom: 8px; font-size: 14px; color: #555;">🏷️ Exclusive live-only deals</li>
+                <li style="margin-bottom: 8px; font-size: 14px; color: #555;">💬 Chat directly with the host</li>
+              </ul>
+            </div>
+
+            <div style="text-align: center; margin-bottom: 32px;">
+              <a href="https://app.auqli.live/live" style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; padding: 12px 24px; border-radius: 8px;">
+                Join Now
+              </a>
+            </div>
+            <p style="color: #9ca3af; font-size: 12px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 24px;">
+              You're receiving this because you have an account on Auqli.<br>
+              To manage your notification preferences, visit your account settings.
+            </p>
+          </div>
+        `;
+
+        emailPromises.push(
+          termiiEmailService.sendRawHTMLEmail({
+            email: buyer.email,
+            subject: `⏰ Reminder: ${actualStoreName}'s live show starts soon`,
+            html: emailHtml
+          }).catch(err => {
+            console.error(`[AGENDA] Failed to send 15-min reminder email to ${buyer.email}:`, err.message);
+            return null;
+          })
+        );
+      }
+    }
+
+    // Send push notifications in batches using Expo's chunking
+    if (reminderNotifications.length > 0) {
+      const chunks = expo.chunkPushNotifications(reminderNotifications);
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const chunk of chunks) {
+        try {
+          const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+          ticketChunk.forEach((ticket) => {
+            if (ticket.status === 'ok') {
+              successCount++;
+            } else {
+              errorCount++;
+            }
+          });
+        } catch (chunkError) {
+          console.error('[AGENDA] Error sending reminder push notification chunk:', chunkError);
+          errorCount += chunk.length;
+        }
+      }
+
+      console.log(`[AGENDA] Sent 15-minute reminder push notifications for stream ${streamId}`, {
+        streamId,
+        storeName: actualStoreName,
+        title: streamTitle,
+        totalBuyers: allBuyers.length,
+        notificationsSent: reminderNotifications.length,
+        successCount,
+        errorCount
+      });
+    } else {
+      console.log(`[AGENDA] No reminder push notifications sent for stream ${streamId} (all opted out or no valid tokens)`, {
+        streamId,
+        totalBuyers: allBuyers.length
+      });
+    }
+
+    // Send emails in parallel
+    if (emailPromises.length > 0) {
+      const emailResults = await Promise.allSettled(emailPromises);
+      const successfulEmails = emailResults.filter(r => r.status === 'fulfilled' && r.value).length;
+      const failedEmails = emailResults.filter(r => r.status === 'rejected' || !r.value).length;
+      console.log(`[AGENDA] Sent 15-minute reminder emails for stream ${streamId}`, {
+        streamId,
+        totalEmails: emailPromises.length,
+        successfulEmails,
+        failedEmails
+      });
+    }
+
+    console.log(`[AGENDA] Stream reminder (push + email) job completed for streamId: ${streamId}`);
+  } catch (error) {
+    console.error('[AGENDA] Error in stream_reminder_push job:', error);
+  }
+});
+
+// Define the job for stream auto end
+agenda.define('stream_auto_end', async (job) => {
+  let streamId;
+  try {
+    const { streamId: jobStreamId, sellerId, jobId, reason } = job.attrs.data;
+    streamId = jobStreamId;
+
+    console.log(`[AGENDA] Running stream auto-end job ${jobId} for streamId: ${streamId}, reason: ${reason}`);
+
+    // Get the Stream model to check if the stream is still live
+    const Stream = require('../models/Stream');
+
+    // Use findOneAndUpdate to get and mark the stream as processing in one atomic operation
+    // This creates a "lock" to prevent other jobs from processing the same stream
+    const stream = await Stream.findOneAndUpdate(
+      { _id: streamId, status: 'live' },
+      { $set: { processingEndJob: true } },
+      { new: false } // Return the document as it was before the update
+    );
+
+    if (!stream) {
+      console.log(`[AGENDA] Stream ${streamId} not found or not live, cancelling auto-end job`);
+      return;
+    }
+
+    // If stream was already marked as processing, another job is handling it
+    if (stream.processingEndJob) {
+      console.log(`[AGENDA] Stream ${streamId} is already being processed by another job, skipping`);
+      return;
+    }
+
+    // Get seller ID from the stream if not provided
+    const streamSellerId = sellerId || stream.seller.toString();
+
+    // Check if the seller has reconnected and has an active socket connection
+    const socketManager = require('../socket/socketManager');
+    const activeUsers = socketManager.getActiveUsers();
+
+    if (activeUsers && activeUsers.has(streamSellerId)) {
+      console.log(`[AGENDA] Seller ${streamSellerId} has reconnected, cancelling auto-end job`);
+      // Remove the processing flag since we're not ending the stream
+      await Stream.updateOne(
+        { _id: streamId },
+        { $unset: { processingEndJob: 1 } }
+      );
+      return;
+    }
+
+    // Create a streamController instance to directly call the endStream method
+    const streamController = require('../controllers/streamController');
+
+    // Create mock request and response objects
+    const mockReq = {
+      params: { streamId },
+      user: { id: streamSellerId },
+      io: socketManager.getIO()
+    };
+
+    const mockRes = {
+      status: function (code) {
+        this.statusCode = code;
+        return this;
+      },
+      json: function (data) {
+        console.log(`[AGENDA] Stream auto-end response: ${JSON.stringify(data)}`);
+        return this;
+      }
+    };
+
+    // Call the endStream controller method directly
+    await streamController.endStream(mockReq, mockRes);
+
+    console.log(`[AGENDA] Successfully ended stream ${streamId} due to timeout after seller ${streamSellerId} disconnected`);
+  } catch (error) {
+    console.error('[AGENDA] Error in stream_auto_end job:', error);
+  } finally {
+    // Make sure we clear the processing flag if something went wrong
+    if (streamId) {
+      try {
+        const Stream = require('../models/Stream');
+        await Stream.updateOne(
+          { _id: streamId, processingEndJob: true },
+          { $unset: { processingEndJob: 1 } }
+        );
+      } catch (cleanupError) {
+        console.error('[AGENDA] Error cleaning up processing flag:', cleanupError);
+      }
+    }
+  }
+});
+
+// Add a function to check if agenda is initialized
+const isAgendaInitialized = () => {
+  if (!agenda) {
+    console.error('Agenda is not initialized');
+    return false;
+  }
+  return true;
+};
+
+// Start Agenda
+const startAgenda = async () => {
+  try {
+    console.log('Starting Agenda job scheduler...');
+
+    if (!agenda) {
+      console.error('Agenda instance is null or undefined');
+      throw new Error('Agenda instance is not available');
+    }
+
+    await agenda.start();
+    console.log('Agenda started successfully');
+
+    // Schedule the pending message notifications job to run every 5 minutes
+    await agenda.every('5 minutes', 'process-pending-message-notifications');
+    // console.log('Scheduled message notification job to run every 5 minutes');
+
+    // Schedule the delete expired streams job to run every 15 minutes
+    //! This feature has been suspended to accommodate the reschedule expired stream feature as deleted expired stream defeats the whole purpose of reschedule
+    //await agenda.every('15 minutes', 'delete_expired_streams');
+    // console.log('Scheduled expired streams cleanup job to run every 15 minutes');
+
+    // Schedule daily livestream analytics job to run at midnight WAT
+    // Note: WAT is UTC+1, so 11:00 PM UTC
+
+    console.log('Scheduled daily livestream analytics job to run at midnight WAT');
+
+    // Schedule weekly livestream analytics job to run at 1:00 AM WAT on Mondays
+    // Note: WAT is UTC+1, so 0:00 AM UTC on Mondays (day 1)
+    await agenda.every('0 0 * * 1', 'weekly_livestream_analytics');
+    console.log('Scheduled weekly livestream analytics job to run at 1:00 AM WAT on Mondays');
+
+    // Schedule monthly livestream analytics job to run at 2:00 AM WAT on the 1st day of each month
+    // Note: WAT is UTC+1, so 1:00 AM UTC on the 1st
+    await agenda.every('0 1 1 * *', 'monthly_livestream_analytics');
+    console.log('Scheduled monthly livestream analytics job to run at 2:00 AM WAT on the 1st day of each month');
+
+    // Schedule daily coupon cleanup job to run at 3:00 AM WAT every day
+    // Note: WAT is UTC+1, so 2:00 AM UTC
+    // This ensures expired coupons are cleaned up and product discounts are deactivated
+    await agenda.every('0 2 * * *', 'daily_coupon_cleanup');
+    console.log('Scheduled daily coupon cleanup job to run at 3:00 AM WAT every day');
+
+    console.log('All agenda jobs scheduled successfully');
+    return true;
+  } catch (error) {
+    console.error('Failed to start Agenda:', error);
+    return false;
+  }
+};
+
+
+
+
+// ── JOB 1: Process referral reward ──
+agenda.define('process-referral-reward', async (job) => {
+  const { orderId, buyerId } = job.attrs.data;
+  await processReferralReward({ orderId, buyerId });
+});
+
+// ── JOB 2: Expire referral ──
+agenda.define('expire-referral', async (job) => {
+  const { referralId } = job.attrs.data;
+  const referral = await Referral.findById(referralId);
+  if (!referral || referral.status !== 'pending') return;
+  await Referral.updateOne({ _id: referralId }, { status: 'expired' });
+});
+
+// ── JOB 3: Day 3 auto reminder ──
+agenda.define('referral-day3-reminder', async (job) => {
+  const { referralId } = job.attrs.data;
+  const referral = await Referral.findById(referralId).lean();
+  if (!referral || referral.status !== 'pending' || referral.day3ReminderSent) return;
+  const referee = await Buyer.findById(referral.referee)
+    .select('expoPushToken firstName')
+    .lean();
+  if (referee?.expoPushToken) {
+    await sendPushNotification(
+      referee.expoPushToken,
+      'You have a welcome credit waiting 🎁',
+      'Complete your first purchase on Auqli before your credit expires.',
+      { type: 'referral_reminder', referralId }
+    );
+  }
+  await Referral.updateOne({ _id: referralId }, {
+    day3ReminderSent: true,
+    lastReminderAt:   new Date(),
+  });
+});
+
+// ── JOB 4: Day 7 expiry reminder ──
+agenda.define('referral-day7-reminder', async (job) => {
+  const { referralId } = job.attrs.data;
+  const referral = await Referral.findById(referralId).lean();
+  if (!referral || referral.status !== 'pending' || referral.day7ReminderSent) return;
+  const referee = await Buyer.findById(referral.referee)
+    .select('expoPushToken firstName')
+    .lean();
+  if (referee?.expoPushToken) {
+    await sendPushNotification(
+      referee.expoPushToken,
+      'Last chance — your welcome credit expires today ⏰',
+      'Shop now on Auqli and unlock your welcome credit before midnight.',
+      { type: 'referral_expiry', referralId }
+    );
+  }
+  await Referral.updateOne({ _id: referralId }, {
+    day7ReminderSent: true,
+    lastReminderAt:   new Date(),
+  });
+});
+
+// ── HELPER: Schedule all reminder jobs when referral is created ──
+async function scheduleReferralReminders(referralId, expiresAt) {
+  const day3Date = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  const day7Date = new Date(expiresAt.getTime() - 60 * 60 * 1000); // 1hr before expiry
+
+  await agenda.schedule(day3Date, 'referral-day3-reminder', { referralId: referralId.toString() });
+  await agenda.schedule(day7Date, 'referral-day7-reminder', { referralId: referralId.toString() });
+  await agenda.schedule(expiresAt, 'expire-referral',        { referralId: referralId.toString() });
+}
+
+// Export agenda instance and startAgenda function
+module.exports = {
+  agenda,
+  startAgenda,
+  isAgendaInitialized,
+  scheduleReferralReminders
+}; 

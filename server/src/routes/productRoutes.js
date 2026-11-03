@@ -1,0 +1,4180 @@
+const express = require('express');
+const router = express.Router();
+const productController = require('../controllers/productController');
+const blipsController = require('../controllers/blipsController');
+const authMiddleware = require('../middlewares/authMiddleware');
+const multer = require('multer');
+
+// Configure multer with file size limits
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB max file size
+    fieldSize: 100 * 1024 * 1024 // 100MB max field size
+  }
+});
+
+const jwt = require('jsonwebtoken');
+const optionalAuthMiddleware = require('../middlewares/optionalAuthMiddleware');
+
+/**
+ * @swagger
+ * /api/products/blips:
+ *   get:
+ *     summary: Get all blips from all products
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number for pagination
+ *         default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of blips per page
+ *         default: 10
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved blips
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 blips:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                         description: URL of the blip video
+ *                       thumbnail:
+ *                         type: string
+ *                         description: URL of the blip thumbnail
+ *                       productId:
+ *                         type: string
+ *                         description: ID of the associated product
+ *                       sellerId:
+ *                         type: string
+ *                         description: ID of the seller
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalBlips:
+ *                       type: integer
+ *       500:
+ *         description: Server error
+ * 
+ * /api/products/seller/{sellerId}/blips:
+ *   get:
+ *     summary: Get all blips from a specific seller
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number for pagination
+ *         default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of blips per page
+ *         default: 10
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved seller's blips
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 blips:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                       thumbnail:
+ *                         type: string
+ *                       productId:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalBlips:
+ *                       type: integer
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+
+// Public routes for blips
+// First, use the imported optionalAuthMiddleware instead of defining it inline
+/*
+const optionalAuth = (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded;
+    }
+    
+    next();
+  } catch (error) {
+    // If token is invalid, just continue without setting req.user
+    next();
+  }
+};
+*/
+
+// Use the proper optionalAuthMiddleware
+router.get('/blips', optionalAuthMiddleware, blipsController.getAllBlips);
+router.get('/seller/:sellerId/blips', optionalAuthMiddleware, blipsController.getSellerBlips);
+router.get('/blips/suggested', optionalAuthMiddleware, blipsController.getSuggestedBlips);
+
+/**
+ * @swagger
+ * /api/products/{productId}/blips/{blipId}/download:
+ *   get:
+ *     summary: Get a pre-signed URL to download the original blip (MP4)
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip
+ *     responses:
+ *       200:
+ *         description: Pre-signed URL generated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 downloadUrl:
+ *                   type: string
+ *                 expiresInSeconds:
+ *                   type: integer
+ *       400:
+ *         description: Invalid parameters
+ *       404:
+ *         description: Product, blip, or original file not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:productId/blips/:blipId/download', blipsController.getOriginalBlipDownloadUrl);
+
+/**
+ * @swagger
+ * /api/products/blips/suggested:
+ *   get:
+ *     summary: Get suggested blips based on user preferences
+ *     description: For authenticated buyers, returns blips matching their selected categories. For unauthenticated users, returns popular blips.
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 20
+ *         description: Number of blips per page
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved suggested blips
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 blips:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       blipId:
+ *                         type: string
+ *                       blipUrl:
+ *                         type: string
+ *                         description: URL of the blip video
+ *                       productId:
+ *                         type: string
+ *                       productName:
+ *                         type: string
+ *                       price:
+ *                         type: number
+ *                       category:
+ *                         type: string
+ *                       subCategory:
+ *                         type: string
+ *                       seller:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           storeName:
+ *                             type: string
+ *                           storeAvatar:
+ *                             type: string
+ *                           isFollowing:
+ *                             type: boolean
+ *                       blipEngagement:
+ *                         type: object
+ *                         properties:
+ *                           likesCount:
+ *                             type: integer
+ *                           commentsCount:
+ *                             type: integer
+ *                           viewCount:
+ *                             type: integer
+ *                 isPersonalized:
+ *                   type: boolean
+ *                   description: Indicates if results are personalized based on user preferences
+ *                 currentPage:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
+ *                 totalBlips:
+ *                   type: integer
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /api/products/auctions:
+ *   get:
+ *     summary: Get all offline auction products
+ *     description: Retrieve a list of all offline auction products with optional filtering
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, ongoing, ended]
+ *         description: Filter auctions by status
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [endDate, startDate, currentBid]
+ *         description: Sort auctions by specific fields
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of auction products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       auction:
+ *                         type: object
+ *                         properties:
+ *                           minBid:
+ *                             type: number
+ *                           maxBid:
+ *                             type: number
+ *                           endOnMaxBid:
+ *                             type: boolean
+ *                           startDate:
+ *                             type: string
+ *                           endDate:
+ *                             type: string
+ *                           status:
+ *                             type: string
+ *                           currentHighestBid:
+ *                             type: object
+ *                             properties:
+ *                               amount:
+ *                                 type: number
+ *                           daysLeft:
+ *                             type: number
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalProducts:
+ *                       type: integer
+ *       500:
+ *         description: Server error
+ */
+router.get('/auctions', productController.getAuctionProducts);
+
+
+/**
+ * @swagger
+ * /api/products/buyer/bids:
+ *   get:
+ *     summary: Get all bids placed by the authenticated buyer
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of buyer's bids retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   productId:
+ *                     type: string
+ *                   productName:
+ *                     type: string
+ *                   productImage:
+ *                     type: object
+ *                   seller:
+ *                     type: object
+ *                     properties:
+ *                       businessName:
+ *                         type: string
+ *                       storeName:
+ *                         type: string
+ *                   bids:
+ *                     type: array
+ *                     items:
+ *                       type: object
+ *                       properties:
+ *                         amount:
+ *                           type: number
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                         status:
+ *                           type: string
+ *                           enum: [active, outbid, won, lost]
+ *                   isHighestBidder:
+ *                     type: boolean
+ *                   isWinner:
+ *                     type: boolean
+ *                   auctionStatus:
+ *                     type: string
+ *                     enum: [scheduled, ongoing, ended]
+ *                   daysLeft:
+ *                     type: number
+ *       401:
+ *         description: Not authenticated
+ */
+router.get('/buyer/bids',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  productController.getBuyerBids
+);
+
+/**
+ * @swagger
+ * /api/products/buyer/auctions:
+ *   get:
+ *     summary: Get auction products where the buyer has active bids
+ *     description: Retrieve offline auction products where the logged-in buyer has placed bids
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, ongoing, ended]
+ *         description: Filter by auction status
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [endDate, startDate, currentBid, myBidAmount]
+ *         description: Sort order for results (default is endDate)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of auction products with buyer bids
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       images:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                       seller:
+ *                         type: object
+ *                       auction:
+ *                         type: object
+ *                         properties:
+ *                           startDate:
+ *                             type: string
+ *                             format: date-time
+ *                           endDate:
+ *                             type: string
+ *                             format: date-time
+ *                           status:
+ *                             type: string
+ *                             enum: [scheduled, ongoing, ended]
+ *                           daysLeft:
+ *                             type: number
+ *                           minBid:
+ *                             type: number
+ *                           currentHighestBid:
+ *                             type: object
+ *                             properties:
+ *                               amount:
+ *                                 type: number
+ *                               buyer:
+ *                                 type: object
+ *                           bids:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                           winner:
+ *                             type: object
+ *                       isHighestBidder:
+ *                         type: boolean
+ *                       isWinner:
+ *                         type: boolean
+ *                       myHighestBid:
+ *                         type: object
+ *                         properties:
+ *                           amount:
+ *                             type: number
+ *                           status:
+ *                             type: string
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalProducts:
+ *                       type: integer
+ *       401:
+ *         description: Not authenticated
+ *       500:
+ *         description: Server error
+ */
+router.get('/buyer/auctions',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  productController.getBuyerAuctionProducts
+);
+
+/**
+ * @swagger
+ * /api/products/search:
+ *   get:
+ *     summary: Deep search for products
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Search query string
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Minimum price filter
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Maximum price filter
+ *       - in: query
+ *         name: condition
+ *         schema:
+ *           type: string
+ *           enum: [new, fairly used]
+ *         description: Filter products by condition (case-insensitive)
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [price_asc, price_desc, newest, oldest, popular, best_selling, rating]
+ *         required: false
+ *         default: newest
+ *         description: Sort products by the specified field
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *         required: false
+ *         default: desc
+ *         description: Sort order (only applies to some sortBy options)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of products per page
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                       description: Total number of products matching query
+ *                     page:
+ *                       type: integer
+ *                       description: Current page number
+ *                     limit:
+ *                       type: integer
+ *                       description: Number of products per page
+ *                     pages:
+ *                       type: integer
+ *                       description: Total number of pages
+ *       500:
+ *         description: Server error
+ */
+router.get('/search', productController.deepSearchProducts);
+
+/**
+ * @swagger
+ * /api/products/just-arrived:
+ *   get:
+ *     summary: Get recently added products
+ *     tags: [Products]
+ *     responses:
+ *       200:
+ *         description: Recently arrived products retrieved successfully
+ */
+router.get('/just-arrived', productController.getJustArrivedProducts);
+
+/**
+ * @swagger
+ * /api/products/all:
+ *   get:
+ *     summary: Get all products with optional filters and pagination
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         default: 10
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         required: false
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         required: false
+ *         default: 0
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         required: false
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [price_asc, price_desc, newest, oldest, popular, best_selling]
+ *         required: false
+ *         default: newest
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [draft, active, archived, out_of_stock]
+ *         required: false
+ *       - in: query
+ *         name: visibility
+ *         schema:
+ *           type: string
+ *           enum: [visible, hidden, featured]
+ *         required: false
+ *     responses:
+ *       200:
+ *         description: Products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     products:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           description:
+ *                             type: string
+ *                           price:
+ *                             type: number
+ *                           category:
+ *                             type: string
+ *                           subCategory:
+ *                             type: string
+ *                           images:
+ *                             type: array
+ *                           stock:
+ *                             type: number
+ *                           status:
+ *                             type: string
+ *                           visibility:
+ *                             type: string
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         currentPage:
+ *                           type: integer
+ *                         totalPages:
+ *                           type: integer
+ *                         totalProducts:
+ *                           type: integer
+ *                         hasNextPage:
+ *                           type: boolean
+ *                         hasPrevPage:
+ *                           type: boolean
+ *                         limit:
+ *                           type: integer
+ *                     filters:
+ *                       type: object
+ *                       properties:
+ *                         category:
+ *                           type: string
+ *                         priceRange:
+ *                           type: object
+ *                         sortBy:
+ *                           type: string
+ *                         status:
+ *                           type: string
+ *                         visibility:
+ *                           type: string
+ *       500:
+ *         description: Server error
+ */
+router.get('/all', productController.getAllProducts);
+
+/**
+ * @swagger
+ * /api/products/personalized:
+ *   get:
+ *     summary: Get personalized products based on buyer's selected categories
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [createdAt, price, stats.averageRating]
+ *           default: createdAt
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *     responses:
+ *       200:
+ *         description: List of personalized products
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Buyer not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/personalized',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  productController.getPersonalizedProducts
+);
+
+/**
+ * @swagger
+ * /api/products/trending:
+ *   get:
+ *     summary: Get trending products
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of products to return
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [day, week, month]
+ *           default: week
+ *         description: Time period for trending calculation
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Optional category filter
+ *     responses:
+ *       200:
+ *         description: List of trending products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 period:
+ *                   type: string
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       price:
+ *                         type: number
+ *                       discountedPrice:
+ *                         type: number
+ *                       images:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             url:
+ *                               type: string
+ *                       category:
+ *                         type: string
+ *                       seller:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           storeName:
+ *                             type: string
+ *                       trendingScore:
+ *                         type: number
+ *                       stats:
+ *                         type: object
+ *                         properties:
+ *                           rating:
+ *                             type: number
+ *                           reviewCount:
+ *                             type: number
+ *                           views:
+ *                             type: number
+ *                           sales:
+ *                             type: number
+ *       500:
+ *         description: Server error
+ */
+router.get('/trending', productController.getTrendingProducts);
+
+/**
+ * @swagger
+ * /api/products/discounted:
+ *   get:
+ *     summary: Get products with active discounts
+ *     description: Returns only products that currently have active discounts, with pagination and anti-clustering by seller.
+ *     tags: [Products]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         default: 10
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Minimum base price filter
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Maximum base price filter
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [price_asc, price_desc, newest, oldest, popular, best_selling]
+ *         default: newest
+ *       - in: query
+ *         name: visibility
+ *         schema:
+ *           type: string
+ *           enum: [visible, hidden, featured]
+ *         default: visible
+ *     responses:
+ *       200:
+ *         description: Discounted products retrieved successfully
+ *       500:
+ *         description: Server error
+ */
+router.get('/discounted', productController.getDiscountedProducts);
+
+/**
+ * @swagger
+ * /api/products/{id}:
+ *   get:
+ *     summary: Get a product by ID
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *     responses:
+ *       200:
+ *         description: Product details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 description:
+ *                   type: string
+ *                 price:
+ *                   type: number
+ *                 priceVariants:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       size:
+ *                         type: string
+ *                       price:
+ *                         type: number
+ *                 category:
+ *                   type: string
+ *                 subCategory:
+ *                   type: string
+ *                 images:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                       public_id:
+ *                         type: string
+ *                 blips:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                       thumbnail:
+ *                         type: string
+ *                 seller:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     storeName:
+ *                       type: string
+ *                     avatarUrl:
+ *                       type: string
+ *                     rating:
+ *                       type: number
+ *                     verified:
+ *                       type: boolean
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     averageRating:
+ *                       type: number
+ *                     reviewCount:
+ *                       type: integer
+ *                     viewCount:
+ *                       type: integer
+ *                     soldCount:
+ *                       type: integer
+ *                 stock:
+ *                   type: number
+ *                 status:
+ *                   type: string
+ *                   enum: [draft, active, archived, out_of_stock]
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
+ *       404:
+ *         description: Product not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Product not found
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: string
+ */
+router.get('/:id', productController.getProduct);
+
+/**
+ * @swagger
+ * /api/products:
+ *   post:
+ *     summary: Create a new product
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - description
+ *               - price
+ *               - category
+ *               - stock
+ *               - sku
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Product name
+ *               description:
+ *                 type: string
+ *                 description: Detailed product description
+ *               price:
+ *                 type: number
+ *                 description: Base price of the product
+ *               category:
+ *                 type: string
+ *                 description: Main category of the product
+ *               variants:
+ *                 type: array
+ *                 description: Product variants (color, size, etc.)
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     type:
+ *                       type: string
+ *                       enum: [color, size, material, style, other]
+ *                       description: Type of variant
+ *                     name:
+ *                       type: string
+ *                       description: Display name for the variant type
+ *                     options:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                             description: Display name for the option
+ *                           value:
+ *                             type: string
+ *                             description: Value identifier for the option
+ *                           price:
+ *                             type: number
+ *                             description: Price for this specific variant
+ *                           stock:
+ *                             type: number
+ *                             description: Stock quantity for this variant
+ *                           images:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 data:
+ *                                   type: string
+ *                                   format: binary
+ *                                   description: Image file for the variant
+ *                                 isDefault:
+ *                                   type: boolean
+ *                                   description: Whether this is the default image
+ *               subCategory:
+ *                 type: string
+ *                 description: Sub-category of the product
+ *               brand:
+ *                 type: string
+ *               modelNumber:
+ *                 type: string
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Default product images (max 8, max 50MB each)
+ *               blips:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Product video blips (max 5, max 50MB each)
+ *               stock:
+ *                 type: number
+ *                 minimum: 0
+ *               shippingInfo:
+ *                 type: object
+ *                 properties:
+ *                   weight:
+ *                     type: object
+ *                     properties:
+ *                       value:
+ *                         type: number
+ *                       unit:
+ *                         type: string
+ *                         enum: [kg, g, lb, oz]
+ *                   dimensions:
+ *                     type: object
+ *                     properties:
+ *                       length:
+ *                         type: number
+ *                       width:
+ *                         type: number
+ *                       height:
+ *                         type: number
+ *                       unit:
+ *                         type: string
+ *                         enum: [cm, in]
+ *     responses:
+ *       201:
+ *         description: Product created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 description:
+ *                   type: string
+ *                 price:
+ *                   type: number
+ *                 category:
+ *                   type: string
+ *                 variants:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       type:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       options:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             name:
+ *                               type: string
+ *                             value:
+ *                               type: string
+ *                             price:
+ *                               type: number
+ *                             stock:
+ *                               type: number
+ *                             sku:
+ *                               type: string
+ *                             images:
+ *                               type: array
+ *                               items:
+ *                                 type: object
+ *                                 properties:
+ *                                   url:
+ *                                     type: string
+ *                                   isDefault:
+ *                                     type: boolean
+ *                 seller:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     avatarUrl:
+ *                       type: string
+ *                     about:
+ *                       type: string
+ *       400:
+ *         description: Invalid request data
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       403:
+ *         description: Forbidden - User is not a seller
+ *       413:
+ *         description: File too large - exceeds 50MB limit
+ *       500:
+ *         description: Server error
+ */
+router.post('/',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  (req, res, next) => {
+    const uploadFields = upload.fields([
+      { name: 'images', maxCount: 8 },
+      { name: 'blips', maxCount: 5 },
+      { name: /^variant-[a-zA-Z0-9]+-images$/, maxCount: 10 },
+      { name: /^variant-[a-zA-Z0-9]+-[a-zA-Z0-9]+-images$/, maxCount: 10 },
+      { name: /^variant-[a-zA-Z0-9]+-[a-zA-Z0-9]+-[a-zA-Z0-9]+-images$/, maxCount: 10 }
+    ]);
+    uploadFields(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(413).json({
+            success: false,
+            message: 'File too large. Maximum file size is 50MB.'
+          });
+        } else if (err.code === 'LIMIT_FIELD_VALUE') {
+          return res.status(413).json({
+            success: false,
+            message: 'Field value too large. Maximum field size is 50MB.'
+          });
+        }
+        return res.status(400).json({
+          success: false,
+          message: `Upload error: ${err.message}`
+        });
+      } else if (err) {
+        return res.status(500).json({
+          success: false,
+          message: `Error uploading files: ${err.message}`
+        });
+      }
+      next();
+    });
+  },
+  productController.createProduct
+);
+
+/**
+ * @swagger
+ * /api/products/bulk-update-price:
+ *   post:
+ *     summary: Bulk update product prices by percentage
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               percentage:
+ *                 type: number
+ *                 description: The percentage to increase or decrease prices. Use a negative value for a decrease.
+ *                 example: 10
+ *     responses:
+ *       200:
+ *         description: Product prices updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 updatedCount:
+ *                   type: integer
+ *       400:
+ *         description: Bad request, e.g., missing percentage or invalid value.
+ *       401:
+ *         description: Unauthorized, token is missing or invalid.
+ *       403:
+ *         description: Forbidden, user is not a seller.
+ *       404:
+ *         description: No products found for this seller.
+ *       500:
+ *         description: Failed to update product prices
+ */
+router.post('/bulk-update-price', authMiddleware.verifyToken, authMiddleware.isSeller, productController.bulkUpdatePrices);
+
+/**
+ * @swagger
+ * /api/products/{productId}/inventory:
+ *   put:
+ *     summary: Update product inventory
+ *     description: Update product stock quantity. Can add, subtract, or set specific stock levels.
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - quantity
+ *             properties:
+ *               quantity:
+ *                 type: number
+ *                 description: The quantity to add, subtract, or set
+ *                 example: 10
+ *               operation:
+ *                 type: string
+ *                 enum: [add, subtract, set]
+ *                 description: Type of inventory operation to perform
+ *                 default: set
+ *                 example: add
+ *     responses:
+ *       200:
+ *         description: Inventory updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Inventory updated successfully
+ *                 product:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       description: Product ID
+ *                     name:
+ *                       type: string
+ *                       description: Product name
+ *                     stock:
+ *                       type: number
+ *                       description: Current stock level
+ *                     lowStockAlert:
+ *                       type: number
+ *                       description: Low stock threshold
+ *                     isLowStock:
+ *                       type: boolean
+ *                       description: Whether the product is in low stock
+ *       400:
+ *         description: Invalid request or operation failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Failed to update inventory
+ *                 error:
+ *                   type: string
+ *                   example: Invalid operation. Use "add", "subtract", or "set"
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized to update this product
+ *       404:
+ *         description: Product not found
+ */
+router.put('/:productId/inventory',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.updateInventory
+);
+
+/**
+ * @swagger
+ * /api/products/{id}/shipping:
+ *   put:
+ *     summary: Update product shipping information
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               shippingMethods:
+ *                 type: array
+ *               weight:
+ *                 type: object
+ *               dimensions:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Shipping information updated successfully
+ */
+router.put('/:id/shipping',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.updateShipping
+);
+
+/**
+ * @swagger
+ * /api/products/analytics:
+ *   get:
+ *     summary: Get product performance analytics
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: productId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product analytics retrieved successfully
+ */
+router.get('/analytics',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.getProductAnalytics
+);
+
+/**
+ * @swagger
+ * /api/products/low-stock:
+ *   get:
+ *     summary: Get low stock products
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Low stock products retrieved successfully
+ */
+router.get('/low-stock',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.getLowStockProducts
+);
+
+/**
+ * @swagger
+ * /api/products/{id}/return-policy:
+ *   put:
+ *     summary: Update product return policy
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               allowed:
+ *                 type: boolean
+ *               periodInDays:
+ *                 type: number
+ *               conditions:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Return policy updated successfully
+ */
+router.put('/:id/return-policy',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.updateReturnPolicy
+);
+
+/**
+ * @swagger
+ * /api/products/bulk-update:
+ *   put:
+ *     summary: Bulk update products
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               products:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     updates:
+ *                       type: object
+ *     responses:
+ *       200:
+ *         description: Products updated successfully
+ */
+router.put('/bulk-update',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.bulkUpdateProducts
+);
+
+/**
+ * @swagger
+ * /api/products/{id}/stats:
+ *   get:
+ *     summary: Get product statistics
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product statistics retrieved successfully
+ */
+router.get('/:id/stats',
+  productController.getProductStats
+);
+
+/**
+ * @swagger
+ * /api/products/{id}:
+ *   put:
+ *     summary: Update a single product
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               priceVariants:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     size:
+ *                       type: string
+ *                     price:
+ *                       type: number
+ *               category:
+ *                 type: string
+ *               subCategory:
+ *                 type: string
+ *               brand:
+ *                 type: string
+ *               modelNumber:
+ *                 type: string
+ *               stock:
+ *                 type: number
+ *               shippingInfo:
+ *                 type: object
+ *                 properties:
+ *                   weight:
+ *                     type: object
+ *                     properties:
+ *                       value:
+ *                         type: number
+ *                       unit:
+ *                         type: string
+ *                         enum: [kg, g, lb, oz]
+ *                   dimensions:
+ *                     type: object
+ *                     properties:
+ *                       length:
+ *                         type: number
+ *                       width:
+ *                         type: number
+ *                       height:
+ *                         type: number
+ *                       unit:
+ *                         type: string
+ *                         enum: [cm, in]
+ *               returnPolicy:
+ *                 type: object
+ *                 properties:
+ *                   allowed:
+ *                     type: boolean
+ *                   periodInDays:
+ *                     type: number
+ *                   conditions:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *               status:
+ *                 type: string
+ *                 enum: [draft, active, archived, out_of_stock]
+ *               visibility:
+ *                 type: string
+ *                 enum: [visible, hidden, featured]
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               colors:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               size:
+ *                 type: string
+ *               material:
+ *                 type: string
+ *               weight:
+ *                 type: number
+ *               dimensions:
+ *                 type: string
+ *               taxClass:
+ *                 type: string
+ *               taxRate:
+ *                 type: number
+ *               warranty:
+ *                 type: string
+ *               minimumPurchaseQuantity:
+ *                 type: number
+ *               vendor:
+ *                 type: string
+ *               seo:
+ *                 type: object
+ *                 properties:
+ *                   metaTitle:
+ *                     type: string
+ *                   metaDescription:
+ *                     type: string
+ *                   metaKeywords:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                   slug:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: Product updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 product:
+ *                   type: object
+ *       403:
+ *         description: Not authorized to update this product
+ *       404:
+ *         description: Product not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/:id',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.updateProduct
+);
+
+/**
+ * @swagger
+ * /api/products/{id}/seo:
+ *   put:
+ *     summary: Update product SEO information
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               metaTitle:
+ *                 type: string
+ *               metaDescription:
+ *                 type: string
+ *               metaKeywords:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               slug:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: SEO information updated successfully
+ */
+router.put('/:id/seo',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.updateSEO
+);
+
+/**
+ * @swagger
+ * /api/products/bulk-delete:
+ *   delete:
+ *     summary: Bulk delete products
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               productIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Products deleted successfully
+ */
+router.delete('/bulk-delete',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.bulkDelete
+);
+
+/**
+ * @swagger
+ * /api/products/{id}/reviews:
+ *   post:
+ *     summary: Add a review to a product
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - rating
+ *               - title
+ *               - comment
+ *             properties:
+ *               rating:
+ *                 type: number
+ *                 minimum: 1
+ *                 maximum: 5
+ *               title:
+ *                 type: string
+ *               comment:
+ *                 type: string
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *               purchasedVariant:
+ *                 type: object
+ *                 properties:
+ *                   color:
+ *                     type: string
+ *                   size:
+ *                     type: string
+ *                   material:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: Review added successfully
+ */
+router.post('/:id/reviews',
+  authMiddleware.verifyToken,
+  upload.array('images', 5), 
+  productController.addReview
+);
+
+/**
+ * @swagger
+ * /api/products/{id}/reviews:
+ *   get:
+ *     summary: Get product reviews
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Reviews retrieved successfully
+ */
+router.get('/:id/reviews', productController.getProductReviews);
+
+/**
+ * @swagger
+ * /api/products/{id}/reviews/{reviewId}:
+ *   put:
+ *     summary: Update a product review
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               rating:
+ *                 type: number
+ *               comment:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Review updated successfully
+ */
+router.put('/:id/reviews/:reviewId',
+  authMiddleware.verifyToken,
+  productController.updateReview
+);
+
+/**
+ * @swagger
+ * /api/products/{productId}/reviews/{reviewId}:
+ *   get:
+ *     summary: Get detailed information about a specific review
+ *     description: Retrieves comprehensive details about a specific product review including product info, buyer details, and seller's reply if available.
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the review
+ *     responses:
+ *       200:
+ *         description: Review details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 reviewId:
+ *                   type: string
+ *                   description: ID of the review
+ *                 product:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       description: ID of the product
+ *                     name:
+ *                       type: string
+ *                       description: Name of the product
+ *                     price:
+ *                       type: number
+ *                       description: Price of the product
+ *                     description:
+ *                       type: string
+ *                       description: Description of the product
+ *                     image:
+ *                       type: string
+ *                       description: URL to the product's main image
+ *                 buyer:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       description: ID of the buyer
+ *                     firstName:
+ *                       type: string
+ *                       description: First name of the buyer
+ *                     lastName:
+ *                       type: string
+ *                       description: Last name of the buyer
+ *                     profileImage:
+ *                       type: string
+ *                       description: URL to the buyer's profile image
+ *                 rating:
+ *                   type: number
+ *                   description: Rating given by the buyer (1-5)
+ *                 title:
+ *                   type: string
+ *                   description: Title of the review
+ *                 comment:
+ *                   type: string
+ *                   description: Detailed review comment
+ *                 images:
+ *                   type: array
+ *                   description: Images attached to the review
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                       contentType:
+ *                         type: string
+ *                 purchasedVariant:
+ *                   type: object
+ *                   description: Details of the specific variant purchased
+ *                   properties:
+ *                     color:
+ *                       type: string
+ *                     size:
+ *                       type: string
+ *                     material:
+ *                       type: string
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                   description: Date when the review was created
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
+ *                   description: Date when the review was last updated
+ *                 reply:
+ *                   type: object
+ *                   description: Seller's reply to the review, if any
+ *                   properties:
+ *                     content:
+ *                       type: string
+ *                       description: Content of the seller's reply
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Date when the reply was created
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       description: Date when the reply was last updated
+ *                     seller:
+ *                       type: object
+ *                       description: Information about the seller who replied
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                           description: ID of the seller
+ *                         name:
+ *                           type: string
+ *                           description: Display name of the seller (store name, business name, or full name)
+ *                         avatar:
+ *                           type: string
+ *                           description: URL to the seller's store avatar
+ *       404:
+ *         description: Product or review not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:productId/reviews/:reviewId', productController.getReviewDetails);
+
+/**
+ * @swagger
+ * /api/products/{id}/visibility:
+ *   put:
+ *     summary: Update product visibility
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               visibility:
+ *                 type: string
+ *                 enum: [visible, hidden, featured]
+ *     responses:
+ *       200:
+ *         description: Visibility updated successfully
+ */
+router.put('/:id/visibility',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.updateVisibility
+);
+
+/**
+ * @swagger
+ * /api/products/seller/{sellerId}:
+ *   get:
+ *     summary: Get all products for a specific seller
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [draft, active, archived, out_of_stock]
+ *         description: Filter by product status
+ *       - in: query
+ *         name: visibility
+ *         schema:
+ *           type: string
+ *           enum: [visible, hidden, featured]
+ *         description: Filter by visibility status
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Filter products with price greater than or equal to this value
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Filter products with price less than or equal to this value
+ *       - in: query
+ *         name: condition
+ *         schema:
+ *           type: string
+ *           enum: [new, fairly used]
+ *         description: Filter products by condition (case-insensitive)
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest, price_asc, price_desc, best_selling]
+ *         description: Sort products by specific criteria
+ *     responses:
+ *       200:
+ *         description: Seller's products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *                 totalPages:
+ *                   type: integer
+ *                 currentPage:
+ *                   type: integer
+ *                 totalProducts:
+ *                   type: integer
+ *       404:
+ *         description: Seller not found
+ */
+router.get('/seller/:sellerId', productController.getSellerProducts);
+
+/**
+ * @swagger
+ * /api/products/{id}:
+ *   delete:
+ *     summary: Delete a single product
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID to delete
+ *     responses:
+ *       200:
+ *         description: Product deleted successfully
+ *       403:
+ *         description: Not authorized to delete this product
+ *       404:
+ *         description: Product not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:id',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.deleteProduct
+);
+
+/**
+ * @swagger
+ * /api/products/{id}/sold-count:
+ *   get:
+ *     summary: Get product's sold count
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product sold count retrieved successfully
+ *       404:
+ *         description: Product not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/:id/sold-count', productController.getProductSoldCount);
+
+/**
+ * @swagger
+ * /api/products/{id}/discount:
+ *   put:
+ *     summary: Update product discount
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isActive:
+ *                 type: boolean
+ *               type:
+ *                 type: string
+ *               value:
+ *                 type: number
+ *               startDate:
+ *                 type: string
+ *               endDate:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Discount updated successfully
+ */
+router.put('/:id/discount', 
+  authMiddleware.verifyToken, 
+  authMiddleware.isSeller, 
+  productController.updateProductDiscount
+);
+
+/**
+ * @swagger
+ * /api/products/{id}/blips/{blipId}:
+ *   get:
+ *     summary: Get details of a specific blip
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Blip ID
+ *     responses:
+ *       200:
+ *         description: Blip details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 blip:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     url:
+ *                       type: string
+ *                     contentType:
+ *                       type: string
+ *                     likesCount:
+ *                       type: number
+ *                     viewCount:
+ *                       type: number
+ *                     commentsCount:
+ *                       type: number
+ *                     isLiked:
+ *                       type: boolean
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                     comments:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           buyer:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               firstName:
+ *                                 type: string
+ *                               lastName:
+ *                                 type: string
+ *                               profileImage:
+ *                                 type: object
+ *                           comment:
+ *                             type: string
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                           likesCount:
+ *                             type: number
+ *                           repliesCount:
+ *                             type: number
+ *                     productInfo:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         seller:
+ *                           type: object
+ *                           properties:
+ *                             _id:
+ *                               type: string
+ *                             storeName:
+ *                               type: string
+ *                             businessName:
+ *                               type: string
+ *                             storeAvatar:
+ *                               type: object
+ *       400:
+ *         description: Invalid product or blip ID format
+ *       404:
+ *         description: Product or blip not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/blips/:blipId', optionalAuthMiddleware, blipsController.getBlipDetails);
+
+/**
+ * @swagger
+ * /api/products/{id}/blips/{blipId}/like:
+ *   post:
+ *     summary: Toggle like on a product blip
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Blip ID
+ *     responses:
+ *       200:
+ *         description: Blip liked/unliked successfully
+ *       404:
+ *         description: Product or blip not found
+ */
+router.post('/:id/blips/:blipId/like',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  blipsController.toggleBlipLike
+);
+
+/**
+ * @swagger
+ * /api/products/{id}/blips/{blipId}/comments:
+ *   post:
+ *     summary: Add a comment to a product blip
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Blip ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               comment:
+ *                 type: string
+ *                 required: true
+ *     responses:
+ *       201:
+ *         description: Comment added successfully
+ *       404:
+ *         description: Product or blip not found
+ */
+router.post('/:id/blips/:blipId/comments',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  blipsController.addBlipComment
+);
+
+/**
+ * @swagger
+ * /api/products/{id}/blips/{blipId}/comments:
+ *   get:
+ *     summary: Get comments for a product blip
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Blip ID
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Comments retrieved successfully
+ *       404:
+ *         description: Product or blip not found
+ */
+router.get('/:id/blips/:blipId/comments', optionalAuthMiddleware, blipsController.getBlipComments);
+
+/**
+ * @swagger
+ * /api/products/{id}/blips/{blipId}/view:
+ *   post:
+ *     summary: Record a view for a product blip
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Product ID
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Blip ID
+ *     responses:
+ *       200:
+ *         description: View recorded successfully
+ *       404:
+ *         description: Product or blip not found
+ */
+router.post('/:id/blips/:blipId/view',
+  authMiddleware.verifyToken,
+  blipsController.recordBlipView
+);
+
+/**
+ * @swagger
+ * /api/products/{productId}/blips/{blipId}/comments/{commentId}/replies:
+ *   post:
+ *     summary: Add a reply to a blip comment
+ *     description: Allows both buyers and sellers to reply to comments on product blips. Sellers can only reply to comments on their own products.
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the comment
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - comment
+ *             properties:
+ *               comment:
+ *                 type: string
+ *                 description: The reply text
+ *     responses:
+ *       201:
+ *         description: Reply added successfully
+ *       400:
+ *         description: Bad request
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - Sellers can only reply to comments on their own products
+ *       404:
+ *         description: Product, blip, or comment not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:productId/blips/:blipId/comments/:commentId/replies', 
+  authMiddleware.verifyToken,
+  blipsController.addReplyToBlipComment
+);
+
+/**
+ * @swagger
+ * /api/products/{productId}/blips/{blipId}/comments/{commentId}/like:
+ *   post:
+ *     summary: Like or unlike a blip comment
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the comment
+ *     responses:
+ *       200:
+ *         description: Comment liked or unliked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 liked:
+ *                   type: boolean
+ *                 likesCount:
+ *                   type: number
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Product, blip, or comment not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:productId/blips/:blipId/comments/:commentId/like', authMiddleware.verifyToken, blipsController.likeBlipComment);
+
+/**
+ * @swagger
+ * /api/products/{productId}/blips/{blipId}/comments/{commentId}/replies/{replyId}/like:
+ *   post:
+ *     summary: Like or unlike a reply to a blip comment
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the comment
+ *       - in: path
+ *         name: replyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the reply
+ *     responses:
+ *       200:
+ *         description: Reply liked or unliked successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 liked:
+ *                   type: boolean
+ *                 likesCount:
+ *                   type: number
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Product, blip, comment, or reply not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:productId/blips/:blipId/comments/:commentId/replies/:replyId/like', authMiddleware.verifyToken, blipsController.likeBlipCommentReply);
+
+/**
+ * @swagger
+ * /api/products/seller/{sellerId}/categories:
+ *   get:
+ *     summary: Get categories where a seller has products
+ *     description: Retrieve all categories for a specific seller where they have products
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *     responses:
+ *       200:
+ *         description: List of categories
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 3
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Category'
+ *       400:
+ *         description: Invalid seller ID format
+ *       404:
+ *         description: No products found for this seller
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId/categories', productController.getSellerProductCategories);
+
+/**
+ * @swagger
+ * /api/products/{productId}/blips/{blipId}/comments/{commentId}/replies:
+ *   get:
+ *     summary: Get replies for a specific blip comment
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the comment
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number for pagination
+ *         default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Number of replies per page
+ *         default: 10
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved comment replies
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 replies:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       user:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                       comment:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       likes:
+ *                         type: array
+ *                       likesCount:
+ *                         type: number
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalReplies:
+ *                       type: integer
+ *       404:
+ *         description: Product, blip, or comment not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:productId/blips/:blipId/comments/:commentId/replies', optionalAuthMiddleware, blipsController.getBlipCommentReplies);
+
+/**
+ * @swagger
+ * /api/products/{productId}/bid:
+ *   post:
+ *     summary: Place a bid on an auction product
+ *     description: |
+ *       Place a bid on an auction product. The bid must be:
+ *       - Higher than the minimum bid amount
+ *       - Higher than the current highest bid
+ *       If endOnMaxBid is enabled and the bid reaches or exceeds the maximum bid, 
+ *       the auction will end immediately and the bidder will be declared the winner.
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the auction product
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amount
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Bid amount (must be higher than minimum bid and current highest bid)
+ *     responses:
+ *       200:
+ *         description: Bid placed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Bid placed successfully
+ *                 bid:
+ *                   type: object
+ *                   properties:
+ *                     amount:
+ *                       type: number
+ *                     buyer:
+ *                       type: string
+ *                     auctionEnded:
+ *                       type: boolean
+ *                       description: Indicates if the auction ended due to reaching max bid
+ *       400:
+ *         description: Invalid bid amount or auction status
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Bid amount must be higher than current highest bid
+ *       401:
+ *         description: Not authenticated
+ *       404:
+ *         description: Product not found
+ */
+router.post('/:productId/bid',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  productController.placeBid
+);
+
+/**
+ * @swagger
+ * /api/products/{productId}/bids:
+ *   get:
+ *     summary: Get all bids for an auction product
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the auction product
+ *     responses:
+ *       200:
+ *         description: List of bids retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 bids:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       buyer:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           firstName:
+ *                             type: string
+ *                           lastName:
+ *                             type: string
+ *                       amount:
+ *                         type: number
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       status:
+ *                         type: string
+ *                         enum: [active, outbid, won, lost]
+ *                 currentHighestBid:
+ *                   type: object
+ *                   properties:
+ *                     amount:
+ *                       type: number
+ *                     buyer:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         firstName:
+ *                           type: string
+ *                         lastName:
+ *                           type: string
+ *                 winner:
+ *                   type: object
+ *                   properties:
+ *                     buyer:
+ *                       type: object
+ *                       properties:
+ *                         _id:
+ *                           type: string
+ *                         firstName:
+ *                           type: string
+ *                         lastName:
+ *                           type: string
+ *                     bidAmount:
+ *                       type: number
+ *                     winningDate:
+ *                       type: string
+ *                       format: date-time
+ *                 status:
+ *                   type: string
+ *                   enum: [scheduled, ongoing, ended]
+ *                 daysLeft:
+ *                   type: number
+ *       404:
+ *         description: Product not found
+ */
+router.get('/:productId/bids', productController.getAuctionBids);
+
+
+
+/**
+ * @swagger
+ * /api/products/seller/{sellerId}/auctions:
+ *   get:
+ *     summary: Get all offline auction products for a specific seller
+ *     description: Retrieve a list of all offline auction products for a specific seller with optional filtering
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [scheduled, ongoing, ended]
+ *         description: Filter auctions by status
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [endDate, startDate, currentBid]
+ *         description: Sort auctions by specific fields
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: List of seller's auction products retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 products:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       auction:
+ *                         type: object
+ *                         properties:
+ *                           minBid:
+ *                             type: number
+ *                           maxBid:
+ *                             type: number
+ *                           endOnMaxBid:
+ *                             type: boolean
+ *                           startDate:
+ *                             type: string
+ *                           endDate:
+ *                             type: string
+ *                           status:
+ *                             type: string
+ *                           currentHighestBid:
+ *                             type: object
+ *                             properties:
+ *                               amount:
+ *                                 type: number
+ *                           daysLeft:
+ *                             type: number
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalProducts:
+ *                       type: integer
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId/auctions', productController.getSellerAuctionProducts);
+
+/**
+ * @swagger
+ * /api/products/category/{category}/subcategory/{subcategory}:
+ *   get:
+ *     summary: Get products by category and subcategory
+ *     description: Retrieve products filtered by both category and subcategory with pagination and sorting options
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: category
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category name
+ *       - in: path
+ *         name: subcategory
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Subcategory name
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Filter products with price greater than or equal to this value
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Filter products with price less than or equal to this value
+ *       - in: query
+ *         name: condition
+ *         schema:
+ *           type: string
+ *           enum: [new, fairly used]
+ *         description: Filter products by condition (case-insensitive)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [price_asc, price_desc, newest, oldest, popular, best_selling, rating]
+ *           default: newest
+ *         description: Field to sort by
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order
+ *     responses:
+ *       200:
+ *         description: List of products with pagination details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 5
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *                 totalProducts:
+ *                   type: integer
+ *                   example: 20
+ *                 currentPage:
+ *                   type: integer
+ *                   example: 1
+ *                 totalPages:
+ *                   type: integer
+ *                   example: 4
+ *       500:
+ *         description: Server error
+ */
+router.get('/category/:category/subcategory/:subcategory', optionalAuthMiddleware, productController.getProductsByCategoryAndSubcategory);
+
+/**
+ * @swagger
+ * /api/products/category/{category}:
+ *   get:
+ *     summary: Get products by category
+ *     description: Retrieve products filtered by category only (without subcategory filter) with pagination and sorting options
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: category
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category name
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Filter products with price greater than or equal to this value
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Filter products with price less than or equal to this value
+ *       - in: query
+ *         name: condition
+ *         schema:
+ *           type: string
+ *           enum: [new, fairly used]
+ *         description: Filter products by condition (case-insensitive)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [price_asc, price_desc, newest, oldest, popular, best_selling, rating]
+ *           default: newest
+ *         description: Field to sort by
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order
+ *     responses:
+ *       200:
+ *         description: List of products with pagination details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 5
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *                 totalProducts:
+ *                   type: integer
+ *                   example: 20
+ *                 currentPage:
+ *                   type: integer
+ *                   example: 1
+ *                 totalPages:
+ *                   type: integer
+ *                   example: 4
+ *                 filters:
+ *                   type: object
+ *                   properties:
+ *                     category:
+ *                       type: string
+ *                     priceRange:
+ *                       type: object
+ *                       properties:
+ *                         min:
+ *                           type: number
+ *                         max:
+ *                           type: number
+ *                     condition:
+ *                       type: string
+ *                     sortBy:
+ *                       type: string
+ *                     order:
+ *                       type: string
+ *       500:
+ *         description: Server error
+ */
+router.get('/category/:category', optionalAuthMiddleware, productController.getProductsByCategory);
+
+/**
+ * @swagger
+ * /api/products/category/{category}/subcategories:
+ *   get:
+ *     summary: Get all subcategories with products for a category
+ *     description: Retrieve all subcategories that have products for a specific category with product counts
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: category
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category name
+ *     responses:
+ *       200:
+ *         description: List of subcategories with product counts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 3
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                         example: "summer dresses"
+ *                       productCount:
+ *                         type: integer
+ *                         example: 12
+ *       404:
+ *         description: No products found for this category
+ *       500:
+ *         description: Server error
+ */
+router.get('/category/:category/subcategories', productController.getSubcategoriesWithProducts);
+
+/**
+ * @swagger
+ * /api/products/seller/{sellerId}/category/{category}/subcategory/{subcategory}:
+ *   get:
+ *     summary: Get products by seller, category and subcategory
+ *     description: Retrieve products for a specific seller filtered by both category and subcategory with pagination and sorting
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: path
+ *         name: category
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category name
+ *       - in: path
+ *         name: subcategory
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Subcategory name
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [price_asc, price_desc, newest, oldest, popular, best_selling, rating]
+ *           default: newest
+ *         description: Field to sort by
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order
+ *     responses:
+ *       200:
+ *         description: List of products with pagination details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 5
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *                 totalProducts:
+ *                   type: integer
+ *                   example: 20
+ *                 currentPage:
+ *                   type: integer
+ *                   example: 1
+ *                 totalPages:
+ *                   type: integer
+ *                   example: 4
+ *       400:
+ *         description: Invalid seller ID format
+ *       404:
+ *         description: Seller not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId/category/:category/subcategory/:subcategory', optionalAuthMiddleware, productController.getProductsBySellerCategoryAndSubcategory);
+
+/**
+ * @swagger
+ * /api/products/seller/{sellerId}/category/{category}/subcategories:
+ *   get:
+ *     summary: Get all subcategories with products for a seller and category
+ *     description: Retrieve all subcategories that have products for a specific seller and category with product counts
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: path
+ *         name: category
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Category name
+ *     responses:
+ *       200:
+ *         description: List of subcategories with product counts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   example: 3
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                         example: "summer dresses"
+ *                       productCount:
+ *                         type: integer
+ *                         example: 8
+ *       400:
+ *         description: Invalid seller ID format
+ *       404:
+ *         description: Seller not found or no products found
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId/category/:category/subcategories', productController.getSellerSubcategoriesWithProducts);
+
+/**
+ * @swagger
+ * /api/products/blips/personalized:
+ *   get:
+ *     summary: Get personalized blips feed
+ *     description: Returns a personalized feed of blips based on user preferences if authenticated, or popular blips if not
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: Successful response with blips
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     blips:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           productName:
+ *                             type: string
+ *                           category:
+ *                             type: string
+ *                           subCategory:
+ *                             type: string
+ *                           seller:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               storeName:
+ *                                 type: string
+ *                               businessName:
+ *                                 type: string
+ *                               storeAvatar:
+ *                                 type: string
+ *                               isVerified:
+ *                                 type: boolean
+ *                           blip:
+ *                             type: object
+ *                             properties:
+ *                               url:
+ *                                 type: string
+ *                               thumbnail:
+ *                                 type: string
+ *                               contentType:
+ *                                 type: string
+ *                               likes:
+ *                                 type: array
+ *                                 items:
+ *                                   type: object
+ *                                   properties:
+ *                                     _id:
+ *                                       type: string
+ *                                     firstName:
+ *                                       type: string
+ *                                     lastName:
+ *                                       type: string
+ *                                     profileImage:
+ *                                       type: string
+ *                               likesCount:
+ *                                 type: number
+ *                               viewCount:
+ *                                 type: number
+ *                               comments:
+ *                                 type: array
+ *                                 items:
+ *                                   type: object
+ *                                   properties:
+ *                                     buyer:
+ *                                       type: object
+ *                                       properties:
+ *                                         _id:
+ *                                           type: string
+ *                                         firstName:
+ *                                           type: string
+ *                                         lastName:
+ *                                           type: string
+ *                                         profileImage:
+ *                                           type: string
+ *                                     comment:
+ *                                       type: string
+ *                                     createdAt:
+ *                                       type: string
+ *                                       format: date-time
+ *                               commentsCount:
+ *                                 type: number
+ *                               createdAt:
+ *                                 type: string
+ *                                 format: date-time
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: number
+ *                         pages:
+ *                           type: number
+ *                         currentPage:
+ *                           type: number
+ *                         limit:
+ *                           type: number
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: string
+ */
+router.get('/blips/personalized', optionalAuthMiddleware, blipsController.getPersonalizedBlips);
+
+/**
+ * @swagger
+ * /api/products/{productId}/rerun-auction:
+ *   post:
+ *     summary: Rerun an ended offline auction
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the auction product
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: New start date for the auction (optional, defaults to current time)
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *                 required: true
+ *                 description: New end date for the auction
+ *               minBid:
+ *                 type: number
+ *                 description: New minimum bid amount (optional, defaults to previous minBid)
+ *               maxBid:
+ *                 type: number
+ *                 description: New maximum bid amount (optional, defaults to previous maxBid)
+ *               endOnMaxBid:
+ *                 type: boolean
+ *                 description: Whether to end auction when max bid is reached (optional)
+ *     responses:
+ *       200:
+ *         description: Auction successfully rerun
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Auction successfully rerun
+ *                 auction:
+ *                   type: object
+ *                   properties:
+ *                     status:
+ *                       type: string
+ *                       example: scheduled
+ *                     startDate:
+ *                       type: string
+ *                       format: date-time
+ *                     endDate:
+ *                       type: string
+ *                       format: date-time
+ *                     minBid:
+ *                       type: number
+ *                     maxBid:
+ *                       type: number
+ *       400:
+ *         description: Invalid request or auction cannot be rerun
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - not the owner of the auction
+ *       404:
+ *         description: Product not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:productId/rerun-auction', authMiddleware.verifyToken, authMiddleware.isSeller, productController.rerunOfflineAuction);
+
+/**
+ * @swagger
+ * /api/products/{productId}/reviews/{reviewId}/reply:
+ *   post:
+ *     summary: Add or update a seller's reply to a product review
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: reviewId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the review to reply to
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - content
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 description: The reply content
+ *     responses:
+ *       200:
+ *         description: Reply added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 review:
+ *                   type: object
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Product or review not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:productId/reviews/:reviewId/reply',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  productController.replyToProductReview
+);
+
+/**
+ * @swagger
+ * /api/products/{productId}/blips:
+ *   post:
+ *     summary: Add blips to a product
+ *     description: Add one or more video blips to an existing product (max 5 blips total per product, max 50MB per file)
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - blipVideos
+ *             properties:
+ *               blipVideos:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Blip video files to upload (max 5, max 50MB each)
+ *     responses:
+ *       201:
+ *         description: Blips added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 blips:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       url:
+ *                         type: string
+ *                       contentType:
+ *                         type: string
+ *                       thumbnail:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *       400:
+ *         description: Invalid request or no files uploaded
+ *       404:
+ *         description: Product not found or not owned by seller
+ *       413:
+ *         description: File too large - exceeds 50MB limit
+ *       500:
+ *         description: Server error
+ */
+router.post('/:productId/blips',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  (req, res, next) => {
+    upload.array('blipVideos', 5)(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(413).json({
+            success: false,
+            message: 'File too large. Maximum file size is 50MB.'
+          });
+        } else if (err.code === 'LIMIT_FIELD_VALUE') {
+          return res.status(413).json({
+            success: false,
+            message: 'Field value too large. Maximum field size is 50MB.'
+          });
+        }
+        return res.status(400).json({
+          success: false,
+          message: `Multer error: ${err.message}`
+        });
+      } else if (err) {
+        return res.status(500).json({
+          success: false,
+          message: `Error uploading files: ${err.message}`
+        });
+      }
+      next();
+    });
+  },
+  blipsController.addBlipToProduct
+);
+
+/**
+ * @swagger
+ * /api/products/seller/{sellerId}/search:
+ *   get:
+ *     summary: Search seller's products
+ *     description: Search and filter products from a specific seller with various parameters
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: sellerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the seller
+ *       - in: query
+ *         name: query
+ *         schema:
+ *           type: string
+ *         description: Search query to match against product name, description, or category
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by specific category
+ *       - in: query
+ *         name: minPrice
+ *         schema:
+ *           type: number
+ *         description: Minimum price filter
+ *       - in: query
+ *         name: maxPrice
+ *         schema:
+ *           type: number
+ *         description: Maximum price filter
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [createdAt, price, name, popularity, rating]
+ *         description: Field to sort by
+ *         default: createdAt
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *         description: Sort order
+ *         default: desc
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of products per page
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Product'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *                     totalProducts:
+ *                       type: integer
+ *                     hasMore:
+ *                       type: boolean
+ *       400:
+ *         description: Invalid seller ID format
+ *       500:
+ *         description: Server error
+ */
+router.get('/seller/:sellerId/search', productController.searchSellerProducts);
+
+/**
+ * @swagger
+ * /api/products/blips/{blipId}/related:
+ *   get:
+ *     summary: Get related blips based on a specific blip
+ *     description: Returns blips related to the specified blip. If no related blips are found, returns random blips.
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip to get related content for
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 10
+ *         description: Number of blips per page
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved related blips
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 blips:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       blipId:
+ *                         type: string
+ *                       blipUrl:
+ *                         type: string
+ *                       thumbnail:
+ *                         type: string
+ *                       productId:
+ *                         type: string
+ *                       productName:
+ *                         type: string
+ *                       price:
+ *                         type: number
+ *                       stock:
+ *                         type: number
+ *                       status:
+ *                         type: string
+ *                       images:
+ *                         type: string
+ *                       blipEngagement:
+ *                         type: object
+ *                         properties:
+ *                           likesCount:
+ *                             type: number
+ *                           commentsCount:
+ *                             type: number
+ *                           viewCount:
+ *                             type: number
+ *                           isLiked:
+ *                             type: boolean
+ *                       seller:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           firstName:
+ *                             type: string
+ *                           lastName:
+ *                             type: string
+ *                           storeName:
+ *                             type: string
+ *                           storeAvatar:
+ *                             type: string
+ *                           aboutStore:
+ *                             type: string
+ *                           storeRating:
+ *                             type: number
+ *                           totalStoreReviews:
+ *                             type: number
+ *                           isFollowing:
+ *                             type: boolean
+ *                           isFeatured:
+ *                             type: boolean
+ *                 currentPage:
+ *                   type: integer
+ *                   description: Current page number
+ *                 totalPages:
+ *                   type: integer
+ *                   description: Total number of pages
+ *                 totalBlips:
+ *                   type: integer
+ *                   description: Total number of blips
+ *                 hasMore:
+ *                   type: boolean
+ *                   description: Whether there are more pages available
+ *       404:
+ *         description: Blip not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/blips/:blipId/related', optionalAuthMiddleware, blipsController.getRelatedBlips);
+
+/**
+ * @swagger
+ * /api/products/{productId}/blips/{blipId}:
+ *   delete:
+ *     summary: Delete a blip from a product
+ *     description: Allows a seller to delete a blip video from their product
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the product
+ *       - in: path
+ *         name: blipId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the blip to delete
+ *     responses:
+ *       200:
+ *         description: Blip deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Blip deleted successfully
+ *                 deletedBlip:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       description: ID of the deleted blip
+ *                     url:
+ *                       type: string
+ *                       description: URL of the deleted blip video
+ *                     thumbnail:
+ *                       type: string
+ *                       description: URL of the deleted blip thumbnail
+ *       400:
+ *         description: Invalid product or blip ID format
+ *       401:
+ *         description: Unauthorized - not logged in or not a seller
+ *       403:
+ *         description: Forbidden - not the owner of the product
+ *       404:
+ *         description: Product or blip not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:productId/blips/:blipId',
+  authMiddleware.verifyToken,
+  authMiddleware.isSeller,
+  blipsController.deleteBlipFromProduct
+);
+
+module.exports = router;

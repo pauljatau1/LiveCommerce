@@ -1,0 +1,202 @@
+// Mock dependencies before importing the service
+jest.mock('@models/Buyer', () => ({
+  findOne: jest.fn()
+}));
+jest.mock('@services/termiiEmailService', () => ({
+  sendRawHTMLEmail: jest.fn().mockResolvedValue(true)
+}));
+jest.mock('fs', () => ({
+  readFileSync: jest.fn()
+}));
+jest.mock('path', () => ({
+  join: jest.fn()
+}));
+jest.mock('@modules/buyer/validators/resendOTP.validator', () => ({
+  validateResendOTPData: jest.fn()
+}));
+
+const { resendOTP } = require('@modules/buyer/services/resendOTP.service');
+const termiiEmailService = require('@services/termiiEmailService');
+const ValidationError = require('@utils/errors/ValidationError');
+const NotFoundException = require('@utils/errors/NotFoundException');
+
+// Mock fs module
+const fs = require('fs');
+
+describe('resendOTP.service', () => {
+  let mockBuyer;
+  let Buyer;
+  let fs;
+  let path;
+  let mockTemplateContent;
+
+  beforeAll(() => {
+    process.env.TERMII_API_KEY = 'test-key';
+  });
+
+  beforeEach(() => {
+    // Reset all mocks
+    jest.clearAllMocks();
+
+    // Explicitly check that mocked module is reset to success
+    termiiEmailService.sendRawHTMLEmail.mockResolvedValue(true);
+
+    // Get the mocked modules
+    Buyer = require('@models/Buyer');
+    fs = require('fs');
+    path = require('path');
+
+    // Mock buyer data
+    mockBuyer = {
+      _id: 'buyer123',
+      firstName: 'John',
+      email: 'test@example.com',
+      otp: '1234',
+      save: jest.fn().mockResolvedValue(true)
+    };
+
+    // Mock Buyer.findOne
+    Buyer.findOne.mockResolvedValue(mockBuyer);
+
+    // Read the actual template file from disk
+    mockTemplateContent = '<div>{{otp}}</div>';
+
+    // Mock fs.readFileSync to return the mock template
+    fs.readFileSync.mockReturnValue(mockTemplateContent);
+
+    // Mock path.join
+    path.join.mockReturnValue('/mock/path/to/template.html');
+
+    // Mock validator
+    const validator = require('@modules/buyer/validators/resendOTP.validator');
+    validator.validateResendOTPData.mockImplementation(() => { });
+  });
+
+  describe('resendOTP', () => {
+    it('should successfully resend OTP to valid email', async () => {
+      // Arrange
+      const email = 'test@example.com';
+      const validator = require('@modules/buyer/validators/resendOTP.validator');
+      validator.validateResendOTPData.mockImplementation(() => {
+        // Don't throw error for valid email
+      });
+
+      // Act
+      const result = await resendOTP(email);
+
+      // Assert
+      expect(Buyer.findOne).toHaveBeenCalledWith({ email });
+      expect(mockBuyer.save).toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).toHaveBeenCalled();
+      expect(result).toEqual({
+        message: 'OTP resent successfully'
+      });
+    });
+
+    it('should throw NotFoundException when buyer not found', async () => {
+      // Arrange
+      const email = 'nonexistent@example.com';
+      Buyer.findOne.mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(resendOTP(email)).rejects.toThrow(NotFoundException);
+      expect(Buyer.findOne).toHaveBeenCalledWith({ email });
+      expect(mockBuyer.save).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
+    });
+
+    it('should throw ValidationError when email is missing', async () => {
+      // Arrange
+      const email = '';
+      const validator = require('@modules/buyer/validators/resendOTP.validator');
+      validator.validateResendOTPData.mockRejectedValue(new ValidationError([{ field: 'email', message: 'Email is required' }]));
+
+      // Act & Assert
+      await expect(resendOTP(email)).rejects.toThrow(ValidationError);
+      expect(Buyer.findOne).not.toHaveBeenCalled();
+      expect(mockBuyer.save).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
+    });
+
+    it('should throw ValidationError when email is invalid', async () => {
+      // Arrange
+      const email = 'invalid-email';
+      const validator = require('@modules/buyer/validators/resendOTP.validator');
+      validator.validateResendOTPData.mockRejectedValue(new ValidationError([{ field: 'email', message: 'Email must be a valid email address' }]));
+
+      // Act & Assert
+      await expect(resendOTP(email)).rejects.toThrow(ValidationError);
+      expect(Buyer.findOne).not.toHaveBeenCalled();
+      expect(mockBuyer.save).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
+    });
+
+    it('should throw ValidationError when email is not a string', async () => {
+      // Arrange
+      const email = 123;
+      const validator = require('@modules/buyer/validators/resendOTP.validator');
+      validator.validateResendOTPData.mockRejectedValue(new ValidationError([{ field: 'email', message: 'Email must be a string' }]));
+
+      // Act & Assert
+      await expect(resendOTP(email)).rejects.toThrow(ValidationError);
+      expect(Buyer.findOne).not.toHaveBeenCalled();
+      expect(mockBuyer.save).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
+    });
+
+    it('should handle Termii error', async () => {
+      // Arrange
+      const email = 'test@example.com';
+      const termiiError = new Error('Termii API error');
+      termiiEmailService.sendRawHTMLEmail.mockRejectedValue(termiiError);
+
+      // Act & Assert
+      await expect(resendOTP(email)).rejects.toThrow('Termii API error');
+      expect(Buyer.findOne).toHaveBeenCalledWith({ email });
+      expect(mockBuyer.save).toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).toHaveBeenCalled();
+    });
+
+    it('should handle database save error', async () => {
+      // Arrange
+      const email = 'test@example.com';
+      const saveError = new Error('Database save error');
+      mockBuyer.save.mockRejectedValue(saveError);
+
+      // Act & Assert
+      await expect(resendOTP(email)).rejects.toThrow('Database save error');
+      expect(Buyer.findOne).toHaveBeenCalledWith({ email });
+      expect(mockBuyer.save).toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
+    });
+
+    it('should handle database find error', async () => {
+      // Arrange
+      const email = 'test@example.com';
+      const findError = new Error('Database find error');
+      Buyer.findOne.mockRejectedValue(findError);
+
+      // Act & Assert
+      await expect(resendOTP(email)).rejects.toThrow('Database find error');
+      expect(Buyer.findOne).toHaveBeenCalledWith({ email });
+      expect(mockBuyer.save).not.toHaveBeenCalled();
+      expect(termiiEmailService.sendRawHTMLEmail).not.toHaveBeenCalled();
+    });
+
+    it('should generate new OTP and update buyer', async () => {
+      // Arrange
+      const email = 'test@example.com';
+      const originalOTP = mockBuyer.otp;
+      const validator = require('@modules/buyer/validators/resendOTP.validator');
+      validator.validateResendOTPData.mockResolvedValue();
+
+      // Act
+      await resendOTP(email);
+
+      // Assert
+      expect(mockBuyer.otp).not.toBe(originalOTP);
+      expect(mockBuyer.otp).toMatch(/^\d{4}$/);
+      expect(mockBuyer.save).toHaveBeenCalled();
+    });
+  });
+});

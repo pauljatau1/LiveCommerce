@@ -1,0 +1,30 @@
+<div style="background-color: #1a1a1a; color: #ffffff; padding: 10px; font-family: 'Arial', sans-serif; line-height: 1.6;">
+  <div style="max-width: 600px; margin: 0 auto; border-radius: 8px; overflow: hidden;">
+    <div style="padding: 25px; text-align: center;">
+      <img src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png" alt="Auqli Logo" style="width: 180px; margin-bottom: 20px;">
+    </div>
+
+    <div style="background-color: #242424; padding: 30px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+      <h1 style="color: {{statusColor}}; margin-bottom: 20px; font-size: 24px; text-align: center;">Identity Verification {{statusText}}</h1>
+      <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">Hi {{firstName}},</p>
+      <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">
+        Your identity verification using SmileID has been {{statusMessage}}. 
+        {{nextStepsMessage}}
+      </p>
+
+      <div style="background-color: #333333; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center; border-left: 4px solid {{statusColor}};">
+        <h3 style="color: {{statusColor}}; margin-bottom: 15px; font-size: 18px;">{{statusTitle}}</h3>
+        <p style="font-size: 16px; margin-bottom: 15px;">{{statusDescription}}</p>
+        {{additionalInfo}}
+      </div>
+
+      <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">If you have any questions, our support team is here to help you succeed.</p>
+    </div>
+
+    <div style="text-align: center; padding: 0 30px 30px 30px;">
+      <p style="font-size: 14px; color: #999999; margin-bottom: 20px;">If you have any questions, contact our support team at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+      <div style="margin: 20px 0; height: 1px; background-color: #333333;"></div>
+      <p style="font-size: 12px; color: #666666;">© {{year}} Auqli. All rights reserved.</p>
+    </div>
+  </div>
+</div>

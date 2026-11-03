@@ -1,0 +1,490 @@
+paths:
+  /admin/webhooks:
+    post:
+      summary: Create a new webhook
+      tags:
+        - Admin Webhooks
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of webhook.
+                active:
+                  type: boolean
+                  description: Indicated if webook is active. If set to false, events will not be sent to the endpoint.
+                events:
+                  type: array
+                  items:
+                    type: string
+                  description: List of webhook event types.
+                live:
+                  type: boolean
+                  description: Indicate if endpoint is for test or live events.
+                url:
+                  type: string
+                  description: Endpoint url for receiving webhook events. If live is set to true, must provide https endpoint.
+              example:
+                name: "Shipment Create"
+                active: true
+                events: ["shipment.created"]
+                live: true
+                url: "https://terminal-africa.com/webhooks/shipmonk"
+      responses:
+        '201':
+          description: Webhook created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      active:
+                        type: boolean
+                      events:
+                        type: array
+                        items:
+                          type: string
+                      live:
+                        type: boolean
+                      name:
+                        type: string
+                      url:
+                        type: string
+                      user:
+                        type: string
+                      webhook_id:
+                        type: string
+                      created_at:
+                        type: string
+                        format: date-time
+                      updated_at:
+                        type: string
+                        format: date-time
+                example:
+                  status: true
+                  message: "Webhook created successfully"
+                  data:
+                    active: true
+                    events: ["shipment.created"]
+                    live: true
+                    name: "Shipment Create"
+                    url: "https://terminal-africa.com/webhooks/shipmonk"
+                    user: "6aVb7978zZYmke2gJPF9WppUEWvvK5OU"
+                    webhook_id: "WA-70919934470"
+                    created_at: "2021-07-13T20:25:53.011Z"
+                    updated_at: "2021-07-13T20:25:53.011Z"
+    get:
+      summary: Get a list of all webhooks
+      tags:
+        - Admin Webhooks
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: perPage
+          schema:
+            type: integer
+          description: Number of results per page.
+        - in: query
+          name: page
+          schema:
+            type: integer
+          description: The page of results to return.
+      responses:
+        '200':
+          description: Webhooks retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookList'
+
+  /admin/webhooks/{webhookId}:
+    get:
+      summary: Get a single webhook by ID
+      tags:
+        - Admin Webhooks
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: webhookId
+          required: true
+          schema:
+            type: string
+          description: The ID of the webhook to retrieve.
+      responses:
+        '200':
+          description: Webhook retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+    delete:
+      summary: Delete a webhook by ID
+      tags:
+        - Admin Webhooks
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: webhookId
+          required: true
+          schema:
+            type: string
+          description: The ID of the webhook to delete.
+      responses:
+        '200':
+          description: Webhook deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  message:
+                    type: string
+                example:
+                  status: true
+                  message: "Webhook deleted successfully"
+
+  /admin/webhooks/enable/{webhookId}:
+    post:
+      summary: Enable a webhook
+      tags:
+        - Admin Webhooks
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: webhookId
+          required: true
+          schema:
+            type: string
+          description: The ID of the webhook to enable.
+      responses:
+        '200':
+          description: Webhook enabled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+
+  /admin/webhooks/disable/{webhookId}:
+    post:
+      summary: Disable a webhook
+      tags:
+        - Admin Webhooks
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: webhookId
+          required: true
+          schema:
+            type: string
+          description: The ID of the webhook to disable.
+      responses:
+        '200':
+          description: Webhook disabled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+
+  /admin/sellers/{sellerId}/products/draft-status:
+    patch:
+      summary: Set all products of a seller to draft or active
+      tags:
+        - Admin Sellers
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sellerId
+          required: true
+          schema:
+            type: string
+          description: The ID of the seller whose products will be updated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isDraft:
+                  type: boolean
+                  description: If true, set all products to draft. If false, set all to active.
+              required:
+                - isDraft
+            example:
+              isDraft: true
+      responses:
+        '200':
+          description: Products updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  message:
+                    type: string
+                  modifiedCount:
+                    type: integer
+              example:
+                status: true
+                message: "All products set to draft"
+                modifiedCount: 12
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  message:
+                    type: string
+              example:
+                status: false
+                message: "isDraft must be a boolean"
+
+  /admin/sellers/{sellerId}/vacation-mode:
+    patch:
+      summary: Set or unset a seller's vacation mode
+      tags:
+        - Admin Sellers
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sellerId
+          required: true
+          schema:
+            type: string
+          description: The ID of the seller whose vacation mode will be updated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isOn:
+                  type: boolean
+                  description: If true, enable vacation mode. If false, disable it.
+              required:
+                - isOn
+            example:
+              isOn: true
+      responses:
+        '200':
+          description: Seller vacation mode updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  message:
+                    type: string
+                  seller:
+                    type: object
+              example:
+                status: true
+                message: "Seller vacation mode set to true"
+                seller:
+                  _id: "60d0fe4f5311236168a109ca"
+                  vacationMode:
+                    isOn: true
+                    enabledAt: "2024-06-18T12:00:00.000Z"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  message:
+                    type: string
+              example:
+                status: false
+                message: "isOn must be a boolean"
+        '404':
+          description: Seller not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  message:
+                    type: string
+              example:
+                status: false
+                message: "Seller not found"
+
+components:
+  schemas:
+    Webhook:
+      type: object
+      properties:
+        status:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            active:
+              type: boolean
+            event:
+              type: array
+              items:
+                type: string
+            live:
+              type: boolean
+            name:
+              type: string
+            url:
+              type: string
+            user:
+              type: string
+            webhook_id:
+              type: string
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+      example:
+        status: true
+        message: "Webhook retrieved successfully"
+        data:
+          active: true
+          event: ["shipment.created"]
+          live: true
+          name: "Shipment Create"
+          url: "https://terminal-africa.com/webhooks/shipmonk"
+          user: "6aVb7978zZYmke2gJPF9WppUEWvvK5OU"
+          webhook_id: "WA-70919934470"
+          created_at: "2021-07-13T20:25:53.011Z"
+          updated_at: "2021-07-13T20:25:53.011Z"
+    WebhookList:
+      type: object
+      properties:
+        status:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            webhooks:
+              type: array
+              items:
+                type: object
+                properties:
+                  _id:
+                    type: string
+                  active:
+                    type: boolean
+                  event:
+                    type: array
+                    items:
+                      type: string
+                  live:
+                    type: boolean
+                  name:
+                    type: string
+                  url:
+                    type: string
+                  user:
+                    type: string
+                  webhook_id:
+                    type: string
+                  created_at:
+                    type: string
+                    format: date-time
+                  updated_at:
+                    type: string
+                    format: date-time
+                  __v:
+                    type: integer
+                  id:
+                    type: string
+            pagination:
+              type: object
+              properties:
+                page:
+                  type: integer
+                perPage:
+                  type: integer
+                prevPage:
+                  type: 'null'
+                nextPage:
+                  type: 'null'
+                currentPage:
+                  type: integer
+                total:
+                  type: integer
+                pageCount:
+                  type: integer
+                pagingCounter:
+                  type: integer
+                hasPrevPage:
+                  type: boolean
+                hasNextPage:
+                  type: boolean
+      example:
+        status: true
+        message: "Webhooks retreived successfully"
+        data:
+          webhooks:
+            - _id: "62a0b6dc28bf3cef7bb936fd"
+              active: false
+              event:
+                - "shipment.created"
+                - "shipment.updated"
+              live: false
+              name: "My Test Webhook"
+              url: "https://webhook.site/f80b40b7-8004-4fd9-82c0-40f6ccb41cd1"
+              user: "USER-12568655307"
+              webhook_id: "WA-85241442320"
+              created_at: "2022-06-08T14:49:00.190Z"
+              updated_at: "2022-08-01T11:30:54.678Z"
+              __v: 0
+              id: "62a0b6dc28bf3cef7bb936fd"
+          pagination:
+            page: 1
+            perPage: 100
+            prevPage: null
+            nextPage: null
+            currentPage: 1
+            total: 1
+            pageCount: 1
+            pagingCounter: 1
+            hasPrevPage: false
+            hasNextPage: false 

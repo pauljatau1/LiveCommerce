@@ -1,0 +1,75 @@
+// Test setup file for Jest
+require('dotenv').config({ path: '.env.test' });
+
+// Set test environment variables
+process.env.JWT_SECRET = 'test-jwt-secret';
+process.env.SENDGRID_API_KEY = 'test-sendgrid-key';
+process.env.CDN_S3_BUCKET = 'test-bucket';
+process.env.CDN_URL = 'test-cdn-url';
+process.env.MONGODB_URI = 'mongodb://invalid-host:99999/test-dummy'; // Invalid URI to prevent real connections
+
+// Configure MongoDB Memory Server for Debian 12 compatibility
+process.env.MONGODB_MEMORY_SERVER_VERSION = '7.0.3';
+
+// Global test timeout
+jest.setTimeout(30000);
+
+// Mock console methods to reduce noise in tests
+global.console = {
+  ...console,
+  log: jest.fn(),
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
+
+// Mock the database connection to prevent real connections during tests
+jest.mock('@/config/database', () => ({
+  __esModule: true,
+  default: jest.fn().mockResolvedValue(undefined)
+}));
+
+// Mock the Agenda configuration to prevent database connections
+jest.mock('@/config/agenda', () => {
+  const mockAgenda = {
+    start: jest.fn().mockResolvedValue(undefined),
+    stop: jest.fn().mockResolvedValue(undefined),
+    define: jest.fn(),
+    schedule: jest.fn(),
+    now: jest.fn(),
+    every: jest.fn(),
+    cancel: jest.fn(),
+    close: jest.fn().mockResolvedValue(undefined)
+  };
+  
+  return {
+    __esModule: true,
+    default: mockAgenda,
+    startAgenda: jest.fn().mockResolvedValue(true),
+    isAgendaInitialized: jest.fn().mockReturnValue(true),
+    agenda: mockAgenda
+  };
+}); 
+
+// Provide a global mock for Firebase module used by services
+// Ensures tests don't need to mock @firebase individually and prevents admin init
+jest.mock('@firebase', () => ({
+  saveToken: jest.fn().mockResolvedValue(undefined),
+  getToken: jest.fn().mockResolvedValue(undefined),
+}));
+
+// Enforce short-lived HTTP connections during tests across all Supertest requests
+// without importing the Express app (preserves jest.mock ordering in tests)
+try {
+  // Patch Supertest to inject Connection: close on every request
+  const Test = require('supertest/lib/test');
+  const originalServerAddress = Test.prototype.serverAddress;
+  Test.prototype.serverAddress = function patchedServerAddress(...args) {
+    this.set('Connection', 'close');
+    this.set('Keep-Alive', 'timeout=0, max=0');
+    return originalServerAddress.apply(this, args);
+  };
+} catch (_) {
+  // If supertest internals change or are unavailable, skip silently
+}

@@ -1,0 +1,17 @@
+/node_modules
+
+.env
+
+.env.test
+
+node_modules
+
+
+
+client.tsx
+
+playground.txt
+
+.DS_Store
+.vscode
+.idea
