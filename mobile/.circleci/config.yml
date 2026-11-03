@@ -1,0 +1,311 @@
+version: 2.1
+parameters:
+  working_dir:
+    type: string
+    default: "/tmp/project"
+  build_path:
+    type: string
+    default: "node_modules"
+  docker_base_image_version:
+    type: string
+    default: "node:20.19.1"
+
+executors:
+  build:
+    working_directory: << pipeline.parameters.working_dir >>
+    docker:
+      - image: << pipeline.parameters.docker_base_image_version >>
+    resource_class: "small"
+
+orbs:
+  aws-cli: circleci/aws-cli@5.1.1
+
+commands:
+  expo_install_with_cache:
+    description: Install dependencies and save cache
+    steps:
+      - restore_cache:
+          name: Restore existing cache
+          key: v1-expo-{{ .Environment.CIRCLE_WORKFLOW_ID }}
+      - run:
+          name: Install dependencies
+          command: |
+            npm ci --cache node_modules --prefer-offline --no-audit
+      - save_cache:
+          name: Save  cache
+          key: v1-expo-{{ .Environment.CIRCLE_WORKFLOW_ID }}
+          paths:
+            - << pipeline.parameters.build_path >>
+  expo_restore_cache:
+    description: Restore expo cache
+    steps:
+      - restore_cache:
+          name: Restore expo cache
+          keys:
+            - v1-expo-{{ .Environment.CIRCLE_WORKFLOW_ID }}
+  add_deploy_key:
+    description: Add circleci ssh key
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "d2:7f:c2:33:48:9f:84:c4:3a:8e:52:09:e9:5e:0e:9a"
+  install_google_file:
+    description: Add google services
+    steps:
+    - run:
+        name: Create google services
+        command: echo $GS_JSON | base64 -d > google-services.json
+    - run:
+        name: Create google service plist
+        command: echo $GS_INFO_PLIST | base64 -d > GoogleService-Info.plist
+  eas_profile_json:
+    description: Create eas.json
+    steps:
+      - run:
+          name: Create eas.json
+          command: |
+            cat \<<EOF >eas.json
+            {
+                "cli": {
+                    "version": ">= 16.14.0",
+                    "appVersionSource": "remote"
+                },
+                "build": {
+                    "development": {
+                        "developmentClient": true,
+                        "distribution": "internal",
+                        "environment": "preview"
+                    },
+                    "preview": {
+                        "distribution": "internal",
+                        "environment": "preview",
+                        "channel": "preview",
+                        "android": {
+                            "buildType": "apk"
+                        }
+                    },
+                    "staging": {
+                        "channel": "staging",
+                        "environment": "development",
+                        "autoIncrement": true,
+                        "distribution": "internal",
+                        "pnpm": "8.15.4",
+                        "ios": {
+                            "image": "latest"
+                        },
+                        "android": {
+                            "buildType": "apk",
+                            "image": "latest"
+                        },
+                        "env": {
+                            "APP_ENV": "staging",
+                            "EXPO_NO_DOTENV": "1",
+                            "FLIPPER_DISABLE": "1"
+                        },
+                        "prebuildCommand": "prebuild --skip-dependency-update react",
+                        "cache": {
+                            "key": "eas-1"
+                        }
+                    },
+                    "production": {
+                        "environment": "production",
+                        "autoIncrement": true,
+                        "cache": {
+                            "disabled": true
+                        },
+                        "ios": {
+                            "image": "macos-sonoma-14.6-xcode-16.0",
+                            "resourceClass": "m-medium"
+                        }
+                    }
+                },
+                "submit": {
+                    "production": {
+                        "ios": {
+                            "appleId": "wmford@gmail.com",
+                            "ascAppId": "6744903818",
+                            "appleTeamId": "X7YD37D846"
+                        }
+                    }
+                }
+            }
+            EOF
+  build_development_package:
+    description: Build Android package for internal preview
+    parameters:
+      build_type:
+        type: string
+        default: "android"
+    steps:
+      - install_google_file
+      - expo_restore_cache
+      - eas_profile_json
+      - run:
+          name: Install eas-cli
+          command: npm install -g eas-cli --prefer-offline --no-audit
+      - run:
+          name: Configure EAS
+          command: eas whoami
+      - run:
+          name: Build internal package
+          command: eas build --platform << parameters.build_type >> --profile preview --non-interactive --no-wait
+
+  build_production_package:
+    description: Build Android package for internal preview
+    parameters:
+      build_type:
+        type: string
+        default: "android"
+    steps:
+      - install_google_file
+      - expo_restore_cache
+      - eas_profile_json
+      - run:
+          name: Install eas-cli
+          command: npm install -g eas-cli --prefer-offline --no-audit
+      - run:
+          name: Configure EAS
+          command: eas whoami
+      - run:
+          name: Build internal package
+          command: eas build --platform << parameters.build_type >> --profile production --non-interactive --no-wait
+
+jobs:
+  build_cache:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - expo_install_with_cache
+
+  build_android:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - build_development_package:
+          build_type: "android"
+
+  build_ios:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - build_development_package:
+          build_type: "ios"
+
+  build_production_android:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - build_production_package:
+          build_type: "android"
+
+  build_production_ios:
+    executor: build
+    steps:
+      - add_deploy_key
+      - checkout
+      - build_production_package:
+          build_type: "ios"
+
+
+
+workflows:
+  build-test-and-deploy:
+    jobs:
+      - build_cache:
+          name: Build EXPO cache
+
+      - approve-internal-android-deploy:
+          name: Approve Android build
+          type: approval
+          requires:
+            - Build EXPO cache
+          filters:
+            branches:
+              ignore:
+                - main
+
+      - approve-internal-ios-deploy:
+          name: Approve iOS build
+          type: approval
+          requires:
+            - Build EXPO cache
+          filters:
+            branches:
+              ignore:
+                - main
+
+      - build_ios:
+          name: Build Internal iOS build
+          requires:
+            - Approve iOS build
+          context:
+            - auqli_mobile_staging
+          filters:
+            branches:
+              ignore:
+                - main
+
+      - build_android:
+          name: Build Internal Android build
+          requires:
+            - Approve Android build
+          context:
+            - auqli_mobile_staging
+          filters:
+            branches:
+              ignore:
+                - main
+
+      - approve-production-android-deploy:
+          name: Approve Production Android build
+          type: approval
+          requires:
+            - Build EXPO cache
+          filters:
+            branches:
+              only:
+                - main
+            tags:
+              only: .*
+
+      - approve-production-ios-deploy:
+          name: Approve Production iOS build
+          type: approval
+          requires:
+            - Build EXPO cache
+          filters:
+            branches:
+              only:
+                - main
+            tags:
+              only: .*
+
+      - build_production_ios:
+          name: Build Production iOS build
+          requires:
+            - Approve Production iOS build
+          context:
+            - auqli_mobile_production
+          filters:
+            branches:
+              only:
+                - main
+            tags:
+              only: .*
+
+      - build_production_android:
+          name: Build Production Android build
+          requires:
+            - Approve Production Android build
+          context:
+            - auqli_mobile_production
+          filters:
+            branches:
+              only:
+                - main
+            tags:
+              only: .*

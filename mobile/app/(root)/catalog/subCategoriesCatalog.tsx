@@ -1,0 +1,309 @@
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  Pressable,
+  StyleSheet,
+} from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
+import {
+  router,
+  useGlobalSearchParams,
+  useLocalSearchParams,
+} from "expo-router";
+import Entypo from "@expo/vector-icons/Entypo";
+import CatalogCard from "@/components/catalog/catalogCard";
+import { catalogFilterPrice, catalogSort } from "@/helpers/helpers";
+import {
+  useGetForYouQuery,
+  useGetNewAuqliQuery,
+  useGetTrendingQuery,
+} from "@/services/products";
+import BottomSheet from "@/components/global/bottom-sheet";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import { ActivityIndicator } from "react-native-paper";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getToken } from "@/store/features/auth/utils";
+import FilterSheet from "@/components/catalog/filterSheet";
+import ProductEmptyState from "@/components/global/empty-states/productEmptyState";
+import { sortBy } from "lodash";
+import LottieView from "lottie-react-native";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import SortSheet from "@/components/global/sheets/sortSheet";
+
+const sortMap = {
+  None: "",
+  "Price: High to Low": "price_desc",
+  "Price: Low to High": "price_asc",
+  "Newest to Oldest": "newest",
+  "Oldest to Newest": "oldest",
+} as any;
+
+const SubCatProducts = () => {
+  const { name, mainCat, subCat } = useLocalSearchParams();
+  const [filter, setFilter] = useState<string>("");
+  const [products, setProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
+  const [showSortSheet, setShowSortSheet] = useState<boolean>(false);
+  const [selectedFilters, setSelectedFilters] = useState<any>();
+  const [showFilterSheet, setShowFilterSheet] = useState<boolean>(false);
+  const [page, setPage] = useState<number>(1);
+  const [isFetching, setIsFetching] = useState<boolean>(false);
+  const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+
+  const handleGetProductData = async () => {
+    if (hasReachedEnd) {
+      return;
+    }
+    let endpoint = `api/products/category/${encodeURIComponent(mainCat?.toString())}/subcategory/${subCat}`;
+
+    if (page !== 1) {
+      setIsFetching(true);
+    }
+    try {
+      const token = await getToken();
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + `${endpoint}`,
+        {
+          params: {
+            page,
+            limit: 10,
+            sortBy: filter,
+            minPrice: selectedFilters?.price?.min,
+            maxPrice: selectedFilters?.price?.max,
+            condition: selectedFilters?.condition
+              ?.toLowerCase()
+              ?.replace(" ", "-"),
+          },
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      if (page == 1) {
+        setProducts(response.data.data);
+        setFilteredProducts(response.data.data);
+      } else {
+        setProducts([...products, ...response.data.data]);
+        setFilteredProducts([...filteredProducts, ...response.data.data]);
+      }
+
+      if (
+        response.data?.currentPage == response.data?.totalPages ||
+        response.data?.totalPages < 1
+      ) {
+        return setHasReachedEnd(true);
+      }
+      setPage((prevPage) => prevPage + 1);
+    } catch (e) {
+      console.log("ERROR GETTING MORE PRODUCT DATA", e);
+    } finally {
+      setIsLoading(false);
+      setIsFetching(false);
+    }
+  };
+
+  const handleSelectSortType = (type: string) => {
+    setShowSortSheet(false);
+    console.log("explore catalog sort applied", {
+      value: sortMap[type],
+    });
+
+    setFilter(sortMap[type]);
+    setPage(1);
+    setHasReachedEnd(false);
+  };
+
+  const handleFilter = (filters: any, sortType = "") => {
+    setShowFilterSheet(false);
+    setSelectedFilters(filters);
+    setPage(1);
+    setHasReachedEnd(false);
+  };
+
+  const renderProducts = (item: any) => {
+    return (
+      <View className="w-[100%] basis-[49%]">
+        <CatalogCard
+          key={item.id}
+          id={item._id}
+          title={item.name}
+          price={item.price}
+          category={item.category}
+          sellerName={item.seller?.storeName}
+          imageUrl={item.images}
+          sellerRating={item.stats?.averageRating}
+          moreDetails={item}
+          profileImage={undefined}
+          location={""}
+          isTopSeller={false}
+          isOnline={false}
+          isLive={false}
+          isVerified={false}
+          showNike={false}
+          onAddToCart={function (): void {
+            throw new Error("Function not implemented.");
+          }}
+        />
+      </View>
+    );
+  };
+
+  const renderEmptyPlaceholder = useCallback(() => {
+    return <ProductEmptyState />;
+  }, []);
+
+  const renderListHeader = useCallback(() => {
+    return (
+      <View className="flex-row items-center gap-[8px] mb-[12px]">
+        <TouchableOpacity
+          className={` rounded-[8px] py-[8px] px-[12px] justify-center items-center`}
+          style={{
+            backgroundColor: "rgba(204, 204, 204, 0.25)",
+          }}
+          onPress={() => setShowFilterSheet(true)}
+        >
+          <FontAwesome6 name="sliders" size={15} color="#f2f2f2" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          className={` rounded-[8px] py-[8px] px-[12px] gap-[8px] flex-row justify-center items-center`}
+          style={{
+            backgroundColor:
+              filter != "None" ? "#fff" : "rgba(204, 204, 204, 0.25)",
+          }}
+          onPress={() => setShowSortSheet(true)}
+        >
+          <Text
+            className={`${filter != "None" ? "text-[#2F2E41]" : "text-[#f2f2f2]"}  text-[12px] font-LexendDecaMedium`}
+          >
+            Sort
+          </Text>
+          <MaterialIcons
+            name="keyboard-arrow-down"
+            size={16}
+            color={filter != "None" ? "#2F2E41" : "#f2f2f2"}
+          />
+        </TouchableOpacity>
+      </View>
+    );
+  }, [filter]);
+
+  const renderListFooter = useCallback(() => {
+    if (isFetching && !hasReachedEnd) {
+      return (
+        <View
+          style={{
+            width: "100%",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <LottieView
+            source={require("../../../assets/lottie/dots-loading.json")}
+            autoPlay
+            loop
+            style={{
+              width: 70,
+              height: 30,
+            }}
+          />
+        </View>
+      );
+    } else {
+      return null;
+    }
+  }, [isFetching, hasReachedEnd]);
+
+  useEffect(() => {
+    handleGetProductData();
+  }, [filter, selectedFilters]);
+
+  return (
+    <>
+      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
+      <SafeAreaView className="h-full flex-1 bg-[#121212]">
+        <View className="w-full h-full">
+          <View className="flex flex-row items-center justify-center gap-[10px] px-[12px] py-[17px] mt-4 relative">
+            <TouchableOpacity
+              activeOpacity={0.5}
+              className="absolute left-[18px]"
+              onPress={() => router.back()}
+            >
+              <Entypo
+                name="chevron-left"
+                size={24}
+                color="rgba(204, 204, 204, 0.8)"
+              />
+            </TouchableOpacity>
+
+            <Text className="text-white font-LexendDecaMedium text-[22px]">
+              {name}
+            </Text>
+          </View>
+
+          {isLoading ? (
+            <View>
+              <ActivityIndicator size={"small"} color="#16783A" />
+            </View>
+          ) : (
+            <View className="px-[16px] flex-1">
+              <FlatList
+                data={filteredProducts}
+                renderItem={({ item, index }) => renderProducts(item)}
+                keyExtractor={(item, index) => item._id.toString()}
+                numColumns={2}
+                columnWrapperStyle={{
+                  justifyContent: "space-between",
+                  marginBottom: 8,
+                }}
+                showsVerticalScrollIndicator={false}
+                ListHeaderComponent={renderListHeader}
+                ListEmptyComponent={renderEmptyPlaceholder}
+                ListFooterComponent={renderListFooter}
+                onEndReached={handleGetProductData}
+              />
+            </View>
+          )}
+
+          <BottomSheet
+            bgColor="#121212"
+            childrenStyle="!px-[11px]"
+            showCloseIcon={false}
+            show={showSortSheet}
+            titleColor="!text-white"
+            // snapPoints={["60%"]}
+            onRequestClose={() => setShowSortSheet(false)}
+            keyboardBehavior="interactive"
+          >
+            <SortSheet
+              selectSortType={handleSelectSortType}
+              currentSelection={filter}
+            />
+          </BottomSheet>
+
+          <BottomSheet
+            bgColor="#121212"
+            childrenStyle="!px-[11px]"
+            showCloseIcon={false}
+            show={showFilterSheet}
+            titleColor="!text-white"
+            onRequestClose={() => setShowFilterSheet(false)}
+            keyboardBehavior="interactive"
+          >
+            <FilterSheet
+              selectFilterType={handleFilter}
+              currentSelection={selectedFilters}
+            />
+          </BottomSheet>
+        </View>
+      </SafeAreaView>
+    </>
+  );
+};
+
+export default SubCatProducts;

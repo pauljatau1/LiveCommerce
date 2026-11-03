@@ -1,0 +1,134 @@
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { useFonts } from "expo-font";
+import { Stack, useNavigationContainerRef, useRouter } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { useEffect } from "react";
+import "react-native-reanimated";
+import "../global.css";
+import { KeyboardProvider } from "react-native-keyboard-controller";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import { Provider } from "react-redux";
+import { store } from "@/store";
+import { Linking, StyleSheet } from "react-native";
+import FlashMessage from "react-native-flash-message";
+import { Toaster } from "sonner-native";
+import Constants from "expo-constants";
+import * as SystemUI from "expo-system-ui";
+import { LivestreamProvider } from "@/contexts/livestreamContext";
+import {
+  initialWindowMetrics,
+  SafeAreaProvider,
+} from "react-native-safe-area-context";
+import { ToastProvider } from "@/contexts/ToastContext";
+import useInitializeAuthState from "@/hooks/useInitializeAuthState";
+import useGetPaystackKeys from "@/core/hooks/use-get-paystack-keys";
+import { PaystackProvider } from "react-native-paystack-webview";
+import { VideoPlayerProvider } from "@/contexts/videoPlayerContext";
+import { enableFreeze } from "react-native-screens";
+
+// Prevent the splash screen from auto-hiding before asset loading is complete.
+SplashScreen.preventAutoHideAsync();
+SystemUI.setBackgroundColorAsync("#121212");
+
+export default function RootLayout() {
+  return <RootLayoutNav />;
+}
+function RootLayoutNav() {
+  const router = useRouter();
+  const { paystackPublicKey } = useGetPaystackKeys();
+
+  console.log({ paystackPublicKey });
+
+  const [loaded] = useFonts({
+    LexendDeca: require("../assets/fonts/LexendDeca-Regular.ttf"),
+    "LexendDeca-Black": require("../assets/fonts/LexendDeca-Black.ttf"),
+    "LexendDeca-Bold": require("../assets/fonts/LexendDeca-Bold.ttf"),
+    "LexendDeca-ExtraBold": require("../assets/fonts/LexendDeca-ExtraBold.ttf"),
+    "LexendDeca-ExtraLight": require("../assets/fonts/LexendDeca-ExtraLight.ttf"),
+    "LexendDeca-Light": require("../assets/fonts/LexendDeca-Light.ttf"),
+    "LexendDeca-Medium": require("../assets/fonts/LexendDeca-Medium.ttf"),
+    "LexendDeca-SemiBold": require("../assets/fonts/LexendDeca-SemiBold.ttf"),
+    "LexendDeca-Thin": require("../assets/fonts/LexendDeca-Thin.ttf"),
+  });
+
+  useEffect(() => {
+    if (loaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded]);
+
+  if (!loaded) {
+    return null;
+  }
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Provider store={store}>
+        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+          <KeyboardProvider statusBarTranslucent>
+            <PaystackProvider
+              publicKey={paystackPublicKey!}
+              defaultChannels={[
+                "card",
+                "bank",
+                "ussd",
+                "qr",
+                "mobile_money",
+                "bank_transfer",
+                "apple_pay",
+              ]}
+            >
+              <ToastProvider>
+                <BottomSheetModalProvider>
+                  <LivestreamProvider>
+                    <VideoPlayerProvider>
+                      <Stack>
+                        <Stack.Screen
+                          name="index"
+                          options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="(auth)"
+                          options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="(categories)"
+                          options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="(root)"
+                          options={{ headerShown: false }}
+                        />
+
+                        <Stack.Screen name="+not-found" />
+                      </Stack>
+                      <FlashMessage floating style={styles.flashMessage} />
+                    </VideoPlayerProvider>
+                  </LivestreamProvider>
+                </BottomSheetModalProvider>
+                <Toaster />
+              </ToastProvider>
+            </PaystackProvider>
+          </KeyboardProvider>
+        </SafeAreaProvider>
+      </Provider>
+    </GestureHandlerRootView>
+  );
+}
+
+// function Providers({ children }: { children: React.ReactNode }) {
+//     return (
+//         <KeyboardProvider>
+//             {children}
+//         </KeyboardProvider>
+//     );
+// }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  flashMessage: {
+    marginTop: Constants.platform?.android ? Constants.statusBarHeight : "auto",
+  },
+});

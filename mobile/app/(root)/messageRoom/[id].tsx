@@ -1,0 +1,1565 @@
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions,
+  Keyboard,
+  Alert,
+  Linking,
+  Pressable,
+} from "react-native";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
+import {
+  router,
+  useGlobalSearchParams,
+  useLocalSearchParams,
+} from "expo-router";
+import { debounce } from "lodash";
+import { getToken } from "@/store/features/auth/utils";
+import axios from "axios";
+import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
+import {
+  formatDate,
+  formatMessageDate,
+  processDates,
+  timeFromNow,
+} from "@/helpers/helpers";
+import { ActivityIndicator } from "react-native-paper";
+import { Image } from "expo-image";
+import Entypo from "@expo/vector-icons/Entypo";
+import * as ImagePicker from "expo-image-picker";
+
+import { io } from "socket.io-client";
+import { initializeSocket } from "../../../core/sockets";
+import { TextInput } from "react-native-gesture-handler";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import AntDesign from "@expo/vector-icons/AntDesign";
+import SimpleLineIcons from "@expo/vector-icons/SimpleLineIcons";
+import BottomSheet from "@/components/global/bottom-sheet";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import ConnectProductCard from "@/components/connect/product-card";
+import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
+import Animated, {
+  Easing,
+  FadeInDown,
+  FadeOutUp,
+  ReduceMotion,
+  SlideInDown,
+  SlideOutDown,
+  useAnimatedKeyboard,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import {
+  products,
+  useGetAllProductsQuery,
+  useGetSellerProductsQuery,
+} from "@/services/products";
+import OrderItem from "@/components/messages/orderItem";
+import OptionsSheet from "@/components/connect/optionsSheet";
+import ChatSettings from "@/components/messages/optionsSheet";
+import ReportUserSheet from "@/components/connect/reportUserSheet";
+import { toast } from "@/core/toast";
+import CampaignMessageItem from "@/components/messages/campaignMessageItem";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  useKeyboardAnimation,
+  useReanimatedKeyboardAnimation,
+} from "react-native-keyboard-controller";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+
+const { width, height } = Dimensions.get("window");
+
+const autoOrderMessages = [
+  "Ask Availability",
+  "Order Request",
+  "Logistics Inquiry",
+];
+
+const autoOrderMessagesText = {
+  "Ask Availability": (sellerName: string, orderName: string): string =>
+    `Hi ${sellerName}, I just placed an order:${orderName}. Can you please confirm stock status and shipping times. Thank you!`,
+  "Order Request": (sellerName: string, orderName: string): string =>
+    `Hello ${sellerName}, I'd like to request details for order: ${orderName}`,
+  "Logistics Inquiry": (sellerName: string, orderName: string): string =>
+    `Hello ${sellerName}, I just placed an order:${orderName}. Could you share details about shipping methods, estimated delivery times, and any handling fees?`,
+} as any;
+
+const MessageRoom = () => {
+  const {
+    id,
+    conversationId,
+    model,
+    isOnline,
+    lastActive,
+    isBlocked,
+    isMuted,
+    orderId = "",
+  } = useLocalSearchParams();
+  const { user, token } = useSelector((state: RootState) => state.authState);
+  // const socket = io(process.env.EXPO_PUBLIC_API_URL, {
+  //   transports: ["websocket"],
+  //   auth: {
+  //     token: token,
+  //   },
+  // });
+  const socket = initializeSocket(token);
+  socket.connect();
+
+  const insets = useSafeAreaInsets();
+  const [userId, setUserid] = useState(user?._id || "");
+  const [name, setName] = useState<string>("");
+  const [avatar, setAvatar] = useState<string>("");
+  const [selectedMedia, setSelectedMedia] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [pmessages, setpMessages] = useState<any[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState<boolean>(false);
+  const [newMessage, setNewMessage] = useState<any>("");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [showProducts, setShowProducts] = useState<boolean>(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>({});
+  const [showOptions, setShowOptions] = useState<boolean>(false);
+  const [isFirstTimer, setIsFirstTimer] = useState<boolean>(false);
+  const [page, setPage] = useState<number>(1);
+  const [changePage, setChangePage] = useState<number>(0);
+  const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+  const [showChatSetting, setShowChatSettings] = useState<boolean>(false);
+  const [showReportUser, setShowReportUser] = useState<boolean>(false);
+  const [isUserBlocked, setIsBlocked] = useState<boolean>(
+    isBlocked?.toString() == "true",
+  );
+  const [muteNotifications, setMuteNotifications] = useState<boolean>(
+    isMuted?.toString() == "true",
+  );
+  const [orderDetails, setOrderDetails] = useState<any>();
+  const [autoOrderMessage, setAutoOrderMessage] = useState<any>();
+  const [showOrderDetails, setShowOrderDetails] = useState<boolean>(
+    orderId !== "",
+  );
+
+  const listRef = useRef<FlatList>(null);
+  const isInitialLoad = useRef(true);
+
+  // const keyboard = useAnimatedKeyboard();
+
+  const { height, progress } = useReanimatedKeyboardAnimation();
+
+  const keyboardHeight = useDerivedValue(
+    () => Math.abs(height.value),
+    [height],
+  );
+
+  const optionsHeight = useSharedValue(0);
+
+  const fakeView = useAnimatedStyle(() => {
+    console.log(
+      `Reanimated update - Height: ${height.value} and ${insets.bottom}`,
+    );
+    return {
+      height:
+        Platform.OS == "ios"
+          ? keyboardHeight.value - insets.bottom
+          : keyboardHeight.value - insets.bottom,
+    };
+  }, [height]);
+
+  const optionsView = useAnimatedStyle(() => {
+    return {
+      height: withTiming(optionsHeight.value, {
+        duration: 150,
+        easing: Easing.inOut(Easing.quad),
+        reduceMotion: ReduceMotion.System,
+      }),
+    };
+  }, []);
+
+  const animateOptions = () => {
+    console.log("transition options view value ", optionsHeight.value);
+
+    if (optionsHeight.value == 0) {
+      optionsHeight.value = optionsHeight.value + 100;
+    } else {
+      optionsHeight.value = optionsHeight.value - 100;
+    }
+  };
+
+  const updateMessageSettings = (settings: any) => {
+    setIsBlocked(settings.isBlocked);
+    setMuteNotifications(settings.isMuted);
+  };
+
+  const pickImage = async () => {
+    const permission = await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      if (permission.canAskAgain) {
+        const newPermission =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!newPermission.granted) {
+          return;
+        }
+      } else {
+        return Alert.alert(
+          "Permission Required",
+          "Please enable media library access in Settings to continue",
+          [
+            { text: "Cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() },
+          ],
+        );
+      }
+    }
+    if (selectedMedia.length >= 1) {
+      alert("You can only upload up to 1 image.");
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 1,
+      allowsMultipleSelection: false,
+      allowsEditing: false,
+      base64: false,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      const newImages = result.assets.map((asset) => ({
+        uri: asset.uri,
+        name: `media_${Date.now()}.${asset.mimeType?.split("/")[1] || "application/octet-stream"}`,
+        type: asset.mimeType,
+      }));
+      const remainingSlots = 4 - selectedMedia.length;
+      const imagesToAdd = newImages.slice(0, remainingSlots);
+
+      setSelectedMedia((prevMedia) => [...prevMedia, ...imagesToAdd]);
+    }
+  };
+
+  const getAllMessages = async () => {
+    if (!conversationId && messages?.length < 1) {
+      setMessages([]);
+      setLoading(false);
+      setMessagesLoading(false);
+      setIsFirstTimer(true);
+      return;
+    }
+    try {
+      setMessagesLoading(true);
+      const token = await getToken();
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL +
+          "api/messages/" +
+          conversationId +
+          `?page=${page}&limit=10`,
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      // const processed = processDates([
+      //   ...response.data?.messages?.slice()?.reverse(),
+      //   ...pmessages,
+      // ]);
+      // setMessages(processed);
+      setMessages([
+        ...response.data?.messages?.slice()?.reverse(),
+        ...messages,
+      ]);
+      if (!response.data.pagination.hasMore) {
+        setHasReachedEnd(true);
+      }
+      // setChangePage(response.data.pagination.currentPage);
+    } catch (e) {
+      console.log("error getting message history ", e);
+    } finally {
+      setMessagesLoading(false);
+      handleReadMessages();
+    }
+  };
+
+  const getSellerInfo = async () => {
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + "api/public/sellers/" + id,
+      );
+      const sellerInfo = response.data;
+      setName(
+        sellerInfo?.storeName ||
+          sellerInfo?.personalInfo?.firstName +
+            " " +
+            sellerInfo?.personalInfo?.lastName ||
+          sellerInfo?.businessInfo?.businessName,
+      );
+      setAvatar(sellerInfo?.storePresence?.storeAvatar?.url);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const fetchMoreMessages = useCallback(
+    debounce(() => {
+      if (!hasReachedEnd && !messagesLoading && conversationId) {
+        console.log("fetching more. current page", page + " " + conversationId);
+        setPage((prevPage) => prevPage + 1);
+      }
+    }, 400),
+    [hasReachedEnd, messagesLoading, conversationId],
+  );
+
+  const fetchOrder = useCallback(async () => {
+    try {
+      const response = await axios.get(
+        process.env.EXPO_PUBLIC_API_URL + "api/order/" + orderId,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      setOrderDetails(response.data);
+    } catch (e) {
+      console.log("error getting single order ", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [orderId]);
+
+  const handleSendAutoMessage = () => {
+    if (!autoOrderMessage?.message) {
+      return;
+    }
+    setNewMessage(`${autoOrderMessage?.message}`);
+    handleSendMessage(`${autoOrderMessage?.message}`);
+  };
+
+  const handleReadMessages = async () => {
+    try {
+      const token = await getToken();
+      await axios.put(
+        process.env.EXPO_PUBLIC_API_URL +
+          `api/conversations/${conversationId}/read`,
+        {},
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+    } catch (e) {
+      console.log("error marking conversation as read ", e);
+    }
+  };
+
+  const handleSendMessage = async (newMessageParam = "") => {
+    if (!newMessageParam && !newMessage) return;
+    setNewMessage("");
+    const socketPayload = {
+      sender: { id: userId },
+      content: newMessage || newMessageParam,
+      createdAt: new Date().toISOString(),
+      error: "",
+      conversationId: conversationId,
+    };
+    setIsFirstTimer(false);
+
+    setMessages([...messages, socketPayload]);
+    scrollToBottom();
+    console.log({
+      recipientId: id,
+      recipientModel: model || "Seller",
+      content: newMessage || newMessageParam,
+    });
+
+    try {
+      const token = await getToken();
+      const response = await axios.post(
+        process.env.EXPO_PUBLIC_API_URL + "api/messages",
+        {
+          recipientId: id,
+          recipientModel: model || "Seller",
+          content: newMessage || newMessageParam,
+        },
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+
+      socket.emit("new_message", {
+        conversationId,
+        message: response.data.message,
+      });
+      console.log("http message sent ", response.data);
+    } catch (e) {
+      setMessages((prevData) => {
+        const newData = [...prevData]; // Copy array to avoid mutation
+        const lastIndex = newData
+          .map((obj) => obj.sender.id)
+          .lastIndexOf(userId);
+
+        if (lastIndex !== -1) {
+          newData[lastIndex] = {
+            ...newData[lastIndex],
+            error: "Not sent!", // Replace error string
+          };
+        }
+
+        return newData; // Update state
+      });
+      console.log("error getting message history ", e);
+    }
+  };
+
+  const handleSendMedia = async () => {
+    const mediaPayload = {
+      sender: { id: userId },
+      media: [
+        {
+          url: selectedMedia?.[0].uri,
+        },
+      ],
+      messageType: "image",
+      content: "",
+      createdAt: new Date().toISOString(),
+      error: "",
+      conversationId: conversationId,
+    };
+    setIsFirstTimer(false);
+    setMessages([...messages, mediaPayload]);
+    scrollToBottom();
+    try {
+      const token = await getToken();
+      const formData = new FormData();
+      formData.append("recipientId", id?.toString());
+      formData.append("recipientModel", model.toString());
+      formData.append("messageType", "image");
+      formData.append("content", "");
+      selectedMedia.forEach((image, index) => {
+        formData.append(`media`, image);
+      });
+      const response = await axios.post(
+        process.env.EXPO_PUBLIC_API_URL + "api/messages/media",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+
+      socket.emit("new_message", {
+        conversationId,
+        message: response.data.message,
+      });
+
+      console.log("http media message sent ", response.data);
+    } catch (e) {
+      setMessages((prevData) => {
+        const newData = [...prevData]; // Copy array to avoid mutation
+        const lastIndex = newData
+          .map((obj) => obj.sender.id)
+          .lastIndexOf(userId);
+
+        if (lastIndex !== -1) {
+          newData[lastIndex] = {
+            ...newData[lastIndex],
+            error: "Not sent!", // Replace error string
+          };
+        }
+
+        return newData; // Update state
+      });
+      console.log("error sending media message ", e);
+    } finally {
+      setSelectedMedia([]);
+    }
+  };
+
+  const handleSendProduct = async () => {
+    const productPayload = {
+      sender: { id: userId },
+      product: {
+        id: selectedProduct._id,
+        image: selectedProduct?.images[0]?.url,
+        description: selectedProduct?.description,
+        name: selectedProduct?.name,
+        price: selectedProduct?.price,
+      },
+      messageType: "product",
+      content: "",
+      createdAt: new Date().toISOString(),
+      error: "",
+      conversationId: conversationId,
+    };
+    // return console.log(selectedProduct);
+    setIsFirstTimer(false);
+    setMessages([...messages, productPayload]);
+    scrollToBottom();
+    try {
+      const token = await getToken();
+      const response = await axios.post(
+        process.env.EXPO_PUBLIC_API_URL + "api/messages/product",
+        {
+          recipientId: id,
+          recipientModel: model,
+          productId: selectedProduct._id,
+          content: "",
+        },
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      socket.emit("new_message", {
+        conversationId,
+        message: response.data.message,
+      });
+
+      console.log("http product message sent ", response.data);
+    } catch (e) {
+      setMessages((prevData) => {
+        const newData = [...prevData]; // Copy array to avoid mutation
+        const lastIndex = newData
+          .map((obj) => obj.sender.id)
+          .lastIndexOf(userId);
+
+        if (lastIndex !== -1) {
+          newData[lastIndex] = {
+            ...newData[lastIndex],
+            error: "Not sent!", // Replace error string
+          };
+        }
+
+        return newData; // Update state
+      });
+      console.log("error sending product message ", e);
+    } finally {
+      setSelectedProduct({});
+    }
+  };
+
+  const handleSubmitSelectedProducts = useCallback(
+    (product: any) => {
+      setSelectedProduct(product);
+      setShowProducts(false);
+    },
+    [showProducts, selectedProduct],
+  );
+
+  useEffect(() => {
+    getSellerInfo();
+  }, []);
+
+  useEffect(() => {
+    getAllMessages();
+  }, [page]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      if (isInitialLoad.current) {
+        // On first load, scroll without animation
+        setTimeout(() => {
+          listRef.current?.scrollToEnd({ animated: false });
+          isInitialLoad.current = false;
+        }, 100);
+        setLoading(false);
+      } else {
+        // For new messages, scroll with animation
+        // listRef.current?.scrollToEnd({ animated: true });
+        setLoading(false);
+      }
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    if (selectedMedia.length > 0) handleSendMedia();
+  }, [selectedMedia]);
+
+  useEffect(() => {
+    if (selectedProduct?._id) handleSendProduct();
+  }, [selectedProduct]);
+
+  useEffect(() => {
+    socket.on("connect", () => {
+      console.log("Connected to backend");
+    });
+    socket.emit("join", userId);
+
+    const messageHandler = (newMessage: any) => {
+      console.log("message recieved");
+
+      const messageData = newMessage.message || newMessage;
+      if (
+        messageData.conversation === conversationId ||
+        messageData?.sender?.id == id
+      ) {
+        setMessages((prev) => [...prev, messageData]);
+        handleReadMessages();
+        scrollToBottom();
+      }
+    };
+
+    socket.on("receive_message", messageHandler);
+
+    return () => {
+      socket.off("receive_message", messageHandler);
+      socket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (orderId) {
+      fetchOrder();
+    }
+
+    // setTimeout(() => setShowOrderDetails(false), 5000);
+  }, [orderId]);
+  const scrollToBottom = useCallback(() => {
+    if (listRef.current && messages.length > 0) {
+      setTimeout(() => {
+        listRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages.length]);
+
+  const renderMessage = useCallback(
+    ({ item }: { item: any }) => (
+      <MessageItem
+        message={item}
+        userId={userId?.toString()}
+        senderId={item?.sender?.id}
+        messageType={item?.messageType || "text"}
+        media={item?.media || null}
+      />
+    ),
+    [selectedProduct],
+  );
+  const keyExtractor = useCallback(
+    (item: any, index: number) => item?._id || index?.toString(),
+    [],
+  );
+
+  const renderListHeader = useCallback(() => {
+    if (messagesLoading) {
+      return <ActivityIndicator size={"small"} color="#16783a" />;
+    }
+  }, [messagesLoading]);
+
+  const handleShowReportUser = () => {
+    setShowChatSettings(false);
+    setShowReportUser(true);
+  };
+  return (
+    <SafeAreaView className="flex-1 h-full bg-[#121212]">
+      {/* <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.select({ ios: 0, android: 0 })}
+        style={{ flex: 1, backgroundColor: "#121212" }}
+      > */}
+      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
+      <View className="flex-row items-center justify-between gap-[12px] px-[17px] pt-[20px] pb-[12px] border-b-[1px] border-b-[#888787]">
+        <View className="flex-row items-center gap-[12px] shrink">
+          <TouchableOpacity className="" onPress={() => router.back()}>
+            <Entypo
+              name="chevron-left"
+              size={24}
+              color="rgba(204, 204, 204, 0.8)"
+            />
+          </TouchableOpacity>
+          <View>
+            <View className="w-[40px] h-[40px] rounded-full items-center justify-center bg-[#031209] overflow-hidden">
+              {avatar ? (
+                <Image
+                  source={{ uri: avatar }}
+                  contentFit="cover"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: 40,
+                  }}
+                />
+              ) : (
+                <Text className="text-[14px] text-white font-LexendDeca capitalize leading-[14px]">
+                  {name?.[0]}
+                </Text>
+              )}
+            </View>
+
+            {isOnline && (
+              <View
+                className=" top-[10px] right-[10px] bg-[#16783A] w-[10px] h-[10px] rounded-[50%]"
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: 6,
+                  backgroundColor: "#16783A",
+                  position: "absolute",
+                  top: 0,
+                  right: -2,
+                }}
+              ></View>
+            )}
+          </View>
+
+          <View className="gap-[2px] shrink">
+            <Text
+              className="text-[18px] text-[#ccc] font-LexendDecaMedium shrink"
+              numberOfLines={1}
+            >
+              {name}
+            </Text>
+            {isOnline ? (
+              <Text className="text-[10px] text-[#ccc] font-LexendDecaLight">
+                Online
+              </Text>
+            ) : (
+              <Text className="text-[10px] text-[#ccc] font-LexendDeca opacity-70">
+                Last Active {timeFromNow(lastActive)} ago
+              </Text>
+            )}
+          </View>
+        </View>
+        <View className="flex-row items-center gap-[24px]">
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: "/(root)/sellerProfile",
+                params: { sellerId: id, sellerAvatar: avatar },
+              })
+            }
+          >
+            <Image
+              source={require("../../../assets/icons/store.png")}
+              contentFit="contain"
+              style={{
+                width: 22,
+                height: 22,
+              }}
+            />
+          </Pressable>
+          <Pressable onPress={() => setShowChatSettings(true)}>
+            <Image
+              source={require("../../../assets/icons/dots.png")}
+              contentFit="contain"
+              style={{
+                width: 22,
+                height: 22,
+              }}
+            />
+          </Pressable>
+        </View>
+      </View>
+      {loading ? (
+        <ActivityIndicator
+          size={"small"}
+          color="#fff"
+          style={{ marginTop: 20 }}
+        />
+      ) : (
+        <View style={styles.container}>
+          <FlatList
+            ref={listRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={keyExtractor}
+            onStartReached={fetchMoreMessages}
+            // onStartReachedThreshold={0.5}
+            ListHeaderComponent={renderListHeader}
+            maintainVisibleContentPosition={{
+              minIndexForVisible: 0,
+              // autoscrollToTopThreshold: 0,
+            }}
+            contentContainerStyle={[
+              styles.contentContainer,
+              messages.length === 0 && styles.emptyList,
+            ]}
+            // removeClippedSubviews={false}
+            // inverted
+            windowSize={10}
+            maxToRenderPerBatch={10}
+            updateCellsBatchingPeriod={50}
+            // onLayout={() => {
+            //   if (isInitialLoad.current && messages.length > 0) {
+            //     listRef.current?.scrollToEnd({ animated: true });
+            //   }
+            // }}
+            // style={{ flex: 1 }}
+            showsVerticalScrollIndicator={false}
+          />
+          {isFirstTimer && (
+            <View
+              style={{
+                alignItems: "center",
+                width: "100%",
+                gap: 20,
+                position: "absolute",
+                top: 50,
+                paddingHorizontal: 85,
+              }}
+            >
+              <Text className="text-[17px] text-[#ccc] font-LexendDeca">
+                Welcome!
+              </Text>
+              <Text
+                className="text-[12px] text-[#ccc] font-LexendDeca"
+                style={{
+                  textAlign: "center",
+                }}
+              >
+                Speak freely to {name} about your concerns or inquiries.
+              </Text>
+            </View>
+          )}
+
+          <View
+            className=" flex-col items-center"
+            style={{
+              alignSelf: "baseline",
+            }}
+          >
+            {orderId && showOrderDetails && (
+              <View
+                className="p-[24px] bg-[#ffffff] rounded-[16px] flex-row items-center mx-[16px] mb-[12px]"
+                style={{
+                  padding: 24,
+                  backgroundColor: "#fff",
+                }}
+              >
+                <View className="p-[16px] bg-[#f2f2f2] rounded-[16px] w-full gap-[12px]">
+                  <View className="flex-row items-center justify-between gap-[4px]">
+                    <Text></Text>
+                    <Text className="text-center text-[#121212] text-[18px] font-LexendDecaBold">
+                      Shared from {name}
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        setShowOrderDetails(false);
+                      }}
+                      style={{
+                        backgroundColor: "#EE571C",
+                        borderRadius: 24,
+                        borderWidth: 1,
+                        borderColor: "#EE571C",
+                      }}
+                    >
+                      <AntDesign name="closecircle" size={24} color="#F9C7B3" />
+                    </Pressable>
+                  </View>
+
+                  <Image
+                    source={{
+                      uri: orderDetails?.items[0]?.product?.images[0]?.url,
+                    }}
+                    style={{
+                      width: 172,
+                      height: 103,
+                      borderRadius: 14,
+                      alignSelf: "center",
+                    }}
+                    contentFit="contain"
+                  />
+
+                  <View style={styles.placedDetailsContainer}>
+                    <Text style={styles.placedName} numberOfLines={2}>
+                      {orderDetails?.items[0]?.product?.name}
+                    </Text>
+                    <View style={styles.priceContainer}>
+                      <Text style={styles.placedPrice}>
+                        N{orderDetails?.order?.totalAmount?.toLocaleString()}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View>
+                    <Text className="font-LexendDeca">
+                      Shipping : N
+                      {orderDetails?.shipping?.fee?.amount.toLocaleString()}
+                    </Text>
+                  </View>
+
+                  <View className="flex-row items-center justify-between gap-[8px]">
+                    {autoOrderMessages?.map((message, index) => {
+                      return (
+                        <Pressable
+                          key={index}
+                          style={
+                            index == autoOrderMessage?.index
+                              ? styles.autoOrderMessage
+                              : styles.autoOrderMessageInactive
+                          }
+                          onPress={() =>
+                            setAutoOrderMessage({
+                              index,
+                              message: autoOrderMessagesText[message](
+                                name,
+                                orderDetails?.order?.order_id,
+                              ),
+                            })
+                          }
+                        >
+                          <Text style={styles.autoOrderMessageText}>
+                            {message}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  <Pressable
+                    style={styles.sendAutoMsgBtn}
+                    onPress={handleSendAutoMessage}
+                  >
+                    <Text className="text-[#fff] font-LexendDecaSemiBold text-[10px]">
+                      Send
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+            <View className="flex-row items-center gap-[12px] pt-[12px]  border-t-[0.5px] border-t-[#888787] px-[17px]">
+              <View className="flex-row justify-between gap-[4px] px-[12px] py-[8px] rounded-[24px] items-center w-full shrink  bg-[#2e2e2e]">
+                <TextInput
+                  placeholder="Type a message..."
+                  // placeholderTextColor={"rgba(204,204,204,0.25)"}
+                  className="text-[15px] text-[#f2f2f2] font-LexendDeca w-full shrink p-0"
+                  value={newMessage}
+                  multiline
+                  onChangeText={(text) => setNewMessage(text)}
+                  // autoFocus={true}
+                  onFocus={() => {
+                    setShowOrderDetails(false);
+                    // setShowOptions(false);
+                    // animateOptions();
+                  }}
+                />
+                <Pressable onPress={() => handleSendMessage(newMessage)}>
+                  <MaterialCommunityIcons
+                    name="send-circle"
+                    size={30}
+                    color={newMessage ? "#16783A" : "#2e2e2e"}
+                  />
+                </Pressable>
+              </View>
+              {!newMessage && (
+                <View className="flex-row items-center gap-[4px]">
+                  <Pressable
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      animateOptions();
+                      setShowOptions(!showOptions);
+                    }}
+                  >
+                    {showOptions ? (
+                      <AntDesign name="closecircle" size={28} color="#f2f2f2" />
+                    ) : (
+                      <AntDesign name="pluscircle" size={28} color="#f2f2f2" />
+                    )}
+                  </Pressable>
+                </View>
+              )}
+            </View>
+            {true && (
+              <Animated.View
+                className="flex-row items-center justify-center gap-[50] flex-wrap self-center overflow-hidden mt-[12px]"
+                // entering={SlideInDown}
+                // exiting={SlideOutDown}
+                style={optionsView}
+              >
+                <TouchableOpacity
+                  className="flex-col items-center gap-[5px]"
+                  onPress={() => pickImage()}
+                >
+                  <View className="w-[50px] h-[50px] rounded-[50px] justify-center items-center bg-[#DAE3EA]">
+                    <AntDesign name="picture" size={15} color="#94A3B1" />
+                  </View>
+                  <Text className="text-[12px] font-LexendDeca text-[#94A3B1]">
+                    Media
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className="flex-col items-center gap-[5px]"
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setShowProducts(true);
+                  }}
+                >
+                  <View className="w-[50px] h-[50px] rounded-[50px] justify-center items-center bg-[#DAE3EA]">
+                    <SimpleLineIcons name="chart" size={15} color="#94A3B1" />
+                  </View>
+                  <Text className="text-[12px] font-LexendDeca text-[#94A3B1]">
+                    Product
+                  </Text>
+                </TouchableOpacity>
+
+                {/* <LoadingModal isVisible={isLoading} /> */}
+              </Animated.View>
+            )}
+          </View>
+          <Animated.View style={fakeView}></Animated.View>
+        </View>
+      )}
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        title=""
+        show={showProducts}
+        titleColor="!text-white"
+        snapPoints={["80%"]}
+        enableDynamicSizing={false}
+        onRequestClose={() => setShowProducts(false)}
+        keyboardBehavior="interactive"
+      >
+        <ProductsSheet
+          handleSubmitSelectedProducts={handleSubmitSelectedProducts}
+          id={id}
+        />
+      </BottomSheet>
+
+      <BottomSheet
+        bgColor="#3A3A3A"
+        childrenStyle="!px-[0px]"
+        showCloseIcon={false}
+        show={showChatSetting}
+        enableDynamicSizing={false}
+        snapPoints={["60%"]}
+        onRequestClose={() => setShowChatSettings(false)}
+        keyboardBehavior="interactive"
+      >
+        <ChatSettings
+          handleShowReportUser={() => handleShowReportUser()}
+          closeSheet={() => setShowChatSettings(false)}
+          sellerId={id}
+          sellerName={name}
+          isBlocked={isUserBlocked}
+          isMuted={muteNotifications}
+          conversationId={conversationId}
+          updateMessageSettings={updateMessageSettings}
+        />
+      </BottomSheet>
+
+      <BottomSheet
+        bgColor="#3A3A3A"
+        childrenStyle="!px-[0px]"
+        showCloseIcon={false}
+        title=""
+        show={showReportUser}
+        titleColor="!text-white"
+        onRequestClose={() => setShowReportUser(false)}
+        keyboardBehavior={"interactive"}
+        // snapPoints={["80%"]}
+      >
+        <ReportUserSheet
+          userId={id?.toString()}
+          userType={"Seller"}
+          closeSheet={() => setShowReportUser(false)}
+        />
+      </BottomSheet>
+      {/* </KeyboardAvoidingView> */}
+    </SafeAreaView>
+  );
+};
+
+const MediaItem = memo(({ item }: { item: any }) => {
+  return (
+    <Image
+      source={{ uri: item?.[0]?.url }}
+      contentFit="contain"
+      transition={500}
+      style={{
+        width: 200,
+        height: undefined,
+        aspectRatio: 1,
+        // maxHeight: 200,
+        borderRadius: 10,
+      }}
+      cachePolicy="memory-disk"
+    />
+  );
+});
+
+const ProductItem = memo(({ item, isMyMessage }: any) => {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      className="flex-row gap-[12px] p-[12px] shrink"
+      style={{
+        flexShrink: 1,
+        maxWidth: 250,
+        // backgroundColor: "#f2f2f2",
+      }}
+      onPress={() => router.push(`/(root)/product/${item?.id._id || item?.id}`)}
+    >
+      <View>
+        <Image
+          source={{ uri: item?.image || item?.images?.[0]?.url }}
+          contentFit="contain"
+          style={{ width: 100, height: 100, borderRadius: 10 }}
+        />
+      </View>
+      <View className="gap-[2px] shrink">
+        <Text
+          className="text-[14px] text-[#111] font-LexendDecaMedium"
+          style={isMyMessage ? [styles.messageText, { fontSize: 14 }] : null}
+          numberOfLines={4}
+        >
+          {item?.name}
+        </Text>
+        {<DeterminePrice productDetails={item} />}
+        {/* <Text
+          className="text-[10px] text-[#111] font-LexendDecaLight"
+          style={isMyMessage ? [styles.messageText, { fontSize: 10 }] : null}
+        >
+          {item?.description?.slice(0, 40)}
+        </Text> */}
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+const MessageItem = memo(
+  ({
+    message,
+    userId,
+    senderId,
+    messageType,
+    media,
+  }: {
+    message: any;
+    userId: string;
+    senderId: string;
+    messageType: string;
+    media: any;
+  }) => {
+    const isMyMessage = senderId == userId;
+    const RenderMessageType = (type: string) => {
+      switch (type) {
+        case "text":
+          return (
+            <Text
+              style={isMyMessage ? styles.messageText : styles.otherMessageText}
+            >
+              {message.content}
+            </Text>
+          );
+        case "image":
+          return <MediaItem item={media} />;
+        case "product":
+          return (
+            <ProductItem item={message.product} isMyMessage={isMyMessage} />
+          );
+        case "order":
+          return <OrderItem item={message.order} isMyMessage={isMyMessage} />;
+        case "campaign":
+          return (
+            <CampaignMessageItem item={message?.campaign} isMyMessage={false} />
+          );
+      }
+    };
+    return (
+      <View>
+        {message?.messageType == "order" ? (
+          RenderMessageType(message?.messageType)
+        ) : (
+          <View
+            style={[
+              styles.messageContainer,
+              isMyMessage
+                ? styles.myMessageContainer
+                : styles.otherMessageContainer,
+            ]}
+          >
+            <View
+              style={[
+                // styles.messageContainer,
+                isMyMessage ? styles.myMessage : styles.otherMessage,
+              ]}
+            >
+              {RenderMessageType(messageType)}
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 2,
+                  marginTop: 4,
+                  alignSelf: "flex-end",
+                }}
+              >
+                <Text style={styles.timestamp}>
+                  {formatMessageDate(message.createdAt)}
+                </Text>
+                {isMyMessage &&
+                  (message?.isRead ? (
+                    <Ionicons name="checkmark-done" size={14} color="#14AE5C" />
+                  ) : (
+                    <Ionicons name="checkmark-done" size={14} color="gray" />
+                  ))}
+              </View>
+            </View>
+            {isMyMessage && message.error && (
+              <Text className="text-[#F24822] text-[8px] font-LexendDeca ml-[4px]">
+                <AntDesign name="exclamationcircle" size={18} color="#F24822" />{" "}
+                {message.error}
+              </Text>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  },
+);
+
+const DeterminePrice = memo(({ productDetails }: { productDetails: any }) => {
+  return (
+    <View className="flex-row items-center gap-[8px]">
+      <Text className="text-[16px] text-[#16783A]  font-LexendDecaMedium leading-[18px]">
+        ₦
+        {productDetails?.discount?.isActive
+          ? productDetails?.discount?.discountedPrice?.toLocaleString()
+          : productDetails?.price?.toLocaleString()}
+      </Text>
+      {productDetails?.discount?.isActive && (
+        <Text className="text-[11px] text-[#16783A] font-LexendDecaBold">
+          -{productDetails?.discount?.value}
+          {productDetails?.discount?.type == "percentage" && "%"} off
+        </Text>
+      )}
+    </View>
+  );
+});
+
+const ProductsSheet = ({
+  handleSubmitSelectedProducts,
+  id,
+}: {
+  handleSubmitSelectedProducts: any;
+  id: any;
+}) => {
+  const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>(".");
+  const [query, setQuery] = useState<string>(".");
+  const [page, setPage] = useState<number>(1);
+  const [hasReachedEnd, setHasReachedEnd] = useState<boolean>(false);
+  const [products, setProducts] = useState<any[]>([]);
+  // const [products]
+  const { data, isLoading, isFetching, isError, refetch } =
+    useGetSellerProductsQuery({ id, page, limit: 5 });
+
+  const handleFinalSubmit = () => {
+    handleSubmitSelectedProducts(selectedProducts[0]);
+  };
+
+  const handleSelectItem = (item: any) => {
+    if (isFetching) return;
+    const existingItem = selectedProducts.find((prod) => prod._id == item?._id);
+    if (existingItem) {
+      return setSelectedProducts(
+        selectedProducts.filter((prod) => prod._id != item?._id),
+      );
+    }
+    // if (selectedProducts.length >= 1) {
+    //   return;
+    // }
+    setSelectedProducts([item]);
+  };
+
+  const fetchMoreProducts = () => {
+    console.log("catalog pagination ", {
+      isFetching,
+      hasReachedEnd,
+      id,
+    });
+    if (!isFetching && !hasReachedEnd) {
+      setPage((prev) => prev + 1);
+    }
+  };
+
+  useEffect(() => {
+    if (data) {
+      if (page == 1) {
+        setProducts(data?.products);
+      } else {
+        setProducts([...products, ...data?.products]);
+      }
+
+      if (data?.totalPages == data?.currentPage || data?.totalPages == 0) {
+        console.log("pagination ", {
+          totalPages: data?.totalPages,
+          currentPage: data?.currentPage,
+        });
+
+        setHasReachedEnd(true);
+      }
+    }
+  }, [data]);
+
+  useEffect(() => {}, []);
+
+  return (
+    <View className="h-full">
+      <View
+        style={{
+          paddingBottom: 80,
+          height: "100%",
+        }}
+      >
+        <Text className="text-center text-[#ccc] text-[14px]  mb-[30px] font-LexendDeca">
+          Select a product to send
+        </Text>
+        {isLoading ? (
+          <ActivityIndicator size={"small"} color="#16783A" />
+        ) : (
+          <BottomSheetFlatList
+            data={products}
+            // scrollEnabled={true}
+
+            nestedScrollEnabled={true}
+            renderItem={({ item }: { item: any }) => (
+              <TouchableOpacity
+                className="w-[49%] h-[300px] mb-[10px]"
+                style={{
+                  opacity: isFetching ? 0.3 : 1,
+                }}
+                onPress={() => handleSelectItem(item)}
+              >
+                <ConnectProductCard
+                  name={item?.name}
+                  price={item?.price}
+                  category={item?.category}
+                  seller={item?.seller}
+                  image_url={item?.images[0]?.url}
+                  rating={item?.stats?.averageRating}
+                />
+                <View
+                  className="absolute right-[4px] top-[4px] bg-[#000] w-[25px] h-[25px] rounded-full items-center justify-center"
+                  style={{
+                    borderWidth: 2,
+                    borderColor: "#16783A",
+                    backgroundColor: selectedProducts.find(
+                      (prod) => prod._id == item?._id,
+                    )
+                      ? "#16783A"
+                      : "#f2f2f2",
+                  }}
+                >
+                  {selectedProducts.find((prod) => prod._id == item?._id) && (
+                    <AntDesign name="check" size={14} color="white" />
+                  )}
+                </View>
+              </TouchableOpacity>
+            )}
+            keyExtractor={(item, index) =>
+              item?.id?.toString() || index?.toString()
+            }
+            numColumns={2}
+            columnWrapperStyle={{
+              // columnGap: ,
+              justifyContent: "space-between",
+            }}
+            onEndReached={fetchMoreProducts}
+            onEndReachedThreshold={0.5}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </View>
+
+      <View className="absolute bottom-0 self-center w-full flex-row items-center justify-between py-[20px] px-[10px] bg-[#121212]">
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 5,
+            flexWrap: "wrap",
+          }}
+        >
+          {selectedProducts.map((product: any, index: number) => (
+            <View
+              key={index}
+              style={{
+                marginRight: 4,
+                width: 30,
+                height: 30,
+                backgroundColor: "#111",
+              }}
+            >
+              <Image
+                source={{ uri: product?.images[0]?.url }}
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 10,
+                }}
+                contentFit="cover"
+              />
+              <Pressable
+                className="absolute right-[0px] top-[-4px] bg-[#000] w-[15px] h-[15px] rounded-full items-center justify-center"
+                style={{
+                  position: "absolute",
+                  right: -4,
+                  top: -4,
+                  backgroundColor: "#000",
+                  borderRadius: 15 / 2,
+                }}
+                onPress={() => handleSelectItem(product)}
+              >
+                <Ionicons name="close-sharp" size={10} color="white" />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+        <TouchableOpacity
+          className="rounded-[4px] px-[15px] py-[10px] items-center justify-center bg-[#16783A]"
+          onPress={() => handleFinalSubmit()}
+          style={{
+            marginLeft: "auto",
+          }}
+        >
+          <Text className="text-white text-[10px]">Done</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  contentContainer: {
+    paddingVertical: 10,
+    flexGrow: 1,
+    justifyContent: "flex-end",
+    // backgroundColor: "red",
+  },
+  messageContainer: {
+    maxWidth: "80%",
+    flex: 1,
+    marginVertical: 4,
+    marginHorizontal: 17,
+    flexDirection: "row",
+    alignItems: "flex-end",
+  },
+  myMessageContainer: {
+    alignSelf: "flex-end",
+  },
+  otherMessageContainer: {
+    alignSelf: "flex-start",
+  },
+  myMessage: {
+    backgroundColor: "rgba(41, 41, 41, 0.81)",
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderTopRightRadius: 12,
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 0,
+  },
+  otherMessage: {
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderTopRightRadius: 8,
+    borderTopLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    backgroundColor: "#fff",
+  },
+  messageText: {
+    fontSize: 15,
+    fontFamily: "LexendDeca",
+    marginRight: 6,
+    color: "#fff",
+  },
+  otherMessageText: {
+    fontSize: 15,
+    color: "#121212",
+    marginRight: 6,
+    fontFamily: "LexendDeca",
+  },
+  timestamp: {
+    fontSize: 10,
+    color: "#7C7C7C",
+    alignSelf: "flex-end",
+    fontFamily: "LexendDeca",
+  },
+  emptyList: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  placedDetailsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 16,
+    width: "100%",
+  },
+  placedName: {
+    fontSize: 14,
+    fontFamily: "LexendDeca-SemiBold",
+    flexShrink: 1,
+    color: "#000",
+  },
+  priceContainer: {
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E5FDFF",
+  },
+  placedPrice: {
+    fontSize: 12,
+    fontFamily: "LexendDeca-Medium",
+    color: "#16783A",
+  },
+  autoOrderMessage: {
+    paddingHorizontal: 4,
+    paddingVertical: 12,
+    borderRadius: 6,
+    backgroundColor: "rgba(69, 193, 51, 0.10)",
+    flexBasis: "33%",
+    borderColor: "#16783A",
+    borderWidth: 1,
+    flexShrink: 1,
+  },
+  autoOrderMessageText: {
+    color: "#16783A",
+    fontSize: 8,
+    fontFamily: "LexendDeca-SemiBold",
+    textAlign: "center",
+  },
+  autoOrderMessageInactive: {
+    paddingHorizontal: 2,
+    paddingVertical: 12,
+    borderRadius: 6,
+    backgroundColor: "#fff",
+    flexBasis: "33%",
+    borderColor: "#16783A",
+    borderWidth: 1,
+    flexShrink: 1,
+  },
+  sendAutoMsgBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 6,
+    backgroundColor: "#16783A",
+    borderColor: "#16783A",
+    borderWidth: 1,
+    alignSelf: "center",
+  },
+});
+
+export default MessageRoom;

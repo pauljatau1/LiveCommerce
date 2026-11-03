@@ -1,0 +1,466 @@
+import {
+  View,
+  Text,
+  Dimensions,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+  Platform,
+  Keyboard,
+  ScrollView,
+  Pressable,
+  Alert,
+  Linking,
+} from "react-native";
+import React, { memo, useEffect, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { FocusAwareStatusBar } from "@/components/ui/focus-aware-status-bar";
+import Entypo from "@expo/vector-icons/Entypo";
+import { Image } from "expo-image";
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import * as ImagePicker from "expo-image-picker";
+import { getToken, getUser, setUser } from "@/store/features/auth/utils";
+import axios from "axios";
+import BottomSheet from "@/components/global/bottom-sheet";
+import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
+import LoadingModal from "@/components/global/loading-modal";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { setUserData } from "@/store/features/auth/authSlice";
+import { useDispatch } from "react-redux";
+import {
+  KeyboardAvoidingView,
+  KeyboardAwareScrollView,
+} from "react-native-keyboard-controller";
+import SafeAreaView from "@/components/global/safeareaview/SafeAreaView";
+import { toast } from "@/core/toast";
+
+const { width, height } = Dimensions.get("window");
+const offset = 20;
+
+const EditProfile = () => {
+  const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
+  const { avatar, username, bio, email, phoneNumber, firstName, lastName } =
+    useLocalSearchParams();
+
+  const [editUsernameVal, setEditUsernameVal] = useState<string>(
+    username?.toString(),
+  );
+  const [editFirstNameVal, setEditFirstNameVal] = useState<string>(
+    firstName?.toString(),
+  );
+  const [editLastNameVal, setEditLastNameVal] = useState<string>(
+    lastName?.toString(),
+  );
+  const [editBioVal, setEditBioVal] = useState<string>(bio?.toString());
+  const [editEmailVal, setEditEmailVal] = useState<string>(email?.toString());
+  const [editPhoneVal, setEditPhoneVal] = useState<string>(
+    phoneNumber?.toString().replaceAll("+234", "")?.replaceAll("-", ""),
+  );
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const [selectedMedia, setSelectedMedia] = useState<any[]>(
+    avatar
+      ? [
+          {
+            uri: avatar,
+          },
+        ]
+      : [],
+  );
+  const [loading, setLoading] = useState<boolean>(false);
+  const [showPasswordValidation, setShowPasswordValidation] =
+    useState<boolean>(false);
+  const [hasChanged, setHasChanged] = useState<boolean>(false);
+
+  const pickImage = async () => {
+    const permission = await ImagePicker.getMediaLibraryPermissionsAsync();
+    console.log(permission);
+
+    if (!permission.granted) {
+      if (permission.canAskAgain) {
+        const newPermission =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!newPermission.granted) {
+          return;
+        }
+      } else {
+        return Alert.alert(
+          "Permission Required",
+          "Please enable media library access in Settings to continue",
+          [
+            { text: "Cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() },
+          ],
+        );
+      }
+    }
+    console.log("launching image picker (profile)");
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 1,
+      allowsMultipleSelection: false,
+      allowsEditing: false,
+      base64: false,
+    });
+    console.log("finished launching image picker (profile)");
+
+    if (!result.canceled && result.assets.length > 0) {
+      const newImages = result.assets.map((asset) => ({
+        uri: asset.uri,
+        name: `media_${Date.now()}.${asset.mimeType?.split("/")[1] || "application/octet-stream"}`,
+        type: asset.mimeType,
+      }));
+      const remainingSlots = 4 - selectedMedia.length;
+      const imagesToAdd = newImages.slice(0, remainingSlots);
+
+      setSelectedMedia(imagesToAdd);
+      setHasChanged(true);
+    }
+  };
+
+  const updateAvatar = async () => {
+    try {
+      const token = await getToken();
+      const user = await getUser();
+
+      const formData = new FormData();
+      selectedMedia.forEach((image, index) => {
+        formData.append(`avatar`, image);
+      });
+
+      const config = {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: "Bearer " + token,
+        },
+        transformRequest: () => {
+          return formData;
+        },
+      };
+
+      const response = await axios.put(
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/profile/avatar",
+        formData,
+        config,
+      );
+
+      dispatch(
+        setUserData({
+          ...user,
+          profileImage: { url: response.data?.data?.profileImage?.url },
+        }),
+      );
+      updateProfile();
+    } catch (e: any) {
+      console.log("error updating avatar", e);
+      toast.error(
+        e?.data?.errors?.[0]?.message ||
+          e?.data?.message ||
+          "error updating avatar",
+      );
+      setLoading(false);
+    }
+  };
+
+  const updateProfile = async () => {
+    try {
+      const token = await getToken();
+      const payload = {
+        username: editUsernameVal,
+        phoneNumber:
+          editPhoneVal.length == 11
+            ? "+234" + editPhoneVal.slice(1)
+            : "+234" + editPhoneVal,
+        bio: editBioVal,
+        firstName: editFirstNameVal,
+        lastName: editLastNameVal,
+      };
+      const response = await axios.put(
+        process.env.EXPO_PUBLIC_API_URL + "api/v2/buyers/profile",
+        payload,
+        {
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+        },
+      );
+      const user = await getUser();
+
+      await setUser({
+        ...user,
+        ...payload,
+      });
+
+      dispatch(
+        setUserData({
+          ...user,
+          ...payload,
+        }),
+      );
+      router.back();
+    } catch (e: any) {
+      console.log(e?.response?.data);
+      toast.error(
+        e?.response?.data?.errors?.[0]?.message ||
+          e?.response?.data?.message ||
+          "Error Updating Profile",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateProfile = () => {
+    // setShowPasswordValidation(false);
+    setLoading(true);
+
+    if (hasChanged) {
+      updateAvatar();
+    } else {
+      updateProfile();
+    }
+  };
+
+  return (
+    <SafeAreaView className="flex-1 bg-[#121212]">
+      <FocusAwareStatusBar barStyle="light-content" backgroundColor="#121212" />
+
+      <View
+        style={{
+          // height: 0,
+          paddingVertical: 20,
+          paddingHorizontal: 16,
+          backgroundColor: "#121212",
+          zIndex: 3,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <View className="flex-row items-center gap-[18px]">
+          <TouchableOpacity className="" onPress={() => router.back()}>
+            <Entypo
+              name="chevron-left"
+              size={24}
+              color="rgba(204, 204, 204, 0.8)"
+            />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Edit Profile</Text>
+        </View>
+      </View>
+
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.mainSection}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Pressable style={{ marginBottom: 40 }} onPress={pickImage}>
+          <Image
+            source={
+              selectedMedia?.length > 0
+                ? { uri: selectedMedia?.[0]?.uri }
+                : require("../../../assets/icons/profile.jpg")
+            }
+            style={styles.avatar}
+            contentFit="cover"
+          />
+
+          <View style={styles.editBtn}>
+            <FontAwesome6 name="edit" size={14} color="#ccc" />
+          </View>
+          <Pressable onPress={() => setSelectedMedia([])}>
+            <Text style={styles.removeImageBtn}>Remove</Text>
+          </Pressable>
+        </Pressable>
+
+        <View style={{ width: "100%" }}>
+          <View style={styles.editSingleSection}>
+            <Text style={styles.label}>Username</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Username"
+              value={editUsernameVal}
+              onChangeText={(text) => setEditUsernameVal(text)}
+            />
+          </View>
+          <View style={styles.editSingleSection}>
+            <Text style={styles.label}>FirstName</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="FirstName"
+              value={editFirstNameVal}
+              onChangeText={(text) => setEditFirstNameVal(text)}
+            />
+          </View>
+          <View style={styles.editSingleSection}>
+            <Text style={styles.label}>LastName</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="LastName"
+              value={editLastNameVal}
+              onChangeText={(text) => setEditLastNameVal(text)}
+            />
+          </View>
+          <View style={styles.editSingleSection}>
+            <Text style={styles.label}>Bio</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Bio"
+              value={editBioVal}
+              onChangeText={(text) => setEditBioVal(text)}
+              multiline
+              maxLength={150}
+              numberOfLines={4}
+            />
+          </View>
+          <View style={styles.editSingleSection}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={[styles.input, { opacity: 0.3 }]}
+              placeholder="Email"
+              value={editEmailVal}
+              onChangeText={(text) => setEditEmailVal(text)}
+              readOnly
+            />
+          </View>
+          <View style={styles.editSingleSection}>
+            <Text style={styles.label}>Phone Number</Text>
+            <TextInput
+              style={[styles.input]}
+              placeholder="Phone Number"
+              value={editPhoneVal}
+              onChangeText={(text) => {
+                setEditPhoneVal(text);
+              }}
+              maxLength={11}
+              keyboardType="numeric"
+            />
+          </View>
+        </View>
+
+        <Pressable style={styles.updateBtn} onPress={handleUpdateProfile}>
+          <Text style={styles.updateBtnText}>Update</Text>
+        </Pressable>
+      </KeyboardAwareScrollView>
+
+      <BottomSheet
+        bgColor="#121212"
+        childrenStyle="!px-[11px]"
+        showCloseIcon={false}
+        show={showPasswordValidation}
+        // snapPoints={["40%"]}
+        enableDynamicSizing={true}
+        onRequestClose={() => setShowPasswordValidation(false)}
+        keyboardBehavior="interactive"
+      >
+        <ValidationSheet handleUpdateProfile={handleUpdateProfile} />
+      </BottomSheet>
+      <LoadingModal isVisible={loading} />
+    </SafeAreaView>
+  );
+};
+
+const ValidationSheet = memo(
+  ({ handleUpdateProfile }: { handleUpdateProfile: any }) => {
+    const [password, setPassword] = useState<string>("");
+    return (
+      <View style={{ paddingVertical: 20 }}>
+        <View className="w-[100%] rounded-[22px] py-[12px] px-[12px] bg-[#2e2e2e]">
+          <BottomSheetTextInput
+            placeholder="Enter Password"
+            placeholderTextColor={"#ccc"}
+            style={{
+              fontSize: 15,
+              color: "#fff",
+              padding: 0,
+            }}
+            returnKeyType="send"
+            value={password}
+            onChangeText={(text) => setPassword(text)}
+          />
+        </View>
+        <Pressable
+          style={{
+            paddingVertical: 12,
+            width: "100%",
+            borderRadius: 30,
+            backgroundColor: "#16783A",
+            justifyContent: "center",
+            alignItems: "center",
+            marginTop: 20,
+          }}
+          onPress={handleUpdateProfile}
+        >
+          <Text style={styles.updateBtnText}>Submit</Text>
+        </Pressable>
+      </View>
+    );
+  },
+);
+
+const styles = StyleSheet.create({
+  headerTitle: {
+    fontSize: 14,
+    fontFamily: "LexendDeca",
+    color: "#ccc",
+  },
+  mainSection: {
+    paddingVertical: 30,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  avatar: {
+    width: 160,
+    height: 160,
+    borderRadius: 160,
+  },
+  editBtn: {
+    position: "absolute",
+    right: 10,
+    bottom: 30,
+  },
+  editSingleSection: {
+    width: "100%",
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontFamily: "LexendDeca",
+    color: "#ccc",
+    marginBottom: 4,
+  },
+  input: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    fontSize: 14,
+    fontFamily: "LexendDeca",
+    color: "#fff",
+    backgroundColor: "#2e2e2e",
+    borderRadius: 8,
+  },
+  updateBtn: {
+    paddingVertical: 12,
+    width: "100%",
+    borderRadius: 30,
+    backgroundColor: "#16783A",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 30,
+  },
+  updateBtnText: {
+    fontSize: 14,
+    color: "#fff",
+    fontFamily: "LexendDeca",
+  },
+  removeImageBtn: {
+    color: "red",
+    fontSize: 10,
+    fontFamily: "LexendDeca",
+    textAlign: "center",
+    marginTop: 20,
+    opacity: 0.6,
+  },
+});
+
+export default EditProfile;

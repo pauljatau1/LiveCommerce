@@ -1,0 +1,79 @@
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+// import { API_URL } from '@env'
+
+import { getRequest, patchRequest, postRequest } from "@/core";
+import { getToken } from "@/store/features/auth/utils";
+import type {
+  ForgotPasswordRequest,
+  ForgotPasswordResponse,
+  LoginRequest,
+  LoginResponse,
+  ResendEmailOTPRequest,
+  ResendEmailOTPResponse,
+  ResetPasswordRequest,
+  ResetPasswordResponse,
+  SignUpRequest,
+  SignUpResponse,
+  VerifyEmailRequest,
+  VerifyEmailResponse,
+} from "@/types/services/auth";
+
+export const auth = createApi({
+  reducerPath: "auth",
+  baseQuery: fetchBaseQuery({
+    baseUrl: process.env.EXPO_PUBLIC_API_URL + "api",
+    prepareHeaders: async (headers) => {
+      const token = await getToken();
+      if (token) {
+        headers.set("authorization", `Bearer ${token}`);
+      }
+      return headers;
+    },
+  }),
+  endpoints: (builder) => ({
+    login: builder.mutation<LoginResponse, any>({
+      query: (credentials) => postRequest("v2/buyers/auth/login", credentials),
+    }),
+    signUp: builder.mutation<SignUpResponse, SignUpRequest>({
+      query: (credentials) => postRequest("v2/buyers/auth/register", credentials),
+    }),
+    verifyEmail: builder.mutation<VerifyEmailResponse, VerifyEmailRequest>({
+      query: (credentials) => postRequest("v2/buyers/auth/verify-otp", credentials),
+    }),
+    resendEmailOTP: builder.mutation<any, any>({
+      query: (credentials) => postRequest("/buyer/resend-otp", credentials),
+    }),
+    forgotPassword: builder.mutation<
+      ForgotPasswordResponse,
+      ForgotPasswordRequest
+    >({
+      query: (credentials) =>
+        postRequest("/v2/buyers/forgot-password", credentials),
+    }),
+    resetPassword: builder.mutation<
+      ResetPasswordResponse,
+      ResetPasswordRequest
+    >({
+      query: (credentials) => postRequest("/v2/buyers/reset-password", credentials),
+    }),
+    requestDelete: builder.mutation<any, any>({
+      query: (credentials) =>
+        postRequest("/v2/buyers/request-account-deletion", credentials),
+    }),
+    confirmDelete: builder.mutation<any, any>({
+      query: (credentials) =>
+        postRequest("/v2/buyers/confirm-account-deletion", credentials),
+    }),
+  }),
+});
+
+export const {
+  useLoginMutation,
+  useSignUpMutation,
+  useVerifyEmailMutation,
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
+  useRequestDeleteMutation,
+  useConfirmDeleteMutation,
+  useResendEmailOTPMutation,
+} = auth;
