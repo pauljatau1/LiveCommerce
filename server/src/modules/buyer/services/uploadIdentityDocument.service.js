@@ -43,7 +43,7 @@ const uploadIdentityDocumentValidator = require('../validators/uploadIdentityDoc
 
 // Initialize S3 client for identity document management
 // This enables secure document storage and retrieval
-const s3 = new AWS.S3();
+const { s3 } = require('../../../config/awsConfig');
 
 /**
  * Delete old identity document from S3 if it exists.

@@ -1,6 +1,5 @@
 
-const AWS = require('aws-sdk');
-const s3 = new AWS.S3();
+const { s3 } = require('../config/awsConfig');
 
 /**
  * Deletes objects from S3 and returns the result.
