@@ -15,7 +15,7 @@ const axios = require('axios');
 
 // Initialize Paystack for Terminal Africa orders
 const crypto = require('crypto');
-const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || "sk_test_REDACTED";
+const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
 const paystack = require('axios').create({
   baseURL: 'https://api.paystack.co',
   headers: {

@@ -25,7 +25,13 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-passport.use(new GoogleStrategy({
+// Google sign-in is optional. Without credentials the strategy is not
+// registered, so the server still boots and the Google routes return an error.
+const googleConfigured = Boolean(
+  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_CALLBACK_URL
+);
+
+if (googleConfigured) passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: process.env.GOOGLE_CALLBACK_URL,
