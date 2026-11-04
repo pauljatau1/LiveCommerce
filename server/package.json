@@ -13,7 +13,8 @@
     "dev": "node scripts/migrate-referral-codes.js && nodemon server.js",
     "migrate:up": "migrate-mongo up",
     "migrate:down": "migrate-mongo down",
-    "migrate:create": "migrate-mongo create"
+    "migrate:create": "migrate-mongo create",
+    "seed": "node scripts/seed.js"
   },
   "keywords": [],
   "author": "",
