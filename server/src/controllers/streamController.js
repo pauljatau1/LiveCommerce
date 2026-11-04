@@ -1,5 +1,6 @@
 const Stream = require('../models/Stream');
 const agoraService = require('../services/agoraService');
+const recordingService = require('../services/recordingService');
 const cloudinary = require('cloudinary').v2;
 const { v4: uuidv4 } = require('uuid');
 const Product = require('../models/Product');
@@ -829,6 +830,9 @@ exports.startStream = async (req, res) => {
       console.error('Background task error:', err);
     });
 
+    // Record the show for clips (no-op unless recording is configured; never throws)
+    recordingService.startRecording(stream);
+
   } catch (error) {
     console.error('Start stream error:', error);
     res.status(500).json({
@@ -1234,6 +1238,9 @@ exports.endStream = async (req, res) => {
     stream.status = 'ended';
     stream.endTime = new Date();
     await stream.save();
+
+    // Stop the show recording (no-op unless one is running; never throws)
+    recordingService.stopRecording(stream);
 
     // Cancel any scheduled reminder jobs (SMS and push) for this stream
     try {
