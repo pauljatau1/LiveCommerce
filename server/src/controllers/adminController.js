@@ -69,6 +69,7 @@ cloudinary.config({
 });
 
 const { s3 } = require('../config/awsConfig');
+const { isAllowedAdminEmail } = require('../config/admins');
 const { v4: uuidv4 } = require('uuid');
 const emailService = require('../utils/emailService');
 const termiiEmailService = require('../services/termiiEmailService');
@@ -84,19 +85,8 @@ exports.register = async (req, res) => {
   const { username, email, password } = req.body;
 
   try {
-    // Check if the email is in the allowed list (this is also validated in the model)
-    const ALLOWED_EMAILS = [
-      'bolu@auqli.com',
-      'support@auqli.com',
-      'joseph@auqli.com',
-      'paul@auqli.com',
-      'matt@auqli.com',
-      'melissa@auqli.com',
-      'alex@commercejet.com',
-      'matt@auqli.com'
-    ];
-
-    if (!ALLOWED_EMAILS.includes(email.toLowerCase())) {
+    // Only emails listed in ADMIN_EMAILS may register (also validated in the model)
+    if (!isAllowedAdminEmail(email)) {
       return res.status(403).json({
         success: false,
         message: 'This email is not authorized to register as an admin.'
