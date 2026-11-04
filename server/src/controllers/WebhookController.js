@@ -254,8 +254,12 @@ exports.handlePaystackWebhook = async (req, res) => {
   const signature = req.headers['x-paystack-signature'];
   console.log('Paystack Signature Header:', signature);
 
-  // If using express.raw, req.body is a Buffer
-  const rawBody = req.body;
+  // The signature is over the exact bytes Paystack sent. The global JSON parser
+  // runs first and keeps them on req.rawBody; fall back to a raw Buffer body.
+  const rawBody = Buffer.isBuffer(req.body) ? req.body : req.rawBody;
+  if (!secret || !rawBody || !signature) {
+    return res.status(400).json({ message: 'Invalid signature' });
+  }
   let event;
 
   try {
@@ -282,6 +286,15 @@ exports.handlePaystackWebhook = async (req, res) => {
 
   try {
     switch (event.event) {
+      case 'charge.success':
+        // Credit wallet top-ups even if the buyer closed the page before the app
+        // confirmed the payment. The service re-verifies with Paystack and
+        // credits each payment at most once, so retries and the app's own
+        // confirmation are safe.
+        if (event.data?.metadata?.purpose === require('../modules/buyer/services/verifyWalletTopUp.service').WALLET_TOPUP_PURPOSE) {
+          await require('../modules/buyer/services/verifyWalletTopUp.service').verifyWalletTopUp(event.data.reference);
+        }
+        break;
       case 'transfer.success':
         console.log('Handling transfer.success...');
         await handleTransferSuccess(event.data);

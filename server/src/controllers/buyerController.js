@@ -1,3 +1,5 @@
+const verifyWalletTopUpService = require('../modules/buyer/services/verifyWalletTopUp.service');
+const topUpWalletService = require('../modules/buyer/services/topUpWallet.service');
 const Buyer = require('../models/Buyer');
 const jwt = require('jsonwebtoken');
 const termiiEmailService = require('../services/termiiEmailService');
@@ -2902,197 +2904,29 @@ exports.sendWalletTopUpEmail = async (buyer, transaction) => {
 
 // Verify and complete wallet top-up
 exports.verifyWalletTopUp = async (req, res) => {
+  // Same checks as /api/v2/buyers/wallet/topup/verify: the payment must be a
+  // successful naira wallet top-up for this buyer, credited at most once.
   try {
-    const { reference } = req.query;
-
-    if (!reference) {
-      return res.status(400).json({ message: 'Payment reference is required' });
-    }
-
-    // Verify with Paystack
-    const verificationResponse = await paystack.get(`/transaction/verify/${reference}`);
-
-    // Fix: Paystack returns status as boolean (true) not string ("success")
-    if (!verificationResponse.data.status || verificationResponse.data.data.status !== 'success') {
-      return res.status(400).json({
-        message: 'Payment verification failed',
-        error: verificationResponse.data
-      });
-    }
-
-    const paymentData = verificationResponse.data.data;
-    const metadata = paymentData.metadata;
-
-    // For frontend-initiated payments, metadata might not have transactionType
-    // So we'll check if buyerId exists and assume it's a wallet top-up
-    if (!metadata || !metadata.buyerId) {
-      return res.status(400).json({ message: 'Invalid payment metadata. Missing buyerId.' });
-    }
-
-    const buyerId = metadata.buyerId;
-    const buyer = await Buyer.findById(buyerId);
-
-    if (!buyer) {
-      return res.status(404).json({ message: 'Buyer not found' });
-    }
-
-    // Check if transaction is already completed
-    const existingTransaction = buyer.wallet.transactions.find(
-      t => t.paymentReference === reference
-    );
-
-    if (existingTransaction) {
-      if (existingTransaction.status === 'completed') {
-        return res.status(200).json({
-          message: 'Payment already processed',
-          transaction: existingTransaction,
-          currentBalance: buyer.wallet.balance
-        });
-      } else if (existingTransaction.status === 'pending') {
-        // Update the existing transaction
-        existingTransaction.status = 'completed';
-
-        // Update wallet balance
-        buyer.wallet.balance += existingTransaction.amount;
-
-        await buyer.save();
-
-        // Send confirmation email
-        exports.sendWalletTopUpEmail(buyer, existingTransaction);
-
-        return res.status(200).json({
-          message: 'Wallet topped up successfully',
-          transaction: existingTransaction,
-          newBalance: buyer.wallet.balance
-        });
-      }
-    }
-
-    // If no transaction found, create a new one
-    const amount = paymentData.amount / 100; // Convert from kobo to naira
-
-    const newTransaction = {
-      type: 'credit',
-      amount,
-      paymentReference: reference,
-      description: metadata.description || 'Wallet top up via Paystack',
-      status: 'completed',
-      createdAt: new Date()
-    };
-
-    buyer.wallet.transactions.push(newTransaction);
-    buyer.wallet.balance += amount;
-
-    await buyer.save();
-
-    // Send confirmation email
-    exports.sendWalletTopUpEmail(buyer, newTransaction);
-
-    return res.status(200).json({
-      message: 'Wallet topped up successfully',
-      transaction: newTransaction,
-      newBalance: buyer.wallet.balance
-    });
+    const result = await verifyWalletTopUpService.verifyWalletTopUp(req.query.reference, { expectedBuyerId: req.user.id });
+    return res.status(200).json(result);
   } catch (error) {
-    console.error('Verify wallet top-up error:', error);
-    res.status(500).json({
-      message: 'Failed to verify wallet top-up',
-      error: error.response?.data || error.message
-    });
+    const status = error.statusCode || (error.name === 'ValidationError' ? 422 : error.name === 'NotFoundException' ? 404 : 500);
+    return res.status(status).json({ message: error.message, errors: error.errors });
   }
 };
 
-// Handle Paystack webhook for wallet top-up - Removed: Now consolidated in orderController.handlePaystackWebhook
-
-// Legacy direct top-up method (for admin use or testing)
 exports.topUpWallet = async (req, res) => {
+  // Same rules as /api/v2/buyers/wallet/topup: buyers must pay through Paystack,
+  // and only the amount Paystack confirms is credited.
   try {
-    const { amount, description = 'Wallet top up', bypassPaystack = false, paymentReference } = req.body;
-
-    // Only allow bypass for admin users or in development environment
-    if (bypassPaystack && (!req.user.isAdmin && process.env.NODE_ENV !== 'development')) {
-      return res.status(403).json({
-        message: 'Direct wallet top-up is not allowed'
-      });
-    }
-
-    if (!amount || amount <= 0) {
-      return res.status(400).json({
-        message: 'Invalid amount. Amount must be greater than 0.'
-      });
-    }
-
-    const buyer = await Buyer.findById(req.user.id);
-    if (!buyer) {
-      return res.status(404).json({ message: 'Buyer not found' });
-    }
-
-    // Check if this is a fallback verification with an existing payment reference
-    if (paymentReference) {
-      // Check if transaction with this reference already exists
-      const existingTransaction = buyer.wallet.transactions.find(
-        t => t.paymentReference === paymentReference
-      );
-
-      if (existingTransaction) {
-        if (existingTransaction.status === 'completed') {
-          return res.status(200).json({
-            message: 'Payment already processed',
-            transaction: existingTransaction,
-            newBalance: buyer.wallet.balance
-          });
-        } else if (existingTransaction.status === 'pending') {
-          // Update the existing transaction
-          existingTransaction.status = 'completed';
-          buyer.wallet.balance += existingTransaction.amount;
-
-          await buyer.save();
-
-          // Send confirmation email
-          exports.sendWalletTopUpEmail(buyer, existingTransaction);
-
-          return res.status(200).json({
-            message: 'Wallet topped up successfully',
-            transaction: existingTransaction,
-            newBalance: buyer.wallet.balance
-          });
-        }
-      }
-    }
-
-    const transaction = {
-      type: 'credit',
-      amount,
-      paymentReference: paymentReference || generatePaymentReference(),
-      description: description + (bypassPaystack ? ' (Direct)' : ''),
-      status: 'completed',
-      createdAt: new Date()
-    };
-
-    // Add transaction to history and update balance
-    buyer.wallet.transactions.push(transaction);
-    buyer.wallet.balance += amount;
-
-    await buyer.save();
-
-    // Send confirmation email
-    exports.sendWalletTopUpEmail(buyer, transaction);
-
-    res.status(200).json({
-      message: 'Wallet topped up successfully',
-      transaction,
-      newBalance: buyer.wallet.balance
-    });
+    const result = await topUpWalletService.topUpWallet(req.user.id, req.body || {}, req.user, process.env.NODE_ENV);
+    return res.status(200).json(result);
   } catch (error) {
-    console.error('Top up wallet error:', error);
-    res.status(500).json({
-      message: 'Failed to top up wallet',
-      error: error.message
-    });
+    const status = error.statusCode || (error.name === 'ValidationError' ? 422 : error.name === 'NotFoundException' ? 404 : 500);
+    return res.status(status).json({ message: error.message, errors: error.errors });
   }
 };
 
-// Get wallet transactions
 exports.getWalletTransactions = async (req, res) => {
   try {
     const {
