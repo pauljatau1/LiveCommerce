@@ -28,7 +28,7 @@ const { trackPurchase } = require('../controllers/campaignController');
 const { cancelOrderByBuyer } = require('../modules/orderv2/services/cancel-order-by-buyer.service');
 
 // Initialize Paystack
-const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || "sk_test_REDACTED";
+const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
 const paystack = axios.create({
   baseURL: 'https://api.paystack.co',
   headers: {

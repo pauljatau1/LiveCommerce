@@ -171,6 +171,22 @@ const streamSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // Agora cloud recording of the show, used to cut clips (see services/recordingService.js)
+  recording: {
+    status: { type: String, enum: ['recording', 'stopped', 'failed'] },
+    resourceId: String,
+    sid: String,
+    uid: String,
+    startedAt: Date,
+    stoppedAt: Date,
+    error: String,
+    files: [{
+      _id: false,
+      fileName: String,
+      trackType: String,
+      sliceStartTime: Number
+    }]
+  },
   subscribers: [{
     buyer: {
       type: mongoose.Schema.Types.ObjectId,

@@ -212,7 +212,8 @@ app.use(express.urlencoded({
 
 // Configure express-session middleware
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your_session_secret',
+  // Required in production (checked at startup in config/env.js)
+  secret: process.env.SESSION_SECRET || 'dev-only-session-secret',
   resave: false,
   saveUninitialized: false,
   cookie: {

@@ -1,47 +1,27 @@
-const { getDatabase, ref, set, get, child } = require('firebase/database');
-const { initializeApp } = require('firebase/app');
 const admin = require('firebase-admin');
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-    apiKey: "AIza_REDACTED",
-    authDomain: "auqli-app.firebaseapp.com",
-    databaseURL: "https://auqli-app-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "auqli-app",
-    storageBucket: "auqli-app.firebasestorage.app",
-    messagingSenderId: "558100397953",
-    appId: "1:558100397953:web:0014fb72dfcd1aa3933280",
-    measurementId: "G-MEYRS0CCTB"
-};
+// Firebase stores device push tokens for the native app. It is optional:
+// without credentials these helpers do nothing, so the web MVP runs without it.
+const projectId = process.env.FIREBASE_PROJECT_ID;
+const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+const databaseURL = process.env.FIREBASE_DATABASE_URL;
 
-// Initialize Firebase Admin SDK
-let adminInitialized = false;
-const initializeAdminApp = () => {
-    if (!adminInitialized && !admin.apps.length) {
+const firebaseConfigured = Boolean(projectId && clientEmail && privateKey && databaseURL);
+
+let dbRef = null;
+if (firebaseConfigured) {
+    if (!admin.apps.length) {
         admin.initializeApp({
-            credential: admin.credential.cert({
-                projectId: firebaseConfig.projectId,
-                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-                privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-            }),
-            databaseURL: firebaseConfig.databaseURL
+            credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+            databaseURL
         });
-        adminInitialized = true;
     }
-    return admin;
-};
-
-// Initialize Admin SDK
-initializeAdminApp();
-
-// Get database reference from Admin SDK
-const db = admin.database();
-const dbRef = db.ref();
+    dbRef = admin.database().ref();
+}
 
 const saveToken = async (userId, token) => {
+    if (!dbRef) return false;
     try {
         const values = (await dbRef.child(`userTokens/${userId}/`).get()).val() ?? {};
         const payload = { ...values, token };
@@ -54,6 +34,7 @@ const saveToken = async (userId, token) => {
 };
 
 const getToken = async (userId) => {
+    if (!dbRef) return {};
     try {
         const values = (await dbRef.child(`userTokens/${userId}`).get()).val();
         return values ?? {};
@@ -63,8 +44,8 @@ const getToken = async (userId) => {
     }
 };
 
-
 const removeToken = async (userId) => {
+    if (!dbRef) return false;
     try {
         await dbRef.child(`userTokens/${userId}`).remove();
         return true;
@@ -74,4 +55,4 @@ const removeToken = async (userId) => {
     }
 };
 
-module.exports = { admin, saveToken, getToken, removeToken };
+module.exports = { admin, firebaseConfigured, saveToken, getToken, removeToken };

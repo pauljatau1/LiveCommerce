@@ -1,9 +1,13 @@
 const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
 
 class AgoraService {
-  constructor() {
-    this.appId = process.env.AGORA_APP_ID;
-    this.appCertificate = process.env.AGORA_APP_CERTIFICATE;
+  // Read at call time, so settings are never captured before they are loaded
+  get appId() {
+    return process.env.AGORA_APP_ID;
+  }
+
+  get appCertificate() {
+    return process.env.AGORA_APP_CERTIFICATE;
   }
 
   generateToken(channelName, uid, role = RtcRole.PUBLISHER) {

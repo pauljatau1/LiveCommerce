@@ -9,7 +9,7 @@ const Buyer = require('../../../models/Buyer');
 const Seller = require('../../../models/Seller');
 
 // Get paystack secret key with fallback
-const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || require('../../../config/paystack');
+const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
 
 exports.handlePaystackWebhook = async (req) => {
 
@@ -17,7 +17,7 @@ exports.handlePaystackWebhook = async (req) => {
   return { status: 200, data: { message: 'Webhook received' } };
 
   // Verify the event is from Paystack
-  const hash = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET_KEY || paystackSecretKey)
+  const hash = crypto.createHmac('sha512', paystackSecretKey)
     .update(JSON.stringify(req.body))
     .digest('hex');
 
