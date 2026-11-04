@@ -6,6 +6,8 @@
 //   npm run seed
 //
 // The admin step is skipped when the SEED_ADMIN_* settings are not set.
+// The server also runs this at startup (see server.js), so on hosts without a
+// shell, set SEED_ADMIN_* once, deploy, then remove SEED_ADMIN_PASSWORD.
 
 require('dotenv').config();
 const mongoose = require('mongoose');
@@ -76,6 +78,14 @@ const seedAdmin = async () => {
   return `created (${email.toLowerCase()})`;
 };
 
+// Seeds using the current database connection (used by the server at startup)
+const seedDatabase = async (log = console) => {
+  const created = await seedCategories();
+  const admin = await seedAdmin();
+  log.info(`[seed] categories: ${created} created; admin: ${admin}`);
+  return { created, admin };
+};
+
 const run = async () => {
   if (!process.env.MONGODB_URI) throw new Error('MONGODB_URI is not set');
   await mongoose.connect(process.env.MONGODB_URI);
@@ -95,4 +105,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { run, CATALOGUE };
+module.exports = { run, seedDatabase, CATALOGUE };
