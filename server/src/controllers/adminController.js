@@ -148,8 +148,9 @@ exports.login = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Reject suspicious values containing $ or dots which can be used in NoSQL operator injection
-    const suspiciousPattern = /[$.]/;
+    // Reject values containing $, which could form a NoSQL operator. Dots are allowed so
+    // admins can log in with an email; the value is already known to be a plain string.
+    const suspiciousPattern = /\$/;
     if (suspiciousPattern.test(username)) {
       return res.status(400).json({ success: false, message: 'Invalid credentials' });
     }
