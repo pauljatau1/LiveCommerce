@@ -1,3 +1,6 @@
+// Mount every optional feature's routes, so their existing tests keep running
+process.env.EXTRA_FEATURES = process.env.EXTRA_FEATURES || Object.keys(require('../src/config/optionalFeatures').OPTIONAL_FEATURES).join(',');
+
 // Test setup file for Jest
 require('dotenv').config({ path: '.env.test' });
 
