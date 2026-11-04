@@ -31,6 +31,13 @@ const startServer = async () => {
     console.log('Connecting to MongoDB...');
     await connectDB();
     logger.info('Connected to MongoDB');
+
+    // Add any missing categories and the first admin; never blocks startup
+    try {
+      await require('./scripts/seed').seedDatabase(logger);
+    } catch (seedError) {
+      logger.error(`[seed] skipped: ${seedError.message}`);
+    }
     
     // Start Agenda after MongoDB connection
     try {

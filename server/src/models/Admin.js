@@ -1,16 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
-// List of allowed admin emails
-const ALLOWED_ADMIN_EMAILS = [
-  'bolu@auqli.com',
-  'support@auqli.com',
-  'joseph@auqli.com',
-  'paul@auqli.com',
-  ' melissa@auqli.com',
-  'alex@commercejet.com',
-  'matt@auqli.com',
-];
+const { isAllowedAdminEmail } = require('../config/admins');
 
 const adminSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
@@ -20,7 +11,7 @@ const adminSchema = new mongoose.Schema({
     unique: true,
     validate: {
       validator: function(email) {
-        return ALLOWED_ADMIN_EMAILS.includes(email.toLowerCase());
+        return isAllowedAdminEmail(email);
       },
       message: props => `${props.value} is not allowed to register as an admin. Only authorized email addresses are permitted.`
     }

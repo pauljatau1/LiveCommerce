@@ -1,0 +1,70 @@
+# Render Blueprint: the API server on Render's free plan.
+# In Render: New > Blueprint > pick this repo. Render reads this file, creates the
+# service, and asks for every value marked `sync: false`.
+services:
+  - type: web
+    name: livecommerce-api
+    runtime: docker
+    plan: free
+    region: frankfurt # closest Render region to Lagos
+    branch: main
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Generated once by Render; never shared
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+
+      # Database (MongoDB Atlas connection string)
+      - key: MONGODB_URI
+        sync: false
+
+      # Who may register as an admin (comma-separated emails)
+      - key: ADMIN_EMAILS
+        sync: false
+      # First admin, created on first startup. Delete SEED_ADMIN_PASSWORD
+      # in the dashboard once you have logged in.
+      - key: SEED_ADMIN_EMAIL
+        sync: false
+      - key: SEED_ADMIN_USERNAME
+        sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false # at least 12 characters
+
+      # Media storage on Cloudflare R2
+      - key: S3_ENDPOINT
+        sync: false # https://<account-id>.r2.cloudflarestorage.com
+      - key: AWS_ACCESS_KEY_ID
+        sync: false # R2 API token access key
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false # R2 API token secret
+      - key: CDN_S3_BUCKET
+        sync: false # R2 bucket name
+      - key: CDN_URL
+        sync: false # bucket's public host, without https:// (e.g. pub-xxxx.r2.dev)
+
+      # Live video
+      - key: AGORA_APP_ID
+        sync: false
+      - key: AGORA_APP_CERTIFICATE
+        sync: false
+
+      # Payments (Paystack test keys until launch)
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: PAYSTACK_PUBLIC_KEY
+        sync: false
+
+      # Delivery (Shipbubble sandbox key)
+      - key: SHIPBUBBLE_API_KEY
+        sync: false
+
+      # AI (Gemini)
+      - key: GEMINI_API_KEY
+        sync: false

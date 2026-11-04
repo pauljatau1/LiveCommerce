@@ -14,7 +14,9 @@ const FEATURES = {
   'Delivery (Shipbubble)': ['SHIPBUBBLE_API_KEY'],
   'AI features (Gemini)': ['GEMINI_API_KEY'],
   'SMS and phone OTP (Termii)': ['TERMII_API_KEY', 'TERMII_SENDER_ID'],
-  'Media storage (S3)': ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION', 'CDN_S3_BUCKET', 'CDN_URL'],
+  // AWS S3, or Cloudflare R2 when S3_ENDPOINT is set
+  'Media storage (S3 or R2)': ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'CDN_S3_BUCKET', 'CDN_URL'],
+  'Admin sign-up': ['ADMIN_EMAILS'],
   'Email (SendGrid)': ['SENDGRID_API_KEY', 'SENDGRID_FROM_EMAIL'],
   'Google sign-in': ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CALLBACK_URL'],
 };
