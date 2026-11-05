@@ -7,6 +7,8 @@ import NotFoundPage from "../Pages/NotFoundPage/NotFoundPage";
 export default function RouterErrorHandler() {
   const [hasChunkError, setHasChunkError] = useState(false);
   const error = useRouteError();
+  // A page crash shows the 404 screen; log the real cause so it can be found
+  if (error) console.error('[RouterError]', error);
 
   useEffect(() => {
     // Check if this is a chunk loading error
