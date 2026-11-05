@@ -244,6 +244,8 @@ const productSchema = new mongoose.Schema({
   sku: { type: String },
   upc: { type: String },
   condition: { type: String },
+  // Seller's answer to "official merch or a replica?" (shown to buyers)
+  authenticity: { type: String, enum: ['official', 'replica', 'unknown'], default: 'unknown' },
   tags: [{ type: String }],
   colors: { type: [String], required: false },
   size: { type: String, required: false },

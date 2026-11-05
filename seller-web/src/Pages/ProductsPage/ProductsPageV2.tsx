@@ -30,7 +30,7 @@ export default function ProductsPageV2() {
 
   const handleAddProductClick = () => {
     if (activeTab === "products") {
-      navigate("/dashboard/products/add-products");
+      navigate("/studio/list");
       return;
     }
     setIsCreateBlipModalOpen(true);

@@ -28,7 +28,7 @@ export default function ProductEmptyState({ status = 'product' }: ProductEmptySt
           <>
             <p className="text-base font-medium text-[#425466] mb-6">Let's fix that!</p>
             <Link
-              to="/dashboard/products/add-products"
+              to="/studio/list"
               className="px-6 py-3 h-[38px] flex items-center justify-center border-2 border-[#0BB248] text-[#0BB248] text-sm rounded-lg font-semibold hover:bg-[#0BB248]/10 transition-all duration-300"
             >
               Start Uploading

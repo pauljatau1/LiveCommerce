@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useLocation, useOutletContext } from 'react-router-dom';
 import DesktopAddProduct from '../AddProductsPage/DesktopAddProduct';
 import MobileAddProduct from '../AddProductsPage/MobileAddProduct';
 import { useDevice } from '@/Contexts/DeviceContext';
@@ -12,6 +12,8 @@ export default function AddProductPage() {
     }>();
 
     const { isMobile } = useDevice();
+    // A draft from the Listing Agent ("Edit all details") prefills the form
+    const draft = (useLocation().state as any)?.listingDraft;
 
     useEffect(() => {
         setHeaderName('Products');
@@ -20,7 +22,7 @@ export default function AddProductPage() {
 
     return (
         <div className="w-full h-full">
-            {isMobile ? <MobileAddProduct /> : <DesktopAddProduct />}
+            {isMobile ? <MobileAddProduct initialProduct={draft} /> : <DesktopAddProduct initialProduct={draft} />}
         </div>
     );
 }
