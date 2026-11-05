@@ -79,6 +79,19 @@ describe('POST /api/v2/ai/listing-draft', () => {
     expect(mockPost.mock.calls[1][1].generationConfig.thinkingConfig).toBeUndefined();
   });
 
+  it('switches to the backup model when the main one is overloaded', async () => {
+    mockPost
+      .mockRejectedValueOnce({ response: { status: 503, data: { error: { message: 'This model is currently experiencing high demand.' } } } })
+      .mockResolvedValueOnce(geminiReply({ title: 'Backup draft', category: 'Figures', condition: 'Brand New', description: 'd', tags: [], confidence: 'high', questions: [] }));
+
+    const res = await draft({ images: [{ data: PNG, contentType: 'image/png' }] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.draft.title).toBe('Backup draft');
+    expect(mockPost.mock.calls[0][0]).toBe('/models/gemini-3.6-flash:generateContent');
+    expect(mockPost.mock.calls[1][0]).toBe('/models/gemini-3.5-flash-lite:generateContent');
+  });
+
   it('only sellers can use it', async () => {
     const res = await draft({ images: [{ data: PNG, contentType: 'image/png' }] }, buyerToken());
     expect(res.status).toBe(403);
