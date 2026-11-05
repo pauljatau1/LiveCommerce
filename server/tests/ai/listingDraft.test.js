@@ -4,9 +4,10 @@ const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
 const mockPost = jest.fn();
+const mockGet = jest.fn(async () => ({ status: 200, data: { displayName: 'Gemini Flash' } }));
 jest.mock('axios', () => {
   const actual = jest.requireActual('axios');
-  return { ...actual, create: jest.fn(() => { const c = actual.create(); c.post = (...a) => mockPost(...a); return c; }) };
+  return { ...actual, create: jest.fn(() => { const c = actual.create(); c.post = (...a) => mockPost(...a); c.get = (...a) => mockGet(...a); return c; }) };
 });
 
 const Category = require('@models/Category');
@@ -109,6 +110,16 @@ describe('POST /api/v2/ai/listing-draft/refine', () => {
     expect(res.status).toBe(200);
     expect(res.body.draft.title).toBe('Gojo figure');
     expect(res.body.draft.suggestedPrice).toEqual({ low: 30000, high: 30000, currency: 'NGN' });
+  });
+});
+
+describe('GET /api/v2/ai/check', () => {
+  it('reports timing for a tiny Gemini call without exposing the key', async () => {
+    mockPost.mockResolvedValue({ status: 200, data: { candidates: [{ content: { parts: [{ text: 'OK' }] } }] } });
+    const res = await request(app).get('/api/v2/ai/check').set('Authorization', `Bearer ${sellerToken()}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ configured: true, thinkingLevel: 'LOW', textTest: { ok: true, reply: 'OK' }, modelInfo: { ok: true, displayName: 'Gemini Flash' } });
+    expect(JSON.stringify(res.body)).not.toContain('test-key');
   });
 });
 

@@ -58,4 +58,10 @@ router.post('/listing-draft/refine', verifyToken, isSeller, perSellerLimit, hand
 
 router.get('/status', verifyToken, isSeller, (req, res) => res.json({ success: true, listingDraft: listingDraft.isConfigured() }));
 
+// Times a tiny call to Gemini; used to diagnose slow or failing drafts
+router.get('/check', verifyToken, isSeller, perSellerLimit, async (req, res) => {
+  if (!listingDraft.isConfigured()) return res.json({ success: false, configured: false });
+  res.json({ success: true, ...(await listingDraft.checkConnection()) });
+});
+
 module.exports = router;
