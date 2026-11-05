@@ -3891,9 +3891,7 @@ exports.endProductBidding = async (req, res) => {
         const selectedAddress = {
           recipientName: `${buyer.firstName} ${buyer.lastName}`,
           recipientEmail: buyer.email,
-          recipientPhone: buyer.phoneNumber?.replaceAll("-", "")?.length > 14 ?
-            buyer.phoneNumber.replaceAll("-", "").replace("0", "") :
-            buyer.phoneNumber.replaceAll("-", ""),
+          recipientPhone: String(buyer.phoneNumber || '').replace(/-/g, ''), // buyers may not have a phone yet
           recipientAddress: buyer.shippingAddresses[0].addressLine1,
           recipientState: buyer.shippingAddresses[0].state,
         };
@@ -4095,6 +4093,8 @@ exports.endProductBidding = async (req, res) => {
         }
       } catch (orderError) {
         console.error('[END_BID] ERROR: Failed to create order:', orderError);
+        // Never leave the winner's money held for an order that wasn't made
+        await streamBids.releaseProductHold(stream._id, productId).catch(() => {});
 
         // Set bid status to ongoing even if there was an error
         stream.products[productIndex].bidStatus = 'ongoing';

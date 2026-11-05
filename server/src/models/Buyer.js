@@ -17,7 +17,7 @@ const addressSchema = new mongoose.Schema({
   city: { type: String, required: true },
   addressLine1: { type: String, required: true },
   addressLine2: { type: String },
-  zipCode: { type: String, required: true },
+  zipCode: { type: String }, // optional: most Nigerian addresses don't use one
   // Active address indicator for checkout purposes
   isActive: { type: Boolean, default: false }
 }, { _id: true });

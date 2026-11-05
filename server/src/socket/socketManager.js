@@ -1790,9 +1790,7 @@ function initializeSocket(server) {
             const selectedAddress = {
               recipientName: `${buyer.firstName} ${buyer.lastName}`,
               recipientEmail: buyer.email,
-              recipientPhone: buyer.phoneNumber?.replaceAll("-", "")?.length > 14 ?
-                buyer.phoneNumber.replaceAll("-", "").replace("0", "") :
-                buyer.phoneNumber?.replaceAll("-", ""),
+              recipientPhone: String(buyer.phoneNumber || '').replace(/-/g, ''), // buyers may not have a phone yet
               recipientAddress: buyer.shippingAddresses[0].addressLine1,
               recipientState: buyer.shippingAddresses[0].state,
             };
@@ -1932,6 +1930,8 @@ function initializeSocket(server) {
             }
           } catch (orderError) {
             console.error('[BID] ERROR: Failed to create order:', orderError);
+            // Never leave the winner's money held for an order that wasn't made
+            await streamBids.releaseProductHold(stream._id, productId).catch(() => {});
 
             // Create a stream-specific room name
             const streamRoom = `stream_notifications_${stream._id.toString()}`;
