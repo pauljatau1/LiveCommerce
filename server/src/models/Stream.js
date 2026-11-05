@@ -107,6 +107,15 @@ const streamSchema = new mongoose.Schema({
     orderId: {
       type: String
     },
+    // Wallet funds reserved for the current leading bid (see services/streamBidService.js)
+    holdBuyer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Buyer'
+    },
+    holdAmount: {
+      type: Number,
+      default: 0
+    },
     isVisible: {
       type: Boolean,
       default: false

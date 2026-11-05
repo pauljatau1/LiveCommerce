@@ -33,13 +33,15 @@ const NotFoundException = require('../../../utils/errors/NotFoundException');
 const ValidationError = require('../../../utils/errors/ValidationError');
 const axios = require('axios');
 
-// Initialize Paystack for payment verification
-// Configure axios instance with Paystack API credentials
-const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
-const paystack = axios.create({
+// Paystack metadata tag that marks a payment as a wallet top-up. Payments for
+// anything else (for example an order paid by card) are never credited to a wallet.
+const WALLET_TOPUP_PURPOSE = 'wallet_topup';
+
+// Paystack client; the secret key is read at call time
+const paystack = () => axios.create({
   baseURL: 'https://api.paystack.co',
   headers: {
-    'Authorization': `Bearer ${paystackSecretKey}`,
+    'Authorization': `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
     'Content-Type': 'application/json'
   }
 });
@@ -59,7 +61,7 @@ const paystack = axios.create({
  * @throws {Error} If Paystack API request fails
  */
 async function verifyPaymentWithPaystack(reference) {
-  const response = await paystack.get(`/transaction/verify/${reference}`);
+  const response = await paystack().get(`/transaction/verify/${encodeURIComponent(reference)}`);
   return response;
 }
 
@@ -164,36 +166,41 @@ async function handleExistingTransaction(buyer, existingTransaction) {
       currentBalance: buyer.wallet.balance
     };
   } else if (existingTransaction.status === 'pending') {
-    // Update pending transaction to completed
-    existingTransaction.status = 'completed';
-    
-    // Calculate new wallet balance
-    const newBalance = buyer.wallet.balance + existingTransaction.amount;
-    
-    // Update buyer in database with new transaction status and balance
+    // Complete it and credit the amount in one write; null means another
+    // request completed it first
     const updatedBuyer = await buyerRepository.updateWalletTransactionStatus(
       buyer._id,
       existingTransaction.paymentReference,
       'completed',
-      newBalance
+      existingTransaction.amount
     );
-    
+
     if (!updatedBuyer) {
-      throw new Error('Failed to update transaction status');
+      return alreadyProcessed(buyer._id, existingTransaction.paymentReference);
     }
-    
-    // Send confirmation email for successful top-up
+
+    existingTransaction.status = 'completed';
     await sendWalletTopUpEmail(buyer, existingTransaction);
-    
+
     return {
       message: 'Wallet topped up successfully',
       transaction: existingTransaction,
-      newBalance: newBalance
+      newBalance: updatedBuyer.wallet.balance
     };
   }
   
   // Invalid transaction status
   throw new Error('Invalid transaction status');
+}
+
+// Response for a payment another request has already credited
+async function alreadyProcessed(buyerId, reference) {
+  const fresh = await buyerRepository.findByIdWithWallet(buyerId);
+  return {
+    message: 'Payment already processed',
+    transaction: fresh ? findExistingTransaction(fresh, reference) : undefined,
+    currentBalance: fresh ? fresh.wallet.balance : undefined
+  };
 }
 
 /**
@@ -220,27 +227,19 @@ async function handleNewTransaction(buyer, paymentData, metadata) {
   // Create new transaction object from payment data
   const newTransaction = createNewTransaction(paymentData, metadata);
   
-  // Calculate new wallet balance
-  const newBalance = buyer.wallet.balance + newTransaction.amount;
-  
-  // Update buyer in database with new transaction and balance
-  const updatedBuyer = await buyerRepository.updateWalletWithTransaction(
-    buyer._id,
-    newTransaction,
-    newBalance
-  );
-  
+  // Record and credit in one write; null means this payment was already credited
+  const updatedBuyer = await buyerRepository.updateWalletWithTransaction(buyer._id, newTransaction);
+
   if (!updatedBuyer) {
-    throw new Error('Failed to update wallet with new transaction');
+    return alreadyProcessed(buyer._id, newTransaction.paymentReference);
   }
-  
-  // Send confirmation email for successful top-up
+
   await sendWalletTopUpEmail(buyer, newTransaction);
-  
+
   return {
     message: 'Wallet topped up successfully',
     transaction: newTransaction,
-    newBalance: newBalance
+    newBalance: updatedBuyer.wallet.balance
   };
 }
 
@@ -310,6 +309,25 @@ function validateMetadataAndExtractBuyerId(paymentData) {
   }
 
   return metadata.buyerId;
+}
+
+/**
+ * Ensure the payment was made as a wallet top-up, in naira.
+ *
+ * @param {Object} paymentData - The payment data from Paystack
+ * @throws {ValidationError} When the payment is for something else
+ */
+function validateTopUpPayment(paymentData) {
+  if (!paymentData.metadata || paymentData.metadata.purpose !== WALLET_TOPUP_PURPOSE) {
+    throw new ValidationError([
+      { field: 'reference', message: 'This payment is not a wallet top-up' }
+    ]);
+  }
+  if (paymentData.currency && paymentData.currency !== 'NGN') {
+    throw new ValidationError([
+      { field: 'reference', message: 'Wallet top-ups must be paid in naira' }
+    ]);
+  }
 }
 
 /**
@@ -409,7 +427,7 @@ async function processWalletTopUp(buyer, reference, paymentData, metadata) {
  * //   newBalance: 2500
  * // }
  */
-async function verifyWalletTopUp(reference) {
+async function verifyWalletTopUp(reference, { expectedBuyerId } = {}) {
   // Step 1: Validate reference parameter
   // This ensures payment reference is provided before API calls
   validateReference(reference);
@@ -432,6 +450,16 @@ async function verifyWalletTopUp(reference) {
   // Extract and validate buyer ID from payment metadata
   const buyerId = validateMetadataAndExtractBuyerId(paymentData);
 
+  // Only payments made as wallet top-ups, in naira, can be credited
+  validateTopUpPayment(paymentData);
+
+  // When a buyer submits a reference, it must be their own payment
+  if (expectedBuyerId && String(expectedBuyerId) !== String(buyerId)) {
+    throw new ValidationError([
+      { field: 'reference', message: 'This payment does not belong to your account' }
+    ]);
+  }
+
   // Step 6: Find and validate buyer exists
   // Retrieve buyer from database and ensure they exist
   const buyer = await findAndValidateBuyer(buyerId);
@@ -442,5 +470,6 @@ async function verifyWalletTopUp(reference) {
 }
 
 module.exports = {
-  verifyWalletTopUp
-}; 
+  verifyWalletTopUp,
+  WALLET_TOPUP_PURPOSE
+};

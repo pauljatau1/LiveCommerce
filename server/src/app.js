@@ -198,14 +198,20 @@ app.use((req, res, next) => {
 
 
 // Middleware
-app.use(cors({ origin: '*' }));
+// Only our own sites may call the API from a browser (ALLOWED_ORIGINS, see config/cors.js)
+app.use(cors(require('./config/cors').corsOptions));
+// JSON bodies are capped at 25 MB (file uploads use multipart, not JSON). The raw
+// bytes are kept on req.rawBody, which webhook signature checks need.
 app.use(express.json({
-  limit: '1024mb', // 1GB
+  limit: '25mb',
   parameterLimit: 1000000,
-  extended: true
+  extended: true,
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
 }));
 app.use(express.urlencoded({
-  limit: '1024mb', // 1GB
+  limit: '25mb',
   parameterLimit: 1000000,
   extended: true
 }));
@@ -278,15 +284,18 @@ const buyerReferralRoutes = require('./modules/referral/routes/buyer.referral.ro
 const sellerReferralRoutes = require('./modules/referral/routes/seller.referral.routes');
 
 // Use routes
+// Routes for features outside the MVP are mounted only when listed in EXTRA_FEATURES
+const { mountOptional } = require('./config/optionalFeatures');
+
 app.use('/api/admin', adminRoutes);
 app.use('/api/buyer', buyerRoutes);
 app.use('/api/seller', sellerRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/order', orderRoutes);
 // app.use('/api/v2/order', orderRoutesv2);
-app.use('/api/messages', messageRoutes);
-app.use('/api/conversations', conversationRoutes);
-app.use('/api/posts', postRoutes);
+mountOptional(app, 'messaging', '/api/messages', messageRoutes);
+mountOptional(app, 'messaging', '/api/conversations', conversationRoutes);
+mountOptional(app, 'posts', '/api/posts', postRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
@@ -294,26 +303,26 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/streams', streamRoutes);
-app.use('/api/coupons', couponRoutes);
-app.use('/api/flash-sales', flashSaleRoutes);
-app.use('/api/campaigns', campaignRoutes);
-app.use('/api/returns', returnRoutes);
-app.use('/api/v2/returns', returnRoutesv2);
+mountOptional(app, 'coupons', '/api/coupons', couponRoutes);
+mountOptional(app, 'flashSales', '/api/flash-sales', flashSaleRoutes);
+mountOptional(app, 'campaigns', '/api/campaigns', campaignRoutes);
+mountOptional(app, 'returns', '/api/returns', returnRoutes);
+mountOptional(app, 'returns', '/api/v2/returns', returnRoutesv2);
 app.use('/api/pickup', pickupRoutes);
 
 // example routes for refactoring
 app.use('/api/users', userRoutes);
-app.use('/api/users/:userId/listings', listingRoutes);
+mountOptional(app, 'listings', '/api/users/:userId/listings', listingRoutes);
 app.use('/api/v2/buyers', buyerRoutesV2);
 app.use('/api/v2/orders', orderRoutesV2);
 app.use('/api/v2/admin', adminRoutesV2);
 app.use('/api/v2/sellers', sellerRoutesV2);
-app.use('/api/v2/blips', blipsRoutesV2);
+mountOptional(app, 'blips', '/api/v2/blips', blipsRoutesV2);
 app.use('/api/v2/products', productRoutesV2);
 
 // Mount referral routes
-app.use('/api/v2/buyers/referral', buyerReferralRoutes);
-app.use('/api/v2/sellers/referral', sellerReferralRoutes);
+mountOptional(app, 'referrals', '/api/v2/buyers/referral', buyerReferralRoutes);
+mountOptional(app, 'referrals', '/api/v2/sellers/referral', sellerReferralRoutes);
 
 // Swagger documentation route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));

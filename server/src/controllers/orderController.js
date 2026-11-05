@@ -662,9 +662,13 @@ exports.createOrder = async (req, res) => {
 
     // Check wallet balance if using wallet payment
     if (isFullyPaidFromWallet) {
-      if (buyer.wallet.balance < grandTotal) {
+      // Money reserved for leading auction bids cannot be spent elsewhere
+      const availableBalance = (buyer.wallet.balance || 0) - (buyer.wallet.onHoldAmount || 0);
+      if (availableBalance < grandTotal) {
+        await session.abortTransaction().catch(() => {});
+        session.endSession();
         return res.status(400).json({
-          message: `Insufficient wallet balance. Required: ${grandTotal}, Available: ${buyer.wallet.balance}`
+          message: `Insufficient wallet balance. Required: ${grandTotal}, Available: ${availableBalance}`
         });
       }
 
@@ -678,14 +682,28 @@ exports.createOrder = async (req, res) => {
         createdAt: new Date()
       };
 
-      await Buyer.findByIdAndUpdate(
-        buyerId,
+      // Check and debit in one step, so two orders at once cannot both spend the same money
+      const debited = await Buyer.findOneAndUpdate(
+        {
+          _id: buyerId,
+          $expr: {
+            $gte: [
+              { $subtract: [{ $ifNull: ['$wallet.balance', 0] }, { $ifNull: ['$wallet.onHoldAmount', 0] }] },
+              grandTotal
+            ]
+          }
+        },
         {
           $inc: { 'wallet.balance': -grandTotal },
           $push: { 'wallet.transactions': transaction }
         },
-        { session }
+        { session, new: true }
       );
+      if (!debited) {
+        await session.abortTransaction().catch(() => {});
+        session.endSession();
+        return res.status(400).json({ message: 'Insufficient wallet balance' });
+      }
     }
 
     // Create a batch ID for Fez Delivery

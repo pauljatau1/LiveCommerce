@@ -17,6 +17,7 @@ const FEATURES = {
   // AWS S3, or Cloudflare R2 when S3_ENDPOINT is set
   'Media storage (S3 or R2)': ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'CDN_S3_BUCKET', 'CDN_URL'],
   'Admin sign-up': ['ADMIN_EMAILS'],
+  'Browser access (CORS)': ['ALLOWED_ORIGINS'],
   'Email (SendGrid)': ['SENDGRID_API_KEY', 'SENDGRID_FROM_EMAIL'],
   'Google sign-in': ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CALLBACK_URL'],
 };

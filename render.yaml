@@ -21,6 +21,10 @@ services:
       - key: SESSION_SECRET
         generateValue: true
 
+      # Sites allowed to call the API from a browser (comma-separated)
+      - key: ALLOWED_ORIGINS
+        sync: false
+
       # Database (MongoDB Atlas connection string)
       - key: MONGODB_URI
         sync: false

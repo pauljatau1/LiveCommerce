@@ -16,6 +16,7 @@ jest.mock('@modules/buyer/validators/uploadIdentityDocument.validator', () => ({
 
 // Mock AWS S3
 jest.mock('aws-sdk', () => ({
+  config: { update: jest.fn() },
   S3: jest.fn().mockImplementation(() => ({
     deleteObject: jest.fn().mockReturnValue({
       promise: jest.fn().mockResolvedValue({})

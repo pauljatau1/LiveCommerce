@@ -28,7 +28,9 @@
 const buyerRepository = require('../repositories/buyer.repository');
 const topUpWalletValidator = require('../validators/topUpWallet.validator');
 const NotFoundException = require('../../../utils/errors/NotFoundException');
+const ValidationError = require('../../../utils/errors/ValidationError');
 const { generatePaymentReference } = require('../../../utils/helpers');
+const verifyWalletTopUpService = require('./verifyWalletTopUp.service');
 
 /**
  * Send wallet top-up confirmation email to buyer.
@@ -125,31 +127,25 @@ async function handleExistingTransaction(buyer, existingTransaction) {
       newBalance: buyer.wallet.balance
     };
   } else if (existingTransaction.status === 'pending') {
-    // Update pending transaction to completed
-    existingTransaction.status = 'completed';
-    
-    // Calculate new wallet balance
-    const newBalance = buyer.wallet.balance + existingTransaction.amount;
-    
-    // Update buyer in database with new transaction status and balance
+    // Complete and credit in one write
     const updatedBuyer = await buyerRepository.updateWalletTransactionStatus(
       buyer._id,
       existingTransaction.paymentReference,
       'completed',
-      newBalance
+      existingTransaction.amount
     );
-    
+
     if (!updatedBuyer) {
       throw new Error('Failed to update transaction status');
     }
-    
-    // Send confirmation email for successful top-up
+
+    existingTransaction.status = 'completed';
     await sendWalletTopUpEmail(buyer, existingTransaction);
-    
+
     return {
       message: 'Wallet topped up successfully',
       transaction: existingTransaction,
-      newBalance: newBalance
+      newBalance: updatedBuyer.wallet.balance
     };
   }
   
@@ -176,27 +172,19 @@ async function handleExistingTransaction(buyer, existingTransaction) {
  * @throws {Error} If database update fails
  */
 async function handleNewTransaction(buyer, transaction) {
-  // Calculate new wallet balance
-  const newBalance = buyer.wallet.balance + transaction.amount;
-  
-  // Update buyer in database with new transaction and balance
-  const updatedBuyer = await buyerRepository.updateWalletWithTransaction(
-    buyer._id,
-    transaction,
-    newBalance
-  );
-  
+  // Record and credit in one write, at most once per reference
+  const updatedBuyer = await buyerRepository.updateWalletWithTransaction(buyer._id, transaction);
+
   if (!updatedBuyer) {
     throw new Error('Failed to update wallet with new transaction');
   }
-  
-  // Send confirmation email for successful top-up
+
   await sendWalletTopUpEmail(buyer, transaction);
-  
+
   return {
     message: 'Wallet topped up successfully',
     transaction: transaction,
-    newBalance: newBalance
+    newBalance: updatedBuyer.wallet.balance
   };
 }
 
@@ -309,6 +297,19 @@ async function topUpWallet(buyerId, topUpData, user, nodeEnv) {
   // Step 1: Validate input data
   // This ensures amount, permissions, and environment are valid
   await topUpWalletValidator.validateTopUpWalletData(topUpData, user, nodeEnv);
+
+  // Only an admin, or local development, may credit a wallet directly. Everyone
+  // else pays through Paystack, and the amount credited is the amount Paystack
+  // confirms for that payment, never the amount sent in the request.
+  const directTopUpAllowed = Boolean(topUpData.bypassPaystack) && (Boolean(user && user.isAdmin) || nodeEnv === 'development');
+  if (!directTopUpAllowed) {
+    if (!topUpData.paymentReference) {
+      throw new ValidationError([
+        { field: 'paymentReference', message: 'Pay with Paystack first, then submit the payment reference' }
+      ]);
+    }
+    return await verifyWalletTopUpService.verifyWalletTopUp(topUpData.paymentReference, { expectedBuyerId: buyerId });
+  }
   
   // Step 2: Find buyer with wallet information
   // Fetch buyer record with populated wallet data

@@ -2,6 +2,8 @@ const socketIO = require('socket.io');
 const jwt = require('jsonwebtoken');
 const Conversation = require('../models/Conversation');
 const Stream = require('../models/Stream');
+const streamBids = require('../services/streamBidService');
+const { originCheck } = require('../config/cors');
 const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
 const Product = require('../models/Product');
@@ -20,7 +22,7 @@ function initializeSocket(server) {
   console.log('Initializing socket server...');
   const io = socketIO(server, {
     cors: {
-      origin: ["*", "http://localhost:5173", "http://localhost:5173/", "https://seller.auqli.live/", "https://seller.auqli.live", "http://localhost:5174/", "http://localhost:5174", "https://seller.staging.auqli.live/api"],
+      origin: originCheck, // ALLOWED_ORIGINS, see config/cors.js
       methods: ["GET", "POST"],
       credentials: true,
       allowedHeaders: ["Authorization", "Content-Type"]
@@ -1633,27 +1635,7 @@ function initializeSocket(server) {
           // Default to 0 if calculation fails, but let bid continue
         }
 
-        // Check if buyer has enough funds
-        console.log('[BID] 26. Checking if buyer has sufficient funds', {
-          bidAmount,
-          shippingFee,
-          totalRequired: bidAmount + shippingFee,
-          available: walletToUse
-        });
-
-        if (bidAmount + shippingFee > walletToUse) {
-          console.error('[BID] 27. FAILED: Insufficient funds in wallet');
-          socket.emit('bid_error', {
-            message: 'Insufficient funds in your wallet. Please top up your wallet.',
-            details: {
-              bidAmount,
-              shippingFee,
-              totalRequired: bidAmount + shippingFee,
-              available: walletToUse
-            }
-          });
-          return;
-        }
+        // Funds are checked and reserved atomically by streamBids.placeBid below
 
         // Check if stream type is auction
         if (stream.type !== 'auction') {
@@ -1692,28 +1674,6 @@ function initializeSocket(server) {
 
         console.log('[BID] 33. All validation checks passed, preparing to place bid');
 
-        // Add new bid to the bids array
-        const newBid = {
-          buyer: buyerId,
-          product: productId,
-          amount: bidAmount,
-          timestamp: new Date()
-        };
-
-        stream.bids.push(newBid);
-        console.log('[BID] 34. Added new bid to stream bids array');
-
-        // Update product's currentBid and currentBidder with full buyer details
-        stream.products[productIndex].currentBid = bidAmount;
-        stream.products[productIndex].currentBidder = {
-          _id: buyer._id,
-          firstName: buyer.firstName,
-          lastName: buyer.lastName,
-          username: buyer.username,
-          profileImage: buyer.profileImage
-        };
-        console.log('[BID] 35. Updated product current bid and bidder information');
-
         // Helper function to format product name to max 3 words
         const formatProductName = (name) => {
           if (!name) return 'a product';
@@ -1729,23 +1689,39 @@ function initializeSocket(server) {
         // Format the product name
         const formattedProductName = formatProductName(product.product.name);
 
+        // Write the bid only if it is still the highest, and move the wallet hold
+        // (bid + delivery fee) to this bidder; the previous leader's hold is released.
+        const bidResult = await streamBids.placeBid({
+          streamId,
+          productId,
+          buyer,
+          bidAmount,
+          shippingFee,
+          maxBid: product.maxBid,
+        });
+
+        if (!bidResult.ok) {
+          if (bidResult.reason === 'insufficient_funds') {
+            socket.emit('bid_error', {
+              message: 'Insufficient funds in your wallet. Please top up your wallet.',
+              details: { bidAmount, shippingFee, totalRequired: bidAmount + shippingFee }
+            });
+          } else if (bidResult.reason === 'outbid') {
+            socket.emit('bid_error', {
+              message: `Bid amount must be higher than current bid of ${bidResult.currentBid}`
+            });
+          } else {
+            socket.emit('bid_error', { message: 'Bidding is now closed for this product' });
+          }
+          return;
+        }
+
+        const newBid = bidResult.bid;
+        stream.products.set(productIndex, bidResult.product);
+
         // Check if bidding should end (reached maxBid)
         console.log('[BID] 36. Checking if bid amount reached max bid', { bidAmount, maxBid: product.maxBid });
-        if (product.maxBid !== null && product.maxBid !== undefined && product.maxBid !== 0 && bidAmount >= product.maxBid) {
-          console.log('[BID] 37. Bid has reached or exceeded max bid, marking as winner');
-          stream.products[productIndex].bidStatus = 'ongoing';
-          stream.products[productIndex].bidWinner = {
-            buyer: {
-              _id: buyer._id,
-              firstName: buyer.firstName,
-              lastName: buyer.lastName,
-              username: buyer.username,
-              profileImage: buyer.profileImage
-            },
-            bidAmount: bidAmount,
-            winningTime: new Date()
-          };
-
+        if (bidResult.isWinner) {
           // Create bid winner notification
           const winnerNotification = {
             id: Date.now().toString(),
@@ -1775,13 +1751,9 @@ function initializeSocket(server) {
           };
 
           // Add the notification to stream chat interactions
-          stream.chatInteractions.push(winnerNotification);
+          await Stream.updateOne({ _id: stream._id }, { $push: { chatInteractions: winnerNotification } });
           console.log('[BID] 38. Added winner notification to stream chat interactions');
 
-          // Save the stream
-          console.log('[BID] 39. Saving stream with updated bid information');
-          await stream.save();
-          console.log('[BID] 40. Stream saved successfully');
 
           // Broadcast to all subscribers
           console.log('[BID] 41. Broadcasting winner notification to subscribers');
@@ -1912,6 +1884,9 @@ function initializeSocket(server) {
               }
             };
 
+            // The order charges the wallet, so release this bid's hold first
+            await streamBids.releaseProductHold(stream._id, productId);
+
             // Call the createOrder function
             await orderController.createOrder(mockReq, mockRes);
 
@@ -1922,28 +1897,22 @@ function initializeSocket(server) {
                 orderTotal: orderResult.totals.grandTotal
               });
 
-              // Update stream product to mark order as created and set bid status
+              // Mark the product's order as created, atomically
+              const orders = orderResult.liveShowOrders || [];
+              await Stream.updateOne(
+                { _id: stream._id, 'products.product.productId': streamBids.productIdMatch(productId) },
+                {
+                  $set: {
+                    'products.$.orderCreated': true,
+                    'products.$.orderId': orderResult.orders[0].orderId,
+                    'products.$.bidStatus': 'ended'
+                  },
+                  ...(Array.isArray(orders) && orders.length > 0 ? { $push: { orders: { $each: orders } } } : {})
+                }
+              );
               stream.products[productIndex].orderCreated = true;
               stream.products[productIndex].orderId = orderResult.orders[0].orderId;
               stream.products[productIndex].bidStatus = 'ended';
-              
-              // Add order to stream's orders array
-              const orders = orderResult.liveShowOrders || [];
-              
-              // Add each order individually to the stream's orders array
-              if (Array.isArray(orders) && orders.length > 0) {
-                for (const order of orders) {
-                  stream.orders.push(order);
-                }
-                console.log('[BID] 52a. Added order to stream\'s orders array for livestream studio', {
-                  streamOrdersCount: stream.orders.length,
-                  latestOrderId: orders[0].orderId
-                });
-              } else {
-                console.error('[BID] 52a. No valid orders to add to stream');
-              }
-
-              await stream.save();
 
               // track live show order event on mixpanel
               mixpanel.track('live_auction_order', {
@@ -2051,13 +2020,9 @@ function initializeSocket(server) {
         };
 
         // Add the notification to stream chat interactions
-        stream.chatInteractions.push(bidNotification);
+        await Stream.updateOne({ _id: stream._id }, { $push: { chatInteractions: bidNotification } });
         console.log('[BID] 44. Added bid notification to stream chat interactions');
 
-        // Save the stream
-        console.log('[BID] 45. Saving stream with updated bid information');
-        await stream.save();
-        console.log('[BID] 46. Stream saved successfully');
 
         // Broadcast to all subscribers
         console.log('[BID] 47. Broadcasting bid notification to subscribers');

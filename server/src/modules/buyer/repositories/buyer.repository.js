@@ -758,47 +758,46 @@ async function findByIdWithWallet(buyerId) {
 }
 
 /**
- * Update wallet with a new transaction.
- * 
- * This method adds a new transaction to a buyer's wallet and updates the balance.
- * It's used for payment processing and balance management.
- * 
+ * Credit a buyer's wallet with a new transaction, at most once per payment reference.
+ *
+ * The balance is incremented in the same write that records the transaction,
+ * and only if no transaction with this reference exists yet. Concurrent calls
+ * for the same payment cannot double-credit, and a debit landing in between
+ * cannot be overwritten.
+ *
  * @param {string} buyerId - The buyer's ID
- * @param {Object} transaction - The transaction to add
- * @param {number} newBalance - The new wallet balance
- * @returns {Promise<Buyer>} Updated buyer with new transaction
+ * @param {Object} transaction - The credit transaction (its amount is added to the balance)
+ * @returns {Promise<Buyer|null>} Updated buyer, or null if this reference was already recorded
  */
-async function updateWalletWithTransaction(buyerId, transaction, newBalance) {
-  return Buyer.findByIdAndUpdate(
-    buyerId,
+async function updateWalletWithTransaction(buyerId, transaction) {
+  return Buyer.findOneAndUpdate(
+    { _id: buyerId, 'wallet.transactions.paymentReference': { $ne: transaction.paymentReference } },
     {
       $push: { 'wallet.transactions': transaction },
-      $set: { 'wallet.balance': newBalance }
+      $inc: { 'wallet.balance': transaction.amount }
     },
     { new: true, runValidators: true }
   );
 }
 
 /**
- * Update wallet transaction status.
- * 
- * This method updates the status of a specific transaction in a buyer's wallet.
- * It's used for payment status updates and transaction management.
- * 
+ * Complete a pending credit transaction and add its amount to the balance, once.
+ *
  * @param {string} buyerId - The buyer's ID
- * @param {string} paymentReference - The payment reference to update
- * @param {string} newStatus - The new transaction status
- * @param {number} newBalance - The new wallet balance
- * @returns {Promise<Buyer>} Updated buyer with modified transaction
+ * @param {string} paymentReference - The pending transaction's reference
+ * @param {string} newStatus - The new status (normally 'completed')
+ * @param {number} amount - The transaction amount to add to the balance
+ * @returns {Promise<Buyer|null>} Updated buyer, or null if no pending transaction matched
  */
-async function updateWalletTransactionStatus(buyerId, paymentReference, newStatus, newBalance) {
-  return Buyer.findByIdAndUpdate(
-    buyerId,
+async function updateWalletTransactionStatus(buyerId, paymentReference, newStatus, amount) {
+  return Buyer.findOneAndUpdate(
     {
-      $set: {
-        'wallet.transactions.$[transaction].status': newStatus,
-        'wallet.balance': newBalance
-      }
+      _id: buyerId,
+      'wallet.transactions': { $elemMatch: { paymentReference, status: 'pending' } }
+    },
+    {
+      $set: { 'wallet.transactions.$[transaction].status': newStatus },
+      $inc: { 'wallet.balance': amount }
     },
     {
       new: true,

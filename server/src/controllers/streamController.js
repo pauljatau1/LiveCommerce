@@ -1,6 +1,7 @@
 const Stream = require('../models/Stream');
 const agoraService = require('../services/agoraService');
 const recordingService = require('../services/recordingService');
+const streamBids = require('../services/streamBidService');
 const cloudinary = require('cloudinary').v2;
 const { v4: uuidv4 } = require('uuid');
 const Product = require('../models/Product');
@@ -1241,6 +1242,13 @@ exports.endStream = async (req, res) => {
 
     // Stop the show recording (no-op unless one is running; never throws)
     recordingService.stopRecording(stream);
+
+    // Release any wallet holds still reserved for bids in this show
+    try {
+      await streamBids.releaseAllHolds(stream._id);
+    } catch (holdError) {
+      console.error(`Error releasing wallet holds for ended stream ${stream._id}:`, holdError);
+    }
 
     // Cancel any scheduled reminder jobs (SMS and push) for this stream
     try {
@@ -3685,7 +3693,7 @@ exports.endProductBidding = async (req, res) => {
 
     console.log('[END_BID] 3. Retrieving stream data');
     // Get the stream by stream ID and populate necessary fields
-    const stream = await Stream.findById(streamId)
+    let stream = await Stream.findById(streamId)
       .populate('seller', 'storeName storeAvatar warehouseDetails businessAddress')
       .populate('products.currentBidder', 'firstName lastName username profileImage');
 
@@ -3719,7 +3727,7 @@ exports.endProductBidding = async (req, res) => {
       return res.status(404).json({ message: 'Product not found in stream' });
     }
 
-    const product = stream.products[productIndex];
+    let product = stream.products[productIndex];
     console.log('[END_BID] 9. Found product in stream', {
       productIndex,
       productName: product.product.name,
@@ -3732,6 +3740,24 @@ exports.endProductBidding = async (req, res) => {
       console.error('[END_BID] 10. FAILED: Product bidding is not active', { bidStatus: product.bidStatus });
       return res.status(400).json({ message: 'Product bidding is not active' });
     }
+
+    // Close bidding atomically, so no bid can land after the winner is chosen
+    const closed = await Stream.updateOne(
+      {
+        _id: streamId,
+        products: { $elemMatch: { 'product.productId': streamBids.productIdMatch(productId), bidStatus: 'active' } }
+      },
+      { $set: { 'products.$.bidStatus': 'ongoing' } }
+    );
+    if (closed.modifiedCount === 0) {
+      return res.status(400).json({ message: 'Product bidding is not active' });
+    }
+
+    // Re-read the final leading bid now that bidding is closed
+    stream = await Stream.findById(streamId)
+      .populate('seller', 'storeName storeAvatar warehouseDetails businessAddress')
+      .populate('products.currentBidder', 'firstName lastName username profileImage');
+    product = stream.products[productIndex];
 
     // Update product's bidStatus to ongoing (not ended as it's in process of being finalized)
     stream.products[productIndex].bidStatus = 'ongoing';
@@ -3987,6 +4013,9 @@ exports.endProductBidding = async (req, res) => {
         };
 
         // Call the createOrder function using the global orderController import
+        // The order charges the wallet, so release this bid's hold first
+        await streamBids.releaseProductHold(stream._id, productId);
+
         await orderController.createOrder(mockReq, mockRes);
 
         // Update stream product with order information
