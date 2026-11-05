@@ -198,4 +198,34 @@ Return the full updated draft. Change only what the seller asked for; keep every
   return { ...updated, suggestedPrice: draft.suggestedPrice ?? updated.suggestedPrice };
 };
 
-module.exports = { draftFromPhotos, refineDraft, normaliseDraft, isConfigured, ListingDraftError, DEFAULT_MODEL };
+// Diagnostics: time two tiny calls so a slow or broken connection to Gemini
+// can be told apart from a slow draft. Returns no secrets.
+const checkConnection = async () => {
+  const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+  const thinkingLevel = (process.env.GEMINI_THINKING_LEVEL || 'LOW').toUpperCase();
+  const timed = async (fn) => {
+    const started = Date.now();
+    try {
+      const res = await fn();
+      return { ok: true, status: res.status, ms: Date.now() - started, res };
+    } catch (error) {
+      return { ok: false, status: error.response?.status || null, ms: Date.now() - started, error: error.response?.data?.error?.message || error.code || error.message };
+    }
+  };
+  const api = axios.create({ baseURL: API_BASE, timeout: 20000, headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'Content-Type': 'application/json' } });
+  const modelInfo = await timed(() => api.get(`/models/${model}`));
+  const textTest = await timed(() => api.post(`/models/${model}:generateContent`, {
+    contents: [{ role: 'user', parts: [{ text: 'Reply with the single word OK.' }] }],
+    generationConfig: { temperature: 0, ...(thinkingLevel !== 'DEFAULT' ? { thinkingConfig: { thinkingLevel } } : {}) },
+  }));
+  const strip = ({ res, ...rest }) => rest;
+  return {
+    configured: isConfigured(),
+    model,
+    thinkingLevel,
+    modelInfo: { ...strip(modelInfo), displayName: modelInfo.res?.data?.displayName },
+    textTest: { ...strip(textTest), reply: textTest.res?.data?.candidates?.[0]?.content?.parts?.map((x) => x.text || '').join('').slice(0, 20) },
+  };
+};
+
+module.exports = { draftFromPhotos, refineDraft, normaliseDraft, isConfigured, checkConnection, ListingDraftError, DEFAULT_MODEL };
