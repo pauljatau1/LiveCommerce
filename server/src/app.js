@@ -319,6 +319,7 @@ app.use('/api/v2/admin', adminRoutesV2);
 app.use('/api/v2/sellers', sellerRoutesV2);
 mountOptional(app, 'blips', '/api/v2/blips', blipsRoutesV2);
 app.use('/api/v2/products', productRoutesV2);
+app.use('/api/v2/ai', require('./routes/aiRoutes'));
 
 // Mount referral routes
 mountOptional(app, 'referrals', '/api/v2/buyers/referral', buyerReferralRoutes);
