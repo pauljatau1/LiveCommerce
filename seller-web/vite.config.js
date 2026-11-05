@@ -23,14 +23,15 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    sentryVitePlugin({
-      org: "commercejet",
-      project: "auqli-seller",
+    // Upload source maps only when a Sentry account is configured
+    process.env.SENTRY_AUTH_TOKEN && sentryVitePlugin({
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
       authToken: process.env.SENTRY_AUTH_TOKEN,
       release: process.env.VITE_RELEASE_HASH,
       telemetry: false,
     })
-  ],
+  ].filter(Boolean),
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

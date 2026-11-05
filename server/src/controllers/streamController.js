@@ -823,7 +823,9 @@ exports.startStream = async (req, res) => {
       warning: existingStreams.length > 0 ?
         `Cancelled ${existingStreams.length} active stream(s): ${cancelledStreams.join(', ')}` : null,
       stream: {
-        agoraToken: freshToken
+        agoraToken: freshToken,
+        // Public identifier the browser needs to join the channel
+        agoraAppId: process.env.AGORA_APP_ID
       }
     });
 
@@ -1696,7 +1698,6 @@ exports.joinStreamSeller = async (req, res) => {
     }
 
     console.log('agoraUid (seller)', seller.agoraUid);
-    console.log('token', token);
 
     // Remove sensitive fields
     const { __v, ...streamData } = stream;
@@ -1710,6 +1711,7 @@ exports.joinStreamSeller = async (req, res) => {
       message: 'Successfully joined stream as seller',
       channelName: stream.channelName,
       token,
+      agoraAppId: process.env.AGORA_APP_ID,
       uid: seller.agoraUid,
       role: RtcRole.PUBLISHER,
       tokenExpiration: Date.now() + (3600) * 1000,
@@ -4944,6 +4946,7 @@ exports.renewAgoraToken = async (req, res) => {
     res.status(200).json({
       success: true,
       token: freshToken,
+      agoraAppId: process.env.AGORA_APP_ID,
       tokenExpiration: Date.now() + (tokenRole === RtcRole.PUBLISHER ? 3600 : 14400) * 1000,
       uid: tokenUid,
       role: tokenRole === RtcRole.PUBLISHER ? 'publisher' : 'subscriber',
