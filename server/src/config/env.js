@@ -45,4 +45,12 @@ const checkEnv = (log = console) => {
   }
 };
 
-module.exports = { checkEnv, featureStatus, CORE, FEATURES };
+// Code builds media URLs as `https://${CDN_URL}/key`, so CDN_URL must be a bare
+// host. Accept a pasted full URL (e.g. https://pub-xxx.r2.dev/) and trim it.
+const normalizeCdnUrl = (env = process.env) => {
+  if (env.CDN_URL) env.CDN_URL = env.CDN_URL.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+  return env.CDN_URL;
+};
+normalizeCdnUrl();
+
+module.exports = { checkEnv, featureStatus, normalizeCdnUrl, CORE, FEATURES };

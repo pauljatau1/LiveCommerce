@@ -39,3 +39,16 @@ describe('config/env', () => {
     expect(status['Delivery (Shipbubble)']).toMatchObject({ enabled: false, missing: ['SHIPBUBBLE_API_KEY'] });
   });
 });
+
+describe('normalizeCdnUrl', () => {
+  const { normalizeCdnUrl } = require('@/config/env');
+  it.each([
+    ['https://pub-abc.r2.dev/', 'pub-abc.r2.dev'],
+    ['http://cdn.example.com', 'cdn.example.com'],
+    ['pub-abc.r2.dev', 'pub-abc.r2.dev'],
+    [' https://pub-abc.r2.dev// ', 'pub-abc.r2.dev'],
+  ])('turns %p into a bare host', (input, expected) => {
+    const env = { CDN_URL: input };
+    expect(normalizeCdnUrl(env)).toBe(expected);
+  });
+});

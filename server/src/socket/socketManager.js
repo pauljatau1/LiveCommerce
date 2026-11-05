@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const Conversation = require('../models/Conversation');
 const Stream = require('../models/Stream');
 const streamBids = require('../services/streamBidService');
+const auctionOrders = require('../services/auctionOrderService');
 const { originCheck } = require('../config/cors');
 const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
@@ -1853,42 +1854,15 @@ function initializeSocket(server) {
 
             // Create the order
             console.log('[BID] 50. Creating order using order controller');
-            const orderController = require('../controllers/orderController');
-
-            // Create mock request and response objects for the createOrder function
-            const mockReq = {
-              body: orderData,
-              user: {
-                id: buyer._id
-              },
-              get: (name) => name === 'host' ? 'auqli.com' : null,
-              app: {
-                get: (name) => {
-                  if (name === 'io') return io;
-                  return null;
-                }
-              }
-            };
-
-            let orderResult = null;
-            const mockRes = {
-              status: function (code) {
-                this.statusCode = code;
-                return this;
-              },
-              json: function (data) {
-                orderResult = data;
-                console.log(`[BID] 51. Order creation response received with status: ${this.statusCode}`,
-                  data.success === false ? { error: data.message } : { orderId: data.orders?.[0]?.orderId });
-                return this;
-              }
-            };
-
-            // The order charges the wallet, so release this bid's hold first
-            await streamBids.releaseProductHold(stream._id, productId);
-
-            // Call the createOrder function
-            await orderController.createOrder(mockReq, mockRes);
+            // Charge the winner's wallet hold and create the paid order in one transaction
+            const orderResult = await auctionOrders.createAuctionOrder({
+              streamId: stream._id,
+              productId,
+              buyerId: buyer._id,
+              bidAmount,
+              shippingFee,
+            });
+            console.log('[BID] 51. Auction order result', orderResult.success ? { orderId: orderResult.orders[0].orderId } : { error: orderResult.message });
 
             // Update stream product with order information
             if (orderResult && orderResult.success !== false && orderResult.orders && orderResult.orders.length > 0) {
@@ -1897,18 +1871,10 @@ function initializeSocket(server) {
                 orderTotal: orderResult.totals.grandTotal
               });
 
-              // Mark the product's order as created, atomically
-              const orders = orderResult.liveShowOrders || [];
+              // The order service already recorded the order on the stream; close bidding
               await Stream.updateOne(
                 { _id: stream._id, 'products.product.productId': streamBids.productIdMatch(productId) },
-                {
-                  $set: {
-                    'products.$.orderCreated': true,
-                    'products.$.orderId': orderResult.orders[0].orderId,
-                    'products.$.bidStatus': 'ended'
-                  },
-                  ...(Array.isArray(orders) && orders.length > 0 ? { $push: { orders: { $each: orders } } } : {})
-                }
+                { $set: { 'products.$.bidStatus': 'ended' } }
               );
               stream.products[productIndex].orderCreated = true;
               stream.products[productIndex].orderId = orderResult.orders[0].orderId;

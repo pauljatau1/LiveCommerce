@@ -1,0 +1,209 @@
+// Turns a won auction into a paid order.
+//
+// The winner's bid plus delivery fee is already reserved in their wallet (see
+// streamBidService). Here, in one transaction, we:
+//   1. claim the hold on the stream product (so a win can only be charged once),
+//   2. convert that hold into a debit of bid + delivery,
+//   3. take one unit of stock,
+//   4. create the order, paid from the wallet.
+// If any step fails the transaction rolls back and the hold is released, so the
+// buyer's money is never left reserved for an order that does not exist.
+
+const mongoose = require('mongoose');
+const { releaseProductHold, productIdMatch } = require('./streamBidService');
+
+const model = (name) => mongoose.model(name);
+
+class AuctionOrderError extends Error {
+  constructor(reason, message) {
+    super(message);
+    this.reason = reason;
+  }
+}
+
+const toDeliveryAddress = (buyer) => {
+  const a = (buyer.shippingAddresses || [])[0];
+  if (!a) return null;
+  return {
+    first_name: a.firstName || buyer.firstName,
+    last_name: a.lastName || buyer.lastName,
+    email: a.email || buyer.email,
+    phone: a.phoneNumber || buyer.phoneNumber,
+    line1: a.addressLine1,
+    line2: a.addressLine2,
+    city: a.city,
+    state: a.state,
+    country: a.country || 'NG',
+    zip: a.zipCode || a.postalCode || a.zip,
+  };
+};
+
+const toPickupAddress = (seller) => {
+  const a = seller.warehouseDetails?.address || seller.businessAddress || seller.sellerAddress || {};
+  return {
+    first_name: seller.firstName,
+    last_name: seller.lastName,
+    email: seller.businessEmail || seller.email,
+    phone: seller.phoneNumber,
+    line1: a.addressLine1,
+    city: a.city,
+    state: a.state,
+    country: a.country || 'NG',
+  };
+};
+
+const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shippingFee = 0 }) => {
+  const fee = Math.max(0, Number(shippingFee) || 0);
+  const bid = Number(bidAmount);
+  const total = bid + fee;
+  const session = await mongoose.startSession();
+
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      // 1. Claim the winner's hold and mark the product as ordered, once.
+      const before = await model('Stream').findOneAndUpdate(
+        {
+          _id: streamId,
+          products: {
+            $elemMatch: {
+              'product.productId': productIdMatch(productId),
+              holdBuyer: buyerId,
+              orderCreated: { $ne: true },
+            },
+          },
+        },
+        {
+          $set: { 'products.$.holdAmount': 0, 'products.$.orderCreated': true },
+          $unset: { 'products.$.holdBuyer': 1 },
+        },
+        { new: false, projection: { 'products.$': 1, seller: 1 }, session }
+      ).lean();
+      const streamProduct = before && before.products && before.products[0];
+      if (!streamProduct) throw new AuctionOrderError('no_hold', 'This win has already been charged or has no wallet hold');
+      const held = streamProduct.holdAmount || 0;
+
+      // 2. Release the hold and charge bid + delivery in one conditional write.
+      const reference = `auction_${streamId}_${productId}`;
+      const charged = await model('Buyer').findOneAndUpdate(
+        {
+          _id: buyerId,
+          'wallet.onHoldAmount': { $gte: held },
+          $expr: {
+            $gte: [
+              { $add: [{ $subtract: [{ $ifNull: ['$wallet.balance', 0] }, { $ifNull: ['$wallet.onHoldAmount', 0] }] }, held] },
+              total,
+            ],
+          },
+          'wallet.transactions.paymentReference': { $ne: reference },
+        },
+        {
+          $inc: { 'wallet.balance': -total, 'wallet.onHoldAmount': -held },
+          $push: {
+            'wallet.transactions': {
+              type: 'debit',
+              amount: total,
+              paymentReference: reference,
+              description: `Auction win: ${streamProduct.product?.name || 'item'}`,
+              status: 'completed',
+            },
+          },
+        },
+        { new: true, session }
+      );
+      if (!charged) throw new AuctionOrderError('insufficient_funds', 'Wallet balance no longer covers the winning bid');
+
+      // 3. Take one unit of stock.
+      const product = await model('Product').findOneAndUpdate(
+        { _id: productId, stock: { $gte: 1 } },
+        { $inc: { stock: -1 } },
+        { new: true, session }
+      ).populate('seller');
+      if (!product) throw new AuctionOrderError('sold_out', 'This item is out of stock');
+
+      // 4. Create the paid order.
+      const seller = product.seller || {};
+      const [order] = await model('Order').create(
+        [
+          {
+            buyer: charged._id,
+            buyerDetails: {
+              _id: charged._id,
+              firstName: charged.firstName,
+              lastName: charged.lastName,
+              username: charged.username,
+              profileImage: charged.profileImage?.url ? [{ url: charged.profileImage.url }] : [],
+            },
+            seller: seller._id || before.seller,
+            channel: 'auction',
+            status: 'processing',
+            items: [
+              {
+                product: product._id,
+                productName: product.name,
+                seller: seller._id || before.seller,
+                productImages: (product.images || []).slice(0, 1).map((i) => ({ url: i.url })),
+                quantity: 1,
+                price: bid,
+                status: 'pending',
+              },
+            ],
+            totalAmount: bid,
+            delivery_address: toDeliveryAddress(charged),
+            pickup_address: toPickupAddress(seller),
+            shipping: { fee: { amount: fee, currency: 'NGN' } },
+            paid: true,
+            paymentInfo: {
+              method: 'wallet',
+              status: 'completed',
+              paymentReference: reference,
+              paidAt: new Date(),
+              isWalletCredit: true,
+              walletAmountUsed: total,
+            },
+          },
+        ],
+        { session }
+      );
+
+      const liveShowOrder = {
+        orderId: order.order_id,
+        buyer: order.buyerDetails,
+        product: product._id,
+        orderDetails: {
+          _id: order._id,
+          order_id: order.order_id,
+          itemsCount: 1,
+          totalAmount: bid,
+          shippingFee: fee,
+          orderTotal: total,
+          seller: order.seller,
+          items: order.items,
+        },
+      };
+
+      await model('Stream').updateOne(
+        { _id: streamId, 'products.product.productId': productIdMatch(productId) },
+        { $set: { 'products.$.orderId': order.order_id }, $push: { orders: liveShowOrder } },
+        { session }
+      );
+
+      result = {
+        success: true,
+        order,
+        orders: [{ orderId: order.order_id, _id: order._id, createdAt: order.createdAt, totalAmount: bid, shippingFee: fee }],
+        liveShowOrders: [liveShowOrder],
+        totals: { subtotal: bid, shippingFee: fee, grandTotal: total },
+      };
+    });
+    return result;
+  } catch (error) {
+    // Nothing was written; free the reservation so the buyer can use it.
+    await releaseProductHold(streamId, productId).catch(() => {});
+    return { success: false, reason: error.reason || 'error', message: error.message };
+  } finally {
+    await session.endSession();
+  }
+};
+
+module.exports = { createAuctionOrder };
