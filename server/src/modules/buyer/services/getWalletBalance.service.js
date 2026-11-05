@@ -161,11 +161,14 @@ async function getWalletBalance(buyerId) {
 
   // Step 4: Update buyer's wallet if cleanup was needed
   // This automatically releases holds for ended auctions
+  // wallet.onHoldAmount also holds live-show bid holds, which are not in
+  // onHoldItems. Release only what the ended items held; never overwrite it.
+  const releasedAmount = calculateOnHoldAmount(buyer.wallet.onHoldItems) - recalculatedOnHoldAmount;
   if (filteredOnHoldItems.length !== buyer.wallet.onHoldItems.length) {
-    // Update the buyer's wallet with filtered items and recalculated amount
-    await buyerRepository.updateWalletOnHoldItems(buyerId, filteredOnHoldItems, recalculatedOnHoldAmount);
+    await buyerRepository.updateWalletOnHoldItems(buyerId, filteredOnHoldItems, releasedAmount);
     console.log(`Released holds for ended auctions for buyer ${buyerId}`);
   }
+  const onHoldAmount = Math.max(recalculatedOnHoldAmount, (buyer.wallet.onHoldAmount || 0) - releasedAmount);
 
   // Step 5: Format on-hold items for better frontend display
   // This transforms the data into a user-friendly format
@@ -174,8 +177,8 @@ async function getWalletBalance(buyerId) {
   // Step 6: Return formatted wallet balance information
   return {
     balance: buyer.wallet.balance,
-    onHoldAmount: recalculatedOnHoldAmount,
-    availableBalance: buyer.wallet.balance - recalculatedOnHoldAmount,
+    onHoldAmount,
+    availableBalance: buyer.wallet.balance - onHoldAmount,
     onHoldItems: formattedOnHoldItems,
     currency: buyer.wallet.currency
   };

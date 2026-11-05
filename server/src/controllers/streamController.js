@@ -1356,7 +1356,7 @@ exports.getStreamDetails = async (req, res) => {
       .populate('products.product', 'name description images price')
       .populate('products.currentBidder', 'firstName lastName username')
       .populate('viewers', 'firstName lastName username')
-      .select('seller title description coverImage category tags products status channelName agoraToken scheduledStartTime actualStartTime endTime streamLink viewers type bids createdAt updatedAt');
+      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime streamLink viewers type bids createdAt updatedAt');
 
     if (!stream) {
       return res.status(404).json({ message: 'Stream not found' });
@@ -1596,6 +1596,7 @@ exports.joinStream = async (req, res) => {
       success: true,
       channelName: stream.channelName,
       token,
+      agoraAppId: process.env.AGORA_APP_ID,
       uid: tokenUid,
       role: RtcRole.SUBSCRIBER,
       tokenExpiration: Date.now() + (14400) * 1000,

@@ -127,7 +127,8 @@ const streamSchema = new mongoose.Schema({
     default: 'scheduled'
   },
   channelName: String,
-  agoraToken: String,
+  // Host (publisher) token: never returned by queries unless explicitly selected
+  agoraToken: { type: String, select: false },
   scheduledStartTime: Date,
   actualStartTime: Date,
   endTime: Date,

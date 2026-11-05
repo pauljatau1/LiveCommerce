@@ -731,14 +731,14 @@ async function findByIdWithWalletOnHoldItems(buyerId) {
  * @param {number} recalculatedOnHoldAmount - The recalculated on-hold amount
  * @returns {Promise<Buyer>} Updated buyer with modified wallet
  */
-async function updateWalletOnHoldItems(buyerId, filteredOnHoldItems, recalculatedOnHoldAmount) {
+// Drop ended offline-auction holds and release only their amount, so live-show
+// bid holds counted in onHoldAmount are kept.
+async function updateWalletOnHoldItems(buyerId, filteredOnHoldItems, releasedAmount) {
   return Buyer.findByIdAndUpdate(
     buyerId,
     {
-      $set: {
-        'wallet.onHoldItems': filteredOnHoldItems,
-        'wallet.onHoldAmount': recalculatedOnHoldAmount
-      }
+      $set: { 'wallet.onHoldItems': filteredOnHoldItems },
+      $inc: { 'wallet.onHoldAmount': -Math.max(0, Number(releasedAmount) || 0) }
     },
     { new: true, runValidators: true }
   );

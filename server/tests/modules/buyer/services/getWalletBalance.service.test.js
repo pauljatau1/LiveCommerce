@@ -314,7 +314,7 @@ describe('getWalletBalance Service', () => {
       expect(buyerRepository.updateWalletOnHoldItems).toHaveBeenCalledWith(
         buyerId.toString(),
         [populatedBuyer.wallet.onHoldItems[0]], // Only active item
-        1500 // Recalculated amount
+        1000 // Amount released by the ended item
       );
     });
 
@@ -634,8 +634,28 @@ describe('getWalletBalance Service', () => {
       expect(buyerRepository.updateWalletOnHoldItems).toHaveBeenCalledWith(
         buyerId.toString(),
         [], // Empty array after filtering ended auctions
-        0 // Recalculated amount
+        1500 // Amount released by the ended item
       );
+    });
+
+    it('keeps live-show bid holds when releasing ended auction items', async () => {
+      const buyerId = new mongoose.Types.ObjectId();
+      buyerRepository.findByIdWithWalletOnHoldItems.mockResolvedValue({
+        _id: buyerId,
+        wallet: {
+          balance: 50000,
+          currency: 'NGN',
+          // 20,000 held by a live-show bid + 1,500 by an ended offline auction
+          onHoldAmount: 21500,
+          onHoldItems: [{ productId: { _id: new mongoose.Types.ObjectId(), auction: { status: 'ended' } }, amount: 1500 }],
+        },
+      });
+      buyerRepository.updateWalletOnHoldItems.mockResolvedValue({});
+
+      const result = await getWalletBalanceService.getWalletBalance(buyerId.toString());
+
+      expect(result).toMatchObject({ onHoldAmount: 20000, availableBalance: 30000 });
+      expect(buyerRepository.updateWalletOnHoldItems).toHaveBeenCalledWith(buyerId.toString(), [], 1500);
     });
   });
 }); 
