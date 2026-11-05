@@ -178,7 +178,7 @@ const BusinessCategoryOnboarding = () => {
                   className={`relative cursor-pointer rounded-[20px] lg:rounded-[34px] overflow-hidden aspect-square`}
                 >
                   <img
-                    src={category.image.url}
+                    src={category.image?.url || "/logo-single.png"}
                     alt={category.name}
                     className="w-full h-full object-cover"
                   />

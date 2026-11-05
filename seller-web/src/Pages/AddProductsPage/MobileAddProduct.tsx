@@ -564,7 +564,7 @@ const MobileAddProduct = ({ mode = 'add', productId, initialProduct }: MobileAdd
                                             {categories.map(cat => (
                                                 <Option key={cat._id} value={cat.name}>
                                                     <div className='flex gap-2 items-center'>
-                                                        <GlassImage src={cat.image.url} alt={cat.name} imageClassName="w-5 h-5 rounded-full" containerClassName="w-5 h-5 rounded-full" />
+                                                        <GlassImage src={cat.image?.url || "/logo-single.png"} alt={cat.name} imageClassName="w-5 h-5 rounded-full" containerClassName="w-5 h-5 rounded-full" />
                                                         <p className='text-[13px]'>{cat.name}</p>
                                                     </div>
                                                 </Option>
