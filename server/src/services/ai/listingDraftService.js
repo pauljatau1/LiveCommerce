@@ -27,7 +27,7 @@ const isConfigured = () => Boolean(process.env.GEMINI_API_KEY);
 const client = () =>
   axios.create({
     baseURL: API_BASE,
-    timeout: 45000,
+    timeout: 50000, // the studio waits 60s
     headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
   });
 
@@ -125,17 +125,37 @@ const normaliseDraft = (raw, categories) => {
 
 const callGemini = async (parts) => {
   const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+  // Listing drafts don't need deep reasoning; low thinking keeps them fast.
+  const thinkingLevel = (process.env.GEMINI_THINKING_LEVEL || 'LOW').toUpperCase();
+  const request = (withThinking) =>
+    client().post(`/models/${model}:generateContent`, {
+      contents: [{ role: 'user', parts }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: DRAFT_SCHEMA,
+        temperature: 0.4,
+        ...(withThinking && thinkingLevel !== 'DEFAULT' ? { thinkingConfig: { thinkingLevel } } : {}),
+      },
+    });
   let res;
   try {
-    res = await client().post(`/models/${model}:generateContent`, {
-      contents: [{ role: 'user', parts }],
-      generationConfig: { responseMimeType: 'application/json', responseSchema: DRAFT_SCHEMA, temperature: 0.4 },
-    });
+    try {
+      res = await request(true);
+    } catch (error) {
+      // A model that doesn't accept this thinking level: try once with its default
+      if (error.response?.status === 400 && /thinking/i.test(error.response?.data?.error?.message || '')) {
+        console.warn('[ai] thinking level not accepted by', model, '- retrying with the model default');
+        res = await request(false);
+      } else {
+        throw error;
+      }
+    }
   } catch (error) {
     const status = error.response?.status;
     // Log Google's reason (never the key) so failures can be diagnosed
     console.error('[ai] Gemini request failed:', { model, status, reason: error.response?.data?.error?.message || error.code || error.message });
     if (status === 429) throw new ListingDraftError(503, 'The AI is busy right now. Try again in a minute, or fill the form yourself.');
+    if (error.code === 'ECONNABORTED') throw new ListingDraftError(504, 'The AI took too long on this one. Try again, or fill the form yourself.');
     throw new ListingDraftError(502, 'The AI could not draft this listing. You can fill the form yourself.');
   }
   const text = res.data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
