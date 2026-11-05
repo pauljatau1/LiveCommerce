@@ -66,6 +66,18 @@ describe('POST /api/v2/ai/listing-draft', () => {
     expect(body.contents[0].parts[1].inline_data.mime_type).toBe('image/png');
   });
 
+  it('asks for low thinking, and retries without it if the model refuses', async () => {
+    mockPost
+      .mockRejectedValueOnce({ response: { status: 400, data: { error: { message: 'thinking_level is not supported for this model' } } } })
+      .mockResolvedValueOnce(geminiReply({ title: 'x', category: 'Figures', condition: 'Brand New', description: 'd', tags: [], confidence: 'high', questions: [] }));
+
+    const res = await draft({ images: [{ data: PNG, contentType: 'image/png' }] });
+
+    expect(res.status).toBe(200);
+    expect(mockPost.mock.calls[0][1].generationConfig.thinkingConfig).toEqual({ thinkingLevel: 'LOW' });
+    expect(mockPost.mock.calls[1][1].generationConfig.thinkingConfig).toBeUndefined();
+  });
+
   it('only sellers can use it', async () => {
     const res = await draft({ images: [{ data: PNG, contentType: 'image/png' }] }, buyerToken());
     expect(res.status).toBe(403);
