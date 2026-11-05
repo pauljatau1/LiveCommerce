@@ -2,6 +2,7 @@ const Stream = require('../models/Stream');
 const agoraService = require('../services/agoraService');
 const recordingService = require('../services/recordingService');
 const streamBids = require('../services/streamBidService');
+const auctionOrders = require('../services/auctionOrderService');
 const cloudinary = require('cloudinary').v2;
 const { v4: uuidv4 } = require('uuid');
 const Product = require('../models/Product');
@@ -3988,35 +3989,15 @@ exports.endProductBidding = async (req, res) => {
         // Create the order
         console.log('[END_BID] 30. Creating order using order controller');
 
-        // Create mock request and response objects for the createOrder function
-        const mockReq = {
-          body: orderData,
-          user: {
-            id: buyerId
-          },
-          get: (name) => name === 'host' ? 'auqli.com' : null,
-          app: req.app // Pass the app instance for notifications
-        };
-
-        let orderResult = null;
-        const mockRes = {
-          status: function (code) {
-            this.statusCode = code;
-            return this;
-          },
-          json: function (data) {
-            orderResult = data;
-            console.log(`[END_BID] 31. Order creation response received with status: ${this.statusCode}`,
-              data.success === false ? { error: data.message } : { orderId: data.orders?.[0]?.orderId });
-            return this;
-          }
-        };
-
-        // Call the createOrder function using the global orderController import
-        // The order charges the wallet, so release this bid's hold first
-        await streamBids.releaseProductHold(stream._id, productId);
-
-        await orderController.createOrder(mockReq, mockRes);
+        // Charge the winner's wallet hold and create the paid order in one transaction
+        const orderResult = await auctionOrders.createAuctionOrder({
+          streamId: stream._id,
+          productId,
+          buyerId,
+          bidAmount: stream.products[productIndex].currentBid,
+          shippingFee,
+        });
+        console.log('[END_BID] 31. Auction order result', orderResult.success ? { orderId: orderResult.orders[0].orderId } : { error: orderResult.message });
 
         // Update stream product with order information
         if (orderResult && orderResult.success !== false && orderResult.liveShowOrders && orderResult.liveShowOrders.length > 0) {
@@ -4025,31 +4006,10 @@ exports.endProductBidding = async (req, res) => {
             orderTotal: orderResult.totals.grandTotal
           });
 
-          // Update stream product to mark order as created and set bid status to ongoing
-          stream.products[productIndex].orderCreated = true;
-          stream.products[productIndex].orderId = orderResult.liveShowOrders[0].orderId;
-          stream.products[productIndex].bidStatus = 'ongoing';
-
-          // Add order to stream's orders array
+          // The order service already recorded the order on the stream
           const orders = orderResult.liveShowOrders;
-          console.log('[END_BID] 32a. Order created successfully', orders);
-
-          // Add each order individually to the stream's orders array
-          // (instead of pushing the entire array as one element)
-          if (Array.isArray(orders)) {
-            for (const order of orders) {
-              stream.orders.push(order);
-            }
-          } else {
-            console.error('[END_BID] 32b. Expected orders to be an array but got:', typeof orders);
-          }
-
-          console.log('[END_BID] 32c. Added order to stream\'s orders array', {
-            streamOrdersCount: stream.orders.length,
-            latestOrderId: orders[0].orderId
-          });
-
-          await stream.save();
+          stream.products[productIndex].orderCreated = true;
+          stream.products[productIndex].orderId = orders[0].orderId;
 
           // Emit socket notification about order creation
           const io = req.app.get('io');
