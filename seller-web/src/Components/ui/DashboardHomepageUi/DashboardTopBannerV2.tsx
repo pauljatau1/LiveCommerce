@@ -134,7 +134,7 @@ export default function DashboardTopBannerV2({ sellerDetails }: IDashboardTopBan
                                                     Add Your First Product
                                                 </p>
                                             </div>
-                                            <button onClick={() => navigate("/dashboard/products/add-products")} className="text-xs font-lexend font-semibold text-[#FFFFFF] bg-[#16783A] rounded-[8px] p-[8px] hover:bg-[#16783A]/80 transition-all duration-300 ">Add Now</button>
+                                            <button onClick={() => navigate("/studio/list")} className="text-xs font-lexend font-semibold text-[#FFFFFF] bg-[#16783A] rounded-[8px] p-[8px] hover:bg-[#16783A]/80 transition-all duration-300 ">Add Now</button>
                                         </div>
                                     </TooltipTrigger>
                                     <TooltipContent className="bg-white/90 backdrop-blur-sm border border-gray-200 shadow-lg max-w-xs">

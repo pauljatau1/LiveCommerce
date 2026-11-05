@@ -113,8 +113,10 @@ const DesktopAddProduct = ({ mode = 'add', productId, initialProduct }: DesktopA
     }, []);
 
     useEffect(() => {
-        if (mode !== 'edit') return;
-        const id = initialProduct?._id || initialProduct?.id;
+        // Also prefill from a Listing Agent draft handed over via "Edit all details"
+        const fromDraft = mode !== 'edit' && Boolean(initialProduct?.fromDraft);
+        if (mode !== 'edit' && !fromDraft) return;
+        const id = initialProduct?._id || initialProduct?.id || (fromDraft ? 'listing-draft' : null);
         if (!id) return;
         if (prefilledProductIdRef.current === id) return;
 
@@ -155,7 +157,7 @@ const DesktopAddProduct = ({ mode = 'add', productId, initialProduct }: DesktopA
     }, [initialProduct, mode, reset]);
 
     useEffect(() => {
-        if (mode !== 'edit') return;
+        if (mode !== 'edit' && !initialProduct?.fromDraft) return;
         if (!initialProduct?.category) return;
         if (!categories.length) return;
         const category = categories.find((cat: any) => cat.name === initialProduct.category);

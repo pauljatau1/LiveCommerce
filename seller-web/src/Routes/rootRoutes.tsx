@@ -14,6 +14,8 @@ import Loader from '../Components/Loader';
 import { publicRoutes } from '@/Routes/publicRoutes';
 import { dashboardRoutes } from './dashboardRoutes.jsx';
 
+const ListingAgent = lazy(() => import('../studio/ListingAgent.jsx'));
+
 // Lazy load NotFoundPage to reduce initial bundle size
 const NotFoundPage = lazy(() => import('../Pages/NotFoundPage/NotFoundPage.jsx'));
 
@@ -46,6 +48,19 @@ export const rootRoutes = [
                     </ProtectedRoute>
                 ),
                 children: dashboardRoutes,
+            },
+            {
+                // New full-screen studio pages (no dashboard chrome)
+                path: 'studio/list',
+                element: (
+                    <ProtectedRoute>
+                        <DashboardRoute>
+                            <Suspense fallback={<Loader />}>
+                                <ListingAgent />
+                            </Suspense>
+                        </DashboardRoute>
+                    </ProtectedRoute>
+                ),
             },
         ],
     },

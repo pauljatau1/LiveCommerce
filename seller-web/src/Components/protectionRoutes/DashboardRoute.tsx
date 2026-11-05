@@ -28,6 +28,7 @@ export default function DashboardRoute({ children }: { children: React.ReactNode
         // Restricted paths that require verification
         const restrictedPaths = [
           '/dashboard/add-products',
+          '/studio/list',
           '/dashboard/edit-product',
           '/dashboard/livestreaming',
           '/dashboard/live-streams/create-live-auction',

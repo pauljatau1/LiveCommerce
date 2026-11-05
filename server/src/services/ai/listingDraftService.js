@@ -133,6 +133,8 @@ const callGemini = async (parts) => {
     });
   } catch (error) {
     const status = error.response?.status;
+    // Log Google's reason (never the key) so failures can be diagnosed
+    console.error('[ai] Gemini request failed:', { model, status, reason: error.response?.data?.error?.message || error.code || error.message });
     if (status === 429) throw new ListingDraftError(503, 'The AI is busy right now. Try again in a minute, or fill the form yourself.');
     throw new ListingDraftError(502, 'The AI could not draft this listing. You can fill the form yourself.');
   }
@@ -140,6 +142,7 @@ const callGemini = async (parts) => {
   try {
     return JSON.parse(text);
   } catch {
+    console.error('[ai] Gemini returned unreadable JSON:', { model, finishReason: res.data?.candidates?.[0]?.finishReason, sample: text.slice(0, 200) });
     throw new ListingDraftError(502, 'The AI returned an unreadable draft. Try again, or fill the form yourself.');
   }
 };
