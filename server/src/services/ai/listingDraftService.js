@@ -9,7 +9,9 @@ const axios = require('axios');
 const mongoose = require('mongoose');
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const DEFAULT_MODEL = 'gemini-3.8-flash';
+const DEFAULT_MODEL = 'gemini-3.6-flash';
+// Used when the main model is overloaded or slow (GEMINI_BACKUP_MODEL, 'none' to turn off)
+const DEFAULT_BACKUP_MODEL = 'gemini-3.5-flash-lite';
 const CONDITIONS = ['Brand New', 'Fairly Used', 'Refurbished'];
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_IMAGES = 5;
@@ -24,10 +26,10 @@ class ListingDraftError extends Error {
 
 const isConfigured = () => Boolean(process.env.GEMINI_API_KEY);
 
-const client = () =>
+const client = (timeout = 50000) =>
   axios.create({
     baseURL: API_BASE,
-    timeout: 50000, // the studio waits 60s
+    timeout, // the studio waits 60s in total
     headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY, 'Content-Type': 'application/json' },
   });
 
@@ -123,12 +125,13 @@ const normaliseDraft = (raw, categories) => {
   };
 };
 
-const callGemini = async (parts) => {
-  const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+const busyOrSlow = (error) => [429, 500, 503].includes(error.response?.status) || error.code === 'ECONNABORTED';
+
+const callModel = async (model, parts, timeout) => {
   // Listing drafts don't need deep reasoning; low thinking keeps them fast.
   const thinkingLevel = (process.env.GEMINI_THINKING_LEVEL || 'LOW').toUpperCase();
   const request = (withThinking) =>
-    client().post(`/models/${model}:generateContent`, {
+    client(timeout).post(`/models/${model}:generateContent`, {
       contents: [{ role: 'user', parts }],
       generationConfig: {
         responseMimeType: 'application/json',
@@ -137,24 +140,43 @@ const callGemini = async (parts) => {
         ...(withThinking && thinkingLevel !== 'DEFAULT' ? { thinkingConfig: { thinkingLevel } } : {}),
       },
     });
+  try {
+    return await request(true);
+  } catch (error) {
+    // A model that doesn't accept this thinking level: try once with its default
+    if (error.response?.status === 400 && /thinking/i.test(error.response?.data?.error?.message || '')) {
+      console.warn('[ai] thinking level not accepted by', model, '- retrying with the model default');
+      return request(false);
+    }
+    throw error;
+  }
+};
+
+const logFailure = (model, error) =>
+  // Google's reason, never the key, so failures can be diagnosed
+  console.error('[ai] Gemini request failed:', { model, status: error.response?.status, reason: error.response?.data?.error?.message || error.code || error.message });
+
+const callGemini = async (parts) => {
+  const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+  const backupSetting = process.env.GEMINI_BACKUP_MODEL || DEFAULT_BACKUP_MODEL;
+  const backup = backupSetting.toLowerCase() === 'none' || backupSetting === model ? null : backupSetting;
   let res;
+  let usedModel = model;
   try {
     try {
-      res = await request(true);
+      // Leave time for the backup inside the studio's 60s wait
+      res = await callModel(model, parts, backup ? 28000 : 50000);
     } catch (error) {
-      // A model that doesn't accept this thinking level: try once with its default
-      if (error.response?.status === 400 && /thinking/i.test(error.response?.data?.error?.message || '')) {
-        console.warn('[ai] thinking level not accepted by', model, '- retrying with the model default');
-        res = await request(false);
-      } else {
-        throw error;
-      }
+      if (!backup || !busyOrSlow(error)) throw error;
+      logFailure(model, error);
+      console.warn('[ai] main model busy or slow; using backup', backup);
+      usedModel = backup;
+      res = await callModel(backup, parts, 25000);
     }
   } catch (error) {
+    logFailure(usedModel, error);
     const status = error.response?.status;
-    // Log Google's reason (never the key) so failures can be diagnosed
-    console.error('[ai] Gemini request failed:', { model, status, reason: error.response?.data?.error?.message || error.code || error.message });
-    if (status === 429) throw new ListingDraftError(503, 'The AI is busy right now. Try again in a minute, or fill the form yourself.');
+    if (status === 429 || status === 503) throw new ListingDraftError(503, 'The AI is busy right now. Try again in a minute, or fill the form yourself.');
     if (error.code === 'ECONNABORTED') throw new ListingDraftError(504, 'The AI took too long on this one. Try again, or fill the form yourself.');
     throw new ListingDraftError(502, 'The AI could not draft this listing. You can fill the form yourself.');
   }
@@ -162,7 +184,7 @@ const callGemini = async (parts) => {
   try {
     return JSON.parse(text);
   } catch {
-    console.error('[ai] Gemini returned unreadable JSON:', { model, finishReason: res.data?.candidates?.[0]?.finishReason, sample: text.slice(0, 200) });
+    console.error('[ai] Gemini returned unreadable JSON:', { model: usedModel, finishReason: res.data?.candidates?.[0]?.finishReason, sample: text.slice(0, 200) });
     throw new ListingDraftError(502, 'The AI returned an unreadable draft. Try again, or fill the form yourself.');
   }
 };
