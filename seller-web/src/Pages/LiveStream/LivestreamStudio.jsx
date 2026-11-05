@@ -557,7 +557,8 @@ const LivestreamStudio = () => {
             if (freshStreamData) {
                 streamCredentials = {
                     channelName: details.channelName,
-                    agoraToken: freshStreamData.agoraToken
+                    agoraToken: freshStreamData.agoraToken,
+                    agoraAppId: freshStreamData.agoraAppId
                 };
             }
 
@@ -581,7 +582,7 @@ const LivestreamStudio = () => {
 
             // 6. Join channel with fresh token
             await client.join(
-                import.meta.env.VITE_AGORA_API_KEY,
+                streamCredentials.agoraAppId || import.meta.env.VITE_AGORA_API_KEY,
                 streamCredentials.channelName,
                 streamCredentials.agoraToken,
                 seller.agoraUid,
@@ -1640,7 +1641,8 @@ const LivestreamStudio = () => {
             console.log('🔄 [RECONNECT 13/18] Preparing stream credentials with fresh token');
             const streamCredentials = {
                 channelName: freshData?.channelName,
-                agoraToken: freshData?.token
+                agoraToken: freshData?.token,
+                agoraAppId: freshData?.agoraAppId
             };
 
             if (!streamCredentials.channelName || !streamCredentials.agoraToken) {
@@ -1679,7 +1681,7 @@ const LivestreamStudio = () => {
             // Join channel with fresh token
             console.log('🔄 [RECONNECT 18/18] Joining channel with fresh token. Client state:', client.connectionState);
             await client.join(
-                import.meta.env.VITE_AGORA_API_KEY,
+                streamCredentials.agoraAppId || import.meta.env.VITE_AGORA_API_KEY,
                 streamCredentials.channelName,
                 streamCredentials.agoraToken,
                 mostRecentStream.agoraUid,

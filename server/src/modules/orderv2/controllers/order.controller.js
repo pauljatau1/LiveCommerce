@@ -1,4 +1,5 @@
 const orderService = require('../services/create.service');
+const nigeriaLocations = require('../../../services/nigeriaLocations');
 const ratesService = require('../services/rates.service');
 const carrierService = require('../services/carrier.service');
 const shipmentService = require('../services/shipment.service');
@@ -314,8 +315,7 @@ exports.deleteTerminalWebhook = async (req, res) => {
 
 exports.getStates = async (req, res) => {
   try {
-    const result = await terminalService.getStates();
-    return res.status(200).json(result);
+    return res.status(200).json({ status: true, message: 'States retrieved', data: nigeriaLocations.getStates() });
   } catch (error) {
     console.error('Error getting states:', error);
     return res.status(500).json({ message: 'Failed to get states', error: error.message });
@@ -325,8 +325,7 @@ exports.getStates = async (req, res) => {
 exports.getCities = async (req, res) => {
   try {
     const { stateCode } = req.params;
-    const result = await terminalService.getCities(stateCode);
-    return res.status(200).json(result);
+    return res.status(200).json({ status: true, message: 'Cities retrieved', data: nigeriaLocations.getCities(stateCode) });
   } catch (error) {
     console.error('Error getting cities:', error);
     return res.status(500).json({ message: 'Failed to get cities', error: error.message });
