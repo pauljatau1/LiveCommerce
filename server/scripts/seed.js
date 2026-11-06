@@ -79,11 +79,26 @@ const seedAdmin = async () => {
 };
 
 // Seeds using the current database connection (used by the server at startup)
+// Point every show's share link at the current buyer app (old links went to
+// app.auqli.live). Runs on each start, so changing BUYER_APP_URL updates them all.
+const fixStreamLinks = async () => {
+  const { buyerAppUrl } = require('../src/utils/helpers');
+  const Stream = require('../src/models/Stream');
+  const base = `${buyerAppUrl()}/live/`;
+  const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const res = await Stream.updateMany(
+    { streamLink: { $not: new RegExp(`^${escaped}`) } },
+    [{ $set: { streamLink: { $concat: [base, { $toString: '$_id' }] } } }]
+  );
+  return res.modifiedCount || 0;
+};
+
 const seedDatabase = async (log = console) => {
   const created = await seedCategories();
   const admin = await seedAdmin();
-  log.info(`[seed] categories: ${created} created; admin: ${admin}`);
-  return { created, admin };
+  const links = await fixStreamLinks();
+  log.info(`[seed] categories: ${created} created; admin: ${admin}; show links updated: ${links}`);
+  return { created, admin, links };
 };
 
 const run = async () => {
@@ -105,4 +120,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { run, seedDatabase, CATALOGUE };
+module.exports = { run, seedDatabase, fixStreamLinks, CATALOGUE };

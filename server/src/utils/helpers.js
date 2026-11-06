@@ -1,8 +1,12 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
-function generateStreamLink(streamId,type) {
-  return `https://app.auqli.live/livestream/feed?id=${streamId}&type=${type}&itmSource=share`;
+// Where fans open shows. Set BUYER_APP_URL when the app moves to its own domain.
+const buyerAppUrl = () => (process.env.BUYER_APP_URL || 'https://livecommerce-shop.onrender.com').replace(/\/+$/, '');
+
+// Shareable link to a show in the buyer app
+function generateStreamLink(streamId) {
+  return `${buyerAppUrl()}/live/${streamId}`;
 }
 
 // Helper function to generate OTP (4-digit)
@@ -27,6 +31,7 @@ function generatePaymentReference() {
 
 module.exports = {
   generateStreamLink,
+  buyerAppUrl,
   generateOTP,
   generateToken,
   generatePaymentReference
