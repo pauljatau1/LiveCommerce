@@ -864,6 +864,42 @@ router.post('/:streamId/join',
  *       400:
  *         description: Seller Agora UID not found
  */
+// Buy Now during a live show, paid from the wallet
+router.post('/:streamId/buy-now',
+  authMiddleware.verifyToken,
+  authMiddleware.isBuyer,
+  async (req, res) => {
+    try {
+      const { createBuyNowOrder } = require('../services/buyNowOrderService');
+      const result = await createBuyNowOrder({
+        streamId: req.params.streamId,
+        productId: req.body.productId,
+        buyerId: req.user.id,
+        quantity: req.body.quantity || 1,
+      });
+      if (!result.success) {
+        const status = { insufficient_funds: 402, sold_out: 409, closed: 410, no_address: 422, bad_quantity: 400 }[result.reason] || 400;
+        return res.status(status).json(result);
+      }
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`stream_notifications_${req.params.streamId}`).emit('stream_notification', {
+          id: Date.now().toString(),
+          type: 'buy_now',
+          user: result.buyer.username || result.buyer.firstName || 'Someone',
+          content: `bought ${result.order.quantity > 1 ? `${result.order.quantity} × ` : ''}${result.productName}`,
+          data: { streamId: req.params.streamId, productId: String(req.body.productId), quantity: result.order.quantity, stockLeft: result.stockLeft },
+          timestamp: new Date(),
+        });
+      }
+      res.status(201).json(result);
+    } catch (error) {
+      console.error('[buy-now] failed:', error.message);
+      res.status(500).json({ success: false, message: 'Could not complete the purchase. You were not charged.' });
+    }
+  }
+);
+
 router.post('/:streamId/join-seller',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,

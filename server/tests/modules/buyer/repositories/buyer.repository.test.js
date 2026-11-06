@@ -1448,9 +1448,10 @@ describe('Buyer Repository', () => {
           bidDate: new Date()
         }
       ];
-      const recalculatedOnHoldAmount = 300;
+      // 500 held; an ended item released 200, leaving 300
+      const releasedAmount = 200;
 
-      const result = await buyerRepository.updateWalletOnHoldItems(savedBuyer._id, filteredOnHoldItems, recalculatedOnHoldAmount);
+      const result = await buyerRepository.updateWalletOnHoldItems(savedBuyer._id, filteredOnHoldItems, releasedAmount);
 
       expect(result).toBeDefined();
       expect(result.wallet.onHoldItems).toHaveLength(1);

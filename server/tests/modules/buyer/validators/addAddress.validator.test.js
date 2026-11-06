@@ -154,20 +154,13 @@ describe('Add Address Validator', () => {
       });
     });
 
-    it('should throw ValidationError when zipCode is missing', async () => {
+    it('accepts an address without a zip code (most Nigerian addresses have none)', async () => {
       const dataWithoutZipCode = { ...validAddressData };
       delete dataWithoutZipCode.zipCode;
 
       await expect(
         addAddressValidator.validateAddAddressData(dataWithoutZipCode, testBuyer._id.toString())
-      ).rejects.toMatchObject({
-        errors: [
-          {
-            field: 'zipCode',
-            message: 'Zip code is required'
-          }
-        ]
-      });
+      ).resolves.not.toThrow();
     });
 
     it('should accept missing or arbitrary addressType values', async () => {
@@ -304,24 +297,17 @@ describe('Add Address Validator', () => {
       expect(errors).toHaveLength(0);
     });
 
-    it('should add error when zipCode is missing', async () => {
+    it('allows a missing or empty zipCode', async () => {
       const errors = [];
       await addAddressValidator.validateZipCode(null, errors);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toEqual({
-        field: 'zipCode',
-        message: 'Zip code is required'
-      });
+      await addAddressValidator.validateZipCode('', errors);
+      expect(errors).toHaveLength(0);
     });
 
-    it('should add error when zipCode is empty string', async () => {
+    it('rejects a zipCode that is not text', async () => {
       const errors = [];
-      await addAddressValidator.validateZipCode('', errors);
-      expect(errors).toHaveLength(1);
-      expect(errors[0]).toEqual({
-        field: 'zipCode',
-        message: 'Zip code is required'
-      });
+      await addAddressValidator.validateZipCode(12345, errors);
+      expect(errors).toEqual([{ field: 'zipCode', message: 'Zip code must be text' }]);
     });
   });
 
@@ -406,22 +392,6 @@ describe('Add Address Validator', () => {
         });
     });
 
-    it('should include specific error message for missing zip code', async () => {
-      const dataWithoutZipCode = { ...validAddressData };
-      delete dataWithoutZipCode.zipCode;
-
-      await expect(addAddressValidator.validateAddAddressData(dataWithoutZipCode, testBuyer._id.toString()))
-        .rejects
-        .toMatchObject({
-          errors: expect.arrayContaining([
-            {
-              field: 'zipCode',
-              message: 'Zip code is required'
-            }
-          ])
-        });
-    });
-
     it('should include multiple error messages for multiple validation failures', async () => {
       const dataWithMultipleErrors = {
         addressType: 'invalid',
@@ -443,10 +413,6 @@ describe('Add Address Validator', () => {
             {
               field: 'state',
               message: 'State is required'
-            },
-            {
-              field: 'zipCode',
-              message: 'Zip code is required'
             }
           ])
         });

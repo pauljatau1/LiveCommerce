@@ -113,8 +113,10 @@ describe('GET /api/v2/buyers/wallet/balance', () => {
         message: 'Wallet balance retrieved successfully',
         data: {
           balance: 5000,
-          onHoldAmount: 0, // Service correctly returns 0 when no on-hold items
-          availableBalance: 5000, // Available balance is full balance when no on-hold items
+          // 1,500 is held with no offline-auction items: a live-show bid hold. It must
+          // still count, or a buyer could spend money reserved for a bid.
+          onHoldAmount: 1500,
+          availableBalance: 3500,
           onHoldItems: [],
           currency: 'NGN'
         },

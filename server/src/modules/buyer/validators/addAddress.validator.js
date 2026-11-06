@@ -151,8 +151,9 @@ async function validateAddressLine1(addressLine1, errors) {
  * validateZipCode(null, errors); // Invalid, adds error
  */
 async function validateZipCode(zipCode, errors) {
-  if (!zipCode) {
-    errors.push({ field: 'zipCode', message: 'Zip code is required' });
+  // Optional: most Nigerian addresses don't use a postcode
+  if (zipCode !== undefined && zipCode !== null && typeof zipCode !== 'string') {
+    errors.push({ field: 'zipCode', message: 'Zip code must be text' });
   }
 }
 

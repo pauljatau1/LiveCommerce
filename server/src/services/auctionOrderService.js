@@ -206,4 +206,4 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
   }
 };
 
-module.exports = { createAuctionOrder };
+module.exports = { createAuctionOrder, toDeliveryAddress, toPickupAddress };

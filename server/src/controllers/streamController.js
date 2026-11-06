@@ -1356,7 +1356,7 @@ exports.getStreamDetails = async (req, res) => {
       .populate('products.product', 'name description images price')
       .populate('products.currentBidder', 'firstName lastName username')
       .populate('viewers', 'firstName lastName username')
-      .select('seller title description coverImage category tags products status channelName agoraToken scheduledStartTime actualStartTime endTime streamLink viewers type bids createdAt updatedAt');
+      .select('seller title description coverImage category tags products status channelName scheduledStartTime actualStartTime endTime streamLink viewers type bids createdAt updatedAt');
 
     if (!stream) {
       return res.status(404).json({ message: 'Stream not found' });
@@ -1596,6 +1596,7 @@ exports.joinStream = async (req, res) => {
       success: true,
       channelName: stream.channelName,
       token,
+      agoraAppId: process.env.AGORA_APP_ID,
       uid: tokenUid,
       role: RtcRole.SUBSCRIBER,
       tokenExpiration: Date.now() + (14400) * 1000,
@@ -3890,9 +3891,7 @@ exports.endProductBidding = async (req, res) => {
         const selectedAddress = {
           recipientName: `${buyer.firstName} ${buyer.lastName}`,
           recipientEmail: buyer.email,
-          recipientPhone: buyer.phoneNumber?.replaceAll("-", "")?.length > 14 ?
-            buyer.phoneNumber.replaceAll("-", "").replace("0", "") :
-            buyer.phoneNumber.replaceAll("-", ""),
+          recipientPhone: String(buyer.phoneNumber || '').replace(/-/g, ''), // buyers may not have a phone yet
           recipientAddress: buyer.shippingAddresses[0].addressLine1,
           recipientState: buyer.shippingAddresses[0].state,
         };
@@ -4094,6 +4093,8 @@ exports.endProductBidding = async (req, res) => {
         }
       } catch (orderError) {
         console.error('[END_BID] ERROR: Failed to create order:', orderError);
+        // Never leave the winner's money held for an order that wasn't made
+        await streamBids.releaseProductHold(stream._id, productId).catch(() => {});
 
         // Set bid status to ongoing even if there was an error
         stream.products[productIndex].bidStatus = 'ongoing';
