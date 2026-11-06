@@ -11,6 +11,7 @@
 
 const mongoose = require('mongoose');
 const { releaseProductHold, productIdMatch } = require('./streamBidService');
+const deliveries = require('./deliveryService');
 
 const model = (name) => mongoose.model(name);
 
@@ -189,6 +190,9 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
         { $set: { 'products.$.orderId': order.order_id }, $push: { orders: liveShowOrder } },
         { session }
       );
+
+      // Ships with the buyer's other items from this show (deposit held on the first)
+      await deliveries.attachOrder({ session, streamId, buyerId: charged._id, sellerId: seller._id || before.seller, order, product, quantity: 1, unitPrice: bid });
 
       result = {
         success: true,

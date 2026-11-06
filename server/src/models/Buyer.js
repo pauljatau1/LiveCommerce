@@ -18,6 +18,9 @@ const addressSchema = new mongoose.Schema({
   addressLine1: { type: String, required: true },
   addressLine2: { type: String },
   zipCode: { type: String }, // optional: most Nigerian addresses don't use one
+  // Shipbubble's code for this address once verified (key = what was verified)
+  shipbubbleCode: { type: Number },
+  shipbubbleKey: { type: String },
   // Active address indicator for checkout purposes
   isActive: { type: Boolean, default: false }
 }, { _id: true });

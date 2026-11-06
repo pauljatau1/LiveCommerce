@@ -125,6 +125,20 @@ router.post('/:webhookId/toggle',
 
 router.post('/paystack', express.raw({ type: 'application/json' }), webhookController.handlePaystackWebhook);
 
+// Shipbubble shipment updates. The payload is only used as a hint: the
+// status is re-read from Shipbubble's API, so a forged call changes nothing.
+router.post('/shipbubble', async (req, res) => {
+  res.status(200).json({ received: true }); // Shipbubble wants a 200 within 15s
+  try {
+    const orderId = req.body?.order_id || req.body?.data?.order_id;
+    if (typeof orderId === 'string' && /^SB-[A-Z0-9]+$/i.test(orderId)) {
+      await require('../services/deliveryService').refreshTracking([orderId]);
+    }
+  } catch (error) {
+    console.error('[shipbubble webhook]', error.message);
+  }
+});
+
 /**
  * @swagger
  * /api/webhooks/fez:
