@@ -98,9 +98,10 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
 
       const liveShowOrder = {
         orderId: order.order_id,
-        buyer: order.buyerDetails,
+        buyer: charged._id, // the schema stores the buyer's id; details live in orderDetails
         product: product._id,
-        orderDetails: { _id: order._id, order_id: order.order_id, itemsCount: 1, totalAmount: subtotal, shippingFee: fee, orderTotal: total, seller: order.seller, items: order.items },
+        amount: total, // required by the show's order list (bid or price x qty, plus delivery)
+        orderDetails: { buyer: order.buyerDetails, _id: order._id, order_id: order.order_id, itemsCount: 1, totalAmount: subtotal, shippingFee: fee, orderTotal: total, seller: order.seller, items: order.items },
       };
       await model('Stream').updateOne({ _id: streamId }, { $push: { orders: liveShowOrder } }, { session });
 

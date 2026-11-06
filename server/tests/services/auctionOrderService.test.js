@@ -80,6 +80,9 @@ describe('auctionOrderService', () => {
     const sp = await streamProduct();
     expect(sp).toMatchObject({ orderCreated: true, orderId: saved.order_id, holdAmount: 0 });
     expect((await Stream.findById(stream._id).lean()).orders).toHaveLength(1);
+    const show = await Stream.findById(stream._id);
+    expect(show.orders[0]).toMatchObject({ amount: 22000 });
+    await expect(show.save()).resolves.toBeTruthy();
   });
 
   it('charges a win only once, even when called twice at the same time', async () => {
