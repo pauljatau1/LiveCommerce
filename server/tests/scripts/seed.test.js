@@ -10,7 +10,9 @@ const saved = { ...process.env };
 
 // run() connects itself; keep the test's own connection and skip that call
 const connectSpy = jest.spyOn(mongoose, 'connect');
-const { run, CATALOGUE } = require('../../scripts/seed');
+const { run, CATALOGUE, fixStreamLinks } = require('../../scripts/seed');
+const Stream = require('@models/Stream');
+const { generateStreamLink } = require('@/utils/helpers');
 
 describe('scripts/seed', () => {
   beforeAll(async () => {
@@ -91,5 +93,33 @@ describe('scripts/seed', () => {
     await expect(
       Admin.create({ email: 'paul@example.com', username: 'paul', password: 'correct-horse-battery' })
     ).rejects.toThrow(/not allowed to register as an admin/);
+  });
+
+  describe('show links', () => {
+    it('points new and old show links at the buyer app', async () => {
+      const seller = new mongoose.Types.ObjectId();
+      const old = await Stream.create({ seller, title: 'Old', category: 'Figures', channelName: 'c1', status: 'ended', type: 'open_show', streamLink: 'https://app.auqli.live/livestream/feed?id=x&type=auction' });
+      const current = await Stream.create({ seller, title: 'Current', category: 'Figures', channelName: 'c2', status: 'scheduled', type: 'open_show' });
+      current.streamLink = generateStreamLink(current._id);
+      await current.save();
+      expect(current.streamLink).toBe(`https://livecommerce-shop.onrender.com/live/${current._id}`);
+
+      expect(await fixStreamLinks()).toBe(1);
+      expect((await Stream.findById(old._id).lean()).streamLink).toBe(`https://livecommerce-shop.onrender.com/live/${old._id}`);
+      expect(await fixStreamLinks()).toBe(0);
+    });
+
+    it('follows BUYER_APP_URL when the app moves to its own domain', async () => {
+      const saved = process.env.BUYER_APP_URL;
+      process.env.BUYER_APP_URL = 'https://shop.example.com/';
+      try {
+        expect(generateStreamLink('abc')).toBe('https://shop.example.com/live/abc');
+        await fixStreamLinks();
+        const any = await Stream.findOne().lean();
+        expect(any.streamLink).toBe(`https://shop.example.com/live/${any._id}`);
+      } finally {
+        if (saved === undefined) delete process.env.BUYER_APP_URL; else process.env.BUYER_APP_URL = saved;
+      }
+    });
   });
 });
