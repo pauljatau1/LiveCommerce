@@ -37,6 +37,9 @@ export default function Watch() {
   const feedRef = useRef(null);
   const remoteAudio = useRef(null);
   const soundUnlocked = useRef(false);
+  // ?debug=1 shows whether host audio is arriving (for testing on phones)
+  const debug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug');
+  const [audioDebug, setAudioDebug] = useState('no audio track yet');
   const leadRef = useRef(false); // am I leading the current auction?
   const myIdRef = useRef(null);
 
@@ -167,6 +170,7 @@ export default function Watch() {
             user.audioTrack.play();
             // Phones block sound until the viewer taps; ask unless they already have
             if (!soundUnlocked.current) setNeedsTap(true);
+            setAudioDebug('audio track received');
           }
         });
         client.on('user-unpublished', (user, mediaType) => { if (mediaType === 'video') setHasVideo(false); });
@@ -184,6 +188,17 @@ export default function Watch() {
       api.leave(streamId);
     };
   }, [show, signedIn, streamId, push, patchItem, say, refreshWallet]);
+
+  useEffect(() => {
+    if (!debug) return undefined;
+    const t = window.setInterval(() => {
+      const tr = remoteAudio.current;
+      if (!tr) return;
+      const level = typeof tr.getVolumeLevel === 'function' ? tr.getVolumeLevel() : 0;
+      setAudioDebug(`audio: ${tr.isPlaying ? 'playing' : 'NOT playing'} · level ${level.toFixed(2)}${soundUnlocked.current ? ' · unlocked' : ' · locked'}`);
+    }, 1000);
+    return () => window.clearInterval(t);
+  }, [debug]);
 
   // The first tap anywhere turns the sound on (phone browsers require a tap)
   useEffect(() => {
@@ -338,6 +353,7 @@ export default function Watch() {
         <button type="button" className="round glass" aria-label="Share this show" onClick={share}>{Icon.share}</button>
       </div>
 
+      {debug && <div className="pill glass" style={{ position: 'absolute', top: 64, right: 12, zIndex: 6 }}>{audioDebug}</div>}
       {needsTap && (
         <button type="button" className="btn" style={{ position: 'absolute', top: 72, left: '50%', transform: 'translateX(-50%)', minHeight: 44, zIndex: 5 }} onClick={() => { soundUnlocked.current = true; remoteAudio.current?.play(); setNeedsTap(false); }}>
           {Icon.sound}Tap for sound
