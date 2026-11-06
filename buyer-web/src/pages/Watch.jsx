@@ -37,6 +37,7 @@ export default function Watch() {
   const feedRef = useRef(null);
   const remoteAudio = useRef(null);
   const leadRef = useRef(false); // am I leading the current auction?
+  const myIdRef = useRef(null);
 
   const say = useCallback((kind, msg, ms = 3500) => {
     setToast({ kind, msg });
@@ -114,6 +115,11 @@ export default function Watch() {
             break;
           case 'new_bid':
             if (d.product) patchItem(idOf(d.product), { currentBid: d.bidAmount, currentBidder: d.currentBidder, bidStatus: d.product.bidStatus || 'active' });
+            // Someone else took the lead from me: my hold is released
+            if (leadRef.current && d.buyerId && String(d.buyerId) !== String(myIdRef.current)) {
+              say('err', `You've been outbid: ${naira(d.bidAmount)}`);
+              refreshWallet();
+            }
             push({ kind: 'bid', user: n.user, text: `bid ${naira(d.bidAmount)}` });
             break;
           case 'auction_winner':
@@ -180,6 +186,7 @@ export default function Watch() {
   const available = wallet?.availableBalance || 0;
   const hasAddress = (buyer?.shippingAddresses || []).length > 0;
   const iLead = current && buyer && String(current.currentBidder?._id || current.currentBidder) === String(buyer._id);
+  myIdRef.current = buyer?._id;
   leadRef.current = Boolean(iLead || (current?.bidStatus !== 'active' && current?.bidWinner && String(current.bidWinner?.buyer?._id || current.bidWinner?.buyer) === String(buyer?._id)));
 
   // Make sure the buyer can pay and be delivered to before an action
