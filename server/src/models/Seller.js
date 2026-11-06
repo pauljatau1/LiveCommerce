@@ -186,6 +186,9 @@ const sellerSchema = new mongoose.Schema({
     addressLine2: { type: String },
     zipCode: { type: String },
   },
+  // Shipbubble's code for the verified pickup address, reused for quotes;
+  // key is the address it was verified for, so a change triggers a new check
+  shipbubbleAddress: { code: Number, key: String },
   isNewSeller: { type: Boolean, default: true },
   hasFilledAddress: { type: Boolean, default: false },
   hasFilledWarehouseAddress: { type: Boolean, default: false },
