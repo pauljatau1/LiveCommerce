@@ -1,43 +1,77 @@
-import { useEffect, useState } from 'react';
+// Your orders, grouped as deliveries: everything from one show ships together.
+import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { api, naira } from '../api';
+import { api, errorMessage, naira } from '../api';
 import { useAuth } from '../auth';
+import TopUpSheet from '../components/TopUpSheet';
 import { Header } from '../components/ui';
 
-const STATUS = { processing: 'Paid · preparing', shipped: 'On the way', 'in_transit': 'On the way', 'in-transit': 'On the way', delivered: 'Delivered', cancelled: 'Cancelled' };
+const STATE = {
+  collecting: { label: 'Show still on', tone: 'p-show', note: (d) => `Everything you get in this show ships together.${d.depositHeld ? ` ${naira(d.depositHeld)} is held for delivery.` : ''}` },
+  quote_failed: { label: 'Pricing delivery', tone: 'p-warn', note: () => "We're getting a delivery price. The host has been told." },
+  awaiting_payment: { label: 'Pay delivery', tone: 'p-warn', note: (d) => `Delivery to you is ${naira(d.fee)}${d.courier ? ` with ${d.courier}` : ''}.` },
+  paid: { label: 'Paid · preparing', tone: 'p-active', note: (d) => `Delivery paid (${naira(d.fee)}). The host will book a courier.` },
+  booked: { label: 'Courier booked', tone: 'p-active', note: (d) => `${d.courier || 'The courier'} will pick it up soon.` },
+  in_transit: { label: 'On the way', tone: 'p-active', note: (d) => `${d.courier || 'The courier'} has your package.${d.deliveryEta ? ` ${d.deliveryEta}.` : ''}` },
+  delivered: { label: 'Delivered', tone: 'p-active', note: () => 'Enjoy it!' },
+  cancelled: { label: 'Cancelled', tone: 'p-sold', note: () => 'This delivery was cancelled.' },
+};
 
 export default function Orders() {
-  const { signedIn, loading } = useAuth();
-  const [orders, setOrders] = useState(null);
-  useEffect(() => { if (signedIn) api.orders().then((o) => setOrders(Array.isArray(o) ? o : o?.orders || [])).catch(() => setOrders([])); }, [signedIn]);
+  const { signedIn, loading, wallet, refreshWallet } = useAuth();
+  const [deliveries, setDeliveries] = useState(null);
+  const [busy, setBusy] = useState(null);
+  const [error, setError] = useState('');
+  const [topUp, setTopUp] = useState(null);
+
+  const load = useCallback(() => api.deliveries().then(setDeliveries).catch(() => setDeliveries([])), []);
+  useEffect(() => { if (signedIn) load(); }, [signedIn, load]);
+
+  const pay = async (d) => {
+    setError('');
+    if ((wallet?.availableBalance || 0) + (d.depositHeld || 0) < d.fee) { setTopUp(d.fee - (d.depositHeld || 0) - (wallet?.availableBalance || 0)); return; }
+    setBusy(d._id);
+    try { await api.payDelivery(d._id); await Promise.all([load(), refreshWallet()]); } catch (e) { setError(errorMessage(e, "Couldn't pay for delivery.")); } finally { setBusy(null); }
+  };
+
   if (!loading && !signedIn) return <Navigate to="/signin?next=/orders" replace />;
   return (
     <div className="app">
       <Header back="/" title="Your orders" />
-      <main className="wrap" style={{ padding: '20px 16px 40px' }}>
-        {orders === null ? <span className="mut">Loading…</span> : orders.length === 0 ? (
-          <div className="card empty"><span className="f" style={{ fontSize: 18 }}>No orders yet</span><span className="mut" style={{ fontSize: 14 }}>Things you win or buy in a show appear here.</span><Link to="/" className="btn2">Find a show</Link></div>
-        ) : (
-          <div className="list">
-            {orders.map((o) => {
-              const item = o.items?.[0] || {};
-              return (
-                <div key={o._id} className="li">
-                  {item.productImages?.[0]?.url ? <img src={item.productImages[0].url} alt="" /> : <span className="sk" style={{ width: 56, height: 56 }} />}
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span style={{ fontWeight: 800, fontSize: 15 }}>{item.productName || 'Order'}{o.items?.length > 1 ? ` + ${o.items.length - 1} more` : ''}</span>
-                    <span className="mut" style={{ fontSize: 13 }}>#{o.order_id} · {new Date(o.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })}</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                    <span className="f" style={{ fontSize: 16 }}>{naira((o.totalAmount || 0) + (o.shipping?.fee?.amount || 0))}</span>
-                    <span className={`pill ${o.status === 'delivered' ? 'p-active' : 'p-show'}`}>{STATUS[o.status] || o.status}</span>
-                  </div>
+      <main className="wrap" style={{ padding: '20px 16px 40px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {error && <span className="err" role="alert">{error}</span>}
+        {deliveries === null ? <span className="mut">Loading…</span> : deliveries.length === 0 ? (
+          <div className="card empty"><span className="f" style={{ fontSize: 18 }}>No orders yet</span><span className="mut" style={{ fontSize: 14 }}>Things you win or buy in a show appear here, grouped into one delivery per show.</span><Link to="/" className="btn2">Find a show</Link></div>
+        ) : deliveries.map((d) => {
+          const st = STATE[d.status] || { label: d.status, tone: 'p-show', note: () => '' };
+          return (
+            <section key={d._id} className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>{d.show?.title || 'Live show'}</div>
+                  <div className="mut" style={{ fontSize: 13 }}>{d.seller?.storeName} · {d.itemCount} item{d.itemCount === 1 ? '' : 's'} · {new Date(d.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })}</div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <span className={`pill ${st.tone}`}>{st.label}</span>
+              </div>
+              <div className="list">
+                {d.items.map((i) => (
+                  <div key={i.order} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    {i.image ? <img src={i.image} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover' }} /> : <span className="sk" style={{ width: 44, height: 44 }} />}
+                    <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{i.name}{i.quantity > 1 ? ` × ${i.quantity}` : ''}</span>
+                    <span className="f" style={{ fontSize: 15 }}>{naira(i.unitPrice * (i.quantity || 1))}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="mut" style={{ margin: 0, fontSize: 14 }}>{st.note(d)}</p>
+              {d.status === 'awaiting_payment' && (
+                <button type="button" className="btn" disabled={busy === d._id} onClick={() => pay(d)}>{busy === d._id ? 'Paying…' : `Pay ${naira(Math.max(0, d.fee - (d.depositHeld || 0)))} for delivery`}</button>
+              )}
+              {d.trackingUrl && <a className="btn2" href={d.trackingUrl} target="_blank" rel="noopener noreferrer">Track your package</a>}
+            </section>
+          );
+        })}
       </main>
+      {topUp !== null && <TopUpSheet need={topUp} onClose={() => { setTopUp(null); load(); }} />}
     </div>
   );
 }

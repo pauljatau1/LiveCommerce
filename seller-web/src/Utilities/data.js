@@ -117,6 +117,13 @@ export const sideBarNavData = [
         path: '/dashboard/orders',
         hasMessageCount: false
     },
+    {
+        id: ObjectID().toHexString(),
+        name: 'Deliveries',
+        icon: 'heroicons:truck',
+        path: '/studio/deliveries',
+        hasMessageCount: false
+    },
     //{
     //  id: ObjectID().toHexString(),
     //  name: 'Returns Center',
