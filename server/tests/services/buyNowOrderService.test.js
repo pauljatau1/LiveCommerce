@@ -51,6 +51,16 @@ describe('buyNowOrderService', () => {
     expect((await Stream.findById(stream._id).lean()).orders).toHaveLength(1);
   });
 
+  it('leaves the show savable after a sale (showing/hiding products saves the show)', async () => {
+    const ada = await createBuyer('Ada', 50000);
+    await buy(ada);
+    const show = await Stream.findById(stream._id);
+    expect(show.orders[0]).toMatchObject({ amount: 15000 });
+    expect(String(show.orders[0].buyer)).toBe(String(ada._id));
+    show.products[0].isVisible = true;
+    await expect(show.save()).resolves.toBeTruthy();
+  });
+
   it('never sells more than the stock when buyers race for the last items', async () => {
     const buyers = await Promise.all(Array.from({ length: 6 }, (_, i) => createBuyer(`B${i}`, 50000)));
     const results = await Promise.all(buyers.map((b) => buy(b)));

@@ -10,7 +10,7 @@ const saved = { ...process.env };
 
 // run() connects itself; keep the test's own connection and skip that call
 const connectSpy = jest.spyOn(mongoose, 'connect');
-const { run, CATALOGUE, fixStreamLinks } = require('../../scripts/seed');
+const { run, CATALOGUE, fixStreamLinks, repairShowOrders } = require('../../scripts/seed');
 const Stream = require('@models/Stream');
 const { generateStreamLink } = require('@/utils/helpers');
 
@@ -121,5 +121,21 @@ describe('scripts/seed', () => {
         if (saved === undefined) delete process.env.BUYER_APP_URL; else process.env.BUYER_APP_URL = saved;
       }
     });
+  });
+
+  it('repairs shows whose order list broke later saves', async () => {
+    const buyerId = new mongoose.Types.ObjectId();
+    const broken = await Stream.collection.insertOne({
+      seller: new mongoose.Types.ObjectId(), title: 'Broken', category: 'Figures', channelName: 'c9', status: 'live', type: 'open_show', products: [],
+      orders: [{ orderId: 'OR1', buyer: { _id: buyerId, username: 'ada' }, orderDetails: { orderTotal: 15000 } }],
+    });
+    await expect(Stream.findById(broken.insertedId).then((d) => d.save())).rejects.toThrow(/amount/);
+
+    expect(await repairShowOrders()).toBe(1);
+    const fixed = await Stream.findById(broken.insertedId);
+    expect(fixed.orders[0].amount).toBe(15000);
+    expect(String(fixed.orders[0].buyer)).toBe(String(buyerId));
+    await expect(fixed.save()).resolves.toBeTruthy();
+    expect(await repairShowOrders()).toBe(0);
   });
 });

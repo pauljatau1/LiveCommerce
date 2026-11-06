@@ -93,12 +93,40 @@ const fixStreamLinks = async () => {
   return res.modifiedCount || 0;
 };
 
+// Repair show order lists saved without an amount (or with the buyer as an
+// object): they made every later save of that show fail validation, e.g.
+// showing or hiding a product after the first sale.
+const repairShowOrders = async () => {
+  const Stream = require('../src/models/Stream');
+  const res = await Stream.updateMany(
+    { orders: { $elemMatch: { $or: [{ amount: { $exists: false } }, { amount: null }, { 'buyer._id': { $exists: true } }] } } },
+    [{
+      $set: {
+        orders: {
+          $map: {
+            input: '$orders',
+            as: 'o',
+            in: {
+              $mergeObjects: ['$$o', {
+                amount: { $ifNull: ['$$o.amount', { $ifNull: ['$$o.orderDetails.orderTotal', { $ifNull: ['$$o.orderDetails.totalAmount', 0] }] }] },
+                buyer: { $cond: [{ $eq: [{ $type: '$$o.buyer' }, 'object'] }, '$$o.buyer._id', '$$o.buyer'] },
+              }],
+            },
+          },
+        },
+      },
+    }]
+  );
+  return res.modifiedCount || 0;
+};
+
 const seedDatabase = async (log = console) => {
   const created = await seedCategories();
   const admin = await seedAdmin();
   const links = await fixStreamLinks();
-  log.info(`[seed] categories: ${created} created; admin: ${admin}; show links updated: ${links}`);
-  return { created, admin, links };
+  const repaired = await repairShowOrders();
+  log.info(`[seed] categories: ${created} created; admin: ${admin}; show links updated: ${links}; shows repaired: ${repaired}`);
+  return { created, admin, links, repaired };
 };
 
 const run = async () => {
@@ -120,4 +148,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { run, seedDatabase, fixStreamLinks, CATALOGUE };
+module.exports = { run, seedDatabase, fixStreamLinks, repairShowOrders, CATALOGUE };

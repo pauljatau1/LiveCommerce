@@ -168,9 +168,11 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
 
       const liveShowOrder = {
         orderId: order.order_id,
-        buyer: order.buyerDetails,
+        buyer: charged._id, // the schema stores the buyer's id; details live in orderDetails
         product: product._id,
+        amount: total, // required by the show's order list (bid or price x qty, plus delivery)
         orderDetails: {
+          buyer: order.buyerDetails,
           _id: order._id,
           order_id: order.order_id,
           itemsCount: 1,
