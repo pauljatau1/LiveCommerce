@@ -72,6 +72,14 @@ router.post('/:id/book', verifyToken, isSeller, validId, async (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
+router.post('/:id/cancel', verifyToken, isSeller, validId, async (req, res) => {
+  try {
+    await deliveries.cancelPickup({ sellerId: req.user.id, deliveryId: req.params.id });
+    const d = await populate(ShowDelivery.findById(req.params.id)).lean();
+    res.json({ success: true, delivery: view(d) });
+  } catch (e) { fail(res, e); }
+});
+
 router.post('/:id/requote', verifyToken, isSeller, validId, async (req, res) => {
   try {
     const own = await ShowDelivery.exists({ _id: req.params.id, seller: req.user.id });

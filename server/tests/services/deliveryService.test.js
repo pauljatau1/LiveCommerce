@@ -7,6 +7,9 @@ jest.mock('@/services/shipbubble', () => ({
   categoryIdFor: jest.fn(async () => 90097994),
   pickupDate: () => '2026-11-07',
   fetchRates: jest.fn(),
+  boxFor: jest.fn(async () => ({ length: 25, width: 20, height: 10 })),
+  walletBalance: jest.fn(async () => ({ balance: 100000, currency: 'NGN' })),
+  cancelShipment: jest.fn(async () => ({})),
   createShipment: jest.fn(),
   getShipments: jest.fn(),
   ShipbubbleError: class extends Error {},
@@ -180,5 +183,56 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     await deliveries.refreshTracking(['SB-XYZ']);
     expect((await ShowDelivery.findById(settled._id).lean()).status).toBe('delivered');
     expect((await Order.findOne({ buyer: ada._id }).lean()).status).toBe('delivered');
+  });
+
+  const paidDelivery = async () => {
+    const ada = await createBuyer('Ada', 50000);
+    await buy(ada, plush);
+    shipbubble.fetchRates.mockResolvedValue(rates(2800));
+    const [settled] = await deliveries.settleShow(stream._id);
+    return { ada, settled };
+  };
+
+  it('uses Shipbubble’s box sizes for the package', async () => {
+    const { settled } = await paidDelivery();
+    expect(settled.status).toBe('paid');
+    expect(shipbubble.fetchRates.mock.calls[0][0].package_dimension).toEqual({ length: 25, width: 20, height: 10 });
+  });
+
+  it('does not book when the Shipbubble wallet is too low, and says why', async () => {
+    const { settled } = await paidDelivery();
+    shipbubble.walletBalance.mockResolvedValueOnce({ balance: 1200, currency: 'NGN' });
+    await expect(deliveries.book({ sellerId: seller._id, deliveryId: settled._id })).rejects.toMatchObject({ status: 402, message: expect.stringMatching(/Shipbubble wallet has ₦1,200/) });
+    expect(shipbubble.createShipment).not.toHaveBeenCalled();
+    expect((await ShowDelivery.findById(settled._id).lean()).status).toBe('paid');
+  });
+
+  it('explains a missing Shipbubble KYC in plain words', async () => {
+    const { settled } = await paidDelivery();
+    shipbubble.createShipment.mockRejectedValueOnce(Object.assign(new Error('Booking the courier failed: Please complete your KYC'), { status: 400 }));
+    await expect(deliveries.book({ sellerId: seller._id, deliveryId: settled._id })).rejects.toMatchObject({ message: expect.stringMatching(/business verification \(KYC\)/) });
+  });
+
+  it('cancels a booked pickup so it can be booked again', async () => {
+    const { settled } = await paidDelivery();
+    shipbubble.createShipment.mockResolvedValue({ order_id: 'SB-C1', status: 'pending', tracking_url: 't' });
+    await deliveries.book({ sellerId: seller._id, deliveryId: settled._id });
+
+    const back = await deliveries.cancelPickup({ sellerId: seller._id, deliveryId: settled._id });
+    expect(shipbubble.cancelShipment).toHaveBeenCalledWith('SB-C1');
+    expect(back.status).toBe('paid');
+    expect(back.shipbubble).toBeUndefined();
+    shipbubble.fetchRates.mockResolvedValue(rates(2800));
+    shipbubble.createShipment.mockResolvedValue({ order_id: 'SB-C2', status: 'pending', tracking_url: 't2' });
+    expect(await deliveries.book({ sellerId: seller._id, deliveryId: settled._id })).toMatchObject({ status: 'booked', shipbubble: { orderId: 'SB-C2' } });
+  });
+
+  it('refuses to cancel a pickup the courier already processed', async () => {
+    const { settled } = await paidDelivery();
+    shipbubble.createShipment.mockResolvedValue({ order_id: 'SB-P1', status: 'pending', tracking_url: 't' });
+    await deliveries.book({ sellerId: seller._id, deliveryId: settled._id });
+    shipbubble.cancelShipment.mockRejectedValueOnce(new Error('Cancelling the pickup failed: Shipment label already processed'));
+    await expect(deliveries.cancelPickup({ sellerId: seller._id, deliveryId: settled._id })).rejects.toMatchObject({ status: 409, message: expect.stringMatching(/already processed/) });
+    expect((await ShowDelivery.findById(settled._id).lean()).status).toBe('booked');
   });
 });

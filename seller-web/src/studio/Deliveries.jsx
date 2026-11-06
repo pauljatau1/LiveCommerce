@@ -83,7 +83,8 @@ function Detail({ d, onBack, onChange }) {
             <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 800 }}>{d.courier || 'Courier chosen at pricing'}</span><span className="mut" style={{ fontSize: 14 }}>{d.deliveryEta || 'Cheapest courier for this route'}</span></div>
             {d.fee ? <span className="f" style={{ fontSize: 17 }}>{naira(d.fee)}</span> : null}
           </div>
-          {d.status === 'paid' && <span className="hint">Delivery is paid by {who}. Booking charges your Shipbubble wallet.</span>}
+          {d.status === 'paid' && <span className="hint">Delivery is paid by {who}. Booking charges your Shipbubble wallet; make sure it's funded.</span>}
+          {d.status === 'booked' && <span className="hint">You can cancel until the courier processes the pickup.</span>}
           {d.status === 'awaiting_payment' && <span className="hint">{who} needs to pay {naira(d.fee)} for delivery before you can book.</span>}
           {d.status === 'collecting' && <span className="hint">Delivery is priced and charged when the show ends.</span>}
           {d.status === 'quote_failed' && <span className="err-text">{d.lastError || "Couldn't price this delivery yet."}</span>}
@@ -92,6 +93,7 @@ function Detail({ d, onBack, onChange }) {
           {['quote_failed', 'awaiting_payment'].includes(d.status) && <button type="button" className="btn2" disabled={Boolean(busy)} onClick={() => act('requote', 'requote')}>{busy === 'requote' ? 'Getting a price…' : 'Get a new delivery price'}</button>}
           {d.trackingUrl && <a className="btn2" href={d.trackingUrl} target="_blank" rel="noopener noreferrer">Open tracking</a>}
           {['booked', 'in_transit'].includes(d.status) && <button type="button" className="btn3" disabled={Boolean(busy)} onClick={() => act('refresh', 'refresh')}>{busy === 'refresh' ? 'Checking…' : 'Check for updates'}</button>}
+          {d.status === 'booked' && <button type="button" className="link" style={{ alignSelf: 'center', color: 'var(--danger)' }} disabled={Boolean(busy)} onClick={() => act('cancel', 'cancel')}>{busy === 'cancel' ? 'Cancelling…' : 'Cancel pickup'}</button>}
         </section>
         <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }} aria-label="Tracking">
           <h2 className="h2">Progress</h2>

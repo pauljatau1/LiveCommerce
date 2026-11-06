@@ -153,6 +153,7 @@ const quote = async (delivery) => {
     shipbubble.categoryIdFor(delivery.items[0]?.category),
   ]);
   const pkg = packageFor(delivery.items);
+  pkg.dimension = await shipbubble.boxFor(pkg.weight, delivery.items.reduce((n, i) => n + (i.quantity || 1), 0));
   const rates = await shipbubble.fetchRates({
     sender_address_code: senderCode,
     reciever_address_code: receiverCode,
@@ -263,6 +264,15 @@ const book = async ({ sellerId, deliveryId }) => {
       q = await quote(claimed); // token expired: re-quote; the platform absorbs any difference
       await ShowDelivery.updateOne({ _id: claimed._id }, { quote: q });
     }
+    // Shipbubble charges its wallet when booking; say so plainly if it's short
+    try {
+      const wallet = await shipbubble.walletBalance();
+      if (wallet && typeof wallet.balance === 'number' && wallet.balance < (q.cost || q.amount)) {
+        throw new DeliveryError(402, `Your Shipbubble wallet has ₦${Math.floor(wallet.balance).toLocaleString('en-NG')}; this pickup costs ₦${(q.cost || q.amount).toLocaleString('en-NG')}. Fund it on shipbubble.com, then book again.`);
+      }
+    } catch (e) {
+      if (e instanceof DeliveryError) throw e; // balance lookup failing shouldn't block booking
+    }
     const shipment = await shipbubble.createShipment({ requestToken: q.requestToken, courierId: q.courierId, serviceCode: q.serviceCode });
     await ShowDelivery.updateOne({ _id: claimed._id }, {
       status: 'booked',
@@ -279,9 +289,28 @@ const book = async ({ sellerId, deliveryId }) => {
     await model('Order').updateMany({ _id: { $in: claimed.orders } }, { status: 'confirmed', 'shipping.tracking.url': shipment.tracking_url, 'shipping.carrier.name': shipment.courier?.name || q.courierName });
     return ShowDelivery.findById(claimed._id).lean();
   } catch (error) {
-    await ShowDelivery.updateOne({ _id: claimed._id }, { $unset: { 'shipbubble.status': 1 }, lastError: error.message });
-    throw error instanceof DeliveryError ? error : new DeliveryError(error.status || 502, error.message);
+    const msg = /kyc/i.test(error.message) ? 'Complete your business verification (KYC) on Shipbubble before booking pickups.'
+      : /insufficient|balance/i.test(error.message) ? 'Your Shipbubble wallet is too low for this pickup. Fund it on shipbubble.com, then book again.'
+        : error.message;
+    await ShowDelivery.updateOne({ _id: claimed._id }, { $unset: { 'shipbubble.status': 1 }, lastError: msg });
+    throw error instanceof DeliveryError ? error : new DeliveryError(error.status || 502, msg);
   }
+};
+
+// Seller cancels a booked pickup (only before Shipbubble processes it); the
+// package goes back to "paid" so it can be booked again.
+const cancelPickup = async ({ sellerId, deliveryId }) => {
+  const d = await ShowDelivery.findOne({ _id: deliveryId, seller: sellerId });
+  if (!d) throw new DeliveryError(404, 'Delivery not found');
+  if (d.status !== 'booked' || !d.shipbubble?.orderId) throw new DeliveryError(409, 'Only a booked pickup that hasn’t been collected can be cancelled');
+  try {
+    await shipbubble.cancelShipment(d.shipbubble.orderId);
+  } catch (error) {
+    throw new DeliveryError(409, /processed/i.test(error.message) ? 'The courier has already processed this pickup, so it can’t be cancelled' : error.message);
+  }
+  await ShowDelivery.updateOne({ _id: d._id }, { status: 'paid', $unset: { shipbubble: 1, quote: 1 }, lastError: null });
+  await model('Order').updateMany({ _id: { $in: d.orders } }, { status: 'processing' });
+  return ShowDelivery.findById(d._id).lean();
 };
 
 // Map Shipbubble's status to ours
@@ -326,6 +355,7 @@ module.exports = {
   settleShow,
   payDelivery,
   book,
+  cancelPickup,
   refreshTracking,
   releaseDeposit,
   statusFrom,

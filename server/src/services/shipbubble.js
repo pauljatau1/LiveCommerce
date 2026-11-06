@@ -71,14 +71,43 @@ const categoryIdFor = async (ourCategory) => {
   return match.category_id;
 };
 
-// Requests after 5pm Lagos time are scheduled for the next day
+// Shipbubble schedules requests made after 6pm (GMT+1) for the next day
 const pickupDate = (now = new Date()) => {
   const lagos = new Date(now.getTime() + 60 * 60 * 1000); // UTC+1
-  if (lagos.getUTCHours() >= 17) lagos.setUTCDate(lagos.getUTCDate() + 1);
+  if (lagos.getUTCHours() >= 18) lagos.setUTCDate(lagos.getUTCDate() + 1);
   return lagos.toISOString().slice(0, 10);
 };
 
-const fetchRates = (body) => call((c) => c.post('/shipping/fetch_rates', body), 'Delivery quote');
+// Standard box sizes (cm, max kg): pick the smallest that carries the weight
+let boxCache = null;
+const boxes = async () => {
+  if (boxCache) return boxCache;
+  const list = await call((c) => c.get('/shipping/labels/boxes'), 'Box sizes');
+  boxCache = (Array.isArray(list) ? list : []).filter((b) => b.length && b.width && b.height && b.max_weight);
+  return boxCache;
+};
+const boxFor = async (weightKg, itemCount) => {
+  const FALLBACK = { length: 30, width: 25, height: Math.min(60, 10 + 5 * Math.max(0, itemCount - 1)) };
+  try {
+    const fits = (await boxes())
+      .filter((b) => b.max_weight >= weightKg)
+      .sort((a, b) => a.length * a.width * a.height - b.length * b.width * b.height);
+    // Several items rarely fit the tiniest box; skip boxes under ~1 litre for multi-item parcels
+    const box = fits.find((b) => itemCount <= 1 || b.length * b.width * b.height >= 1000) || fits[0];
+    return box ? { length: box.length, width: box.width, height: box.height } : FALLBACK;
+  } catch {
+    return FALLBACK;
+  }
+};
+
+// Optional: only quote couriers you trust, e.g. SHIPBUBBLE_COURIERS=gigl,kwik
+const fetchRates = (body) => {
+  const codes = String(process.env.SHIPBUBBLE_COURIERS || '').split(',').map((c) => c.trim()).filter(Boolean);
+  const path = codes.length ? `/shipping/fetch_rates/${codes.map(encodeURIComponent).join(',')}` : '/shipping/fetch_rates';
+  return call((c) => c.post(path, body), 'Delivery quote');
+};
+const walletBalance = () => call((c) => c.get('/shipping/wallet/balance'), 'Shipbubble wallet');
+const cancelShipment = (orderId) => call((c) => c.post(`/shipping/labels/cancel/${encodeURIComponent(orderId)}`), 'Cancelling the pickup');
 const createShipment = ({ requestToken, courierId, serviceCode }) =>
   call((c) => c.post('/shipping/labels', { request_token: requestToken, courier_id: String(courierId), service_code: serviceCode }), 'Booking the courier');
 const getShipments = async (orderIds) => {
@@ -94,9 +123,12 @@ module.exports = {
   categoryIdFor,
   pickupDate,
   fetchRates,
+  boxFor,
+  walletBalance,
+  cancelShipment,
   createShipment,
   getShipments,
   toPhone,
   ShipbubbleError,
-  _resetCache: () => { categoryCache = null; },
+  _resetCache: () => { categoryCache = null; boxCache = null; },
 };
