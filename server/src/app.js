@@ -258,6 +258,7 @@ app.get('/health', (req, res) => {
   };
 
   const status = {
+    environment: process.env.APP_ENV || 'unset',
     uptime: process.uptime(),
     timestamp: Date.now(),
     dbState: dbStates[dbState] || 'unknown',
