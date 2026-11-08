@@ -134,6 +134,34 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     expect(settled.lastError).toMatch(/route not covered/);
   });
 
+  it('retries a failed price on schedule and charges once Shipbubble answers', async () => {
+    const ada = await createBuyer('Ada', 50000);
+    await buy(ada, plush);
+    shipbubble.validateAddress.mockRejectedValueOnce(new Error('Address check failed: Enable API access in your dashboard to continue'));
+    const [failed] = await deliveries.settleShow(stream._id);
+    expect(failed.status).toBe('quote_failed');
+    expect(failed.lastError).toMatch(/switched off on Shipbubble/);
+
+    // Too soon: left alone for 5 minutes
+    expect(await deliveries.retryStuck()).toHaveLength(0);
+
+    shipbubble.fetchRates.mockResolvedValue(rates(2500));
+    const [retried] = await deliveries.retryStuck({ now: Date.now() + 6 * 60 * 1000 });
+    expect(retried).toMatchObject({ status: 'paid', fee: 2500, depositHeld: 0 });
+    expect(await wallet(ada)).toMatchObject({ balance: 50000 - 15000 - 2500, onHoldAmount: 0 });
+  });
+
+  it('settles a delivery whose show ended without settling', async () => {
+    const ada = await createBuyer('Ada', 50000);
+    await buy(ada, plush);
+    shipbubble.fetchRates.mockResolvedValue(rates(2000));
+    expect(await deliveries.retryStuck()).toHaveLength(0); // show still live
+
+    await Stream.updateOne({ _id: stream._id }, { status: 'ended' });
+    const [settled] = await deliveries.retryStuck();
+    expect(settled).toMatchObject({ status: 'paid', fee: 2000 });
+  });
+
   it('asks for a phone number before quoting a buyer without one', async () => {
     const ada = await createBuyer('Ada', 50000, { phoneNumber: undefined });
     await buy(ada, plush);

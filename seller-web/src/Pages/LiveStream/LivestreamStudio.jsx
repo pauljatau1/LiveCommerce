@@ -1352,8 +1352,8 @@ const LivestreamStudio = () => {
                 // If this fails, devices are likely already released
             }
 
-            // Navigate away
-            navigate('/dashboard/live-streams/past-shows');
+            // Hand off to Deliveries: what sold in this show and what to send next
+            navigate(_id ? `/studio/deliveries?ended=${_id}` : '/dashboard/live-streams/past-shows');
         }
     }, [
         previewMediaStream,
