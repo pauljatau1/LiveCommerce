@@ -14,6 +14,7 @@ class ShipbubbleError extends Error {
 }
 
 const isConfigured = () => Boolean(process.env.SHIPBUBBLE_API_KEY);
+const isSandbox = () => String(process.env.SHIPBUBBLE_API_KEY || '').startsWith('sb_sandbox_');
 
 const client = () =>
   axios.create({
@@ -110,6 +111,13 @@ const walletBalance = () => call((c) => c.get('/shipping/wallet/balance'), 'Ship
 const cancelShipment = (orderId) => call((c) => c.post(`/shipping/labels/cancel/${encodeURIComponent(orderId)}`), 'Cancelling the pickup');
 const createShipment = ({ requestToken, courierId, serviceCode }) =>
   call((c) => c.post('/shipping/labels', { request_token: requestToken, courier_id: String(courierId), service_code: serviceCode }), 'Booking the courier');
+// Sandbox only: ask Shipbubble to send a status webhook for a test shipment
+const SIM_STATUSES = ['pending', 'confirmed', 'picked_up', 'in_transit', 'completed', 'cancelled'];
+const simulateStatus = (orderId, status) => {
+  if (!isSandbox()) return Promise.reject(new ShipbubbleError('Status simulation only works with a sandbox key', 403));
+  if (!SIM_STATUSES.includes(status)) return Promise.reject(new ShipbubbleError(`Status must be one of ${SIM_STATUSES.join(', ')}`, 400));
+  return call((c) => c.post(`/shipping/labels/webhooks/${encodeURIComponent(orderId)}`, { status_code: status }), 'Webhook simulator');
+};
 const getShipments = async (orderIds) => {
   const ids = orderIds.filter(Boolean).slice(0, 50);
   if (!ids.length) return [];
@@ -128,6 +136,9 @@ module.exports = {
   cancelShipment,
   createShipment,
   getShipments,
+  isSandbox,
+  simulateStatus,
+  SIM_STATUSES,
   toPhone,
   ShipbubbleError,
   _resetCache: () => { categoryCache = null; boxCache = null; },

@@ -352,18 +352,26 @@ const statusFrom = (sb) => {
 };
 const ORDER_STATUS = { booked: 'confirmed', in_transit: 'in_transit', delivered: 'delivered', cancelled: 'cancelled' };
 
+// Apply one Shipbubble shipment record (from the API or a signed webhook)
+const applyShipment = async (r) => {
+  if (!r?.order_id) return null;
+  const status = statusFrom(r.status);
+  const set = { status, 'shipbubble.status': r.status, 'shipbubble.updatedAt': new Date() };
+  if (r.tracking_url) set['shipbubble.trackingUrl'] = r.tracking_url;
+  if (r.courier?.tracking_code) set['shipbubble.trackingCode'] = r.courier.tracking_code;
+  const d = await ShowDelivery.findOneAndUpdate(
+    { 'shipbubble.orderId': r.order_id, status: { $in: ['booked', 'in_transit'] } },
+    set,
+    { new: true }
+  );
+  if (d) await model('Order').updateMany({ _id: { $in: d.orders } }, { status: ORDER_STATUS[status] });
+  return d;
+};
+
 // Refresh status from Shipbubble for the given Shipbubble order ids
 const refreshTracking = async (orderIds) => {
   const results = await shipbubble.getShipments(orderIds);
-  for (const r of results) {
-    const status = statusFrom(r.status);
-    const d = await ShowDelivery.findOneAndUpdate(
-      { 'shipbubble.orderId': r.order_id, status: { $in: ['booked', 'in_transit'] } },
-      { status, 'shipbubble.status': r.status, 'shipbubble.trackingUrl': r.tracking_url, 'shipbubble.trackingCode': r.courier?.tracking_code, 'shipbubble.updatedAt': new Date() },
-      { new: true }
-    );
-    if (d) await model('Order').updateMany({ _id: { $in: d.orders } }, { status: ORDER_STATUS[status] });
-  }
+  for (const r of results) await applyShipment(r);
   return results.length;
 };
 
@@ -388,6 +396,7 @@ module.exports = {
   book,
   cancelPickup,
   refreshTracking,
+  applyShipment,
   releaseDeposit,
   statusFrom,
   packageFor,

@@ -21,6 +21,16 @@ describe('shipbubble client', () => {
     expect(shipbubble.pickupDate(new Date('2026-11-06T17:05:00Z'))).toBe('2026-11-07'); // 6:05pm Lagos
   });
 
+  it('simulates a status webhook only with a sandbox key', async () => {
+    mockPost.mockResolvedValue({ data: { status: 'success', message: 'Webhook sent successfully' } });
+    await shipbubble.simulateStatus('SB-1', 'picked_up');
+    expect(mockPost).toHaveBeenCalledWith('/shipping/labels/webhooks/SB-1', { status_code: 'picked_up' });
+    await expect(shipbubble.simulateStatus('SB-1', 'teleported')).rejects.toThrow(/must be one of/);
+    process.env.SHIPBUBBLE_API_KEY = 'sb_prod_live';
+    await expect(shipbubble.simulateStatus('SB-1', 'picked_up')).rejects.toThrow(/sandbox/);
+    expect(mockPost).toHaveBeenCalledTimes(1);
+  });
+
   it('formats Nigerian phone numbers', () => {
     expect(shipbubble.toPhone('08031234567')).toBe('+2348031234567');
     expect(shipbubble.toPhone('8031234567')).toBe('+2348031234567');

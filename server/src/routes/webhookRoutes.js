@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const webhookController = require('../controllers/WebhookController');
 const authMiddleware = require('../middlewares/authMiddleware');
@@ -125,15 +126,32 @@ router.post('/:webhookId/toggle',
 
 router.post('/paystack', express.raw({ type: 'application/json' }), webhookController.handlePaystackWebhook);
 
-// Shipbubble shipment updates. The payload is only used as a hint: the
-// status is re-read from Shipbubble's API, so a forged call changes nothing.
+// Shipbubble shipment updates. Signed with HMAC-SHA512 of the body using our
+// API key (x-ship-signature). A signed payload is applied as sent; anything
+// else is only a hint and the status is re-read from Shipbubble's API, so a
+// forged call changes nothing.
+const shipSignatureOk = (req) => {
+  const key = process.env.SHIPBUBBLE_API_KEY;
+  const sent = String(req.headers['x-ship-signature'] || '');
+  if (!key || !sent || !req.rawBody) return false;
+  const mac = crypto.createHmac('sha512', key).update(req.rawBody);
+  const digest = mac.digest();
+  return [digest.toString('hex'), digest.toString('base64')].some((expected) => (
+    expected.length === sent.length && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(sent))
+  ));
+};
+
 router.post('/shipbubble', async (req, res) => {
   res.status(200).json({ received: true }); // Shipbubble wants a 200 within 15s
   try {
-    const orderId = req.body?.order_id || req.body?.data?.order_id;
-    if (typeof orderId === 'string' && /^SB-[A-Z0-9]+$/i.test(orderId)) {
-      await require('../services/deliveryService').refreshTracking([orderId]);
-    }
+    const body = req.body || {};
+    const orderId = body.order_id || body.data?.order_id;
+    if (typeof orderId !== 'string' || !/^SB-[A-Z0-9]+$/i.test(orderId)) return;
+    const deliveries = require('../services/deliveryService');
+    const signed = shipSignatureOk(req);
+    console.log(`[shipbubble webhook] ${body.event || 'event'} ${orderId} → ${body.status || '?'} (${signed ? 'signed' : 'unsigned, re-checking with API'})`);
+    if (signed) await deliveries.applyShipment(body.data?.order_id ? body.data : body);
+    else await deliveries.refreshTracking([orderId]);
   } catch (error) {
     console.error('[shipbubble webhook]', error.message);
   }
