@@ -6,6 +6,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { shrinkPhoto } from './listingApi';
 import { studio, errorText, naira, when } from './api';
 import { Icon, Problem, Skeleton, TopBar, Empty } from './ui';
+import ShareSheet from './ShareSheet';
 
 const TYPES = [
   ['auction', 'Auction show', 'Fans bid, highest wins. Best for rare items.'],
@@ -34,6 +35,7 @@ export default function Planner() {
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [created, setCreated] = useState(null);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     studio.products().then((r) => {
@@ -118,7 +120,7 @@ export default function Planner() {
                 <div className="fl"><span className="lab">Show link</span>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <input className="in" readOnly value={link} aria-label="Show link" onFocus={(e) => e.target.select()} />
-                    <button type="button" className="btn2" onClick={() => (navigator.share ? navigator.share({ title: created.title, url: link }).catch(() => {}) : navigator.clipboard?.writeText(link))}>{Icon.share}Share</button>
+                    <button type="button" className="btn2" onClick={() => setSharing(true)}>{Icon.share}Share</button>
                   </div>
                   <span className="hint">Post it on WhatsApp, Instagram and TikTok. Buyers who open it get a reminder.</span>
                 </div>
@@ -129,6 +131,7 @@ export default function Planner() {
           <Link to={`/studio/golive/${created._id}`} className="btn" style={{ minHeight: 58, background: 'var(--live)', fontSize: 17 }}>{Icon.live('#fff', 20)}Go live</Link>
           <Link to="/studio" className="btn3">Done</Link>
         </div>
+        {sharing && <ShareSheet show={{ ...created, link, scheduledStartTime: created.at, status: 'scheduled', type }} onClose={() => setSharing(false)} />}
       </div>
     );
   }

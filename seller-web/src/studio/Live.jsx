@@ -10,6 +10,7 @@ import { BASE_URL } from '@/Constants/Server';
 import { tokenUtils } from '@/util/auth';
 import { studio, errorText, naira } from './api';
 import { Icon, Sheet } from './ui';
+import ShareSheet from './ShareSheet';
 import { useIntercomVisibility } from '@/Hooks/useIntercomVisibility';
 
 AgoraRTC.setLogLevel(3);
@@ -46,6 +47,7 @@ export default function Live() {
   const [facing, setFacing] = useState('user');
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const push = useCallback((entry) => setFeed((f) => [...f.slice(-60), { id: `${Date.now()}-${Math.random()}`, ...entry }]), []);
   const say = useCallback((t) => setToast(t), []);
@@ -292,6 +294,7 @@ export default function Live() {
         <span className="lv-tp lv-desk-only" style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{show?.title}</span>
         <span className="lv-tp lv-desk-only">{sales.count} sold · {naira(sales.amount)}</span>
         <span style={{ flex: 1 }} />
+        {show?.link && <button type="button" className="lv-tp" style={{ minHeight: 44, border: 0, cursor: 'pointer' }} onClick={() => setSharing(true)} aria-label="Share your show">{Icon.share}<span className="lv-desk-only">Share</span></button>}
         <button type="button" className="lv-tp" style={{ minHeight: 44, border: 0, cursor: 'pointer' }} onClick={() => setConfirmEnd(true)} disabled={phase === 'ending'}>{phase === 'ending' ? 'Ending…' : 'End show'}</button>
       </header>
 
@@ -332,6 +335,7 @@ export default function Live() {
           <div style={{ display: 'flex', gap: 8 }}><button type="button" className="btn3" style={{ flex: 1 }} onClick={() => setConfirmEnd(false)}>Keep going</button><button type="button" className="btn btn-d" style={{ flex: 1.3 }} onClick={end}>End show</button></div>
         </Sheet>
       )}
+      {sharing && show && <ShareSheet show={{ ...show, status: 'live' }} onClose={() => setSharing(false)} />}
       {queueOpen && (
         <Sheet label="All items" onClose={() => setQueueOpen(false)}>
           <h2 className="h2">Items in this show</h2>
