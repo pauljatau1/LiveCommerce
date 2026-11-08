@@ -30,13 +30,13 @@ const PILL = {
 
 const back = <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M15 5l-7 7 7 7" /></svg>;
 
-function Detail({ d, onBack, onChange }) {
+function Detail({ d, onBack, onChange, sandbox }) {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const act = async (path, label) => {
+  const act = async (path, label, body = {}) => {
     setBusy(label); setError('');
     try {
-      const res = await axios.post(`${BASE_URL_V2}/deliveries/${d._id}/${path}`, {}, { ...auth(), timeout: 60000 });
+      const res = await axios.post(`${BASE_URL_V2}/deliveries/${d._id}/${path}`, body, { ...auth(), timeout: 60000 });
       onChange(res.data.delivery);
     } catch (e) {
       setError(message(e, 'Something went wrong. Try again.'));
@@ -95,6 +95,17 @@ function Detail({ d, onBack, onChange }) {
           {['booked', 'in_transit'].includes(d.status) && <button type="button" className="btn3" disabled={Boolean(busy)} onClick={() => act('refresh', 'refresh')}>{busy === 'refresh' ? 'Checking…' : 'Check for updates'}</button>}
           {d.status === 'booked' && <button type="button" className="link" style={{ alignSelf: 'center', color: 'var(--danger)' }} disabled={Boolean(busy)} onClick={() => act('cancel', 'cancel')}>{busy === 'cancel' ? 'Cancelling…' : 'Cancel pickup'}</button>}
         </section>
+        {sandbox && ['booked', 'in_transit'].includes(d.status) && (
+          <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10, border: '2px dashed var(--border-strong)' }} aria-label="Test controls">
+            <h2 className="h2">Test courier (staging only)</h2>
+            <span className="hint">Pretend to be the courier. Each tap makes Shipbubble send a real update, so the buyer's Orders page changes too. Hidden when you switch to a live key.</span>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {[['picked_up', 'Picked up'], ['in_transit', 'On the way'], ['completed', 'Delivered']].map(([s, label]) => (
+                <button key={s} type="button" className="btn3" disabled={Boolean(busy)} onClick={() => act('simulate', s, { status: s })}>{busy === s ? 'Sending…' : label}</button>
+              ))}
+            </div>
+          </section>
+        )}
         <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }} aria-label="Tracking">
           <h2 className="h2">Progress</h2>
           {steps.map(([t, done]) => (
@@ -145,11 +156,13 @@ export default function Deliveries() {
   const [tab, setTab] = useState('book');
   const [open, setOpen] = useState(null);
   const [error, setError] = useState('');
+  const [sandbox, setSandbox] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const res = await axios.get(`${BASE_URL_V2}/deliveries/seller`, auth());
       setList(res.data.deliveries || []);
+      setSandbox(Boolean(res.data.sandbox));
     } catch (e) {
       setError(message(e, "Couldn't load deliveries."));
       setList([]);
@@ -178,7 +191,7 @@ export default function Deliveries() {
   const shown = (list || []).filter((d) => TABS.find((t) => t.key === tab).statuses.includes(d.status));
 
   if (open) {
-    return <Detail d={open} onBack={() => { setOpen(null); load(); }} onChange={(d) => { setOpen(d); setList((l) => l.map((x) => (x._id === d._id ? d : x))); }} />;
+    return <Detail d={open} sandbox={sandbox} onBack={() => { setOpen(null); load(); }} onChange={(d) => { setOpen(d); setList((l) => l.map((x) => (x._id === d._id ? d : x))); }} />;
   }
 
   return (
