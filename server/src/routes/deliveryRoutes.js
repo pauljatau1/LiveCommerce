@@ -42,7 +42,7 @@ const populate = (q) => q
 router.get('/', verifyToken, isBuyer, async (req, res) => {
   try {
     const list = await populate(ShowDelivery.find({ buyer: req.user.id }).sort({ createdAt: -1 }).limit(50)).lean();
-    res.json({ success: true, deliveries: list.map(view) });
+    res.json({ success: true, deliveries: list.map(view), sandbox: require('../services/shipbubble').isSandbox() });
   } catch (e) { fail(res, e); }
 });
 
@@ -98,8 +98,15 @@ router.post('/:id/simulate', verifyToken, isSeller, validId, async (req, res) =>
     if (!shipbubble.isSandbox()) return res.status(404).json({ success: false, message: 'Not found' });
     const d = await ShowDelivery.findOne({ _id: req.params.id, seller: req.user.id }).lean();
     if (!d?.shipbubble?.orderId) return res.status(404).json({ success: false, message: 'Book the pickup first' });
-    await shipbubble.simulateStatus(d.shipbubble.orderId, String(req.body?.status || ''));
-    res.json({ success: true, message: 'Shipbubble will send the webhook shortly' });
+    const status = String(req.body?.status || '');
+    // Shipbubble's simulator reports the shipment's previous status on each
+    // call, so call it twice: the second webhook carries the new status.
+    await shipbubble.simulateStatus(d.shipbubble.orderId, status);
+    await new Promise((r) => setTimeout(r, 1500));
+    await shipbubble.simulateStatus(d.shipbubble.orderId, status);
+    await deliveries.refreshTracking([d.shipbubble.orderId]).catch(() => {});
+    const fresh = await populate(ShowDelivery.findById(d._id)).lean();
+    res.json({ success: true, delivery: view(fresh), message: 'Shipbubble is sending the update' });
   } catch (e) { fail(res, e); }
 });
 
