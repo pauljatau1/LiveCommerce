@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { studio, errorText, naira, when, greeting } from './api';
 import { Icon, Pill, PRODUCT_PILL, Problem, Skeleton } from './ui';
 import { Brand } from './StudioLayout';
+import ShareSheet from './ShareSheet';
 
 const countdown = (date) => {
   const ms = Math.max(0, new Date(date) - Date.now());
@@ -14,14 +15,17 @@ const countdown = (date) => {
   return days > 0 ? [[days, 'DAYS'], [String(hrs).padStart(2, '0'), 'HRS']] : [[hrs, 'HRS'], [String(mins).padStart(2, '0'), 'MINS']];
 };
 
-function Focal({ data }) {
+function Focal({ data, onShare }) {
   const { nextShow: show, toShip, productCount } = data;
   if (show?.status === 'live') {
     return (
       <section className="card" aria-label="You're live" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--danger-soft)', borderColor: '#F6C9D1' }}>
         <span className="pill p-live" style={{ alignSelf: 'flex-start' }}>● LIVE NOW</span>
         <h2 className="f" style={{ margin: 0, fontSize: 24, lineHeight: 1.15 }}>{show.title}</h2>
-        <Link to={`/studio/live/${show._id}`} className="btn" style={{ background: 'var(--live)' }}>Back to your show</Link>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link to={`/studio/live/${show._id}`} className="btn" style={{ flex: 1.3, background: 'var(--live)' }}>Back to your show</Link>
+          {show.link && <button type="button" className="btn2" style={{ flex: 1 }} onClick={() => onShare(show)}>{Icon.share}Share</button>}
+        </div>
       </section>
     );
   }
@@ -38,7 +42,7 @@ function Focal({ data }) {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <Link to={`/studio/golive/${show._id}`} className="btn" style={{ flex: 1.3, ...(soon ? { background: 'var(--live)' } : {}) }}>{soon ? 'Go live' : 'Get ready'}</Link>
-          {show.link && <button type="button" className="btn2" style={{ flex: 1 }} onClick={() => { navigator.share ? navigator.share({ title: show.title, url: show.link }).catch(() => {}) : navigator.clipboard?.writeText(show.link); }}>{Icon.share}Share</button>}
+          {show.link && <button type="button" className="btn2" style={{ flex: 1 }} onClick={() => onShare(show)}>{Icon.share}Share</button>}
         </div>
       </section>
     );
@@ -76,6 +80,7 @@ function Focal({ data }) {
 export default function Home() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [sharing, setSharing] = useState(null);
   const load = useCallback(() => {
     setError('');
     studio.home().then(setData).catch((e) => setError(errorText(e, "Couldn't load your studio.")));
@@ -97,7 +102,7 @@ export default function Home() {
       {data && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
           <div style={{ flex: '1.6 1 340px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <Focal data={data} />
+            <Focal data={data} onShare={setSharing} />
             {data.readyForShow > 0 && !data.nextShow && data.productCount > 0 && (
               <>
                 <div className="bot"><span className="av" aria-hidden="true" /><div className="bub">{data.readyForShow} item{data.readyForShow === 1 ? " hasn't" : "s haven't"} been in a show yet. Want to plan one?</div></div>
@@ -106,11 +111,11 @@ export default function Home() {
             )}
           </div>
           <div style={{ flex: '1 1 280px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Link to="/studio/list" className="st-row" style={{ padding: 16 }}>
+            {data.productCount > 0 && <Link to="/studio/list" className="st-row" style={{ padding: 16 }}>
               <span className="blob" style={{ width: 52, height: 52, borderRadius: 18, color: 'var(--primary)' }}>{Icon.camera}</span>
               <span style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span className="f" style={{ fontSize: 18 }}>List an item</span><span className="mut" style={{ fontSize: 14 }}>Drop photos, I'll write it</span></span>
               {Icon.chevron('var(--text-muted)')}
-            </Link>
+            </Link>}
             {data.lastShow && (
               <Link to={`/studio/recap/${data.lastShow._id}`} className="st-row" style={{ padding: 16 }}>
                 <span style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span className="cap">LAST SHOW · {when(data.lastShow.endTime || data.lastShow.scheduledStartTime).toUpperCase()}</span><span style={{ fontWeight: 800 }}>{data.lastShow.title}</span><span className="mut" style={{ fontSize: 14 }}>{data.lastShow.sold} sold · see recap</span></span>
@@ -146,6 +151,7 @@ export default function Home() {
           {Icon.chevron('var(--primary)')}
         </Link>
       )}
+      {sharing && <ShareSheet show={sharing} onClose={() => setSharing(null)} />}
     </main>
   );
 }

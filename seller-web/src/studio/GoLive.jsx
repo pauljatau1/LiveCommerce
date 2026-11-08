@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { studio, errorText, naira, when } from './api';
 import { Icon, Empty, Problem, Skeleton, TopBar } from './ui';
+import ShareSheet from './ShareSheet';
 
 function ShowPicker() {
   const navigate = useNavigate();
@@ -42,6 +43,7 @@ function Check({ showId }) {
   const [cameraId, setCameraId] = useState('');
   const [micId, setMicId] = useState('');
   const [level, setLevel] = useState(0);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     studio.show(showId).then((r) => {
@@ -97,7 +99,7 @@ function Check({ showId }) {
 
   return (
     <div className="studio-app">
-      <TopBar title="Ready to go live?" sub={data?.show?.title} onBack={() => navigate('/studio/golive')} />
+      <TopBar title="Ready to go live?" sub={data?.show?.title} onBack={() => navigate('/studio/golive')} right={data?.show?.link && <button type="button" className="btn2" style={{ minHeight: 44 }} onClick={() => setSharing(true)}>{Icon.share}Share</button>} />
       <div className="st-inner" style={{ paddingBottom: 120 }}>
         {error && <Problem text={error} />}
         <div style={{ position: 'relative', height: 'min(56vh, 420px)', borderRadius: 24, overflow: 'hidden', background: '#2A2F2C' }}>
@@ -132,6 +134,7 @@ function Check({ showId }) {
           <span aria-hidden="true" style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />Go live
         </button>
       </div>
+      {sharing && <ShareSheet show={data.show} onClose={() => setSharing(false)} />}
     </div>
   );
 }
