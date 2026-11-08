@@ -90,6 +90,19 @@ router.post('/:id/requote', verifyToken, isSeller, validId, async (req, res) => 
   } catch (e) { fail(res, e); }
 });
 
+// Sandbox only: the seller makes Shipbubble send a status webhook for their
+// test shipment, to rehearse tracking end to end. 404 with a live key.
+router.post('/:id/simulate', verifyToken, isSeller, validId, async (req, res) => {
+  try {
+    const shipbubble = require('../services/shipbubble');
+    if (!shipbubble.isSandbox()) return res.status(404).json({ success: false, message: 'Not found' });
+    const d = await ShowDelivery.findOne({ _id: req.params.id, seller: req.user.id }).lean();
+    if (!d?.shipbubble?.orderId) return res.status(404).json({ success: false, message: 'Book the pickup first' });
+    await shipbubble.simulateStatus(d.shipbubble.orderId, String(req.body?.status || ''));
+    res.json({ success: true, message: 'Shipbubble will send the webhook shortly' });
+  } catch (e) { fail(res, e); }
+});
+
 // Refresh tracking for a delivery (buyer or seller who owns it)
 router.post('/:id/refresh', verifyToken, validId, async (req, res) => {
   try {

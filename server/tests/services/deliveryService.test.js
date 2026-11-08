@@ -221,6 +221,20 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     return { ada, settled };
   };
 
+  it('applies a signed webhook payload directly, and ignores unknown shipments', async () => {
+    const ada = await createBuyer('Ada', 50000);
+    await buy(ada, plush);
+    shipbubble.fetchRates.mockResolvedValue(rates(2800));
+    const [settled] = await deliveries.settleShow(stream._id);
+    shipbubble.createShipment.mockResolvedValue({ order_id: 'SB-WH1', status: 'pending', tracking_url: 't' });
+    await deliveries.book({ sellerId: seller._id, deliveryId: settled._id });
+
+    await deliveries.applyShipment({ event: 'shipment.status.changed', order_id: 'SB-WH1', status: 'in_transit', courier: { tracking_code: 'TC9' } });
+    const d = await ShowDelivery.findById(settled._id).lean();
+    expect(d).toMatchObject({ status: 'in_transit', shipbubble: { status: 'in_transit', trackingCode: 'TC9', trackingUrl: 't' } });
+    expect(await deliveries.applyShipment({ order_id: 'SB-NOPE', status: 'completed' })).toBeNull();
+  });
+
   it('uses Shipbubble’s box sizes for the package', async () => {
     const { settled } = await paidDelivery();
     expect(settled.status).toBe('paid');
