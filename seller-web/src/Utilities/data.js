@@ -73,6 +73,14 @@ export const categoriesData = [
 export const sideBarNavData = [
     {
         id: ObjectID().toHexString(),
+        name: 'New studio',
+        icon: 'heroicons:sparkles',
+        path: '/studio',
+        hasMessageCount: false,
+        hasNotificationCount: false
+    },
+    {
+        id: ObjectID().toHexString(),
         name: 'Dashboard',
         icon: 'bi:house',
         path: '/dashboard/home',
@@ -121,7 +129,7 @@ export const sideBarNavData = [
         id: ObjectID().toHexString(),
         name: 'Deliveries',
         icon: 'heroicons:truck',
-        path: '/studio/deliveries',
+        path: '/studio/orders',
         hasMessageCount: false
     },
     //{

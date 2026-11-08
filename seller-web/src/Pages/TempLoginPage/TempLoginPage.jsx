@@ -16,7 +16,7 @@ const TempLoginPage = () => {
     if (email !== "" && password !== "") {
       try {
         await login(email, password);
-        navigate('/dashboard/home');
+        navigate('/studio');
       } catch (error) {
         toast.error("Login failed. Please try again.");
       }

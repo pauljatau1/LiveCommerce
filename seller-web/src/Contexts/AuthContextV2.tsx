@@ -338,7 +338,7 @@ function AuthProvider({ children }: AuthProviderProps) {
 
             // wait for 2 seconds after showing banner and then navigate to dashboard
             setTimeout(() => {
-                navigate("/dashboard/home", { replace: true });
+                navigate("/studio", { replace: true });
             }, 1000);
         } catch (error) {
             console.log(error);

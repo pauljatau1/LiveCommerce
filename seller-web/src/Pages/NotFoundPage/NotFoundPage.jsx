@@ -10,7 +10,7 @@ const NotFoundPage = () => {
 
     const handleGoHome = () => {
         if (isDashboardRoute) {
-            navigate('/dashboard/home', { replace: true });
+            navigate('/studio', { replace: true });
         } else {
             // Clear app-specific storage
             authUtils.clearAllAuthData();

@@ -32,6 +32,9 @@ const view = (d) => ({
   lastError: d.lastError,
   createdAt: d.createdAt,
   paidAt: d.paidAt,
+  bookedAt: d.shipbubble?.bookedAt,
+  shipbubbleStatus: d.shipbubble?.status,
+  updatedAt: d.updatedAt,
 });
 const populate = (q) => q
   .populate('stream', 'title coverImage')
@@ -42,7 +45,7 @@ const populate = (q) => q
 router.get('/', verifyToken, isBuyer, async (req, res) => {
   try {
     const list = await populate(ShowDelivery.find({ buyer: req.user.id }).sort({ createdAt: -1 }).limit(50)).lean();
-    res.json({ success: true, deliveries: list.map(view), sandbox: require('../services/shipbubble').isSandbox() });
+    res.json({ success: true, deliveries: list.map(view) });
   } catch (e) { fail(res, e); }
 });
 
@@ -60,7 +63,8 @@ router.get('/seller', verifyToken, isSeller, async (req, res) => {
     const filter = { seller: req.user.id };
     if (req.query.status) filter.status = { $in: String(req.query.status).split(',') };
     const list = await populate(ShowDelivery.find(filter).sort({ updatedAt: -1 }).limit(100)).lean();
-    res.json({ success: true, deliveries: list.map(view) });
+    // sandbox: the studio shows staging-only "test courier" buttons
+    res.json({ success: true, deliveries: list.map(view), sandbox: require('../services/shipbubble').isSandbox() });
   } catch (e) { fail(res, e); }
 });
 

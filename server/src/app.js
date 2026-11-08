@@ -322,6 +322,7 @@ mountOptional(app, 'blips', '/api/v2/blips', blipsRoutesV2);
 app.use('/api/v2/products', productRoutesV2);
 app.use('/api/v2/ai', require('./routes/aiRoutes'));
 app.use('/api/v2/deliveries', require('./routes/deliveryRoutes'));
+app.use('/api/v2/studio', require('./routes/studioRoutes'));
 
 // Mount referral routes
 mountOptional(app, 'referrals', '/api/v2/buyers/referral', buyerReferralRoutes);

@@ -15,6 +15,9 @@ jest.mock('@/services/shipbubble', () => ({
   ShipbubbleError: class extends Error {},
 }));
 
+const mockAgenda = { jobs: jest.fn(async () => []), schedule: jest.fn(async () => ({})) };
+jest.mock('@/config/agenda', () => ({ agenda: mockAgenda }));
+
 const shipbubble = require('@/services/shipbubble');
 const Buyer = require('@models/Buyer');
 const Seller = require('@models/Seller');
@@ -210,7 +213,13 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     shipbubble.getShipments.mockResolvedValue([{ order_id: 'SB-XYZ', status: 'completed' }]);
     await deliveries.refreshTracking(['SB-XYZ']);
     expect((await ShowDelivery.findById(settled._id).lean()).status).toBe('delivered');
-    expect((await Order.findOne({ buyer: ada._id }).lean()).status).toBe('delivered');
+    const order = await Order.findOne({ buyer: ada._id }).lean();
+    expect(order.status).toBe('delivered');
+    // Seller payout: items delivered and the closeOrder job scheduled once
+    expect(order.shipping.tracking.status).toBe('delivered');
+    expect(order.items.every((i) => i.status === 'delivered')).toBe(true);
+    expect(mockAgenda.schedule).toHaveBeenCalledWith('in 1 day', 'closeOrder', { orderId: String(order._id) });
+    expect(mockAgenda.schedule).toHaveBeenCalledTimes(1);
   });
 
   const paidDelivery = async () => {
