@@ -1,7 +1,7 @@
 // Deliveries: one package per buyer per show. Book pickups, follow tracking.
 // Design: Claude Design canvas "S-Orders" / "S-Order-Detail".
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { BASE_URL_V2 } from '@/Constants/Server';
 import { tokenUtils } from '@/util/auth';
@@ -13,14 +13,14 @@ const message = (e, fallback) => e?.response?.data?.message || fallback;
 
 const TABS = [
   { key: 'book', label: 'To book', statuses: ['paid'] },
-  { key: 'waiting', label: 'Waiting on buyer', statuses: ['collecting', 'awaiting_payment', 'quote_failed'] },
+  { key: 'waiting', label: 'Waiting', statuses: ['collecting', 'awaiting_payment', 'quote_failed'] },
   { key: 'moving', label: 'Booked · on the way', statuses: ['booked', 'in_transit'] },
   { key: 'done', label: 'Delivered', statuses: ['delivered', 'cancelled'] },
 ];
 const PILL = {
   collecting: ['p-show', 'Show still on'],
   awaiting_payment: ['p-warn', 'Buyer to pay delivery'],
-  quote_failed: ['p-sold', 'No delivery price yet'],
+  quote_failed: ['p-sold', 'Pricing delivery'],
   paid: ['p-warn', 'To book'],
   booked: ['p-show', 'Booked'],
   in_transit: ['p-active', 'On the way'],
@@ -87,7 +87,7 @@ function Detail({ d, onBack, onChange }) {
           {d.status === 'booked' && <span className="hint">You can cancel until the courier processes the pickup.</span>}
           {d.status === 'awaiting_payment' && <span className="hint">{who} needs to pay {naira(d.fee)} for delivery before you can book.</span>}
           {d.status === 'collecting' && <span className="hint">Delivery is priced and charged when the show ends.</span>}
-          {d.status === 'quote_failed' && <span className="err-text">{d.lastError || "Couldn't price this delivery yet."}</span>}
+          {d.status === 'quote_failed' && <span className="err-text">{d.lastError || "Couldn't price this delivery yet. We retry every 10 minutes."}</span>}
           {error && <span className="err-text" role="alert">{error}</span>}
           {d.status === 'paid' && <button type="button" className="btn" disabled={Boolean(busy)} onClick={() => act('book', 'book')}>{busy === 'book' ? 'Booking…' : 'Book pickup'}</button>}
           {['quote_failed', 'awaiting_payment'].includes(d.status) && <button type="button" className="btn2" disabled={Boolean(busy)} onClick={() => act('requote', 'requote')}>{busy === 'requote' ? 'Getting a price…' : 'Get a new delivery price'}</button>}
@@ -109,8 +109,38 @@ function Detail({ d, onBack, onChange }) {
   );
 }
 
+// After a show ends: summary of what sold and what happens next
+function ShowEnded({ mine, onPastShows }) {
+  const pricing = mine.filter((d) => ['collecting', 'quote_failed'].includes(d.status)).length;
+  const toPay = mine.filter((d) => d.status === 'awaiting_payment').length;
+  const ready = mine.filter((d) => d.status === 'paid').length;
+  const items = mine.reduce((n, d) => n + (d.itemCount || 0), 0);
+  if (!mine.length) {
+    return (
+      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <span className="f" style={{ fontSize: 18 }}>Show ended</span>
+        <span className="mut" style={{ fontSize: 14 }}>Nothing sold this time, so there's nothing to send.</span>
+        <button type="button" className="link" style={{ alignSelf: 'flex-start' }} onClick={onPastShows}>See past shows</button>
+      </div>
+    );
+  }
+  return (
+    <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }} role="status">
+      <span className="f" style={{ fontSize: 18 }}>Show ended · {items} item{items === 1 ? '' : 's'} to {mine.length} buyer{mine.length === 1 ? '' : 's'}</span>
+      <span style={{ fontSize: 15, lineHeight: 1.45 }}>Each buyer's items ship as one package. Delivery is priced and paid from their wallet automatically; you just book the pickup.</span>
+      <ul className="mut" style={{ margin: 0, paddingLeft: 18, fontSize: 14, lineHeight: 1.6 }}>
+        {ready > 0 && <li><b style={{ color: 'var(--text)' }}>{ready} ready to book</b>: tap one below, then Book pickup.</li>}
+        {pricing > 0 && <li>{pricing} getting a delivery price. This page updates by itself.</li>}
+        {toPay > 0 && <li>{toPay} waiting for the buyer to top up and pay delivery.</li>}
+      </ul>
+    </div>
+  );
+}
+
 export default function Deliveries() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const endedShow = params.get('ended');
   const [list, setList] = useState(null);
   const [tab, setTab] = useState('book');
   const [open, setOpen] = useState(null);
@@ -127,6 +157,23 @@ export default function Deliveries() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const mine = useMemo(() => (endedShow && list ? list.filter((d) => String(d.show?._id || d.stream) === endedShow) : []), [list, endedShow]);
+  // Just after a show: keep checking until every package from it has a price (up to 3 minutes)
+  const stillPricing = mine.some((d) => ['collecting', 'quote_failed'].includes(d.status));
+  useEffect(() => {
+    if (!endedShow) return undefined;
+    const started = Date.now();
+    const t = setInterval(() => { if (Date.now() - started < 180000) load(); }, 8000);
+    return () => clearInterval(t);
+  }, [endedShow, load]);
+  // Open on the tab where this show's packages are
+  const [tabChosen, setTabChosen] = useState(false);
+  useEffect(() => {
+    if (!endedShow || tabChosen || !mine.length) return;
+    setTab(mine.some((d) => d.status === 'paid') ? 'book' : 'waiting');
+    if (!stillPricing) setTabChosen(true);
+  }, [endedShow, mine, stillPricing, tabChosen]);
+
   const counts = useMemo(() => Object.fromEntries(TABS.map((t) => [t.key, (list || []).filter((d) => t.statuses.includes(d.status)).length])), [list]);
   const shown = (list || []).filter((d) => TABS.find((t) => t.key === tab).statuses.includes(d.status));
 
@@ -142,11 +189,12 @@ export default function Deliveries() {
       </header>
       <div role="group" aria-label="Delivery status" style={{ display: 'flex', gap: 8, padding: '12px 16px', overflowX: 'auto' }}>
         {TABS.map((t) => (
-          <button key={t.key} type="button" className={`chip${tab === t.key ? ' on' : ''}`} aria-pressed={tab === t.key} onClick={() => setTab(t.key)}>{t.label}{list ? ` · ${counts[t.key]}` : ''}</button>
+          <button key={t.key} type="button" className={`chip${tab === t.key ? ' on' : ''}`} aria-pressed={tab === t.key} onClick={() => { setTab(t.key); setTabChosen(true); }}>{t.label}{list ? ` · ${counts[t.key]}` : ''}</button>
         ))}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 16px 32px', width: '100%', maxWidth: 720, margin: '0 auto' }}>
         {error && <span className="err-text" role="alert">{error}</span>}
+        {endedShow && list && <ShowEnded mine={mine} onPastShows={() => navigate('/dashboard/live-streams/past-shows')} />}
         {tab === 'book' && counts.book > 0 && (
           <div className="soft s-primary" style={{ fontSize: 15, lineHeight: 1.45 }}>
             {counts.book} package{counts.book === 1 ? ' is' : 's are'} paid and ready. Book each pickup and the courier comes to your pickup address.

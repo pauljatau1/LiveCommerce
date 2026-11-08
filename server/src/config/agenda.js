@@ -2993,6 +2993,7 @@ const startAgenda = async () => {
 
     // Schedule the pending message notifications job to run every 5 minutes
     await agenda.every('5 minutes', 'process-pending-message-notifications');
+    if (process.env.SHIPBUBBLE_API_KEY) await agenda.every('10 minutes', 'retry-deliveries');
     // console.log('Scheduled message notification job to run every 5 minutes');
 
     // Schedule the delete expired streams job to run every 15 minutes
@@ -3031,6 +3032,13 @@ const startAgenda = async () => {
 
 
 
+
+// Deliveries: retry pricing that failed and settle shows that ended mid-restart
+agenda.define('retry-deliveries', async () => {
+  const deliveries = require('../services/deliveryService');
+  const results = await deliveries.retryStuck();
+  if (results.length) console.log(`[delivery] retried ${results.length}: ${results.map((d) => d?.status).join(', ')}`);
+});
 
 // ── JOB 1: Process referral reward ──
 agenda.define('process-referral-reward', async (job) => {

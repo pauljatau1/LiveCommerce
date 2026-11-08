@@ -217,9 +217,38 @@ const settle = async (deliveryId) => {
     const ok = await charge(delivery);
     return ShowDelivery.findById(delivery._id).lean().then((d) => ({ ...d, charged: ok }));
   } catch (error) {
-    await ShowDelivery.updateOne({ _id: delivery._id }, { status: 'quote_failed', lastError: error.message });
+    await ShowDelivery.updateOne({ _id: delivery._id }, { status: 'quote_failed', lastError: plainError(error.message) });
     return ShowDelivery.findById(delivery._id).lean();
   }
+};
+
+// Seller-facing wording for the pricing problems we know about. Every one of
+// these is retried automatically (see retryStuck), so the seller needn't act.
+const plainError = (msg = '') => {
+  if (/enable api access/i.test(msg)) return 'Delivery pricing is switched off on Shipbubble (API access). We retry every 10 minutes.';
+  if (/kyc/i.test(msg)) return 'Shipbubble needs your business verification (KYC) first. We retry every 10 minutes.';
+  if (/address/i.test(msg)) return `Shipbubble couldn't check an address: ${msg.replace(/^Address check failed:\s*/i, '')}. We retry every 10 minutes.`;
+  return `${msg || "Couldn't get a delivery price"}. We retry every 10 minutes.`;
+};
+
+// Scheduled every 10 minutes: price deliveries that failed, and any whose show
+// ended without being settled (e.g. the server restarted mid-settle). Gives up
+// after 3 days; the seller can still press "Get a new delivery price".
+const RETRY_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+const retryStuck = async ({ now = Date.now() } = {}) => {
+  const since = new Date(now - RETRY_WINDOW_MS);
+  const failed = await ShowDelivery.find(
+    { status: 'quote_failed', createdAt: { $gte: since }, updatedAt: { $lte: new Date(now - 5 * 60 * 1000) } },
+    { _id: 1 }
+  ).limit(20).lean();
+  const collecting = await ShowDelivery.find({ status: 'collecting', createdAt: { $gte: since } }, { _id: 1, stream: 1 }).limit(50).lean();
+  const ended = collecting.length
+    ? new Set((await model('Stream').find({ _id: { $in: collecting.map((d) => d.stream) }, status: 'ended' }, { _id: 1 }).lean()).map((s) => String(s._id)))
+    : new Set();
+  const ids = [...failed.map((d) => d._id), ...collecting.filter((d) => ended.has(String(d.stream))).map((d) => d._id)];
+  const results = [];
+  for (const id of ids) results.push(await settle(id)); // one at a time: Shipbubble rate limits
+  return results;
 };
 
 const settleShow = async (streamId) => {
@@ -353,6 +382,8 @@ module.exports = {
   attachOrder,
   settle,
   settleShow,
+  retryStuck,
+  plainError,
   payDelivery,
   book,
   cancelPickup,
