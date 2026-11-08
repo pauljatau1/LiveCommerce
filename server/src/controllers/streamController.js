@@ -1253,6 +1253,13 @@ exports.endStream = async (req, res) => {
       console.error(`Error releasing wallet holds for ended stream ${stream._id}:`, holdError);
     }
 
+    // Price and charge each buyer's delivery for this show, in the background
+    setImmediate(() => {
+      require('../services/deliveryService').settleShow(stream._id)
+        .then((r) => r.length && console.log(`[delivery] settled ${r.length} deliveries for show ${stream._id}`))
+        .catch((e) => console.error(`[delivery] settling show ${stream._id} failed:`, e.message));
+    });
+
     // Cancel any scheduled reminder jobs (SMS and push) for this stream
     try {
       const { agenda } = require('../config/agenda');
@@ -3937,21 +3944,8 @@ exports.endProductBidding = async (req, res) => {
         });
 
         // Calculate delivery cost
-        let shippingFee = 0;
-        try {
-          console.log('[END_BID] 26. Calculating delivery cost');
-          // Use the global orderController import
-          const costResponse = await orderController.calculateDeliveryCostInternal(shippingDetails);
-          shippingFee = costResponse.totalCost || 0;
-          console.log('[END_BID] 27. Shipping fee calculated', {
-            shippingFee,
-            response: costResponse
-          });
-        } catch (error) {
-          console.error('[END_BID] 28. Error calculating shipping fee:', error);
-          // Default to 0 if calculation fails, but continue with order creation
-          shippingFee = 0;
-        }
+        // Delivery is charged per show (see deliveryService); nothing per item
+        const shippingFee = 0;
 
         // Prepare order data
         const orderData = {
@@ -4043,8 +4037,8 @@ exports.endProductBidding = async (req, res) => {
                 orderDetails: orderResult.orders[0],
                 productName: fullProductDetails.name,
                 amount: stream.products[productIndex].currentBid,
-                shippingFee: shippingFee,
-                total: stream.products[productIndex].currentBid + shippingFee
+                shippingFee: 0, // delivery is settled once per show
+                total: stream.products[productIndex].currentBid
               });
 
               winnerSocketFound = true;

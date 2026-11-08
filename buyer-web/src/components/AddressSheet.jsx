@@ -27,6 +27,7 @@ export default function AddressSheet({ onClose, onSaved }) {
     e.preventDefault();
     setError('');
     if (!form.state || !form.city || !form.addressLine1.trim()) { setError('Add your state, area and street address.'); return; }
+    if (!buyer?.phoneNumber && String(form.phoneNumber).replace(/[^\d]/g, '').length < 10) { setError('Add a phone number so the courier can reach you.'); return; }
     setBusy(true);
     try {
       await api.addAddress({

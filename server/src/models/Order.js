@@ -145,6 +145,8 @@ const orderSchema = new mongoose.Schema({
   // Update field names to match Terminal Africa's API
   delivery_address: addressSchema,
   pickup_address: addressSchema,
+  // The show delivery this order ships in (all of a buyer's items from one show)
+  delivery: { type: mongoose.Schema.Types.ObjectId, ref: 'ShowDelivery' },
   shipping: {
     method: String,
     carrier: {

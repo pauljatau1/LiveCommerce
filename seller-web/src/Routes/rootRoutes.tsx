@@ -15,6 +15,7 @@ import { publicRoutes } from '@/Routes/publicRoutes';
 import { dashboardRoutes } from './dashboardRoutes.jsx';
 
 const ListingAgent = lazy(() => import('../studio/ListingAgent.jsx'));
+const Deliveries = lazy(() => import('../studio/Deliveries.jsx'));
 
 // Lazy load NotFoundPage to reduce initial bundle size
 const NotFoundPage = lazy(() => import('../Pages/NotFoundPage/NotFoundPage.jsx'));
@@ -57,6 +58,18 @@ export const rootRoutes = [
                         <DashboardRoute>
                             <Suspense fallback={<Loader />}>
                                 <ListingAgent />
+                            </Suspense>
+                        </DashboardRoute>
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: 'studio/deliveries',
+                element: (
+                    <ProtectedRoute>
+                        <DashboardRoute>
+                            <Suspense fallback={<Loader />}>
+                                <Deliveries />
                             </Suspense>
                         </DashboardRoute>
                     </ProtectedRoute>

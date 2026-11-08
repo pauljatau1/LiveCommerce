@@ -42,6 +42,7 @@ export default function Watch() {
   const [audioDebug, setAudioDebug] = useState('no audio track yet');
   const leadRef = useRef(false); // am I leading the current auction?
   const myIdRef = useRef(null);
+  const walletRef = useRef(0);
 
   const say = useCallback((kind, msg, ms = 3500) => {
     setToast({ kind, msg });
@@ -150,7 +151,16 @@ export default function Watch() {
       socket.on('bid_timer_update', (t) => t?.productId && setTimer((m) => ({ ...m, [String(t.productId)]: t.secondsLeft })));
       socket.on('bid_timer_complete', (t) => t?.productId && setTimer((m) => ({ ...m, [String(t.productId)]: 0 })));
       socket.on('bid_placed', (r) => { setBusy(false); if (r?.product) patchItem(idOf(r.product), r.product); say('ok', r?.isWinner ? 'You won it!' : "You're the top bidder"); refreshWallet(); });
-      socket.on('bid_error', (r) => { setBusy(false); say('err', r?.message || 'Your bid did not go through'); refreshWallet(); });
+      socket.on('bid_error', (r) => {
+        setBusy(false);
+        refreshWallet();
+        // Not enough to hold this bid (plus the show's delivery deposit on a first item)
+        if (r?.details?.totalRequired && /insufficient/i.test(r?.message || '')) {
+          setSheet({ type: 'topup', need: r.details.totalRequired - (walletRef.current || 0) });
+          return;
+        }
+        say('err', r?.message || 'Your bid did not go through');
+      });
       socket.on('auction_order_created', (r) => { say('ok', `You won! Order #${r?.orderId} is paid from your wallet.`, 6000); refreshWallet(); });
       socket.on('auction_order_error', () => { if (leadRef.current) { say('err', "We couldn't create your winning order. Your money is no longer held; the host will sort it out.", 7000); refreshWallet(); } });
 
@@ -216,6 +226,7 @@ export default function Watch() {
   const current = useMemo(() => items.find((p) => p.bidStatus === 'active') || items.find((p) => p.isVisible) || null, [items]);
   const isAuction = current && (show?.type === 'auction' || current.bidStatus === 'active' || current.minBid > 0);
   const available = wallet?.availableBalance || 0;
+  walletRef.current = available;
   const hasAddress = (buyer?.shippingAddresses || []).length > 0;
   const iLead = current && buyer && String(current.currentBidder?._id || current.currentBidder) === String(buyer._id);
   myIdRef.current = buyer?._id;
@@ -247,12 +258,14 @@ export default function Watch() {
     setBusy(true);
     try {
       const r = await api.buyNow(streamId, idOf(item), quantity);
-      say('ok', `Bought! Order #${r.order?.orderId} is paid from your wallet.`, 6000);
+      say('ok', r.delivery?.firstItem && r.delivery?.depositHeld
+        ? `Bought! ${naira(r.delivery.depositHeld)} is held for delivery. Everything you get in this show ships together.`
+        : `Bought! Order #${r.order?.orderId} is paid and ships with your other items from this show.`, 7000);
       setSheet(null);
       refreshWallet();
     } catch (e) {
       const reason = e?.response?.data?.reason;
-      if (reason === 'insufficient_funds') setSheet({ type: 'topup', need: price * quantity - available });
+      if (reason === 'insufficient_funds') setSheet({ type: 'topup', need: (e?.response?.data?.needed || price * quantity) - available });
       else if (reason === 'no_address') setSheet({ type: 'address' });
       else say('err', errorMessage(e, "Couldn't complete the purchase. You weren't charged."));
     } finally {

@@ -1619,22 +1619,10 @@ function initializeSocket(server) {
           weight: payload[0].weight
         });
 
-        // Get delivery cost
-        let shippingFee = 0;
-        try {
-          console.log('[BID] 23. Calculating shipping fee with delivery service');
-          // Use the orderController's getDeliveryCost logic directly
-          const orderController = require('../controllers/orderController');
-          const costResponse = await orderController.calculateDeliveryCostInternal(shippingDetails);
-          shippingFee = costResponse.totalCost || 0;
-          console.log('[BID] 24. Shipping fee calculated', {
-            shippingFee,
-            response: costResponse
-          });
-        } catch (error) {
-          console.error('[BID] 25. Error calculating shipping fee:', error);
-          // Default to 0 if calculation fails, but let bid continue
-        }
+        // Delivery is paid once per show (deposit held on the buyer's first item,
+        // settled with a Shipbubble quote when the show ends). The bid also
+        // holds the deposit if this would be their first item in the show.
+        const shippingFee = await require('../services/deliveryService').depositFor(stream._id, buyer._id);
 
         // Funds are checked and reserved atomically by streamBids.placeBid below
 
@@ -1858,7 +1846,7 @@ function initializeSocket(server) {
               productId,
               buyerId: buyer._id,
               bidAmount,
-              shippingFee,
+              shippingFee: 0, // delivery is charged per show, not per item
             });
             console.log('[BID] 51. Auction order result', orderResult.success ? { orderId: orderResult.orders[0].orderId } : { error: orderResult.message });
 
@@ -1910,8 +1898,8 @@ function initializeSocket(server) {
                 orderDetails: orderResult.orders[0],
                 productName: fullProductDetails.name,
                 amount: stream.products[productIndex].currentBid,
-                shippingFee: shippingFee,
-                total: stream.products[productIndex].currentBid + shippingFee
+                shippingFee: 0, // delivery is settled once per show
+                total: stream.products[productIndex].currentBid
               });
               
               console.log(`[BID] 52c. Order confirmation sent to winning bidder: ${buyer._id.toString()}, Socket ID: ${socket.id}`);

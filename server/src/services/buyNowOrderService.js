@@ -8,14 +8,16 @@
 const mongoose = require('mongoose');
 const { productIdMatch } = require('./streamBidService');
 const { toDeliveryAddress, toPickupAddress } = require('./auctionOrderService');
+const deliveries = require('./deliveryService');
 
 const model = (name) => mongoose.model(name);
 const MAX_QUANTITY = 10;
 
 class BuyNowError extends Error {
-  constructor(reason, message) {
+  constructor(reason, message, needed) {
     super(message);
     this.reason = reason;
+    this.needed = needed;
   }
 }
 
@@ -48,11 +50,13 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
       );
       if (!stocked) throw new BuyNowError('sold_out', qty > 1 ? 'Not enough left. Try a smaller quantity.' : 'Sold out');
 
+      // The first purchase in a show also needs room for the delivery deposit
+      const deposit = await deliveries.depositFor(streamId, buyerId);
       const reference = `buynow_${streamId}_${productId}_${buyerId}_${Date.now()}`;
       const charged = await model('Buyer').findOneAndUpdate(
         {
           _id: buyerId,
-          $expr: { $gte: [{ $subtract: [{ $ifNull: ['$wallet.balance', 0] }, { $ifNull: ['$wallet.onHoldAmount', 0] }] }, total] },
+          $expr: { $gte: [{ $subtract: [{ $ifNull: ['$wallet.balance', 0] }, { $ifNull: ['$wallet.onHoldAmount', 0] }] }, total + deposit] },
         },
         {
           $inc: { 'wallet.balance': -total },
@@ -60,7 +64,7 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
         },
         { new: true, session }
       );
-      if (!charged) throw new BuyNowError('insufficient_funds', 'Not enough in your wallet. Top up to buy this.');
+      if (!charged) throw new BuyNowError('insufficient_funds', deposit ? `Not enough in your wallet. You need ₦${(total + deposit).toLocaleString('en-NG')}, including a ₦${deposit.toLocaleString('en-NG')} delivery deposit for this show.` : 'Not enough in your wallet. Top up to buy this.', total + deposit);
       if (!charged.shippingAddresses?.length) throw new BuyNowError('no_address', 'Add a delivery address first');
 
       const seller = product.seller || {};
@@ -104,6 +108,7 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
         orderDetails: { buyer: order.buyerDetails, _id: order._id, order_id: order.order_id, itemsCount: 1, totalAmount: subtotal, shippingFee: fee, orderTotal: total, seller: order.seller, items: order.items },
       };
       await model('Stream').updateOne({ _id: streamId }, { $push: { orders: liveShowOrder } }, { session });
+      const delivery = await deliveries.attachOrder({ session, streamId, buyerId: charged._id, sellerId: seller._id || stream.seller, order, product, quantity: qty, unitPrice });
 
       result = {
         success: true,
@@ -112,11 +117,12 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
         productName: product.name,
         buyer: { username: charged.username, firstName: charged.firstName },
         walletBalance: charged.wallet.balance,
+        delivery: { _id: delivery._id, depositHeld: delivery.depositHeld, firstItem: delivery.items.length === 1 },
       };
     });
     return result;
   } catch (error) {
-    if (error instanceof BuyNowError) return { success: false, reason: error.reason, message: error.message };
+    if (error instanceof BuyNowError) return { success: false, reason: error.reason, message: error.message, ...(error.needed ? { needed: error.needed } : {}) };
     throw error;
   } finally {
     await session.endSession();
