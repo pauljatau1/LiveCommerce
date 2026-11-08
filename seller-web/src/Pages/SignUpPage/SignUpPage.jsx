@@ -70,7 +70,7 @@ const SignUpPage = () => {
 
       // If user has valid token, redirect to dashboard
       if (tokenData.data && sellerData._id) {
-        navigate('/dashboard/home', { replace: true });
+        navigate('/studio', { replace: true });
         return;
       }
     }
@@ -139,7 +139,7 @@ const SignUpPage = () => {
 
       if (result) {
         // Navigate directly to dashboard after successful signup
-        navigate('/dashboard/home', { replace: true });
+        navigate('/studio', { replace: true });
         
         //reset the form data
         setFormData({

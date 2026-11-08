@@ -364,8 +364,32 @@ const applyShipment = async (r) => {
     set,
     { new: true }
   );
-  if (d) await model('Order').updateMany({ _id: { $in: d.orders } }, { status: ORDER_STATUS[status] });
+  if (d) {
+    await model('Order').updateMany({ _id: { $in: d.orders } }, { status: ORDER_STATUS[status] });
+    if (status === 'delivered') await releaseToSeller(d);
+  }
   return d;
+};
+
+// Delivered: mark each order's items delivered and schedule the existing
+// closeOrder job, which credits the seller (minus fees) after a short wait
+// for problems. SELLER_RELEASE_DELAY lets staging test it in minutes.
+const releaseToSeller = async (d) => {
+  const now = new Date();
+  await model('Order').updateMany(
+    { _id: { $in: d.orders } },
+    { $set: { 'shipping.tracking.status': 'delivered', 'items.$[].status': 'delivered', deliveredAt: now } }
+  );
+  try {
+    const { agenda } = require('../config/agenda');
+    const delay = process.env.SELLER_RELEASE_DELAY || 'in 1 day';
+    for (const id of d.orders) {
+      const existing = await agenda.jobs({ name: 'closeOrder', 'data.orderId': String(id) });
+      if (!existing.length) await agenda.schedule(delay, 'closeOrder', { orderId: String(id) });
+    }
+  } catch (error) {
+    console.error('[delivery] could not schedule seller payout:', error.message);
+  }
 };
 
 // Refresh status from Shipbubble for the given Shipbubble order ids
@@ -397,6 +421,7 @@ module.exports = {
   cancelPickup,
   refreshTracking,
   applyShipment,
+  releaseToSeller,
   releaseDeposit,
   statusFrom,
   packageFor,

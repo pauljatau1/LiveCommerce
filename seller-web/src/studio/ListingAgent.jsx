@@ -246,7 +246,7 @@ export default function ListingAgent() {
 
   const header = (status) => (
     <header className="top" style={{ position: 'sticky', top: 0, zIndex: 5 }}>
-      <button type="button" className="ib" aria-label="Close" onClick={() => navigate('/dashboard/products/list')}>{Icon.close}</button>
+      <button type="button" className="ib" aria-label="Close" onClick={() => navigate(-1)}>{Icon.close}</button>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <span className="f" style={{ fontSize: 17 }}>Listing helper</span>
         <span style={{ fontSize: 13, fontWeight: 700, color: phase === 'thinking' ? 'var(--primary)' : 'var(--text-muted)' }}>{status}</span>
@@ -362,11 +362,11 @@ export default function ListingAgent() {
               </div>
             </div>
             <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button type="button" className="btn" onClick={() => navigate('/dashboard/live-streams/create-live-show')}>Add to a show</button>
+              <button type="button" className="btn" onClick={() => navigate(published?._id ? `/studio/plan?add=${published._id}` : '/studio/plan')}>Add to a show</button>
               <button type="button" className="btn2" onClick={reset}>List another</button>
             </div>
           </section>
-          <button type="button" className="ind btn3" onClick={() => navigate('/dashboard/products/list')}>See all my products</button>
+          <button type="button" className="ind btn3" onClick={() => navigate('/studio/products')}>See all my products</button>
         </div>
       </div>
     );

@@ -29,6 +29,9 @@ export default function DashboardRoute({ children }: { children: React.ReactNode
         const restrictedPaths = [
           '/dashboard/add-products',
           '/studio/list',
+          '/studio/plan',
+          '/studio/golive/',
+          '/studio/live/',
           '/dashboard/edit-product',
           '/dashboard/livestreaming',
           '/dashboard/live-streams/create-live-auction',

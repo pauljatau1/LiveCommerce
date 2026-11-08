@@ -1353,7 +1353,7 @@ const LivestreamStudio = () => {
             }
 
             // Hand off to Deliveries: what sold in this show and what to send next
-            navigate(_id ? `/studio/deliveries?ended=${_id}` : '/dashboard/live-streams/past-shows');
+            navigate(_id ? `/studio/recap/${_id}` : '/dashboard/live-streams/past-shows');
         }
     }, [
         previewMediaStream,
