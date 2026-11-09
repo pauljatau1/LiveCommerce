@@ -2,7 +2,7 @@ const socketIO = require('socket.io');
 const jwt = require('jsonwebtoken');
 const { socketUserFromHandshake, registerGuestSocket } = require('./guestSocket');
 const chatSafety = require('../services/chatSafety');
-const { hideComment, registerUnhide } = require('./chatSafetySocket');
+const { hideComment, registerUnhide, suggestNotes } = require('./chatSafetySocket');
 const Conversation = require('../models/Conversation');
 const Stream = require('../models/Stream');
 const streamBids = require('../services/streamBidService');
@@ -1136,6 +1136,9 @@ function initializeSocket(server) {
 
           // Add timestamp for the WebSocket payload
           notificationObj.timestamp = new Date();
+
+          // Repeated questions → a suggestion for the host's show notes
+          suggestNotes({ io, stream, askerId: socket.user.id, text: data.content }).catch((e) => console.error('[show-notes] suggestion', e.message));
 
           // track user comments in mixpanel
           mixpanel.track('stream_comment', {

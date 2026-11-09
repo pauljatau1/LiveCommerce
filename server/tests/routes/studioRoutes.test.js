@@ -110,4 +110,20 @@ describe('studio routes', () => {
     await request(app).post(`/api/v2/studio/shows/${notMine._id}/auction/time`).send({ productId: String(figure) }).expect(404);
     require('@/services/auctionClock').clock().shutdown();
   });
+
+  it('show notes: pin on my show, reuse for next shows, refuse what is unsafe', async () => {
+    const show = await Stream.findOne({ title: 'Friday drop' });
+    const res = await request(app).put(`/api/v2/studio/shows/${show._id}/notes`).send({ notes: { howToBuy: 'Tap Buy now.', delivery: 'One fee per show.' }, saveAsDefault: true }).expect(200);
+    expect(res.body.notes).toMatchObject({ howToBuy: 'Tap Buy now.', payment: 'Never pay outside the app.' });
+    expect(res.body.firstLine).toBe('Tap Buy now.');
+    const def = await request(app).get('/api/v2/studio/show-notes/default').expect(200);
+    expect(def.body.notes.delivery).toBe('One fee per show.');
+    const bad = await request(app).put(`/api/v2/studio/shows/${show._id}/notes`).send({ notes: { delivery: 'call 08031234567' } }).expect(400);
+    expect(bad.body.message).toMatch(/phone numbers/);
+    const detail = await request(app).get(`/api/v2/studio/shows/${show._id}`).expect(200);
+    expect(detail.body.show.notes.howToBuy).toBe('Tap Buy now.');
+    await request(app).delete(`/api/v2/studio/shows/${show._id}/notes`).expect(200);
+    const drafted = await request(app).post('/api/v2/studio/show-notes/draft').send({ title: 'x', type: 'drop', items: [] }).expect(200);
+    expect(drafted.body.notes.payment).toMatch(/^Never pay outside the app\./);
+  });
 });

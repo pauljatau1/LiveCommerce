@@ -141,3 +141,14 @@ describe('GET /api/v2/watch/:id/estimate', () => {
     expect(mine.body).toMatchObject({ available: true, area: 'Ikeja' });
   });
 });
+
+describe('GET /api/v2/watch/:id/notes', () => {
+  it('shows the pinned notes and their first line to anyone', async () => {
+    mockUser = null;
+    expect((await request(app).get(`/api/v2/watch/${show._id}/notes`).expect(200)).body.notes).toBeNull();
+    await Stream.updateOne({ _id: show._id }, { $set: { showNotes: { howToBuy: 'Tap Bid. Highest wins.', payment: 'Never pay outside the app.' } } });
+    const res = await request(app).get(`/api/v2/watch/${show._id}/notes`).expect(200);
+    expect(res.body).toMatchObject({ firstLine: 'Tap Bid.', notes: expect.objectContaining({ howToBuy: 'Tap Bid. Highest wins.' }) });
+    expect(res.body.sections[0]).toEqual(['howToBuy', 'How to buy']);
+  });
+});

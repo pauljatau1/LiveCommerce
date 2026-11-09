@@ -221,3 +221,8 @@
 .lv .lv-undo{min-height:44px;border:0;background:none;padding:0 4px;color:var(--primary-on-dark);font:800 14px var(--font-body);text-decoration:underline;cursor:pointer}
 .lv .lv-hid-tx{flex-basis:100%;font-weight:600;font-style:italic;opacity:.75}
 @media (min-width:900px){ .lv .lv-right .lv-hid{color:var(--text);text-shadow:none} .lv .lv-right .lv-undo{color:var(--primary)} }
+
+/* assistant prompts in Live studio: plain text lines */
+.lv .lv-prompts{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+.lv .lv-prompt{display:flex;flex-wrap:wrap;align-items:center;gap:0 6px;color:#fff;font-size:14px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+@media (min-width:900px){ .lv .lv-right .lv-prompt{color:var(--text);text-shadow:none} }
