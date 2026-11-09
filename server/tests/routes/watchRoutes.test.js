@@ -10,6 +10,8 @@ jest.mock('@/middlewares/authMiddleware', () => ({
   isSeller: (req, res, next) => next(),
 }));
 
+jest.mock('@/services/agoraService', () => ({ generateToken: jest.fn(() => 'agora-token') }));
+
 const Stream = require('@models/Stream');
 
 let mongoServer; let app; let show;
@@ -47,6 +49,7 @@ describe('GET /api/v2/watch/:id/summary', () => {
     const res = await request(app).get(`/api/v2/watch/${show._id}/summary`).expect(200);
     expect(res.body.sold).toEqual({ [String(productA)]: 3 });
     expect(res.body.bids).toEqual({ [String(productB)]: 3 });
+    expect(res.body.deliveryDeposit).toBe(3000);
     expect(JSON.stringify(res.body)).not.toContain('O1');
   });
 
@@ -70,5 +73,42 @@ describe('POST /api/v2/watch/:id/report', () => {
     await request(app).post(`/api/v2/watch/${show._id}/report`).send({ reason: 'whatever' }).expect(400);
     mockUser = null;
     await request(app).post(`/api/v2/watch/${show._id}/report`).send({ reason: 'Rude or abusive' }).expect(401);
+  });
+});
+
+describe('watching without an account', () => {
+  it('gives a guest a watch-only video token for a live show', async () => {
+    mockUser = null;
+    const res = await request(app).post(`/api/v2/watch/${show._id}/guest-join`).expect(200);
+    expect(res.body).toMatchObject({ guest: true, token: 'agora-token', channelName: 'c1' });
+    expect(res.body.uid).toBeGreaterThanOrEqual(2000000);
+    expect(res.body.stream.viewers).toBeUndefined();
+    expect(require('@/services/agoraService').generateToken).toHaveBeenCalledWith('c1', res.body.uid, 2);
+  });
+
+  it('says plainly when the show has not started or has ended', async () => {
+    await Stream.updateOne({ _id: show._id }, { status: 'scheduled' });
+    expect((await request(app).post(`/api/v2/watch/${show._id}/guest-join`).expect(410)).body.message).toMatch(/hasn't started/);
+    await Stream.updateOne({ _id: show._id }, { status: 'ended' });
+    expect((await request(app).post(`/api/v2/watch/${show._id}/guest-join`).expect(410)).body.message).toMatch(/ended/);
+  });
+
+  it('shows the latest chat messages to anyone, without joins or bids', async () => {
+    await Stream.collection.updateOne({ _id: show._id }, { $push: { chatInteractions: { $each: [
+      { id: '1', type: 'join', user: 'ada', content: 'joined' },
+      { id: '2', type: 'comment', user: 'ada', content: 'how much to Lekki?' },
+    ] } } });
+    mockUser = null;
+    const res = await request(app).get(`/api/v2/watch/${show._id}/chat`).expect(200);
+    expect(res.body.chatInteractions).toEqual([expect.objectContaining({ id: '2', user: 'ada', content: 'how much to Lekki?' })]);
+  });
+});
+
+describe('GET /api/v2/watch/:id/me', () => {
+  it('tells a buyer the delivery deposit due before their first item', async () => {
+    const res = await request(app).get(`/api/v2/watch/${show._id}/me`).expect(200);
+    expect(res.body.depositDue).toBe(3000);
+    mockUser = null;
+    await request(app).get(`/api/v2/watch/${show._id}/me`).expect(401);
   });
 });
