@@ -160,51 +160,63 @@ a{color:var(--primary)}
 .show .b{padding:8px 2px;display:flex;flex-direction:column;gap:2px}
 
 /* watch: full-screen video; text sits on the video, no bubbles or boxes */
-.watch{position:relative;height:100vh;height:100dvh;background:#0f1512;overflow:hidden;color:#fff;font-size:16px}
+/* Fixed to the screen, sized to what's really visible: 100dvh tracks the browser bars
+   (100vh is the fallback). --badge makes room for the STAGING tag; --kb-bottom and
+   --vv-top come from the keyboard (see useKeyboardInset). */
+.watch{position:fixed;inset:0;height:100vh;height:100dvh;background:#0f1512;overflow:hidden;color:#fff;font-size:16px;--badge:0px;--top-row:44px}
+.env-badge .watch{--badge:18px}
 .w-center{position:absolute;inset:0}
 .w-side{display:none}
 .stage{position:absolute;inset:0}
 .stage video{object-fit:cover!important}
 .stage-msg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px;background:linear-gradient(180deg,rgba(15,21,18,.2),rgba(15,21,18,.6))}
-.overlay-top{position:absolute;left:0;right:0;top:0;z-index:3;display:flex;align-items:center;gap:8px;padding:max(10px, env(safe-area-inset-top)) 12px 28px;background:linear-gradient(180deg,rgba(0,0,0,.55),transparent)}
-.host{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
-.host .av2{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.2);flex:none;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:800}
+.overlay-top{position:absolute;left:0;right:0;top:0;z-index:3;display:flex;align-items:center;gap:12px;padding:calc(max(10px, env(safe-area-inset-top)) + var(--badge)) 12px 28px;background:linear-gradient(180deg,rgba(0,0,0,.55),transparent);transform:translateY(var(--vv-top,0px))}
+.host{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.host .av2{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.2);flex:none;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:800}
 .host .av2 img{width:100%;height:100%;object-fit:cover}
-.host-tx{min-width:0;display:flex;flex-direction:column}
+.host-tx{min-width:0;display:flex;flex-direction:column;flex:0 1 auto}
 .host-nm{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.host-sub{font-size:14px;color:rgba(255,255,255,.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.livecount{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px 0 0;border-radius:999px;background:rgba(0,0,0,.35);font:800 14px var(--font-body)}
-.livecount b{display:inline-flex;align-items:center;height:28px;padding:0 8px;border-radius:999px;background:var(--live);font-weight:800}
+.host-sub{font-size:12px;font-weight:600;color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* LIVE + count: one compact chip */
+.livecount{flex:none;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px 0 0;border-radius:999px;background:rgba(0,0,0,.4);font:800 13px var(--font-body)}
+.livecount b{display:inline-flex;align-items:center;height:28px;padding:0 8px;border-radius:999px;background:var(--live);font-weight:800;font-size:12px;letter-spacing:.04em}
 .round{width:44px;height:44px;border-radius:50%;border:0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
 .round.ghost{background:none;color:#fff}
 .round.send{background:var(--primary);color:#fff}
 .on-dark{background:none;color:#fff;border-color:rgba(255,255,255,.7)}
 .btn2.on-dark:hover{background:rgba(255,255,255,.08)}
 .link.on-dark{color:#fff;text-decoration:underline}
-.tap-sound{position:absolute;top:84px;left:50%;transform:translateX(-50%);min-height:44px;z-index:5}
+.tap-sound{position:absolute;top:calc(max(10px, env(safe-area-inset-top)) + var(--badge) + var(--top-row) + 56px);left:50%;transform:translateX(-50%);min-height:44px;z-index:5}
 .dbg{position:absolute;top:84px;right:12px;z-index:6;font-size:12px;background:rgba(0,0,0,.6);padding:4px 8px;border-radius:8px}
-.reconnect{position:absolute;left:12px;right:12px;top:calc(max(10px, env(safe-area-inset-top)) + 96px);z-index:4;display:flex;flex-direction:column;gap:2px;padding:10px 0;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.reconnect{position:absolute;left:12px;right:12px;top:calc(max(10px, env(safe-area-inset-top)) + var(--badge) + var(--top-row) + 52px);z-index:4;display:flex;flex-direction:column;gap:2px;padding:10px 0;text-shadow:0 1px 3px rgba(0,0,0,.6)}
 
-/* side rail */
-.rail{position:absolute;right:8px;bottom:calc(330px + env(safe-area-inset-bottom));z-index:3;display:flex;flex-direction:column;gap:10px}
+/* side rail: bottom right, beside the chat; Items' bottom lines up with the input */
+.rail{flex:none;display:flex;flex-direction:column;gap:8px;z-index:3}
 .rail-btn{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:52px;min-height:52px;border:0;background:none;color:#fff;cursor:pointer;padding:0;font:700 12px var(--font-body);text-shadow:0 1px 3px rgba(0,0,0,.6)}
 .rail-ic{width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;overflow:hidden}
 .rail-img{width:44px;height:44px;object-fit:cover}
 .rail-count{font:800 16px var(--font-body)}
 
 /* bottom: chat, state line, item, price, actions */
-.bottom{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;flex-direction:column;gap:10px;padding:48px 12px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(0deg,rgba(0,0,0,.78) 55%,transparent)}
-.feed{max-height:26vh;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:64px;-webkit-mask-image:linear-gradient(180deg,transparent,#000 24px);mask-image:linear-gradient(180deg,transparent,#000 24px)}
-.line{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.35;text-shadow:0 1px 2px rgba(0,0,0,.55)}
-.line .ava{width:24px;height:24px;border-radius:50%;flex:none;overflow:hidden;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.bottom{position:absolute;left:0;right:0;bottom:var(--kb-bottom,0px);z-index:2;display:flex;flex-direction:column;gap:10px;padding:48px 12px max(12px, env(safe-area-inset-bottom));background:linear-gradient(0deg,rgba(0,0,0,.78) 55%,transparent)}
+.chatzone{display:flex;align-items:flex-end;gap:10px}
+.chatcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.panel{display:flex;flex-direction:column;gap:10px}
+/* up to 5 lines (8 while typing), fading out at the top */
+.feed{max-height:34vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;-webkit-mask-image:linear-gradient(180deg,transparent,#000 32px);mask-image:linear-gradient(180deg,transparent,#000 32px)}
+.line{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.3;text-shadow:0 1px 2px rgba(0,0,0,.55)}
+.line-tx{display:flex;flex-direction:column;min-width:0}
+.line .ava{width:28px;height:28px;border-radius:50%;flex:none;overflow:hidden;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
 .line .ava img{width:100%;height:100%;object-fit:cover}
-.line .nm{color:rgba(255,255,255,.7);font-weight:700}
+.line .nm{color:rgba(255,255,255,.65);font-weight:700;font-size:12px}
 .line .tx{color:#fff}
 .line.bid .tx,.line.win .tx{color:var(--primary-on-dark);font-weight:800}
 .line.sys{color:rgba(255,255,255,.75);font-style:italic}
 .line.hidden{color:rgba(255,255,255,.6);font-style:italic}
 .composer2{display:flex;gap:8px;align-items:center}
-.composer2 input{flex:1;height:44px;border-radius:999px;border:1.5px solid rgba(255,255,255,.55);padding:0 16px;font:600 16px var(--font-body);background:none;color:#fff}
+.composer2 input{flex:1;min-width:0;height:40px;border-radius:999px;border:1.5px solid rgba(255,255,255,.55);padding:0 14px;font:600 16px var(--font-body);background:rgba(0,0,0,.15);color:#fff}
+.composer2 .round.send{width:40px;height:40px;position:relative}
+.composer2 .round.send::after{content:"";position:absolute;inset:-2px}
 .composer2 input::placeholder{color:rgba(255,255,255,.7)}
 .state{font-weight:800}
 .state.good{color:var(--primary-on-dark)}
@@ -253,7 +265,7 @@ a{color:var(--primary)}
   .w-side{display:flex;flex-direction:column;gap:12px;padding:20px;min-height:0;overflow-y:auto}
   .w-center{position:relative;inset:auto;margin:16px 0;border-radius:24px;overflow:hidden;background:#0f1512;color:#fff}
   .w-phone{display:none}
-  .rail{bottom:auto;top:84px}
+  .chatzone{justify-content:flex-end}
   .w-chat .feed{flex:1;max-height:none;padding-right:0;-webkit-mask-image:none;mask-image:none}
   .w-chat .line{text-shadow:none;font-size:15px}
   .w-chat .line .nm{color:var(--text-muted)}
@@ -261,7 +273,7 @@ a{color:var(--primary)}
   .w-chat .line.bid .tx,.w-chat .line.win .tx{color:var(--primary)}
   .w-chat .line.sys,.w-chat .line.hidden{color:var(--text-muted)}
   .w-chat .line .ava{background:var(--surface-sunken);color:var(--text)}
-  .w-chat .composer2 input{border-color:var(--border-strong);color:var(--text)}
+  .w-chat .composer2 input{border-color:var(--border-strong);color:var(--text);background:var(--surface);height:44px}
   .w-chat .composer2 input::placeholder{color:var(--text-faint)}
 }
 
@@ -284,15 +296,21 @@ a{color:var(--primary)}
 .step-h{margin:0;font:600 var(--t-h2)/1.25 var(--font-display)}
 
 /* show notes pinned under the host */
-.pinned{position:absolute;left:12px;right:12px;top:calc(max(10px, env(safe-area-inset-top)) + 52px);z-index:3;display:flex;align-items:center;gap:6px;min-height:44px;padding:0;border:0;background:none;color:#fff;font:600 14px var(--font-body);text-align:left;cursor:pointer;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.pinned{position:absolute;left:12px;right:72px;max-width:calc(100% - 84px);top:calc(max(10px, env(safe-area-inset-top)) + var(--badge) + var(--top-row) + 14px);z-index:3;display:flex;align-items:center;gap:6px;min-height:44px;padding:0;border:0;background:none;color:#fff;font:600 14px var(--font-body);text-align:left;cursor:pointer;text-shadow:0 1px 3px rgba(0,0,0,.6)}
 .pinned-tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pinned-more{font-weight:800;text-decoration:underline}
+.pinned-go{font-weight:800;font-size:18px;line-height:1}
 .pinned .upd{font-size:12px;font-weight:800;color:var(--warning-on-dark)}
 .pulse-once{animation:w-soft 1.2s ease-out 1}
 @keyframes w-soft{0%{opacity:.4}40%{opacity:1}100%{opacity:1}}
 @media (prefers-reduced-motion:reduce){.pulse-once{animation:none}}
 
 .star{width:48px;height:48px;border:0;background:none;padding:0;font-size:36px;line-height:1;cursor:pointer}
-.follow{min-height:36px;padding:0 14px;border:0;border-radius:999px;background:var(--primary);color:#fff;font:800 14px var(--font-body);cursor:pointer;position:relative}
-.follow::after{content:"";position:absolute;inset:-4px}
+/* Follow: a small pill (30px) with a 44px tap area */
+.follow{flex:none;height:30px;padding:0 12px;margin-left:2px;border:0;border-radius:999px;background:var(--primary);color:#fff;font:800 13px var(--font-body);cursor:pointer;position:relative}
+.follow::after{content:"";position:absolute;inset:-7px -4px}
 .follow.on{background:rgba(255,255,255,.18)}
+
+/* Typing in chat: only the top bar, the chat lines and a full-width input just above the keyboard */
+.watch.typing .panel,.watch.typing .rail,.watch.typing .pinned,.watch.typing .tap-sound{display:none}
+.watch.typing .bottom{padding-bottom:8px;padding-top:24px}
+.watch.typing .feed{max-height:calc(100dvh - var(--kb-bottom,0px) - 200px)}

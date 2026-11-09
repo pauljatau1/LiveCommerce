@@ -23,21 +23,51 @@ export function usePulse(value) {
   return on;
 }
 
-// Chat on the video: no bubbles. Small avatar, dimmed name, white text; bids in primary-on-dark.
-export function ChatFeed({ feed, feedRef, className = '' }) {
+// Chat on the video: no bubbles. Small avatar; the name on its own line in small dimmed
+// text, the message underneath in white; bids in primary-on-dark. `limit` keeps the
+// last few lines (they fade out at the top).
+export function ChatFeed({ feed, feedRef, className = '', limit = 0 }) {
+  const shown = limit ? feed.slice(-limit) : feed;
   return (
     <div ref={feedRef} className={`feed ${className}`} aria-live="polite">
-      {feed.map((m) => (
+      {shown.map((m) => (
         <div key={m.id} className={`line ${m.kind}`}>
           {m.kind !== 'sys' && m.kind !== 'hidden' && (
             <span className="ava" aria-hidden="true">{m.avatar ? <img src={m.avatar} alt="" /> : (m.user || '?').slice(0, 1).toUpperCase()}</span>
           )}
-          <span>{m.user && <span className="nm">{m.user} </span>}<span className="tx">{m.text}</span></span>
+          <span className="line-tx">
+            {m.user && m.kind !== 'sys' && m.kind !== 'hidden' && <span className="nm">{m.user}</span>}
+            <span className="tx">{m.kind === 'sys' && m.user ? `${m.user} ${m.text}` : m.text}</span>
+          </span>
         </div>
       ))}
     </div>
   );
 }
+
+// The on-screen keyboard. iOS doesn't shrink the page (vh) when it opens, only the
+// visual viewport, and may scroll the page up. Returns how much of the bottom the
+// keyboard covers and how far the page was scrolled, so the input can sit just above it.
+export function useKeyboardInset() {
+  const [inset, setInset] = useState({ bottom: 0, top: 0 });
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (!vv) return undefined;
+    const update = () => {
+      const covered = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+      // Small differences are browser bars, not a keyboard
+      setInset({ bottom: covered > 80 ? Math.round(covered) : 0, top: Math.max(0, Math.round(vv.offsetTop || 0)) });
+    };
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update); };
+  }, []);
+  return inset;
+}
+
+// "ships in 1–2 days" from the host's real median (null until known)
+export const shipsLine = (days) => (!days ? '' : days <= 1 ? 'ships in 1 day' : `ships in ${days - 1}–${days} days`);
 
 export function Timer({ secs, plus }) {
   if (typeof secs !== 'number') return null;
