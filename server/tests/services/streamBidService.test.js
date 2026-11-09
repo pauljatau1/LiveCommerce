@@ -186,3 +186,19 @@ describe('streamBidService', () => {
     expect((await wallet(ada)).onHoldAmount).toBe(0);
   });
 });
+
+describe('bid steps', () => {
+  it('uses ₦500 under ₦10k, ₦1,000 under ₦50k and ₦2,500 above', () => {
+    expect(bids.stepFor(9500)).toBe(500);
+    expect(bids.stepFor(10000)).toBe(1000);
+    expect(bids.stepFor(49000)).toBe(1000);
+    expect(bids.stepFor(50000)).toBe(2500);
+  });
+
+  it('the next bid is the starting bid, then the top bid plus one step', () => {
+    expect(bids.minimumNextBid({ minBid: 5000, currentBid: 0 })).toBe(5000);
+    expect(bids.minimumNextBid({ minBid: 5000, currentBid: 9000 })).toBe(9500);
+    expect(bids.minimumNextBid({ minBid: 5000, currentBid: 12000 })).toBe(13000);
+    expect(bids.minimumNextBid({ minBid: 5000, currentBid: 60000 })).toBe(62500);
+  });
+});

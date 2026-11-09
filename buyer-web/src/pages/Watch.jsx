@@ -9,10 +9,11 @@ import { useAuth } from '../auth';
 import { LATE_BID_SECONDS } from '../config';
 import AddressSheet from '../components/AddressSheet';
 import TopUpSheet from '../components/TopUpSheet';
+import BidMoreSheet from '../components/BidMoreSheet';
 import { Header, Icon, Sheet } from '../components/ui';
 import {
   ChatFeed, ItemThumb, ItemsList, MiniBidBar, RailButton, Timer,
-  idOf, nextBidFor, plural, priceOf, stepFor, usePulse, who,
+  idOf, nextBidFor, plural, priceOf, usePulse, who,
 } from '../components/watch';
 
 const REPORT_REASONS = ['Selling fakes as original', 'Asking to pay outside the app', 'Rude or abusive', 'Something else'];
@@ -43,7 +44,6 @@ export default function Watch() {
   const [sheet, setSheet] = useState(null); // {type:'topup', need} | {type:'address', then} | {type:'items'} | {type:'bid'} | {type:'more'} | {type:'report'}
   const [busy, setBusy] = useState(false);
   const [text, setText] = useState('');
-  const [customBid, setCustomBid] = useState('');
   const [reportState, setReportState] = useState({ reason: '', sending: false, done: '' });
   const stageRef = useRef(null);
   const clientRef = useRef(null);
@@ -341,7 +341,8 @@ export default function Watch() {
   const placeBid = (amount) => {
     if (!current || busy) return;
     const bid = Math.round(Number(amount));
-    if (!(bid > (current.currentBid || 0)) || bid < (current.minBid || 0)) { say('err', `Bid at least ${naira(Math.max(nextBidFor(current), current.minBid || 0))}`); return; }
+    // Bids move in steps; the server checks this too
+    if (bid < nextBidFor(current)) { say('err', `Bid at least ${naira(nextBidFor(current))}`); return; }
     // Holding the bid is checked on the server too; a lead bid is held, not charged
     if (!ready(bid - (iLead ? current.currentBid : 0), () => placeBid(bid))) return;
     setBusy(true);
@@ -476,7 +477,9 @@ export default function Watch() {
     : current && !isAuction && stock !== 0
       ? <button type="button" className="btn btn-sm" disabled={busy} onClick={() => buyNow(current)}>Buy</button>
       : null;
-  const mini = <MiniBidBar current={current} secs={secs} state={stateBadge || (auctionLive ? plural(bids, 'bid') : null)} action={miniAction} />;
+  const miniState = stateBadge || (auctionLive ? plural(bids, 'bid') : null);
+  const mini = <MiniBidBar current={current} secs={secs} state={miniState} action={miniAction} />;
+  const miniBare = <MiniBidBar current={current} secs={secs} state={miniState} />;
 
   const composer = (
     <form className="composer2" onSubmit={sendChat}>
@@ -576,7 +579,7 @@ export default function Watch() {
 
               {auctionLive && (
                 <div className="bidrow">
-                  <button type="button" className="btn2 on-dark" disabled={busy} onClick={() => { setCustomBid(String(nextBid + stepFor(nextBid))); setSheet({ type: 'bid' }); }}>Bid more</button>
+                  <button type="button" className="btn2 on-dark" disabled={busy} onClick={() => setSheet({ type: 'bid' })}>Bid more</button>
                   <button type="button" className="btn two-line" disabled={busy} onClick={() => placeBid(nextBid)}>
                     <span>{busy ? 'Bidding…' : `Bid ${naira(nextBid)}`}</span>
                     <small>Held from your wallet</small>
@@ -624,14 +627,7 @@ export default function Watch() {
       {sheet?.type === 'topup' && <TopUpSheet need={sheet.need} top={mini} onClose={() => setSheet(null)} />}
       {sheet?.type === 'address' && <AddressSheet top={mini} onClose={() => setSheet(null)} onSaved={async () => { setSheet(null); await refresh(); say('ok', 'Address saved. You can bid and buy now.'); }} />}
       {sheet?.type === 'bid' && current && (
-        <Sheet title="Your bid" top={mini} onClose={() => setSheet(null)}>
-          <p className="mut" style={{ margin: 0 }}>Highest bid is {current.currentBid > 0 ? naira(current.currentBid) : `none yet (starts at ${naira(current.minBid)})`}. Your bid is held in your wallet, not charged, unless you win.</p>
-          <div className="fl">
-            <label className="lab" htmlFor="w-bid">Bid amount</label>
-            <input id="w-bid" className="in" inputMode="numeric" autoFocus value={Number(String(customBid).replace(/[^\d]/g, '')).toLocaleString('en-NG')} onChange={(e) => setCustomBid(e.target.value)} style={{ font: '600 22px var(--font-display)' }} />
-          </div>
-          <button type="button" className="btn" onClick={() => { const v = Number(String(customBid).replace(/[^\d]/g, '')); setSheet(null); placeBid(v); }}>Place bid</button>
-        </Sheet>
+        <BidMoreSheet current={current} top={miniBare} onClose={() => setSheet(null)} onPlace={(v) => { setSheet(null); placeBid(v); }} />
       )}
       {sheet?.type === 'items' && (
         <Sheet title={`Items in this show · ${items.length}`} top={mini} onClose={() => setSheet(null)}>
