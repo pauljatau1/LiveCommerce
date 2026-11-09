@@ -29,7 +29,7 @@ export function ChatFeed({ feed, feedRef, className = '' }) {
     <div ref={feedRef} className={`feed ${className}`} aria-live="polite">
       {feed.map((m) => (
         <div key={m.id} className={`line ${m.kind}`}>
-          {m.kind !== 'sys' && (
+          {m.kind !== 'sys' && m.kind !== 'hidden' && (
             <span className="ava" aria-hidden="true">{m.avatar ? <img src={m.avatar} alt="" /> : (m.user || '?').slice(0, 1).toUpperCase()}</span>
           )}
           <span>{m.user && <span className="nm">{m.user} </span>}<span className="tx">{m.text}</span></span>

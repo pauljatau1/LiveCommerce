@@ -263,6 +263,9 @@ export default function Watch() {
         default:
       }
     });
+    // Chat safety: a short notice instead of the hidden message
+    socket.on('chat_hidden', (h) => push({ kind: 'hidden', text: h?.notice || 'A message was hidden' }));
+    socket.on('chat_hidden_self', (h) => say('err', h?.message || 'Your message was hidden.', 6000));
     socket.on('viewer_joined_stream', (n) => { if (typeof n?.data?.viewerCount === 'number') setViewers(n.data.viewerCount); });
     socket.on('bid_timer_update', (t) => {
       if (!t?.productId) return;

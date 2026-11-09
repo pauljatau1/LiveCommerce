@@ -14,7 +14,10 @@ const chatInteractionSchema = new mongoose.Schema({
   timestamp: { 
     type: Date,
     default: Date.now 
-  }
+  },
+  // Chat safety (services/chatSafety.js): hidden from buyers unless the host undoes it
+  hidden: { type: Boolean },
+  hiddenReason: { type: String, enum: ['phone', 'account', 'link'] }
 });
 
 // Define a separate schema for stream likes

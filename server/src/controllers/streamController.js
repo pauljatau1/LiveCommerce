@@ -2972,8 +2972,9 @@ exports.getChatInteractions = async (req, res) => {
       return res.status(404).json({ message: 'Stream not found' });
     }
 
-    // Sort chat interactions by timestamp (newest first)
-    const chatInteractions = stream.chatInteractions || [];
+    // Hidden messages (chat safety) are only for the host
+    const isHost = req.user?.role === 'Seller' && String(stream.seller) === String(req.user.id);
+    const chatInteractions = (stream.chatInteractions || []).filter((m) => isHost || !m.hidden);
 
     // Optional: limit the number of chat interactions returned
     // const limit = parseInt(req.query.limit) || 100;
