@@ -32,7 +32,8 @@ export const studio = {
   endShow: (id) => post(`${BASE_URL}/streams/${id}/end`),
   displayProduct: (id, productId) => post(`${BASE_URL}/streams/${id}/display-product`, { productId }),
   hideProduct: (id, productId) => post(`${BASE_URL}/streams/${id}/hide-product`, { productId }),
-  startBidding: (id, productId) => post(`${BASE_URL}/streams/${id}/activate-product-bidding`, { productId }),
+  startBidding: (id, productId, seconds) => post(`${BASE_URL}/streams/${id}/activate-product-bidding`, { productId, seconds }),
+  addTime: (id, productId, seconds = 30) => post(`${BASE_URL_V2}/studio/shows/${id}/auction/time`, { productId, seconds }),
   chat: (id) => get(`${BASE_URL}/streams/${id}/chat`).catch(() => []),
 };
 

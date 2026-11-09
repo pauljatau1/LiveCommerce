@@ -12,6 +12,7 @@ const OPTIONAL_FEATURES = {
   referrals: 'Referral programme',
   returns: 'Returns',
   listings: 'User listings',
+  restBids: 'Old REST bid routes (no wallet hold); live bids use the socket',
 };
 
 const enabledExtras = () =>

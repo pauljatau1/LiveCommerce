@@ -171,6 +171,8 @@ export default function Live() {
   const current = items.find((i) => i.productId === currentId) || items[0];
   const isAuction = show?.type !== 'drop';
   const secs = current ? timer[current.productId] : undefined;
+  // Ring length: the auction time, or longer if time was added
+  const total = Math.max(current?.auctionSeconds || 30, secs || 0);
   const running = current && current.bidStatus === 'active' && (secs === undefined || secs > 0);
   const queue = items.filter((i) => i.productId !== current?.productId);
 
@@ -181,9 +183,10 @@ export default function Live() {
   const putUp = (item) => act('show', () => studio.displayProduct(id, item.productId), isAuction ? null : `${item.name} is on sale`);
   const startBids = () => act('bid', async () => {
     if (!current.isVisible) await studio.displayProduct(id, current.productId);
-    await studio.startBidding(id, current.productId);
-    setTimer((m) => ({ ...m, [current.productId]: 30 }));
-  }, 'Bidding is open: 30 seconds');
+    await studio.startBidding(id, current.productId, current.auctionSeconds || 30);
+    setTimer((m) => ({ ...m, [current.productId]: current.auctionSeconds || 30 }));
+  }, `Bidding is open: ${clock(current?.auctionSeconds || 30)}`);
+  const addTime = () => act('time', () => studio.addTime(id, current.productId, 30), 'Added 30 seconds');
   const endDrop = () => act('hide', () => studio.hideProduct(id, current.productId), 'Item taken off sale');
   const pick = (item) => { setCurrentId(item.productId); setQueueOpen(false); if (!isAuction || item.bidStatus !== 'ended') putUp(item); };
 
@@ -241,8 +244,8 @@ export default function Live() {
             {isAuction && <span className="mut" style={{ fontSize: 13 }}>{current.winner ? <><strong style={{ color: 'var(--text)' }}>{current.winner.name || 'A buyer'}</strong> won it</> : current.currentBid ? <><strong style={{ color: 'var(--text)' }}>{current.currentBidder || 'Someone'}</strong> winning</> : running ? 'No bids yet' : `Bids start at ${naira(current.minBid)}`}</span>}
           </div>
           {isAuction && running && (
-            <div aria-label={`${secs ?? 30} seconds left`} style={{ flex: 'none', width: 76, height: 76, borderRadius: '50%', background: `conic-gradient(${(secs ?? 30) <= 5 ? 'var(--danger)' : (secs ?? 30) <= 10 ? 'var(--warning)' : 'var(--primary)'} 0 ${((secs ?? 30) / 30) * 100}%, var(--primary-soft) 0 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span className="f" style={{ width: 62, height: 62, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{clock(secs ?? 30)}</span>
+            <div aria-label={`${secs ?? total} seconds left`} style={{ flex: 'none', width: 76, height: 76, borderRadius: '50%', background: `conic-gradient(${(secs ?? total) <= 5 ? 'var(--danger)' : (secs ?? total) <= 10 ? 'var(--warning)' : 'var(--primary)'} 0 ${Math.min(100, ((secs ?? total) / total) * 100)}%, var(--primary-soft) 0 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span className="f" style={{ width: 62, height: 62, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{clock(secs ?? total)}</span>
             </div>
           )}
         </div>
@@ -252,8 +255,9 @@ export default function Live() {
             <div style={{ height: 12, borderRadius: 999, background: 'var(--surface-sunken)' }}><div style={{ width: `${(current.sold / Math.max(1, current.sold + current.stock)) * 100}%`, height: '100%', borderRadius: 999, background: 'var(--accent)' }} /></div>
           </div>
         )}
-        {isAuction && !running && !current.winner && current.bidStatus !== 'ended' && <button type="button" className="btn" style={{ minHeight: 56 }} disabled={Boolean(busy) || phase !== 'live'} onClick={startBids}>{busy === 'bid' ? 'Starting…' : 'Start bidding · 30s'}</button>}
-        {isAuction && running && <span className="hint" style={{ textAlign: 'center' }}>Talk it up! The highest bid when the timer ends wins and is charged.</span>}
+        {isAuction && !running && !current.winner && current.bidStatus !== 'ended' && <button type="button" className="btn" style={{ minHeight: 56 }} disabled={Boolean(busy) || phase !== 'live'} onClick={startBids}>{busy === 'bid' ? 'Starting…' : `Start bidding · ${clock(current.auctionSeconds || 30)}`}</button>}
+        {isAuction && running && <button type="button" className="btn2" style={{ minHeight: 48 }} disabled={Boolean(busy)} onClick={addTime}>{busy === 'time' ? 'Adding…' : '+30s'}</button>}
+        {isAuction && running && <span className="hint" style={{ textAlign: 'center' }}>The highest bid when the timer ends wins and is charged. A bid in the last 5 seconds adds 5 seconds.</span>}
         {isAuction && (current.winner || current.bidStatus === 'ended') && queue.find((q) => q.bidStatus !== 'ended') && <button type="button" className="btn" style={{ minHeight: 56 }} disabled={Boolean(busy)} onClick={() => pick(queue.find((q) => q.bidStatus !== 'ended'))}>Next item</button>}
         {!isAuction && (current.isVisible
           ? <button type="button" className="btn3" style={{ minHeight: 52 }} disabled={Boolean(busy)} onClick={endDrop}>{busy === 'hide' ? 'Ending…' : 'Take off sale'}</button>

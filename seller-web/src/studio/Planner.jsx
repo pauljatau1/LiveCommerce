@@ -52,6 +52,8 @@ export default function Planner() {
   const items = picked.map((id) => byId.get(id)).filter(Boolean);
   const toggle = (id) => setPicked((l) => (l.includes(id) ? l.filter((x) => x !== id) : l.length >= 20 ? l : [...l, id]));
   const move = (i, dir) => setPicked((l) => { const n = [...l]; const j = i + dir; if (j < 0 || j >= n.length) return l; [n[i], n[j]] = [n[j], n[i]]; return n; });
+  const [lengths, setLengths] = useState({}); // productId -> 30 | 60 | 120 seconds
+  const lengthOf = (p) => lengths[p._id] || 30;
   const startBid = (p) => bids[p._id] ?? String(Math.max(500, Math.round((p.price * 0.6) / 500) * 500));
 
   const goSetup = () => {
@@ -87,7 +89,7 @@ export default function Planner() {
       scheduledStartTime: at.toISOString(),
       ...(cover ? { coverImage: { data: cover.base64, contentType: cover.contentType } } : {}),
       products: items.map((p) => (type === 'auction'
-        ? { product: { productId: p._id }, minBid: Number(startBid(p)), maxBid: Math.max(Number(startBid(p)) * 100, 1000000) }
+        ? { product: { productId: p._id }, minBid: Number(startBid(p)), maxBid: Math.max(Number(startBid(p)) * 100, 1000000), auctionSeconds: lengthOf(p) }
         : { product: { productId: p._id } })),
     };
     try {
@@ -201,13 +203,18 @@ export default function Planner() {
                     <label htmlFor={`bid-${p._id}`} className="hint" style={{ fontWeight: 800 }}>Bids start at ₦</label>
                     <input id={`bid-${p._id}`} className="in" inputMode="numeric" style={{ width: 130, height: 44, font: '600 16px var(--font-display)' }} value={startBid(p)} onChange={(e) => setBids((b) => ({ ...b, [p._id]: e.target.value.replace(/[^\d]/g, '') }))} />
                     <span className="hint">Listed at {naira(p.price)}</span>
+                    <div style={{ display: 'flex', gap: 6, width: '100%' }} role="group" aria-label={`Auction time for ${p.name}`}>
+                      {[[30, '30s'], [60, '60s'], [120, '2 min']].map(([v, l]) => (
+                        <button key={v} type="button" className={`chip${lengthOf(p) === v ? ' on' : ''}`} aria-pressed={lengthOf(p) === v} onClick={() => setLengths((m) => ({ ...m, [p._id]: v }))}>{l}</button>
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <span className="hint">{naira(p.price)} · {p.stock} in stock</span>
                 )}
               </div>
             ))}
-            {type === 'auction' && <span className="hint">Each auction runs 30 seconds once you start it. Bids hold money in the buyer's wallet, so winners are charged straight away.</span>}
+            {type === 'auction' && <span className="hint">Each auction runs for the time you pick once you start it. A bid in the last 5 seconds adds 5 seconds. Bids hold money in the buyer's wallet, so winners are charged straight away.</span>}
           </section>
 
           <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }} aria-label="When">

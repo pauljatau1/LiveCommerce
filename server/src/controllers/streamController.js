@@ -220,7 +220,9 @@ exports.createStream = async (req, res) => {
       products: productsWithFullDetails.map(p => ({
         product: p.product,
         minBid: p.minBid,
-        maxBid: p.maxBid
+        maxBid: p.maxBid,
+        // The seller's auction length (30/60/120s); the auction clock falls back to 30s
+        ...([30, 60, 120].includes(Number(p.auctionSeconds)) ? { auctionSeconds: Number(p.auctionSeconds) } : {})
       })),
       channelName,
       agoraToken: token,
@@ -3344,30 +3346,24 @@ exports.activateProductBidding = async (req, res) => {
     // Set up a 30-second timer using Agenda
     console.log('[ACTIVATE_BID] 15. Setting up 30-second timer with Agenda');
 
-    // Get the agenda instance
-    const { agenda } = require('../config/agenda');
-
-    // Create a unique job ID for this bid timer
-    const jobId = `bid_timer_${stream._id}_${productId}_${Date.now()}`;
-
-    // Schedule the job to run immediately
-    await agenda.schedule('now', 'bid_timer', {
-      streamId: stream._id.toString(),
+    // The auction clock stores the end time on the stream product, so it survives a restart.
+    // Length: what the seller picked now (30/60/120s), else what the show plan said, else 30s.
+    // (The old Agenda 'bid_timer' job is kept in config/agenda.js but no longer scheduled.)
+    const auctionClock = require('../services/auctionClock');
+    const jobId = `auction_${stream._id}_${productId}`;
+    const seconds = await auctionClock.clock().start(
+      stream._id.toString(),
       productId,
-      sellerId: stream.seller._id.toString(),
-      jobId,
-      activeProductIndex: productIndex,
-      productName: stream.products[productIndex].product.name || 'Product'
-    });
-
-    console.log('[ACTIVATE_BID] 16. Agenda job scheduled successfully', { jobId });
+      req.body.seconds || stream.products[productIndex].auctionSeconds,
+      stream.products[productIndex].product.name || 'Product'
+    );
 
     // Return the updated product information with timer details
     return res.status(200).json({
       message: 'Product bidding activated successfully',
       product: stream.products[productIndex],
       timerDetails: {
-        duration: 30,
+        duration: seconds,
         jobId
       }
     });
@@ -3751,6 +3747,9 @@ exports.endProductBidding = async (req, res) => {
       console.error('[END_BID] 10. FAILED: Product bidding is not active', { bidStatus: product.bidStatus });
       return res.status(400).json({ message: 'Product bidding is not active' });
     }
+
+    // Whoever ends it (clock, seller, max bid), the clock stops counting
+    require('../services/auctionClock').clock().stop(String(streamId), String(productId));
 
     // Close bidding atomically, so no bid can land after the winner is chosen
     const closed = await Stream.updateOne(

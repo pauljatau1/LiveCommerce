@@ -119,7 +119,10 @@ const streamSchema = new mongoose.Schema({
     isVisible: {
       type: Boolean,
       default: false
-    }
+    },
+    // Auction clock (services/auctionClock.js). Stored so the timer survives a restart.
+    auctionSeconds: { type: Number, enum: [30, 60, 120] }, // the seller's chosen length
+    auctionEndsAt: { type: Date }
   }],
   status: {
     type: String,
