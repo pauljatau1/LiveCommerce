@@ -221,6 +221,13 @@ const streamSchema = new mongoose.Schema({
     sellerName: { type: String, required: true },
     timestamp: { type: Date, default: Date.now }
   }],
+  // Viewer reports from the Watch screen ("More" → Report). Reviewed by the team.
+  reports: [{
+    buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' },
+    reason: { type: String, maxlength: 60 },
+    note: { type: String, maxlength: 300 },
+    createdAt: { type: Date, default: Date.now }
+  }],
   orders: [{
     orderId: {
       type: String,

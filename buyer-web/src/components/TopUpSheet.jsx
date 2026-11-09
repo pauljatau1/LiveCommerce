@@ -17,7 +17,7 @@ const loadPaystack = () =>
     document.head.appendChild(s);
   });
 
-export default function TopUpSheet({ onClose, need = 0, onDone }) {
+export default function TopUpSheet({ onClose, need = 0, onDone, top = null }) {
   const { buyer, wallet, refreshWallet } = useAuth();
   const suggested = need > 0 ? Math.ceil(need / 1000) * 1000 : 10000;
   const [amount, setAmount] = useState(String(suggested));
@@ -63,7 +63,7 @@ export default function TopUpSheet({ onClose, need = 0, onDone }) {
 
   if (done) {
     return (
-      <Sheet title="Wallet topped up" onClose={onClose}>
+      <Sheet title="Wallet topped up" onClose={onClose} top={top}>
         <div className="soft s-primary" style={{ fontWeight: 700 }}>{naira(done)} added. You have {naira(wallet?.availableBalance)} to spend.</div>
         <button type="button" className="btn" onClick={onClose}>Back to the show</button>
       </Sheet>
@@ -71,7 +71,7 @@ export default function TopUpSheet({ onClose, need = 0, onDone }) {
   }
 
   return (
-    <Sheet title="Top up your wallet" onClose={onClose}>
+    <Sheet title="Top up your wallet" onClose={onClose} top={top}>
       <p className="mut" style={{ margin: 0, fontSize: 15 }}>
         Bids and Buy Now are paid from your wallet, so checkout is instant.{need > 0 ? <> You need <strong>{naira(need)}</strong> more for this.</> : null}
       </p>
