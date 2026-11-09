@@ -202,6 +202,7 @@ a{color:var(--primary)}
 .line .tx{color:#fff}
 .line.bid .tx,.line.win .tx{color:var(--primary-on-dark);font-weight:800}
 .line.sys{color:rgba(255,255,255,.75);font-style:italic}
+.line.hidden{color:rgba(255,255,255,.6);font-style:italic}
 .composer2{display:flex;gap:8px;align-items:center}
 .composer2 input{flex:1;height:44px;border-radius:999px;border:1.5px solid rgba(255,255,255,.55);padding:0 16px;font:600 16px var(--font-body);background:none;color:#fff}
 .composer2 input::placeholder{color:rgba(255,255,255,.7)}
@@ -258,7 +259,7 @@ a{color:var(--primary)}
   .w-chat .line .nm{color:var(--text-muted)}
   .w-chat .line .tx{color:var(--text)}
   .w-chat .line.bid .tx,.w-chat .line.win .tx{color:var(--primary)}
-  .w-chat .line.sys{color:var(--text-muted)}
+  .w-chat .line.sys,.w-chat .line.hidden{color:var(--text-muted)}
   .w-chat .line .ava{background:var(--surface-sunken);color:var(--text)}
   .w-chat .composer2 input{border-color:var(--border-strong);color:var(--text)}
   .w-chat .composer2 input::placeholder{color:var(--text-faint)}

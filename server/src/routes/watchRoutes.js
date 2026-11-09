@@ -121,7 +121,7 @@ router.get('/:streamId/chat', validId, async (req, res) => {
     const stream = await Stream.findById(req.params.streamId).select({ chatInteractions: { $slice: -200 } }).lean();
     if (!stream) return res.status(404).json({ success: false, message: "We couldn't find this show." });
     const messages = (stream.chatInteractions || [])
-      .filter((m) => m.type === 'comment')
+      .filter((m) => m.type === 'comment' && !m.hidden)
       .slice(-50)
       .map((m) => ({ id: m.id, type: m.type, user: m.user, avatar: m.avatar, content: m.content, timestamp: m.timestamp }));
     res.json({ success: true, chatInteractions: messages });

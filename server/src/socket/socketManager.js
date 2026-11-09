@@ -1,6 +1,8 @@
 const socketIO = require('socket.io');
 const jwt = require('jsonwebtoken');
 const { socketUserFromHandshake, registerGuestSocket } = require('./guestSocket');
+const chatSafety = require('../services/chatSafety');
+const { hideComment, registerUnhide } = require('./chatSafetySocket');
 const Conversation = require('../models/Conversation');
 const Stream = require('../models/Stream');
 const streamBids = require('../services/streamBidService');
@@ -1026,6 +1028,9 @@ function initializeSocket(server) {
       }
     });
 
+    // The host can show a message that chat safety hid
+    registerUnhide({ io, socket, Stream });
+
     // Handler for stream chat comments
     socket.on('stream_comment', async (data) => {
       try {
@@ -1072,6 +1077,12 @@ function initializeSocket(server) {
             }
           };
 
+          // The host can't post phone numbers, account numbers or links either
+          if (chatSafety.check(data.content).hide) {
+            socket.emit('chat_hidden_self', { streamId: data.streamId, message: 'Phone numbers, account numbers and links stay out of chat. Buyers pay in the app.' });
+            return;
+          }
+
           // Store in database
           await Stream.findByIdAndUpdate(
             data.streamId,
@@ -1109,6 +1120,13 @@ function initializeSocket(server) {
               isHost: false
             }
           };
+
+          // Phone numbers, account numbers and links are hidden (the host can undo)
+          const safety = chatSafety.check(data.content);
+          if (safety.hide) {
+            await hideComment({ io, socket, Stream, stream, comment: notificationObj, kind: safety.kind });
+            return;
+          }
 
           // Store in database
           await Stream.findByIdAndUpdate(

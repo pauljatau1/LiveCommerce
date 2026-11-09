@@ -129,6 +129,11 @@ export default function Live() {
       const list = Array.isArray(res) ? res : res?.chatInteractions || res?.data || [];
       setFeed(list.filter((m) => m.type === 'comment').slice(-20).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, text: m.content })));
     });
+    // Chat safety: messages with phone numbers, account numbers or links are hidden from buyers
+    socket.on('chat_hidden_detail', (h) => push({ kind: 'hidden', hiddenId: h.id, user: h.user, text: h.content, notice: h.notice }));
+    socket.on('chat_unhidden', (h) => setFeed((f) => f.filter((m) => m.hiddenId !== h.id)));
+    socket.on('chat_unhide_error', (h) => say(h?.message || "Couldn't show that message."));
+    socket.on('chat_hidden_self', (h) => say(h?.message || 'Phone numbers, account numbers and links stay out of chat.'));
     socket.on('stream_notification', (n) => {
       const d = n?.data || {};
       switch (n?.type) {
@@ -283,7 +288,15 @@ export default function Live() {
       {feed.map((m) => (
         m.kind === 'comment'
           ? <div key={m.id} className="lv-ch"><b>{m.user}</b> {m.text}</div>
-          : <div key={m.id} className={`lv-ev lv-${m.kind}`}>{m.kind === 'bid' ? '↑ ' : ''}{m.user} {m.text}</div>
+          : m.kind === 'hidden'
+            ? (
+              <div key={m.id} className="lv-hid">
+                <span>{m.notice} · </span>
+                <button type="button" className="lv-undo" onClick={() => socketRef.current?.emit('stream_unhide_comment', { streamId: id, id: m.hiddenId })}>Undo</button>
+                <span className="lv-hid-tx">{m.user}: “{m.text}”</span>
+              </div>
+            )
+            : <div key={m.id} className={`lv-ev lv-${m.kind}`}>{m.kind === 'bid' ? '↑ ' : ''}{m.user} {m.text}</div>
       ))}
       <span ref={feedEnd} />
     </div>

@@ -107,6 +107,7 @@ describe('watching without an account', () => {
     await Stream.collection.updateOne({ _id: show._id }, { $push: { chatInteractions: { $each: [
       { id: '1', type: 'join', user: 'ada', content: 'joined' },
       { id: '2', type: 'comment', user: 'ada', content: 'how much to Lekki?' },
+      { id: '3', type: 'comment', user: 'scam', content: 'pay 0123456789', hidden: true, hiddenReason: 'account' },
     ] } } });
     mockUser = null;
     const res = await request(app).get(`/api/v2/watch/${show._id}/chat`).expect(200);
