@@ -191,10 +191,12 @@ a{color:var(--primary)}
 .reconnect{position:absolute;left:12px;right:12px;top:calc(max(10px, env(safe-area-inset-top)) + var(--badge) + var(--top-row) + 52px);z-index:4;display:flex;flex-direction:column;gap:2px;padding:10px 0;text-shadow:0 1px 3px rgba(0,0,0,.6)}
 
 /* side rail: bottom right, beside the chat; Items' bottom lines up with the input */
-.rail{flex:none;display:flex;flex-direction:column;gap:8px;z-index:3}
-.rail-btn{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:52px;min-height:52px;border:0;background:none;color:#fff;cursor:pointer;padding:0;font:700 12px var(--font-body);text-shadow:0 1px 3px rgba(0,0,0,.6)}
-.rail-ic{width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;overflow:hidden}
-.rail-img{width:44px;height:44px;object-fit:cover}
+.rail{flex:none;display:flex;flex-direction:column;gap:6px;z-index:3}
+.feed::-webkit-scrollbar{display:none}
+.rail-btn{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:44px;min-height:44px;border:0;background:none;color:#fff;cursor:pointer;padding:0;font:700 12px var(--font-body);text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.rail-ic{width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.rail-img{width:40px;height:40px;object-fit:cover}
+.rail-lb{font-size:12px;line-height:1.25;font-weight:700}
 .rail-count{font:800 16px var(--font-body)}
 
 /* bottom: chat, state line, item, price, actions */
@@ -203,7 +205,7 @@ a{color:var(--primary)}
 .chatcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
 .panel{display:flex;flex-direction:column;gap:10px}
 /* up to 5 lines (8 while typing), fading out at the top */
-.feed{max-height:34vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;-webkit-mask-image:linear-gradient(180deg,transparent,#000 32px);mask-image:linear-gradient(180deg,transparent,#000 32px)}
+.feed{scrollbar-width:none;max-height:34vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;-webkit-mask-image:linear-gradient(180deg,transparent,#000 32px);mask-image:linear-gradient(180deg,transparent,#000 32px)}
 .line{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.3;text-shadow:0 1px 2px rgba(0,0,0,.55)}
 .line-tx{display:flex;flex-direction:column;min-width:0}
 .line .ava{width:28px;height:28px;border-radius:50%;flex:none;overflow:hidden;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
@@ -211,7 +213,10 @@ a{color:var(--primary)}
 .line .nm{color:rgba(255,255,255,.65);font-weight:700;font-size:12px}
 .line .tx{color:#fff}
 .line.bid .tx,.line.win .tx{color:var(--primary-on-dark);font-weight:800}
-.line.sys{color:rgba(255,255,255,.75);font-style:italic}
+.line.sys{font-size:14px;color:rgba(255,255,255,.65)}
+/* system lines ("Bidding is open: …"): one line, cut with … */
+.line.sys .line-tx{flex:1}
+.line.sys .tx{color:rgba(255,255,255,.65);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .line.hidden{color:rgba(255,255,255,.6);font-style:italic}
 .composer2{display:flex;gap:8px;align-items:center}
 .composer2 input{flex:1;min-width:0;height:40px;border-radius:999px;border:1.5px solid rgba(255,255,255,.55);padding:0 14px;font:600 16px var(--font-body);background:rgba(0,0,0,.15);color:#fff}
@@ -297,8 +302,9 @@ a{color:var(--primary)}
 
 /* show notes pinned under the host */
 .pinned{position:absolute;left:12px;right:72px;max-width:calc(100% - 84px);top:calc(max(10px, env(safe-area-inset-top)) + var(--badge) + var(--top-row) + 14px);z-index:3;display:flex;align-items:center;gap:6px;min-height:44px;padding:0;border:0;background:none;color:#fff;font:600 14px var(--font-body);text-align:left;cursor:pointer;text-shadow:0 1px 3px rgba(0,0,0,.6)}
-.pinned-tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pinned-go{font-weight:800;font-size:18px;line-height:1}
+.pinned-tx{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pinned svg{flex:none}
+.pinned-go{flex:none;display:inline-flex;align-items:center;height:20px;font-weight:800;font-size:18px;line-height:1;margin-top:-2px}
 .pinned .upd{font-size:12px;font-weight:800;color:var(--warning-on-dark)}
 .pulse-once{animation:w-soft 1.2s ease-out 1}
 @keyframes w-soft{0%{opacity:.4}40%{opacity:1}100%{opacity:1}}
@@ -314,3 +320,6 @@ a{color:var(--primary)}
 .watch.typing .panel,.watch.typing .rail,.watch.typing .pinned,.watch.typing .tap-sound{display:none}
 .watch.typing .bottom{padding-bottom:8px;padding-top:24px}
 .watch.typing .feed{max-height:calc(100dvh - var(--kb-bottom,0px) - 200px)}
+
+/* Staging builds: room for the corner STAGING tag above page headers */
+.env-badge .app > .top{padding-top:22px}
