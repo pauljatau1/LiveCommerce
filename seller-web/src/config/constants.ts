@@ -12,3 +12,6 @@ export const API_CONFIG = {
   TIMEOUT: 10000,
   RETRY_ATTEMPTS: 0,
 } as const;
+
+// Working name of the app. Change it here and the studio follows.
+export const BRAND_NAME = 'gbam';

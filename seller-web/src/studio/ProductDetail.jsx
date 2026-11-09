@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { studio, errorText, naira, when } from './api';
 import { Pill, PRODUCT_PILL, Problem, Skeleton, TopBar, Sheet } from './ui';
+import { authenticityLabel } from './catalogue';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -78,7 +79,7 @@ export default function ProductDetail() {
             {[
               ['CATEGORY', [p.category, p.subCategory].filter(Boolean).join(' › ')],
               ['CONDITION', p.condition],
-              ['TYPE', p.authenticity ? p.authenticity[0].toUpperCase() + p.authenticity.slice(1) : null],
+              ['ORIGINAL OR REPLICA', authenticityLabel(p.authenticity)],
               ['BRAND', p.brand],
               ['WEIGHT', p.weightKg ? `${p.weightKg} kg` : null],
               ['ABOUT', p.description],

@@ -1,16 +1,16 @@
 // Listing Agent: add a product by chatting.
 // Seller drops photos → AI drafts the listing → seller answers what the photos
-// can't show (quantity, official or replica, price) → publish.
+// can't show (quantity, original or replica, price) → publish.
 // Design: Claude Design canvas, "S-List-*" screens (Start, Thinking, Draft,
 // Published, Fallback, Desktop).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { sellerUtils } from '@/util/auth';
 import { draftFromPhotos, fetchCategories, publishListing, refineDraft, shrinkPhoto } from './listingApi';
+import { AUTHENTICITY, CONDITIONS } from './catalogue';
 import './studio.css';
 
 const MAX_PHOTOS = 5;
-const CONDITIONS = ['Brand New', 'Fairly Used', 'Refurbished'];
 const QUICK_TWEAKS = ['Shorter title', 'Funnier description', 'Add the box details'];
 const naira = (n) => `₦${Number(n || 0).toLocaleString('en-NG')}`;
 const digits = (v) => Number(String(v).replace(/[^\d]/g, '')) || 0;
@@ -140,7 +140,7 @@ export default function ListingAgent() {
       setPhase('draft');
     } catch (e) {
       setError(e.message);
-      setDraft((cur) => cur || { title: '', category: null, subCategory: null, condition: /new/i.test(note) ? 'Brand New' : null, description: note.trim(), tags: [], questions: [] });
+      setDraft((cur) => cur || { title: '', category: null, subCategory: null, condition: /new|tag/i.test(note) ? 'New with tags' : null, description: note.trim(), tags: [], questions: [] });
       setPhase('fallback');
     }
   };
@@ -175,7 +175,7 @@ export default function ListingAgent() {
 
   const update = (patch) => { setDraft((d) => ({ ...d, ...patch })); setChanged(null); };
 
-  const extraQuestions = (draft?.questions || []).filter((q) => !/how many|quantity|official|authentic|replica|bootleg/i.test(q));
+  const extraQuestions = (draft?.questions || []).filter((q) => !/how many|quantity|official|original|authentic|replica|bootleg|\bsize/i.test(q));
   const missing = [];
   if (!photos.length) missing.push('a photo');
   if (!draft?.title?.trim()) missing.push('a title');
@@ -512,9 +512,9 @@ export default function ListingAgent() {
           : <button type="button" className="qr" onClick={() => setQuantity(3)}>3+</button>}
       </div>
 
-      <Bot>Is it official merch or a replica?</Bot>
-      <div className="ind" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} role="group" aria-label="Official or replica">
-        {[['official', 'Official'], ['replica', 'Replica'], ['unknown', 'Not sure']].map(([v, l]) => (
+      <Bot>Is it original or a replica?</Bot>
+      <div className="ind" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} role="group" aria-label="Original or replica">
+        {AUTHENTICITY.map(([v, l]) => (
           <button key={v} type="button" className={`qr${authenticity === v ? ' on' : ''}`} aria-pressed={authenticity === v} onClick={() => setAuthenticity(v)}>{l}</button>
         ))}
       </div>

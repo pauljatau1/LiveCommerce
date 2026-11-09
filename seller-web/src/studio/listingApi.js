@@ -2,6 +2,7 @@
 import axios from 'axios';
 import { BASE_URL, BASE_URL_V2 } from '@/Constants/Server';
 import { tokenUtils } from '@/util/auth';
+import { LAUNCH_CATEGORIES } from './catalogue';
 
 const auth = () => ({ headers: { Authorization: `Bearer ${tokenUtils.getBearerToken()}` } });
 
@@ -67,7 +68,10 @@ export const fetchCategories = async () => {
   try {
     const res = await axios.get(`${BASE_URL}/public/categories`);
     const rows = res.data?.categories || res.data?.data || res.data || [];
-    return Array.isArray(rows) ? rows.map((c) => ({ name: c.name, subCategories: (c.subCategories || []).map((s) => s.name || s) })) : [];
+    const all = Array.isArray(rows) ? rows.map((c) => ({ name: c.name, subCategories: (c.subCategories || []).map((s) => s.name || s) })) : [];
+    // Offer only the clothing categories once the server has them (older ones stay in the database)
+    const launch = LAUNCH_CATEGORIES.map((name) => all.find((c) => c.name === name)).filter(Boolean);
+    return launch.length ? launch : all;
   } catch {
     return [];
   }

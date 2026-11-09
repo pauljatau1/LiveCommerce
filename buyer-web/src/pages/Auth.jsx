@@ -48,7 +48,7 @@ export default function Auth() {
           {mode === 'signup' && (
             <div className="fl">
               <label className="lab" htmlFor="au-u">Username</label>
-              <input id="au-u" className="in" value={form.username} onChange={set('username')} placeholder="e.g. luffy_lagos" autoComplete="username" autoCapitalize="none" />
+              <input id="au-u" className="in" value={form.username} onChange={set('username')} placeholder="e.g. ada_lagos" autoComplete="username" autoCapitalize="none" />
               <span className="hint">This is how you appear in chat and on bids.</span>
             </div>
           )}

@@ -41,10 +41,20 @@ describe('scripts/seed', () => {
   it('creates every category and links them to their group', async () => {
     await run();
     expect(await Category.countDocuments()).toBe(expectedCategories);
-    const anime = await MajorCategory.findOne({ name: 'Anime & Manga' }).populate('categories');
-    expect(anime.categories.map((c) => c.name)).toContain('Figures');
-    const figures = await Category.findOne({ name: 'Figures' });
-    expect(figures.subCategories.map((s) => s.name)).toContain('Blind boxes');
+    const clothing = await MajorCategory.findOne({ name: 'Clothing' }).populate('categories');
+    expect(clothing.categories.map((c) => c.name)).toEqual(['Women', 'Men', 'Thrift', 'Shoes', 'Bags', 'Accessories']);
+    const women = await Category.findOne({ name: 'Women' });
+    expect(women.subCategories.map((s) => s.name)).toContain('Dresses');
+  });
+
+  it('adds the clothing categories and leaves older ones alone', async () => {
+    const figures = await Category.create({ name: 'Figures', subCategories: [{ name: 'Prize figures' }] });
+    await MajorCategory.create({ name: 'Anime & Manga', categories: [figures._id] });
+    await run();
+    expect(await Category.findOne({ name: 'Figures' })).not.toBeNull();
+    const anime = await MajorCategory.findOne({ name: 'Anime & Manga' });
+    expect(anime.categories.map(String)).toEqual([String(figures._id)]);
+    expect(await Category.countDocuments()).toBe(expectedCategories + 1);
   });
 
   it('is safe to run twice', async () => {
