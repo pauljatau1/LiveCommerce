@@ -288,6 +288,11 @@ const sellerSchema = new mongoose.Schema({
       default: new Map()
     }
   },
+  // Weekly show slot, Lagos time (services/weeklySlot.js): day 0 = Sunday … 6 = Saturday, time "19:00"
+  weeklySlot: {
+    day: { type: Number, min: 0, max: 6 },
+    time: { type: String }
+  },
   // "Use these notes for my next shows" (services/showNotes.js)
   defaultShowNotes: {
     howToBuy: String,

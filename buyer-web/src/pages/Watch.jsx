@@ -532,8 +532,13 @@ export default function Watch() {
   if (phase === 'error') return <div className="app"><Header back="/" /><div className="center"><div className="card empty"><span className="f" style={{ fontSize: 18 }}>{loadError}</span><Link to="/" className="btn2">See other shows</Link></div></div></div>;
   if (phase === 'ended' || (show && show.status !== 'live')) {
     const scheduled = show?.status === 'scheduled';
+    // A show in the host's weekly slot gets a repeating invite: "Add every Saturday to calendar"
+    const slot = hostStats?.slot;
+    const lagos = show?.scheduledStartTime ? new Date(new Date(show.scheduledStartTime).getTime() + 3600000) : null;
+    const inSlot = Boolean(slot && lagos && lagos.getUTCDay() === slot.day && `${String(lagos.getUTCHours()).padStart(2, '0')}:${String(lagos.getUTCMinutes()).padStart(2, '0')}` === slot.time);
+    const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][slot?.day] || '';
     const calendar = scheduled && show?.scheduledStartTime
-      ? showEvent({ title: show.title, host: host.storeName || host.businessName, start: show.scheduledStartTime, url: window.location.href })
+      ? showEvent({ title: inSlot ? `${host.storeName || host.businessName || 'Live show'} live` : show.title, host: inSlot ? '' : host.storeName || host.businessName, start: show.scheduledStartTime, url: window.location.href, weekly: inSlot })
       : null;
     return (
       <div className="app">
@@ -556,7 +561,7 @@ export default function Watch() {
             <button type="button" className="btn" style={{ minHeight: 56 }} onClick={() => window.location.reload()}>Watch now</button>
           ) : scheduled && calendar ? (
             <>
-              <a className="btn" style={{ minHeight: 56 }} href={icsHref(calendar)} download="show.ics">Add to calendar</a>
+              <a className="btn" style={{ minHeight: 56 }} href={icsHref(calendar)} download="show.ics">{inSlot ? `Add every ${dayName} to calendar` : 'Add to calendar'}</a>
               <a className="link" style={{ alignSelf: 'center' }} href={googleCalendarUrl(calendar)} target="_blank" rel="noreferrer">Or add it to Google Calendar</a>
               <span className="hint" style={{ textAlign: 'center' }}>No account needed to watch. Come back to this link when it starts.</span>
             </>
@@ -774,7 +779,10 @@ export default function Watch() {
           <span className="mut">{sheet.orderId ? `Order #${sheet.orderId} · ` : ''}Paid from your wallet</span>
           {sheet.type === 'won' && <span className="mut">Win more from this show and it all ships together, one delivery fee.</span>}
           {!following && show?.seller?._id && (
-            <button type="button" className="btn2" onClick={() => follow()}>Follow {hostName}</button>
+            <button type="button" className="btn2 two-line" onClick={() => follow()}>
+              <span>Follow {hostName}</span>
+              {hostStats?.slot?.label && <small>{hostStats.slot.label}</small>}
+            </button>
           )}
           <Link to="/orders" className="link" style={{ alignSelf: 'center' }}>View order</Link>
           <button type="button" className="btn" onClick={() => setSheet(null)}>Keep watching</button>

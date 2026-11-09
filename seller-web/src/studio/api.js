@@ -36,6 +36,9 @@ export const studio = {
   notesDraft: (plan) => post(`${BASE_URL_V2}/studio/show-notes/draft`, plan),
   notesDefault: () => get(`${BASE_URL_V2}/studio/show-notes/default`),
   saveNotes: (id, notes, saveAsDefault = false) => axios.put(`${BASE_URL_V2}/studio/shows/${id}/notes`, { notes, saveAsDefault }, { ...auth(), timeout: 30000 }).then((r) => r.data),
+  slot: () => get(`${BASE_URL_V2}/studio/slot`),
+  saveSlot: (day, time) => axios.put(`${BASE_URL_V2}/studio/slot`, { day, time }, { ...auth(), timeout: 30000 }).then((r) => r.data),
+  nextPlan: (id) => get(`${BASE_URL_V2}/studio/shows/${id}/next-plan`),
   addTime: (id, productId, seconds = 30) => post(`${BASE_URL_V2}/studio/shows/${id}/auction/time`, { productId, seconds }),
   chat: (id) => get(`${BASE_URL}/streams/${id}/chat`).catch(() => []),
 };

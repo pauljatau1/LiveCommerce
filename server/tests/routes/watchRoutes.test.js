@@ -158,9 +158,9 @@ describe('host rating and follow state', () => {
   it('shows "New host" under 5 ratings, then the average', async () => {
     const sellerId = show.seller;
     await mongoose.connection.collection('sellers').insertOne({ _id: sellerId, email: 'a@x.ng', agoraUid: 71, storeName: 'Tolu', stats: { averageRating: 4.83, totalReviews: 4 }, followers: [] });
-    expect((await request(app).get(`/api/v2/watch/${show._id}/summary`)).body.host).toEqual({ rating: null, ratings: 4, isNew: true });
+    expect((await request(app).get(`/api/v2/watch/${show._id}/summary`)).body.host).toEqual({ rating: null, ratings: 4, isNew: true, slot: null });
     await Seller.collection.updateOne({ _id: sellerId }, { $set: { 'stats.totalReviews': 5 } });
-    expect((await request(app).get(`/api/v2/watch/${show._id}/summary`)).body.host).toEqual({ rating: 4.8, ratings: 5, isNew: false });
+    expect((await request(app).get(`/api/v2/watch/${show._id}/summary`)).body.host).toEqual({ rating: 4.8, ratings: 5, isNew: false, slot: null });
   });
 
   it('tells a buyer whether they follow the host', async () => {

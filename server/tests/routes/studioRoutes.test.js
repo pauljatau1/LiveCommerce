@@ -126,4 +126,29 @@ describe('studio routes', () => {
     const drafted = await request(app).post('/api/v2/studio/show-notes/draft').send({ title: 'x', type: 'drop', items: [] }).expect(200);
     expect(drafted.body.notes.payment).toMatch(/^Never pay outside the app\./);
   });
+
+  it('weekly slot: save it, and "Same time next week?" plans unsold + new items for the next slot', async () => {
+    await request(app).put('/api/v2/studio/slot').send({ day: 9, time: '19:00' }).expect(400);
+    const saved = await request(app).put('/api/v2/studio/slot').send({ day: 6, time: '19:00' }).expect(200);
+    expect(saved.body.slot).toMatchObject({ day: 6, time: '19:00', saved: true, label: 'Live every Saturday at 7pm' });
+
+    const start = new Date(Date.now() - 3 * 3600 * 1000);
+    const past = await Stream.create({ seller: mockSellerId, title: 'Saturday thrift', category: 'Women', channelName: 'c11', status: 'ended', type: 'auction', scheduledStartTime: start, actualStartTime: start, endTime: new Date(), products: [{ product: { productId: String(figure), name: 'Gojo figure' }, minBid: 20000, maxBid: 2000000, auctionSeconds: 60, bidStatus: 'ended' }] });
+    await Stream.deleteMany({ title: 'Friday drop' }); // free the figure from the upcoming show
+    const fresh = (await Product.collection.insertOne({ name: 'Ankara two-piece', price: 9000, stock: 2, status: 'active', seller: mockSellerId, images: [], createdAt: new Date(), seo: { slug: 'a2p' }, inventory: { sku: 'a2p' } })).insertedId;
+
+    const res = await request(app).get(`/api/v2/studio/shows/${past._id}/next-plan`).expect(200);
+    expect(res.body.counts).toEqual({ unsold: 1, new: 1 });
+    expect(new Date(res.body.plan.scheduledStartTime).toISOString()).toBe(new Date(res.body.slot.next).toISOString());
+    expect(new Date(res.body.plan.scheduledStartTime).getUTCDay()).toBe(6);
+    // Cheapest first; the unsold item keeps its starting bid and auction time
+    expect(res.body.plan.products).toEqual([
+      expect.objectContaining({ product: { productId: String(fresh) }, minBid: 5500, auctionSeconds: 30 }),
+      expect.objectContaining({ product: { productId: String(figure) }, minBid: 20000, auctionSeconds: 60 }),
+    ]);
+
+    const recap = await request(app).get(`/api/v2/studio/shows/${past._id}/recap`).expect(200);
+    expect(recap.body.slot.label).toBe('Live every Saturday at 7pm');
+    expect(recap.body.payout.rule).toBe('Each order pays out 1 day after delivery.');
+  });
 });

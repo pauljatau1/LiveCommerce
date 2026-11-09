@@ -283,11 +283,78 @@ router.get('/shows/:id/recap', validId, async (req, res) => {
         toBook: deliveries.filter((d) => d.status === 'paid').length,
         booked: deliveries.filter((d) => ['booked', 'in_transit', 'delivered'].includes(d.status)).length,
       },
+      // Money on the way: each order pays out 1 day after delivery
+      payout: { onTheWay: sold.filter((i) => i.delivery !== 'cancelled').reduce((n, i) => n + i.amount, 0), rule: 'Each order pays out 1 day after delivery.' },
+      slot: await slotView(req.user.id, started),
     });
   } catch (e) { fail(res, e); }
 });
 
 // ---- Money ----
+// ---------- Weekly slot (services/weeklySlot.js) ----------
+const weeklySlot = require('../services/weeklySlot');
+// The seller's slot, or the one this show suggests
+const slotView = async (sellerId, showStart) => {
+  const seller = await model('Seller').findById(sellerId).select('weeklySlot').lean();
+  const saved = weeklySlot.validSlot(seller?.weeklySlot) ? { day: seller.weeklySlot.day, time: seller.weeklySlot.time } : null;
+  const slot = saved || (showStart ? weeklySlot.slotFromDate(showStart) : null);
+  return slot ? { ...slot, saved: Boolean(saved), label: weeklySlot.label(slot), next: weeklySlot.nextOccurrence(slot) } : null;
+};
+
+// GET/PUT /api/v2/studio/slot { day, time } → "Live every Saturday at 7pm"
+router.get('/slot', async (req, res) => {
+  try { res.json({ success: true, slot: await slotView(req.user.id) }); } catch (error) { fail(res, error); }
+});
+router.put('/slot', async (req, res) => {
+  try {
+    const slot = { day: Number(req.body?.day), time: String(req.body?.time || '') };
+    if (!weeklySlot.validSlot(slot)) return res.status(400).json({ success: false, message: 'Pick a day and a time, like Saturday 19:00.' });
+    await model('Seller').updateOne({ _id: oid(req.user.id) }, { $set: { weeklySlot: slot } });
+    res.json({ success: true, slot: await slotView(req.user.id) });
+  } catch (error) { fail(res, error); }
+});
+router.delete('/slot', async (req, res) => {
+  try { await model('Seller').updateOne({ _id: oid(req.user.id) }, { $unset: { weeklySlot: 1 } }); res.json({ success: true, slot: null }); } catch (error) { fail(res, error); }
+});
+
+// GET /api/v2/studio/shows/:id/next-plan → "Same time next week?": the next slot, with this
+// show's unsold items plus new listings, cheapest first so the room warms up. The studio
+// sends it straight to the usual create-show call, so one tap books it.
+router.get('/shows/:id/next-plan', validId, async (req, res) => {
+  try {
+    const s = await model('Stream').findOne({ _id: oid(req.params.id), seller: oid(req.user.id) }).lean();
+    if (!s) return res.status(404).json({ success: false, message: 'Show not found' });
+    const slot = await slotView(req.user.id, s.actualStartTime || s.scheduledStartTime);
+    if (!slot) return res.status(400).json({ success: false, message: 'Pick a weekly day and time first.' });
+    const soldIds = new Set((s.orders || []).map((o) => String(o.product)));
+    const byId = new Map((s.products || []).map((p) => [productIdOf(p), p]));
+    const lined = await productsInShows(req.user.id);
+    const products = await model('Product').find({ seller: oid(req.user.id), status: { $ne: 'draft' }, stock: { $gt: 0 } }, { name: 1, price: 1, stock: 1, images: 1, createdAt: 1 }).lean();
+    const unsold = products.filter((p) => byId.has(String(p._id)) && !soldIds.has(String(p._id)));
+    const fresh = products.filter((p) => !byId.has(String(p._id)) && !lined.has(String(p._id)) && new Date(p.createdAt) >= new Date(s.scheduledStartTime || s.createdAt || 0));
+    const picked = [...unsold, ...fresh].sort((a, b) => (a.price || 0) - (b.price || 0)).slice(0, 12);
+    if (!picked.length) return res.json({ success: true, plan: null, slot, message: 'Nothing to sell yet: list a few items and I will plan it.' });
+    const type = s.type === 'open_show' ? 'drop' : 'auction';
+    const startBid = (p) => byId.get(String(p._id))?.minBid || Math.max(500, Math.round(((p.price || 0) * 0.6) / 500) * 500);
+    res.json({
+      success: true,
+      slot,
+      counts: { unsold: unsold.length, new: fresh.length },
+      plan: {
+        type,
+        title: s.title,
+        description: s.description,
+        category: s.category || 'Clothing',
+        scheduledStartTime: slot.next,
+        items: picked.map((p) => ({ _id: p._id, name: p.name, price: p.price, image: image(p), unsold: byId.has(String(p._id)) })),
+        products: picked.map((p) => (type === 'auction'
+          ? { product: { productId: String(p._id) }, minBid: startBid(p), maxBid: Math.max(startBid(p) * 100, 1000000), auctionSeconds: byId.get(String(p._id))?.auctionSeconds || 30 }
+          : { product: { productId: String(p._id) } })),
+      },
+    });
+  } catch (error) { fail(res, error); }
+});
+
 // ---------- Show notes (services/showNotes.js) ----------
 const showNotes = require('../services/showNotes');
 const roomOf = (id) => `stream_notifications_${id}`;
