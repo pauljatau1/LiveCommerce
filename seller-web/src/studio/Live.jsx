@@ -11,6 +11,7 @@ import { tokenUtils } from '@/util/auth';
 import { studio, errorText, naira } from './api';
 import { Icon, Sheet } from './ui';
 import ShareSheet from './ShareSheet';
+import { feedEntryFor, winnerName } from './liveFeed';
 import NotesEditor, { NOTES_MAX, hasNotes, notesLength } from './NotesEditor';
 import { useIntercomVisibility } from '@/Hooks/useIntercomVisibility';
 
@@ -132,7 +133,7 @@ export default function Live() {
     socket.on('connect', () => socket.emit('stream_notification_subscribe', { streamId: id }));
     studio.chat(id).then((res) => {
       const list = Array.isArray(res) ? res : res?.chatInteractions || res?.data || [];
-      setFeed(list.filter((m) => m.type === 'comment').slice(-20).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, text: m.content })));
+      setFeed(list.filter((m) => m.type === 'comment' && !m.hidden).slice(-20).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, avatar: m.avatar, text: m.content })));
     });
     // Chat safety: messages with phone numbers, account numbers or links are hidden from buyers
     socket.on('notes_suggestion', (sg) => setSuggestions((l) => [...l.filter((x) => x.text !== sg.text), sg].slice(-3)));
@@ -142,16 +143,16 @@ export default function Live() {
     socket.on('chat_hidden_self', (h) => say(h?.message || 'Phone numbers, account numbers and links stay out of chat.'));
     socket.on('stream_notification', (n) => {
       const d = n?.data || {};
+      // Chat lines are built the same way as on the buyer's Watch (liveFeed.js)
+      const line = feedEntryFor(n);
+      if (line) push(line);
       switch (n?.type) {
-        case 'comment': push({ kind: 'comment', user: n.user, text: n.content }); break;
         case 'join': if (typeof d.viewerCount === 'number') setViewers(d.viewerCount); break;
         case 'new_bid':
           if (d.product) setItems((l) => l.map((p) => (p.productId === pid(d.product) ? { ...p, currentBid: d.bidAmount, currentBidder: n.user || p.currentBidder, bidStatus: 'active' } : p)));
-          push({ kind: 'bid', user: n.user, text: `bid ${naira(d.bidAmount)}` });
           break;
         case 'auction_winner':
-          push({ kind: 'win', user: n.user, text: `won it for ${naira(d.bidWinner?.bidAmount)}` });
-          say(`${n.user || 'A buyer'} won it for ${naira(d.bidWinner?.bidAmount)}`);
+          say(`${winnerName(d)} won it for ${naira(d.bidWinner?.bidAmount)}`);
           refresh().catch(() => {});
           break;
         case 'auction_end':
@@ -159,7 +160,6 @@ export default function Live() {
           refresh().catch(() => {});
           break;
         case 'buy_now':
-          push({ kind: 'buy', user: n.user, text: n.content || 'bought one' });
           if (d.productId) setItems((l) => l.map((p) => (p.productId === String(d.productId) ? { ...p, stock: typeof d.stockLeft === 'number' ? d.stockLeft : p.stock, sold: p.sold + (d.quantity || 1) } : p)));
           refresh().catch(() => {});
           break;
@@ -243,43 +243,39 @@ export default function Live() {
     }
   };
 
+  // The current item as text on the bottom fade, like the buyer's Watch
+  const soldOut = current && current.stock <= 0;
   const ItemCard = (
     current ? (
-      <section aria-label="Current item" className="lv-card">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {current.image ? <img src={current.image} alt="" style={{ width: 56, height: 56, borderRadius: 16, objectFit: 'cover' }} /> : <span className="sk" style={{ width: 56, height: 56 }} />}
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <span className="cap">ITEM {items.indexOf(current) + 1} OF {items.length} · {isAuction ? 'AUCTION' : 'BUY NOW DROP'}</span>
-            <span style={{ fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{current.name}</span>
-            {isAuction
-              ? <span className="f" style={{ fontSize: 28, lineHeight: 1.05 }}>{naira(current.winner?.amount || current.currentBid || current.minBid)}</span>
-              : <span className="f" style={{ fontSize: 24, lineHeight: 1.05 }}>{naira(current.price)}</span>}
-            {isAuction && <span className="mut" style={{ fontSize: 13 }}>{current.winner ? <><strong style={{ color: 'var(--text)' }}>{current.winner.name || 'A buyer'}</strong> won it</> : current.currentBid ? <><strong style={{ color: 'var(--text)' }}>{current.currentBidder || 'Someone'}</strong> winning</> : running ? 'No bids yet' : `Bids start at ${naira(current.minBid)}`}</span>}
+      <section aria-label="Current item" className="lv-panel">
+        <div className="lv-now">
+          {current.image ? <img src={current.image} alt="" className="lv-thumb" /> : <span className="sk lv-thumb" />}
+          <div className="lv-now-tx">
+            <span className="lv-cap">Item {items.indexOf(current) + 1} of {items.length} · {isAuction ? 'Auction' : 'Buy Now drop'}</span>
+            <span className="lv-title">{current.name}</span>
           </div>
-          {isAuction && running && (
-            <div aria-label={`${secs ?? total} seconds left`} style={{ flex: 'none', width: 76, height: 76, borderRadius: '50%', background: `conic-gradient(${(secs ?? total) <= 5 ? 'var(--danger)' : (secs ?? total) <= 10 ? 'var(--warning)' : 'var(--primary)'} 0 ${Math.min(100, ((secs ?? total) / total) * 100)}%, var(--primary-soft) 0 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span className="f" style={{ width: 62, height: 62, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{clock(secs ?? total)}</span>
-            </div>
-          )}
         </div>
-        {!isAuction && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }} role="status">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}><span className="f" style={{ fontSize: 20 }}>{current.stock} left</span><span style={{ fontWeight: 800, color: 'var(--accent)' }}>{current.sold} sold{current.soldAmount ? ` · ${naira(current.soldAmount)}` : ''}</span></div>
-            <div style={{ height: 12, borderRadius: 999, background: 'var(--surface-sunken)' }}><div style={{ width: `${(current.sold / Math.max(1, current.sold + current.stock)) * 100}%`, height: '100%', borderRadius: 999, background: 'var(--accent)' }} /></div>
-          </div>
-        )}
-        {isAuction && !running && !current.winner && current.bidStatus !== 'ended' && <button type="button" className="btn" style={{ minHeight: 56 }} disabled={Boolean(busy) || phase !== 'live'} onClick={startBids}>{busy === 'bid' ? 'Starting…' : `Start bidding · ${clock(current.auctionSeconds || 30)}`}</button>}
+        <div className="lv-price-row">
+          <span className="f lv-price">{naira(isAuction ? current.winner?.amount || current.currentBid || current.minBid : current.price)}</span>
+          <span className="lv-grow" />
+          {isAuction && running && <span className={`f lv-clock${(secs ?? total) <= 10 ? ' hot' : ''}`} role="timer" aria-label={`${secs ?? total} seconds left`}>{clock(secs ?? total)}</span>}
+        </div>
+        <span className="lv-meta" role="status">
+          {isAuction
+            ? current.winner ? `${current.winner.name || 'A buyer'} won it` : current.currentBid ? `${current.currentBidder || 'Someone'} winning` : running ? 'No bids yet' : `Bids start at ${naira(current.minBid)}`
+            : `${current.stock} of ${current.stock + current.sold} left${current.sold ? ` · ${current.sold} sold · ${naira(current.soldAmount)}` : ''}`}
+        </span>
+        {isAuction && !running && !current.winner && current.bidStatus !== 'ended' && <button type="button" className="btn lv-go" disabled={Boolean(busy) || phase !== 'live'} onClick={startBids}>{busy === 'bid' ? 'Starting…' : `Start bidding · ${clock(current.auctionSeconds || 30)}`}</button>}
         {isAuction && running && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" className="btn2" style={{ minHeight: 48, flex: 'none' }} disabled={Boolean(busy)} onClick={addTime}>{busy === 'time' ? 'Adding…' : '+30s'}</button>
-            <button type="button" className="btn3" style={{ minHeight: 48, flex: 1 }} disabled={Boolean(busy)} onClick={endNow}>{busy === 'end' ? 'Ending…' : current.currentBid ? 'End now · sell' : 'End now'}</button>
+          <div className="lv-actions">
+            <button type="button" className="lv-ghost" style={{ flex: 'none' }} disabled={Boolean(busy)} onClick={addTime}>{busy === 'time' ? 'Adding…' : '+30s'}</button>
+            <button type="button" className="lv-ghost" style={{ flex: 1 }} disabled={Boolean(busy)} onClick={endNow}>{busy === 'end' ? 'Ending…' : current.currentBid ? 'End now · sell' : 'End now'}</button>
           </div>
         )}
-        {isAuction && running && <span className="hint" style={{ textAlign: 'center' }}>The highest bid when the timer ends wins and is charged. A bid in the last 5 seconds adds 5 seconds.</span>}
-        {isAuction && (current.winner || current.bidStatus === 'ended') && queue.find((q) => q.bidStatus !== 'ended') && <button type="button" className="btn" style={{ minHeight: 56 }} disabled={Boolean(busy)} onClick={() => pick(queue.find((q) => q.bidStatus !== 'ended'))}>Next item</button>}
+        {isAuction && (current.winner || current.bidStatus === 'ended') && queue.find((q) => q.bidStatus !== 'ended') && <button type="button" className="btn lv-go" disabled={Boolean(busy)} onClick={() => pick(queue.find((q) => q.bidStatus !== 'ended'))}>Next item</button>}
         {!isAuction && (current.isVisible
-          ? <button type="button" className="btn3" style={{ minHeight: 52 }} disabled={Boolean(busy)} onClick={endDrop}>{busy === 'hide' ? 'Ending…' : 'Take off sale'}</button>
-          : <button type="button" className="btn" style={{ minHeight: 56 }} disabled={Boolean(busy) || phase !== 'live' || current.stock <= 0} onClick={() => putUp(current)}>{current.stock <= 0 ? 'Sold out' : busy === 'show' ? 'Putting on sale…' : 'Put on sale'}</button>)}
+          ? <button type="button" className="lv-ghost" disabled={Boolean(busy)} onClick={endDrop}>{busy === 'hide' ? 'Ending…' : 'Take off sale'}</button>
+          : <button type="button" className="btn lv-go" disabled={Boolean(busy) || phase !== 'live' || soldOut} onClick={() => putUp(current)}>{soldOut ? 'Sold out' : busy === 'show' ? 'Putting on sale…' : 'Put on sale'}</button>)}
       </section>
     ) : null
   );
@@ -292,15 +288,23 @@ export default function Live() {
           {q.image ? <img src={q.image} alt="" /> : <span className="sk" style={{ width: '100%', height: '100%' }} />}
         </button>
       ))}
-      <button type="button" className="lv-q lv-all" aria-label="See all items" onClick={() => setQueueOpen(true)}>All</button>
+      <button type="button" className="lv-all" onClick={() => setQueueOpen(true)}>All</button>
     </div>
   );
 
   const Chat = (
     <div className="lv-feed" aria-live="polite" aria-label="Live chat">
-      {feed.map((m) => (
-        m.kind === 'comment'
-          ? <div key={m.id} className="lv-ch"><b>{m.user}</b> {m.text}</div>
+      {feed.slice(-6).map((m) => (
+        m.kind !== 'hidden'
+          ? (
+            <div key={m.id} className={`line ${m.kind}`}>
+              {m.kind !== 'sys' && <span className="ava" aria-hidden="true">{m.avatar ? <img src={m.avatar} alt="" /> : (m.user || '?').slice(0, 1).toUpperCase()}</span>}
+              <span className="line-tx">
+                {m.user && m.kind !== 'sys' && <span className="nm">{m.user}</span>}
+                <span className="tx">{m.text}</span>
+              </span>
+            </div>
+          )
           : m.kind === 'hidden'
             ? (
               <div key={m.id} className="lv-hid">
@@ -309,7 +313,7 @@ export default function Live() {
                 <span className="lv-hid-tx">{m.user}: “{m.text}”</span>
               </div>
             )
-            : <div key={m.id} className={`lv-ev lv-${m.kind}`}>{m.kind === 'bid' ? '↑ ' : ''}{m.user} {m.text}</div>
+            : null
       ))}
       <span ref={feedEnd} />
     </div>
@@ -357,32 +361,38 @@ export default function Live() {
 
   return (
     <div className="studio-app lv">
+      {/* One slim row: the LIVE chip with the viewer count, the show time, End show */}
       <header className="lv-top">
-        <span className="lv-tp" style={{ background: phase === 'reconnecting' ? 'var(--warning)' : 'var(--live)', color: '#fff' }}>{phase === 'connecting' ? 'Starting…' : phase === 'reconnecting' ? 'Reconnecting…' : '● LIVE'}</span>
-        <span className="lv-tp" aria-label={`${viewers} watching`}>{Icon.eye}{viewers}</span>
-        <span className="lv-tp">{clock(elapsed)}</span>
-        <span className="lv-tp lv-desk-only" style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{show?.title}</span>
-        <span className="lv-tp lv-desk-only">{sales.count} sold · {naira(sales.amount)}</span>
+        <span className={`lv-live${phase === 'reconnecting' ? ' warn' : ''}`} aria-label={`${phase === 'connecting' ? 'Starting' : phase === 'reconnecting' ? 'Reconnecting' : 'Live'}, ${viewers} watching`}>
+          {phase === 'connecting' ? 'Starting…' : phase === 'reconnecting' ? 'Reconnecting…' : '● LIVE'} · {viewers}
+        </span>
+        <span className="lv-time">{clock(elapsed)}</span>
+        <span className="lv-desk-only lv-title-top">{show?.title}</span>
+        <span className="lv-desk-only lv-time">{sales.count} sold · {naira(sales.amount)}</span>
         <span style={{ flex: 1 }} />
-        {show?.link && <button type="button" className="lv-tp" style={{ minHeight: 44, border: 0, cursor: 'pointer' }} onClick={() => setSharing(true)} aria-label="Share your show">{Icon.share}<span className="lv-desk-only">Share</span></button>}
-        <button type="button" className="lv-tp" style={{ minHeight: 44, border: 0, cursor: 'pointer' }} onClick={() => setConfirmEnd(true)} disabled={phase === 'ending'}>{phase === 'ending' ? 'Ending…' : 'End show'}</button>
+        <button type="button" className="lv-end" onClick={() => setConfirmEnd(true)} disabled={phase === 'ending'}>{phase === 'ending' ? 'Ending…' : 'End show'}</button>
       </header>
 
       <div className="lv-body">
-        <aside className="lv-left">{ItemCard}<div className="card lv-desk-only" style={{ padding: 12 }}>{Queue}</div></aside>
+        <aside className="lv-left"><div className="lv-desk-only" style={{ flexDirection: 'column', gap: 8 }}><span className="h2">Up next</span>{Queue}</div></aside>
         <section className="lv-cam" aria-label="Your camera">
           <div ref={videoRef} className="lv-video" />
           {phase === 'error' && (
             <div className="lv-overlay"><span>{error}</span><button type="button" className="btn2" onClick={() => window.location.reload()}>Try again</button><button type="button" className="link" style={{ color: '#fff' }} onClick={() => navigate('/studio')}>Back to studio</button></div>
           )}
           {phase === 'connecting' && <div className="lv-overlay"><span>Starting your show…</span></div>}
-          <div className="lv-tools">
-            <button type="button" className="ib" aria-label={micOn ? 'Mute microphone' : 'Unmute microphone'} aria-pressed={!micOn} onClick={toggleMic} style={{ background: micOn ? 'rgba(255,255,255,.95)' : 'var(--danger)', color: micOn ? 'var(--text)' : '#fff' }}>{micOn ? Icon.mic : Icon.micOff}</button>
-            <button type="button" className="ib" aria-label="Flip camera" onClick={flip} style={{ background: 'rgba(255,255,255,.95)' }}>{Icon.flip}</button>
-          </div>
-          <div className="lv-phone-only lv-chat-over">{Prompts}{Chat}</div>
-          <div className="lv-phone-only lv-bottom">
-            <div className="lv-queue-wrap">{Queue}</div>
+          <div className="lv-bottom">
+            {/* Chat on the left, controls on the right, like the buyer's Watch */}
+            <div className="lv-chatzone">
+              <div className="lv-chatcol lv-phone-only">{Prompts}{Chat}</div>
+              <span className="lv-grow lv-desk-only" />
+              <nav className="lv-rail" aria-label="Show controls">
+                {show?.link && <button type="button" className="lv-rb" onClick={() => setSharing(true)} aria-label="Share your show">{Icon.share}</button>}
+                <button type="button" className={`lv-rb${micOn ? '' : ' off'}`} aria-label={micOn ? 'Mute microphone' : 'Unmute microphone'} aria-pressed={!micOn} onClick={toggleMic}>{micOn ? Icon.mic : Icon.micOff}</button>
+                <button type="button" className="lv-rb" aria-label="Flip camera" onClick={flip}>{Icon.flip}</button>
+              </nav>
+            </div>
+            <div className="lv-queue-wrap lv-phone-only">{Queue}</div>
             {ItemCard}
           </div>
         </section>
