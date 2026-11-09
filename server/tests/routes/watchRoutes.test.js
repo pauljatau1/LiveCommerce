@@ -11,6 +11,16 @@ jest.mock('@/middlewares/authMiddleware', () => ({
 }));
 
 jest.mock('@/services/agoraService', () => ({ generateToken: jest.fn(() => 'agora-token') }));
+jest.mock('@/services/deliveryEstimate', () => {
+  class EstimateUnavailable extends Error {}
+  return {
+    EstimateUnavailable,
+    estimate: jest.fn(async ({ city }) => {
+      if (!city) throw new EstimateUnavailable('Pick your state and area to see delivery.');
+      return { amount: 2500, area: city, cached: true };
+    }),
+  };
+});
 
 const Stream = require('@models/Stream');
 
@@ -110,5 +120,23 @@ describe('GET /api/v2/watch/:id/me', () => {
     expect(res.body.depositDue).toBe(3000);
     mockUser = null;
     await request(app).get(`/api/v2/watch/${show._id}/me`).expect(401);
+  });
+});
+
+describe('GET /api/v2/watch/:id/estimate', () => {
+  it('estimates delivery to an area for anyone, and to the saved address for a buyer', async () => {
+    const jwt = require('jsonwebtoken');
+    mockUser = null;
+    const res = await request(app).get(`/api/v2/watch/${show._id}/estimate?state=Lagos&city=Lekki`).expect(200);
+    expect(res.body).toMatchObject({ available: true, amount: 2500, area: 'Lekki', deposit: 3000 });
+
+    const none = await request(app).get(`/api/v2/watch/${show._id}/estimate`).expect(200);
+    expect(none.body).toMatchObject({ available: false, message: expect.stringMatching(/Pick your state/) });
+
+    const buyerId = new mongoose.Types.ObjectId();
+    await mongoose.connection.collection('buyers').insertOne({ _id: buyerId, shippingAddresses: [{ state: 'Lagos', city: 'Ikeja' }] });
+    const token = jwt.sign({ id: String(buyerId), role: 'Buyer' }, process.env.JWT_SECRET);
+    const mine = await request(app).get(`/api/v2/watch/${show._id}/estimate`).set('Authorization', `Bearer ${token}`).expect(200);
+    expect(mine.body).toMatchObject({ available: true, area: 'Ikeja' });
   });
 });

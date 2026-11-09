@@ -425,5 +425,7 @@ module.exports = {
   releaseDeposit,
   statusFrom,
   packageFor,
+  sellerPickup,
+  sellerAddressCode,
   DeliveryError,
 };

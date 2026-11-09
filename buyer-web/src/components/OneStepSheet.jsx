@@ -2,13 +2,14 @@
 // the show. Only the missing parts are shown: an account, a delivery address,
 // and enough in the wallet. One button does them in order, then bids or buys.
 // The show keeps playing behind it.
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api, errorMessage, naira } from '../api';
 import { useAuth } from '../auth';
 import { PaymentCancelled, topUpWithPaystack } from '../payments';
 import { AddressFields, useAddressForm } from './AddressSheet';
 import GoogleButton, { googleEnabled } from './GoogleButton';
 import { Sheet } from './ui';
+import { deliveryLine } from './watch';
 
 // Top up a little above what's needed, in whole thousands; the rest stays in the wallet
 export const topUpFor = (need) => (need > 0 ? Math.max(1000, Math.ceil(need / 1000) * 1000) : 0);
@@ -29,6 +30,14 @@ export default function OneStepSheet({ action, deposit = 0, estimate = null, top
   const [busy, setBusy] = useState('');
   const [error, setError] = useState({ where: '', text: '' });
   const chatOnly = action.kind === 'chat' || action.kind === 'account';
+  const [est, setEst] = useState(null);
+  const { state: pickedState, city: pickedCity } = address.form;
+  useEffect(() => {
+    if (!pickedState || !pickedCity || !streamId) { setEst(null); return undefined; }
+    let live = true;
+    api.estimate(streamId, { state: pickedState, city: pickedCity }).then((r) => live && setEst(r)).catch(() => live && setEst(null));
+    return () => { live = false; };
+  }, [pickedState, pickedCity, streamId]);
 
   const needAccount = !signedIn;
   const needAddress = !chatOnly && !(buyer?.shippingAddresses || []).length;
@@ -160,7 +169,7 @@ export default function OneStepSheet({ action, deposit = 0, estimate = null, top
         <section className="step" aria-label="Delivery">
           <h3 className="step-h">Delivery</h3>
           <AddressFields address={address} askPhone={!buyer?.phoneNumber} idPrefix="os" />
-          {estimate}
+          {deliveryLine(est) ? <p style={{ margin: 0, fontWeight: 700 }}>{deliveryLine(est)}</p> : est?.message ? <span className="hint">{est.message}</span> : estimate}
           {errFor('address')}
         </section>
       )}

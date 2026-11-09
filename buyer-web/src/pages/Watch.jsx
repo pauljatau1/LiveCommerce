@@ -14,7 +14,7 @@ import OneStepSheet from '../components/OneStepSheet';
 import { googleCalendarUrl, icsHref, showEvent } from '../calendar';
 import { Header, Icon, Sheet } from '../components/ui';
 import {
-  ChatFeed, ItemThumb, ItemsList, MiniBidBar, RailButton, Timer,
+  ChatFeed, ItemThumb, ItemsList, MiniBidBar, RailButton, Timer, deliveryLine,
   idOf, nextBidFor, plural, priceOf, usePulse, who,
 } from '../components/watch';
 
@@ -69,6 +69,7 @@ export default function Watch() {
   const [showDeposit, setShowDeposit] = useState(0); // the show's delivery deposit (for a first item)
   const [depositDue, setDepositDue] = useState(null); // what this buyer still owes (null until known)
   const [wentLive, setWentLive] = useState(false);
+  const [estimate, setEstimate] = useState(null); // delivery estimate to the buyer's area
 
   const say = useCallback((kind, msg, ms = 3500) => {
     setToast({ kind, msg });
@@ -105,6 +106,13 @@ export default function Watch() {
     if (!signedIn) { setDepositDue(null); return; }
     api.watchMe(streamId).then((r) => setDepositDue(Number(r?.depositDue) || 0)).catch(() => setDepositDue(null));
   }, [signedIn, streamId]);
+
+  // Delivery estimate from this host to the buyer's saved area (before and during the show)
+  const addressKey = (buyer?.shippingAddresses || []).map((a) => `${a.city}|${a.state}`).join(',');
+  useEffect(() => {
+    if (!signedIn || !addressKey) { setEstimate(null); return; }
+    api.estimate(streamId).then(setEstimate).catch(() => setEstimate(null));
+  }, [signedIn, addressKey, streamId]);
 
   // A scheduled show page notices when the host goes live
   useEffect(() => {
@@ -510,6 +518,7 @@ export default function Watch() {
           <div>
             <h1 className="f" style={{ margin: 0, fontSize: 24 }}>{show?.title}</h1>
             <p className="mut" style={{ margin: '4px 0 0' }}>{host.storeName || host.businessName}{items.length ? ` · ${items.length} item${items.length > 1 ? 's' : ''}` : ''}</p>
+            {scheduled && deliveryLine(estimate) && <p style={{ margin: '4px 0 0', fontWeight: 700 }}>{deliveryLine(estimate)}</p>}
           </div>
           {phase === 'ended' || show?.status === 'ended' ? (
             <p style={{ margin: 0, fontWeight: 700 }}>This show has ended. Follow the host so you don't miss the next one.</p>
@@ -650,6 +659,7 @@ export default function Watch() {
                 {auctionLive && <Timer secs={secs} plus={plusSecs} />}
               </div>
 
+              {(auctionLive || (!isAuction && stock !== 0)) && deliveryLine(estimate) && <span className="now-meta">{deliveryLine(estimate)}</span>}
               {auctionLive && (
                 <div className="bidrow">
                   <button type="button" className="btn2 on-dark" disabled={busy} onClick={() => setSheet({ type: 'bid' })}>Bid more</button>
