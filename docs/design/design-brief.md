@@ -1,12 +1,12 @@
 # LiveCommerce design brief
 
-Source: Claude Design canvas "[brand] Live Shopping — 3 Directions" (https://claude.ai/artifact/3X9Mrspfc9BfEoih35kabY), read 9 Nov 2026. Companion to `livecommerce-mvp-brief.md`.
+Source: Claude Design canvas "[brand] Live Shopping — 3 Directions" (https://claude.ai/artifact/3X9Mrspfc9BfEoih35kabY), read 9 Nov 2026. Companion to `docs/mvp-brief.md`.
 
-> **Superseded in part (9 Nov 2026):** the final design is the canvas at https://claude.ai/artifact/36U4kh9KJVCDFg7277cFrV, and its build rules are in `livecommerce-build-update.md`. Where the two disagree, the build update wins. The main differences are a minimal live style (space, not boxes; no tinted cards), clothing instead of collectibles, no size fields, the working name "gbam", and two new tokens (primary-on-dark #A9E5C6, warning-on-dark #FFC46B). Tokens, fonts and voice below still apply.
+> **Superseded in part (9 Nov 2026):** the final design is the canvas at https://claude.ai/artifact/36U4kh9KJVCDFg7277cFrV, and its build rules are in `docs/build-update.md`. Where the two disagree, the build update wins. The main differences are a minimal live style (space, not boxes; no tinted cards), clothing instead of collectibles, no size fields, the working name "gbam", and two new tokens (primary-on-dark #A9E5C6, warning-on-dark #FFC46B). Tokens, fonts and voice below still apply.
 
 ## Where the design lives
 - **Full canvas exports (HTML, open in a browser):** on Paul's Mac in `Downloads/Livecommerce Build/Livecommerce design`. "Seller Live Shopping — 3 Directions (2).html" has the seller studio (46 frames); "[brand] Live Shopping — 3 Directions.html" has the buyer app (13 frames). They are too large for this project.
-- **Screen text, frame by frame (in this project):** `design/livecommerce-screens-seller.md` and `design/livecommerce-screens-buyer.md`.
+- **Screen text, frame by frame (in this project):** `docs/design/screens-seller.md` and `docs/design/screens-buyer.md`.
 - **Not exported yet:** the "3 directions" page. Its notes are summarised below.
 
 ## Directions explored

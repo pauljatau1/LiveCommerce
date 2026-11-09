@@ -1,6 +1,6 @@
 # LiveCommerce build update (9 Nov 2026)
 
-The build brief for the final design, written to paste into Claude Code. It replaces the earlier "what's next" list in `livecommerce-mvp-brief.md` and is the source of truth for the build. The design canvas for humans is https://claude.ai/artifact/36U4kh9KJVCDFg7277cFrV.
+The build brief for the final design, written to paste into Claude Code. It replaces the earlier "what's next" list in `docs/mvp-brief.md` and is the source of truth for the build. The design canvas for humans is https://claude.ai/artifact/36U4kh9KJVCDFg7277cFrV.
 
 ---
 

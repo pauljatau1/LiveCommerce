@@ -1,6 +1,6 @@
 # LiveCommerce design: Seller studio screen text
 
-Every frame on the "Seller studio" page of the design canvas, as the words on screen. Direction C (Group Chat: clean & warm). Read with livecommerce-design-brief.md. Full visual files are kept on Paul's Mac in "Livecommerce Build/Livecommerce design".
+Every frame on the "Seller studio" page of the design canvas, as the words on screen. Direction C (Group Chat: clean & warm). Read with `docs/design/design-brief.md`. Full visual files are kept on Paul's Mac in "Livecommerce Build/Livecommerce design".
 
 
 ## Typography & colour tokens

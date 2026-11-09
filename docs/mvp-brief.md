@@ -6,7 +6,7 @@ Worked out from the repo (`pauljatau1/LiveCommerce`, PRs #1–#22, 3–8 Nov 202
 A live auction and drop show for **selling clothes** in Nigeria (working name **gbam**). A seller goes live from a web studio, buyers open a share link and watch without an account, bid or Buy Now from a prepaid wallet, and each buyer's items ship as one package after the show.
 
 ## Build update (9 Nov 2026): what changed
-The design is final and the next build is set out in **`livecommerce-build-update.md`**. That file is the source of truth for Claude Code: 11 items, one PR each, starting with a gap report. In short:
+The design is final and the next build is set out in **`docs/build-update.md`**. That file is the source of truth for Claude Code: 11 items, one PR each, starting with a gap report. In short:
 - **Launch category is now clothing** (Women, Men, Thrift, Shoes, Bags, Accessories). The anime and gaming categories from the seed are replaced. Condition: New with tags / Thrift / Fairly used, plus "Original or replica". **No size fields anywhere.** Size lives in the seller's own title or description.
 - **Brand:** "gbam" is the working name, kept in one config value.
 - **Minimal live style:** space, not boxes; green only for actions, red only for LIVE. Two new tokens: primary-on-dark #A9E5C6 and warning-on-dark #FFC46B.
@@ -44,7 +44,7 @@ The design is final and the next build is set out in **`livecommerce-build-updat
 - Production is not built yet. The plan is in `RELEASING.md`: a `production` branch, a new Atlas project, a new R2 bucket and live keys.
 
 ## What's left before launch
-0. Build the 11 items in `livecommerce-build-update.md`, one PR each.
+0. Build the 11 items in `docs/build-update.md`, one PR each.
 1. Run the full staging checklist in `RELEASING.md` end to end with two phones.
 2. Confirm viewers hear sound on Android and iOS Chrome (the tap-to-unmute fix has shipped; `?debug=1` helps check).
 3. Rotate every old Auqli credential.
