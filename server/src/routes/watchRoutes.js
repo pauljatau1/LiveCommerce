@@ -28,6 +28,16 @@ const REPORT_REASONS = ['Selling fakes as original', 'Asking to pay outside the 
 
 const validId = (req, res, next) => (mongoose.isValidObjectId(req.params.streamId) ? next() : res.status(404).json({ success: false, message: "We couldn't find this show." }));
 
+// The host's rating shows once they have MIN_RATINGS; before that buyers see "New host"
+const MIN_RATINGS = 5;
+const hostRating = async (sellerId) => {
+  const seller = sellerId && await mongoose.model('Seller').findById(sellerId).select('stats.averageRating stats.totalReviews').lean();
+  const ratings = Number(seller?.stats?.totalReviews) || 0;
+  return ratings >= MIN_RATINGS
+    ? { rating: Math.round((Number(seller.stats.averageRating) || 0) * 10) / 10, ratings, isNew: false }
+    : { rating: null, ratings, isNew: true };
+};
+
 const countBy = (list, key, amount = () => 1) => list.reduce((m, x) => {
   const k = x && key(x);
   if (k) m[k] = (m[k] || 0) + amount(x);
@@ -37,7 +47,7 @@ const countBy = (list, key, amount = () => 1) => list.reduce((m, x) => {
 // GET /api/v2/watch/:streamId/summary → { sold: {productId: n}, bids: {productId: n} }
 router.get('/:streamId/summary', validId, async (req, res) => {
   try {
-    const stream = await Stream.findById(req.params.streamId).select('orders.product orders.orderDetails.quantity bids.product').lean();
+    const stream = await Stream.findById(req.params.streamId).select('seller orders.product orders.orderDetails.quantity bids.product').lean();
     if (!stream) return res.status(404).json({ success: false, message: "We couldn't find this show." });
     res.json({
       success: true,
@@ -45,6 +55,7 @@ router.get('/:streamId/summary', validId, async (req, res) => {
       bids: countBy(stream.bids || [], (b) => b.product && String(b.product)),
       // Held once per show with a buyer's first item (see deliveryService)
       deliveryDeposit: deliveries.depositAmount(),
+      host: await hostRating(stream.seller),
     });
   } catch (error) {
     console.error('[watch] summary', error.message);
@@ -57,7 +68,9 @@ router.get('/:streamId/summary', validId, async (req, res) => {
 router.get('/:streamId/me', verifyToken, isBuyer, validId, async (req, res) => {
   try {
     const depositDue = await deliveries.depositFor(req.params.streamId, req.user.id);
-    res.json({ success: true, depositDue });
+    const stream = await Stream.findById(req.params.streamId).select('seller').lean();
+    const following = Boolean(stream && await mongoose.model('Seller').exists({ _id: stream.seller, 'followers.buyerId': new mongoose.Types.ObjectId(String(req.user.id)) }));
+    res.json({ success: true, depositDue, following });
   } catch (error) {
     console.error('[watch] me', error.message);
     res.status(500).json({ success: false, message: "Couldn't check your delivery deposit. Try again." });

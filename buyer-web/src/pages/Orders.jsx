@@ -4,6 +4,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { api, errorMessage, naira } from '../api';
 import { useAuth } from '../auth';
 import TopUpSheet from '../components/TopUpSheet';
+import RateSheet from '../components/RateSheet';
 import { Header } from '../components/ui';
 
 const STATE = {
@@ -23,6 +24,10 @@ export default function Orders() {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
   const [topUp, setTopUp] = useState(null);
+  const [rating, setRating] = useState(null); // the delivery being rated
+  // Hosts already rated from this phone (the server also refuses a second rating)
+  const [rated, setRated] = useState(() => { try { return JSON.parse(localStorage.getItem('ratedHosts') || '[]'); } catch { return []; } });
+  const markRated = (sellerId) => setRated((l) => { const next = [...new Set([...l, String(sellerId)])]; try { localStorage.setItem('ratedHosts', JSON.stringify(next)); } catch { /* private mode */ } return next; });
 
   const load = useCallback(() => api.deliveries().then(setDeliveries).catch(() => setDeliveries([])), []);
   useEffect(() => { if (signedIn) load(); }, [signedIn, load]);
@@ -67,11 +72,18 @@ export default function Orders() {
                 <button type="button" className="btn" disabled={busy === d._id} onClick={() => pay(d)}>{busy === d._id ? 'Paying…' : `Pay ${naira(Math.max(0, d.fee - (d.depositHeld || 0)))} for delivery`}</button>
               )}
               {d.trackingUrl && <a className="btn2" href={d.trackingUrl} target="_blank" rel="noopener noreferrer">Track your package</a>}
+              {d.status === 'delivered' && d.seller?._id && !rated.includes(String(d.seller._id)) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ flex: 1, fontSize: 15 }}>Got it? Tell {d.seller.storeName || 'the host'} how it went.</span>
+                  <button type="button" className="btn2" onClick={() => setRating(d)}>Rate</button>
+                </div>
+              )}
             </section>
           );
         })}
       </main>
       {topUp !== null && <TopUpSheet need={topUp} onClose={() => { setTopUp(null); load(); }} />}
+      {rating && <RateSheet seller={rating.seller} onClose={() => setRating(null)} onDone={() => { markRated(rating.seller._id); setRating(null); }} />}
     </div>
   );
 }

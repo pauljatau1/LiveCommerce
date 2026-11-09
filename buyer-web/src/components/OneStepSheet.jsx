@@ -29,7 +29,7 @@ export default function OneStepSheet({ action, deposit = 0, estimate = null, top
   const [acct, setAcct] = useState({ username: '', email: '', password: '' });
   const [busy, setBusy] = useState('');
   const [error, setError] = useState({ where: '', text: '' });
-  const chatOnly = action.kind === 'chat' || action.kind === 'account';
+  const chatOnly = ['chat', 'account', 'follow'].includes(action.kind);
   const [est, setEst] = useState(null);
   const { state: pickedState, city: pickedCity } = address.form;
   useEffect(() => {
@@ -45,7 +45,7 @@ export default function OneStepSheet({ action, deposit = 0, estimate = null, top
   const cost = chatOnly ? 0 : action.amount + deposit;
   const pay = chatOnly ? 0 : topUpFor(cost - available);
 
-  const title = action.kind === 'account' ? 'Create an account' : chatOnly ? 'Join the chat' : action.kind === 'bid' ? 'One step, then your bid' : "One step, then it's yours";
+  const title = action.kind === 'follow' ? 'Follow this host' : action.kind === 'account' ? 'Create an account' : chatOnly ? 'Join the chat' : action.kind === 'bid' ? 'One step, then your bid' : "One step, then it's yours";
   const what = action.kind === 'bid' ? `bid ${naira(action.amount)}` : 'buy';
   const buttonText = chatOnly
     ? (mode === 'signup' ? 'Create account' : 'Sign in')
@@ -133,6 +133,7 @@ export default function OneStepSheet({ action, deposit = 0, estimate = null, top
   return (
     <Sheet title={title} top={top} onClose={busy ? () => {} : onClose}>
       {action.kind === 'chat' && <p className="mut" style={{ margin: 0 }}>Anyone can watch. To chat, create an account. No payment needed.</p>}
+      {action.kind === 'follow' && <p className="mut" style={{ margin: 0 }}>Create an account to follow. No payment needed.</p>}
       {action.kind === 'account' && <p className="mut" style={{ margin: 0 }}>Your wallet pays for bids and Buy Now, so checkout is instant. Create an account to top up.</p>}
 
       {needAccount && (
