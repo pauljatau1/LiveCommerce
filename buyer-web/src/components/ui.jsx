@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { naira } from '../api';
 import { useAuth } from '../auth';
+import { BRAND_NAME } from '../config';
 
 export const Icon = {
   close: <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>,
@@ -17,7 +18,7 @@ export function Header({ back, title }) {
   const { signedIn, wallet } = useAuth();
   return (
     <header className="top" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-      {back ? <Link to={back} className="ib" aria-label="Back">{Icon.back}</Link> : <Link to="/" className="brand">[brand]<i /></Link>}
+      {back ? <Link to={back} className="ib" aria-label="Back">{Icon.back}</Link> : <Link to="/" className="brand">{BRAND_NAME}<i /></Link>}
       <span className="f" style={{ flex: 1, fontSize: 18 }}>{title || ''}</span>
       {signedIn ? (
         <>
@@ -25,7 +26,7 @@ export function Header({ back, title }) {
           <Link to="/wallet" className="wallet-chip">{Icon.wallet}{naira(wallet?.availableBalance)}</Link>
         </>
       ) : (
-        <Link to="/signin" className="btn2" style={{ minHeight: 40 }}>Sign in</Link>
+        <Link to="/signin" className="btn2" style={{ minHeight: 44 }}>Sign in</Link>
       )}
     </header>
   );

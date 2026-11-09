@@ -83,7 +83,7 @@ export default function Planner() {
     const body = {
       title: title.trim(),
       description: description.trim(),
-      category: items[0]?.category || 'Collectibles',
+      category: items[0]?.category || 'Clothing',
       scheduledStartTime: at.toISOString(),
       ...(cover ? { coverImage: { data: cover.base64, contentType: cover.contentType } } : {}),
       products: items.map((p) => (type === 'auction'

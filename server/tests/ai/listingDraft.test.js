@@ -18,7 +18,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 const geminiReply = (obj) => ({ data: { candidates: [{ content: { parts: [{ text: JSON.stringify(obj) }] } }] } });
 const sellerToken = () => jwt.sign({ id: new mongoose.Types.ObjectId().toString(), role: 'Seller' }, process.env.JWT_SECRET);
 const buyerToken = () => jwt.sign({ id: new mongoose.Types.ObjectId().toString(), role: 'Buyer' }, process.env.JWT_SECRET);
-const categories = [{ name: 'Figures', subCategories: ['Scale figures', 'Prize figures'] }];
+const categories = [{ name: 'Women', subCategories: ['Dresses', 'Tops'] }];
 
 let mongoServer;
 const saved = process.env.GEMINI_API_KEY;
@@ -28,7 +28,9 @@ beforeAll(async () => {
   mongoServer = await MongoMemoryServer.create({ binary: { version: '7.0.3' } });
   if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
   await mongoose.connect(mongoServer.getUri());
-  await Category.create({ name: 'Figures', subCategories: [{ name: 'Scale figures' }, { name: 'Prize figures' }] });
+  await Category.create({ name: 'Women', subCategories: [{ name: 'Dresses' }, { name: 'Tops' }] });
+  // An older category from the anime catalogue: still in the database, no longer offered
+  await Category.create({ name: 'Figures', subCategories: [{ name: 'Prize figures' }] });
 });
 
 afterAll(async () => {
@@ -45,32 +47,36 @@ const draft = (body, token = sellerToken()) =>
 describe('POST /api/v2/ai/listing-draft', () => {
   it('drafts a listing from a photo, using only our categories', async () => {
     mockPost.mockResolvedValue(geminiReply({
-      title: 'Gojo Satoru prize figure', category: 'figures', subCategory: 'prize figures', condition: 'Fairly Used',
-      description: 'Gojo figure in his blindfold look.', tags: ['JJK', 'gojo', 'jjk'], franchise: 'Jujutsu Kaisen',
-      character: 'Gojo Satoru', priceLowNGN: 24800, priceHighNGN: 40200, estimatedWeightKg: 0.6, confidence: 'medium',
+      title: 'Green Ankara wrap dress', category: 'women', subCategory: 'dresses', condition: 'Fairly used',
+      description: 'Ankara wrap dress, worn twice.', tags: ['Ankara', 'dress', 'ankara'],
+      priceLowNGN: 9800, priceHighNGN: 15200, estimatedWeightKg: 0.4, confidence: 'medium',
       questions: ['How many do you have?'],
     }));
 
-    const res = await draft({ images: [{ data: PNG, contentType: 'image/png' }], note: 'used once' });
+    const res = await draft({ images: [{ data: PNG, contentType: 'image/png' }], note: 'worn twice' });
 
     expect(res.status).toBe(200);
     expect(res.body.draft).toMatchObject({
-      title: 'Gojo Satoru prize figure', category: 'Figures', subCategory: 'Prize figures', condition: 'Fairly Used',
-      tags: ['jjk', 'gojo'], suggestedPrice: { low: 25000, high: 40000, isEstimate: true }, weightKg: 0.6,
+      title: 'Green Ankara wrap dress', category: 'Women', subCategory: 'Dresses', condition: 'Fairly used',
+      tags: ['ankara', 'dress'], suggestedPrice: { low: 10000, high: 15000, isEstimate: true }, weightKg: 0.4,
     });
     // Always asks about authenticity, even when the model forgets
-    expect(res.body.draft.questions.some((q) => /official/i.test(q))).toBe(true);
+    expect(res.body.draft.questions).toContain('Is it original or a replica?');
     const [url, body] = mockPost.mock.calls[0];
     expect(url).toMatch(/:generateContent$/);
-    expect(body.contents[0].parts[0].text).toContain('Figures: Scale figures, Prize figures');
-    expect(body.contents[0].parts[0].text).toContain('used once');
+    const prompt = body.contents[0].parts[0].text;
+    expect(prompt).toContain('Women: Dresses, Tops');
+    // Older anime categories stay in the database but aren't offered
+    expect(prompt).not.toContain('Figures');
+    expect(prompt).toContain('Never ask about size');
+    expect(prompt).toContain('worn twice');
     expect(body.contents[0].parts[1].inline_data.mime_type).toBe('image/png');
   });
 
   it('asks for low thinking, and retries without it if the model refuses', async () => {
     mockPost
       .mockRejectedValueOnce({ response: { status: 400, data: { error: { message: 'thinking_level is not supported for this model' } } } })
-      .mockResolvedValueOnce(geminiReply({ title: 'x', category: 'Figures', condition: 'Brand New', description: 'd', tags: [], confidence: 'high', questions: [] }));
+      .mockResolvedValueOnce(geminiReply({ title: 'x', category: 'Women', condition: 'New with tags', description: 'd', tags: [], confidence: 'high', questions: [] }));
 
     const res = await draft({ images: [{ data: PNG, contentType: 'image/png' }] });
 
@@ -82,7 +88,7 @@ describe('POST /api/v2/ai/listing-draft', () => {
   it('switches to the backup model when the main one is overloaded', async () => {
     mockPost
       .mockRejectedValueOnce({ response: { status: 503, data: { error: { message: 'This model is currently experiencing high demand.' } } } })
-      .mockResolvedValueOnce(geminiReply({ title: 'Backup draft', category: 'Figures', condition: 'Brand New', description: 'd', tags: [], confidence: 'high', questions: [] }));
+      .mockResolvedValueOnce(geminiReply({ title: 'Backup draft', category: 'Women', condition: 'New with tags', description: 'd', tags: [], confidence: 'high', questions: [] }));
 
     const res = await draft({ images: [{ data: PNG, contentType: 'image/png' }] });
 
@@ -114,14 +120,14 @@ describe('POST /api/v2/ai/listing-draft', () => {
 
 describe('POST /api/v2/ai/listing-draft/refine', () => {
   it('applies the instruction but keeps the price the seller set', async () => {
-    mockPost.mockResolvedValue(geminiReply({ title: 'Gojo figure', category: 'Figures', condition: 'Fairly Used', description: 'Short.', tags: [], confidence: 'high', questions: [], priceLowNGN: 99000 }));
-    const current = { title: 'Gojo Satoru prize figure', category: 'Figures', condition: 'Fairly Used', description: 'Long.', tags: [], suggestedPrice: { low: 30000, high: 30000, currency: 'NGN' } };
+    mockPost.mockResolvedValue(geminiReply({ title: 'Ankara dress', category: 'Women', condition: 'Fairly used', description: 'Short.', tags: [], confidence: 'high', questions: [], priceLowNGN: 99000 }));
+    const current = { title: 'Green Ankara wrap dress', category: 'Women', condition: 'Fairly used', description: 'Long.', tags: [], suggestedPrice: { low: 30000, high: 30000, currency: 'NGN' } };
 
     const res = await request(app).post('/api/v2/ai/listing-draft/refine').set('Authorization', `Bearer ${sellerToken()}`)
       .send({ draft: current, instruction: 'shorter title' });
 
     expect(res.status).toBe(200);
-    expect(res.body.draft.title).toBe('Gojo figure');
+    expect(res.body.draft.title).toBe('Ankara dress');
     expect(res.body.draft.suggestedPrice).toEqual({ low: 30000, high: 30000, currency: 'NGN' });
   });
 });
@@ -138,7 +144,7 @@ describe('GET /api/v2/ai/check', () => {
 
 describe('normaliseDraft', () => {
   it('drops categories and conditions we do not have', () => {
-    const out = normaliseDraft({ title: 'x', category: 'Weapons', condition: 'Mint', priceLowNGN: 50000, priceHighNGN: 20000, estimatedWeightKg: 900 }, categories);
+    const out = normaliseDraft({ title: 'x', category: 'Weapons', condition: 'Brand New', priceLowNGN: 50000, priceHighNGN: 20000, estimatedWeightKg: 900 }, categories);
     expect(out).toMatchObject({ category: null, subCategory: null, condition: null, suggestedPrice: { low: 20000, high: 50000 }, weightKg: 1 });
   });
 });

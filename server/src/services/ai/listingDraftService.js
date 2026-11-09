@@ -7,12 +7,12 @@
 
 const axios = require('axios');
 const mongoose = require('mongoose');
+const { CONDITIONS, LAUNCH_CATEGORY_NAMES } = require('../../config/catalogue');
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_MODEL = 'gemini-3.6-flash';
 // Used when the main model is overloaded or slow (GEMINI_BACKUP_MODEL, 'none' to turn off)
 const DEFAULT_BACKUP_MODEL = 'gemini-3.5-flash-lite';
-const CONDITIONS = ['Brand New', 'Fairly Used', 'Refurbished'];
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_IMAGES = 5;
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 5 photos stay under the 25 MB request limit
@@ -61,20 +61,25 @@ const DRAFT_SCHEMA = {
 const loadCategories = async () => {
   const Category = mongoose.model('Category');
   const rows = await Category.find({}, { name: 1, 'subCategories.name': 1 }).lean();
-  return rows.map((c) => ({ name: c.name, subCategories: (c.subCategories || []).map((s) => s.name) }));
+  // Offer only the launch (clothing) categories once they exist; older
+  // databases still hold the anime and gaming ones, which stay untouched.
+  const launch = rows.filter((c) => LAUNCH_CATEGORY_NAMES.includes(c.name));
+  return (launch.length ? launch : rows).map((c) => ({ name: c.name, subCategories: (c.subCategories || []).map((s) => s.name) }));
 };
 
-const buildInstructions = (categories, note) => `You help Nigerian sellers of anime, manga, comics and gaming merchandise list items for a live shopping app.
+const buildInstructions = (categories, note) => `You help Nigerian sellers of clothing, shoes, bags and accessories list items for a live shopping app.
 Draft a listing from the photos.
 
 Rules:
-- Only state what is visible in the photos or written in the seller's note. Never invent scale, edition, release year, size or accessories.
-- If you are not sure of the franchise or character, leave it empty and ask.
-- Never claim an item is official or authentic. Always include a question asking whether it is official merchandise.
+- Only state what is visible in the photos or written in the seller's note. Never invent the brand, material, size or measurements.
+- Never ask about size. Mention a size only if the seller's note or a visible label gives it, and then only in the title or description, in the seller's words.
+- If you are not sure of the brand, leave it empty.
+- Never claim an item is original. Always include a question asking whether it is original or a replica.
+- Condition is one of: New with tags (unworn, tags on), Thrift (second-hand from a thrift bale), Fairly used (worn by the seller or a previous owner). Use Unknown if the photos can't tell.
 - Category and sub-category must be copied exactly from this list:
 ${categories.map((c) => `  - ${c.name}: ${c.subCategories.join(', ')}`).join('\n')}
 - Prices are rough Nigerian resale estimates in naira (NGN). Give a realistic range, not a single number.
-- Write for fans: friendly and clear, no hype words like "amazing" or "best".
+- Write for shoppers: friendly and clear, no hype words like "amazing" or "best".
 - Ask at most 3 questions, only about things the photos cannot answer (quantity is always one of them).
 ${note ? `\nSeller's note: """${String(note).slice(0, 500)}"""` : ''}`;
 
@@ -103,8 +108,8 @@ const normaliseDraft = (raw, categories) => {
   let high = roundPrice(Number(raw.priceHighNGN));
   if (low && high && low > high) [low, high] = [high, low];
   const questions = (Array.isArray(raw.questions) ? raw.questions : []).map((q) => clean(q, 200)).filter(Boolean);
-  if (!questions.some((q) => /official|authentic|original|bootleg/i.test(q))) {
-    questions.push('Is this official merchandise, or a replica?');
+  if (!questions.some((q) => /official|authentic|original|replica|bootleg/i.test(q))) {
+    questions.push('Is it original or a replica?');
   }
   const weight = Number(raw.estimatedWeightKg);
 

@@ -16,26 +16,7 @@ const MajorCategory = require('../src/models/MajorCategory');
 const Admin = require('../src/models/Admin');
 const { isAllowedAdminEmail } = require('../src/config/admins');
 
-const CATALOGUE = [
-  {
-    major: 'Anime & Manga',
-    categories: [
-      { name: 'Figures', subCategories: ['Scale figures', 'Nendoroid and chibi', 'Prize figures', 'Blind boxes'] },
-      { name: 'Plushies & Keychains', subCategories: ['Plushies', 'Keychains', 'Acrylic stands'] },
-      { name: 'Manga & Comics', subCategories: ['Manga volumes', 'Comics', 'Artbooks'] },
-      { name: 'Apparel & Cosplay', subCategories: ['T-shirts and hoodies', 'Cosplay', 'Accessories'] },
-      { name: 'Posters & Art', subCategories: ['Posters', 'Prints', 'Wall scrolls'] },
-    ],
-  },
-  {
-    major: 'Gaming',
-    categories: [
-      { name: 'Trading Cards', subCategories: ['Single cards', 'Booster packs', 'Sealed boxes'] },
-      { name: 'Gaming Accessories', subCategories: ['Controllers', 'Headsets', 'Keyboards and mice'] },
-      { name: 'Game Collectibles', subCategories: ['Figures and statues', 'Replicas', 'Merch'] },
-    ],
-  },
-];
+const { CATALOGUE, LEGACY_CATALOGUE, LAUNCH_CATEGORY_NAMES } = require('../src/config/catalogue');
 
 const seedCategories = async () => {
   let created = 0;

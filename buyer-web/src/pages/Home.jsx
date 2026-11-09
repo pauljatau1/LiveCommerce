@@ -36,8 +36,8 @@ export default function Home() {
       <Header />
       <main className="wrap" style={{ display: 'flex', flexDirection: 'column', gap: 22, padding: '20px 16px 40px' }}>
         <section style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 className="f" style={{ margin: 0, fontSize: 28, lineHeight: 1.15 }}>Live drops for anime, manga and gaming fans</h1>
-          <p className="mut" style={{ margin: 0 }}>Watch creators go live, bid on figures and gear, and grab limited drops.</p>
+          <h1 className="h1">Shop clothes live</h1>
+          <p className="mut" style={{ margin: 0 }}>Watch sellers go live, bid on clothes, shoes and bags, and grab limited drops.</p>
         </section>
 
         <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
