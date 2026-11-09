@@ -100,4 +100,14 @@ describe('studio routes', () => {
     expect(money.body.activity[0]).toMatchObject({ kind: 'out', amount: 40000, detail: 'Processing' });
     await request(app).post('/api/v2/studio/withdraw').send({ amount: 30000 }).expect(400);
   });
+
+  it('+30s adds time to the running auction on my live show only', async () => {
+    const show = await Stream.create({ seller: mockSellerId, title: 'Live now', category: 'Women', channelName: 'c9', status: 'live', type: 'auction', products: [{ product: { productId: String(figure), name: 'Gojo figure' }, minBid: 5000, maxBid: 500000, bidStatus: 'active', auctionEndsAt: new Date(Date.now() + 10000) }] });
+    const res = await request(app).post(`/api/v2/studio/shows/${show._id}/auction/time`).send({ productId: String(figure), seconds: 30 }).expect(200);
+    expect(res.body.secondsLeft).toBeGreaterThanOrEqual(39);
+    await request(app).post(`/api/v2/studio/shows/${show._id}/auction/time`).send({}).expect(400);
+    const notMine = await Stream.create({ seller: new mongoose.Types.ObjectId(), title: 'Other', category: 'Women', channelName: 'c10', status: 'live', type: 'auction', products: [{ product: { productId: String(figure) }, minBid: 1, maxBid: 2, bidStatus: 'active' }] });
+    await request(app).post(`/api/v2/studio/shows/${notMine._id}/auction/time`).send({ productId: String(figure) }).expect(404);
+    require('@/services/auctionClock').clock().shutdown();
+  });
 });

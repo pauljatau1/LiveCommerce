@@ -202,3 +202,29 @@ describe('bid steps', () => {
     expect(bids.minimumNextBid({ minBid: 5000, currentBid: 60000 })).toBe(62500);
   });
 });
+
+describe('late bids through placeBid', () => {
+  let server;
+  beforeAll(async () => {
+    server = await MongoMemoryServer.create({ binary: { version: '7.0.3' } });
+    await mongoose.connect(server.getUri());
+  });
+  afterAll(async () => {
+    require('@/services/auctionClock').clock().shutdown();
+    await mongoose.disconnect();
+    await server.stop();
+  });
+
+  it('a real bid in the last 5 seconds moves the stored end time; outbid money comes back', async () => {
+    const stream = await createStream({ auctionEndsAt: new Date(Date.now() + 2000) });
+    const ada = await createBuyer('Ada', 20000);
+    const chidi = await createBuyer('Chidi', 20000);
+    expect((await bid(stream, ada, 6000)).ok).toBe(true);
+    const ends = new Date((await productOf(stream)).auctionEndsAt).getTime();
+    expect(ends - Date.now()).toBeGreaterThan(3500);
+    expect(ends - Date.now()).toBeLessThanOrEqual(5000);
+    expect((await bid(stream, chidi, 6500)).ok).toBe(true);
+    expect((await wallet(ada)).onHoldAmount).toBe(0);
+    expect((await wallet(chidi)).onHoldAmount).toBe(6500);
+  });
+});

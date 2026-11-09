@@ -223,6 +223,8 @@ router.get('/shows/:id', validId, async (req, res) => {
         stock: p.stock ?? 0,
         minBid: sp.minBid || 0,
         bidStatus: sp.bidStatus || 'pending',
+        auctionSeconds: sp.auctionSeconds || 30,
+        auctionEndsAt: sp.auctionEndsAt || null,
         isVisible: Boolean(sp.isVisible),
         currentBid: sp.currentBid || 0,
         currentBidder: nameOf(sp.currentBidder),
@@ -286,6 +288,19 @@ router.get('/shows/:id/recap', validId, async (req, res) => {
 });
 
 // ---- Money ----
+// POST /api/v2/studio/shows/:id/auction/time { productId, seconds = 30 } → "+30s" on the running auction
+router.post('/shows/:id/auction/time', validId, async (req, res) => {
+  try {
+    const productId = String(req.body?.productId || '');
+    if (!productId) return res.status(400).json({ success: false, message: 'Which item? Pick the one being auctioned.' });
+    const show = await model('Stream').findOne({ _id: oid(req.params.id), seller: oid(req.user.id), status: 'live' }, { _id: 1 }).lean();
+    if (!show) return res.status(404).json({ success: false, message: "This show isn't live." });
+    const secondsLeft = await require('../services/auctionClock').clock().addTime(String(show._id), productId, req.body?.seconds || 30);
+    if (secondsLeft === null) return res.status(409).json({ success: false, message: 'That auction has already ended.' });
+    res.json({ success: true, secondsLeft });
+  } catch (error) { fail(res, error); }
+});
+
 router.get('/money', async (req, res) => {
   try {
     const sellerId = oid(req.user.id);

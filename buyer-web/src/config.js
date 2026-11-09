@@ -3,6 +3,6 @@
 // the page title in index.html, via vite.config.js) follows.
 export const BRAND_NAME = 'gbam';
 
-// Seconds a late bid adds to the auction timer. 0 hides "late bids add …"
+// Seconds a late bid adds to the auction timer (server: services/auctionClock.js). 0 hides "late bids add …"
 // until the server supports it, so the screen never promises what isn't real.
-export const LATE_BID_SECONDS = 0;
+export const LATE_BID_SECONDS = 5;

@@ -2,6 +2,14 @@ const express = require('express');
 const router = express.Router();
 const streamController = require('../controllers/streamController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const { isFeatureEnabled } = require('../config/optionalFeatures');
+
+// These REST bid routes write bids without the atomic wallet hold that live bids
+// use (socket stream_place_bid → services/streamBidService). Off unless
+// EXTRA_FEATURES includes restBids.
+const restBidsSwitchedOff = (req, res, next) => (isFeatureEnabled('restBids')
+  ? next()
+  : res.status(410).json({ message: 'Bids are placed in the live show.' }));
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -491,6 +499,7 @@ router.post('/:streamId/hide-product',
 router.post('/:streamId/place-bid',
   authMiddleware.verifyToken,
   authMiddleware.isBuyer,
+  restBidsSwitchedOff,
   streamController.placeBid
 );
 
@@ -586,6 +595,7 @@ router.post('/:streamId/end',
 router.post('/bid',
   authMiddleware.verifyToken,
   authMiddleware.isBuyer,
+  restBidsSwitchedOff,
   streamController.placeBid
 );
 

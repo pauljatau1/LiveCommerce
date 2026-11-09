@@ -58,6 +58,10 @@ const startServer = async () => {
     server.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server is running on port ${PORT}`);
       console.log(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+      // Pick up any auction that was running when the server stopped
+      require('./src/services/auctionClock').clock().recover()
+        .then((n) => n && logger.info(`[auction-clock] recovered ${n} running auction(s)`))
+        .catch((e) => logger.error(`[auction-clock] recovery failed: ${e.message}`));
     });
     
     // Handle server errors

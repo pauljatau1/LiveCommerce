@@ -150,6 +150,10 @@ const placeBid = async ({ streamId, productId, buyer, bidAmount, shippingFee = 0
     holdAmount,
     ...(isWinner ? { bidStatus: 'ongoing', bidWinner: { buyer: bidderSnapshot(buyer), bidAmount, winningTime: now } } : {}),
   };
+  // A bid in the last seconds pushes the clock back (see auctionClock); never blocks the bid
+  if (!isWinner) {
+    try { await require('./auctionClock').clock().onBid(streamId, productId); } catch (e) { console.error('[bid] late-bid extension', e.message); }
+  }
   return { ok: true, isWinner, product, bid };
 };
 
