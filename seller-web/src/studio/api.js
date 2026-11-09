@@ -39,8 +39,22 @@ export const studio = {
   slot: () => get(`${BASE_URL_V2}/studio/slot`),
   saveSlot: (day, time) => axios.put(`${BASE_URL_V2}/studio/slot`, { day, time }, { ...auth(), timeout: 30000 }).then((r) => r.data),
   nextPlan: (id) => get(`${BASE_URL_V2}/studio/shows/${id}/next-plan`),
+  notifications: () => get(`${BASE_URL_V2}/studio/notifications`),
+  markRead: () => post(`${BASE_URL_V2}/studio/notifications/read`),
+  endBidding: (id, productId) => post(`${BASE_URL}/streams/${id}/end-product-bidding`, { productId }),
   addTime: (id, productId, seconds = 30) => post(`${BASE_URL_V2}/studio/shows/${id}/auction/time`, { productId, seconds }),
   chat: (id) => get(`${BASE_URL}/streams/${id}/chat`).catch(() => []),
+};
+
+// Getting started (routes/studioOnboardingRoutes.js)
+const put = (url, body = {}) => axios.put(url, body, { ...auth(), timeout: 30000 }).then((r) => r.data);
+export const onboarding = {
+  get: () => get(`${BASE_URL_V2}/studio/onboarding`),
+  store: (body) => put(`${BASE_URL_V2}/studio/onboarding/store`, body),
+  pickup: (body) => put(`${BASE_URL_V2}/studio/onboarding/pickup`, body),
+  banks: () => get(`${BASE_URL_V2}/studio/onboarding/banks`),
+  checkBank: (body) => post(`${BASE_URL_V2}/studio/onboarding/bank/check`, body),
+  bank: (body) => put(`${BASE_URL_V2}/studio/onboarding/bank`, body),
 };
 
 export const naira = (n) => `₦${Math.round(Number(n || 0)).toLocaleString('en-NG')}`;

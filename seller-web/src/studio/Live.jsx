@@ -198,6 +198,8 @@ export default function Live() {
     setTimer((m) => ({ ...m, [current.productId]: current.auctionSeconds || 30 }));
   }, `Bidding is open: ${clock(current?.auctionSeconds || 30)}`);
   const addTime = () => act('time', () => studio.addTime(id, current.productId, 30), 'Added 30 seconds');
+  // "End now · sell": close the auction now; the top bid wins and is charged
+  const endNow = () => act('end', () => studio.endBidding(id, current.productId), current?.currentBid ? `Sold to ${current.currentBidder || 'the top bidder'}` : 'Auction ended');
   const endDrop = () => act('hide', () => studio.hideProduct(id, current.productId), 'Item taken off sale');
   const pick = (item) => { setCurrentId(item.productId); setQueueOpen(false); if (!isAuction || item.bidStatus !== 'ended') putUp(item); };
 
@@ -267,7 +269,12 @@ export default function Live() {
           </div>
         )}
         {isAuction && !running && !current.winner && current.bidStatus !== 'ended' && <button type="button" className="btn" style={{ minHeight: 56 }} disabled={Boolean(busy) || phase !== 'live'} onClick={startBids}>{busy === 'bid' ? 'Starting…' : `Start bidding · ${clock(current.auctionSeconds || 30)}`}</button>}
-        {isAuction && running && <button type="button" className="btn2" style={{ minHeight: 48 }} disabled={Boolean(busy)} onClick={addTime}>{busy === 'time' ? 'Adding…' : '+30s'}</button>}
+        {isAuction && running && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn2" style={{ minHeight: 48, flex: 'none' }} disabled={Boolean(busy)} onClick={addTime}>{busy === 'time' ? 'Adding…' : '+30s'}</button>
+            <button type="button" className="btn3" style={{ minHeight: 48, flex: 1 }} disabled={Boolean(busy)} onClick={endNow}>{busy === 'end' ? 'Ending…' : current.currentBid ? 'End now · sell' : 'End now'}</button>
+          </div>
+        )}
         {isAuction && running && <span className="hint" style={{ textAlign: 'center' }}>The highest bid when the timer ends wins and is charged. A bid in the last 5 seconds adds 5 seconds.</span>}
         {isAuction && (current.winner || current.bidStatus === 'ended') && queue.find((q) => q.bidStatus !== 'ended') && <button type="button" className="btn" style={{ minHeight: 56 }} disabled={Boolean(busy)} onClick={() => pick(queue.find((q) => q.bidStatus !== 'ended'))}>Next item</button>}
         {!isAuction && (current.isVisible

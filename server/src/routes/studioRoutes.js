@@ -291,6 +291,64 @@ router.get('/shows/:id/recap', validId, async (req, res) => {
 });
 
 // ---- Money ----
+// ---------- Notifications: toasts + inbox ----------
+// Built from what already happened (orders, wins, shows, payouts); nothing extra is stored
+// except when the seller last read them.
+router.get('/notifications', async (req, res) => {
+  try {
+    const sellerId = oid(req.user.id);
+    const since = new Date(Date.now() - 14 * 24 * 3600 * 1000);
+    const [seller, deliveries, shows, upcoming, payouts, inShows, ready] = await Promise.all([
+      model('Seller').findById(sellerId, { notificationsReadAt: 1, createdAt: 1 }).lean(),
+      model('ShowDelivery').find({ seller: sellerId, createdAt: { $gte: since } }).populate('buyer', 'firstName username').sort({ createdAt: -1 }).limit(30).lean(),
+      model('Stream').find({ seller: sellerId, 'products.bidWinner.winningTime': { $gte: since } }, { title: 1, products: 1 }).lean(),
+      model('Stream').find({ seller: sellerId, status: 'scheduled', scheduledStartTime: { $gte: new Date(), $lte: new Date(Date.now() + 60 * 60000) } }, { title: 1, scheduledStartTime: 1 }).lean(),
+      model('Withdrawal').find({ seller: sellerId, status: { $in: ['completed', 'failed', 'rejected', 'reversed'] }, $or: [{ requestDate: { $gte: since } }, { processedDate: { $gte: since } }, { 'paymentInfo.completedAt': { $gte: since } }] }).sort({ requestDate: -1 }).limit(10).lean(),
+      productsInShows(req.user.id),
+      model('Product').countDocuments({ seller: sellerId, status: { $ne: 'draft' }, stock: { $gt: 0 } }),
+    ]);
+    const who = (b) => b?.firstName || (b?.username ? `@${b.username}` : 'A buyer');
+    const items = [];
+    deliveries.forEach((d) => {
+      const count = (d.items || []).reduce((n, i) => n + (i.quantity || 1), 0);
+      const total = (d.items || []).reduce((n, i) => n + (i.unitPrice || 0) * (i.quantity || 1), 0);
+      items.push({ id: `order-${d._id}`, kind: 'order', at: d.createdAt, title: `New order from ${who(d.buyer)}`, body: `${count} item${count === 1 ? '' : 's'} · ₦${total.toLocaleString('en-NG')}`, link: '/studio/orders' });
+    });
+    shows.forEach((s) => (s.products || []).forEach((p) => {
+      const w = p.bidWinner;
+      if (!w?.bidAmount || !w.winningTime || new Date(w.winningTime) < since) return;
+      items.push({ id: `win-${s._id}-${productIdOf(p)}`, kind: 'win', at: w.winningTime, title: `Auction won · ${p.product?.name || 'item'}`, body: `${w.buyer?.firstName || (w.buyer?.username ? `@${w.buyer.username}` : 'A buyer')} · ₦${Number(w.bidAmount).toLocaleString('en-NG')} · order created`, link: '/studio/orders' });
+    }));
+    upcoming.forEach((s) => {
+      const mins = Math.max(0, Math.round((new Date(s.scheduledStartTime) - Date.now()) / 60000));
+      items.push({ id: `soon-${s._id}`, kind: 'show', at: new Date(new Date(s.scheduledStartTime).getTime() - 60 * 60000), title: `Your show starts in ${mins} min`, body: s.title, link: `/studio/golive/${s._id}`, action: 'Get ready' });
+    });
+    payouts.forEach((w) => {
+      const ok = w.status === 'completed';
+      const bank = `${w.bankDetails?.bankName || 'your bank'}${w.bankDetails?.accountNumber ? ` ••${String(w.bankDetails.accountNumber).slice(-4)}` : ''}`;
+      items.push({ id: `payout-${w._id}-${w.status}`, kind: 'payout', at: w.paymentInfo?.completedAt || w.processedDate || w.updatedAt || w.requestDate, title: ok ? `₦${Number(w.amount).toLocaleString('en-NG')} sent to ${bank}` : "A withdrawal didn't go through", body: ok ? 'Payout sent' : `₦${Number(w.amount).toLocaleString('en-NG')} is back in your balance.`, link: '/studio/money' });
+    });
+    // The assistant, at most once a day
+    const notInShow = Math.max(0, ready - inShows.size);
+    if (notInShow >= 3) {
+      const day = new Date(); day.setHours(8, 0, 0, 0);
+      items.push({ id: `tip-plan-${day.toISOString().slice(0, 10)}`, kind: 'tip', at: day, title: `${notInShow} items haven't been in a show yet`, body: 'Want me to plan one?', link: '/studio/plan' });
+    }
+    items.sort((a, b) => new Date(b.at) - new Date(a.at));
+    const readAt = seller?.notificationsReadAt ? new Date(seller.notificationsReadAt) : new Date(0);
+    const list = items.slice(0, 40).map((n) => ({ ...n, unread: new Date(n.at) > readAt }));
+    res.json({ success: true, items: list, unread: list.filter((n) => n.unread).length });
+  } catch (error) { fail(res, error); }
+});
+
+// POST /api/v2/studio/notifications/read → "Mark all read"
+router.post('/notifications/read', async (req, res) => {
+  try {
+    await model('Seller').updateOne({ _id: oid(req.user.id) }, { $set: { notificationsReadAt: new Date() } });
+    res.json({ success: true });
+  } catch (error) { fail(res, error); }
+});
+
 // ---------- Weekly slot (services/weeklySlot.js) ----------
 const weeklySlot = require('../services/weeklySlot');
 // The seller's slot, or the one this show suggests

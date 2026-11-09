@@ -137,7 +137,7 @@ export function OrderDetail() {
       <TopBar title={`${who} · ${d.itemCount} item${d.itemCount === 1 ? '' : 's'}`} sub={`From ${d.show?.title || 'a live show'}`} onBack={() => navigate('/studio/orders')} right={<Pill map={DELIVERY_PILL} status={d.status} />} />
       <div className="st-inner">
         <section className="card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }} aria-label="Buyer">
-          <span style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent-strong)', font: '800 16px var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{who.replace('@', '').slice(0, 2).toUpperCase()}</span>
+          <span style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--surface)', color: 'var(--text)', font: '800 16px var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{who.replace('@', '').slice(0, 2).toUpperCase()}</span>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 800, fontSize: 17 }}>{who}</span><span className="mut" style={{ fontSize: 14 }}>{d.buyer?.area || 'Delivery address on file'}</span></div>
         </section>
         {d.itemCount > 1 && <div className="soft s-primary" style={{ fontSize: 14, lineHeight: 1.45 }}>{who} got {d.itemCount} items in this show, so they ship together in one package.</div>}

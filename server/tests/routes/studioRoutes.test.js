@@ -151,4 +151,21 @@ describe('studio routes', () => {
     expect(recap.body.slot.label).toBe('Live every Saturday at 7pm');
     expect(recap.body.payout.rule).toBe('Each order pays out 1 day after delivery.');
   });
+
+  it('notifications: new orders, wins, payouts, newest first; mark all read', async () => {
+    const buyerId = new mongoose.Types.ObjectId();
+    await mongoose.connection.collection('buyers').insertOne({ _id: buyerId, firstName: 'Ada', username: 'ada_notif', email: 'ada-notif@example.com' });
+    const orderId = new mongoose.Types.ObjectId();
+    await ShowDelivery.create({ stream: new mongoose.Types.ObjectId(), buyer: buyerId, seller: mockSellerId, orders: [orderId], status: 'paid', items: [{ order: orderId, product: figure, name: 'Gojo figure', quantity: 2, unitPrice: 21750 }] });
+    await Withdrawal.create({ seller: mockSellerId, amount: 62000, status: 'completed', bankDetails: { bankName: 'GTBank', accountNumber: '0123456789' }, paymentInfo: { completedAt: new Date(Date.now() - 3600000) } });
+
+    let res = await request(app).get('/api/v2/studio/notifications').expect(200);
+    expect(res.body.items.map((n) => n.title)).toEqual(['New order from Ada', '₦62,000 sent to GTBank ••6789']);
+    expect(res.body.items[0]).toMatchObject({ body: '2 items · ₦43,500', link: '/studio/orders', unread: true });
+    expect(res.body.unread).toBe(2);
+
+    await request(app).post('/api/v2/studio/notifications/read').expect(200);
+    res = await request(app).get('/api/v2/studio/notifications').expect(200);
+    expect(res.body.unread).toBe(0);
+  });
 });

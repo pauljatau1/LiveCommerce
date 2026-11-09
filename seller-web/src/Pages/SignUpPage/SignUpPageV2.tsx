@@ -51,7 +51,7 @@ export default function SignUpPageV2() {
                     showNotification("Account created successfully!", "information", "dismissible");
 
                     // Navigate to dashboard after successful signup
-                    navigate("/studio", { replace: true });
+                    navigate("/studio/start", { replace: true });
                 }
             },
             onError: (error) => {
@@ -83,7 +83,7 @@ export default function SignUpPageV2() {
 
                     // Navigate to login page after successful signup
 
-                    navigate("/studio", { replace: true });
+                    navigate("/studio/start", { replace: true });
                 }
 
             },
