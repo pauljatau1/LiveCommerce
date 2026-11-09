@@ -72,6 +72,8 @@ export default function Watch() {
   const [estimate, setEstimate] = useState(null); // delivery estimate to the buyer's area
   const [notes, setNotes] = useState({ notes: null, firstLine: '', sections: [] }); // the host's pinned show notes
   const [notesUpdated, setNotesUpdated] = useState(false);
+  const [hostStats, setHostStats] = useState(null); // { rating, ratings, isNew }
+  const [following, setFollowing] = useState(false);
 
   const say = useCallback((kind, msg, ms = 3500) => {
     setToast({ kind, msg });
@@ -99,7 +101,7 @@ export default function Watch() {
       .catch((e) => { if (!cancelled) { setLoadError(errorMessage(e, "We couldn't find this show.")); setPhase('error'); } });
     api.notes(streamId).then((r) => { if (!cancelled && r) setNotes({ notes: r.notes, firstLine: r.firstLine, sections: r.sections || [] }); }).catch(() => {});
     api.watchSummary(streamId)
-      .then((sum) => { if (!cancelled) { setSoldCounts(sum?.sold || {}); setBidCounts(sum?.bids || {}); setShowDeposit(Number(sum?.deliveryDeposit) || 0); } })
+      .then((sum) => { if (!cancelled) { setSoldCounts(sum?.sold || {}); setBidCounts(sum?.bids || {}); setShowDeposit(Number(sum?.deliveryDeposit) || 0); setHostStats(sum?.host || null); } })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [streamId]);
@@ -107,7 +109,7 @@ export default function Watch() {
   // What a signed-in buyer still owes for delivery in this show
   useEffect(() => {
     if (!signedIn) { setDepositDue(null); return; }
-    api.watchMe(streamId).then((r) => setDepositDue(Number(r?.depositDue) || 0)).catch(() => setDepositDue(null));
+    api.watchMe(streamId).then((r) => { setDepositDue(Number(r?.depositDue) || 0); setFollowing(Boolean(r?.following)); }).catch(() => setDepositDue(null));
   }, [signedIn, streamId]);
 
   // Delivery estimate from this host to the buyer's saved area (before and during the show)
@@ -315,7 +317,7 @@ export default function Watch() {
       }
       say('err', r?.message || 'Your bid did not go through. Nothing was held.');
     });
-    socket.on('auction_order_created', (r) => { say('ok', `It's yours. Order #${r?.orderId} is paid from your wallet.`, 6000); refreshWallet(); });
+    socket.on('auction_order_created', (r) => { setSheet({ type: 'won', name: r?.productName, amount: r?.amount, orderId: r?.orderId }); refreshWallet(); });
     socket.on('auction_order_error', () => { if (leadRef.current) { say('err', "We couldn't create your winning order. Your money is back in your wallet, and the host will sort it out.", 7000); refreshWallet(); } });
 
     return () => socket.disconnect();
@@ -432,10 +434,8 @@ export default function Watch() {
     setBusy(true);
     try {
       const r = await api.buyNow(streamId, idOf(item), quantity);
-      say('ok', r.delivery?.firstItem && r.delivery?.depositHeld
-        ? `It's yours. ${naira(r.delivery.depositHeld)} is held for delivery. Everything you get in this show ships together.`
-        : `It's yours. Order #${r.order?.orderId} is paid and ships with your other items from this show.`, 7000);
-      setSheet(null);
+      const left = typeof item.product?.quantity === 'number' ? item.product.quantity : null;
+      setSheet({ type: 'yours', name: item.product?.name, amount: price * quantity, quantity, orderId: r.order?.orderId, deposit: r.delivery?.firstItem ? r.delivery?.depositHeld || 0 : 0, firstItem: Boolean(r.delivery?.firstItem), lastOf: left });
       refreshWallet();
     } catch (e) {
       const reason = e?.response?.data?.reason;
@@ -472,6 +472,7 @@ export default function Watch() {
     else if (action.kind === 'buy') await doBuy(action.item, action.quantity);
     else if (action.kind === 'chat') say('ok', "You're in. Say hi.");
     else if (action.kind === 'account') setSheet({ type: 'topup', need: 0 });
+    else if (action.kind === 'follow') await follow(true);
   };
 
   const share = async () => {
@@ -480,6 +481,19 @@ export default function Watch() {
       if (navigator.share) await navigator.share({ title: show?.title, url });
       else { await navigator.clipboard.writeText(url); say('ok', 'Link copied'); }
     } catch { /* cancelled */ }
+  };
+
+  const follow = async (justSignedIn = false) => {
+    const sellerId = show?.seller?._id;
+    if (!sellerId) return;
+    if (!signedIn && !justSignedIn) { setSheet({ type: 'onestep', action: { kind: 'follow' } }); return; }
+    try {
+      await api.follow(sellerId);
+      setFollowing(true);
+      say('ok', `Following ${show?.seller?.storeName || 'this host'}. We'll show you their next show.`);
+    } catch (e) {
+      say('err', errorMessage(e, "Couldn't follow right now. Try again."));
+    }
   };
 
   const sendReport = async () => {
@@ -617,9 +631,10 @@ export default function Watch() {
             <span className="av2">{host.storeAvatar?.url ? <img src={host.storeAvatar.url} alt="" /> : hostName.slice(0, 1)}</span>
             <span className="host-tx">
               <span className="host-nm">{hostName}</span>
-              <span className="host-sub">New host</span>
+              <span className="host-sub">{hostStats && !hostStats.isNew ? `★ ${hostStats.rating.toFixed(1)}` : 'New host'}</span>
             </span>
           </div>
+          {!following && show?.seller?._id && <button type="button" className="follow" onClick={() => follow()}>Follow</button>}
           <span className="livecount"><b>LIVE</b>{viewers}</span>
         </div>
         {notes.notes && (
@@ -742,6 +757,27 @@ export default function Watch() {
       {sheet?.type === 'items' && (
         <Sheet title={`Items in this show · ${items.length}`} top={mini} onClose={() => setSheet(null)}>
           <ItemsList items={items} current={current} buyerId={buyer?._id} busy={busy} onBuy={buyNow} />
+        </Sheet>
+      )}
+      {(sheet?.type === 'won' || sheet?.type === 'yours') && (
+        <Sheet title={sheet.type === 'won' ? 'You won' : "It's yours"} onClose={() => setSheet(null)}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+            <span style={{ fontWeight: 700 }}>{sheet.name}{sheet.quantity > 1 ? ` × ${sheet.quantity}` : ''}</span>
+            <span className="f" style={{ fontSize: 20 }}>{naira(sheet.amount)}</span>
+          </div>
+          {sheet.type === 'yours' && typeof sheet.lastOf === 'number' && sheet.lastOf > 0 && sheet.lastOf <= 5 && <span className="mut">You got {sheet.quantity || 1} of the last {sheet.lastOf}.</span>}
+          <p style={{ margin: 0 }}>
+            {sheet.type === 'yours' && !sheet.firstItem
+              ? 'Ships with your other items from this show. No extra delivery fee.'
+              : `${deliveryLine(estimate) || 'One delivery fee for everything you get this show, quoted after the show.'}${sheet.deposit ? ` ${naira(sheet.deposit)} is held for it now.` : ''}`}
+          </p>
+          <span className="mut">{sheet.orderId ? `Order #${sheet.orderId} · ` : ''}Paid from your wallet</span>
+          {sheet.type === 'won' && <span className="mut">Win more from this show and it all ships together, one delivery fee.</span>}
+          {!following && show?.seller?._id && (
+            <button type="button" className="btn2" onClick={() => follow()}>Follow {hostName}</button>
+          )}
+          <Link to="/orders" className="link" style={{ alignSelf: 'center' }}>View order</Link>
+          <button type="button" className="btn" onClick={() => setSheet(null)}>Keep watching</button>
         </Sheet>
       )}
       {sheet?.type === 'notes' && notes.notes && (

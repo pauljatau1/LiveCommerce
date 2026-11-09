@@ -152,3 +152,21 @@ describe('GET /api/v2/watch/:id/notes', () => {
     expect(res.body.sections[0]).toEqual(['howToBuy', 'How to buy']);
   });
 });
+
+describe('host rating and follow state', () => {
+  const Seller = require('@models/Seller');
+  it('shows "New host" under 5 ratings, then the average', async () => {
+    const sellerId = show.seller;
+    await mongoose.connection.collection('sellers').insertOne({ _id: sellerId, email: 'a@x.ng', agoraUid: 71, storeName: 'Tolu', stats: { averageRating: 4.83, totalReviews: 4 }, followers: [] });
+    expect((await request(app).get(`/api/v2/watch/${show._id}/summary`)).body.host).toEqual({ rating: null, ratings: 4, isNew: true });
+    await Seller.collection.updateOne({ _id: sellerId }, { $set: { 'stats.totalReviews': 5 } });
+    expect((await request(app).get(`/api/v2/watch/${show._id}/summary`)).body.host).toEqual({ rating: 4.8, ratings: 5, isNew: false });
+  });
+
+  it('tells a buyer whether they follow the host', async () => {
+    await mongoose.connection.collection('sellers').insertOne({ _id: show.seller, email: 'b@x.ng', agoraUid: 72, storeName: 'Tolu', followers: [{ buyerId: new mongoose.Types.ObjectId(mockUser.id) }] });
+    expect((await request(app).get(`/api/v2/watch/${show._id}/me`)).body.following).toBe(true);
+    mockUser = { id: String(new mongoose.Types.ObjectId()), role: 'Buyer' };
+    expect((await request(app).get(`/api/v2/watch/${show._id}/me`)).body.following).toBe(false);
+  });
+});

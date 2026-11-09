@@ -27,6 +27,8 @@ const reviewSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // Chips from the buyer app: As shown live, Good quality, Well packed, Fast delivery
+  tags: [{ type: String }],
   createdAt: {
     type: Date,
     default: Date.now

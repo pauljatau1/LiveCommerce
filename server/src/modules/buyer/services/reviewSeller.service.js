@@ -118,7 +118,7 @@ function isFollower(buyer, sellerId) {
  * @param {boolean} hasPurchase - Whether buyer has made a verified purchase
  * @returns {Object} Complete review object ready for storage
  */
-function createReview(buyerId, buyer, rating, comment, hasPurchase) {
+function createReview(buyerId, buyer, rating, comment, hasPurchase, tags = []) {
   // Format buyer name, fallback to 'Anonymous Buyer' if no name available
   const firstName = buyer.firstName || '';
   const lastName = buyer.lastName || '';
@@ -131,7 +131,8 @@ function createReview(buyerId, buyer, rating, comment, hasPurchase) {
     buyerName,
     buyerImage: buyer.profileImage?.url, // Optional profile image
     createdAt: new Date(),
-    isVerifiedPurchase: hasPurchase // Flag for verified purchase reviews
+    isVerifiedPurchase: hasPurchase, // Flag for verified purchase reviews
+    ...(tags.length ? { tags } : {})
   };
 }
 
@@ -311,8 +312,14 @@ function validateReviewEligibility(buyer, sellerId, hasPurchase) {
  * });
  * // Returns the created review object
  */
+// Quick chips a buyer can tap after delivery (alongside the stars)
+const REVIEW_TAGS = ['As shown live', 'Good quality', 'Well packed', 'Fast delivery'];
+
 async function reviewSeller(buyerId, sellerId, reviewData) {
-  const { rating, comment } = reviewData;
+  const { rating } = reviewData;
+  const tags = [...new Set((Array.isArray(reviewData.tags) ? reviewData.tags : []).filter((t) => REVIEW_TAGS.includes(t)))];
+  // Stars and chips are enough: with no words, the chips become the comment
+  const comment = String(reviewData.comment || '').trim() || (tags.length ? tags.join(' · ') : reviewData.comment);
 
   // Step 1: Validate rating and comment data
   validateRating(rating);
@@ -340,7 +347,7 @@ async function reviewSeller(buyerId, sellerId, reviewData) {
   validateReviewEligibility(buyer, sellerId, hasPurchase);
 
   // Step 7: Create the review object with all necessary data
-  const review = createReview(buyerId, buyer, rating, comment, hasPurchase);
+  const review = createReview(buyerId, buyer, rating, comment, hasPurchase, tags);
   
   // Step 8: Add review to seller's reviews array
   seller.reviews.push(review);
@@ -356,6 +363,7 @@ async function reviewSeller(buyerId, sellerId, reviewData) {
 }
 
 module.exports = {
+  REVIEW_TAGS,
   reviewSeller,
   validateRating,
   validateComment,

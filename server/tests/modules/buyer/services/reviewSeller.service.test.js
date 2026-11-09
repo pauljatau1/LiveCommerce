@@ -346,4 +346,12 @@ describe('reviewSeller.service', () => {
         .rejects.toThrow('Validation failed');
     });
   });
+
+  describe('stars and chips', () => {
+    it('keeps known chips and uses them as the comment when there are no words', () => {
+      const review = reviewSellerService.createReview('507f1f77bcf86cd799439011', { firstName: 'Ada' }, 5, 'As shown live · Fast delivery', true, ['As shown live', 'Fast delivery']);
+      expect(review.tags).toEqual(['As shown live', 'Fast delivery']);
+      expect(reviewSellerService.REVIEW_TAGS).toEqual(['As shown live', 'Good quality', 'Well packed', 'Fast delivery']);
+    });
+  });
 }); 

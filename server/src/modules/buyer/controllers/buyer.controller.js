@@ -983,10 +983,10 @@ async function reviewSeller(req, res, next) {
 
     // Extract seller ID and review data from request parameters and body
     const { sellerId } = req.params;
-    const { rating, comment } = req.body;
+    const { rating, comment, tags } = req.body;
 
     // Call the service layer to handle review submission
-    const review = await reviewSellerService.reviewSeller(buyerId, sellerId, { rating, comment });
+    const review = await reviewSellerService.reviewSeller(buyerId, sellerId, { rating, comment, tags });
 
     // Return success response with review data and success message
     return res.success({ review }, 'Review submitted successfully', 201);
