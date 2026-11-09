@@ -286,6 +286,14 @@ const sellerSchema = new mongoose.Schema({
       default: new Map()
     }
   },
+  // "Use these notes for my next shows" (services/showNotes.js)
+  defaultShowNotes: {
+    howToBuy: String,
+    delivery: String,
+    payment: String,
+    sizes: String,
+    fromSeller: String
+  },
   operatingHours: {
     monday: {
       isOpen: { type: Boolean, default: true },

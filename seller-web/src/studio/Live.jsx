@@ -11,6 +11,7 @@ import { tokenUtils } from '@/util/auth';
 import { studio, errorText, naira } from './api';
 import { Icon, Sheet } from './ui';
 import ShareSheet from './ShareSheet';
+import NotesEditor, { NOTES_MAX, hasNotes, notesLength } from './NotesEditor';
 import { useIntercomVisibility } from '@/Hooks/useIntercomVisibility';
 
 AgoraRTC.setLogLevel(3);
@@ -46,6 +47,10 @@ export default function Live() {
   const [micOn, setMicOn] = useState(true);
   const [facing, setFacing] = useState('user');
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesDraft, setNotesDraft] = useState(null);
+  const [notesBusy, setNotesBusy] = useState(false);
+  const [suggestions, setSuggestions] = useState([]); // assistant: "4 people asked about … Add it?"
   const [queueOpen, setQueueOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
 
@@ -130,6 +135,7 @@ export default function Live() {
       setFeed(list.filter((m) => m.type === 'comment').slice(-20).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, text: m.content })));
     });
     // Chat safety: messages with phone numbers, account numbers or links are hidden from buyers
+    socket.on('notes_suggestion', (sg) => setSuggestions((l) => [...l.filter((x) => x.text !== sg.text), sg].slice(-3)));
     socket.on('chat_hidden_detail', (h) => push({ kind: 'hidden', hiddenId: h.id, user: h.user, text: h.content, notice: h.notice }));
     socket.on('chat_unhidden', (h) => setFeed((f) => f.filter((m) => m.hiddenId !== h.id)));
     socket.on('chat_unhide_error', (h) => say(h?.message || "Couldn't show that message."));
@@ -302,6 +308,46 @@ export default function Live() {
     </div>
   );
 
+  const saveNotes = async (next, doneText = 'Show notes updated') => {
+    setNotesBusy(true);
+    try {
+      const r = await studio.saveNotes(id, next);
+      setShow((sh) => ({ ...sh, notes: r.notes }));
+      setNotesOpen(false);
+      say(doneText);
+      return true;
+    } catch (e) {
+      say(errorText(e, "Couldn't save the notes. Try again."));
+      return false;
+    } finally {
+      setNotesBusy(false);
+    }
+  };
+  const addSuggestion = async (sg) => {
+    const current = show?.notes || {};
+    const section = sg.section === 'payment' ? 'payment' : sg.section;
+    const next = { ...current, [section]: [current[section], sg.line].filter(Boolean).join(' ') };
+    if (await saveNotes(next, 'Added to your show notes')) setSuggestions((l) => l.filter((x) => x !== sg));
+  };
+
+  // Assistant lines: plain text, one action each
+  const Prompts = (
+    <div className="lv-prompts">
+      <div className="lv-prompt">
+        {hasNotes(show?.notes)
+          ? <><span>Show notes pinned · </span><button type="button" className="lv-undo" onClick={() => { setNotesDraft(show.notes); setNotesOpen(true); }}>Edit</button></>
+          : <><span>No show notes yet · </span><button type="button" className="lv-undo" onClick={() => { setNotesDraft({}); setNotesOpen(true); }}>Pin notes</button></>}
+      </div>
+      {suggestions.map((sg) => (
+        <div key={sg.text} className="lv-prompt">
+          <span>{sg.text} </span>
+          <button type="button" className="lv-undo" disabled={notesBusy} onClick={() => addSuggestion(sg)}>Add it</button>
+          <button type="button" className="lv-undo" onClick={() => setSuggestions((l) => l.filter((x) => x !== sg))}>Not now</button>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div className="studio-app lv">
       <header className="lv-top">
@@ -327,13 +373,14 @@ export default function Live() {
             <button type="button" className="ib" aria-label={micOn ? 'Mute microphone' : 'Unmute microphone'} aria-pressed={!micOn} onClick={toggleMic} style={{ background: micOn ? 'rgba(255,255,255,.95)' : 'var(--danger)', color: micOn ? 'var(--text)' : '#fff' }}>{micOn ? Icon.mic : Icon.micOff}</button>
             <button type="button" className="ib" aria-label="Flip camera" onClick={flip} style={{ background: 'rgba(255,255,255,.95)' }}>{Icon.flip}</button>
           </div>
-          <div className="lv-phone-only lv-chat-over">{Chat}</div>
+          <div className="lv-phone-only lv-chat-over">{Prompts}{Chat}</div>
           <div className="lv-phone-only lv-bottom">
             <div className="lv-queue-wrap">{Queue}</div>
             {ItemCard}
           </div>
         </section>
         <aside className="lv-right card">
+          {Prompts}
           <span className="f" style={{ fontSize: 17 }}>Chat</span>
           {Chat}
           <form onSubmit={send} style={{ display: 'flex', gap: 8 }}>
@@ -344,6 +391,16 @@ export default function Live() {
         </aside>
       </div>
 
+      {notesOpen && (
+        <Sheet label="Show notes" onClose={() => setNotesOpen(false)}>
+          <div style={{ maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <span className="h2">Show notes</span>
+            <span className="hint">Pinned under your name for everyone watching. When you save, buyers see "Updated".</span>
+            <NotesEditor notes={notesDraft || {}} onChange={setNotesDraft} idPrefix="live-notes" />
+          </div>
+          <button type="button" className="btn" disabled={notesBusy || notesLength(notesDraft) > NOTES_MAX} onClick={() => saveNotes(notesDraft)}>{notesBusy ? 'Saving…' : 'Save and pin'}</button>
+        </Sheet>
+      )}
       {confirmEnd && (
         <Sheet label="End show" onClose={() => setConfirmEnd(false)}>
           <h2 className="f" style={{ margin: 0, fontSize: 22 }}>End the show?</h2>

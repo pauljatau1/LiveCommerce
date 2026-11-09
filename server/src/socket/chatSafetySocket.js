@@ -44,4 +44,15 @@ const registerUnhide = ({ io, socket, Stream }) => {
   });
 };
 
-module.exports = { hideComment, registerUnhide };
+// "4 people asked about delivery to Port Harcourt. Add it?" → only to the host
+const suggestNotes = async ({ io, stream, askerId, text }) => {
+  const suggestion = require('../services/showNotes').suggester.observe(String(stream._id), askerId, text);
+  if (!suggestion) return null;
+  const sockets = await io.in(roomOf(stream._id)).fetchSockets();
+  sockets
+    .filter((s) => s.user?.role === 'Seller' && String(s.user.id) === sellerIdOf(stream))
+    .forEach((s) => s.emit('notes_suggestion', { streamId: String(stream._id), ...suggestion }));
+  return suggestion;
+};
+
+module.exports = { hideComment, registerUnhide, suggestNotes };

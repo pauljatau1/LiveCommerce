@@ -70,6 +70,8 @@ export default function Watch() {
   const [depositDue, setDepositDue] = useState(null); // what this buyer still owes (null until known)
   const [wentLive, setWentLive] = useState(false);
   const [estimate, setEstimate] = useState(null); // delivery estimate to the buyer's area
+  const [notes, setNotes] = useState({ notes: null, firstLine: '', sections: [] }); // the host's pinned show notes
+  const [notesUpdated, setNotesUpdated] = useState(false);
 
   const say = useCallback((kind, msg, ms = 3500) => {
     setToast({ kind, msg });
@@ -95,6 +97,7 @@ export default function Watch() {
         setPhase(s.status === 'live' ? 'preview' : s.status === 'ended' ? 'ended' : 'preview');
       })
       .catch((e) => { if (!cancelled) { setLoadError(errorMessage(e, "We couldn't find this show.")); setPhase('error'); } });
+    api.notes(streamId).then((r) => { if (!cancelled && r) setNotes({ notes: r.notes, firstLine: r.firstLine, sections: r.sections || [] }); }).catch(() => {});
     api.watchSummary(streamId)
       .then((sum) => { if (!cancelled) { setSoldCounts(sum?.sold || {}); setBidCounts(sum?.bids || {}); setShowDeposit(Number(sum?.deliveryDeposit) || 0); } })
       .catch(() => {});
@@ -257,6 +260,9 @@ export default function Watch() {
           }
           push({ kind: 'bid', user: n.user, avatar: n.avatar, text: n.content });
           break;
+        case 'notes_updated':
+          push({ kind: 'sys', text: n.content });
+          break;
         case 'stream_ended':
           setPhase('ended');
           break;
@@ -266,6 +272,13 @@ export default function Watch() {
     // Chat safety: a short notice instead of the hidden message
     socket.on('chat_hidden', (h) => push({ kind: 'hidden', text: h?.notice || 'A message was hidden' }));
     socket.on('chat_hidden_self', (h) => say('err', h?.message || 'Your message was hidden.', 6000));
+    // The host changed the show notes: "Updated", one soft pulse
+    socket.on('show_notes_updated', (u) => {
+      setNotes((n) => ({ ...n, notes: u?.notes || null, firstLine: u?.firstLine || '' }));
+      setNotesUpdated(true);
+      window.clearTimeout(setNotesUpdated.t);
+      setNotesUpdated.t = window.setTimeout(() => setNotesUpdated(false), 60000);
+    });
     socket.on('viewer_joined_stream', (n) => { if (typeof n?.data?.viewerCount === 'number') setViewers(n.data.viewerCount); });
     socket.on('bid_timer_update', (t) => {
       if (!t?.productId) return;
@@ -609,6 +622,14 @@ export default function Watch() {
           </div>
           <span className="livecount"><b>LIVE</b>{viewers}</span>
         </div>
+        {notes.notes && (
+          <button type="button" className={`pinned${notesUpdated ? ' pulse-once' : ''}`} onClick={() => { setNotesUpdated(false); setSheet({ type: 'notes' }); }}>
+            {Icon.pin}
+            <span className="pinned-tx"><b>Show notes</b> · {notes.firstLine}</span>
+            {notesUpdated && <span className="upd">Updated</span>}
+            <span className="pinned-more">More</span>
+          </button>
+        )}
 
         {reconnecting && (
           <div className="reconnect" role="status">
@@ -721,6 +742,19 @@ export default function Watch() {
       {sheet?.type === 'items' && (
         <Sheet title={`Items in this show · ${items.length}`} top={mini} onClose={() => setSheet(null)}>
           <ItemsList items={items} current={current} buyerId={buyer?._id} busy={busy} onBuy={buyNow} />
+        </Sheet>
+      )}
+      {sheet?.type === 'notes' && notes.notes && (
+        <Sheet title="Show notes" top={mini} onClose={() => setSheet(null)}>
+          {(notes.sections.length ? notes.sections : [['howToBuy', 'How to buy'], ['delivery', 'Delivery'], ['payment', 'Payment and safety'], ['sizes', 'Sizes and returns'], ['fromSeller', 'From the seller']])
+            .filter(([k]) => notes.notes[k])
+            .map(([k, label]) => (
+              <section key={k} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span className="cap">{label.toUpperCase()}</span>
+                <span>{notes.notes[k]}</span>
+              </section>
+            ))}
+          <span className="hint">From {hostName}. Pinned for this show.</span>
         </Sheet>
       )}
       {sheet?.type === 'more' && (

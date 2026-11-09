@@ -235,7 +235,7 @@ router.get('/shows/:id', validId, async (req, res) => {
     });
     res.json({
       success: true,
-      show: { ...showCard(s), description: s.description, viewers: (s.viewers || []).length },
+      show: { ...showCard(s), description: s.description, viewers: (s.viewers || []).length, notes: s.showNotes && !require('../services/showNotes').isEmpty(s.showNotes) ? s.showNotes : null },
       items,
       sales: { count: (s.orders || []).length, amount: (s.orders || []).reduce((n, o) => n + (o.orderDetails?.totalAmount || 0), 0) },
     });
@@ -288,6 +288,79 @@ router.get('/shows/:id/recap', validId, async (req, res) => {
 });
 
 // ---- Money ----
+// ---------- Show notes (services/showNotes.js) ----------
+const showNotes = require('../services/showNotes');
+const roomOf = (id) => `stream_notifications_${id}`;
+
+// GET /api/v2/studio/show-notes/default → the notes the seller reuses for new shows
+router.get('/show-notes/default', async (req, res) => {
+  try {
+    const seller = await model('Seller').findById(req.user.id).select('defaultShowNotes').lean();
+    const notes = seller?.defaultShowNotes;
+    res.json({ success: true, notes: notes && !showNotes.isEmpty(notes) ? showNotes.normalise(notes) : null });
+  } catch (error) { fail(res, error); }
+});
+
+// POST /api/v2/studio/show-notes/draft { title, type, items:[{name, price}], auctionSeconds } → AI draft (or a plain one)
+router.post('/show-notes/draft', async (req, res) => {
+  try {
+    const seller = await model('Seller').findById(req.user.id).select('storeName firstName businessAddress warehouseDetails sellerAddress').lean();
+    const a = seller?.warehouseDetails?.address?.city ? seller.warehouseDetails.address : seller?.businessAddress?.city ? seller.businessAddress : seller?.sellerAddress || {};
+    const out = await showNotes.draft({
+      title: req.body?.title,
+      type: req.body?.type === 'drop' ? 'drop' : 'auction',
+      items: Array.isArray(req.body?.items) ? req.body.items : [],
+      auctionSeconds: Number(req.body?.auctionSeconds) || 30,
+      deliveryDeposit: require('../services/deliveryService').depositAmount(),
+      hostName: seller?.firstName || seller?.storeName,
+      pickupArea: [a.city, a.state].filter(Boolean).join(', '),
+    });
+    res.json({ success: true, ...out, maxChars: showNotes.MAX_CHARS, sections: showNotes.SECTIONS });
+  } catch (error) { fail(res, error); }
+});
+
+// PUT /api/v2/studio/shows/:id/notes { notes, saveAsDefault } → pin (or update) the notes on my show
+router.put('/shows/:id/notes', validId, async (req, res) => {
+  try {
+    const notes = showNotes.normalise(req.body?.notes || {});
+    const show = await model('Stream').findOneAndUpdate(
+      { _id: oid(req.params.id), seller: oid(req.user.id), status: { $in: ['scheduled', 'live'] } },
+      { $set: { showNotes: { ...notes, updatedAt: new Date() } } },
+      { new: true, projection: { showNotes: 1, status: 1 } }
+    ).lean();
+    if (!show) return res.status(404).json({ success: false, message: "You can only change notes on a show that hasn't ended." });
+    const seller = await model('Seller').findById(req.user.id).select('storeName firstName').lean();
+    if (req.body?.saveAsDefault) await model('Seller').updateOne({ _id: oid(req.user.id) }, { $set: { defaultShowNotes: notes } });
+    if (show.status === 'live') {
+      const io = require('../socket/socketManager').getIO();
+      const name = seller?.firstName || seller?.storeName || 'The host';
+      const line = { id: `notes-${Date.now()}`, type: 'notes_updated', user: seller?.storeName || 'Host', content: `${name} updated the show notes`, data: { streamId: String(show._id), message: `${name} updated the show notes` }, timestamp: new Date() };
+      await model('Stream').updateOne({ _id: show._id }, { $push: { chatInteractions: line } });
+      if (io) {
+        io.to(roomOf(show._id)).emit('show_notes_updated', { streamId: String(show._id), notes: show.showNotes, firstLine: showNotes.firstLine(show.showNotes) });
+        io.to(roomOf(show._id)).emit('stream_notification', line);
+      }
+      showNotes.suggester.reset(String(show._id));
+    }
+    res.json({ success: true, notes: show.showNotes, firstLine: showNotes.firstLine(show.showNotes) });
+  } catch (error) { fail(res, error); }
+});
+
+// DELETE /api/v2/studio/shows/:id/notes → unpin
+router.delete('/shows/:id/notes', validId, async (req, res) => {
+  try {
+    const show = await model('Stream').findOneAndUpdate(
+      { _id: oid(req.params.id), seller: oid(req.user.id), status: { $in: ['scheduled', 'live'] } },
+      { $unset: { showNotes: 1 } },
+      { projection: { _id: 1, status: 1 } }
+    ).lean();
+    if (!show) return res.status(404).json({ success: false, message: "You can only change notes on a show that hasn't ended." });
+    const io = require('../socket/socketManager').getIO();
+    if (io && show.status === 'live') io.to(roomOf(show._id)).emit('show_notes_updated', { streamId: String(show._id), notes: null, firstLine: '' });
+    res.json({ success: true, notes: null });
+  } catch (error) { fail(res, error); }
+});
+
 // POST /api/v2/studio/shows/:id/auction/time { productId, seconds = 30 } → "+30s" on the running auction
 router.post('/shows/:id/auction/time', validId, async (req, res) => {
   try {

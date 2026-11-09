@@ -131,6 +131,20 @@ router.get('/:streamId/chat', validId, async (req, res) => {
   }
 });
 
+// GET /api/v2/watch/:streamId/notes → the host's pinned show notes (or null)
+router.get('/:streamId/notes', validId, async (req, res) => {
+  try {
+    const stream = await Stream.findById(req.params.streamId).select('showNotes').lean();
+    if (!stream) return res.status(404).json({ success: false, message: "We couldn't find this show." });
+    const showNotes = require('../services/showNotes');
+    const notes = stream.showNotes && !showNotes.isEmpty(stream.showNotes) ? stream.showNotes : null;
+    res.json({ success: true, notes, firstLine: showNotes.firstLine(notes), sections: showNotes.SECTIONS });
+  } catch (error) {
+    console.error('[watch] notes', error.message);
+    res.status(500).json({ success: false, message: "Couldn't load the show notes. Try again." });
+  }
+});
+
 // POST /api/v2/watch/:streamId/report { reason, note? }
 router.post('/:streamId/report', verifyToken, isBuyer, validId, async (req, res) => {
   const reason = String(req.body?.reason || '');

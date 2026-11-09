@@ -48,6 +48,7 @@ export const api = {
   publicChat: (id) => http.get(`/api/v2/watch/${id}/chat`).then((r) => r.data?.chatInteractions || []),
   watchMe: (id) => http.get(`/api/v2/watch/${id}/me`).then((r) => r.data),
   estimate: (id, area = {}) => http.get(`/api/v2/watch/${id}/estimate`, { params: area }).then((r) => r.data),
+  notes: (id) => http.get(`/api/v2/watch/${id}/notes`).then((r) => r.data),
   watchSummary: (id) => http.get(`/api/v2/watch/${id}/summary`).then((r) => r.data),
   report: (id, reason, note) => http.post(`/api/v2/watch/${id}/report`, { reason, note }).then((r) => r.data),
   buyNow: (id, productId, quantity) => http.post(`/api/streams/${id}/buy-now`, { productId, quantity }, { timeout: 60000 }).then((r) => r.data),

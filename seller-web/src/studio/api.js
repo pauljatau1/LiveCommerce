@@ -33,6 +33,9 @@ export const studio = {
   displayProduct: (id, productId) => post(`${BASE_URL}/streams/${id}/display-product`, { productId }),
   hideProduct: (id, productId) => post(`${BASE_URL}/streams/${id}/hide-product`, { productId }),
   startBidding: (id, productId, seconds) => post(`${BASE_URL}/streams/${id}/activate-product-bidding`, { productId, seconds }),
+  notesDraft: (plan) => post(`${BASE_URL_V2}/studio/show-notes/draft`, plan),
+  notesDefault: () => get(`${BASE_URL_V2}/studio/show-notes/default`),
+  saveNotes: (id, notes, saveAsDefault = false) => axios.put(`${BASE_URL_V2}/studio/shows/${id}/notes`, { notes, saveAsDefault }, { ...auth(), timeout: 30000 }).then((r) => r.data),
   addTime: (id, productId, seconds = 30) => post(`${BASE_URL_V2}/studio/shows/${id}/auction/time`, { productId, seconds }),
   chat: (id) => get(`${BASE_URL}/streams/${id}/chat`).catch(() => []),
 };

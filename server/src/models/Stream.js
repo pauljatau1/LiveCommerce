@@ -227,6 +227,15 @@ const streamSchema = new mongoose.Schema({
     sellerName: { type: String, required: true },
     timestamp: { type: Date, default: Date.now }
   }],
+  // Show notes: one pinned note per show, owned by the seller (services/showNotes.js)
+  showNotes: {
+    howToBuy: String,
+    delivery: String,
+    payment: String,
+    sizes: String,
+    fromSeller: String,
+    updatedAt: Date
+  },
   // Viewer reports from the Watch screen ("More" → Report). Reviewed by the team.
   reports: [{
     buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' },

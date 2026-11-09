@@ -132,7 +132,7 @@ const normaliseDraft = (raw, categories) => {
 
 const busyOrSlow = (error) => [429, 500, 503].includes(error.response?.status) || error.code === 'ECONNABORTED';
 
-const callModel = async (model, parts, timeout) => {
+const callModel = async (model, parts, timeout, schema = DRAFT_SCHEMA) => {
   // Listing drafts don't need deep reasoning; low thinking keeps them fast.
   const thinkingLevel = (process.env.GEMINI_THINKING_LEVEL || 'LOW').toUpperCase();
   const request = (withThinking) =>
@@ -140,7 +140,7 @@ const callModel = async (model, parts, timeout) => {
       contents: [{ role: 'user', parts }],
       generationConfig: {
         responseMimeType: 'application/json',
-        responseSchema: DRAFT_SCHEMA,
+        responseSchema: schema,
         temperature: 0.4,
         ...(withThinking && thinkingLevel !== 'DEFAULT' ? { thinkingConfig: { thinkingLevel } } : {}),
       },
@@ -161,7 +161,8 @@ const logFailure = (model, error) =>
   // Google's reason, never the key, so failures can be diagnosed
   console.error('[ai] Gemini request failed:', { model, status: error.response?.status, reason: error.response?.data?.error?.message || error.code || error.message });
 
-const callGemini = async (parts) => {
+// `schema`: the JSON shape to answer in (listing drafts by default; show notes use their own)
+const callGemini = async (parts, schema = DRAFT_SCHEMA) => {
   const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
   const backupSetting = process.env.GEMINI_BACKUP_MODEL || DEFAULT_BACKUP_MODEL;
   const backup = backupSetting.toLowerCase() === 'none' || backupSetting === model ? null : backupSetting;
@@ -170,13 +171,13 @@ const callGemini = async (parts) => {
   try {
     try {
       // Leave time for the backup inside the studio's 60s wait
-      res = await callModel(model, parts, backup ? 28000 : 50000);
+      res = await callModel(model, parts, backup ? 28000 : 50000, schema);
     } catch (error) {
       if (!backup || !busyOrSlow(error)) throw error;
       logFailure(model, error);
       console.warn('[ai] main model busy or slow; using backup', backup);
       usedModel = backup;
-      res = await callModel(backup, parts, 25000);
+      res = await callModel(backup, parts, 25000, schema);
     }
   } catch (error) {
     logFailure(usedModel, error);
@@ -255,4 +256,4 @@ const checkConnection = async () => {
   };
 };
 
-module.exports = { draftFromPhotos, refineDraft, normaliseDraft, isConfigured, checkConnection, ListingDraftError, DEFAULT_MODEL };
+module.exports = { callGemini, draftFromPhotos, refineDraft, normaliseDraft, isConfigured, checkConnection, ListingDraftError, DEFAULT_MODEL };

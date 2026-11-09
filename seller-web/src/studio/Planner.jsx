@@ -6,6 +6,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { shrinkPhoto } from './listingApi';
 import { studio, errorText, naira, when } from './api';
 import { Icon, Problem, Skeleton, TopBar, Empty } from './ui';
+import NotesEditor, { ALWAYS, NOTE_SECTIONS, NOTES_MAX, hasNotes, notesLength, paymentExtra } from './NotesEditor';
 import ShareSheet from './ShareSheet';
 
 const TYPES = [
@@ -53,6 +54,26 @@ export default function Planner() {
   const toggle = (id) => setPicked((l) => (l.includes(id) ? l.filter((x) => x !== id) : l.length >= 20 ? l : [...l, id]));
   const move = (i, dir) => setPicked((l) => { const n = [...l]; const j = i + dir; if (j < 0 || j >= n.length) return l; [n[i], n[j]] = [n[j], n[i]]; return n; });
   const [lengths, setLengths] = useState({}); // productId -> 30 | 60 | 120 seconds
+  // Show notes: pinned for buyers; drafted by the assistant, or the seller's saved ones
+  const [notes, setNotes] = useState(null);
+  const [notesState, setNotesState] = useState(''); // '' | 'drafting' | 'error'
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [reuseNotes, setReuseNotes] = useState(true);
+  const draftNotes = async () => {
+    setNotesState('drafting');
+    try {
+      const r = await studio.notesDraft({ title, type: type === 'auction' ? 'auction' : 'drop', items: items.map((p) => ({ name: p.name, price: p.price })), auctionSeconds: items[0] ? lengthOf(items[0]) : 30 });
+      setNotes(r.notes);
+      setNotesState('');
+    } catch {
+      setNotesState('error');
+    }
+  };
+  useEffect(() => {
+    if (step !== 2 || notes) return;
+    studio.notesDefault().then((r) => { if (r?.notes) setNotes(r.notes); }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
   const lengthOf = (p) => lengths[p._id] || 30;
   const startBid = (p) => bids[p._id] ?? String(Math.max(500, Math.round((p.price * 0.6) / 500) * 500));
 
@@ -96,6 +117,10 @@ export default function Planner() {
       const res = type === 'auction' ? await studio.createAuction(body) : await studio.createDrop(body);
       const show = res.stream || res.data?.stream || res;
       if (!show?._id) throw new Error('No show returned');
+      // Pin the notes on the new show; a problem here never blocks the show
+      if (hasNotes(notes)) {
+        try { await studio.saveNotes(show._id, notes, reuseNotes); } catch (e) { setSaveError(`Your show is set, but the notes didn't save: ${errorText(e)} You can pin them from the live studio.`); }
+      }
       if (now) { navigate(`/studio/golive/${show._id}`, { replace: true }); return; }
       setCreated({ ...show, at, count: items.length, images: items.map((p) => p.image) });
     } catch (e) {
@@ -243,8 +268,48 @@ export default function Planner() {
             {!cover && <span className="hint">Without one, buyers see your first item's photo.</span>}
           </section>
 
+          <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }} aria-label="Show notes">
+            <h2 className="h2">Pin these notes</h2>
+            <span className="hint">Buyers see them under your name all show: how to buy, delivery, payment and sizes.</span>
+            {notesState === 'drafting' ? (
+              <span className="mut">Writing your notes from the plan…</span>
+            ) : !notes ? (
+              <>
+                {notesState === 'error' && <span className="hint">I couldn't draft them this time. Write them yourself, or try again.</span>}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button type="button" className="btn2" onClick={draftNotes}>Write them for me</button>
+                  <button type="button" className="btn3" onClick={() => { setNotes({}); setEditingNotes(true); }}>Write my own</button>
+                </div>
+              </>
+            ) : editingNotes ? (
+              <>
+                <NotesEditor notes={notes} onChange={setNotes} idPrefix="plan-notes" />
+                <button type="button" className="btn3" onClick={() => setEditingNotes(false)}>Done</button>
+              </>
+            ) : (
+              <>
+                {NOTE_SECTIONS.filter(([k]) => (k === 'payment' ? true : notes[k])).map(([k, label]) => (
+                  <div key={k} style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span className="cap">{label.toUpperCase()}</span>
+                    <span>{k === 'payment' ? `${ALWAYS} ${paymentExtra(notes.payment)}`.trim() : notes[k]}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button type="button" className="btn3" onClick={() => setEditingNotes(true)}>Edit</button>
+                  <button type="button" className="link" onClick={draftNotes}>Write them again</button>
+                </div>
+              </>
+            )}
+            {notes && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, fontWeight: 700 }}>
+                <input type="checkbox" checked={reuseNotes} onChange={(e) => setReuseNotes(e.target.checked)} style={{ width: 22, height: 22 }} />
+                Use these notes for my next shows
+              </label>
+            )}
+          </section>
+
           {saveError && <Problem text={saveError} />}
-          <button type="button" className="btn" style={{ minHeight: 56 }} disabled={busy} onClick={create}>{busy ? 'Creating…' : now ? 'Create and go live' : 'Schedule show'}</button>
+          <button type="button" className="btn" style={{ minHeight: 56 }} disabled={busy || notesLength(notes) > NOTES_MAX} onClick={create}>{busy ? 'Creating…' : now ? 'Create and go live' : 'Schedule show'}</button>
         </div>
       )}
     </div>
