@@ -10,6 +10,17 @@ require('../models/Buyer');
 const agoraService = require('../services/agoraService');
 const { RtcRole } = require('agora-access-token');
 const deliveries = require('../services/deliveryService');
+const deliveryEstimate = require('../services/deliveryEstimate');
+const jwt = require('jsonwebtoken');
+
+// Reads the buyer from the token when there is one; guests carry on without
+const optionalBuyer = (req, res, next) => {
+  const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (token) {
+    try { const u = jwt.verify(token, process.env.JWT_SECRET); if (u?.role === 'Buyer') req.user = u; } catch { /* treat as a guest */ }
+  }
+  next();
+};
 
 const router = express.Router();
 
@@ -50,6 +61,27 @@ router.get('/:streamId/me', verifyToken, isBuyer, validId, async (req, res) => {
   } catch (error) {
     console.error('[watch] me', error.message);
     res.status(500).json({ success: false, message: "Couldn't check your delivery deposit. Try again." });
+  }
+});
+
+// GET /api/v2/watch/:streamId/estimate?state=&city= → delivery estimate from this host to that area.
+// Signed-in buyers can leave out the area to use their delivery address.
+router.get('/:streamId/estimate', validId, optionalBuyer, async (req, res) => {
+  try {
+    const stream = await Stream.findById(req.params.streamId).select('seller').lean();
+    if (!stream) return res.status(404).json({ success: false, message: "We couldn't find this show." });
+    let { state, city } = req.query;
+    if ((!state || !city) && req.user?.id) {
+      const buyer = await mongoose.model('Buyer').findById(req.user.id).select('shippingAddresses').lean();
+      const a = buyer?.shippingAddresses?.find((x) => x.isActive) || buyer?.shippingAddresses?.[0];
+      state = a?.state; city = a?.city;
+    }
+    const est = await deliveryEstimate.estimate({ sellerId: stream.seller, city, state });
+    res.json({ success: true, available: true, ...est, deposit: deliveries.depositAmount() });
+  } catch (error) {
+    if (error instanceof deliveryEstimate.EstimateUnavailable) return res.json({ success: true, available: false, message: error.message });
+    console.error('[watch] estimate', error.message);
+    res.status(500).json({ success: false, message: "Couldn't get a delivery estimate. Try again." });
   }
 });
 

@@ -107,4 +107,7 @@ export const RailButton = ({ label, onClick, children }) => (
   </button>
 );
 
+// "Delivery to Lekki about ₦2,500 · one fee this show"
+export const deliveryLine = (est) => (est?.available ? `Delivery to ${est.area} about ${naira(est.amount)} · one fee this show` : null);
+
 export { Icon };
