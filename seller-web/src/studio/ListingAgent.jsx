@@ -52,7 +52,7 @@ function Thinking({ label }) {
 function Field({ label, editing, onEdit, highlight, children, editor }) {
   if (editing) {
     return (
-      <div style={{ padding: '12px 16px', borderTop: '1px solid #F1EBE3', display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--primary-soft)' }}>
+      <div style={{ padding: '12px 16px', borderTop: '1px solid #F1EBE3', display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--surface)' }}>
         <span className="cap" style={{ color: 'var(--primary-strong)' }}>{label} · EDITING</span>
         {editor}
       </div>
@@ -349,7 +349,7 @@ export default function ListingAgent() {
           <div className="me">Publish</div>
           <Bot>It's live in your shop.</Bot>
           <section className="ind card" aria-label="Published" style={{ overflow: 'hidden' }}>
-            <div style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 10, background: 'var(--success-soft)' }}>
+            <div style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface)' }}>
               <span style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icon.check}</span>
               <span className="f" style={{ fontSize: 19, color: 'var(--success)' }}>Listed</span>
             </div>
@@ -468,7 +468,7 @@ export default function ListingAgent() {
         <div className="money"><span>₦</span><input id="la-price" inputMode="numeric" value={price} onChange={(e) => setPrice(fmt(e.target.value))} placeholder="0" /></div>
       </div>
       <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, fontWeight: 800, cursor: 'pointer' }}>
-        Also allow auction
+        Also take bids
         <span className={`tgl${allowAuction ? ' on' : ''}`} aria-hidden="true"><i /></span>
         <input type="checkbox" className="sr" checked={allowAuction} onChange={(e) => { setAllowAuction(e.target.checked); if (e.target.checked && !startingBid && digits(price)) setStartingBid(fmt(Math.round(digits(price) * 0.6 / 500) * 500)); }} />
       </label>

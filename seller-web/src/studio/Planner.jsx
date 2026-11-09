@@ -137,8 +137,8 @@ export default function Planner() {
         <TopBar title="Your show" onBack={() => navigate('/studio')} right={<span className="pill p-active">Scheduled</span>} />
         <div className="st-inner">
           <section className="card" style={{ overflow: 'hidden' }} aria-label="Scheduled show">
-            <div style={{ padding: 18, background: 'var(--warm-soft)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span className="cap" style={{ color: 'var(--warm)' }}>{when(created.at).toUpperCase()} · {type === 'auction' ? 'AUCTION' : 'DROP'} · {created.count} ITEMS</span>
+            <div style={{ padding: 18, background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span className="cap">{when(created.at).toUpperCase()} · {type === 'auction' ? 'AUCTION' : 'DROP'} · {created.count} ITEMS</span>
               <span className="f" style={{ fontSize: 22, lineHeight: 1.15 }}>{created.title}</span>
             </div>
             <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>

@@ -5,6 +5,7 @@ import './studio.css';
 const s = { 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', strokeLinecap: 'round', strokeLinejoin: 'round' };
 
 export const Icon = {
+  bell: <svg {...s} width="22" height="22" viewBox="0 0 24 24" strokeWidth="2"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z" /><path d="M10 21h4" /></svg>,
   home: <svg {...s} width="22" height="22" viewBox="0 0 24 24" strokeWidth="2"><path d="M3 11l9-8 9 8v10h-6v-6H9v6H3z" /></svg>,
   products: <svg {...s} width="22" height="22" viewBox="0 0 24 24" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></svg>,
   live: (c = '#fff', size = 24) => <svg {...s} stroke={c} width={size} height={size} viewBox="0 0 24 24" strokeWidth="2"><rect x="2" y="6" width="14" height="12" rx="3" /><path d="M16 10l6-3v10l-6-3z" /></svg>,

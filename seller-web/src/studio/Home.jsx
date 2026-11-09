@@ -19,7 +19,7 @@ function Focal({ data, onShare }) {
   const { nextShow: show, toShip, productCount } = data;
   if (show?.status === 'live') {
     return (
-      <section className="card" aria-label="You're live" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--danger-soft)', borderColor: '#F6C9D1' }}>
+      <section className="card" aria-label="You're live" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--surface)' }}>
         <span className="pill p-live" style={{ alignSelf: 'flex-start' }}>● LIVE NOW</span>
         <h2 className="f" style={{ margin: 0, fontSize: 24, lineHeight: 1.15 }}>{show.title}</h2>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -32,8 +32,8 @@ function Focal({ data, onShare }) {
   if (show) {
     const soon = new Date(show.scheduledStartTime) - Date.now() < 30 * 60000;
     return (
-      <section className="card" aria-label="Your next show" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14, background: 'var(--warm-soft)', borderColor: '#F7DFC8' }}>
-        <span className="cap" style={{ color: 'var(--warm)' }}>NEXT SHOW · {when(show.scheduledStartTime).toUpperCase()} · {show.type === 'drop' ? 'DROP' : 'AUCTION'}</span>
+      <section className="card" aria-label="Your next show" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14, background: 'var(--surface)' }}>
+        <span className="cap">NEXT SHOW · {when(show.scheduledStartTime).toUpperCase()} · {show.type === 'drop' ? 'DROP' : 'AUCTION'}</span>
         <h2 className="f" style={{ margin: 0, fontSize: 24, lineHeight: 1.15 }}>{show.title}</h2>
         <div style={{ display: 'flex', gap: 8 }} aria-label="Time until the show">
           {[...countdown(show.scheduledStartTime), [show.itemCount, 'ITEMS']].map(([n, l]) => (
@@ -49,7 +49,7 @@ function Focal({ data, onShare }) {
   }
   if (toShip > 0) {
     return (
-      <section className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--primary-soft)', borderColor: '#CFE8DA' }}>
+      <section className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--surface)' }}>
         <span className="cap" style={{ color: 'var(--primary-strong)' }}>TO DO</span>
         <h2 className="f" style={{ margin: 0, fontSize: 24 }}>{toShip} package{toShip === 1 ? '' : 's'} to send</h2>
         <span style={{ fontSize: 15 }}>Delivery is paid. Book the pickup and a courier comes to you.</span>
@@ -59,7 +59,7 @@ function Focal({ data, onShare }) {
   }
   if (!productCount) {
     return (
-      <section className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--primary-soft)', borderColor: '#CFE8DA' }}>
+      <section className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--surface)' }}>
         <span className="cap" style={{ color: 'var(--primary-strong)' }}>START HERE</span>
         <h2 className="f" style={{ margin: 0, fontSize: 24 }}>List your first item</h2>
         <span style={{ fontSize: 15 }}>Take a few photos. I'll write the title, description and price for you to check.</span>
@@ -68,8 +68,8 @@ function Focal({ data, onShare }) {
     );
   }
   return (
-    <section className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--warm-soft)', borderColor: '#F7DFC8' }}>
-      <span className="cap" style={{ color: 'var(--warm)' }}>NO SHOW PLANNED</span>
+    <section className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--surface)' }}>
+      <span className="cap">NO SHOW PLANNED</span>
       <h2 className="f" style={{ margin: 0, fontSize: 24 }}>Plan your next show</h2>
       <span style={{ fontSize: 15 }}>Pick items, choose auction or drop, set a time. Buyers get a link to join.</span>
       <Link to="/studio/plan" className="btn">Plan a show</Link>
@@ -92,7 +92,8 @@ export default function Home() {
     <main className="st-main">
       <div className="st-head st-hide-desk">
         <span style={{ flex: 1 }}><Brand size={24} /></span>
-        <Link to="/studio/me" aria-label="Your store" style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent-strong)', font: '800 15px var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+        <Link to="/studio/notifications" className="ib" aria-label="Notifications" style={{ background: 'none' }}>{Icon.bell}</Link>
+        <Link to="/studio/me" aria-label="Your store" style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--surface-sunken)', color: 'var(--text)', font: '800 15px var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
           {(data?.seller?.storeName || name || 'S').slice(0, 2).toUpperCase()}
         </Link>
       </div>
@@ -113,7 +114,7 @@ export default function Home() {
           <div style={{ flex: '1 1 280px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {data.productCount > 0 && <Link to="/studio/list" className="st-row" style={{ padding: 16 }}>
               <span className="blob" style={{ width: 52, height: 52, borderRadius: 18, color: 'var(--primary)' }}>{Icon.camera}</span>
-              <span style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span className="f" style={{ fontSize: 18 }}>List an item</span><span className="mut" style={{ fontSize: 14 }}>Drop photos, I'll write it</span></span>
+              <span style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span className="f" style={{ fontSize: 18 }}>List an item</span><span className="mut" style={{ fontSize: 14 }}>Drop photos. I'll write it</span></span>
               {Icon.chevron('var(--text-muted)')}
             </Link>}
             {data.lastShow && (
@@ -146,7 +147,7 @@ export default function Home() {
       )}
 
       {data && (
-        <Link to="/studio/money" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 56, padding: '0 16px', borderRadius: 18, background: 'var(--primary-soft)', color: 'var(--text)', textDecoration: 'none', fontSize: 15 }}>
+        <Link to="/studio/money" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 56, padding: '0 16px', borderRadius: 18, background: 'var(--surface)', color: 'var(--text)', textDecoration: 'none', fontSize: 15 }}>
           <span><strong>{naira(data.money.ready)}</strong> ready to withdraw{data.money.pending ? <> · <strong>{naira(data.money.pending)}</strong> on the way</> : null}</span>
           {Icon.chevron('var(--primary)')}
         </Link>

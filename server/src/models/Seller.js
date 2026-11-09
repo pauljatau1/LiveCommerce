@@ -288,6 +288,8 @@ const sellerSchema = new mongoose.Schema({
       default: new Map()
     }
   },
+  // Studio notifications inbox: everything before this time counts as read
+  notificationsReadAt: { type: Date },
   // Weekly show slot, Lagos time (services/weeklySlot.js): day 0 = Sunday … 6 = Saturday, time "19:00"
   weeklySlot: {
     day: { type: Number, min: 0, max: 6 },

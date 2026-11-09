@@ -44,7 +44,7 @@ export default function Money() {
         {!data && !error && <><Skeleton h={200} r={24} /><Skeleton h={240} /></>}
         {data && (
           <>
-            <section className="card" aria-label="Balance" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14, background: 'var(--primary-soft)', borderColor: '#CFE8DA' }}>
+            <section className="card" aria-label="Balance" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14, background: 'var(--surface)' }}>
               <span className="cap" style={{ color: 'var(--primary-strong)' }}>READY TO WITHDRAW</span>
               <span className="f" style={{ fontSize: 40, lineHeight: 1 }}>{naira(data.ready)}</span>
               {bank

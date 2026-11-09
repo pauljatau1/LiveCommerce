@@ -33,8 +33,8 @@ export default function Recap() {
         {!data && !error && <><Skeleton h={200} r={28} /><Skeleton h={160} /></>}
         {data && (
           <>
-            <section style={{ padding: 20, borderRadius: 28, background: 'var(--warm-soft)', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <span className="cap" style={{ color: 'var(--warm)' }}>{data.show.title.toUpperCase()}{data.minutes ? ` · ${data.minutes} MIN` : ''}</span>
+            <section style={{ padding: 20, borderRadius: 28, background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <span className="cap">{data.show.title.toUpperCase()}{data.minutes ? ` · ${data.minutes} MIN` : ''}</span>
               <h1 className="f" style={{ margin: 0, fontSize: 30, lineHeight: 1.1 }}>{data.itemsSold ? `Nice one. You made ${naira(data.earned)}.` : 'Show ended. Nothing sold this time.'}</h1>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 8 }}>
                 {[[data.itemsSold, 'ITEMS SOLD'], [data.buyers, 'BUYERS'], [data.viewers, 'WATCHED']].map(([n, l]) => (

@@ -46,8 +46,8 @@ export default function DashboardRoute({ children }: { children: React.ReactNode
         if (isRestrictedPath && seller && isPickupAddressRequired) {
           showNotification('Pickup Address Required', 'error', 'dismissible');
 
-          // Redirect to dashboard home where verification dialog will appear
-          navigate('/dashboard/home', { replace: true });
+          // Studio pages go to Getting started (pickup step); old dashboard pages keep their dialog
+          navigate(currentPath.startsWith('/studio') ? '/studio/start?step=pickup' : '/dashboard/home', { replace: true });
         }
     }, [seller, token, location.pathname]);
 
