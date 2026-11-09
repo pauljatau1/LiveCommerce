@@ -50,6 +50,15 @@ const productIdMatch = (productId) => {
   return { $in: ids };
 };
 
+// Bid steps: ₦500 under ₦10,000, ₦1,000 under ₦50,000, ₦2,500 above.
+const stepFor = (bid) => (bid < 10000 ? 500 : bid < 50000 ? 1000 : 2500);
+
+// The lowest bid that counts next: the starting bid, or the top bid plus one step.
+const minimumNextBid = (product) => {
+  const current = Number(product?.currentBid) || 0;
+  return current > 0 ? current + stepFor(current) : Math.max(Number(product?.minBid) || 0, 1);
+};
+
 const bidderSnapshot = (buyer) => ({
   _id: buyer._id,
   firstName: buyer.firstName,
@@ -177,4 +186,4 @@ const releaseAllHolds = async (streamId) => {
   return released;
 };
 
-module.exports = { placeBid, holdFunds, releaseFunds, releaseProductHold, releaseAllHolds, productIdMatch };
+module.exports = { placeBid, holdFunds, releaseFunds, releaseProductHold, releaseAllHolds, productIdMatch, stepFor, minimumNextBid };

@@ -1566,6 +1566,14 @@ function initializeSocket(server) {
         const product = stream.products[productIndex];
         const productDetails = product.product;
 
+        // Bids move in steps (₦500 under ₦10k, ₦1,000 under ₦50k, ₦2,500 above)
+        const { minimumNextBid } = require('../services/streamBidService');
+        const minimum = minimumNextBid(product);
+        if (product.bidStatus === 'active' && Number(bidAmount) < minimum) {
+          socket.emit('bid_error', { message: `Bid at least ₦${minimum.toLocaleString('en-NG')}.`, details: { minimum } });
+          return;
+        }
+
         console.log('[BID] 17. Found product in stream', {
           productIndex,
           productName: productDetails.name,
