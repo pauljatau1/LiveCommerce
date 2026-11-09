@@ -14,7 +14,7 @@ import OneStepSheet from '../components/OneStepSheet';
 import { googleCalendarUrl, icsHref, showEvent } from '../calendar';
 import { Header, Icon, Sheet } from '../components/ui';
 import {
-  ChatFeed, ItemThumb, ItemsList, MiniBidBar, RailButton, Timer, deliveryLine,
+  ChatFeed, ItemThumb, ItemsList, MiniBidBar, RailButton, Timer, deliveryLine, shipsLine, useKeyboardInset,
   idOf, nextBidFor, plural, priceOf, usePulse, who,
 } from '../components/watch';
 
@@ -74,6 +74,10 @@ export default function Watch() {
   const [notesUpdated, setNotesUpdated] = useState(false);
   const [hostStats, setHostStats] = useState(null); // { rating, ratings, isNew }
   const [following, setFollowing] = useState(false);
+  // Typing in chat: only the top bar, the chat lines and the input, pinned above the keyboard
+  const [typing, setTyping] = useState(false);
+  const chatInputRef = useRef(null);
+  const keyboard = useKeyboardInset();
 
   const say = useCallback((kind, msg, ms = 3500) => {
     setToast({ kind, msg });
@@ -463,6 +467,7 @@ export default function Watch() {
     if (!sock) { say('err', "Couldn't send. Check your connection."); return; }
     sock.emit('stream_comment', { streamId, content: content.slice(0, 300) });
     setText('');
+    chatInputRef.current?.blur(); // sent: put the show back
   };
 
   // After the one-step sheet: do what the viewer tapped
@@ -601,13 +606,35 @@ export default function Watch() {
   const composer = (
     <form className="composer2" onSubmit={sendChat}>
       <label htmlFor="w-chat" className="sr">Say something</label>
-      <input id="w-chat" value={text} onChange={(e) => setText(e.target.value)} maxLength={300} placeholder="Say something…" autoComplete="off" />
+      <input
+        id="w-chat"
+        ref={chatInputRef}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onFocus={() => setTyping(true)}
+        // A short wait lets a tap on Send land before the panel comes back
+        onBlur={() => window.setTimeout(() => setTyping(false), 120)}
+        maxLength={300}
+        placeholder="Say something…"
+        autoComplete="off"
+        enterKeyHint="send"
+      />
+      {text.trim() && <button type="submit" className="round send" aria-label="Send" onMouseDown={(e) => e.preventDefault()}>{Icon.send}</button>}
+    </form>
+  );
+  const deskComposer = (
+    <form className="composer2" onSubmit={sendChat}>
+      <label htmlFor="w-chat-desk" className="sr">Say something</label>
+      <input id="w-chat-desk" value={text} onChange={(e) => setText(e.target.value)} maxLength={300} placeholder="Say something…" autoComplete="off" />
       {text.trim() && <button type="submit" className="round send" aria-label="Send">{Icon.send}</button>}
     </form>
   );
 
   return (
-    <div className="watch">
+    <div
+      className={`watch${typing ? ' typing' : ''}`}
+      style={{ '--kb-bottom': `${typing ? keyboard.bottom : 0}px`, '--vv-top': `${typing ? keyboard.top : 0}px` }}
+    >
       <aside className="w-side w-items" aria-label="Items in this show">
         <h2 className="h2">Items in this show · {items.length}</h2>
         <ItemsList items={items} current={current} buyerId={buyer?._id} busy={busy} onBuy={buyNow} />
@@ -631,23 +658,22 @@ export default function Watch() {
         )}
 
         <div className="overlay-top">
-          <button type="button" className="round ghost" aria-label="Leave the show" onClick={() => navigate('/')}>{Icon.back}</button>
           <div className="host">
             <span className="av2">{host.storeAvatar?.url ? <img src={host.storeAvatar.url} alt="" /> : hostName.slice(0, 1)}</span>
             <span className="host-tx">
               <span className="host-nm">{hostName}</span>
-              <span className="host-sub">{hostStats && !hostStats.isNew ? `★ ${hostStats.rating.toFixed(1)}` : 'New host'}</span>
+              <span className="host-sub">{[hostStats && !hostStats.isNew ? `★ ${hostStats.rating.toFixed(1)}` : 'New host', shipsLine(hostStats?.shipsInDays)].filter(Boolean).join(' · ')}</span>
             </span>
+            {!following && show?.seller?._id && <button type="button" className="follow" onClick={() => follow()}>Follow</button>}
           </div>
-          {!following && show?.seller?._id && <button type="button" className="follow" onClick={() => follow()}>Follow</button>}
-          <span className="livecount"><b>LIVE</b>{viewers}</span>
+          <span className="livecount" aria-label={`Live, ${viewers} watching`}><b>LIVE</b>{viewers}</span>
         </div>
         {notes.notes && (
           <button type="button" className={`pinned${notesUpdated ? ' pulse-once' : ''}`} onClick={() => { setNotesUpdated(false); setSheet({ type: 'notes' }); }}>
             {Icon.pin}
             <span className="pinned-tx"><b>Show notes</b> · {notes.firstLine}</span>
             {notesUpdated && <span className="upd">Updated</span>}
-            <span className="pinned-more">More</span>
+            <span className="pinned-go" aria-hidden="true">›</span>
           </button>
         )}
 
@@ -665,19 +691,25 @@ export default function Watch() {
           </button>
         )}
 
-        <nav className="rail" aria-label="Show actions">
-          <RailButton label="More" onClick={() => setSheet({ type: 'more' })}>{Icon.more}</RailButton>
-          <RailButton label="Share" onClick={share}>{Icon.share}</RailButton>
-          <RailButton label="Wallet" onClick={() => setSheet(signedIn ? { type: 'topup', need: 0 } : { type: 'onestep', action: { kind: 'account' } })}>{Icon.wallet}</RailButton>
-          <RailButton label={`Items · ${items.length}`} onClick={() => setSheet({ type: 'items' })}>
-            {current && imageOf(current) ? <img src={imageOf(current)} alt="" className="rail-img" /> : <span className="rail-count">{items.length}</span>}
-          </RailButton>
-        </nav>
 
         <div className="bottom">
-          <ChatFeed feed={feed} feedRef={feedRef} className="w-phone" />
-          <div className="w-phone">{composer}</div>
+          {/* Chat on the left, the side rail on the right; Items lines up with the input */}
+          <div className="chatzone">
+            <div className="chatcol w-phone">
+              <ChatFeed feed={feed} feedRef={feedRef} limit={typing ? 8 : 5} />
+              {composer}
+            </div>
+            <nav className="rail" aria-label="Show actions">
+              <RailButton label="More" onClick={() => setSheet({ type: 'more' })}>{Icon.more}</RailButton>
+              <RailButton label="Share" onClick={share}>{Icon.share}</RailButton>
+              <RailButton label="Wallet" onClick={() => setSheet(signedIn ? { type: 'topup', need: 0 } : { type: 'onestep', action: { kind: 'account' } })}>{Icon.wallet}</RailButton>
+              <RailButton label={`Items · ${items.length}`} onClick={() => setSheet({ type: 'items' })}>
+                {current && imageOf(current) ? <img src={imageOf(current)} alt="" className="rail-img" /> : <span className="rail-count">{items.length}</span>}
+              </RailButton>
+            </nav>
+          </div>
 
+          <div className="panel">
           {toast && <div className={`toast-line ${toast.kind}`} role="status">{toast.msg}</div>}
           {stateLine && <div className={`state ${stateLine.tone}`} role="status">{stateLine.text}</div>}
 
@@ -742,13 +774,14 @@ export default function Watch() {
               {items.length > 0 && <button type="button" className="btn2 on-dark" onClick={() => setSheet({ type: 'items' })}>All items</button>}
             </div>
           )}
+          </div>
         </div>
       </section>
 
       <aside className="w-side w-chat" aria-label="Chat">
         <h2 className="h2">Chat</h2>
         <ChatFeed feed={feed} feedRef={deskFeedRef} className="light" />
-        {composer}
+        {deskComposer}
       </aside>
 
       {sheet?.type === 'topup' && <TopUpSheet need={sheet.need} top={mini} onClose={() => setSheet(null)} />}
@@ -811,6 +844,7 @@ export default function Watch() {
               ? <button type="button" className="menu-row" onClick={() => setVideo('on')}>{Icon.play}Play video</button>
               : videoMode === 'on' && <button type="button" className="menu-row" onClick={() => setVideo('paused')}>{Icon.pause}Pause video</button>}
             <button type="button" className="menu-row" onClick={() => { setReportState({ reason: '', sending: false, done: '' }); setSheet({ type: 'report' }); }}>{Icon.flag}Report this show</button>
+            <button type="button" className="menu-row" onClick={() => navigate('/')}>{Icon.back}Leave the show</button>
           </div>
         </Sheet>
       )}

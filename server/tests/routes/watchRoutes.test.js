@@ -158,9 +158,9 @@ describe('host rating and follow state', () => {
   it('shows "New host" under 5 ratings, then the average', async () => {
     const sellerId = show.seller;
     await mongoose.connection.collection('sellers').insertOne({ _id: sellerId, email: 'a@x.ng', agoraUid: 71, storeName: 'Tolu', stats: { averageRating: 4.83, totalReviews: 4 }, followers: [] });
-    expect((await request(app).get(`/api/v2/watch/${show._id}/summary`)).body.host).toEqual({ rating: null, ratings: 4, isNew: true, slot: null });
+    expect((await request(app).get(`/api/v2/watch/${show._id}/summary`)).body.host).toEqual({ rating: null, ratings: 4, isNew: true, slot: null, shipsInDays: null });
     await Seller.collection.updateOne({ _id: sellerId }, { $set: { 'stats.totalReviews': 5 } });
-    expect((await request(app).get(`/api/v2/watch/${show._id}/summary`)).body.host).toEqual({ rating: 4.8, ratings: 5, isNew: false, slot: null });
+    expect((await request(app).get(`/api/v2/watch/${show._id}/summary`)).body.host).toEqual({ rating: 4.8, ratings: 5, isNew: false, slot: null, shipsInDays: null });
   });
 
   it('tells a buyer whether they follow the host', async () => {
@@ -168,5 +168,20 @@ describe('host rating and follow state', () => {
     expect((await request(app).get(`/api/v2/watch/${show._id}/me`)).body.following).toBe(true);
     mockUser = { id: String(new mongoose.Types.ObjectId()), role: 'Buyer' };
     expect((await request(app).get(`/api/v2/watch/${show._id}/me`)).body.following).toBe(false);
+  });
+});
+
+describe('ships in N days', () => {
+  it('uses the host\'s real median from paid to courier booked, once there are 3 shipped packages', async () => {
+    const ShowDelivery = require('@/models/ShowDelivery');
+    await ShowDelivery.deleteMany({});
+    const day = 86400000;
+    const now = Date.now();
+    const mk = (paidDaysAgo, bookedAfterDays) => ShowDelivery.create({ stream: show._id, buyer: new mongoose.Types.ObjectId(), seller: show.seller, orders: [], status: 'booked', paidAt: new Date(now - paidDaysAgo * day), shipbubble: { bookedAt: new Date(now - paidDaysAgo * day + bookedAfterDays * day) } });
+    await mk(10, 0.5);
+    await mk(9, 1.5);
+    expect((await request(app).get(`/api/v2/watch/${show._id}/summary`)).body.host.shipsInDays).toBeNull();
+    await mk(8, 1.2);
+    expect((await request(app).get(`/api/v2/watch/${show._id}/summary`)).body.host.shipsInDays).toBe(2);
   });
 });

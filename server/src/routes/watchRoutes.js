@@ -7,6 +7,7 @@ const { verifyToken, isBuyer } = require('../middlewares/authMiddleware');
 const Stream = require('../models/Stream');
 require('../models/Seller'); // registered for populate()
 require('../models/Buyer');
+require('../models/ShowDelivery');
 const agoraService = require('../services/agoraService');
 const { RtcRole } = require('agora-access-token');
 const deliveries = require('../services/deliveryService');
@@ -38,9 +39,26 @@ const hostRating = async (sellerId) => {
   const slot = weeklySlot.validSlot(seller?.weeklySlot)
     ? { day: seller.weeklySlot.day, time: seller.weeklySlot.time, label: weeklySlot.label(seller.weeklySlot), next: weeklySlot.nextOccurrence(seller.weeklySlot) }
     : null;
+  const shipsInDays = await shippingDays(sellerId);
   return ratings >= MIN_RATINGS
-    ? { rating: Math.round((Number(seller.stats.averageRating) || 0) * 10) / 10, ratings, isNew: false, slot }
-    : { rating: null, ratings, isNew: true, slot };
+    ? { rating: Math.round((Number(seller.stats.averageRating) || 0) * 10) / 10, ratings, isNew: false, slot, shipsInDays }
+    : { rating: null, ratings, isNew: true, slot, shipsInDays };
+};
+
+// "ships in 1–2 days": the host's real median time from paid delivery to courier booked,
+// over their last 20 shipped packages. Null until there are at least 3, so it's never made up.
+const MIN_SHIPPED = 3;
+const shippingDays = async (sellerId) => {
+  if (!sellerId) return null;
+  const shipped = await mongoose.model('ShowDelivery').find(
+    { seller: sellerId, paidAt: { $ne: null }, 'shipbubble.bookedAt': { $ne: null } },
+    { paidAt: 1, 'shipbubble.bookedAt': 1 }
+  ).sort({ 'shipbubble.bookedAt': -1 }).limit(20).lean();
+  if (shipped.length < MIN_SHIPPED) return null;
+  const days = shipped.map((d) => (new Date(d.shipbubble.bookedAt) - new Date(d.paidAt)) / 86400000).filter((n) => n >= 0).sort((a, b) => a - b);
+  if (days.length < MIN_SHIPPED) return null;
+  const median = days[Math.floor(days.length / 2)];
+  return Math.max(1, Math.ceil(median));
 };
 
 const countBy = (list, key, amount = () => 1) => list.reduce((m, x) => {
