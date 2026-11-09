@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { studio, errorText, naira } from './api';
 import { Problem, Skeleton, TopBar } from './ui';
+import NextWeek from './NextWeek';
 
 export default function Recap() {
   const { id } = useParams();
@@ -85,6 +86,8 @@ export default function Recap() {
                 ))}
               </section>
             )}
+
+            <NextWeek showId={id} slot={data.slot} payout={data.payout} />
           </>
         )}
       </div>

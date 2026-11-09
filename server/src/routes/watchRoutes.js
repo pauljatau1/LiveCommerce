@@ -31,11 +31,16 @@ const validId = (req, res, next) => (mongoose.isValidObjectId(req.params.streamI
 // The host's rating shows once they have MIN_RATINGS; before that buyers see "New host"
 const MIN_RATINGS = 5;
 const hostRating = async (sellerId) => {
-  const seller = sellerId && await mongoose.model('Seller').findById(sellerId).select('stats.averageRating stats.totalReviews').lean();
+  const seller = sellerId && await mongoose.model('Seller').findById(sellerId).select('stats.averageRating stats.totalReviews weeklySlot').lean();
   const ratings = Number(seller?.stats?.totalReviews) || 0;
+  // "Live every Saturday at 7pm", for Follow and the weekly calendar invite
+  const weeklySlot = require('../services/weeklySlot');
+  const slot = weeklySlot.validSlot(seller?.weeklySlot)
+    ? { day: seller.weeklySlot.day, time: seller.weeklySlot.time, label: weeklySlot.label(seller.weeklySlot), next: weeklySlot.nextOccurrence(seller.weeklySlot) }
+    : null;
   return ratings >= MIN_RATINGS
-    ? { rating: Math.round((Number(seller.stats.averageRating) || 0) * 10) / 10, ratings, isNew: false }
-    : { rating: null, ratings, isNew: true };
+    ? { rating: Math.round((Number(seller.stats.averageRating) || 0) * 10) / 10, ratings, isNew: false, slot }
+    : { rating: null, ratings, isNew: true, slot };
 };
 
 const countBy = (list, key, amount = () => 1) => list.reduce((m, x) => {
