@@ -41,6 +41,8 @@ export const api = {
   join: (id) => http.post(`/api/streams/${id}/join`, {}, { timeout: 60000 }).then((r) => r.data),
   leave: (id) => http.post(`/api/streams/${id}/leave`).catch(() => {}),
   chat: (id) => http.get(`/api/streams/${id}/chat`).then((r) => r.data?.chatInteractions || r.data?.data || r.data || []),
+  watchSummary: (id) => http.get(`/api/v2/watch/${id}/summary`).then((r) => r.data),
+  report: (id, reason, note) => http.post(`/api/v2/watch/${id}/report`, { reason, note }).then((r) => r.data),
   buyNow: (id, productId, quantity) => http.post(`/api/streams/${id}/buy-now`, { productId, quantity }, { timeout: 60000 }).then((r) => r.data),
 };
 

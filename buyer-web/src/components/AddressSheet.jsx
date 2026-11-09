@@ -5,7 +5,7 @@ import { API, api, errorMessage } from '../api';
 import { useAuth } from '../auth';
 import { Sheet } from './ui';
 
-export default function AddressSheet({ onClose, onSaved }) {
+export default function AddressSheet({ onClose, onSaved, top = null }) {
   const { buyer, refresh } = useAuth();
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
@@ -52,7 +52,7 @@ export default function AddressSheet({ onClose, onSaved }) {
   };
 
   return (
-    <Sheet title="Where should we deliver?" onClose={onClose}>
+    <Sheet title="Where should we deliver?" onClose={onClose} top={top}>
       <p className="mut" style={{ margin: 0, fontSize: 15 }}>We need this once, so anything you win or buy can be shipped straight away.</p>
       <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="fl">

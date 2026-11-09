@@ -1,17 +1,21 @@
-// Watch a live show: video, chat, bid on the current item, Buy Now.
+// Watch a live show: full-screen video, chat on the video, bid on the current item, Buy Now.
+// Phone first: top bar, side rail, then chat, state line, item, price, timer and actions at the bottom.
+// Desktop: items on the left, video in the middle, chat on the right.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { API, api, errorMessage, getToken, imageOf, naira } from '../api';
 import { useAuth } from '../auth';
+import { LATE_BID_SECONDS } from '../config';
 import AddressSheet from '../components/AddressSheet';
 import TopUpSheet from '../components/TopUpSheet';
 import { Header, Icon, Sheet } from '../components/ui';
+import {
+  ChatFeed, ItemThumb, ItemsList, MiniBidBar, RailButton, Timer,
+  idOf, nextBidFor, plural, priceOf, stepFor, usePulse, who,
+} from '../components/watch';
 
-const idOf = (p) => String(p?.product?.productId || p?.product?._id || '');
-const stepFor = (bid) => (bid < 10000 ? 500 : bid < 50000 ? 1000 : 2500);
-const nextBidFor = (p) => (p.currentBid > 0 ? p.currentBid + stepFor(p.currentBid) : Math.max(p.minBid || 0, 500));
-const who = (u) => u?.username || u?.firstName || 'someone';
+const REPORT_REASONS = ['Selling fakes as original', 'Asking to pay outside the app', 'Rude or abusive', 'Something else'];
 
 export default function Watch() {
   const { streamId } = useParams();
@@ -24,24 +28,38 @@ export default function Watch() {
   const [feed, setFeed] = useState([]);
   const [viewers, setViewers] = useState(0);
   const [timer, setTimer] = useState({}); // productId -> seconds left
+  const [plusSecs, setPlusSecs] = useState(0); // "+5s" flash when a late bid extends the timer
+  const [bidCounts, setBidCounts] = useState({}); // productId -> bids so far
+  const [soldCounts, setSoldCounts] = useState({}); // productId -> units sold in this show
+  const [myBids, setMyBids] = useState({}); // productId -> my latest accepted bid
+  const [outbid, setOutbid] = useState(null); // { productId, by, amount }
   const [hasVideo, setHasVideo] = useState(false);
+  const [videoMode, setVideoMode] = useState('on'); // on | paused | audio
+  const [socketUp, setSocketUp] = useState(true);
+  const [agoraState, setAgoraState] = useState('CONNECTED');
+  const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const [needsTap, setNeedsTap] = useState(false);
   const [toast, setToast] = useState(null);
-  const [sheet, setSheet] = useState(null); // {type:'topup', need} | {type:'address', then} | {type:'items'} | {type:'bid'}
+  const [sheet, setSheet] = useState(null); // {type:'topup', need} | {type:'address', then} | {type:'items'} | {type:'bid'} | {type:'more'} | {type:'report'}
   const [busy, setBusy] = useState(false);
   const [text, setText] = useState('');
   const [customBid, setCustomBid] = useState('');
+  const [reportState, setReportState] = useState({ reason: '', sending: false, done: '' });
   const stageRef = useRef(null);
   const clientRef = useRef(null);
+  const hostUserRef = useRef(null);
   const socketRef = useRef(null);
   const feedRef = useRef(null);
+  const deskFeedRef = useRef(null);
   const remoteAudio = useRef(null);
   const soundUnlocked = useRef(false);
+  const lastSecs = useRef({});
   // ?debug=1 shows whether host audio is arriving (for testing on phones)
   const debug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug');
   const [audioDebug, setAudioDebug] = useState('no audio track yet');
   const leadRef = useRef(false); // am I leading the current auction?
   const myIdRef = useRef(null);
+  const myBidsRef = useRef({});
   const walletRef = useRef(0);
 
   const say = useCallback((kind, msg, ms = 3500) => {
@@ -56,7 +74,7 @@ export default function Watch() {
     setItems((list) => list.map((p) => (idOf(p) === String(productId) ? { ...p, ...patch } : p)));
   }, []);
 
-  // 1. Load the show
+  // 1. Load the show, plus what sold and how many bids so far
   useEffect(() => {
     let cancelled = false;
     api.show(streamId)
@@ -68,8 +86,20 @@ export default function Watch() {
         setPhase(s.status === 'live' ? 'preview' : s.status === 'ended' ? 'ended' : 'preview');
       })
       .catch((e) => { if (!cancelled) { setLoadError(errorMessage(e, "We couldn't find this show.")); setPhase('error'); } });
+    api.watchSummary(streamId)
+      .then((sum) => { if (!cancelled) { setSoldCounts(sum?.sold || {}); setBidCounts(sum?.bids || {}); } })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [streamId]);
+
+  // Connection state for the "Reconnecting…" line
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, []);
 
   // 2. Join: video + live events (signed-in buyers, live shows only)
   useEffect(() => {
@@ -98,35 +128,41 @@ export default function Watch() {
       // Chat history
       api.chat(streamId).then((history) => {
         if (cancelled || !Array.isArray(history)) return;
-        setFeed(history.filter((m) => m.type === 'comment').slice(-30).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, text: m.content })));
+        setFeed(history.filter((m) => m.type === 'comment').slice(-30).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, avatar: m.avatar, text: m.content })));
       }).catch(() => {});
 
       // Live events
       socket = io(API, { auth: { token: getToken() }, transports: ['websocket', 'polling'], reconnectionDelayMax: 5000 });
       socketRef.current = socket;
-      socket.on('connect', () => socket.emit('stream_notification_subscribe', { streamId }));
+      socket.on('connect', () => { setSocketUp(true); socket.emit('stream_notification_subscribe', { streamId }); });
+      socket.on('disconnect', () => setSocketUp(false));
       socket.on('stream_notification', (n) => {
         const d = n?.data || {};
         switch (n?.type) {
           case 'comment':
-            push({ kind: 'comment', user: n.user, text: n.content });
+            push({ kind: 'comment', user: n.user, avatar: n.avatar, text: n.content });
             break;
           case 'join':
             if (typeof d.viewerCount === 'number') setViewers(d.viewerCount);
             break;
           case 'auction_start':
             if (d.product) { patchItem(idOf(d.product), { ...d.product, bidStatus: 'active', isVisible: true }); setItems((l) => l.map((p) => (idOf(p) === idOf(d.product) ? p : { ...p, isVisible: false }))); }
+            setOutbid(null);
             push({ kind: 'sys', text: `Bidding is open: ${d.product?.product?.name || 'new item'}` });
             break;
-          case 'new_bid':
-            if (d.product) patchItem(idOf(d.product), { currentBid: d.bidAmount, currentBidder: d.currentBidder, bidStatus: d.product.bidStatus || 'active' });
-            // Someone else took the lead from me: my hold is released
+          case 'new_bid': {
+            const pid = d.product ? idOf(d.product) : '';
+            if (d.product) patchItem(pid, { currentBid: d.bidAmount, currentBidder: d.currentBidder, bidStatus: d.product.bidStatus || 'active' });
+            if (pid) setBidCounts((m) => ({ ...m, [pid]: (m[pid] || 0) + 1 }));
+            // Someone else took the lead from me: my hold comes back to my wallet
             if (leadRef.current && d.buyerId && String(d.buyerId) !== String(myIdRef.current)) {
-              say('err', `You've been outbid: ${naira(d.bidAmount)}`);
+              setOutbid({ productId: pid, by: n.user || who(d.currentBidder), amount: myBidsRef.current[pid] || 0 });
               refreshWallet();
             }
-            push({ kind: 'bid', user: n.user, text: `bid ${naira(d.bidAmount)}` });
+            if (String(d.buyerId) === String(myIdRef.current)) setOutbid(null);
+            push({ kind: 'bid', user: n.user, avatar: n.avatar, text: `bid ${naira(d.bidAmount)}` });
             break;
+          }
           case 'auction_winner':
             if (d.product) patchItem(idOf(d.product), { bidStatus: 'ended', bidWinner: d.bidWinner });
             push({ kind: 'win', user: who(d.bidWinner?.buyer) || n.user, text: `won it for ${naira(d.bidWinner?.bidAmount)}` });
@@ -136,10 +172,14 @@ export default function Watch() {
             break;
           case 'product_display':
             if (d.product) setItems((l) => l.map((p) => ({ ...p, isVisible: idOf(p) === idOf(d.product) })));
+            setOutbid(null);
             break;
           case 'buy_now':
-            if (d.productId) setItems((l) => l.map((p) => (idOf(p) === String(d.productId) ? { ...p, product: { ...p.product, quantity: d.stockLeft } } : p)));
-            push({ kind: 'bid', user: n.user, text: n.content });
+            if (d.productId) {
+              setItems((l) => l.map((p) => (idOf(p) === String(d.productId) ? { ...p, product: { ...p.product, quantity: d.stockLeft } } : p)));
+              setSoldCounts((m) => ({ ...m, [String(d.productId)]: (m[String(d.productId)] || 0) + (Number(d.quantity) || 1) }));
+            }
+            push({ kind: 'bid', user: n.user, avatar: n.avatar, text: n.content });
             break;
           case 'stream_ended':
             setPhase('ended');
@@ -148,9 +188,31 @@ export default function Watch() {
         }
       });
       socket.on('viewer_joined_stream', (n) => { if (typeof n?.data?.viewerCount === 'number') setViewers(n.data.viewerCount); });
-      socket.on('bid_timer_update', (t) => t?.productId && setTimer((m) => ({ ...m, [String(t.productId)]: t.secondsLeft })));
+      socket.on('bid_timer_update', (t) => {
+        if (!t?.productId) return;
+        const pid = String(t.productId);
+        const before = lastSecs.current[pid];
+        // The timer went up while running: a late bid extended it
+        if (typeof before === 'number' && before > 0 && t.secondsLeft > before) {
+          setPlusSecs(t.secondsLeft - before);
+          window.clearTimeout(setPlusSecs.t);
+          setPlusSecs.t = window.setTimeout(() => setPlusSecs(0), 1500);
+        }
+        lastSecs.current[pid] = t.secondsLeft;
+        setTimer((m) => ({ ...m, [pid]: t.secondsLeft }));
+      });
       socket.on('bid_timer_complete', (t) => t?.productId && setTimer((m) => ({ ...m, [String(t.productId)]: 0 })));
-      socket.on('bid_placed', (r) => { setBusy(false); if (r?.product) patchItem(idOf(r.product), r.product); say('ok', r?.isWinner ? 'You won it!' : "You're the top bidder"); refreshWallet(); });
+      socket.on('bid_placed', (r) => {
+        setBusy(false);
+        if (r?.product) {
+          patchItem(idOf(r.product), r.product);
+          const pid = idOf(r.product);
+          myBidsRef.current = { ...myBidsRef.current, [pid]: r.product.currentBid };
+          setMyBids(myBidsRef.current);
+        }
+        setOutbid(null);
+        refreshWallet();
+      });
       socket.on('bid_error', (r) => {
         setBusy(false);
         refreshWallet();
@@ -159,10 +221,10 @@ export default function Watch() {
           setSheet({ type: 'topup', need: r.details.totalRequired - (walletRef.current || 0) });
           return;
         }
-        say('err', r?.message || 'Your bid did not go through');
+        say('err', r?.message || 'Your bid did not go through. Nothing was held.');
       });
-      socket.on('auction_order_created', (r) => { say('ok', `You won! Order #${r?.orderId} is paid from your wallet.`, 6000); refreshWallet(); });
-      socket.on('auction_order_error', () => { if (leadRef.current) { say('err', "We couldn't create your winning order. Your money is no longer held; the host will sort it out.", 7000); refreshWallet(); } });
+      socket.on('auction_order_created', (r) => { say('ok', `It's yours. Order #${r?.orderId} is paid from your wallet.`, 6000); refreshWallet(); });
+      socket.on('auction_order_error', () => { if (leadRef.current) { say('err', "We couldn't create your winning order. Your money is back in your wallet, and the host will sort it out.", 7000); refreshWallet(); } });
 
       // Video
       try {
@@ -172,9 +234,11 @@ export default function Watch() {
         client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
         clientRef.current = client;
         await client.setClientRole('audience', { level: 1 });
+        client.on('connection-state-change', (state) => setAgoraState(state));
         client.on('user-published', async (user, mediaType) => {
+          hostUserRef.current = user;
           await client.subscribe(user, mediaType);
-          if (mediaType === 'video' && stageRef.current) { user.videoTrack.play(stageRef.current, { fit: 'cover' }); setHasVideo(true); }
+          if (mediaType === 'video' && stageRef.current) { user.videoTrack.play(stageRef.current, { fit: 'cover' }); setHasVideo(true); setVideoMode('on'); }
           if (mediaType === 'audio') {
             remoteAudio.current = user.audioTrack;
             user.audioTrack.play();
@@ -221,16 +285,50 @@ export default function Watch() {
     return () => window.removeEventListener('pointerdown', unlock);
   }, []);
 
-  useEffect(() => { feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: 'smooth' }); }, [feed]);
+  useEffect(() => {
+    feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: 'smooth' });
+    deskFeedRef.current?.scrollTo({ top: deskFeedRef.current.scrollHeight, behavior: 'smooth' });
+  }, [feed]);
+
+  // Pause video / audio only: bids and chat keep working
+  const setVideo = async (mode) => {
+    const client = clientRef.current;
+    const user = hostUserRef.current;
+    setSheet(null);
+    try {
+      if (mode === 'audio' && client && user?.hasVideo) await client.unsubscribe(user, 'video');
+      if (mode === 'paused') user?.videoTrack?.stop();
+      if (mode === 'on') {
+        if (videoMode === 'audio' && client && user?.hasVideo) await client.subscribe(user, 'video');
+        if (user?.videoTrack && stageRef.current) user.videoTrack.play(stageRef.current, { fit: 'cover' });
+      }
+      setVideoMode(mode);
+    } catch {
+      say('err', "Couldn't change the video. Try again.");
+    }
+  };
 
   const current = useMemo(() => items.find((p) => p.bidStatus === 'active') || items.find((p) => p.isVisible) || null, [items]);
-  const isAuction = current && (show?.type === 'auction' || current.bidStatus === 'active' || current.minBid > 0);
+  const isAuction = current && (current.bidStatus === 'active' || current.minBid > 0);
   const available = wallet?.availableBalance || 0;
   walletRef.current = available;
   const hasAddress = (buyer?.shippingAddresses || []).length > 0;
-  const iLead = current && buyer && String(current.currentBidder?._id || current.currentBidder) === String(buyer._id);
+  const curId = current ? idOf(current) : '';
+  const iLead = Boolean(current && buyer && String(current.currentBidder?._id || current.currentBidder) === String(buyer._id));
+  const winnerId = current?.bidWinner ? String(current.bidWinner?.buyer?._id || current.bidWinner?.buyer) : '';
+  const iWon = Boolean(winnerId && buyer && winnerId === String(buyer._id));
   myIdRef.current = buyer?._id;
-  leadRef.current = Boolean(iLead || (current?.bidStatus !== 'active' && current?.bidWinner && String(current.bidWinner?.buyer?._id || current.bidWinner?.buyer) === String(buyer?._id)));
+  leadRef.current = Boolean(iLead || (current?.bidStatus !== 'active' && iWon));
+
+  // The last auction I bid on and didn't win, so the next step is never a dead end
+  const lostLast = useMemo(() => {
+    const ended = items.filter((p) => p.bidStatus === 'ended' && myBids[idOf(p)]);
+    const last = ended[ended.length - 1];
+    if (!last || !buyer) return null;
+    const won = String(last.bidWinner?.buyer?._id || last.bidWinner?.buyer || '') === String(buyer._id);
+    return won ? null : last;
+  }, [items, myBids, buyer]);
+  const nextUp = useMemo(() => items.find((p) => p.bidStatus !== 'ended' && p.bidStatus !== 'active' && !p.isVisible && !(p.minBid === undefined && p.product?.quantity === 0)) || null, [items]);
 
   // Make sure the buyer can pay and be delivered to before an action
   const ready = (cost, then) => {
@@ -253,14 +351,14 @@ export default function Watch() {
 
   const buyNow = async (item, quantity = 1) => {
     if (busy) return;
-    const price = item.product?.discountedPrice || item.product?.price || 0;
+    const price = priceOf(item);
     if (!ready(price * quantity, () => buyNow(item, quantity))) return;
     setBusy(true);
     try {
       const r = await api.buyNow(streamId, idOf(item), quantity);
       say('ok', r.delivery?.firstItem && r.delivery?.depositHeld
-        ? `Bought! ${naira(r.delivery.depositHeld)} is held for delivery. Everything you get in this show ships together.`
-        : `Bought! Order #${r.order?.orderId} is paid and ships with your other items from this show.`, 7000);
+        ? `It's yours. ${naira(r.delivery.depositHeld)} is held for delivery. Everything you get in this show ships together.`
+        : `It's yours. Order #${r.order?.orderId} is paid and ships with your other items from this show.`, 7000);
       setSheet(null);
       refreshWallet();
     } catch (e) {
@@ -290,8 +388,36 @@ export default function Watch() {
     } catch { /* cancelled */ }
   };
 
+  const sendReport = async () => {
+    if (!reportState.reason) return;
+    if (!signedIn) { navigate(`/signin?next=/live/${streamId}`); return; }
+    setReportState((r) => ({ ...r, sending: true }));
+    try {
+      const r = await api.report(streamId, reportState.reason);
+      setReportState({ reason: '', sending: false, done: r?.message || 'Thanks. Our team will look at this show.' });
+    } catch (e) {
+      setReportState((r) => ({ ...r, sending: false }));
+      say('err', errorMessage(e, "Couldn't send the report. Try again."));
+    }
+  };
+
   const host = show?.seller || {};
-  const secs = current ? timer[idOf(current)] : undefined;
+  const hostName = host.storeName || host.businessName || 'Host';
+  const secs = current ? timer[curId] : undefined;
+  const pricePulse = usePulse(current?.currentBid);
+  const nextBid = current ? nextBidFor(current) : 0;
+  const bids = bidCounts[curId] || 0;
+  const reconnecting = phase === 'watching' && (!online || !socketUp || agoraState === 'RECONNECTING');
+
+  // One line that says what just changed for me
+  let stateLine = null;
+  if (current && isAuction && current.bidStatus === 'active') {
+    if (iLead) stateLine = { tone: 'good', text: "You're winning" };
+    else if (outbid && outbid.productId === curId) stateLine = { tone: 'bad', text: `${outbid.by} outbid you.${outbid.amount ? ` Your ${naira(outbid.amount)} is back in your wallet.` : ' Your money is back in your wallet.'}` };
+  } else if (current && current.bidStatus === 'ended') {
+    stateLine = iWon ? { tone: 'good', text: `You won · ${naira(current.bidWinner?.bidAmount)}` } : current.bidWinner?.bidAmount ? { tone: 'plain', text: `Sold · ${who(current.bidWinner?.buyer)} won` } : { tone: 'plain', text: 'Not sold' };
+  }
+  const stateBadge = current?.bidStatus === 'ended' ? (current.bidWinner?.bidAmount ? 'Sold' : null) : iLead ? 'You lead' : outbid?.productId === curId ? 'Outbid' : null;
 
   // ---------- not live / not signed in ----------
   if (phase === 'loading' || loading) return <div className="app"><Header back="/" /><div className="center"><span className="mut">Loading the show…</span></div></div>;
@@ -342,96 +468,163 @@ export default function Watch() {
   }
 
   // ---------- watching ----------
+  const auctionLive = current && isAuction && current.bidStatus === 'active';
+  const stock = current?.product?.quantity;
+  const sold = soldCounts[curId] || 0;
+  const miniAction = auctionLive
+    ? <button type="button" className="btn btn-sm" disabled={busy} onClick={() => placeBid(nextBid)}>Bid {naira(nextBid)}</button>
+    : current && !isAuction && stock !== 0
+      ? <button type="button" className="btn btn-sm" disabled={busy} onClick={() => buyNow(current)}>Buy</button>
+      : null;
+  const mini = <MiniBidBar current={current} secs={secs} state={stateBadge || (auctionLive ? plural(bids, 'bid') : null)} action={miniAction} />;
+
+  const composer = (
+    <form className="composer2" onSubmit={sendChat}>
+      <label htmlFor="w-chat" className="sr">Say something</label>
+      <input id="w-chat" value={text} onChange={(e) => setText(e.target.value)} maxLength={300} placeholder="Say something…" autoComplete="off" />
+      {text.trim() && <button type="submit" className="round send" aria-label="Send">{Icon.send}</button>}
+    </form>
+  );
+
   return (
     <div className="watch">
-      <div ref={stageRef} className="stage" aria-label="Live video" />
-      {!hasVideo && (
-        <div className="stage-msg" style={show?.coverImage?.url ? { backgroundImage: `linear-gradient(rgba(15,21,18,.55),rgba(15,21,18,.75)),url(${show.coverImage.url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
-          <span className="dt" aria-hidden="true" style={{ background: '#fff' }} />
-          <span className="f" style={{ fontSize: 18 }}>{phase === 'joining' ? 'Joining the show…' : 'Waiting for the host’s video…'}</span>
-        </div>
-      )}
+      <aside className="w-side w-items" aria-label="Items in this show">
+        <h2 className="h2">Items in this show · {items.length}</h2>
+        <ItemsList items={items} current={current} buyerId={buyer?._id} busy={busy} onBuy={buyNow} />
+      </aside>
 
-      <div className="overlay-top">
-        <button type="button" className="round glass" aria-label="Leave the show" onClick={() => navigate('/')}>{Icon.back}</button>
-        <div className="host">
-          <span className="av2">{host.storeAvatar?.url ? <img src={host.storeAvatar.url} alt="" /> : null}</span>
-          <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontWeight: 800, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{host.storeName || host.businessName || 'Host'}</span>
-            <span style={{ fontSize: 12, opacity: 0.85, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{show?.title}</span>
-          </span>
-        </div>
-        <span className="pill p-live">LIVE</span>
-        <span className="pill glass">{Icon.eye}{viewers}</span>
-        <button type="button" className="round glass" aria-label="Share this show" onClick={share}>{Icon.share}</button>
-      </div>
+      <section className="w-center">
+        <div ref={stageRef} className="stage" aria-label="Live video" />
+        {(!hasVideo || videoMode !== 'on') && (
+          <div className="stage-msg" style={show?.coverImage?.url ? { backgroundImage: `linear-gradient(rgba(15,21,18,.55),rgba(15,21,18,.75)),url(${show.coverImage.url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
+            {videoMode === 'on' && <span className="dt" aria-hidden="true" style={{ background: '#fff' }} />}
+            <span className="f" style={{ fontSize: 20 }}>
+              {videoMode === 'audio' ? 'Audio only' : videoMode === 'paused' ? 'Video paused to save data' : phase === 'joining' ? 'Joining the show…' : 'Waiting for the host’s video…'}
+            </span>
+            {videoMode !== 'on' && (
+              <>
+                <span style={{ opacity: 0.85 }}>Bids and chat keep working.</span>
+                <button type="button" className="btn2 on-dark" onClick={() => setVideo('on')}>{Icon.play}Show the host again</button>
+              </>
+            )}
+          </div>
+        )}
 
-      {debug && <div className="pill glass" style={{ position: 'absolute', top: 64, right: 12, zIndex: 6 }}>{audioDebug}</div>}
-      {needsTap && (
-        <button type="button" className="btn" style={{ position: 'absolute', top: 72, left: '50%', transform: 'translateX(-50%)', minHeight: 44, zIndex: 5 }} onClick={() => { soundUnlocked.current = true; remoteAudio.current?.play(); setNeedsTap(false); }}>
-          {Icon.sound}Tap for sound
-        </button>
-      )}
-
-      <div className="bottom">
-        <div ref={feedRef} className="feed" aria-live="polite">
-          {feed.map((m) => (
-            <div key={m.id} className={`msg ${m.kind === 'comment' ? '' : m.kind}`}>
-              {m.user && <b>{m.user}</b>}{m.text}
-            </div>
-          ))}
+        <div className="overlay-top">
+          <button type="button" className="round ghost" aria-label="Leave the show" onClick={() => navigate('/')}>{Icon.back}</button>
+          <div className="host">
+            <span className="av2">{host.storeAvatar?.url ? <img src={host.storeAvatar.url} alt="" /> : hostName.slice(0, 1)}</span>
+            <span className="host-tx">
+              <span className="host-nm">{hostName}</span>
+              <span className="host-sub">New host</span>
+            </span>
+          </div>
+          <span className="livecount"><b>LIVE</b>{viewers}</span>
         </div>
 
-        {toast && <div className={`soft ${toast.kind === 'err' ? 's-danger' : 's-primary'}`} role="status" style={{ fontWeight: 800, fontSize: 15, color: toast.kind === 'err' ? 'var(--danger)' : 'var(--primary-strong)' }}>{toast.msg}</div>}
+        {reconnecting && (
+          <div className="reconnect" role="status">
+            <span className="f">Reconnecting…</span>
+            <span>{iLead && myBids[curId] ? `Your bid of ${naira(myBids[curId])} is safe. You're still leading.` : 'Your bids are safe. Hold on a moment.'}</span>
+            {videoMode !== 'audio' && hasVideo && <button type="button" className="link on-dark" onClick={() => setVideo('audio')}>Switch to audio only</button>}
+          </div>
+        )}
+        {debug && <div className="dbg">{audioDebug}</div>}
+        {needsTap && (
+          <button type="button" className="btn tap-sound" onClick={() => { soundUnlocked.current = true; remoteAudio.current?.play(); setNeedsTap(false); }}>
+            {Icon.sound}Tap for sound
+          </button>
+        )}
 
-        {current ? (
-          <div className="item">
-            {imageOf(current) ? <img src={imageOf(current)} alt="" /> : <span className="sk" style={{ width: 64, height: 64 }} />}
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{current.product?.name}</span>
-              {isAuction ? (
-                <span style={{ fontSize: 14 }}>
-                  {current.currentBid > 0 ? <><span className="f" style={{ fontSize: 18 }}>{naira(current.currentBid)}</span> <span className="mut">{iLead ? '· you lead' : `· ${who(current.currentBidder)}`}</span></> : <span className="mut">Starts at {naira(current.minBid)}</span>}
-                </span>
-              ) : (
-                <span style={{ fontSize: 14 }}><span className="f" style={{ fontSize: 18 }}>{naira(current.product?.discountedPrice || current.product?.price)}</span> <span className="mut">· {current.product?.quantity ?? '?'} left</span></span>
+        <nav className="rail" aria-label="Show actions">
+          <RailButton label="More" onClick={() => setSheet({ type: 'more' })}>{Icon.more}</RailButton>
+          <RailButton label="Share" onClick={share}>{Icon.share}</RailButton>
+          <RailButton label="Wallet" onClick={() => setSheet({ type: 'topup', need: 0 })}>{Icon.wallet}</RailButton>
+          <RailButton label={`Items · ${items.length}`} onClick={() => setSheet({ type: 'items' })}>
+            {current && imageOf(current) ? <img src={imageOf(current)} alt="" className="rail-img" /> : <span className="rail-count">{items.length}</span>}
+          </RailButton>
+        </nav>
+
+        <div className="bottom">
+          <ChatFeed feed={feed} feedRef={feedRef} className="w-phone" />
+          <div className="w-phone">{composer}</div>
+
+          {toast && <div className={`toast-line ${toast.kind}`} role="status">{toast.msg}</div>}
+          {stateLine && <div className={`state ${stateLine.tone}`} role="status">{stateLine.text}</div>}
+
+          {current ? (
+            <>
+              <div className="now">
+                <ItemThumb item={current} size={48} />
+                <div className="now-tx">
+                  <span className="now-nm">{current.product?.name}</span>
+                  <span className="now-meta">
+                    {auctionLive
+                      ? `${plural(bids, 'bid')}${LATE_BID_SECONDS ? ` · late bids add ${LATE_BID_SECONDS}s` : ''}`
+                      : !isAuction && typeof stock === 'number'
+                        ? `${stock} of ${stock + sold} left${sold ? ` · ${sold} sold` : ''}`
+                        : current.bidStatus === 'ended' ? plural(bids, 'bid') : `Starts at ${naira(current.minBid)}`}
+                  </span>
+                </div>
+              </div>
+              <div className="price-row">
+                <span className={`f price${pricePulse ? ' pulse' : ''}`}>{naira(isAuction ? (current.currentBid > 0 ? current.currentBid : current.minBid) : priceOf(current))}</span>
+                {stateBadge && <span className={`badge ${stateBadge === 'Outbid' ? 'bad' : ''}`}>{stateBadge}</span>}
+                <span className="grow" />
+                {auctionLive && <Timer secs={secs} plus={plusSecs} />}
+              </div>
+
+              {auctionLive && (
+                <div className="bidrow">
+                  <button type="button" className="btn2 on-dark" disabled={busy} onClick={() => { setCustomBid(String(nextBid + stepFor(nextBid))); setSheet({ type: 'bid' }); }}>Bid more</button>
+                  <button type="button" className="btn two-line" disabled={busy} onClick={() => placeBid(nextBid)}>
+                    <span>{busy ? 'Bidding…' : `Bid ${naira(nextBid)}`}</span>
+                    <small>Held from your wallet</small>
+                  </button>
+                </div>
               )}
+              {!isAuction && (
+                <div className="bidrow">
+                  <button type="button" className="btn two-line" disabled={busy || stock === 0} onClick={() => buyNow(current)}>
+                    {stock === 0 ? <span>Sold out</span> : <><span>{busy ? 'Buying…' : `Buy now · ${naira(priceOf(current))}`}</span><small>Paid from your wallet</small></>}
+                  </button>
+                </div>
+              )}
+              {current.bidStatus === 'ended' && nextUp && (
+                <div className="upnext">
+                  <span>{!iWon && myBids[curId] ? 'Not this one. Up next in a moment:' : 'Up next in a moment:'}</span>
+                  <span className="upnext-item"><ItemThumb item={nextUp} size={40} /><b>{nextUp.product?.name}</b><span className="mut-d">{nextUp.minBid ? `from ${naira(nextUp.minBid)}` : naira(priceOf(nextUp))}</span></span>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="waiting">
+              {lostLast && <span>Not this one. Up next in a moment:</span>}
+              {nextUp ? (
+                <>
+                  {!lostLast && <span className="cap-d">UP NEXT · ITEM {items.indexOf(nextUp) + 1} OF {items.length}</span>}
+                  <span className="upnext-item"><ItemThumb item={nextUp} size={48} /><span><b>{nextUp.product?.name}</b><br /><span className="mut-d">{nextUp.minBid ? `Auction · from ${naira(nextUp.minBid)}` : `Drop · ${naira(priceOf(nextUp))}`}</span></span></span>
+                  <span className="mut-d">{hostName} is getting it ready…</span>
+                </>
+              ) : (
+                <span>{hostName} is getting the next item ready…</span>
+              )}
+              {items.length > 0 && <button type="button" className="btn2 on-dark" onClick={() => setSheet({ type: 'items' })}>All items</button>}
             </div>
-            {isAuction && current.bidStatus === 'active' && typeof secs === 'number' && <span className={`timer${secs <= 10 ? ' hot' : ''}`} aria-label={`${secs} seconds left`}>{secs}s</span>}
-          </div>
-        ) : (
-          <div className="item" style={{ justifyContent: 'space-between' }}>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>The host is getting the next item ready.</span>
-            {items.length > 0 && <button type="button" className="btn2" style={{ minHeight: 44 }} onClick={() => setSheet({ type: 'items' })}>See items</button>}
-          </div>
-        )}
+          )}
+        </div>
+      </section>
 
-        {current && isAuction && current.bidStatus === 'active' && (
-          <div className="bidrow">
-            <button type="button" className="btn" disabled={busy} onClick={() => placeBid(nextBidFor(current))}>{busy ? 'Bidding…' : `Bid ${naira(nextBidFor(current))}`}</button>
-            <button type="button" className="btn2" style={{ flex: 'none' }} disabled={busy} onClick={() => { setCustomBid(String(nextBidFor(current) + stepFor(nextBidFor(current)))); setSheet({ type: 'bid' }); }}>Custom</button>
-          </div>
-        )}
-        {current && !isAuction && (
-          <div className="bidrow">
-            <button type="button" className="btn" disabled={busy || current.product?.quantity === 0} onClick={() => buyNow(current)}>
-              {current.product?.quantity === 0 ? 'Sold out' : busy ? 'Buying…' : `Buy now · ${naira(current.product?.discountedPrice || current.product?.price)}`}
-            </button>
-          </div>
-        )}
+      <aside className="w-side w-chat" aria-label="Chat">
+        <h2 className="h2">Chat</h2>
+        <ChatFeed feed={feed} feedRef={deskFeedRef} className="light" />
+        {composer}
+      </aside>
 
-        <form className="composer2" onSubmit={sendChat}>
-          <label htmlFor="w-chat" className="sr">Say something</label>
-          <input id="w-chat" value={text} onChange={(e) => setText(e.target.value)} maxLength={300} placeholder="Say something…" autoComplete="off" />
-          <button type="submit" className="round" aria-label="Send" style={{ background: 'var(--primary)', color: '#fff', width: 46, height: 46 }}>{Icon.send}</button>
-          <button type="button" className="wallet-chip" onClick={() => setSheet({ type: 'topup', need: 0 })} aria-label={`Wallet ${naira(available)}. Top up`}>{Icon.wallet}{naira(available)}</button>
-        </form>
-      </div>
-
-      {sheet?.type === 'topup' && <TopUpSheet need={sheet.need} onClose={() => setSheet(null)} />}
-      {sheet?.type === 'address' && <AddressSheet onClose={() => setSheet(null)} onSaved={async () => { setSheet(null); await refresh(); say('ok', 'Address saved. You can bid and buy now.'); }} />}
+      {sheet?.type === 'topup' && <TopUpSheet need={sheet.need} top={mini} onClose={() => setSheet(null)} />}
+      {sheet?.type === 'address' && <AddressSheet top={mini} onClose={() => setSheet(null)} onSaved={async () => { setSheet(null); await refresh(); say('ok', 'Address saved. You can bid and buy now.'); }} />}
       {sheet?.type === 'bid' && current && (
-        <Sheet title="Your bid" onClose={() => setSheet(null)}>
+        <Sheet title="Your bid" top={mini} onClose={() => setSheet(null)}>
           <p className="mut" style={{ margin: 0 }}>Highest bid is {current.currentBid > 0 ? naira(current.currentBid) : `none yet (starts at ${naira(current.minBid)})`}. Your bid is held in your wallet, not charged, unless you win.</p>
           <div className="fl">
             <label className="lab" htmlFor="w-bid">Bid amount</label>
@@ -441,16 +634,39 @@ export default function Watch() {
         </Sheet>
       )}
       {sheet?.type === 'items' && (
-        <Sheet title="In this show" onClose={() => setSheet(null)}>
-          <div className="list">
-            {items.map((p) => (
-              <div key={idOf(p)} className="li">
-                {imageOf(p) ? <img src={imageOf(p)} alt="" /> : <span className="sk" style={{ width: 56, height: 56 }} />}
-                <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700 }}>{p.product?.name}</div><div className="mut" style={{ fontSize: 13 }}>{p.bidStatus === 'ended' ? 'Sold in auction' : p.minBid ? `Auction from ${naira(p.minBid)}` : `${p.product?.quantity ?? '?'} left`}</div></div>
-                {!p.minBid && p.product?.quantity !== 0 && <button type="button" className="btn" style={{ minHeight: 44, padding: '0 14px' }} disabled={busy} onClick={() => buyNow(p)}>{naira(p.product?.discountedPrice || p.product?.price)}</button>}
-              </div>
-            ))}
+        <Sheet title={`Items in this show · ${items.length}`} top={mini} onClose={() => setSheet(null)}>
+          <ItemsList items={items} current={current} buyerId={buyer?._id} busy={busy} onBuy={buyNow} />
+        </Sheet>
+      )}
+      {sheet?.type === 'more' && (
+        <Sheet title="More" top={mini} onClose={() => setSheet(null)}>
+          <div className="menu">
+            {videoMode === 'audio'
+              ? <button type="button" className="menu-row" onClick={() => setVideo('on')}>{Icon.play}Turn the video back on</button>
+              : <button type="button" className="menu-row" onClick={() => setVideo('audio')}>{Icon.sound}Audio only<span className="mut">Saves data</span></button>}
+            {videoMode === 'paused'
+              ? <button type="button" className="menu-row" onClick={() => setVideo('on')}>{Icon.play}Play video</button>
+              : videoMode === 'on' && <button type="button" className="menu-row" onClick={() => setVideo('paused')}>{Icon.pause}Pause video</button>}
+            <button type="button" className="menu-row" onClick={() => { setReportState({ reason: '', sending: false, done: '' }); setSheet({ type: 'report' }); }}>{Icon.flag}Report this show</button>
           </div>
+        </Sheet>
+      )}
+      {sheet?.type === 'report' && (
+        <Sheet title="Report this show" top={mini} onClose={() => setSheet(null)}>
+          {reportState.done ? (
+            <>
+              <p style={{ margin: 0 }}>{reportState.done}</p>
+              <button type="button" className="btn" onClick={() => setSheet(null)}>Back to the show</button>
+            </>
+          ) : (
+            <>
+              <p className="mut" style={{ margin: 0 }}>What's wrong? The host won't see who reported.</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }} role="group" aria-label="Reason">
+                {REPORT_REASONS.map((r) => <button key={r} type="button" className={`chip${reportState.reason === r ? ' on' : ''}`} aria-pressed={reportState.reason === r} onClick={() => setReportState((s) => ({ ...s, reason: r }))}>{r}</button>)}
+              </div>
+              <button type="button" className="btn" disabled={!reportState.reason || reportState.sending} onClick={sendReport}>{reportState.sending ? 'Sending…' : 'Send report'}</button>
+            </>
+          )}
         </Sheet>
       )}
     </div>
