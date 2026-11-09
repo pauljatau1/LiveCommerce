@@ -3,6 +3,8 @@ import axios from 'axios';
 
 export const API = (import.meta.env.VITE_API_BASE_URL || 'https://livecommerce-api-4s2b.onrender.com').replace(/\/+$/, '');
 export const PAYSTACK_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || '';
+// Google sign-in shows only when this is set (and GOOGLE_CLIENT_ID on the server)
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
 const TOKEN_KEY = 'buyerToken';
 const store = {
@@ -41,6 +43,10 @@ export const api = {
   join: (id) => http.post(`/api/streams/${id}/join`, {}, { timeout: 60000 }).then((r) => r.data),
   leave: (id) => http.post(`/api/streams/${id}/leave`).catch(() => {}),
   chat: (id) => http.get(`/api/streams/${id}/chat`).then((r) => r.data?.chatInteractions || r.data?.data || r.data || []),
+  googleAuth: (idToken) => http.post('/api/v2/buyers/auth/google-auth', { token: idToken }).then(data),
+  guestJoin: (id) => http.post(`/api/v2/watch/${id}/guest-join`, {}, { timeout: 60000 }).then((r) => r.data),
+  publicChat: (id) => http.get(`/api/v2/watch/${id}/chat`).then((r) => r.data?.chatInteractions || []),
+  watchMe: (id) => http.get(`/api/v2/watch/${id}/me`).then((r) => r.data),
   watchSummary: (id) => http.get(`/api/v2/watch/${id}/summary`).then((r) => r.data),
   report: (id, reason, note) => http.post(`/api/v2/watch/${id}/report`, { reason, note }).then((r) => r.data),
   buyNow: (id, productId, quantity) => http.post(`/api/streams/${id}/buy-now`, { productId, quantity }, { timeout: 60000 }).then((r) => r.data),

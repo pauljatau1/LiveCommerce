@@ -1,21 +1,12 @@
 // Add money to the wallet with Paystack. The server credits only what
 // Paystack confirms, for this buyer, as a wallet top-up.
 import { useState } from 'react';
-import { PAYSTACK_KEY, api, errorMessage, naira } from '../api';
+import { errorMessage, naira } from '../api';
+import { PaymentCancelled, topUpWithPaystack } from '../payments';
 import { useAuth } from '../auth';
 import { Sheet } from './ui';
 
 const PRESETS = [5000, 10000, 20000, 50000, 100000, 200000];
-
-const loadPaystack = () =>
-  new Promise((resolve, reject) => {
-    if (window.PaystackPop) return resolve(window.PaystackPop);
-    const s = document.createElement('script');
-    s.src = 'https://js.paystack.co/v2/inline.js';
-    s.onload = () => resolve(window.PaystackPop);
-    s.onerror = () => reject(new Error("Couldn't load Paystack. Check your connection."));
-    document.head.appendChild(s);
-  });
 
 export default function TopUpSheet({ onClose, need = 0, onDone, top = null }) {
   const { buyer, wallet, refreshWallet } = useAuth();
@@ -29,34 +20,15 @@ export default function TopUpSheet({ onClose, need = 0, onDone, top = null }) {
   const pay = async () => {
     setError('');
     if (value < 100) { setError('Enter at least ₦100.'); return; }
-    if (!PAYSTACK_KEY) { setError("Payments aren't switched on yet."); return; }
     setBusy(true);
     try {
-      const PaystackPop = await loadPaystack();
-      const popup = new PaystackPop();
-      popup.newTransaction({
-        key: PAYSTACK_KEY,
-        email: buyer?.email,
-        amount: value * 100,
-        currency: 'NGN',
-        metadata: { purpose: 'wallet_topup', buyerId: buyer?._id },
-        onSuccess: async (tx) => {
-          try {
-            await api.confirmTopUp(value, tx.reference);
-            await refreshWallet();
-            setDone(value);
-            onDone?.();
-          } catch (e) {
-            setError(`${errorMessage(e, 'We could not confirm the payment yet.')} If you were charged, it will show up shortly.`);
-          } finally {
-            setBusy(false);
-          }
-        },
-        onCancel: () => setBusy(false),
-        onError: (e) => { setError(e?.message || 'Payment failed.'); setBusy(false); },
-      });
+      await topUpWithPaystack({ email: buyer?.email, buyerId: buyer?._id, amount: value });
+      await refreshWallet();
+      setDone(value);
+      onDone?.();
     } catch (e) {
-      setError(e.message);
+      if (!(e instanceof PaymentCancelled)) setError(`${errorMessage(e, e.message || 'We could not confirm the payment yet.')} If you were charged, it will show up shortly.`);
+    } finally {
       setBusy(false);
     }
   };

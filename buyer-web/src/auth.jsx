@@ -13,8 +13,10 @@ export function AuthProvider({ children }) {
     if (!getToken()) { setBuyer(null); setWallet(null); setLoading(false); return; }
     try {
       const [p, w] = await Promise.all([api.profile(), api.wallet().catch(() => null)]);
-      setBuyer(p?.buyer || p?.user || p);
+      const me = p?.buyer || p?.user || p;
+      setBuyer(me);
       setWallet(w);
+      return { buyer: me, wallet: w };
     } catch (e) {
       if (e?.response?.status === 401) { setToken(null); setBuyer(null); }
     } finally {
@@ -23,12 +25,14 @@ export function AuthProvider({ children }) {
   }, []);
 
   const refreshWallet = useCallback(async () => {
-    try { setWallet(await api.wallet()); } catch { /* keep the last value */ }
+    try { const w = await api.wallet(); setWallet(w); return w; } catch { return null; /* keep the last value */ }
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const signIn = async (token) => { setToken(token); setLoading(true); await refresh(); };
+  // Resolves with { buyer, wallet } so a flow can carry on without waiting for a re-render
+  // quiet: keep the current screen mounted (e.g. signing up mid-show)
+  const signIn = async (token, { quiet = false } = {}) => { setToken(token); if (!quiet) setLoading(true); return refresh(); };
   const signOut = () => { setToken(null); setBuyer(null); setWallet(null); };
 
   return (

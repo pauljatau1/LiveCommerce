@@ -1,5 +1,6 @@
 const socketIO = require('socket.io');
 const jwt = require('jsonwebtoken');
+const { socketUserFromHandshake, registerGuestSocket } = require('./guestSocket');
 const Conversation = require('../models/Conversation');
 const Stream = require('../models/Stream');
 const streamBids = require('../services/streamBidService');
@@ -177,14 +178,13 @@ function initializeSocket(server) {
       socketId: socket.id
     });
 
-    const token = socket.handshake.auth.token;
-    if (!token) {
-      console.log('Authentication failed: No token provided');
-      return next(new Error('Authentication error'));
-    }
-
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // A token makes a signed-in user; { guest: true } without one makes a watch-only guest
+      const decoded = socketUserFromHandshake(socket.handshake);
+      if (!decoded) {
+        console.log('Authentication failed: No token provided');
+        return next(new Error('Authentication error'));
+      }
       socket.user = decoded;
       console.log('Socket authenticated successfully:', {
         userId: decoded.id,
@@ -200,6 +200,11 @@ function initializeSocket(server) {
 
   // Connection handler for authenticated connections
   io.on('connection', async (socket) => {
+    // Guests only watch: they get the subscribe handlers and nothing else
+    if (socket.user?.guest) {
+      registerGuestSocket(socket);
+      return;
+    }
     console.log('New socket connection:', {
       socketId: socket.id,
       userId: socket.user.id,

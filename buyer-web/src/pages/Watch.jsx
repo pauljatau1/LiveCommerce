@@ -10,6 +10,8 @@ import { LATE_BID_SECONDS } from '../config';
 import AddressSheet from '../components/AddressSheet';
 import TopUpSheet from '../components/TopUpSheet';
 import BidMoreSheet from '../components/BidMoreSheet';
+import OneStepSheet from '../components/OneStepSheet';
+import { googleCalendarUrl, icsHref, showEvent } from '../calendar';
 import { Header, Icon, Sheet } from '../components/ui';
 import {
   ChatFeed, ItemThumb, ItemsList, MiniBidBar, RailButton, Timer,
@@ -61,6 +63,12 @@ export default function Watch() {
   const myIdRef = useRef(null);
   const myBidsRef = useRef({});
   const walletRef = useRef(0);
+  const signedInRef = useRef(signedIn);
+  signedInRef.current = signedIn;
+  const startedAsGuest = useRef(false);
+  const [showDeposit, setShowDeposit] = useState(0); // the show's delivery deposit (for a first item)
+  const [depositDue, setDepositDue] = useState(null); // what this buyer still owes (null until known)
+  const [wentLive, setWentLive] = useState(false);
 
   const say = useCallback((kind, msg, ms = 3500) => {
     setToast({ kind, msg });
@@ -87,10 +95,25 @@ export default function Watch() {
       })
       .catch((e) => { if (!cancelled) { setLoadError(errorMessage(e, "We couldn't find this show.")); setPhase('error'); } });
     api.watchSummary(streamId)
-      .then((sum) => { if (!cancelled) { setSoldCounts(sum?.sold || {}); setBidCounts(sum?.bids || {}); } })
+      .then((sum) => { if (!cancelled) { setSoldCounts(sum?.sold || {}); setBidCounts(sum?.bids || {}); setShowDeposit(Number(sum?.deliveryDeposit) || 0); } })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [streamId]);
+
+  // What a signed-in buyer still owes for delivery in this show
+  useEffect(() => {
+    if (!signedIn) { setDepositDue(null); return; }
+    api.watchMe(streamId).then((r) => setDepositDue(Number(r?.depositDue) || 0)).catch(() => setDepositDue(null));
+  }, [signedIn, streamId]);
+
+  // A scheduled show page notices when the host goes live
+  useEffect(() => {
+    if (show?.status !== 'scheduled') return undefined;
+    const t = window.setInterval(() => {
+      api.show(streamId).then((s) => { if (s?.status === 'live') { setWentLive(true); window.clearInterval(t); } }).catch(() => {});
+    }, 30000);
+    return () => window.clearInterval(t);
+  }, [show?.status, streamId]);
 
   // Connection state for the "Reconnecting…" line
   useEffect(() => {
@@ -101,18 +124,19 @@ export default function Watch() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
 
-  // 2. Join: video + live events (signed-in buyers, live shows only)
+  // 2a. Video: join as a buyer, or as a guest without an account (watch-only)
+  const live = show?.status === 'live';
   useEffect(() => {
-    if (!show || show.status !== 'live' || !signedIn) return undefined;
+    if (!live || loading) return undefined;
     let cancelled = false;
     let client;
-    let socket;
 
     const start = async () => {
       setPhase('joining');
       let joined;
       try {
-        joined = await api.join(streamId);
+        if (signedInRef.current) joined = await api.join(streamId);
+        else { joined = await api.guestJoin(streamId); startedAsGuest.current = true; }
       } catch (e) {
         if (e?.response?.status === 410) { setPhase('ended'); return; }
         setLoadError(errorMessage(e, "Couldn't join the show."));
@@ -120,111 +144,16 @@ export default function Watch() {
         return;
       }
       if (cancelled) return;
-      const live = joined.stream || {};
-      if (live.products) setItems(live.products);
-      if (typeof live.viewerCount === 'number') setViewers(live.viewerCount);
+      const st = joined.stream || {};
+      if (st.products) setItems(st.products);
+      if (typeof st.viewerCount === 'number') setViewers(st.viewerCount);
       setPhase('watching');
 
-      // Chat history
-      api.chat(streamId).then((history) => {
+      // Chat history (read-only for everyone)
+      api.publicChat(streamId).then((history) => {
         if (cancelled || !Array.isArray(history)) return;
-        setFeed(history.filter((m) => m.type === 'comment').slice(-30).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, avatar: m.avatar, text: m.content })));
+        setFeed(history.slice(-30).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, avatar: m.avatar, text: m.content })));
       }).catch(() => {});
-
-      // Live events
-      socket = io(API, { auth: { token: getToken() }, transports: ['websocket', 'polling'], reconnectionDelayMax: 5000 });
-      socketRef.current = socket;
-      socket.on('connect', () => { setSocketUp(true); socket.emit('stream_notification_subscribe', { streamId }); });
-      socket.on('disconnect', () => setSocketUp(false));
-      socket.on('stream_notification', (n) => {
-        const d = n?.data || {};
-        switch (n?.type) {
-          case 'comment':
-            push({ kind: 'comment', user: n.user, avatar: n.avatar, text: n.content });
-            break;
-          case 'join':
-            if (typeof d.viewerCount === 'number') setViewers(d.viewerCount);
-            break;
-          case 'auction_start':
-            if (d.product) { patchItem(idOf(d.product), { ...d.product, bidStatus: 'active', isVisible: true }); setItems((l) => l.map((p) => (idOf(p) === idOf(d.product) ? p : { ...p, isVisible: false }))); }
-            setOutbid(null);
-            push({ kind: 'sys', text: `Bidding is open: ${d.product?.product?.name || 'new item'}` });
-            break;
-          case 'new_bid': {
-            const pid = d.product ? idOf(d.product) : '';
-            if (d.product) patchItem(pid, { currentBid: d.bidAmount, currentBidder: d.currentBidder, bidStatus: d.product.bidStatus || 'active' });
-            if (pid) setBidCounts((m) => ({ ...m, [pid]: (m[pid] || 0) + 1 }));
-            // Someone else took the lead from me: my hold comes back to my wallet
-            if (leadRef.current && d.buyerId && String(d.buyerId) !== String(myIdRef.current)) {
-              setOutbid({ productId: pid, by: n.user || who(d.currentBidder), amount: myBidsRef.current[pid] || 0 });
-              refreshWallet();
-            }
-            if (String(d.buyerId) === String(myIdRef.current)) setOutbid(null);
-            push({ kind: 'bid', user: n.user, avatar: n.avatar, text: `bid ${naira(d.bidAmount)}` });
-            break;
-          }
-          case 'auction_winner':
-            if (d.product) patchItem(idOf(d.product), { bidStatus: 'ended', bidWinner: d.bidWinner });
-            push({ kind: 'win', user: who(d.bidWinner?.buyer) || n.user, text: `won it for ${naira(d.bidWinner?.bidAmount)}` });
-            break;
-          case 'auction_end':
-            if (d.product) patchItem(idOf(d.product), { bidStatus: 'ended' });
-            break;
-          case 'product_display':
-            if (d.product) setItems((l) => l.map((p) => ({ ...p, isVisible: idOf(p) === idOf(d.product) })));
-            setOutbid(null);
-            break;
-          case 'buy_now':
-            if (d.productId) {
-              setItems((l) => l.map((p) => (idOf(p) === String(d.productId) ? { ...p, product: { ...p.product, quantity: d.stockLeft } } : p)));
-              setSoldCounts((m) => ({ ...m, [String(d.productId)]: (m[String(d.productId)] || 0) + (Number(d.quantity) || 1) }));
-            }
-            push({ kind: 'bid', user: n.user, avatar: n.avatar, text: n.content });
-            break;
-          case 'stream_ended':
-            setPhase('ended');
-            break;
-          default:
-        }
-      });
-      socket.on('viewer_joined_stream', (n) => { if (typeof n?.data?.viewerCount === 'number') setViewers(n.data.viewerCount); });
-      socket.on('bid_timer_update', (t) => {
-        if (!t?.productId) return;
-        const pid = String(t.productId);
-        const before = lastSecs.current[pid];
-        // The timer went up while running: a late bid extended it
-        if (typeof before === 'number' && before > 0 && t.secondsLeft > before) {
-          setPlusSecs(t.secondsLeft - before);
-          window.clearTimeout(setPlusSecs.t);
-          setPlusSecs.t = window.setTimeout(() => setPlusSecs(0), 1500);
-        }
-        lastSecs.current[pid] = t.secondsLeft;
-        setTimer((m) => ({ ...m, [pid]: t.secondsLeft }));
-      });
-      socket.on('bid_timer_complete', (t) => t?.productId && setTimer((m) => ({ ...m, [String(t.productId)]: 0 })));
-      socket.on('bid_placed', (r) => {
-        setBusy(false);
-        if (r?.product) {
-          patchItem(idOf(r.product), r.product);
-          const pid = idOf(r.product);
-          myBidsRef.current = { ...myBidsRef.current, [pid]: r.product.currentBid };
-          setMyBids(myBidsRef.current);
-        }
-        setOutbid(null);
-        refreshWallet();
-      });
-      socket.on('bid_error', (r) => {
-        setBusy(false);
-        refreshWallet();
-        // Not enough to hold this bid (plus the show's delivery deposit on a first item)
-        if (r?.details?.totalRequired && /insufficient/i.test(r?.message || '')) {
-          setSheet({ type: 'topup', need: r.details.totalRequired - (walletRef.current || 0) });
-          return;
-        }
-        say('err', r?.message || 'Your bid did not go through. Nothing was held.');
-      });
-      socket.on('auction_order_created', (r) => { say('ok', `It's yours. Order #${r?.orderId} is paid from your wallet.`, 6000); refreshWallet(); });
-      socket.on('auction_order_error', () => { if (leadRef.current) { say('err', "We couldn't create your winning order. Your money is back in your wallet, and the host will sort it out.", 7000); refreshWallet(); } });
 
       // Video
       try {
@@ -257,11 +186,116 @@ export default function Watch() {
     start();
     return () => {
       cancelled = true;
-      socket?.disconnect();
       client?.leave().catch(() => {});
-      api.leave(streamId);
+      if (signedInRef.current) api.leave(streamId);
     };
-  }, [show, signedIn, streamId, push, patchItem, say, refreshWallet]);
+  }, [live, loading, streamId, say]);
+
+  // 2b. Live events: a watch-only guest socket until the viewer signs in, then their own
+  useEffect(() => {
+    if (!live || loading) return undefined;
+    const token = signedIn ? getToken() : null;
+    const socket = io(API, { auth: token ? { token } : { guest: true }, transports: ['websocket', 'polling'], reconnectionDelayMax: 5000 });
+    socket.authed = Boolean(token);
+    socketRef.current = socket;
+    // Signed up mid-show: count them as a viewer now (the video keeps playing)
+    if (signedIn && startedAsGuest.current) { startedAsGuest.current = false; api.join(streamId).catch(() => {}); }
+
+    // Live events
+    socket.on('connect', () => { setSocketUp(true); socket.emit('stream_notification_subscribe', { streamId }); });
+    socket.on('disconnect', () => setSocketUp(false));
+    socket.on('stream_notification', (n) => {
+      const d = n?.data || {};
+      switch (n?.type) {
+        case 'comment':
+          push({ kind: 'comment', user: n.user, avatar: n.avatar, text: n.content });
+          break;
+        case 'join':
+          if (typeof d.viewerCount === 'number') setViewers(d.viewerCount);
+          break;
+        case 'auction_start':
+          if (d.product) { patchItem(idOf(d.product), { ...d.product, bidStatus: 'active', isVisible: true }); setItems((l) => l.map((p) => (idOf(p) === idOf(d.product) ? p : { ...p, isVisible: false }))); }
+          setOutbid(null);
+          push({ kind: 'sys', text: `Bidding is open: ${d.product?.product?.name || 'new item'}` });
+          break;
+        case 'new_bid': {
+          const pid = d.product ? idOf(d.product) : '';
+          if (d.product) patchItem(pid, { currentBid: d.bidAmount, currentBidder: d.currentBidder, bidStatus: d.product.bidStatus || 'active' });
+          if (pid) setBidCounts((m) => ({ ...m, [pid]: (m[pid] || 0) + 1 }));
+          // Someone else took the lead from me: my hold comes back to my wallet
+          if (leadRef.current && d.buyerId && String(d.buyerId) !== String(myIdRef.current)) {
+            setOutbid({ productId: pid, by: n.user || who(d.currentBidder), amount: myBidsRef.current[pid] || 0 });
+            refreshWallet();
+          }
+          if (String(d.buyerId) === String(myIdRef.current)) setOutbid(null);
+          push({ kind: 'bid', user: n.user, avatar: n.avatar, text: `bid ${naira(d.bidAmount)}` });
+          break;
+        }
+        case 'auction_winner':
+          if (d.product) patchItem(idOf(d.product), { bidStatus: 'ended', bidWinner: d.bidWinner });
+          push({ kind: 'win', user: who(d.bidWinner?.buyer) || n.user, text: `won it for ${naira(d.bidWinner?.bidAmount)}` });
+          break;
+        case 'auction_end':
+          if (d.product) patchItem(idOf(d.product), { bidStatus: 'ended' });
+          break;
+        case 'product_display':
+          if (d.product) setItems((l) => l.map((p) => ({ ...p, isVisible: idOf(p) === idOf(d.product) })));
+          setOutbid(null);
+          break;
+        case 'buy_now':
+          if (d.productId) {
+            setItems((l) => l.map((p) => (idOf(p) === String(d.productId) ? { ...p, product: { ...p.product, quantity: d.stockLeft } } : p)));
+            setSoldCounts((m) => ({ ...m, [String(d.productId)]: (m[String(d.productId)] || 0) + (Number(d.quantity) || 1) }));
+          }
+          push({ kind: 'bid', user: n.user, avatar: n.avatar, text: n.content });
+          break;
+        case 'stream_ended':
+          setPhase('ended');
+          break;
+        default:
+      }
+    });
+    socket.on('viewer_joined_stream', (n) => { if (typeof n?.data?.viewerCount === 'number') setViewers(n.data.viewerCount); });
+    socket.on('bid_timer_update', (t) => {
+      if (!t?.productId) return;
+      const pid = String(t.productId);
+      const before = lastSecs.current[pid];
+      // The timer went up while running: a late bid extended it
+      if (typeof before === 'number' && before > 0 && t.secondsLeft > before) {
+        setPlusSecs(t.secondsLeft - before);
+        window.clearTimeout(setPlusSecs.t);
+        setPlusSecs.t = window.setTimeout(() => setPlusSecs(0), 1500);
+      }
+      lastSecs.current[pid] = t.secondsLeft;
+      setTimer((m) => ({ ...m, [pid]: t.secondsLeft }));
+    });
+    socket.on('bid_timer_complete', (t) => t?.productId && setTimer((m) => ({ ...m, [String(t.productId)]: 0 })));
+    socket.on('bid_placed', (r) => {
+      setBusy(false);
+      if (r?.product) {
+        patchItem(idOf(r.product), r.product);
+        const pid = idOf(r.product);
+        myBidsRef.current = { ...myBidsRef.current, [pid]: r.product.currentBid };
+        setMyBids(myBidsRef.current);
+      }
+      setOutbid(null);
+      refreshWallet();
+    });
+    socket.on('bid_error', (r) => {
+      setBusy(false);
+      refreshWallet();
+      // Not enough to hold this bid (plus the show's delivery deposit on a first item)
+      if (r?.details?.totalRequired && /insufficient/i.test(r?.message || '')) {
+        setSheet({ type: 'topup', need: r.details.totalRequired - (walletRef.current || 0) });
+        return;
+      }
+      say('err', r?.message || 'Your bid did not go through. Nothing was held.');
+    });
+    socket.on('auction_order_created', (r) => { say('ok', `It's yours. Order #${r?.orderId} is paid from your wallet.`, 6000); refreshWallet(); });
+    socket.on('auction_order_error', () => { if (leadRef.current) { say('err', "We couldn't create your winning order. Your money is back in your wallet, and the host will sort it out.", 7000); refreshWallet(); } });
+
+    return () => socket.disconnect();
+  }, [live, loading, signedIn, streamId, push, patchItem, say, refreshWallet]);
 
   useEffect(() => {
     if (!debug) return undefined;
@@ -330,12 +364,33 @@ export default function Watch() {
   }, [items, myBids, buyer]);
   const nextUp = useMemo(() => items.find((p) => p.bidStatus !== 'ended' && p.bidStatus !== 'active' && !p.isVisible && !(p.minBid === undefined && p.product?.quantity === 0)) || null, [items]);
 
-  // Make sure the buyer can pay and be delivered to before an action
-  const ready = (cost, then) => {
-    if (!signedIn) { navigate(`/signin?next=/live/${streamId}`); return false; }
-    if (!hasAddress) { setSheet({ type: 'address', then }); return false; }
-    if (cost > available) { setSheet({ type: 'topup', need: cost - available }); return false; }
-    return true;
+  const deposit = depositDue ?? showDeposit;
+
+  // Bids go out on the buyer's own socket; after signing up mid-show, wait for it
+  const authedSocket = () => new Promise((resolve) => {
+    const t0 = Date.now();
+    const tick = () => {
+      const sock = socketRef.current;
+      if (sock?.authed && sock.connected) return resolve(sock);
+      if (Date.now() - t0 > 10000) return resolve(null);
+      return window.setTimeout(tick, 100);
+    };
+    tick();
+  });
+
+  // Anything missing (account, address, money) is handled in one sheet, then the action runs
+  const ready = (cost, action) => {
+    if (signedIn && hasAddress && cost + deposit <= available) return true;
+    setSheet({ type: 'onestep', action });
+    return false;
+  };
+
+  const sendBid = async (productId, bid) => {
+    setBusy(true);
+    const sock = await authedSocket();
+    if (!sock) { setBusy(false); say('err', "Couldn't reach the show. Your bid wasn't placed. Try again."); return; }
+    sock.emit('stream_place_bid', { streamId, productId, bidAmount: bid });
+    window.setTimeout(() => setBusy(false), 8000);
   };
 
   const placeBid = (amount) => {
@@ -344,16 +399,12 @@ export default function Watch() {
     // Bids move in steps; the server checks this too
     if (bid < nextBidFor(current)) { say('err', `Bid at least ${naira(nextBidFor(current))}`); return; }
     // Holding the bid is checked on the server too; a lead bid is held, not charged
-    if (!ready(bid - (iLead ? current.currentBid : 0), () => placeBid(bid))) return;
-    setBusy(true);
-    socketRef.current?.emit('stream_place_bid', { streamId, productId: idOf(current), bidAmount: bid });
-    window.setTimeout(() => setBusy(false), 8000);
+    if (!ready(bid - (iLead ? current.currentBid : 0), { kind: 'bid', amount: bid, productId: idOf(current) })) return;
+    sendBid(idOf(current), bid);
   };
 
-  const buyNow = async (item, quantity = 1) => {
-    if (busy) return;
+  const doBuy = async (item, quantity = 1) => {
     const price = priceOf(item);
-    if (!ready(price * quantity, () => buyNow(item, quantity))) return;
     setBusy(true);
     try {
       const r = await api.buyNow(streamId, idOf(item), quantity);
@@ -372,13 +423,31 @@ export default function Watch() {
     }
   };
 
-  const sendChat = (e) => {
-    e.preventDefault();
+  const buyNow = (item, quantity = 1) => {
+    if (busy) return;
+    if (!ready(priceOf(item) * quantity, { kind: 'buy', amount: priceOf(item) * quantity, item, quantity })) return;
+    doBuy(item, quantity);
+  };
+
+  const sendChat = async (e) => {
+    e?.preventDefault();
     const content = text.trim();
     if (!content) return;
-    if (!signedIn) { navigate(`/signin?next=/live/${streamId}`); return; }
-    socketRef.current?.emit('stream_comment', { streamId, content: content.slice(0, 300) });
+    // Guests read chat; posting needs an account (no payment)
+    if (!signedIn) { setSheet({ type: 'onestep', action: { kind: 'chat' } }); return; }
+    const sock = await authedSocket();
+    if (!sock) { say('err', "Couldn't send. Check your connection."); return; }
+    sock.emit('stream_comment', { streamId, content: content.slice(0, 300) });
     setText('');
+  };
+
+  // After the one-step sheet: do what the viewer tapped
+  const afterOneStep = async (action) => {
+    setSheet(null);
+    if (action.kind === 'bid') await sendBid(action.productId, action.amount);
+    else if (action.kind === 'buy') await doBuy(action.item, action.quantity);
+    else if (action.kind === 'chat') say('ok', "You're in. Say hi.");
+    else if (action.kind === 'account') setSheet({ type: 'topup', need: 0 });
   };
 
   const share = async () => {
@@ -423,8 +492,11 @@ export default function Watch() {
   // ---------- not live / not signed in ----------
   if (phase === 'loading' || loading) return <div className="app"><Header back="/" /><div className="center"><span className="mut">Loading the show…</span></div></div>;
   if (phase === 'error') return <div className="app"><Header back="/" /><div className="center"><div className="card empty"><span className="f" style={{ fontSize: 18 }}>{loadError}</span><Link to="/" className="btn2">See other shows</Link></div></div></div>;
-  if (phase === 'ended' || (show && show.status !== 'live') || (show && !signedIn)) {
+  if (phase === 'ended' || (show && show.status !== 'live')) {
     const scheduled = show?.status === 'scheduled';
+    const calendar = scheduled && show?.scheduledStartTime
+      ? showEvent({ title: show.title, host: host.storeName || host.businessName, start: show.scheduledStartTime, url: window.location.href })
+      : null;
     return (
       <div className="app">
         <Header back="/" />
@@ -440,15 +512,16 @@ export default function Watch() {
             <p className="mut" style={{ margin: '4px 0 0' }}>{host.storeName || host.businessName}{items.length ? ` · ${items.length} item${items.length > 1 ? 's' : ''}` : ''}</p>
           </div>
           {phase === 'ended' || show?.status === 'ended' ? (
-            <div className="soft s-warm" style={{ color: 'var(--warm)', fontWeight: 700 }}>This show has ended. Follow the host so you don't miss the next one.</div>
-          ) : !signedIn ? (
+            <p style={{ margin: 0, fontWeight: 700 }}>This show has ended. Follow the host so you don't miss the next one.</p>
+          ) : wentLive ? (
+            <button type="button" className="btn" style={{ minHeight: 56 }} onClick={() => window.location.reload()}>Watch now</button>
+          ) : scheduled && calendar ? (
             <>
-              <Link to={`/signin?next=/live/${streamId}`} className="btn" style={{ minHeight: 56, fontSize: 17 }}>{show?.status === 'live' ? 'Join to watch' : 'Join so you can watch'}</Link>
-              <span className="hint" style={{ textAlign: 'center' }}>Free. Takes 20 seconds. You'll come straight back here.</span>
+              <a className="btn" style={{ minHeight: 56 }} href={icsHref(calendar)} download="show.ics">Add to calendar</a>
+              <a className="link" style={{ alignSelf: 'center' }} href={googleCalendarUrl(calendar)} target="_blank" rel="noreferrer">Or add it to Google Calendar</a>
+              <span className="hint" style={{ textAlign: 'center' }}>No account needed to watch. Come back to this link when it starts.</span>
             </>
-          ) : (
-            <div className="soft s-primary" style={{ fontWeight: 700 }}>You're signed in. Come back when the show starts.</div>
-          )}
+          ) : null}
           {items.length > 0 && (
             <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <h2 className="h2">In this show</h2>
@@ -542,7 +615,7 @@ export default function Watch() {
         <nav className="rail" aria-label="Show actions">
           <RailButton label="More" onClick={() => setSheet({ type: 'more' })}>{Icon.more}</RailButton>
           <RailButton label="Share" onClick={share}>{Icon.share}</RailButton>
-          <RailButton label="Wallet" onClick={() => setSheet({ type: 'topup', need: 0 })}>{Icon.wallet}</RailButton>
+          <RailButton label="Wallet" onClick={() => setSheet(signedIn ? { type: 'topup', need: 0 } : { type: 'onestep', action: { kind: 'account' } })}>{Icon.wallet}</RailButton>
           <RailButton label={`Items · ${items.length}`} onClick={() => setSheet({ type: 'items' })}>
             {current && imageOf(current) ? <img src={imageOf(current)} alt="" className="rail-img" /> : <span className="rail-count">{items.length}</span>}
           </RailButton>
@@ -625,6 +698,9 @@ export default function Watch() {
       </aside>
 
       {sheet?.type === 'topup' && <TopUpSheet need={sheet.need} top={mini} onClose={() => setSheet(null)} />}
+      {sheet?.type === 'onestep' && (
+        <OneStepSheet action={sheet.action} deposit={deposit} top={sheet.action.kind === 'chat' ? null : miniBare} streamId={streamId} onClose={() => setSheet(null)} onReady={() => afterOneStep(sheet.action)} />
+      )}
       {sheet?.type === 'address' && <AddressSheet top={mini} onClose={() => setSheet(null)} onSaved={async () => { setSheet(null); await refresh(); say('ok', 'Address saved. You can bid and buy now.'); }} />}
       {sheet?.type === 'bid' && current && (
         <BidMoreSheet current={current} top={miniBare} onClose={() => setSheet(null)} onPlace={(v) => { setSheet(null); placeBid(v); }} />
