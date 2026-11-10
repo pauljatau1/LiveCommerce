@@ -159,7 +159,7 @@ router.get('/:streamId/chat', validId, async (req, res) => {
     const messages = (stream.chatInteractions || [])
       .filter((m) => m.type === 'comment' && !m.hidden)
       .slice(-50)
-      .map((m) => ({ id: m.id, type: m.type, user: m.user, avatar: m.avatar, content: m.content, timestamp: m.timestamp }));
+      .map((m) => ({ id: m.id, type: m.type, user: m.user, avatar: m.avatar, content: m.content, timestamp: m.timestamp, ...(m.data?.isHost ? { isHost: true } : {}) }));
     res.json({ success: true, chatInteractions: messages });
   } catch (error) {
     console.error('[watch] chat', error.message);

@@ -146,7 +146,7 @@ export function OrderDetail() {
           {d.items.map((i, n) => (
             <div key={i.order + n} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: n < d.items.length - 1 ? '1px solid #F1EBE3' : 0 }}>
               {i.image ? <img src={i.image} alt="" style={{ width: 52, height: 52, borderRadius: 14, objectFit: 'cover' }} /> : <span className="sk" style={{ width: 52, height: 52 }} />}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 800 }}>{i.name}{i.quantity > 1 ? ` × ${i.quantity}` : ''}</span><span className="mut" style={{ fontSize: 13 }}>{i.category}</span></div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 800 }}>{i.name}{i.quantity > 1 ? ` × ${i.quantity}` : ''}</span>{i.note && <span style={{ fontSize: 14 }}>{i.note}</span>}<span className="mut" style={{ fontSize: 13 }}>{i.category}</span></div>
               <span className="f" style={{ fontSize: 16 }}>{naira(i.unitPrice * (i.quantity || 1))}</span>
             </div>
           ))}

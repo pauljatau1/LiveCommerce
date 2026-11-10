@@ -35,7 +35,7 @@ export default function LiveChat({ feed, onUndo }) {
             <div key={m.id} className={`line ${m.kind}`}>
               {m.kind !== 'sys' && <span className="ava" aria-hidden="true">{m.avatar ? <img src={m.avatar} alt="" /> : (m.user || '?').slice(0, 1).toUpperCase()}</span>}
               <span className="line-tx">
-                {m.user && m.kind !== 'sys' && <span className="nm">{m.user}</span>}
+                {m.user && m.kind !== 'sys' && <span className="nm">{m.user}{m.host && <span className="host-tag">Host</span>}</span>}
                 <span className="tx">{m.text}</span>
               </span>
             </div>

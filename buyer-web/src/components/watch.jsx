@@ -58,7 +58,7 @@ export function ChatFeed({ feed, className = '', max = 80 }) {
               <span className="ava" aria-hidden="true">{m.avatar ? <img src={m.avatar} alt="" /> : (m.user || '?').slice(0, 1).toUpperCase()}</span>
             )}
             <span className="line-tx">
-              {m.user && m.kind !== 'sys' && m.kind !== 'hidden' && <span className="nm">{m.user}</span>}
+              {m.user && m.kind !== 'sys' && m.kind !== 'hidden' && <span className="nm">{m.user}{m.host && <span className="host-tag">Host</span>}</span>}
               <span className="tx">{m.kind === 'sys' && m.user ? `${m.user} ${m.text}` : m.text}</span>
             </span>
           </div>

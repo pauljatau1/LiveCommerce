@@ -85,7 +85,10 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
       const held = streamProduct.holdAmount || 0;
 
       // 2. Release the hold and charge bid + delivery in one conditional write.
-      const reference = `auction_${streamId}_${productId}`;
+      // Each run of an item is its own charge (run 1 keeps the original reference).
+      const run = Number(streamProduct.run) || 1;
+      const runNote = streamProduct.runNote || undefined;
+      const reference = `auction_${streamId}_${productId}${run > 1 ? `_r${run}` : ''}`;
       const charged = await model('Buyer').findOneAndUpdate(
         {
           _id: buyerId,
@@ -146,6 +149,7 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
                 productImages: (product.images || []).slice(0, 1).map((i) => ({ url: i.url })),
                 quantity: 1,
                 price: bid,
+                ...(runNote ? { note: runNote } : {}),
                 status: 'pending',
               },
             ],
@@ -187,12 +191,13 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
 
       await model('Stream').updateOne(
         { _id: streamId, 'products.product.productId': productIdMatch(productId) },
-        { $set: { 'products.$.orderId': order.order_id }, $push: { orders: liveShowOrder } },
+        // The show's copy of the stock follows the product, for "2 of 4 left"
+        { $set: { 'products.$.orderId': order.order_id, 'products.$.product.quantity': product.stock }, $push: { orders: liveShowOrder } },
         { session }
       );
 
       // Ships with the buyer's other items from this show (deposit held on the first)
-      await deliveries.attachOrder({ session, streamId, buyerId: charged._id, sellerId: seller._id || before.seller, order, product, quantity: 1, unitPrice: bid });
+      await deliveries.attachOrder({ session, streamId, buyerId: charged._id, sellerId: seller._id || before.seller, order, product, quantity: 1, unitPrice: bid, note: runNote });
 
       result = {
         success: true,

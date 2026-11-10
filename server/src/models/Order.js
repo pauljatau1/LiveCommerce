@@ -21,6 +21,8 @@ const orderItemSchema = new mongoose.Schema({
     ref: 'Product',
     required: true
   },
+  // The seller's run note for an auction run ("Red, size M"), in their own words
+  note: { type: String, maxlength: 40 },
   productName: {
     type: String,
   },

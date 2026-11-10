@@ -168,7 +168,7 @@ export default function Watch() {
       // Chat history (read-only for everyone)
       api.publicChat(streamId).then((history) => {
         if (cancelled || !Array.isArray(history)) return;
-        setFeed(history.slice(-30).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, avatar: m.avatar, text: m.content })));
+        setFeed(history.slice(-30).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, avatar: m.avatar, text: m.content, host: Boolean(m.isHost) })));
       }).catch(() => {});
 
       // Video
@@ -224,7 +224,7 @@ export default function Watch() {
       const d = n?.data || {};
       switch (n?.type) {
         case 'comment':
-          push({ kind: 'comment', user: n.user, avatar: n.avatar, text: n.content });
+          push({ kind: 'comment', user: n.user, avatar: n.avatar, text: n.content, host: Boolean(n.data?.isHost) });
           break;
         case 'join':
           if (typeof d.viewerCount === 'number') setViewers(d.viewerCount);
@@ -232,8 +232,12 @@ export default function Watch() {
         case 'auction_start':
           if (d.product) { patchItem(idOf(d.product), { ...d.product, bidStatus: 'active', isVisible: true }); setItems((l) => l.map((p) => (idOf(p) === idOf(d.product) ? p : { ...p, isVisible: false }))); }
           setOutbid(null);
-          if (d.product && !announced.current.has(idOf(d.product))) {
-            announced.current.add(idOf(d.product));
+          // Once per run of an item; a fresh run starts its bid count again
+          if (d.product && !announced.current.has(`${idOf(d.product)}:${d.product.run || 1}`)) {
+            announced.current.add(`${idOf(d.product)}:${d.product.run || 1}`);
+            setBidCounts((m) => ({ ...m, [idOf(d.product)]: 0 }));
+            myBidsRef.current = { ...myBidsRef.current, [idOf(d.product)]: 0 };
+            setMyBids(myBidsRef.current);
             push({ kind: 'sys', text: `Bidding is open: ${d.product?.product?.name || 'new item'}` });
           }
           break;
@@ -716,9 +720,10 @@ export default function Watch() {
                 <ItemThumb item={current} size={48} />
                 <div className="now-tx">
                   <span className="now-nm">{current.product?.name}</span>
+                  {current.runNote && <span className="now-note">{current.runNote}</span>}
                   <span className="now-meta">
                     {auctionLive
-                      ? `${plural(bids, 'bid')}${LATE_BID_SECONDS ? ` · late bids add ${LATE_BID_SECONDS}s` : ''}`
+                      ? `${typeof stock === 'number' && stock > 1 ? `${stock} of ${stock + sold} left · ` : ''}${plural(bids, 'bid')}${LATE_BID_SECONDS ? ` · late bids add ${LATE_BID_SECONDS}s` : ''}`
                       : !isAuction && typeof stock === 'number'
                         ? `${stock} of ${stock + sold} left${sold ? ` · ${sold} sold` : ''}`
                         : current.bidStatus === 'ended' ? plural(bids, 'bid') : `Starts at ${naira(current.minBid)}`}

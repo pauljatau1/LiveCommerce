@@ -304,3 +304,23 @@
 .studio-app .sh-apps::-webkit-scrollbar{display:none}
 .studio-app .sh-app{flex:none;width:72px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:4px 0;border:0;background:none;color:var(--text);font:700 12px var(--font-body);cursor:pointer}
 .studio-app .sh-ic{width:56px;height:56px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font:800 18px var(--font-body)}
+
+/* Live studio: run note, Run again, host chat input, typing */
+.lv .lv-note{font-size:14px;color:rgba(255,255,255,.85)}
+.lv .lv-run{flex:none;min-height:36px;padding:0 12px;border:1.5px solid rgba(255,255,255,.7);border-radius:999px;background:none;color:#fff;font:800 13px var(--font-body);cursor:pointer;position:relative;white-space:nowrap}
+.lv .lv-run::after{content:"";position:absolute;inset:-4px 0}
+.lv .lv-composer{display:flex;gap:8px;align-items:center;margin-top:2px}
+.lv .lv-composer input{flex:1;min-width:0;height:40px;border-radius:999px;border:1.5px solid rgba(255,255,255,.55);padding:0 14px;font:600 16px var(--font-body);background:rgba(0,0,0,.15);color:#fff}
+.lv .lv-composer input::placeholder{color:rgba(255,255,255,.7)}
+.lv .lv-send{width:40px;height:40px;border:0;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer}
+.lv .host-tag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:6px;background:rgba(255,255,255,.2);color:#fff;font-size:12px;font-weight:800;line-height:18px}
+.lv .lv-bottom{bottom:var(--kb-bottom,0px)}
+.lv.typing .lv-panel,.lv.typing .lv-rail,.lv.typing .lv-queue-wrap,.lv.typing .lv-prompts{display:none}
+.lv.typing .lv-bottom{padding-bottom:8px}
+.lv.typing .lv-feed{max-height:calc(100dvh - var(--kb-bottom,0px) - 200px)}
+@media (min-width:900px){ .lv .lv-right .host-tag{background:var(--surface-sunken);color:var(--text)} }
+/* Show notes list: one row per section */
+.studio-app .nt-row{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:8px 0;border:0;border-top:1px solid var(--border);background:none;color:var(--text);text-align:left;font:inherit;cursor:pointer}
+.studio-app .nt-tx{flex:1;min-width:0;display:flex;flex-direction:column}
+.studio-app .nt-tx span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+.studio-app .nt-edit{flex:none;color:var(--primary);font-weight:800;text-decoration:underline}

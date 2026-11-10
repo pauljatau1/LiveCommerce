@@ -34,7 +34,7 @@ const depositFor = async (streamId, buyerId) => {
 
 // Called inside the order transaction: add the order to the buyer's delivery
 // for this show, creating it (and holding the deposit) on the first item.
-const attachOrder = async ({ session, streamId, buyerId, sellerId, order, product, quantity, unitPrice }) => {
+const attachOrder = async ({ session, streamId, buyerId, sellerId, order, product, quantity, unitPrice, note }) => {
   const item = {
     order: order._id,
     product: product._id,
@@ -44,6 +44,7 @@ const attachOrder = async ({ session, streamId, buyerId, sellerId, order, produc
     unitPrice,
     weightKg: Number(product.shippingInfo?.weight?.value || product.weight) || 0.5,
     image: product.images?.[0]?.url,
+    ...(note ? { note } : {}),
   };
   let delivery = await ShowDelivery.findOneAndUpdate(
     { stream: streamId, buyer: buyerId, seller: sellerId },
