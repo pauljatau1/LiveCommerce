@@ -1,5 +1,5 @@
 // Presentational pieces of the Watch screen. Watch.jsx owns the state.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { imageOf, naira } from '../api';
 import { Icon } from './ui';
 
@@ -24,24 +24,63 @@ export function usePulse(value) {
 }
 
 // Chat on the video: no bubbles. Small avatar; the name on its own line in small dimmed
-// text, the message underneath in white; bids in primary-on-dark. `limit` keeps the
-// last few lines (they fade out at the top).
-export function ChatFeed({ feed, feedRef, className = '', limit = 0 }) {
-  const shown = limit ? feed.slice(-limit) : feed;
+// text, the message underneath in white; bids in primary-on-dark. The list scrolls by
+// touch; it stays on the newest message unless the viewer has scrolled up, and then a
+// "New messages ↓" chip jumps back down.
+export function ChatFeed({ feed, className = '', max = 80 }) {
+  const ref = useRef(null);
+  const stuck = useRef(true);
+  const [unseen, setUnseen] = useState(false);
+  const shown = feed.slice(-max);
+  const lastId = shown[shown.length - 1]?.id;
+
+  const toBottom = (smooth) => {
+    const el = ref.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  };
+  const onScroll = () => {
+    const el = ref.current;
+    if (!el) return;
+    stuck.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+    if (stuck.current) setUnseen(false);
+  };
+  useLayoutEffect(() => {
+    if (stuck.current) toBottom(false);
+    else if (lastId) setUnseen(true);
+  }, [lastId]);
+
   return (
-    <div ref={feedRef} className={`feed ${className}`} aria-live="polite">
-      {shown.map((m) => (
-        <div key={m.id} className={`line ${m.kind}`}>
-          {m.kind !== 'sys' && m.kind !== 'hidden' && (
-            <span className="ava" aria-hidden="true">{m.avatar ? <img src={m.avatar} alt="" /> : (m.user || '?').slice(0, 1).toUpperCase()}</span>
-          )}
-          <span className="line-tx">
-            {m.user && m.kind !== 'sys' && m.kind !== 'hidden' && <span className="nm">{m.user}</span>}
-            <span className="tx">{m.kind === 'sys' && m.user ? `${m.user} ${m.text}` : m.text}</span>
-          </span>
-        </div>
-      ))}
+    <div className={`feed-wrap ${className}`}>
+      <div ref={ref} className="feed" aria-live="polite" onScroll={onScroll}>
+        {shown.map((m) => (
+          <div key={m.id} className={`line ${m.kind}`}>
+            {m.kind !== 'sys' && m.kind !== 'hidden' && (
+              <span className="ava" aria-hidden="true">{m.avatar ? <img src={m.avatar} alt="" /> : (m.user || '?').slice(0, 1).toUpperCase()}</span>
+            )}
+            <span className="line-tx">
+              {m.user && m.kind !== 'sys' && m.kind !== 'hidden' && <span className="nm">{m.user}</span>}
+              <span className="tx">{m.kind === 'sys' && m.user ? `${m.user} ${m.text}` : m.text}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+      {unseen && (
+        <button type="button" className="new-msgs" onClick={() => { stuck.current = true; setUnseen(false); toBottom(true); }}>New messages ↓</button>
+      )}
     </div>
+  );
+}
+
+// Up next, as one compact row: 32px photo, "Up next · <name>" on one line, price on the right
+export function UpNextRow({ item, onClick }) {
+  if (!item) return null;
+  const Tag = onClick ? 'button' : 'div';
+  return (
+    <Tag type={onClick ? 'button' : undefined} className="upnext-row" onClick={onClick}>
+      <ItemThumb item={item} size={32} />
+      <span className="un-tx"><b>Up next</b> · {item.product?.name}</span>
+      <span className="un-price">{item.minBid ? `from ${naira(item.minBid)}` : naira(priceOf(item))}</span>
+    </Tag>
   );
 }
 

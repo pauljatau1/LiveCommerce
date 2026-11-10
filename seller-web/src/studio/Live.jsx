@@ -12,6 +12,7 @@ import { studio, errorText, naira } from './api';
 import { Icon, Sheet } from './ui';
 import ShareSheet from './ShareSheet';
 import { feedEntryFor, winnerName } from './liveFeed';
+import LiveChat from './LiveChat';
 import NotesEditor, { NOTES_MAX, hasNotes, notesLength } from './NotesEditor';
 import { useIntercomVisibility } from '@/Hooks/useIntercomVisibility';
 
@@ -29,7 +30,6 @@ export default function Live() {
   const clientRef = useRef(null);
   const tracksRef = useRef({ audio: null, video: null });
   const socketRef = useRef(null);
-  const feedEnd = useRef(null);
 
   const [phase, setPhase] = useState('connecting'); // connecting | live | reconnecting | error | ending
   const [error, setError] = useState('');
@@ -55,10 +55,13 @@ export default function Live() {
   const [queueOpen, setQueueOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
 
-  const push = useCallback((entry) => setFeed((f) => [...f.slice(-60), { id: `${Date.now()}-${Math.random()}`, ...entry }]), []);
+  const shownKeys = useRef(new Set()); // lines shown once ("Bidding is open" per item)
+  const push = useCallback((entry) => {
+    if (entry.key) { if (shownKeys.current.has(entry.key)) return; shownKeys.current.add(entry.key); }
+    setFeed((f) => [...f.slice(-80), { id: `${Date.now()}-${Math.random()}`, ...entry }]);
+  }, []);
   const say = useCallback((t) => setToast(t), []);
   useEffect(() => { if (!toast) return undefined; const t = setTimeout(() => setToast(''), 3500); return () => clearTimeout(t); }, [toast]);
-  useEffect(() => { feedEnd.current?.scrollIntoView({ block: 'end' }); }, [feed]);
 
   const refresh = useCallback(async () => {
     const r = await studio.show(id);
@@ -186,6 +189,13 @@ export default function Live() {
   const total = Math.max(current?.auctionSeconds || 30, secs || 0);
   const running = current && current.bidStatus === 'active' && (secs === undefined || secs > 0);
   const queue = items.filter((i) => i.productId !== current?.productId);
+  // "3 sold · ₦4,000 · 1 item not shown yet" (or "1 auction still running")
+  const notShown = items.filter((i) => i.bidStatus === 'pending' && !i.isVisible && !i.winner && !(i.sold > 0)).length;
+  const endSummary = [
+    `${sales.count} sold`,
+    naira(sales.amount),
+    running ? '1 auction still running' : notShown ? `${notShown} item${notShown === 1 ? '' : 's'} not shown yet` : null,
+  ].filter(Boolean).join(' · ');
 
   const act = async (label, fn, done) => {
     setBusy(label);
@@ -280,44 +290,22 @@ export default function Live() {
     ) : null
   );
 
+  // Up next: one compact row (32px photo, name, price), then "All"
+  const nextItem = queue.find((q) => q.bidStatus !== 'ended' && !q.winner && !(!isAuction && q.stock <= 0));
   const Queue = (
-    <div className="lv-queue" aria-label="Up next">
-      <span style={{ font: '800 12px var(--font-body)', paddingRight: 2 }}>Up next</span>
-      {queue.map((q) => (
-        <button key={q.productId} type="button" className="lv-q" aria-label={`${q.name}${q.bidStatus === 'ended' || q.winner ? ' (done)' : ''}`} onClick={() => pick(q)} style={{ opacity: q.winner || q.bidStatus === 'ended' || q.stock <= 0 ? 0.45 : 1 }}>
-          {q.image ? <img src={q.image} alt="" /> : <span className="sk" style={{ width: '100%', height: '100%' }} />}
+    <div className="lv-upnext" aria-label="Up next">
+      {nextItem ? (
+        <button type="button" className="lv-un" onClick={() => pick(nextItem)}>
+          {nextItem.image ? <img src={nextItem.image} alt="" className="lv-un-img" /> : <span className="sk lv-un-img" />}
+          <span className="lv-un-tx"><b>Up next</b> · {nextItem.name}</span>
+          <span className="lv-un-price">{isAuction ? `from ${naira(nextItem.minBid)}` : naira(nextItem.price)}</span>
         </button>
-      ))}
+      ) : <span className="lv-un-tx lv-un-none">Nothing else in this show</span>}
       <button type="button" className="lv-all" onClick={() => setQueueOpen(true)}>All</button>
     </div>
   );
 
-  const Chat = (
-    <div className="lv-feed" aria-live="polite" aria-label="Live chat">
-      {feed.slice(-6).map((m) => (
-        m.kind !== 'hidden'
-          ? (
-            <div key={m.id} className={`line ${m.kind}`}>
-              {m.kind !== 'sys' && <span className="ava" aria-hidden="true">{m.avatar ? <img src={m.avatar} alt="" /> : (m.user || '?').slice(0, 1).toUpperCase()}</span>}
-              <span className="line-tx">
-                {m.user && m.kind !== 'sys' && <span className="nm">{m.user}</span>}
-                <span className="tx">{m.text}</span>
-              </span>
-            </div>
-          )
-          : m.kind === 'hidden'
-            ? (
-              <div key={m.id} className="lv-hid">
-                <span>{m.notice} · </span>
-                <button type="button" className="lv-undo" onClick={() => socketRef.current?.emit('stream_unhide_comment', { streamId: id, id: m.hiddenId })}>Undo</button>
-                <span className="lv-hid-tx">{m.user}: “{m.text}”</span>
-              </div>
-            )
-            : null
-      ))}
-      <span ref={feedEnd} />
-    </div>
-  );
+  const Chat = <LiveChat feed={feed} onUndo={(m) => socketRef.current?.emit('stream_unhide_comment', { streamId: id, id: m.hiddenId })} />;
 
   const saveNotes = async (next, doneText = 'Show notes updated') => {
     setNotesBusy(true);
@@ -374,7 +362,7 @@ export default function Live() {
       </header>
 
       <div className="lv-body">
-        <aside className="lv-left"><div className="lv-desk-only" style={{ flexDirection: 'column', gap: 8 }}><span className="h2">Up next</span>{Queue}</div></aside>
+        <aside className="lv-left"><div className="lv-desk-only" style={{ flexDirection: 'column', gap: 8 }}><span className="h2">Items in this show</span>{Queue}</div></aside>
         <section className="lv-cam" aria-label="Your camera">
           <div ref={videoRef} className="lv-video" />
           {phase === 'error' && (
@@ -419,10 +407,10 @@ export default function Live() {
         </Sheet>
       )}
       {confirmEnd && (
-        <Sheet label="End show" onClose={() => setConfirmEnd(false)}>
+        <Sheet label="End the show?" onClose={() => setConfirmEnd(false)}>
           <h2 className="f" style={{ margin: 0, fontSize: 22 }}>End the show?</h2>
-          <span style={{ fontSize: 15, lineHeight: 1.45 }}>{sales.count ? `You sold ${sales.count} item${sales.count === 1 ? '' : 's'} for ${naira(sales.amount)}. ` : ''}Buyers will see the show has ended. Delivery for each buyer is priced and paid automatically.</span>
-          {running && <span className="err-text">An auction is still running. If you end now, it closes with the current top bid.</span>}
+          <span style={{ fontWeight: 700 }}>{endSummary}</span>
+          <span className="mut">Buyers get their delivery quotes right after.</span>
           <div style={{ display: 'flex', gap: 8 }}><button type="button" className="btn3" style={{ flex: 1 }} onClick={() => setConfirmEnd(false)}>Keep going</button><button type="button" className="btn btn-d" style={{ flex: 1.3 }} onClick={end}>End show</button></div>
         </Sheet>
       )}
