@@ -42,6 +42,7 @@ export const studio = {
   notifications: () => get(`${BASE_URL_V2}/studio/notifications`),
   markRead: () => post(`${BASE_URL_V2}/studio/notifications/read`),
   endBidding: (id, productId) => post(`${BASE_URL}/streams/${id}/end-product-bidding`, { productId }),
+  prepareRun: (id, productId, body) => axios.put(`${BASE_URL_V2}/studio/shows/${id}/items/${productId}/run`, body, { ...auth(), timeout: 30000 }).then((r) => r.data),
   addTime: (id, productId, seconds = 30) => post(`${BASE_URL_V2}/studio/shows/${id}/auction/time`, { productId, seconds }),
   chat: (id) => get(`${BASE_URL}/streams/${id}/chat`).catch(() => []),
 };

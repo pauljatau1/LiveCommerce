@@ -107,11 +107,12 @@ describe('watching without an account', () => {
     await Stream.collection.updateOne({ _id: show._id }, { $push: { chatInteractions: { $each: [
       { id: '1', type: 'join', user: 'ada', content: 'joined' },
       { id: '2', type: 'comment', user: 'ada', content: 'how much to Lekki?' },
+      { id: '4', type: 'comment', user: 'Test Store', content: 'Yes we deliver', data: { isHost: true } },
       { id: '3', type: 'comment', user: 'scam', content: 'pay 0123456789', hidden: true, hiddenReason: 'account' },
     ] } } });
     mockUser = null;
     const res = await request(app).get(`/api/v2/watch/${show._id}/chat`).expect(200);
-    expect(res.body.chatInteractions).toEqual([expect.objectContaining({ id: '2', user: 'ada', content: 'how much to Lekki?' })]);
+    expect(res.body.chatInteractions).toEqual([expect.objectContaining({ id: '2', user: 'ada', content: 'how much to Lekki?' }), expect.objectContaining({ id: '4', isHost: true })]);
   });
 });
 

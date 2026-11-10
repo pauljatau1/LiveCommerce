@@ -13,7 +13,10 @@ import { Icon, Sheet } from './ui';
 import ShareSheet from './ShareSheet';
 import { feedEntryFor, winnerName } from './liveFeed';
 import LiveChat from './LiveChat';
-import NotesEditor, { NOTES_MAX, hasNotes, notesLength } from './NotesEditor';
+import { hasNotes } from './NotesEditor';
+import NotesSheet from './NotesSheet';
+import RunSheet from './RunSheet';
+import useKeyboardInset from './useKeyboardInset';
 import { useIntercomVisibility } from '@/Hooks/useIntercomVisibility';
 
 AgoraRTC.setLogLevel(3);
@@ -49,7 +52,10 @@ export default function Live() {
   const [facing, setFacing] = useState('user');
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
-  const [notesDraft, setNotesDraft] = useState(null);
+  const [runFor, setRunFor] = useState(null); // { item, again } for the run sheet
+  const [typing, setTyping] = useState(false); // host typing in chat: hide the item panel and controls
+  const keyboard = useKeyboardInset();
+  const chatInput = useRef(null);
   const [notesBusy, setNotesBusy] = useState(false);
   const [suggestions, setSuggestions] = useState([]); // assistant: "4 people asked about … Add it?"
   const [queueOpen, setQueueOpen] = useState(false);
@@ -136,7 +142,7 @@ export default function Live() {
     socket.on('connect', () => socket.emit('stream_notification_subscribe', { streamId: id }));
     studio.chat(id).then((res) => {
       const list = Array.isArray(res) ? res : res?.chatInteractions || res?.data || [];
-      setFeed(list.filter((m) => m.type === 'comment' && !m.hidden).slice(-20).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, avatar: m.avatar, text: m.content })));
+      setFeed(list.filter((m) => m.type === 'comment' && !m.hidden).slice(-20).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, avatar: m.avatar, text: m.content, host: Boolean(m.data?.isHost || m.isHost) })));
     });
     // Chat safety: messages with phone numbers, account numbers or links are hidden from buyers
     socket.on('notes_suggestion', (sg) => setSuggestions((l) => [...l.filter((x) => x.text !== sg.text), sg].slice(-3)));
@@ -207,6 +213,16 @@ export default function Live() {
     await studio.startBidding(id, current.productId, current.auctionSeconds || 30);
     setTimer((m) => ({ ...m, [current.productId]: current.auctionSeconds || 30 }));
   }, `Bidding is open: ${clock(current?.auctionSeconds || 30)}`);
+  // A run: the note, starting bid and time, then bidding starts (Run again resets the item first)
+  const startRun = ({ note, minBid, seconds }) => act('bid', async () => {
+    const item = runFor.item;
+    await studio.prepareRun(id, item.productId, { note, minBid, seconds });
+    if (!item.isVisible) await studio.displayProduct(id, item.productId).catch(() => {});
+    await studio.startBidding(id, item.productId, seconds);
+    setCurrentId(item.productId);
+    setTimer((m) => ({ ...m, [item.productId]: seconds }));
+    setRunFor(null);
+  }, `Bidding is open: ${clock(runFor?.item?.auctionSeconds || 30)}`);
   const addTime = () => act('time', () => studio.addTime(id, current.productId, 30), 'Added 30 seconds');
   // "End now · sell": close the auction now; the top bid wins and is charged
   const endNow = () => act('end', () => studio.endBidding(id, current.productId), current?.currentBid ? `Sold to ${current.currentBidder || 'the top bidder'}` : 'Auction ended');
@@ -235,6 +251,7 @@ export default function Live() {
     if (!text || !socketRef.current) return;
     socketRef.current.emit('stream_comment', { streamId: id, content: text });
     setMessage('');
+    chatInput.current?.blur();
   };
 
   const end = async () => {
@@ -261,8 +278,9 @@ export default function Live() {
         <div className="lv-now">
           {current.image ? <img src={current.image} alt="" className="lv-thumb" /> : <span className="sk lv-thumb" />}
           <div className="lv-now-tx">
-            <span className="lv-cap">Item {items.indexOf(current) + 1} of {items.length} · {isAuction ? 'Auction' : 'Buy Now drop'}</span>
+            <span className="lv-cap">Item {items.indexOf(current) + 1} of {items.length} · {isAuction ? 'Auction' : 'Buy Now drop'}{isAuction && current.run > 1 ? ` · Run ${current.run}` : ''}</span>
             <span className="lv-title">{current.name}</span>
+            {current.runNote && <span className="lv-note">{current.runNote}</span>}
           </div>
         </div>
         <div className="lv-price-row">
@@ -275,7 +293,12 @@ export default function Live() {
             ? current.winner ? `${current.winner.name || 'A buyer'} won it` : current.currentBid ? `${current.currentBidder || 'Someone'} winning` : running ? 'No bids yet' : `Bids start at ${naira(current.minBid)}`
             : `${current.stock} of ${current.stock + current.sold} left${current.sold ? ` · ${current.sold} sold · ${naira(current.soldAmount)}` : ''}`}
         </span>
-        {isAuction && !running && !current.winner && current.bidStatus !== 'ended' && <button type="button" className="btn lv-go" disabled={Boolean(busy) || phase !== 'live'} onClick={startBids}>{busy === 'bid' ? 'Starting…' : `Start bidding · ${clock(current.auctionSeconds || 30)}`}</button>}
+        {isAuction && !running && !current.winner && current.bidStatus !== 'ended' && (
+          <>
+            <button type="button" className="btn lv-go" disabled={Boolean(busy) || phase !== 'live'} onClick={startBids}>{busy === 'bid' ? 'Starting…' : `Start bidding · ${clock(current.auctionSeconds || 30)}`}</button>
+            <button type="button" className="lv-all" style={{ alignSelf: 'center' }} onClick={() => setRunFor({ item: current, again: false })}>{current.runNote ? 'Change note' : 'Add a note for this run'}</button>
+          </>
+        )}
         {isAuction && running && (
           <div className="lv-actions">
             <button type="button" className="lv-ghost" style={{ flex: 'none' }} disabled={Boolean(busy)} onClick={addTime}>{busy === 'time' ? 'Adding…' : '+30s'}</button>
@@ -291,6 +314,8 @@ export default function Live() {
   );
 
   // Up next: one compact row (32px photo, name, price), then "All"
+  // An auction item with stock left can run again once its run has ended
+  const canRunAgain = Boolean(isAuction && current && (current.winner || current.bidStatus === 'ended') && current.stock > 0 && !running);
   const nextItem = queue.find((q) => q.bidStatus !== 'ended' && !q.winner && !(!isAuction && q.stock <= 0));
   const Queue = (
     <div className="lv-upnext" aria-label="Up next">
@@ -298,9 +323,11 @@ export default function Live() {
         <button type="button" className="lv-un" onClick={() => pick(nextItem)}>
           {nextItem.image ? <img src={nextItem.image} alt="" className="lv-un-img" /> : <span className="sk lv-un-img" />}
           <span className="lv-un-tx"><b>Up next</b> · {nextItem.name}</span>
-          <span className="lv-un-price">{isAuction ? `from ${naira(nextItem.minBid)}` : naira(nextItem.price)}</span>
+          {/* With "Run again" in the row, the name gets the room instead of the price */}
+          {!canRunAgain && <span className="lv-un-price">{isAuction ? `from ${naira(nextItem.minBid)}` : naira(nextItem.price)}</span>}
         </button>
       ) : <span className="lv-un-tx lv-un-none">Nothing else in this show</span>}
+      {canRunAgain && <button type="button" className="lv-run" onClick={() => setRunFor({ item: current, again: true })}>Run again · {current.stock} left</button>}
       <button type="button" className="lv-all" onClick={() => setQueueOpen(true)}>All</button>
     </div>
   );
@@ -312,7 +339,6 @@ export default function Live() {
     try {
       const r = await studio.saveNotes(id, next);
       setShow((sh) => ({ ...sh, notes: r.notes }));
-      setNotesOpen(false);
       say(doneText);
       return true;
     } catch (e) {
@@ -334,8 +360,8 @@ export default function Live() {
     <div className="lv-prompts">
       <div className="lv-prompt">
         {hasNotes(show?.notes)
-          ? <><span>Show notes pinned · </span><button type="button" className="lv-undo" onClick={() => { setNotesDraft(show.notes); setNotesOpen(true); }}>Edit</button></>
-          : <><span>No show notes yet · </span><button type="button" className="lv-undo" onClick={() => { setNotesDraft({}); setNotesOpen(true); }}>Pin notes</button></>}
+          ? <><span>Show notes pinned · </span><button type="button" className="lv-undo" onClick={() => setNotesOpen(true)}>Edit</button></>
+          : <><span>No show notes yet · </span><button type="button" className="lv-undo" onClick={() => setNotesOpen(true)}>Pin notes</button></>}
       </div>
       {suggestions.map((sg) => (
         <div key={sg.text} className="lv-prompt">
@@ -348,7 +374,7 @@ export default function Live() {
   );
 
   return (
-    <div className="studio-app lv">
+    <div className={`studio-app lv${typing ? ' typing' : ''}`} style={{ '--kb-bottom': `${typing ? keyboard.bottom : 0}px` }}>
       {/* One slim row: the LIVE chip with the viewer count, the show time, End show */}
       <header className="lv-top">
         <span className={`lv-live${phase === 'reconnecting' ? ' warn' : ''}`} aria-label={`${phase === 'connecting' ? 'Starting' : phase === 'reconnecting' ? 'Reconnecting' : 'Live'}, ${viewers} watching`}>
@@ -372,7 +398,26 @@ export default function Live() {
           <div className="lv-bottom">
             {/* Chat on the left, controls on the right, like the buyer's Watch */}
             <div className="lv-chatzone">
-              <div className="lv-chatcol lv-phone-only">{Prompts}{Chat}</div>
+              <div className="lv-chatcol lv-phone-only">
+                {Prompts}{Chat}
+                {/* The host replies here, like buyers do on Watch */}
+                <form className="lv-composer" onSubmit={send}>
+                  <label htmlFor="lv-chat" className="sr">Say something</label>
+                  <input
+                    id="lv-chat"
+                    ref={chatInput}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onFocus={() => setTyping(true)}
+                    onBlur={() => window.setTimeout(() => setTyping(false), 120)}
+                    maxLength={200}
+                    placeholder="Say something…"
+                    autoComplete="off"
+                    enterKeyHint="send"
+                  />
+                  {message.trim() && <button type="submit" className="lv-send" aria-label="Send" onMouseDown={(e) => e.preventDefault()}>{Icon.send}</button>}
+                </form>
+              </div>
               <span className="lv-grow lv-desk-only" />
               <nav className="lv-rail" aria-label="Show controls">
                 {show?.link && <button type="button" className="lv-rb" onClick={() => setSharing(true)} aria-label="Share your show">{Icon.share}</button>}
@@ -396,16 +441,8 @@ export default function Live() {
         </aside>
       </div>
 
-      {notesOpen && (
-        <Sheet label="Show notes" onClose={() => setNotesOpen(false)}>
-          <div style={{ maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <span className="h2">Show notes</span>
-            <span className="hint">Pinned under your name for everyone watching. When you save, buyers see "Updated".</span>
-            <NotesEditor notes={notesDraft || {}} onChange={setNotesDraft} idPrefix="live-notes" />
-          </div>
-          <button type="button" className="btn" disabled={notesBusy || notesLength(notesDraft) > NOTES_MAX} onClick={() => saveNotes(notesDraft)}>{notesBusy ? 'Saving…' : 'Save and pin'}</button>
-        </Sheet>
-      )}
+      {notesOpen && <NotesSheet notes={show?.notes} busy={notesBusy} onSave={(next) => saveNotes(next)} onClose={() => setNotesOpen(false)} />}
+      {runFor && <RunSheet item={runFor.item} again={runFor.again} busy={busy === 'bid'} onStart={startRun} onClose={() => setRunFor(null)} />}
       {confirmEnd && (
         <Sheet label="End the show?" onClose={() => setConfirmEnd(false)}>
           <h2 className="f" style={{ margin: 0, fontSize: 22 }}>End the show?</h2>

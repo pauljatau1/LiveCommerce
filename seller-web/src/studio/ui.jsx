@@ -93,7 +93,7 @@ export const TopBar = ({ title, sub, onBack, right, close }) => (
 
 // Bottom sheet with scrim, sized to its content. Closes on a scrim tap, Escape,
 // swiping down, or the optional ✕ at the top right.
-export const Sheet = ({ label, onClose, children, closeX = false }) => {
+export const Sheet = ({ label, onClose, children, closeX = false, lift = 0, maxHeight = null }) => {
   const ref = useRef(null);
   const startY = useRef(null);
   const [drag, setDrag] = useState(0);
@@ -117,7 +117,8 @@ export const Sheet = ({ label, onClose, children, closeX = false }) => {
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        style={{ maxWidth: 560, margin: '0 auto', paddingBottom: 'max(18px, env(safe-area-inset-bottom))', transform: drag ? `translateY(${drag}px)` : undefined, transition: drag ? 'none' : 'transform .2s' }}
+        // lift: sits just above the on-screen keyboard; maxHeight: the visible height
+        style={{ maxWidth: 560, margin: '0 auto', bottom: lift || undefined, maxHeight: maxHeight || undefined, paddingBottom: lift ? 12 : 'max(18px, env(safe-area-inset-bottom))', transform: drag ? `translateY(${drag}px)` : undefined, transition: drag ? 'none' : 'transform .2s' }}
       >
         <span className="grab" aria-hidden="true" />
         {closeX && <button type="button" className="sheet-x" aria-label="Close" onClick={onClose}>{Icon.close}</button>}

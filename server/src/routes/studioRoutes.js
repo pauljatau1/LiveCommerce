@@ -224,6 +224,8 @@ router.get('/shows/:id', validId, async (req, res) => {
         minBid: sp.minBid || 0,
         bidStatus: sp.bidStatus || 'pending',
         auctionSeconds: sp.auctionSeconds || 30,
+        run: sp.run || 1,
+        runNote: sp.runNote || '',
         auctionEndsAt: sp.auctionEndsAt || null,
         isVisible: Boolean(sp.isVisible),
         currentBid: sp.currentBid || 0,
@@ -483,6 +485,17 @@ router.delete('/shows/:id/notes', validId, async (req, res) => {
     const io = require('../socket/socketManager').getIO();
     if (io && show.status === 'live') io.to(roomOf(show._id)).emit('show_notes_updated', { streamId: String(show._id), notes: null, firstLine: '' });
     res.json({ success: true, notes: null });
+  } catch (error) { fail(res, error); }
+});
+
+// PUT /api/v2/studio/shows/:id/items/:productId/run { note, minBid, seconds }
+// Before a run: the note ("Red, size M"), starting bid and time. After a run ends,
+// this sets up "Run again" (needs stock); then the studio starts bidding as usual.
+router.put('/shows/:id/items/:productId/run', validId, async (req, res) => {
+  try {
+    const { prepareRun } = require('../services/auctionRuns');
+    const item = await prepareRun({ streamId: oid(req.params.id), sellerId: oid(req.user.id), productId: String(req.params.productId), note: req.body?.note, minBid: req.body?.minBid, seconds: req.body?.seconds });
+    res.json({ success: true, item: { productId: productIdOf(item), run: item.run || 1, runNote: item.runNote || '', minBid: item.minBid, auctionSeconds: item.auctionSeconds || 30, bidStatus: item.bidStatus } });
   } catch (error) { fail(res, error); }
 });
 

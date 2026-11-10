@@ -227,7 +227,7 @@ export default function Planner() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <label htmlFor={`bid-${p._id}`} className="hint" style={{ fontWeight: 800 }}>Bids start at ₦</label>
                     <input id={`bid-${p._id}`} className="in" inputMode="numeric" style={{ width: 130, height: 44, font: '600 16px var(--font-display)' }} value={startBid(p)} onChange={(e) => setBids((b) => ({ ...b, [p._id]: e.target.value.replace(/[^\d]/g, '') }))} />
-                    <span className="hint">Listed at {naira(p.price)}</span>
+                    <span className="hint">Listed at {naira(p.price)} · {p.stock} in stock{p.stock > 1 ? ': sells one at a time, then "Run again"' : ''}</span>
                     <div style={{ display: 'flex', gap: 6, width: '100%' }} role="group" aria-label={`Auction time for ${p.name}`}>
                       {[[30, '30s'], [60, '60s'], [120, '2 min']].map(([v, l]) => (
                         <button key={v} type="button" className={`chip${lengthOf(p) === v ? ' on' : ''}`} aria-pressed={lengthOf(p) === v} onClick={() => setLengths((m) => ({ ...m, [p._id]: v }))}>{l}</button>

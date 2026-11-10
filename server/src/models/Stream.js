@@ -125,7 +125,11 @@ const streamSchema = new mongoose.Schema({
     },
     // Auction clock (services/auctionClock.js). Stored so the timer survives a restart.
     auctionSeconds: { type: Number, enum: [30, 60, 120] }, // the seller's chosen length
-    auctionEndsAt: { type: Date }
+    auctionEndsAt: { type: Date },
+    // Auction runs: an item with more than one in stock can be auctioned again ("Run again").
+    // `run` counts them; `runNote` is the seller's optional note for this run ("Red, size M").
+    run: { type: Number, default: 1 },
+    runNote: { type: String, maxlength: 40 }
   }],
   status: {
     type: String,

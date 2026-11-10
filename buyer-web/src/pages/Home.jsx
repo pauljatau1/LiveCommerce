@@ -6,12 +6,17 @@ import { Header, Icon } from '../components/ui';
 const when = (d) => new Date(d).toLocaleString('en-NG', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 
 function ShowCard({ s, live }) {
+  const cover = s.coverImage?.url || (s.products || []).map((p) => p.product?.images?.[0]?.url || p.images?.[0]?.url).find(Boolean) || null;
   return (
     <Link to={`/live/${s._id}`} className="show">
       <span className="cv">
-        {s.coverImage?.url ? <img src={s.coverImage.url} alt="" loading="lazy" /> : null}
-        {live ? <span className="pill p-live">LIVE</span> : <span className="pill s-warm" style={{ color: 'var(--warm)' }}>{when(s.scheduledStartTime)}</span>}
-        {live && <span className="pill glass" style={{ position: 'absolute', right: 8, top: 8 }}>{Icon.eye}{s.viewers?.length || 0}</span>}
+        {/* The cover, else the first item's photo, else the host's avatar on a neutral background */}
+        {cover ? <img src={cover} alt="" loading="lazy" /> : (
+          <span className="cv-host" aria-hidden="true">
+            {s.seller?.storeAvatar?.url ? <img src={s.seller.storeAvatar.url} alt="" loading="lazy" /> : (s.seller?.storeName || 'S').slice(0, 1)}
+          </span>
+        )}
+        {live ? <span className="pill p-live">● LIVE · {s.viewers?.length || 0}</span> : <span className="pill s-warm" style={{ color: 'var(--warm)' }}>{when(s.scheduledStartTime)}</span>}
       </span>
       <span className="b">
         <span style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{s.title}</span>

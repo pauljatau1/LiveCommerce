@@ -121,4 +121,63 @@ describe('auctionOrderService', () => {
     expect(result).toMatchObject({ success: false, reason: 'no_hold' });
     expect(await wallet(bola)).toMatchObject({ balance: 50000, onHoldAmount: 0 });
   });
+
+  describe('auction runs ("Run again")', () => {
+    const { prepareRun } = require('@/services/auctionRuns');
+    const ShowDelivery = require('@/models/ShowDelivery');
+    const setStatus = (bidStatus) => Stream.updateOne({ _id: stream._id }, { $set: { 'products.0.bidStatus': bidStatus } });
+    const run = (note, extra = {}) => prepareRun({ streamId: stream._id, sellerId: seller._id, productId: product._id.toString(), note, ...extra });
+
+    beforeEach(async () => {
+      await Product.updateOne({ _id: product._id }, { $set: { stock: 2 } });
+      await setStatus('pending');
+      await ShowDelivery.deleteMany({});
+    });
+
+    it('two runs make two orders, each with its own note, and take stock down by one each', async () => {
+      const ada = await createBuyer('Ada', 100000);
+
+      await run('Red, size M');
+      await setStatus('active');
+      await win(ada, 20000, 0);
+      expect((await order(ada, 20000, 0)).success).toBe(true);
+      await setStatus('ended');
+      expect((await Product.findById(product._id).lean()).stock).toBe(1);
+      expect((await streamProduct()).product.quantity).toBe(1);
+
+      // Run again: a fresh auction for one more unit, same buyer wins again
+      const next = await run('Blue, size L', { minBid: 6000, seconds: 60 });
+      expect(next).toMatchObject({ run: 2, runNote: 'Blue, size L', bidStatus: 'pending', minBid: 6000, auctionSeconds: 60, currentBid: 0, orderCreated: false });
+      await setStatus('active');
+      await win(ada, 21000, 0);
+      const second = await order(ada, 21000, 0);
+      expect(second.success).toBe(true);
+
+      expect((await Product.findById(product._id).lean()).stock).toBe(0);
+      const orders = await Order.find({ buyer: ada._id }).sort({ createdAt: 1 }).lean();
+      expect(orders.map((o) => o.items[0].note)).toEqual(['Red, size M', 'Blue, size L']);
+      expect(orders.map((o) => o.paymentInfo.paymentReference)).toEqual([`auction_${stream._id}_${product._id}`, `auction_${stream._id}_${product._id}_r2`]);
+      const delivery = await ShowDelivery.findOne({ buyer: ada._id }).lean();
+      expect(delivery.items.map((i) => i.note)).toEqual(['Red, size M', 'Blue, size L']);
+      expect((await wallet(ada)).balance).toBe(100000 - 41000);
+    });
+
+    it("can't run again with none left; an unsold run doesn't touch stock", async () => {
+      await Product.updateOne({ _id: product._id }, { $set: { stock: 0 } });
+      await setStatus('ended');
+      await expect(run('Last one')).rejects.toThrow('None left in stock');
+
+      await Product.updateOne({ _id: product._id }, { $set: { stock: 1 } });
+      await run(''); // unsold run ended with no bids: run it again
+      await setStatus('ended');
+      expect((await Product.findById(product._id).lean()).stock).toBe(1);
+    });
+
+    it('checks the note and refuses while the item is being auctioned', async () => {
+      await expect(run('x'.repeat(41))).rejects.toThrow('40 characters');
+      await expect(run('call 08031234567')).rejects.toThrow('phone numbers');
+      await setStatus('active');
+      await expect(run('Red')).rejects.toThrow('being auctioned now');
+    });
+  });
 });

@@ -26,6 +26,7 @@ const showDeliverySchema = new mongoose.Schema({
     unitPrice: Number,
     weightKg: Number,
     image: String,
+    note: String, // the seller's run note ("Red, size M")
   }],
   status: {
     type: String,

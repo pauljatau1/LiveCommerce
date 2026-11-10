@@ -62,7 +62,7 @@ export default function Orders() {
                 {d.items.map((i) => (
                   <div key={i.order} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                     {i.image ? <img src={i.image} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover' }} /> : <span className="sk" style={{ width: 44, height: 44 }} />}
-                    <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{i.name}{i.quantity > 1 ? ` × ${i.quantity}` : ''}</span>
+                    <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{i.name}{i.quantity > 1 ? ` × ${i.quantity}` : ''}{i.note && <span className="mut" style={{ display: 'block', fontWeight: 600 }}>{i.note}</span>}</span>
                     <span className="f" style={{ fontSize: 15 }}>{naira(i.unitPrice * (i.quantity || 1))}</span>
                   </div>
                 ))}
