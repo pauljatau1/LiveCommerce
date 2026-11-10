@@ -179,12 +179,12 @@
 .studio-app.lv{position:fixed;inset:0;height:100vh;height:100dvh;min-height:0;overflow:hidden;background:#1D2421;color:#fff;--badge:0px}
 .env-badge .studio-app.lv{--badge:18px}
 .lv .lv-top{position:absolute;left:0;right:0;top:0;z-index:6;display:flex;align-items:center;gap:12px;padding:calc(max(10px, env(safe-area-inset-top)) + var(--badge)) 12px 24px;background:linear-gradient(180deg,rgba(0,0,0,.55),transparent)}
-.lv .lv-live{position:relative;display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:999px;background:var(--live);color:#fff;font:800 13px var(--font-body);white-space:nowrap}
+.lv .lv-live{position:relative;display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:999px;background:var(--live);color:#fff;font:600 11px var(--font-body);white-space:nowrap}
 .lv .lv-live.warn{background:var(--warning)}
-.lv .lv-time{color:rgba(255,255,255,.75);font:700 14px var(--font-body);font-variant-numeric:tabular-nums;white-space:nowrap}
+.lv .lv-time{color:rgba(255,255,255,.75);font:500 12px var(--font-body);font-variant-numeric:tabular-nums;white-space:nowrap}
 .lv .lv-title-top{font-weight:800;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* End show: a text button with a 44px tap area */
-.lv .lv-end{min-height:44px;padding:0 4px;border:0;background:none;color:#fff;font:800 15px var(--font-body);cursor:pointer;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.lv .lv-end{min-height:44px;padding:0 4px;border:0;background:none;color:#fff;font:600 13px var(--font-body);cursor:pointer;text-shadow:0 1px 3px rgba(0,0,0,.6)}
 .lv .lv-body{position:absolute;inset:0}
 .lv .lv-left,.lv .lv-right,.lv .lv-desk-only{display:none}
 .lv .lv-cam{position:absolute;inset:0;background:#2A2F2C;overflow:hidden}
@@ -193,11 +193,12 @@
 .lv .lv-overlay{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;color:#fff;text-align:center;font-weight:700;background:rgba(0,0,0,.45)}
 
 /* bottom: chat + controls rail, Up next, then the item as text on the fade */
-.lv .lv-bottom{position:absolute;left:0;right:0;bottom:0;z-index:5;display:flex;flex-direction:column;gap:10px;padding:56px 12px max(12px, env(safe-area-inset-bottom));background:linear-gradient(0deg,rgba(0,0,0,.8) 55%,transparent)}
-.lv .lv-chatzone{display:flex;align-items:flex-end;gap:10px}
-.lv .lv-chatcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.lv .lv-bottom{box-sizing:border-box;max-height:calc(100% - 125px - var(--badge));pointer-events:none;position:absolute;left:0;right:0;bottom:0;z-index:5;display:flex;flex-direction:column;gap:8px;padding:18px 12px max(10px, env(safe-area-inset-bottom));background:linear-gradient(0deg,rgba(0,0,0,.8) 55%,transparent)}
+.lv .lv-bottom button,.lv .lv-bottom input,.lv .lv-feed-wrap{pointer-events:auto}
+.lv .lv-chatzone{min-height:0;flex:0 1 auto;display:flex;align-items:flex-end;gap:10px}
+.lv .lv-chatcol{align-self:stretch;justify-content:flex-end;min-height:0;flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
 .lv .lv-grow{flex:1}
-.lv .lv-rail{flex:none;display:flex;flex-direction:column;gap:8px}
+.lv .lv-rail{flex:none;display:flex;flex-direction:column;gap:2px}
 /* 40px round translucent buttons, no labels; 44px tap areas */
 .lv .lv-rb{position:relative;width:40px;height:40px;margin:2px;border:0;border-radius:50%;background:rgba(0,0,0,.4);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .lv .lv-rb::after{content:"";position:absolute;inset:-2px}
@@ -205,17 +206,17 @@
 .lv .lv-rb svg{stroke:#fff}
 
 /* chat: plain text, the same lines as Watch */
-.lv .lv-feed-wrap{position:relative;min-width:0}
+.lv .lv-feed-wrap{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column}
 /* about 5 messages tall; scrolls by touch; newest at the bottom */
-.lv .lv-feed{max-height:min(30vh,236px);overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;display:flex;flex-direction:column;gap:8px;scrollbar-width:none;-webkit-mask-image:linear-gradient(180deg,transparent,#000 28px);mask-image:linear-gradient(180deg,transparent,#000 28px)}
+.lv .lv-feed{min-height:0;max-height:min(23dvh,148px);overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;display:flex;flex-direction:column;gap:8px;scrollbar-width:none;-webkit-mask-image:linear-gradient(180deg,transparent,#000 28px);mask-image:linear-gradient(180deg,transparent,#000 28px)}
 .lv .lv-feed::-webkit-scrollbar{display:none}
-.lv .line{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.3;text-shadow:0 1px 2px rgba(0,0,0,.55)}
-.lv .line-tx{display:flex;flex-direction:column;min-width:0}
-.lv .line .ava{width:28px;height:28px;border-radius:50%;flex:none;overflow:hidden;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff}
+.lv .line{display:flex;flex-shrink:0;gap:8px;align-items:flex-start;font-size:13px;line-height:1.3;text-shadow:0 1px 2px rgba(0,0,0,.55)}
+.lv .line-tx{display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere}
+.lv .line .ava{width:24px;height:24px;border-radius:50%;flex:none;overflow:hidden;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff}
 .lv .line .ava img{width:100%;height:100%;object-fit:cover}
-.lv .line .nm{color:rgba(255,255,255,.65);font-weight:700;font-size:12px}
+.lv .line .nm{color:rgba(255,255,255,.65);font-weight:500;font-size:11px}
 .lv .line .tx{color:#fff}
-.lv .line.bid .tx,.lv .line.win .tx,.lv .line.buy .tx{color:var(--primary-on-dark);font-weight:800}
+.lv .line.bid .tx,.lv .line.win .tx,.lv .line.buy .tx{color:var(--primary-on-dark);font-weight:600}
 .lv .line.sys .line-tx{flex:1}
 .lv .line.sys .tx{color:rgba(255,255,255,.65);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
@@ -224,45 +225,45 @@
 .lv .lv-new-msgs::after{content:"";position:absolute;inset:-7px 0}
 /* Up next: one compact row (32px photo, name, price), then "All" */
 .lv .lv-upnext{display:flex;align-items:center;gap:8px;min-height:44px}
-.lv .lv-un{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:44px;padding:0;border:0;background:none;color:#fff;font:600 15px var(--font-body);text-align:left;cursor:pointer}
+.lv .lv-un{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:44px;padding:0;border:0;background:none;color:#fff;font:500 12px var(--font-body);text-align:left;cursor:pointer}
 .lv .lv-un-img{width:32px;height:32px;border-radius:10px;object-fit:cover;flex:none}
 .lv .lv-un-tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lv .lv-un-tx b{font-weight:800}
+.lv .lv-un-tx b{font-weight:600}
 .lv .lv-un-none{color:rgba(255,255,255,.65);font-size:14px}
-.lv .lv-un-price{flex:none;color:rgba(255,255,255,.65);font-size:14px}
+.lv .lv-un-price{flex:none;color:rgba(255,255,255,.75);font-size:11px}
 /* Up next: thumbnails, then "All" as a plain link */
 .lv .lv-queue-wrap{color:#fff}
 .lv .lv-queue{display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none}
 .lv .lv-queue::-webkit-scrollbar{display:none}
 .lv .lv-q{flex:none;width:44px;height:44px;padding:0;border-radius:12px;border:2px solid rgba(255,255,255,.85);overflow:hidden;background:rgba(255,255,255,.2);cursor:pointer}
 .lv .lv-q img{width:100%;height:100%;object-fit:cover;display:block}
-.lv .lv-all{min-height:44px;padding:0 6px;border:0;background:none;color:#fff;font:800 14px var(--font-body);text-decoration:underline;cursor:pointer}
+.lv .lv-all{min-height:44px;padding:0 6px;border:0;background:none;color:#fff;font:500 12px var(--font-body);text-decoration:underline;cursor:pointer}
 
 /* the item, as text on the bottom fade */
 .lv .lv-panel{display:flex;flex-direction:column;gap:6px}
 .lv .lv-now{display:flex;align-items:center;gap:10px}
-.lv .lv-thumb{width:48px;height:48px;border-radius:12px;object-fit:cover;flex:none}
+.lv .lv-thumb{width:36px;height:36px;border-radius:12px;object-fit:cover;flex:none}
 .lv .lv-now-tx{min-width:0;display:flex;flex-direction:column}
-.lv .lv-cap{font-size:12px;font-weight:700;color:rgba(255,255,255,.7)}
-.lv .lv-title{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lv .lv-cap{font-size:10px;font-weight:500;color:rgba(255,255,255,.7)}
+.lv .lv-title{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lv .lv-price-row{display:flex;align-items:center;gap:10px}
-.lv .lv-price{font-size:32px;line-height:1}
-.lv .lv-clock{font-size:32px;line-height:1;font-variant-numeric:tabular-nums}
+.lv .lv-price{font:600 22px/1.1 var(--font-body);font-variant-numeric:tabular-nums}
+.lv .lv-clock{font:600 20px/1 var(--font-body);font-variant-numeric:tabular-nums}
 .lv .lv-clock.hot{color:var(--warning-on-dark)}
-.lv .lv-meta{font-size:14px;color:rgba(255,255,255,.75)}
-.lv .lv-go{min-height:56px;margin-top:4px}
+.lv .lv-meta{font-size:12px;color:rgba(255,255,255,.75)}
+.lv .lv-go{min-height:44px;margin-top:2px;font:600 14px var(--font-body)}
 .lv .lv-actions{display:flex;gap:8px;margin-top:4px}
-.lv .lv-ghost{min-height:52px;padding:0 18px;border:1.5px solid rgba(255,255,255,.7);border-radius:999px;background:none;color:#fff;font:800 16px var(--font-body);cursor:pointer}
+.lv .lv-ghost{min-height:44px;padding:0 14px;border:1.5px solid rgba(255,255,255,.7);border-radius:999px;background:none;color:#fff;font:600 13px var(--font-body);cursor:pointer}
 .lv .lv-ghost[disabled],.lv .lv-go[disabled]{opacity:.55}
 
 /* chat safety: what was hidden, with Undo (host only) */
 .lv .lv-hid{display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;color:#fff;font-size:14px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.6)}
-.lv .lv-undo{min-height:44px;border:0;background:none;padding:0 4px;color:#fff;font:800 14px var(--font-body);text-decoration:underline;cursor:pointer}
+.lv .lv-undo{min-height:44px;border:0;background:none;padding:0 4px;color:#fff;font:600 12px var(--font-body);text-decoration:underline;cursor:pointer}
 .lv .lv-hid-tx{flex-basis:100%;font-weight:600;font-style:italic;opacity:.75}
 
 /* assistant lines ("Show notes pinned · Edit"): white text, legible on the video */
 .lv .lv-prompts{display:flex;flex-direction:column;gap:0}
-.lv .lv-prompt{display:flex;flex-wrap:wrap;align-items:center;gap:0 4px;color:#fff;font-size:14px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+.lv .lv-prompt{display:flex;flex-wrap:nowrap;min-width:0;align-items:center;gap:0 4px;color:#fff;font-size:12px;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,.7)}
 
 @media (min-width:900px){
   .studio-app.lv{background:var(--surface-page);color:var(--text)}
@@ -306,21 +307,41 @@
 .studio-app .sh-ic{width:56px;height:56px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font:800 18px var(--font-body)}
 
 /* Live studio: run note, Run again, host chat input, typing */
-.lv .lv-note{font-size:14px;color:rgba(255,255,255,.85)}
-.lv .lv-run{flex:none;min-height:36px;padding:0 12px;border:1.5px solid rgba(255,255,255,.7);border-radius:999px;background:none;color:#fff;font:800 13px var(--font-body);cursor:pointer;position:relative;white-space:nowrap}
+.lv .lv-note{font-size:12px;color:rgba(255,255,255,.85)}
+.lv .lv-run{flex:none;min-height:36px;padding:0 12px;border:1.5px solid rgba(255,255,255,.7);border-radius:999px;background:none;color:#fff;font:600 12px var(--font-body);cursor:pointer;position:relative;white-space:nowrap}
 .lv .lv-run::after{content:"";position:absolute;inset:-4px 0}
 .lv .lv-composer{display:flex;gap:8px;align-items:center;margin-top:2px}
-.lv .lv-composer input{flex:1;min-width:0;height:40px;border-radius:999px;border:1.5px solid rgba(255,255,255,.55);padding:0 14px;font:600 16px var(--font-body);background:rgba(0,0,0,.15);color:#fff}
+.lv .lv-composer input{flex:1;min-width:0;height:40px;border-radius:999px;border:1.5px solid rgba(255,255,255,.55);padding:0 14px;font:400 16px var(--font-body);background:rgba(0,0,0,.15);color:#fff}
 .lv .lv-composer input::placeholder{color:rgba(255,255,255,.7)}
 .lv .lv-send{width:40px;height:40px;border:0;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer}
 .lv .host-tag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:6px;background:rgba(255,255,255,.2);color:#fff;font-size:12px;font-weight:800;line-height:18px}
 .lv .lv-bottom{bottom:var(--kb-bottom,0px)}
 .lv.typing .lv-panel,.lv.typing .lv-rail,.lv.typing .lv-queue-wrap,.lv.typing .lv-prompts{display:none}
 .lv.typing .lv-bottom{padding-bottom:8px}
-.lv.typing .lv-feed{max-height:calc(100dvh - var(--kb-bottom,0px) - 200px)}
+.lv.typing .lv-feed{max-height:min(30dvh,calc(100dvh - var(--kb-bottom,0px) - 180px))}
+.lv.typing .lv-bottom{max-height:calc(100% - var(--kb-bottom,0px) - 115px)}
 @media (min-width:900px){ .lv .lv-right .host-tag{background:var(--surface-sunken);color:var(--text)} }
 /* Show notes list: one row per section */
 .studio-app .nt-row{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:8px 0;border:0;border-top:1px solid var(--border);background:none;color:var(--text);text-align:left;font:inherit;cursor:pointer}
 .studio-app .nt-tx{flex:1;min-width:0;display:flex;flex-direction:column}
 .studio-app .nt-tx span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
 .studio-app .nt-edit{flex:none;color:var(--primary);font-weight:800;text-decoration:underline}
+
+.lv .lv-mobile-prompts{position:absolute;top:calc(58px + var(--badge) + env(safe-area-inset-top));left:12px;right:12px;z-index:6;max-height:44px;overflow-y:auto}
+.lv .lv-mobile-prompts .lv-prompts{max-width:100%}
+.lv .lv-mobile-prompts .lv-prompt>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lv .lv-refresh{position:absolute;top:calc(102px + var(--badge));left:12px;z-index:7;background:rgba(0,0,0,.8);color:#fff;border:0;border-radius:10px;min-height:44px;padding:0 12px;font:500 12px var(--font-body)}
+.studio-app .run-sheet{gap:10px;max-height:90dvh;padding:10px 16px 16px}
+.studio-app .run-sheet .h2{font:600 17px var(--font-body)}
+.studio-app .run-sheet .hint{font-size:11px;line-height:1.35;font-weight:400}
+.studio-app .run-sheet .run-item-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.studio-app .run-sheet .lab{font-size:12px;font-weight:500}
+.studio-app .run-sheet .in{height:44px;font:400 16px var(--font-body)}
+.studio-app .run-sheet .money{height:44px}
+.studio-app .run-sheet .money input{font:500 18px var(--font-body)}
+.studio-app .run-sheet .chip{position:relative;min-height:36px;padding:0 12px;font:500 12px var(--font-body)}
+.studio-app .run-sheet .chip::after{content:"";position:absolute;inset:-4px 0}
+.studio-app .run-sheet .btn{min-height:44px;font:600 14px var(--font-body)}
+.studio-app .run-error{font-size:12px;color:var(--danger);background:var(--danger-soft);padding:8px 10px;border-radius:10px;line-height:1.35}
+@media(max-width:899px) and (max-height:580px){.lv .lv-feed{max-height:18dvh}.lv .lv-bottom{gap:5px;padding-top:12px}.lv .lv-panel{gap:4px}.lv .lv-rail{flex-direction:row}.lv .lv-rb{width:36px;height:36px}.lv .lv-rb::after{inset:-4px}.lv .lv-chatzone{gap:4px}}
+@media(min-width:900px){.lv .lv-mobile-prompts{display:none}}

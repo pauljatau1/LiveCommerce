@@ -93,7 +93,7 @@ export const TopBar = ({ title, sub, onBack, right, close }) => (
 
 // Bottom sheet with scrim, sized to its content. Closes on a scrim tap, Escape,
 // swiping down, or the optional ✕ at the top right.
-export const Sheet = ({ label, onClose, children, closeX = false, lift = 0, maxHeight = null }) => {
+export const Sheet = ({ label, onClose, children, closeX = false, lift = 0, maxHeight = null, className = '' }) => {
   const ref = useRef(null);
   const startY = useRef(null);
   const [drag, setDrag] = useState(0);
@@ -110,7 +110,7 @@ export const Sheet = ({ label, onClose, children, closeX = false, lift = 0, maxH
       <button type="button" aria-label="Close" className="scrim" style={{ border: 0, cursor: 'pointer' }} onClick={onClose} />
       <section
         ref={ref}
-        className="sheet"
+        className={`sheet ${className}`}
         role="dialog"
         aria-modal="true"
         aria-label={label}

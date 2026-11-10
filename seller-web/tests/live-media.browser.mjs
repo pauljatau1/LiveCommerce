@@ -23,7 +23,7 @@ const agora=`const create=async(kind)=>{
 }; export default {setLogLevel(){},createMicrophoneAudioTrack:()=>create('audio'),createCameraVideoTrack:()=>create('video'),createClient(){
  return {setClientRole:async()=>{},on(){},join:async()=>{},publish:async()=>{},unpublish:async()=>{},renewToken:async()=>{},removeAllListeners(){},leave:()=>new Promise(()=>{})};
 }};`;
-const socket=`export const io=()=>({on(){},emit(){},disconnect(){}});`;
+const socket=`export const io=()=>{const events={};const s={connected:true,on(n,f){events[n]=f},emit(){},disconnect(){s.connected=false;events.disconnect?.()},connect(){s.connected=true;events.connect?.()}};setTimeout(()=>s.connect(),0);return s;};`;
 const context=await browser.newContext({permissions:['camera','microphone'],viewport:{width:390,height:700}});
 try {
  const page=await context.newPage();

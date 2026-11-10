@@ -3774,6 +3774,7 @@ exports.endProductBidding = async (req, res) => {
     stream.products[productIndex].bidStatus = 'ongoing';
     console.log('[END_BID] 11. Updated product bidStatus to ongoing');
 
+    const endNotifications = [];
     // Set winner if there is a current bidder
     if (stream.products[productIndex].currentBidder) {
       console.log('[END_BID] 12. Setting bid winner', {
@@ -3847,7 +3848,7 @@ exports.endProductBidding = async (req, res) => {
         io.to(streamRoom).emit('stream_notification', winnerNotification);
       }
       // Add the notification to stream chat interactions
-      stream.chatInteractions.push(winnerNotification);
+      endNotifications.push(winnerNotification);
       console.log('[END_BID] 13. Added winner notification to stream chat interactions');
 
       // Create an order for the auction winner - START OF ORDER CREATION
@@ -4090,9 +4091,7 @@ exports.endProductBidding = async (req, res) => {
         // Never leave the winner's money held for an order that wasn't made
         await streamBids.releaseProductHold(stream._id, productId).catch(() => {});
 
-        // Set bid status to ongoing even if there was an error
-        stream.products[productIndex].bidStatus = 'ongoing';
-        await stream.save();
+        // Holds have been released; the common finalizer closes this run.
 
         // Try to notify buyer of error if we have the buyerId
         if (stream.products[productIndex].currentBidder?._id) {
@@ -4119,7 +4118,16 @@ exports.endProductBidding = async (req, res) => {
 
     // Save the stream with the updated product information
     console.log('[END_BID] 33. Saving stream with updated bid information');
-    await stream.save();
+    const settled = await Stream.findOneAndUpdate(
+      { _id: streamId, products: { $elemMatch: {
+        'product.productId': streamBids.productIdMatch(productId), bidStatus: 'ongoing', ...(product.run > 1 ? { run: product.run } : { $or: [{ run: 1 }, { run: { $exists: false } }] }),
+      } } },
+      { $set: { 'products.$.bidStatus': 'ended', ...(stream.products[productIndex].bidWinner ? { 'products.$.bidWinner': stream.products[productIndex].toObject().bidWinner } : {}) },
+        ...(endNotifications.length ? { $push: { chatInteractions: { $each: endNotifications } } } : {}) },
+      { new: true }
+    ).populate('seller', 'storeName storeAvatar').populate('products.currentBidder', 'firstName lastName username profileImage');
+    if (!settled) return res.status(409).json({ message: 'This auction changed while finishing. Refresh the show.' });
+    stream = settled;
     console.log('[END_BID] 34. Stream saved successfully');
 
     // Helper function to format product name to max 3 words
@@ -4166,8 +4174,7 @@ exports.endProductBidding = async (req, res) => {
     io.to(streamRoom).emit('stream_notification', notificationObj);
 
     // Add the notification to stream chat interactions
-    stream.chatInteractions.push(notificationObj);
-    await stream.save();
+    await Stream.updateOne({ _id: streamId }, { $push: { chatInteractions: notificationObj } });
 
     console.log('[END_BID] 36. Successfully ended bidding for product');
     // Return the updated product information
