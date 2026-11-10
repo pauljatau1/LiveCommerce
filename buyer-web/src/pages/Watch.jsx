@@ -14,7 +14,7 @@ import OneStepSheet from '../components/OneStepSheet';
 import { googleCalendarUrl, icsHref, showEvent } from '../calendar';
 import { Header, Icon, Sheet } from '../components/ui';
 import {
-  ChatFeed, ItemThumb, ItemsList, MiniBidBar, RailButton, Timer, deliveryLine, shipsLine, useKeyboardInset,
+  ChatFeed, ItemThumb, ItemsList, MiniBidBar, RailButton, Timer, UpNextRow, deliveryLine, shipsLine, useKeyboardInset,
   idOf, nextBidFor, plural, priceOf, usePulse, who,
 } from '../components/watch';
 
@@ -51,8 +51,7 @@ export default function Watch() {
   const clientRef = useRef(null);
   const hostUserRef = useRef(null);
   const socketRef = useRef(null);
-  const feedRef = useRef(null);
-  const deskFeedRef = useRef(null);
+  const announced = useRef(new Set()); // "Bidding is open" once per item
   const remoteAudio = useRef(null);
   const soundUnlocked = useRef(false);
   const lastSecs = useRef({});
@@ -233,7 +232,10 @@ export default function Watch() {
         case 'auction_start':
           if (d.product) { patchItem(idOf(d.product), { ...d.product, bidStatus: 'active', isVisible: true }); setItems((l) => l.map((p) => (idOf(p) === idOf(d.product) ? p : { ...p, isVisible: false }))); }
           setOutbid(null);
-          push({ kind: 'sys', text: `Bidding is open: ${d.product?.product?.name || 'new item'}` });
+          if (d.product && !announced.current.has(idOf(d.product))) {
+            announced.current.add(idOf(d.product));
+            push({ kind: 'sys', text: `Bidding is open: ${d.product?.product?.name || 'new item'}` });
+          }
           break;
         case 'new_bid': {
           const pid = d.product ? idOf(d.product) : '';
@@ -348,11 +350,6 @@ export default function Watch() {
     window.addEventListener('pointerdown', unlock, { once: true });
     return () => window.removeEventListener('pointerdown', unlock);
   }, []);
-
-  useEffect(() => {
-    feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: 'smooth' });
-    deskFeedRef.current?.scrollTo({ top: deskFeedRef.current.scrollHeight, behavior: 'smooth' });
-  }, [feed]);
 
   // Pause video / audio only: bids and chat keep working
   const setVideo = async (mode) => {
@@ -696,7 +693,7 @@ export default function Watch() {
           {/* Chat on the left, the side rail on the right; Items lines up with the input */}
           <div className="chatzone">
             <div className="chatcol w-phone">
-              <ChatFeed feed={feed} feedRef={feedRef} limit={typing ? 8 : 5} />
+              <ChatFeed feed={feed} />
               {composer}
             </div>
             <nav className="rail" aria-label="Show actions">
@@ -754,24 +751,15 @@ export default function Watch() {
               )}
               {current.bidStatus === 'ended' && nextUp && (
                 <div className="upnext">
-                  <span>{!iWon && myBids[curId] ? 'Not this one. Up next in a moment:' : 'Up next in a moment:'}</span>
-                  <span className="upnext-item"><ItemThumb item={nextUp} size={40} /><b>{nextUp.product?.name}</b><span className="mut-d">{nextUp.minBid ? `from ${naira(nextUp.minBid)}` : naira(priceOf(nextUp))}</span></span>
+                  {!iWon && myBids[curId] && <span className="un-lead">Not this one. Up next in a moment:</span>}
+                  <UpNextRow item={nextUp} onClick={() => setSheet({ type: 'items' })} />
                 </div>
               )}
             </>
           ) : (
-            <div className="waiting">
-              {lostLast && <span>Not this one. Up next in a moment:</span>}
-              {nextUp ? (
-                <>
-                  {!lostLast && <span className="cap-d">UP NEXT · ITEM {items.indexOf(nextUp) + 1} OF {items.length}</span>}
-                  <span className="upnext-item"><ItemThumb item={nextUp} size={48} /><span><b>{nextUp.product?.name}</b><br /><span className="mut-d">{nextUp.minBid ? `Auction · from ${naira(nextUp.minBid)}` : `Drop · ${naira(priceOf(nextUp))}`}</span></span></span>
-                  <span className="mut-d">{hostName} is getting it ready…</span>
-                </>
-              ) : (
-                <span>{hostName} is getting the next item ready…</span>
-              )}
-              {items.length > 0 && <button type="button" className="btn2 on-dark" onClick={() => setSheet({ type: 'items' })}>All items</button>}
+            <div className="upnext">
+              <span className="un-lead">{lostLast ? 'Not this one. Up next in a moment:' : nextUp ? `${hostName} is getting it ready…` : `${hostName} is getting the next item ready…`}</span>
+              {nextUp && <UpNextRow item={nextUp} onClick={() => setSheet({ type: 'items' })} />}
             </div>
           )}
           </div>
@@ -780,7 +768,7 @@ export default function Watch() {
 
       <aside className="w-side w-chat" aria-label="Chat">
         <h2 className="h2">Chat</h2>
-        <ChatFeed feed={feed} feedRef={deskFeedRef} className="light" />
+        <ChatFeed feed={feed} className="light" />
         {deskComposer}
       </aside>
 

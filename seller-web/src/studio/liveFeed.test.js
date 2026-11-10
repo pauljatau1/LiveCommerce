@@ -22,6 +22,14 @@ test('falls back to the first name, then "A buyer"', () => {
 test('chat, bids and buys keep the sender; system lines are short', () => {
   assert.deepEqual(feedEntryFor({ type: 'comment', user: 'yayo', content: 'Yest jhf' }), { kind: 'comment', user: 'yayo', avatar: undefined, text: 'Yest jhf' });
   assert.equal(feedEntryFor({ type: 'new_bid', user: 'test_user', data: { bidAmount: 2000 } }).text, 'bid ₦2,000');
-  assert.deepEqual(feedEntryFor({ type: 'auction_start', data: { product: { product: { name: 'Top Gear Item (Unclear Screenshot)' } } } }), { kind: 'sys', text: 'Bidding is open' });
+  assert.deepEqual(feedEntryFor({ type: 'auction_start', data: { product: { product: { productId: 'p1', name: 'Top Gear Item (Unclear Screenshot)' } } } }), { kind: 'sys', text: 'Bidding is open', key: 'open:p1' });
   assert.equal(feedEntryFor({ type: 'join' }), null);
+});
+
+test('"Bidding is open" has the same key each time the same item is announced', () => {
+  const a = feedEntryFor({ type: 'auction_start', data: { product: { product: { productId: 'p2' } } } });
+  const b = feedEntryFor({ type: 'auction_start', data: { product: { product: { productId: 'p2' } } } });
+  const c = feedEntryFor({ type: 'auction_start', data: { product: { product: { productId: 'p3' } } } });
+  assert.equal(a.key, b.key);
+  assert.notEqual(a.key, c.key);
 });

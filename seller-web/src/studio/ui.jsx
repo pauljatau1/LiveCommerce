@@ -1,5 +1,6 @@
 // Shared studio pieces: icons, status pills, empty and error states.
 /* eslint-disable react-refresh/only-export-components */
+import { useRef, useState } from 'react';
 import './studio.css';
 
 const s = { 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', strokeLinecap: 'round', strokeLinejoin: 'round' };
@@ -90,13 +91,38 @@ export const TopBar = ({ title, sub, onBack, right, close }) => (
   </header>
 );
 
-// Bottom sheet with scrim; closes on scrim tap or Escape
-export const Sheet = ({ label, onClose, children }) => (
-  <div style={{ position: 'fixed', inset: 0, zIndex: 50 }} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
-    <button type="button" aria-label="Close" className="scrim" style={{ border: 0, cursor: 'pointer' }} onClick={onClose} />
-    <section className="sheet" role="dialog" aria-modal="true" aria-label={label} style={{ maxWidth: 560, margin: '0 auto', paddingBottom: 'max(18px, env(safe-area-inset-bottom))' }}>
-      <span className="grab" aria-hidden="true" />
-      {children}
-    </section>
-  </div>
-);
+// Bottom sheet with scrim, sized to its content. Closes on a scrim tap, Escape,
+// swiping down, or the optional ✕ at the top right.
+export const Sheet = ({ label, onClose, children, closeX = false }) => {
+  const ref = useRef(null);
+  const startY = useRef(null);
+  const [drag, setDrag] = useState(0);
+  const onTouchStart = (e) => { if ((ref.current?.scrollTop || 0) <= 0) startY.current = e.touches[0].clientY; };
+  const onTouchMove = (e) => { if (startY.current !== null) setDrag(Math.max(0, e.touches[0].clientY - startY.current)); };
+  const onTouchEnd = () => {
+    if (startY.current === null) return;
+    startY.current = null;
+    if (drag > 80) onClose();
+    setDrag(0);
+  };
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50 }} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
+      <button type="button" aria-label="Close" className="scrim" style={{ border: 0, cursor: 'pointer' }} onClick={onClose} />
+      <section
+        ref={ref}
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{ maxWidth: 560, margin: '0 auto', paddingBottom: 'max(18px, env(safe-area-inset-bottom))', transform: drag ? `translateY(${drag}px)` : undefined, transition: drag ? 'none' : 'transform .2s' }}
+      >
+        <span className="grab" aria-hidden="true" />
+        {closeX && <button type="button" className="sheet-x" aria-label="Close" onClick={onClose}>{Icon.close}</button>}
+        {children}
+      </section>
+    </div>
+  );
+};

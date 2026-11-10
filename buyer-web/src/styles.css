@@ -205,7 +205,9 @@ a{color:var(--primary)}
 .chatcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
 .panel{display:flex;flex-direction:column;gap:10px}
 /* up to 5 lines (8 while typing), fading out at the top */
-.feed{scrollbar-width:none;max-height:34vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;-webkit-mask-image:linear-gradient(180deg,transparent,#000 32px);mask-image:linear-gradient(180deg,transparent,#000 32px)}
+.feed-wrap{position:relative;min-width:0}
+/* about 5 messages tall; scrolls by touch (iOS and Android); newest at the bottom */
+.feed{scrollbar-width:none;max-height:min(34vh,236px);overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;display:flex;flex-direction:column;gap:8px;-webkit-mask-image:linear-gradient(180deg,transparent,#000 32px);mask-image:linear-gradient(180deg,transparent,#000 32px)}
 .line{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.3;text-shadow:0 1px 2px rgba(0,0,0,.55)}
 .line-tx{display:flex;flex-direction:column;min-width:0}
 .line .ava{width:28px;height:28px;border-radius:50%;flex:none;overflow:hidden;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
@@ -248,7 +250,16 @@ a{color:var(--primary)}
 .bidrow .btn2{flex:none;min-height:56px}
 .two-line{flex-direction:column;gap:0;line-height:1.15}
 .two-line small{font-size:12px;font-weight:700;opacity:.9}
-.upnext,.waiting{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.upnext,.waiting{display:flex;flex-direction:column;gap:2px;align-items:stretch}
+/* Up next: one compact row */
+.upnext-row{display:flex;align-items:center;gap:10px;min-height:44px;width:100%;padding:0;border:0;background:none;color:#fff;font:600 15px var(--font-body);text-align:left;cursor:pointer}
+.un-tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.un-tx b{font-weight:800}
+.un-price{flex:none;color:rgba(255,255,255,.65);font-size:14px}
+.un-lead{font-size:14px;color:rgba(255,255,255,.75)}
+/* "New messages ↓" when the viewer has scrolled up */
+.new-msgs{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);height:30px;padding:0 12px;border:0;border-radius:999px;background:rgba(255,255,255,.92);color:var(--text);font:800 13px var(--font-body);box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer}
+.new-msgs::after{content:"";position:absolute;inset:-7px 0}
 .upnext-item{display:flex;align-items:center;gap:10px}
 .mut-d{color:rgba(255,255,255,.75);font-size:14px}
 .cap-d{font-size:12px;font-weight:800;letter-spacing:.04em;color:rgba(255,255,255,.75)}
@@ -271,6 +282,7 @@ a{color:var(--primary)}
   .w-center{position:relative;inset:auto;margin:16px 0;border-radius:24px;overflow:hidden;background:#0f1512;color:#fff}
   .w-phone{display:none}
   .chatzone{justify-content:flex-end}
+  .w-chat .feed-wrap{flex:1;min-height:0;display:flex;flex-direction:column}
   .w-chat .feed{flex:1;max-height:none;padding-right:0;-webkit-mask-image:none;mask-image:none}
   .w-chat .line{text-shadow:none;font-size:15px}
   .w-chat .line .nm{color:var(--text-muted)}

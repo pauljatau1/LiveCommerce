@@ -24,10 +24,17 @@ export const shareMessage = (show) => (show.status === 'live'
   ? `I'm LIVE now: ${show.title}. Come and ${show.type === 'drop' ? 'shop' : 'bid'} with me 👇`
   : `${show.title}: live ${when(show.scheduledStartTime)}. Tap to get a reminder and ${show.type === 'drop' ? 'shop' : 'bid'} live 👇`);
 
-const Brand = ({ bg, children }) => (
-  <span aria-hidden="true" style={{ width: 48, height: 48, borderRadius: 16, background: bg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', font: '800 18px var(--font-body)' }}>{children}</span>
+// A short version of the link for the pill: no "https://", "…" in the middle if long
+const shortLink = (link) => {
+  const bare = String(link || '').replace(/^https?:\/\//, '');
+  return bare.length > 34 ? `${bare.slice(0, 18)}…${bare.slice(-12)}` : bare;
+};
+
+const AppIcon = ({ bg, children }) => (
+  <span aria-hidden="true" className="sh-ic" style={{ background: bg }}>{children}</span>
 );
 
+// Like the phone's own share sheet: compact, sized to its content, the video stays visible.
 export default function ShareSheet({ show, onClose }) {
   const [note, setNote] = useState('');
   useEffect(() => { if (!note) return undefined; const t = setTimeout(() => setNote(''), 4000); return () => clearTimeout(t); }, [note]);
@@ -44,37 +51,34 @@ export default function ShareSheet({ show, onClose }) {
     { name: 'Facebook', bg: '#1877F2', mark: 'f', go: () => open(`https://www.facebook.com/sharer/sharer.php?u=${enc(link)}`) },
     { name: 'Telegram', bg: '#229ED9', mark: 'T', go: () => open(`https://t.me/share/url?url=${enc(link)}&text=${enc(text)}`) },
   ];
+  const canShare = typeof navigator !== 'undefined' && navigator.share;
 
   return (
-    <Sheet label="Share your show" onClose={onClose}>
-      <h2 className="f" style={{ margin: 0, fontSize: 22 }}>Share your show</h2>
-      <span className="mut" style={{ fontSize: 14, marginTop: -8 }}>Anyone with the link can watch{show.status === 'live' ? ' now' : ' and set a reminder'}.</span>
-
-      <div className="fl">
-        <label className="lab" htmlFor="share-link">Show link</label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input id="share-link" className="in" readOnly value={link} onFocus={(e) => e.target.select()} style={{ fontSize: 14 }} />
-          <button type="button" className="btn" style={{ minHeight: 52, flex: 'none' }} onClick={async () => setNote((await copy(link)) ? 'Link copied' : "Couldn't copy. Press and hold the link to copy it.")}>Copy</button>
-        </div>
+    <Sheet label="Share your show" onClose={onClose} closeX>
+      <div className="sh-head">
+        <h2 className="f" style={{ margin: 0, fontSize: 19 }}>Share your show</h2>
+        <span className="mut" style={{ fontSize: 14 }}>Anyone with the link can watch{show.status === 'live' ? ' now' : ' and set a reminder'}.</span>
       </div>
 
-      <div role="group" aria-label="Share to" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))', gap: 8 }}>
+      <div className="sh-pill">
+        <span className="sh-pill-tx" title={link}>{shortLink(link)}</span>
+        <button type="button" className="sh-copy" onClick={async () => setNote((await copy(link)) ? 'Link copied' : "Couldn't copy. Press and hold the link to copy it.")}>Copy</button>
+      </div>
+
+      <div className="sh-apps" role="group" aria-label="Share to">
         {targets.map((t) => (
-          <button key={t.name} type="button" onClick={t.go} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '8px 0', minHeight: 80, border: 0, background: 'none', cursor: 'pointer', font: '700 12px var(--font-body)', color: 'var(--text)' }}>
-            <Brand bg={t.bg}>{t.mark}</Brand>{t.name}
-          </button>
+          <button key={t.name} type="button" className="sh-app" onClick={t.go}><AppIcon bg={t.bg}>{t.mark}</AppIcon>{t.name}</button>
         ))}
-        {typeof navigator !== 'undefined' && navigator.share && (
-          <button type="button" onClick={() => navigator.share({ title: show.title, text, url: link }).catch(() => {})} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '8px 0', minHeight: 80, border: 0, background: 'none', cursor: 'pointer', font: '700 12px var(--font-body)', color: 'var(--text)' }}>
-            <span aria-hidden="true" style={{ width: 48, height: 48, borderRadius: 16, background: 'var(--surface-sunken)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icon.share}</span>More
+        {canShare && (
+          <button type="button" className="sh-app" onClick={() => navigator.share({ title: show.title, text, url: link }).catch(() => {})}>
+            <AppIcon bg="var(--surface-sunken)"><span style={{ color: 'var(--text)', display: 'flex' }}>{Icon.share}</span></AppIcon>More
           </button>
         )}
       </div>
 
-      <div className="fl">
-        <span className="lab">Message</span>
-        <div className="soft" style={{ background: 'var(--surface-page)', border: '1px solid var(--border)', fontSize: 14, lineHeight: 1.45 }}>{text}<br /><span className="mut">{link}</span></div>
-        <button type="button" className="btn3" onClick={async () => setNote((await copy(`${text}\n${link}`)) ? 'Message and link copied' : "Couldn't copy.")}>Copy message with link</button>
+      <div className="sh-pill">
+        <span className="sh-pill-tx sh-msg" title={`${text} ${link}`}>{text}</span>
+        <button type="button" className="sh-copy" onClick={async () => setNote((await copy(`${text}\n${link}`)) ? 'Message and link copied' : "Couldn't copy.")}>Copy message</button>
       </div>
 
       {note && <div className="toast" role="status"><span style={{ flex: 1 }}>{note}</span></div>}
