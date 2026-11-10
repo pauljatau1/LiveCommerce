@@ -6,6 +6,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { API, api, errorMessage, getToken, imageOf, naira } from '../api';
 import { useAuth } from '../auth';
+import { createRecovery, timersFor } from '../watchRecovery';
 import { LATE_BID_SECONDS } from '../config';
 import AddressSheet from '../components/AddressSheet';
 import TopUpSheet from '../components/TopUpSheet';
@@ -38,6 +39,11 @@ export default function Watch() {
   const [outbid, setOutbid] = useState(null); // { productId, by, amount }
   const [hasVideo, setHasVideo] = useState(false);
   const [videoMode, setVideoMode] = useState('on'); // on | paused | audio
+  const videoModeRef = useRef('on');
+  const recoveryRef = useRef(null);
+  const restoreMediaRef = useRef(() => {});
+  const [syncState, setSyncState] = useState('ready');
+  const [rtcSession, setRtcSession] = useState(0);
   const [socketUp, setSocketUp] = useState(true);
   const [agoraState, setAgoraState] = useState('CONNECTED');
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
@@ -98,6 +104,7 @@ export default function Watch() {
         if (cancelled) return;
         setShow(s);
         setItems(s.products || []);
+        setTimer(timersFor(s.products || []));
         setViewers(s.viewers?.length || 0);
         setPhase(s.status === 'live' ? 'preview' : s.status === 'ended' ? 'ended' : 'preview');
       })
@@ -140,8 +147,72 @@ export default function Watch() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
 
-  // 2a. Video: join as a buyer, or as a guest without an account (watch-only)
+  const endShow = useCallback(() => {
+    recoveryRef.current?.invalidate();
+    setShow((s) => s ? { ...s, status: 'ended' } : s);
+    setPhase('ended');
+    setSheet(null);
+    setTyping(false);
+    setBusy(false);
+  }, []);
+
   const live = show?.status === 'live';
+  // iOS may freeze the page without disconnecting either SDK. Reload the scene
+  // on foreground/pageshow as well as socket reconnect; never reload the page.
+  useEffect(() => {
+    if (!live || loading) return undefined;
+    const recovery = createRecovery({
+      load: async () => {
+        const [scene, summary, pinned, history, me] = await Promise.all([
+          api.show(streamId), api.watchSummary(streamId).catch(() => null),
+          api.notes(streamId).catch(() => null), api.publicChat(streamId).catch(() => null),
+          signedInRef.current ? api.watchMe(streamId).catch(() => null) : null,
+        ]);
+        return { scene, summary, pinned, history, me };
+      },
+      apply: ({ scene, summary, pinned, history, me }) => {
+        setShow(scene);
+        if (scene.status === 'ended') { endShow(); return; }
+        setItems(scene.products || []);
+        const clocks = timersFor(scene.products || []);
+        setTimer(clocks); lastSecs.current = clocks; setPlusSecs(0);
+        setOutbid(null);
+        setViewers(scene.viewers?.length || 0);
+        if (summary) { setBidCounts(summary.bids || {}); setSoldCounts(summary.sold || {}); }
+        if (pinned) setNotes({ notes: pinned.notes, firstLine: pinned.firstLine, sections: pinned.sections || [] });
+        if (history) setFeed(history.slice(-40).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, avatar: m.avatar, text: m.content, host: Boolean(m.isHost) })));
+        if (me) { setDepositDue(Number(me.depositDue) || 0); setFollowing(Boolean(me.following)); }
+      },
+      status: setSyncState,
+    });
+    recoveryRef.current = recovery;
+    const resume = () => {
+      if (document.visibilityState === 'hidden') return;
+      const sock = socketRef.current;
+      if (sock?.connected) sock.emit('stream_notification_subscribe', { streamId });
+      else sock?.connect();
+      recovery.refresh();
+      if (signedInRef.current) refreshWallet();
+      restoreMediaRef.current(true);
+    };
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('pageshow', resume);
+    window.addEventListener('focus', resume);
+    window.addEventListener('online', resume);
+    // Poll only while visible, also catching a missed end event on iOS.
+    const poll = window.setInterval(() => { if (document.visibilityState !== 'hidden') recovery.refresh({ quiet: true }); }, 30000);
+    return () => {
+      recovery.dispose();
+      if (recoveryRef.current === recovery) recoveryRef.current = null;
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('pageshow', resume);
+      window.removeEventListener('focus', resume);
+      window.removeEventListener('online', resume);
+      window.clearInterval(poll);
+    };
+  }, [live, loading, streamId, endShow, refreshWallet]);
+
+  // 2a. Video: join as a buyer, or as a guest without an account (watch-only)
   useEffect(() => {
     if (!live || loading) return undefined;
     let cancelled = false;
@@ -154,16 +225,19 @@ export default function Watch() {
         if (signedInRef.current) joined = await api.join(streamId);
         else { joined = await api.guestJoin(streamId); startedAsGuest.current = true; }
       } catch (e) {
-        if (e?.response?.status === 410) { setPhase('ended'); return; }
+        if (cancelled) return;
+        if (e?.response?.status === 410) { endShow(); return; }
         setLoadError(errorMessage(e, "Couldn't join the show."));
         setPhase('error');
         return;
       }
       if (cancelled) return;
       const st = joined.stream || {};
-      if (st.products) setItems(st.products);
+      if (st.status === 'ended') { endShow(); return; }
+      if (st.products) { setItems(st.products); setTimer(timersFor(st.products)); }
       if (typeof st.viewerCount === 'number') setViewers(st.viewerCount);
       setPhase('watching');
+      recoveryRef.current?.refresh();
 
       // Chat history (read-only for everyone)
       api.publicChat(streamId).then((history) => {
@@ -174,16 +248,29 @@ export default function Watch() {
       // Video
       try {
         const AgoraRTC = (await import('agora-rtc-sdk-ng')).default;
+        if (cancelled) return;
         AgoraRTC.setLogLevel(3);
         AgoraRTC.onAutoplayFailed = () => setNeedsTap(true);
         client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
         clientRef.current = client;
         await client.setClientRole('audience', { level: 1 });
-        client.on('connection-state-change', (state) => setAgoraState(state));
+        client.on('connection-state-change', (state, previous) => {
+          if (cancelled) return;
+          setAgoraState(state);
+          if (state === 'CONNECTED' && previous === 'RECONNECTING') {
+            recoveryRef.current?.refresh(); restoreMediaRef.current(true);
+          }
+        });
         client.on('user-published', async (user, mediaType) => {
+          if (cancelled) return;
           hostUserRef.current = user;
-          await client.subscribe(user, mediaType);
-          if (mediaType === 'video' && stageRef.current) { user.videoTrack.play(stageRef.current, { fit: 'cover' }); setHasVideo(true); setVideoMode('on'); }
+          if (mediaType === 'video' && videoModeRef.current === 'audio') return;
+          try { await client.subscribe(user, mediaType); } catch { return; }
+          if (cancelled) return;
+          if (mediaType === 'video') {
+            setHasVideo(true);
+            if (videoModeRef.current === 'on' && stageRef.current) user.videoTrack?.play(stageRef.current, { fit: 'cover' });
+          }
           if (mediaType === 'audio') {
             remoteAudio.current = user.audioTrack;
             user.audioTrack.play();
@@ -194,6 +281,18 @@ export default function Watch() {
         });
         client.on('user-unpublished', (user, mediaType) => { if (mediaType === 'video') setHasVideo(false); });
         await client.join(joined.agoraAppId, joined.channelName, joined.token, joined.uid);
+        if (cancelled) { await client.leave(); return; }
+        const renew = async () => {
+          try {
+            const credentials = signedInRef.current ? await api.join(streamId) : await api.guestJoin(streamId);
+            if (!cancelled) {
+              if (credentials.stream?.status === 'ended') { endShow(); return; }
+              await client.renewToken(credentials.token);
+            }
+          } catch { if (!cancelled) recoveryRef.current?.refresh(); }
+        };
+        client.on('token-privilege-will-expire', renew);
+        client.on('token-privilege-did-expire', renew);
       } catch (e) {
         if (!cancelled) say('err', "The video couldn't start. Chat and bidding still work.", 6000);
       }
@@ -202,10 +301,17 @@ export default function Watch() {
     start();
     return () => {
       cancelled = true;
+      try { hostUserRef.current?.videoTrack?.stop(); } catch { /* already stopped */ }
+      try { remoteAudio.current?.stop(); } catch { /* already stopped */ }
+      client?.removeAllListeners();
       client?.leave().catch(() => {});
+      if (clientRef.current === client) {
+        clientRef.current = null; hostUserRef.current = null; remoteAudio.current = null;
+        setHasVideo(false);
+      }
       if (signedInRef.current) api.leave(streamId);
     };
-  }, [live, loading, streamId, say]);
+  }, [live, loading, streamId, say, rtcSession, endShow]);
 
   // 2b. Live events: a watch-only guest socket until the viewer signs in, then their own
   useEffect(() => {
@@ -218,10 +324,13 @@ export default function Watch() {
     if (signedIn && startedAsGuest.current) { startedAsGuest.current = false; api.join(streamId).catch(() => {}); }
 
     // Live events
-    socket.on('connect', () => { setSocketUp(true); socket.emit('stream_notification_subscribe', { streamId }); });
+    socket.on('connect', () => { setSocketUp(true); socket.emit('stream_notification_subscribe', { streamId }); recoveryRef.current?.refresh(); });
     socket.on('disconnect', () => setSocketUp(false));
+    socket.on('connect_error', () => setSocketUp(false));
+    socket.on('streamEnded', endShow);
     socket.on('stream_notification', (n) => {
       const d = n?.data || {};
+      if (['auction_start', 'new_bid', 'auction_winner', 'auction_end', 'product_display', 'buy_now', 'stream_ended'].includes(n?.type)) recoveryRef.current?.invalidate();
       switch (n?.type) {
         case 'comment':
           push({ kind: 'comment', user: n.user, avatar: n.avatar, text: n.content, host: Boolean(n.data?.isHost) });
@@ -276,7 +385,7 @@ export default function Watch() {
           push({ kind: 'sys', text: n.content });
           break;
         case 'stream_ended':
-          setPhase('ended');
+          endShow();
           break;
         default:
       }
@@ -307,6 +416,7 @@ export default function Watch() {
     });
     socket.on('bid_timer_complete', (t) => t?.productId && setTimer((m) => ({ ...m, [String(t.productId)]: 0 })));
     socket.on('bid_placed', (r) => {
+      recoveryRef.current?.invalidate();
       setBusy(false);
       if (r?.product) {
         patchItem(idOf(r.product), r.product);
@@ -331,7 +441,7 @@ export default function Watch() {
     socket.on('auction_order_error', () => { if (leadRef.current) { say('err', "We couldn't create your winning order. Your money is back in your wallet, and the host will sort it out.", 7000); refreshWallet(); } });
 
     return () => socket.disconnect();
-  }, [live, loading, signedIn, streamId, push, patchItem, say, refreshWallet]);
+  }, [live, loading, signedIn, streamId, push, patchItem, say, refreshWallet, endShow]);
 
   useEffect(() => {
     if (!debug) return undefined;
@@ -355,22 +465,45 @@ export default function Watch() {
     return () => window.removeEventListener('pointerdown', unlock);
   }, []);
 
-  // Pause video / audio only: bids and chat keep working
+  // Playback is restarted on the existing remote track after a foreground
+  // transition. Keep the user's paused/audio-only choice through republishing.
+  const restoreMedia = useCallback(async (restart = false) => {
+    const client = clientRef.current;
+    if (!client) return;
+    if (client.connectionState === 'DISCONNECTED') { setRtcSession((n) => n + 1); return; }
+    const user = client.remoteUsers?.find((u) => u.hasVideo) || hostUserRef.current;
+    if (!user) return;
+    hostUserRef.current = user;
+    try {
+      if (videoModeRef.current === 'on') {
+        if (!user.videoTrack && user.hasVideo) await client.subscribe(user, 'video');
+        if (videoModeRef.current !== 'on') return;
+        if (user.videoTrack && stageRef.current) {
+          if (restart) user.videoTrack.stop();
+          user.videoTrack.play(stageRef.current, { fit: 'cover' });
+          setHasVideo(true);
+        }
+      }
+      if (soundUnlocked.current) remoteAudio.current?.play();
+    } catch { setNeedsTap(true); }
+  }, []);
+  restoreMediaRef.current = restoreMedia;
+
   const setVideo = async (mode) => {
     const client = clientRef.current;
     const user = hostUserRef.current;
     setSheet(null);
+    videoModeRef.current = mode;
+    setVideoMode(mode);
     try {
       if (mode === 'audio' && client && user?.hasVideo) await client.unsubscribe(user, 'video');
       if (mode === 'paused') user?.videoTrack?.stop();
       if (mode === 'on') {
-        if (videoMode === 'audio' && client && user?.hasVideo) await client.subscribe(user, 'video');
-        if (user?.videoTrack && stageRef.current) user.videoTrack.play(stageRef.current, { fit: 'cover' });
+        soundUnlocked.current = true;
+        await restoreMedia(true);
+        recoveryRef.current?.refresh();
       }
-      setVideoMode(mode);
-    } catch {
-      say('err', "Couldn't change the video. Try again.");
-    }
+    } catch { say('err', "Couldn't change the video. Try again."); }
   };
 
   const current = useMemo(() => items.find((p) => p.bidStatus === 'active') || items.find((p) => p.isVisible) || null, [items]);
@@ -425,7 +558,7 @@ export default function Watch() {
   };
 
   const placeBid = (amount) => {
-    if (!current || busy) return;
+    if (!current || busy || reconnecting) return;
     const bid = Math.round(Number(amount));
     // Bids move in steps; the server checks this too
     if (bid < nextBidFor(current)) { say('err', `Bid at least ${naira(nextBidFor(current))}`); return; }
@@ -453,7 +586,7 @@ export default function Watch() {
   };
 
   const buyNow = (item, quantity = 1) => {
-    if (busy) return;
+    if (busy || reconnecting) return;
     if (!ready(priceOf(item) * quantity, { kind: 'buy', amount: priceOf(item) * quantity, item, quantity })) return;
     doBuy(item, quantity);
   };
@@ -521,7 +654,7 @@ export default function Watch() {
   const pricePulse = usePulse(current?.currentBid);
   const nextBid = current ? nextBidFor(current) : 0;
   const bids = bidCounts[curId] || 0;
-  const reconnecting = phase === 'watching' && (!online || !socketUp || agoraState === 'RECONNECTING');
+  const reconnecting = phase === 'watching' && (!online || !socketUp || syncState !== 'ready' || ['RECONNECTING', 'DISCONNECTED'].includes(agoraState));
 
   // One line that says what just changed for me
   let stateLine = null;
@@ -536,7 +669,21 @@ export default function Watch() {
   // ---------- not live / not signed in ----------
   if (phase === 'loading' || loading) return <div className="app"><Header back="/" /><div className="center"><span className="mut">Loading the show…</span></div></div>;
   if (phase === 'error') return <div className="app"><Header back="/" /><div className="center"><div className="card empty"><span className="f" style={{ fontSize: 18 }}>{loadError}</span><Link to="/" className="btn2">See other shows</Link></div></div></div>;
-  if (phase === 'ended' || (show && show.status !== 'live')) {
+  if (phase === 'ended' || show?.status === 'ended') return (
+    <div className="app ended-show">
+      <Header back="/" title="Show ended" />
+      <main className="ended-content">
+        {show?.coverImage?.url && <img className="ended-cover" src={show.coverImage.url} alt="" />}
+        <span className="pill p-draft">SHOW ENDED</span>
+        <h1 className="h1">That’s a wrap!</h1>
+        <p>{hostName} has ended the show.</p>
+        {signedIn && <Link to="/orders" className="btn">See your orders</Link>}
+        <Link to="/" className="btn2">Discover live shows</Link>
+        {!following && host._id && <button type="button" className="link" onClick={() => follow()}>Follow {hostName}</button>}
+      </main>
+    </div>
+  );
+  if (show && show.status !== 'live') {
     const scheduled = show?.status === 'scheduled';
     // A show in the host's weekly slot gets a repeating invite: "Add every Saturday to calendar"
     const slot = hostStats?.slot;
@@ -596,9 +743,9 @@ export default function Watch() {
   const stock = current?.product?.quantity;
   const sold = soldCounts[curId] || 0;
   const miniAction = auctionLive
-    ? <button type="button" className="btn btn-sm" disabled={busy} onClick={() => placeBid(nextBid)}>Bid {naira(nextBid)}</button>
+    ? <button type="button" className="btn btn-sm" disabled={busy || reconnecting} onClick={() => placeBid(nextBid)}>Bid {naira(nextBid)}</button>
     : current && !isAuction && stock !== 0
-      ? <button type="button" className="btn btn-sm" disabled={busy} onClick={() => buyNow(current)}>Buy</button>
+      ? <button type="button" className="btn btn-sm" disabled={busy || reconnecting} onClick={() => buyNow(current)}>Buy</button>
       : null;
   const miniState = stateBadge || (auctionLive ? plural(bids, 'bid') : null);
   const mini = <MiniBidBar current={current} secs={secs} state={miniState} action={miniAction} />;
@@ -646,12 +793,12 @@ export default function Watch() {
         {(!hasVideo || videoMode !== 'on') && (
           <div className="stage-msg" style={show?.coverImage?.url ? { backgroundImage: `linear-gradient(rgba(15,21,18,.55),rgba(15,21,18,.75)),url(${show.coverImage.url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
             {videoMode === 'on' && <span className="dt" aria-hidden="true" style={{ background: '#fff' }} />}
-            <span className="f" style={{ fontSize: 20 }}>
+            <span className="f" style={{ fontSize: 16 }}>
               {videoMode === 'audio' ? 'Audio only' : videoMode === 'paused' ? 'Video paused to save data' : phase === 'joining' ? 'Joining the show…' : 'Waiting for the host’s video…'}
             </span>
             {videoMode !== 'on' && (
               <>
-                <span style={{ opacity: 0.85 }}>Bids and chat keep working.</span>
+                <span className="stage-hint">Bids and chat stay live</span>
                 <button type="button" className="btn2 on-dark" onClick={() => setVideo('on')}>{Icon.play}Show the host again</button>
               </>
             )}
@@ -680,13 +827,13 @@ export default function Watch() {
 
         {reconnecting && (
           <div className="reconnect" role="status">
-            <span className="f">Reconnecting…</span>
-            <span>{iLead && myBids[curId] ? `Your bid of ${naira(myBids[curId])} is safe. You're still leading.` : 'Your bids are safe. Hold on a moment.'}</span>
-            {videoMode !== 'audio' && hasVideo && <button type="button" className="link on-dark" onClick={() => setVideo('audio')}>Switch to audio only</button>}
+            <span className="connection-dot" aria-hidden="true" />
+            <span>{!online ? 'You’re offline' : syncState === 'failed' ? 'Couldn’t refresh the show' : 'Reconnecting…'}</span>
+            <button type="button" onClick={() => { recoveryRef.current?.refresh(); socketRef.current?.connect(); restoreMedia(true); }}>Retry</button>
           </div>
         )}
         {debug && <div className="dbg">{audioDebug}</div>}
-        {needsTap && (
+        {needsTap && !reconnecting && (
           <button type="button" className="btn tap-sound" onClick={() => { soundUnlocked.current = true; remoteAudio.current?.play(); setNeedsTap(false); }}>
             {Icon.sound}Tap for sound
           </button>
@@ -717,7 +864,7 @@ export default function Watch() {
           {current ? (
             <>
               <div className="now">
-                <ItemThumb item={current} size={48} />
+                <ItemThumb item={current} size={38} />
                 <div className="now-tx">
                   <span className="now-nm">{current.product?.name}</span>
                   {current.runNote && <span className="now-note">{current.runNote}</span>}
@@ -740,17 +887,17 @@ export default function Watch() {
               {(auctionLive || (!isAuction && stock !== 0)) && deliveryLine(estimate) && <span className="now-meta">{deliveryLine(estimate)}</span>}
               {auctionLive && (
                 <div className="bidrow">
-                  <button type="button" className="btn2 on-dark" disabled={busy} onClick={() => setSheet({ type: 'bid' })}>Bid more</button>
-                  <button type="button" className="btn two-line" disabled={busy} onClick={() => placeBid(nextBid)}>
+                  <button type="button" className="btn2 on-dark" disabled={busy || reconnecting} onClick={() => setSheet({ type: 'bid' })}>Bid more</button>
+                  <button type="button" className="btn two-line" disabled={busy || reconnecting} onClick={() => placeBid(nextBid)}>
                     <span>{busy ? 'Bidding…' : `Bid ${naira(nextBid)}`}</span>
-                    <small>Held from your wallet</small>
+
                   </button>
                 </div>
               )}
               {!isAuction && (
                 <div className="bidrow">
-                  <button type="button" className="btn two-line" disabled={busy || stock === 0} onClick={() => buyNow(current)}>
-                    {stock === 0 ? <span>Sold out</span> : <><span>{busy ? 'Buying…' : `Buy now · ${naira(priceOf(current))}`}</span><small>Paid from your wallet</small></>}
+                  <button type="button" className="btn two-line" disabled={busy || reconnecting || stock === 0} onClick={() => buyNow(current)}>
+                    {stock === 0 ? <span>Sold out</span> : <><span>{busy ? 'Buying…' : `Buy now · ${naira(priceOf(current))}`}</span></>}
                   </button>
                 </div>
               )}
@@ -777,7 +924,7 @@ export default function Watch() {
         {deskComposer}
       </aside>
 
-      {sheet?.type === 'topup' && <TopUpSheet need={sheet.need} top={mini} onClose={() => setSheet(null)} />}
+      {sheet?.type === 'topup' && <TopUpSheet need={sheet.need} onClose={() => setSheet(null)} />}
       {sheet?.type === 'onestep' && (
         <OneStepSheet action={sheet.action} deposit={deposit} top={sheet.action.kind === 'chat' ? null : miniBare} streamId={streamId} onClose={() => setSheet(null)} onReady={() => afterOneStep(sheet.action)} />
       )}
@@ -791,29 +938,28 @@ export default function Watch() {
         </Sheet>
       )}
       {(sheet?.type === 'won' || sheet?.type === 'yours') && (
-        <Sheet title={sheet.type === 'won' ? 'You won' : "It's yours"} onClose={() => setSheet(null)}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-            <span style={{ fontWeight: 700 }}>{sheet.name}{sheet.quantity > 1 ? ` × ${sheet.quantity}` : ''}</span>
-            <span className="f" style={{ fontSize: 20 }}>{naira(sheet.amount)}</span>
+        <Sheet className={`purchase-sheet${sheet.type === 'won' ? ' won-sheet' : ''}`} title={sheet.type === 'won' ? 'You won!' : "It’s yours!"} onClose={() => setSheet(null)}>
+          <div className="win-burst" aria-hidden="true">
+            <span className="win-trophy">★</span>
+            {sheet.type === 'won' && Array.from({ length: 12 }, (_, i) => <i key={i} style={{ '--i': i }} />)}
           </div>
-          {sheet.type === 'yours' && typeof sheet.lastOf === 'number' && sheet.lastOf > 0 && sheet.lastOf <= 5 && <span className="mut">You got {sheet.quantity || 1} of the last {sheet.lastOf}.</span>}
-          <p style={{ margin: 0 }}>
-            {sheet.type === 'yours' && !sheet.firstItem
-              ? 'Ships with your other items from this show. No extra delivery fee.'
-              : `${deliveryLine(estimate) || 'One delivery fee for everything you get this show, quoted after the show.'}${sheet.deposit ? ` ${naira(sheet.deposit)} is held for it now.` : ''}`}
-          </p>
-          <span className="mut">{sheet.orderId ? `Order #${sheet.orderId} · ` : ''}Paid from your wallet</span>
-          {sheet.type === 'won' && <span className="mut">Win more from this show and it all ships together, one delivery fee.</span>}
-          {!following && show?.seller?._id && (
-            <button type="button" className="btn2 two-line" onClick={() => follow()}>
-              <span>Follow {hostName}</span>
-              {hostStats?.slot?.label && <small>{hostStats.slot.label}</small>}
-            </button>
-          )}
-          <Link to="/orders" className="link" style={{ alignSelf: 'center' }}>View order</Link>
+          <div className="purchase-item">
+            <span>{sheet.name}{sheet.quantity > 1 ? ` × ${sheet.quantity}` : ''}</span>
+            <strong>{naira(sheet.amount)}</strong>
+            <small>Paid from your wallet ✓</small>
+          </div>
+          <p className="purchase-delivery">{sheet.type === 'yours' && !sheet.firstItem
+            ? 'Ships with your other items. No extra delivery fee.'
+            : estimate?.available ? `Delivery to ${estimate.area} ≈ ${naira(estimate.amount)} · one fee per show`
+              : 'Your items ship together · one delivery fee'}{sheet.deposit ? ` · ${naira(sheet.deposit)} held` : ''}</p>
           <button type="button" className="btn" onClick={() => setSheet(null)}>Keep watching</button>
+          <div className="purchase-links">
+            <Link to="/orders" className="link">View order</Link>
+            {!following && show?.seller?._id && <button type="button" className="link" onClick={() => follow()}>Follow host</button>}
+          </div>
         </Sheet>
       )}
+
       {sheet?.type === 'notes' && notes.notes && (
         <Sheet title="Show notes" top={mini} onClose={() => setSheet(null)}>
           {(notes.sections.length ? notes.sections : [['howToBuy', 'How to buy'], ['delivery', 'Delivery'], ['payment', 'Payment and safety'], ['sizes', 'Sizes and returns'], ['fromSeller', 'From the seller']])

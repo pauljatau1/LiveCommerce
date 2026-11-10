@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { studio, errorText, naira, when } from './api';
 import { Icon, Empty, Problem, Skeleton, TopBar } from './ui';
+import { releaseStream } from './localMedia';
 import ShareSheet from './ShareSheet';
 
 function ShowPicker() {
@@ -35,6 +36,7 @@ function Check({ showId }) {
   const navigate = useNavigate();
   const video = useRef(null);
   const streamRef = useRef(null);
+  const requestRef = useRef(0);
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [camError, setCamError] = useState('');
@@ -53,31 +55,40 @@ function Check({ showId }) {
     }).catch((e) => setError(errorText(e, "Couldn't load this show.")));
   }, [showId, navigate]);
 
-  const stop = () => { streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null; };
+  const stop = useCallback(() => {
+    requestRef.current += 1;
+    releaseStream(streamRef.current);
+    streamRef.current = null;
+    if (video.current) video.current.srcObject = null;
+  }, []);
 
   const open = useCallback(async (camId, mId) => {
     stop();
+    const request = requestRef.current;
     setCamError('');
     try {
       const s = await navigator.mediaDevices.getUserMedia({
         video: camId ? { deviceId: { exact: camId } } : { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: mId ? { deviceId: { exact: mId } } : true,
       });
+      if (request !== requestRef.current) { releaseStream(s); return; }
       streamRef.current = s;
       if (video.current) video.current.srcObject = s;
       const devices = await navigator.mediaDevices.enumerateDevices();
+      if (request !== requestRef.current) return;
       setCameras(devices.filter((d) => d.kind === 'videoinput'));
       setMics(devices.filter((d) => d.kind === 'audioinput'));
       setCameraId(s.getVideoTracks()[0]?.getSettings().deviceId || camId || '');
       setMicId(s.getAudioTracks()[0]?.getSettings().deviceId || mId || '');
     } catch (e) {
+      if (request !== requestRef.current) return;
       setCamError(e?.name === 'NotAllowedError'
         ? 'Camera or microphone is blocked. Allow them for this site in your browser settings (the lock icon by the address), then try again.'
         : "Couldn't start your camera. Close other apps using it and try again.");
     }
-  }, []);
+  }, [stop]);
 
-  useEffect(() => { open(); return stop; }, [open]);
+  useEffect(() => { open(); return stop; }, [open, stop]);
 
   // Simple mic level meter
   useEffect(() => {

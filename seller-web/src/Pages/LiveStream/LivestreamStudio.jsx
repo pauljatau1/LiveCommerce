@@ -1,3 +1,4 @@
+import { releaseStream, releaseTrack } from '../../studio/localMedia';
 import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOutletContext } from 'react-router-dom';
@@ -137,6 +138,8 @@ const LivestreamStudio = () => {
     // Media state
     const [localTracks, setLocalTracks] = useState([]);
     const [previewMediaStream, setPreviewMediaStream] = useState(null);
+    const currentMediaRef = useRef(null);
+    currentMediaRef.current = { previewMediaStream, localTracks };
     const [cameraFacingMode, setCameraFacingMode] = useState("user");
     const [isMicrophoneEnabled, setIsMicrophoneEnabled] = useState(true);
     const [deviceError, setDeviceError] = useState(null);
@@ -201,6 +204,8 @@ const LivestreamStudio = () => {
             setNavName('Live Studio')
             setShowBackButton(true)
 
+            releaseStream(currentMediaRef.current?.previewMediaStream);
+            currentMediaRef.current?.localTracks.forEach(releaseTrack);
             // Cleanup any remaining tracks or streams on unmount
             if (previewMediaStream) {
                 previewMediaStream.getTracks().forEach(track => {
@@ -1153,6 +1158,8 @@ const LivestreamStudio = () => {
 
     // Function to end stream - wrapped in useCallback
     const endStream = useCallback(async (button1, button2) => {
+        releaseStream(previewMediaStream);
+        localTracks.forEach(releaseTrack);
         try {
             // Set loading states
             if (button1 === true) {
