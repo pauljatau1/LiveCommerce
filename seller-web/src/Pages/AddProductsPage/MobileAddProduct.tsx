@@ -427,6 +427,13 @@ const MobileAddProduct = ({ mode = 'add', productId, initialProduct }: MobileAdd
             const resolvedUpc = mode === 'edit' ? initialProduct?.upc : undefined;
 
             const productData = {
+                ...(initialProduct?.fromDraft ? {
+                    draftProof: initialProduct.draftProof,
+                    fabric: initialProduct.fabric || '',
+                    localStyle: initialProduct.localStyle || '',
+                    colourVariants: initialProduct.colourVariants || [],
+                    colourQuantities: Number(data.quantity) === Number(initialProduct.stock) ? initialProduct.colourQuantities || [] : [],
+                } : {}),
                 name: data.title,
                 description: data.description,
                 price: Number(data.basePrice),

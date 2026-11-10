@@ -39,6 +39,7 @@ const navGroups = [
     title: "Marketplace OS",
     items: [
       { icon: Package, label: 'Inventory', path: '/dashboard/products' },
+      { icon: Package, label: 'Listing AI corrections', path: '/dashboard/listing-corrections' },
       { icon: Zap, label: 'Blips', path: '/dashboard/blips' },
       { icon: FolderTree, label: 'Major Cat', path: '/dashboard/major-categories' },
       { icon: Folder, label: 'Categories', path: '/dashboard/categories' },

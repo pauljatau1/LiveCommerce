@@ -13,6 +13,7 @@ import MainLayout from '@/components/layouts/MainLayout';
 import Buyers from '@/pages/buyers';
 import BuyerDetail from '@/pages/buyerDetail';
 import Orders from '@/pages/orders';
+import ListingCorrections from '@/pages/listingCorrections';
 import Products from '@/pages/products';
 import Blips from '@/pages/blips';
 import Streams from '@/pages/streams';
@@ -69,6 +70,7 @@ function App() {
             <Route path="/dashboard/buyers" element={<Buyers />} />
             <Route path="/dashboard/buyer-detail/:id" element={<BuyerDetail />} />
             <Route path="/dashboard/orders" element={<Orders />} />
+            <Route path="/dashboard/listing-corrections" element={<ListingCorrections />} />
             <Route path="/dashboard/products" element={<Products />} />
             <Route path="/dashboard/blips" element={<Blips />} />
             <Route path="/dashboard/streams" element={<Streams />} />

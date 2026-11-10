@@ -84,10 +84,12 @@ describe('studio routes', () => {
   });
 
   it('show: items with live state, stock and sales; other sellers get 404', async () => {
+    await Product.updateOne({ _id: figure }, { $set: { colourVariants: ['Blue and white', 'Green'] } });
     const show = await Stream.findOne({ title: 'Friday drop' }).lean();
     const res = await request(app).get(`/api/v2/studio/shows/${show._id}`).expect(200);
     expect(res.body.show).toMatchObject({ title: 'Friday drop', type: 'drop', status: 'scheduled' });
     expect(res.body.items[0]).toMatchObject({ name: 'Gojo figure', stock: 1, price: 32000, image: 'https://img/gojo.jpg', bidStatus: 'pending', sold: 0 });
+    expect(res.body.items[0].colourVariants).toEqual(['Blue and white', 'Green']);
     const theirs = await Stream.create({ seller: new mongoose.Types.ObjectId(), title: 'Theirs', category: 'x', channelName: 'c3', type: 'open_show', products: [] });
     await request(app).get(`/api/v2/studio/shows/${theirs._id}`).expect(404);
   });

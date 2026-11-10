@@ -21,6 +21,9 @@ export default function RunSheet({ item, again, busy, onStart, onClose }) {
       {again && <span className="hint">A fresh auction for one more {item.name}.</span>}
       <div className="fl">
         <label className="lab" htmlFor="run-note">Note for this run <span className="hint" style={{ fontWeight: 600 }}>optional</span></label>
+        {(item.colourVariants || []).length > 1 && <div role="group" aria-label="Suggested colour notes" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {item.colourVariants.map((colour) => <button key={colour} type="button" className={`chip${note === colour.slice(0, 40) ? ' on' : ''}`} onClick={() => setNote(colour.slice(0, 40))}>{colour}</button>)}
+        </div>}
         <input id="run-note" className="in" value={note} maxLength={40} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Red, size M" />
         <span className="hint">{note.length} / 40 · Buyers see it under the title. No phone numbers or links.</span>
       </div>

@@ -244,6 +244,15 @@ const productSchema = new mongoose.Schema({
   sku: { type: String },
   upc: { type: String },
   condition: { type: String },
+  localStyle: { type: String, trim: true, maxlength: 60 },
+  fabric: { type: String, trim: true, maxlength: 60 },
+  // Colour labels feed run-note suggestions; counts retain the initial allocation.
+  colourVariants: [{ type: String, trim: true, maxlength: 60 }],
+  colourQuantities: [{
+    _id: false,
+    colour: { type: String, required: true, maxlength: 60 },
+    quantity: { type: Number, required: true, min: 0, max: 999, validate: Number.isInteger },
+  }],
   // Seller's answer to "official merch or a replica?" (shown to buyers)
   authenticity: { type: String, enum: ['official', 'replica', 'unknown'], default: 'unknown' },
   tags: [{ type: String }],

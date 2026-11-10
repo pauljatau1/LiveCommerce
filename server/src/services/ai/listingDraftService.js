@@ -9,6 +9,8 @@ const axios = require('axios');
 const mongoose = require('mongoose');
 const { CONDITIONS, LAUNCH_CATEGORY_NAMES } = require('../../config/catalogue');
 
+const { NIGERIAN_FASHION_GUIDE } = require('./nigerianFashionGuide');
+
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_MODEL = 'gemini-3.6-flash';
 // Used when the main model is overloaded or slow (GEMINI_BACKUP_MODEL, 'none' to turn off)
@@ -44,6 +46,11 @@ const DRAFT_SCHEMA = {
     tags: { type: 'ARRAY', items: { type: 'STRING' } },
     franchise: { type: 'STRING', description: 'Series, game or franchise, or empty if unsure' },
     character: { type: 'STRING', description: 'Character shown, or empty if unsure' },
+    localStyle: { type: 'STRING', description: 'Local garment style, or empty for ordinary clothing' },
+    fabric: { type: 'STRING', description: 'Recognisable fabric name, or empty if unsupported' },
+    fabricConfidence: { type: 'STRING', enum: ['high', 'medium', 'low'] },
+    styleConfidence: { type: 'STRING', enum: ['high', 'medium', 'low'] },
+    colourVariants: { type: 'ARRAY', items: { type: 'STRING' }, description: 'Same design in distinct colourways, e.g. Blue and white; empty for one colourway' },
     brand: { type: 'STRING', description: 'Maker or brand only if visible on the item or box, else empty' },
     priceLowNGN: { type: 'NUMBER', description: 'Low end of a typical Nigerian resale price in naira' },
     priceHighNGN: { type: 'NUMBER', description: 'High end of a typical Nigerian resale price in naira' },
@@ -58,6 +65,10 @@ const DRAFT_SCHEMA = {
   required: ['title', 'category', 'condition', 'description', 'tags', 'confidence', 'questions'],
 };
 
+// Legacy fields remain documented above for old drafts; generation is switched off.
+const { franchise: _franchise, character: _character, ...activeProperties } = DRAFT_SCHEMA.properties;
+const ACTIVE_DRAFT_SCHEMA = { ...DRAFT_SCHEMA, properties: activeProperties };
+
 const loadCategories = async () => {
   const Category = mongoose.model('Category');
   const rows = await Category.find({}, { name: 1, 'subCategories.name': 1 }).lean();
@@ -69,6 +80,7 @@ const loadCategories = async () => {
 
 const buildInstructions = (categories, note) => `You help Nigerian sellers of clothing, shoes, bags and accessories list items for a live shopping app.
 Draft a listing from the photos.
+${NIGERIAN_FASHION_GUIDE}
 
 Rules:
 - Only state what is visible in the photos or written in the seller's note. Never invent the brand, material, size or measurements.
@@ -80,6 +92,10 @@ Rules:
 ${categories.map((c) => `  - ${c.name}: ${c.subCategories.join(', ')}`).join('\n')}
 - Prices are rough Nigerian resale estimates in naira (NGN). Give a realistic range, not a single number.
 - Write for shoppers: friendly and clear, no hype words like "amazing" or "best".
+- If photos show the same design in several colours, return colourVariants (one label per colourway). Never list any colours in the description in that case. Ask "How many of each colour?" instead of total quantity.
+- Return fabricConfidence and styleConfidence separately. Never ask about entertainment catalogue fields.
+- If condition is Unknown, always ask "Is it new with tags, thrift or fairly used?".
+- Quantity and original/replica are always asked. If both condition and fabric/style need confirmation, combine them in one clarification with separate choices, so the total stays at most 3 questions.
 - Ask at most 3 questions, only about things the photos cannot answer (quantity is always one of them).
 ${note ? `\nSeller's note: """${String(note).slice(0, 500)}"""` : ''}`;
 
@@ -107,9 +123,35 @@ const normaliseDraft = (raw, categories) => {
   let low = roundPrice(Number(raw.priceLowNGN));
   let high = roundPrice(Number(raw.priceHighNGN));
   if (low && high && low > high) [low, high] = [high, low];
-  const questions = (Array.isArray(raw.questions) ? raw.questions : []).map((q) => clean(q, 200)).filter(Boolean);
-  if (!questions.some((q) => /official|authentic|original|replica|bootleg/i.test(q))) {
-    questions.push('Is it original or a replica?');
+  const colourVariants = [...new Set((Array.isArray(raw.colourVariants) ? raw.colourVariants : [])
+    .map((v) => clean(v, 60)).filter(Boolean))].slice(0, 12);
+  const condition = CONDITIONS.includes(raw.condition) ? raw.condition : null;
+  const fabric = clean(raw.fabric, 60) || null;
+  const localStyle = clean(raw.localStyle, 60) || null;
+  const confirmations = [
+    fabric && raw.fabricConfidence !== 'high' && { field: 'fabric', value: fabric, choices: [...new Set([fabric, 'Adire', 'Ankara', 'Other'])] },
+    localStyle && raw.styleConfidence !== 'high' && { field: 'localStyle', value: localStyle, choices: [...new Set([localStyle, 'Bubu', 'Kaftan', 'Other'])] },
+  ].filter(Boolean);
+  // Build mandatory questions deterministically: model omissions must not hide
+  // condition, stock or authenticity. One clarification card holds both choices.
+  const questions = [colourVariants.length > 1 ? 'How many of each colour?' : 'How many do you have?', 'Is it original or a replica?'];
+  if (!condition || confirmations.length) {
+    questions.push([
+      !condition ? 'Is it new with tags, thrift or fairly used?' : '',
+      confirmations.map((c) => `Confirm ${c.field === 'fabric' ? 'fabric' : 'style'}: ${c.choices.join(' · ')}`).join('; '),
+    ].filter(Boolean).join(' '));
+  }
+  let description = clean(raw.description, 1500);
+  if (colourVariants.length) {
+    // Defence against model slips: drop whole colour-bearing sentences rather
+    // than leave broken lists. Keep the other factual sentences intact.
+    const colourWords = new Set(colourVariants.join(' ').toLowerCase().match(/[a-z]+/g) || []);
+    ['and', 'with', 'on', 'in'].forEach((w) => colourWords.delete(w));
+    'blue white indigo red green yellow orange pink purple black brown grey gray cream beige navy teal gold silver maroon burgundy multicolour multicolor'.split(' ').forEach((w) => colourWords.add(w));
+    description = (description.match(/[^.!?\n]+[.!?]?/g) || []).filter((sentence) =>
+      !(sentence.toLowerCase().match(/[a-z]+/g) || []).some((w) => colourWords.has(w))
+    ).map((sentence) => sentence.trim()).filter(Boolean).join('\n');
+    if (!description) description = 'The photos show the design and details. Choose your preferred colourway.';
   }
   const weight = Number(raw.estimatedWeightKg);
 
@@ -117,8 +159,14 @@ const normaliseDraft = (raw, categories) => {
     title: clean(raw.title, 80),
     category: category?.name || null,
     subCategory: subCategory || null,
-    condition: CONDITIONS.includes(raw.condition) ? raw.condition : null,
-    description: clean(raw.description, 1500),
+    condition,
+    fabric,
+    localStyle,
+    fabricConfidence: raw.fabricConfidence || 'low',
+    styleConfidence: raw.styleConfidence || 'low',
+    colourVariants,
+    confirmations,
+    description,
     tags: [...new Set((Array.isArray(raw.tags) ? raw.tags : []).map((t) => clean(t, 30).toLowerCase()).filter(Boolean))].slice(0, 8),
     franchise: clean(raw.franchise, 60) || null,
     character: clean(raw.character, 60) || null,
@@ -126,13 +174,13 @@ const normaliseDraft = (raw, categories) => {
     suggestedPrice: low || high ? { low: low || high, high: high || low, currency: 'NGN', isEstimate: true } : null,
     weightKg: Number.isFinite(weight) && weight > 0 && weight < 50 ? Math.round(weight * 10) / 10 : 1,
     confidence: ['high', 'medium', 'low'].includes(raw.confidence) ? raw.confidence : 'low',
-    questions: questions.slice(0, 4),
+    questions,
   };
 };
 
 const busyOrSlow = (error) => [429, 500, 503].includes(error.response?.status) || error.code === 'ECONNABORTED';
 
-const callModel = async (model, parts, timeout, schema = DRAFT_SCHEMA) => {
+const callModel = async (model, parts, timeout, schema = ACTIVE_DRAFT_SCHEMA) => {
   // Listing drafts don't need deep reasoning; low thinking keeps them fast.
   const thinkingLevel = (process.env.GEMINI_THINKING_LEVEL || 'LOW').toUpperCase();
   const request = (withThinking) =>
@@ -162,7 +210,7 @@ const logFailure = (model, error) =>
   console.error('[ai] Gemini request failed:', { model, status: error.response?.status, reason: error.response?.data?.error?.message || error.code || error.message });
 
 // `schema`: the JSON shape to answer in (listing drafts by default; show notes use their own)
-const callGemini = async (parts, schema = DRAFT_SCHEMA) => {
+const callGemini = async (parts, schema = ACTIVE_DRAFT_SCHEMA) => {
   const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
   const backupSetting = process.env.GEMINI_BACKUP_MODEL || DEFAULT_BACKUP_MODEL;
   const backup = backupSetting.toLowerCase() === 'none' || backupSetting === model ? null : backupSetting;
@@ -256,4 +304,4 @@ const checkConnection = async () => {
   };
 };
 
-module.exports = { callGemini, draftFromPhotos, refineDraft, normaliseDraft, isConfigured, checkConnection, ListingDraftError, DEFAULT_MODEL };
+module.exports = { callGemini, draftFromPhotos, refineDraft, normaliseDraft, isConfigured, checkConnection, ListingDraftError, DEFAULT_MODEL, DRAFT_SCHEMA, ACTIVE_DRAFT_SCHEMA, buildInstructions };
