@@ -29,6 +29,17 @@ const cleanNote = (note) => {
  * - Ended (sold or not): needs stock ≥ 1; resets the item for a fresh auction (run + 1).
  * Running items can't be changed. Returns the updated show item.
  */
+// Older versions left fully paid (or unsold) runs marked ongoing. Only heal
+// records with no outstanding hold and a definitive order, or no bid at all.
+const runReadiness = (item) => {
+  const noHold = !(Number(item.holdAmount) > 0);
+  const paid = item.orderCreated === true && Boolean(item.orderId);
+  const unsold = !item.currentBidder && !(Number(item.currentBid) > 0) && !item.bidWinner?.bidAmount;
+  const legacySettled = item.bidStatus === 'ongoing' && noHold && (paid || unsold);
+  return { settled: noHold && (item.bidStatus === 'ended' || legacySettled), legacySettled,
+    settling: (item.bidStatus === 'ongoing' && !legacySettled) || (item.bidStatus === 'ended' && !noHold) };
+};
+
 const prepareRun = async ({ streamId, sellerId, productId, note, minBid, seconds }) => {
   const Stream = mongoose.model('Stream');
   const text = cleanNote(note);
@@ -41,9 +52,24 @@ const prepareRun = async ({ streamId, sellerId, productId, note, minBid, seconds
     { _id: streamId, seller: sellerId, status: 'live', type: 'auction', 'products.product.productId': productIdMatch(productId) },
     { 'products.$': 1 }
   ).lean();
-  const item = stream?.products?.[0];
+  let item = stream?.products?.[0];
   if (!item) throw new RunError(404, "That item isn't in your live show.");
-  if (['active', 'ongoing'].includes(item.bidStatus)) throw new RunError(409, 'This item is being auctioned now. Wait for it to end.');
+  const readiness = runReadiness(item);
+  if (readiness.legacySettled) {
+    const healed = await Stream.findOneAndUpdate(
+      { _id: streamId, seller: sellerId, status: 'live', products: { $elemMatch: {
+        'product.productId': productIdMatch(productId), bidStatus: 'ongoing',
+        ...(item.run ? { run: item.run } : { $or: [{ run: 1 }, { run: { $exists: false } }] }), holdAmount: { $not: { $gt: 0 } },
+        ...(item.orderCreated ? { orderCreated: true, orderId: item.orderId } : { currentBid: { $not: { $gt: 0 } }, currentBidder: null, 'bidWinner.bidAmount': { $not: { $gt: 0 } } }),
+      } } },
+      { $set: { 'products.$.bidStatus': 'ended' } },
+      { new: true, projection: { products: { $elemMatch: { 'product.productId': productIdMatch(productId) } } } }
+    ).lean();
+    if (!healed) throw new RunError(409, 'This item changed just now. Try again.');
+    item = healed.products[0];
+  }
+  if (item.bidStatus === 'active') throw new RunError(409, 'This item is being auctioned now. Wait for it to end.');
+  if (item.bidStatus === 'ongoing' || Number(item.holdAmount) > 0) throw new RunError(409, 'Finishing the last sale. Run again will be ready when payment is settled.');
 
   const set = { 'products.$.runNote': text || undefined };
   if (bid !== null) set['products.$.minBid'] = bid;
@@ -70,7 +96,8 @@ const prepareRun = async ({ streamId, sellerId, productId, note, minBid, seconds
     });
     Object.assign(unset, { 'products.$.bidWinner': 1, 'products.$.orderId': 1, 'products.$.holdBuyer': 1, 'products.$.auctionEndsAt': 1 });
     update.$unset = unset;
-    update.$inc = { 'products.$.run': 1 };
+    // Missing run on older records means run 1; the next charge must use r2.
+    set['products.$.run'] = (Number(item.run) || 1) + 1;
     // Only from "ended", and never while a winner's money is still held
     match.bidStatus = 'ended';
     match.$or = [{ holdAmount: { $exists: false } }, { holdAmount: { $lte: 0 } }];
@@ -87,4 +114,4 @@ const prepareRun = async ({ streamId, sellerId, productId, note, minBid, seconds
   return after.products[0];
 };
 
-module.exports = { prepareRun, cleanNote, RunError, NOTE_MAX };
+module.exports = { prepareRun, cleanNote, RunError, NOTE_MAX, runReadiness };

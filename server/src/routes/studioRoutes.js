@@ -223,6 +223,8 @@ router.get('/shows/:id', validId, async (req, res) => {
         stock: p.stock ?? 0,
         minBid: sp.minBid || 0,
         bidStatus: sp.bidStatus || 'pending',
+        canRunAgain: p.stock > 0 && require('../services/auctionRuns').runReadiness(sp).settled,
+        settlementPending: require('../services/auctionRuns').runReadiness(sp).settling,
         auctionSeconds: sp.auctionSeconds || 30,
         run: sp.run || 1,
         runNote: sp.runNote || '',

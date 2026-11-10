@@ -94,6 +94,21 @@ describe('studio routes', () => {
     await request(app).get(`/api/v2/studio/shows/${theirs._id}`).expect(404);
   });
 
+  it('show snapshots gate Run again on settlement and available stock', async () => {
+    const show = await Stream.create({ seller: mockSellerId, title: 'Runs', category: 'Women', channelName: 'runs', status: 'live', type: 'auction',
+      products: [{ product: { productId: String(figure) }, minBid: 500, maxBid: 100000, bidStatus: 'ongoing', currentBid: 1000, currentBidder: new mongoose.Types.ObjectId(), orderCreated: true, orderId: 'paid-order', holdAmount: 0 }] });
+    const get = async () => (await request(app).get(`/api/v2/studio/shows/${show._id}`).expect(200)).body.items[0];
+    expect(await get()).toMatchObject({ canRunAgain: true, settlementPending: false });
+    await Stream.updateOne({ _id: show._id }, { $set: { 'products.0.holdAmount': 1000, 'products.0.orderCreated': false } });
+    expect(await get()).toMatchObject({ canRunAgain: false, settlementPending: true });
+    await Stream.updateOne({ _id: show._id }, { $set: { 'products.0.bidStatus': 'active', 'products.0.auctionEndsAt': new Date(Date.now() - 1000) } });
+    expect((await get()).canRunAgain).toBe(false);
+    await Stream.updateOne({ _id: show._id }, { $set: { 'products.0.bidStatus': 'ended', 'products.0.holdAmount': 0 } });
+    expect((await get()).canRunAgain).toBe(true);
+    await Product.updateOne({ _id: figure }, { $set: { stock: 0 } });
+    expect((await get()).canRunAgain).toBe(false);
+  });
+
   it('withdraw: within what is ready, and pending requests count against it', async () => {
     await request(app).post('/api/v2/studio/withdraw').send({ amount: 500 }).expect(400);
     await request(app).post('/api/v2/studio/withdraw').send({ amount: 40000 }).expect(200);

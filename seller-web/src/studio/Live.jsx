@@ -17,6 +17,7 @@ import { hasNotes } from './NotesEditor';
 import NotesSheet from './NotesSheet';
 import RunSheet from './RunSheet';
 import { acquireTracks, createTrackScope } from './localMedia';
+import { createLiveRecovery, studioTimers, selectedItem, runState } from './liveRecovery';
 import useKeyboardInset from './useKeyboardInset';
 import { useIntercomVisibility } from '@/Hooks/useIntercomVisibility';
 
@@ -36,6 +37,13 @@ export default function Live() {
   const mediaScopeRef = useRef(null);
   const endedRef = useRef(false);
   const socketRef = useRef(null);
+  const recoveryRef = useRef(null);
+  const restoreRef = useRef(() => {});
+  const [recoveryStatus, setRecoveryStatus] = useState('syncing');
+  const [socketUp, setSocketUp] = useState(false);
+  const [online, setOnline] = useState(navigator.onLine);
+  const [rtcSession, setRtcSession] = useState(0);
+  const [runError, setRunError] = useState('');
 
   const [phase, setPhase] = useState('connecting'); // connecting | live | reconnecting | error | ending
   const [error, setError] = useState('');
@@ -44,6 +52,7 @@ export default function Live() {
   const [sales, setSales] = useState({ count: 0, amount: 0 });
   const [currentId, setCurrentId] = useState(null);
   const [timer, setTimer] = useState({});
+  const deadlinesRef = useRef({});
   const [viewers, setViewers] = useState(0);
   const [startedAt, setStartedAt] = useState(null);
   const [elapsed, setElapsed] = useState(0);
@@ -72,16 +81,63 @@ export default function Live() {
   const say = useCallback((t) => setToast(t), []);
   useEffect(() => { if (!toast) return undefined; const t = setTimeout(() => setToast(''), 3500); return () => clearTimeout(t); }, [toast]);
 
-  const refresh = useCallback(async () => {
-    const r = await studio.show(id);
-    setShow(r.show);
-    setItems(r.items);
-    setSales(r.sales);
-    setViewers((v) => v || r.show.viewers || 0);
-    const visible = r.items.find((i) => i.isVisible || i.bidStatus === 'active');
-    setCurrentId((c) => c || visible?.productId || r.items[0]?.productId || null);
-    return r;
-  }, [id]);
+  useEffect(() => {
+    const recovery = createLiveRecovery({
+      load: async () => {
+        const [snapshot, history] = await Promise.all([studio.show(id), studio.chat(id)]);
+        return { ...snapshot, history };
+      },
+      apply: (r) => {
+        if (endedRef.current) return;
+        if (r.show.status === 'ended') {
+          endedRef.current = true; mediaScopeRef.current?.close();
+          clientRef.current?.leave().catch(() => {});
+          navigate(`/studio/recap/${id}`, { replace: true }); return;
+        }
+        setShow(r.show); setItems(r.items); setSales(r.sales);
+        setViewers(r.show.viewers || 0); setTimer(studioTimers(r.items));
+        deadlinesRef.current = Object.fromEntries(r.items.filter((i) => i.bidStatus === 'active' && Number.isFinite(Date.parse(i.auctionEndsAt))).map((i) => [i.productId, Date.parse(i.auctionEndsAt)]));
+        setCurrentId((previous) => selectedItem(r.items, previous));
+        if (r.show.actualStartTime) { const started = Date.parse(r.show.actualStartTime); setStartedAt(started); setElapsed((Date.now() - started) / 1000); }
+        const list = Array.isArray(r.history) ? r.history : r.history?.chatInteractions || [];
+        setFeed(list.filter((m) => !m.hidden).slice(-40).map((m) => { const entry = feedEntryFor(m); return entry ? { id: m.id || m._id, ...entry } : null; }).filter(Boolean));
+      },
+      status: setRecoveryStatus,
+    });
+    recoveryRef.current = recovery;
+    const resume = () => {
+      if (document.visibilityState === 'hidden' || endedRef.current) return;
+      setOnline(navigator.onLine);
+      const socket = socketRef.current;
+      if (socket?.connected) socket.emit('stream_notification_subscribe', { streamId: id });
+      else socket?.connect();
+      recovery.refresh().then((r) => { if (r?.show.status === 'live' && !endedRef.current) restoreRef.current(); }).catch(() => {});
+    };
+    const offline = () => setOnline(false);
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('pageshow', resume); window.addEventListener('focus', resume);
+    window.addEventListener('online', resume); window.addEventListener('offline', offline);
+    const poll = setInterval(() => { if (document.visibilityState !== 'hidden' && !endedRef.current) recovery.refresh({ quiet: true }).catch(() => {}); }, 30000);
+    return () => {
+      recovery.dispose(); if (recoveryRef.current === recovery) recoveryRef.current = null;
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('pageshow', resume); window.removeEventListener('focus', resume);
+      window.removeEventListener('online', resume); window.removeEventListener('offline', offline);
+      clearInterval(poll);
+    };
+  }, [id, navigate]);
+  const refresh = useCallback((options) => recoveryRef.current?.refresh(options), [id]);
+
+  // Preserve the host's device choices and muted microphone on an RTC restart.
+  const micRef = useRef(micOn); micRef.current = micOn;
+  const facingRef = useRef(facing); facingRef.current = facing;
+  restoreRef.current = () => {
+    if (endedRef.current) return;
+    const client = clientRef.current, tracks = tracksRef.current;
+    const dead = [tracks.audio, tracks.video].some((t) => t?.getMediaStreamTrack?.()?.readyState === 'ended');
+    if (client?.connectionState === 'DISCONNECTED' || dead) setRtcSession((n) => n + 1);
+    else if (tracks.video && videoRef.current) { try { tracks.video.play(videoRef.current, { fit: 'cover', mirror: facingRef.current === 'user' }); } catch { /* SDK can recover on its next connection event */ } }
+  };
 
   // 1. Start (or rejoin) the show, join Agora as host, publish camera + mic
   useEffect(() => {
@@ -95,7 +151,7 @@ export default function Live() {
     const run = async () => {
       try {
         const r = await refresh();
-        if (cancelled || scope.closed) return;
+        if (cancelled || scope.closed || !r) return;
         if (r.show.status === 'ended') { scope.close(); endedRef.current = true; navigate(`/studio/recap/${id}`, { replace: true }); return; }
         if (r.show.status !== 'live') await studio.startShow(id);
         const creds = await studio.hostToken(id);
@@ -103,11 +159,14 @@ export default function Live() {
         await client.setClientRole('host');
         client.on('connection-state-change', (cur) => {
           if (cur === 'RECONNECTING' || cur === 'DISCONNECTED') setPhase((p) => (p === 'ending' ? p : 'reconnecting'));
-          if (cur === 'CONNECTED') setPhase((p) => (p === 'reconnecting' ? 'live' : p));
+          if (cur === 'CONNECTED') { setPhase((p) => (p === 'reconnecting' ? 'live' : p)); refresh().catch(() => {}); }
         });
-        client.on('token-privilege-will-expire', async () => {
-          try { const t = await studio.hostToken(id); await client.renewToken(t.token); } catch { /* retried on next warning */ }
-        });
+        const renew = async () => {
+          try { const t = await studio.hostToken(id); if (!cancelled && !scope.closed) await client.renewToken(t.token); }
+          catch { refresh().catch(() => {}); }
+        };
+        client.on('token-privilege-will-expire', renew);
+        client.on('token-privilege-did-expire', renew);
         // Don't spin forever on a bad connection
         await Promise.race([
           client.join(creds.agoraAppId || import.meta.env.VITE_AGORA_API_KEY, creds.channelName, creds.token, creds.uid),
@@ -116,11 +175,12 @@ export default function Live() {
         if (cancelled || scope.closed) return;
         const [audio, video] = await acquireTracks(scope, [
           () => AgoraRTC.createMicrophoneAudioTrack({ ...(nav?.micId ? { microphoneId: nav.micId } : {}), AEC: true, ANS: true, AGC: true }),
-          () => AgoraRTC.createCameraVideoTrack({ ...(nav?.cameraId ? { cameraId: nav.cameraId } : { facingMode: 'user' }), encoderConfig: '480p_1', optimizationMode: 'motion' }),
+          () => AgoraRTC.createCameraVideoTrack({ ...(nav?.cameraId ? { cameraId: nav.cameraId } : { facingMode: facingRef.current }), encoderConfig: '480p_1', optimizationMode: 'motion' }),
         ]);
         if (cancelled || scope.closed) { scope.close(); return; }
         tracksRef.current = { audio, video };
-        if (videoRef.current) video.play(videoRef.current, { fit: 'cover', mirror: true });
+        if (!micRef.current) await audio.setEnabled(false);
+        if (videoRef.current) video.play(videoRef.current, { fit: 'cover', mirror: facingRef.current === 'user' });
         await client.publish([audio, video]);
         if (cancelled || scope.closed) return;
         setStartedAt((s) => s || Date.now());
@@ -141,18 +201,16 @@ export default function Live() {
       client.removeAllListeners();
       client.leave().catch(() => {});
     };
-  }, [id, refresh, navigate, nav]);
+  }, [id, refresh, navigate, nav, rtcSession]);
 
   // 2. Live events
   useEffect(() => {
     const origin = new URL(BASE_URL).origin;
     const socket = io(origin, { auth: { token: tokenUtils.getBearerToken() }, transports: ['websocket', 'polling'], reconnectionDelayMax: 5000 });
     socketRef.current = socket;
-    socket.on('connect', () => socket.emit('stream_notification_subscribe', { streamId: id }));
-    studio.chat(id).then((res) => {
-      const list = Array.isArray(res) ? res : res?.chatInteractions || res?.data || [];
-      setFeed(list.filter((m) => m.type === 'comment' && !m.hidden).slice(-20).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, avatar: m.avatar, text: m.content, host: Boolean(m.data?.isHost || m.isHost) })));
-    });
+    socket.on('connect', () => { setSocketUp(true); socket.emit('stream_notification_subscribe', { streamId: id }); refresh().catch(() => {}); });
+    socket.on('disconnect', () => setSocketUp(false));
+    socket.on('connect_error', () => setSocketUp(false));
     // Chat safety: messages with phone numbers, account numbers or links are hidden from buyers
     socket.on('notes_suggestion', (sg) => setSuggestions((l) => [...l.filter((x) => x.text !== sg.text), sg].slice(-3)));
     socket.on('chat_hidden_detail', (h) => push({ kind: 'hidden', hiddenId: h.id, user: h.user, text: h.content, notice: h.notice }));
@@ -161,6 +219,7 @@ export default function Live() {
     socket.on('chat_hidden_self', (h) => say(h?.message || 'Phone numbers, account numbers and links stay out of chat.'));
     socket.on('stream_notification', (n) => {
       const d = n?.data || {};
+      if (['auction_start', 'new_bid', 'auction_winner', 'auction_end', 'product_display', 'buy_now', 'stream_ended'].includes(n?.type)) recoveryRef.current?.invalidate();
       // Chat lines are built the same way as on the buyer's Watch (liveFeed.js)
       const line = feedEntryFor(n);
       if (line) push(line);
@@ -175,6 +234,8 @@ export default function Live() {
         case 'new_bid':
           if (d.product) setItems((l) => l.map((p) => (p.productId === pid(d.product) ? { ...p, currentBid: d.bidAmount, currentBidder: n.user || p.currentBidder, bidStatus: 'active' } : p)));
           break;
+        case 'auction_start':
+        case 'product_display': refresh().catch(() => {}); break;
         case 'auction_winner':
           say(`${winnerName(d)} won it for ${naira(d.bidWinner?.bidAmount)}`);
           refresh().catch(() => {});
@@ -192,10 +253,25 @@ export default function Live() {
     });
     socket.on('viewer_joined_stream', (n) => { if (typeof n?.data?.viewerCount === 'number') setViewers(n.data.viewerCount); });
     socket.on('viewer_left_stream', (n) => { if (typeof n?.data?.viewerCount === 'number') setViewers(n.data.viewerCount); });
-    socket.on('bid_timer_update', (t) => t?.productId && setTimer((m) => ({ ...m, [String(t.productId)]: t.secondsLeft })));
-    socket.on('bid_timer_complete', (t) => t?.productId && setTimer((m) => ({ ...m, [String(t.productId)]: 0 })));
+    socket.on('bid_timer_update', (t) => {
+      if (!t?.productId) return;
+      if (t.extended) recoveryRef.current?.invalidate();
+      deadlinesRef.current[String(t.productId)] = Number.isFinite(Date.parse(t.endsAt)) ? Date.parse(t.endsAt) : Date.now() + t.secondsLeft * 1000;
+      setTimer((m) => ({ ...m, [String(t.productId)]: t.secondsLeft }));
+    });
+    socket.on('bid_timer_complete', (t) => { if (t?.productId) { setTimer((m) => ({ ...m, [String(t.productId)]: 0 })); refresh({ quiet: true }).catch(() => {}); } });
     return () => { socket.emit('stream_notification_unsubscribe', { streamId: id }); socket.disconnect(); };
   }, [id, push, say, refresh, navigate]);
+
+  // The deadline survives suspended iOS timers; socket ticks can extend it.
+  useEffect(() => {
+    const tick = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      const remaining = Object.fromEntries(Object.entries(deadlinesRef.current).map(([id, end]) => [id, Math.max(0, Math.ceil((end - Date.now()) / 1000))]));
+      setTimer((previous) => Object.entries(remaining).every(([id, left]) => previous[id] === left) ? previous : { ...previous, ...remaining });
+    }, 500);
+    return () => clearInterval(tick);
+  }, []);
 
   useEffect(() => {
     if (!startedAt) return undefined;
@@ -208,7 +284,14 @@ export default function Live() {
   const secs = current ? timer[current.productId] : undefined;
   // Ring length: the auction time, or longer if time was added
   const total = Math.max(current?.auctionSeconds || 30, secs || 0);
-  const running = current && current.bidStatus === 'active' && (secs === undefined || secs > 0);
+  const { running, settling, canRunAgain } = runState(current, secs);
+  const reconnecting = !online || !socketUp || recoveryStatus !== 'ready' || phase === 'reconnecting';
+  const canAct = phase === 'live' && !reconnecting;
+  useEffect(() => {
+    if (!settling) return undefined;
+    const poll = setInterval(() => refresh({ quiet: true }).catch(() => {}), 1500);
+    return () => clearInterval(poll);
+  }, [settling, refresh]);
   const queue = items.filter((i) => i.productId !== current?.productId);
   // "3 sold · ₦4,000 · 1 item not shown yet" (or "1 auction still running")
   const notShown = items.filter((i) => i.bidStatus === 'pending' && !i.isVisible && !i.winner && !(i.sold > 0)).length;
@@ -229,15 +312,20 @@ export default function Live() {
     setTimer((m) => ({ ...m, [current.productId]: current.auctionSeconds || 30 }));
   }, `Bidding is open: ${clock(current?.auctionSeconds || 30)}`);
   // A run: the note, starting bid and time, then bidding starts (Run again resets the item first)
-  const startRun = ({ note, minBid, seconds }) => act('bid', async () => {
-    const item = runFor.item;
-    await studio.prepareRun(id, item.productId, { note, minBid, seconds });
-    if (!item.isVisible) await studio.displayProduct(id, item.productId).catch(() => {});
-    await studio.startBidding(id, item.productId, seconds);
-    setCurrentId(item.productId);
-    setTimer((m) => ({ ...m, [item.productId]: seconds }));
-    setRunFor(null);
-  }, `Bidding is open: ${clock(runFor?.item?.auctionSeconds || 30)}`);
+  const startRun = async ({ note, minBid, seconds }) => {
+    setBusy('bid'); setRunError('');
+    try {
+      const latest = await refresh();
+      const item = latest?.items.find((i) => i.productId === runFor.item.productId);
+      if (!item || (runFor.again && !item.canRunAgain)) throw new Error(item?.bidStatus === 'active' ? 'This auction is still running.' : 'Finishing the last sale. Please wait a moment.');
+      await studio.prepareRun(id, item.productId, { note, minBid, seconds });
+      if (!item.isVisible) await studio.displayProduct(id, item.productId);
+      await studio.startBidding(id, item.productId, seconds);
+      setCurrentId(item.productId); setRunFor(null);
+      await refresh(); say(`Bidding is open: ${clock(seconds)}`);
+    } catch (error) { setRunError(errorText(error, error.message || "Couldn't start this run.")); await refresh().catch(() => {}); }
+    finally { setBusy(''); }
+  };
   const addTime = () => act('time', () => studio.addTime(id, current.productId, 30), 'Added 30 seconds');
   // "End now · sell": close the auction now; the top bid wins and is charged
   const endNow = () => act('end', () => studio.endBidding(id, current.productId), current?.currentBid ? `Sold to ${current.currentBidder || 'the top bidder'}` : 'Auction ended');
@@ -313,32 +401,31 @@ export default function Live() {
         </div>
         <span className="lv-meta" role="status">
           {isAuction
-            ? current.winner ? `${current.winner.name || 'A buyer'} won it` : current.currentBid ? `${current.currentBidder || 'Someone'} winning` : running ? 'No bids yet' : `Bids start at ${naira(current.minBid)}`
+            ? settling ? 'Finishing sale…' : current.winner ? `${current.winner.name || 'A buyer'} won it` : current.currentBid ? `${current.currentBidder || 'Someone'} winning` : running ? 'No bids yet' : `Bids start at ${naira(current.minBid)}`
             : `${current.stock} of ${current.stock + current.sold} left${current.sold ? ` · ${current.sold} sold · ${naira(current.soldAmount)}` : ''}`}
         </span>
-        {isAuction && !running && !current.winner && current.bidStatus !== 'ended' && (
+        {isAuction && !running && !settling && !canRunAgain && !current.winner && current.bidStatus !== 'ended' && (
           <>
-            <button type="button" className="btn lv-go" disabled={Boolean(busy) || phase !== 'live'} onClick={startBids}>{busy === 'bid' ? 'Starting…' : `Start bidding · ${clock(current.auctionSeconds || 30)}`}</button>
+            <button type="button" className="btn lv-go" disabled={Boolean(busy) || !canAct} onClick={startBids}>{busy === 'bid' ? 'Starting…' : `Start bidding · ${clock(current.auctionSeconds || 30)}`}</button>
             <button type="button" className="lv-all" style={{ alignSelf: 'center' }} onClick={() => setRunFor({ item: current, again: false })}>{current.runNote ? 'Change note' : 'Add a note for this run'}</button>
           </>
         )}
-        {isAuction && running && (
+        {isAuction && running && !settling && (
           <div className="lv-actions">
-            <button type="button" className="lv-ghost" style={{ flex: 'none' }} disabled={Boolean(busy)} onClick={addTime}>{busy === 'time' ? 'Adding…' : '+30s'}</button>
-            <button type="button" className="lv-ghost" style={{ flex: 1 }} disabled={Boolean(busy)} onClick={endNow}>{busy === 'end' ? 'Ending…' : current.currentBid ? 'End now · sell' : 'End now'}</button>
+            <button type="button" className="lv-ghost" style={{ flex: 'none' }} disabled={Boolean(busy) || !canAct} onClick={addTime}>{busy === 'time' ? 'Adding…' : '+30s'}</button>
+            <button type="button" className="lv-ghost" style={{ flex: 1 }} disabled={Boolean(busy) || !canAct} onClick={endNow}>{busy === 'end' ? 'Ending…' : current.currentBid ? 'End now · sell' : 'End now'}</button>
           </div>
         )}
-        {isAuction && (current.winner || current.bidStatus === 'ended') && queue.find((q) => q.bidStatus !== 'ended') && <button type="button" className="btn lv-go" disabled={Boolean(busy)} onClick={() => pick(queue.find((q) => q.bidStatus !== 'ended'))}>Next item</button>}
+        {isAuction && canRunAgain && queue.find((q) => q.bidStatus !== 'ended') && <button type="button" className="btn lv-go" disabled={Boolean(busy) || !canAct} onClick={() => pick(queue.find((q) => q.bidStatus !== 'ended'))}>Next item</button>}
         {!isAuction && (current.isVisible
-          ? <button type="button" className="lv-ghost" disabled={Boolean(busy)} onClick={endDrop}>{busy === 'hide' ? 'Ending…' : 'Take off sale'}</button>
-          : <button type="button" className="btn lv-go" disabled={Boolean(busy) || phase !== 'live' || soldOut} onClick={() => putUp(current)}>{soldOut ? 'Sold out' : busy === 'show' ? 'Putting on sale…' : 'Put on sale'}</button>)}
+          ? <button type="button" className="lv-ghost" disabled={Boolean(busy) || !canAct} onClick={endDrop}>{busy === 'hide' ? 'Ending…' : 'Take off sale'}</button>
+          : <button type="button" className="btn lv-go" disabled={Boolean(busy) || !canAct || soldOut} onClick={() => putUp(current)}>{soldOut ? 'Sold out' : busy === 'show' ? 'Putting on sale…' : 'Put on sale'}</button>)}
       </section>
     ) : null
   );
 
   // Up next: one compact row (32px photo, name, price), then "All"
   // An auction item with stock left can run again once its run has ended
-  const canRunAgain = Boolean(isAuction && current && (current.winner || current.bidStatus === 'ended') && current.stock > 0 && !running);
   const nextItem = queue.find((q) => q.bidStatus !== 'ended' && !q.winner && !(!isAuction && q.stock <= 0));
   const Queue = (
     <div className="lv-upnext" aria-label="Up next">
@@ -350,7 +437,7 @@ export default function Live() {
           {!canRunAgain && <span className="lv-un-price">{isAuction ? `from ${naira(nextItem.minBid)}` : naira(nextItem.price)}</span>}
         </button>
       ) : <span className="lv-un-tx lv-un-none">Nothing else in this show</span>}
-      {canRunAgain && <button type="button" className="lv-run" onClick={() => setRunFor({ item: current, again: true })}>Run again · {current.stock} left</button>}
+      {canRunAgain && <button type="button" className="lv-run" disabled={!canAct || Boolean(busy)} onClick={() => { setRunError(''); setRunFor({ item: current, again: true }); }}>Run again · {current.stock} left</button>}
       <button type="button" className="lv-all" onClick={() => setQueueOpen(true)}>All</button>
     </div>
   );
@@ -400,8 +487,8 @@ export default function Live() {
     <div className={`studio-app lv${typing ? ' typing' : ''}`} style={{ '--kb-bottom': `${typing ? keyboard.bottom : 0}px` }}>
       {/* One slim row: the LIVE chip with the viewer count, the show time, End show */}
       <header className="lv-top">
-        <span className={`lv-live${phase === 'reconnecting' ? ' warn' : ''}`} aria-label={`${phase === 'connecting' ? 'Starting' : phase === 'reconnecting' ? 'Reconnecting' : 'Live'}, ${viewers} watching`}>
-          {phase === 'connecting' ? 'Starting…' : phase === 'reconnecting' ? 'Reconnecting…' : '● LIVE'} · {viewers}
+        <span className={`lv-live${reconnecting ? ' warn' : ''}`} aria-label={`${phase === 'connecting' ? 'Starting' : phase === 'reconnecting' ? 'Reconnecting' : 'Live'}, ${viewers} watching`}>
+          {phase === 'connecting' ? 'Starting…' : reconnecting ? 'Syncing…' : '● LIVE'} · {viewers}
         </span>
         <span className="lv-time">{clock(elapsed)}</span>
         <span className="lv-desk-only lv-title-top">{show?.title}</span>
@@ -410,6 +497,8 @@ export default function Live() {
         <button type="button" className="lv-end" onClick={() => setConfirmEnd(true)} disabled={phase === 'ending'}>{phase === 'ending' ? 'Ending…' : 'End show'}</button>
       </header>
 
+      <div className="lv-mobile-prompts lv-phone-only">{Prompts}</div>
+      {recoveryStatus === 'failed' && <button className="lv-refresh" type="button" onClick={() => refresh().catch(() => {})}>Couldn’t refresh · Retry</button>}
       <div className="lv-body">
         <aside className="lv-left"><div className="lv-desk-only" style={{ flexDirection: 'column', gap: 8 }}><span className="h2">Items in this show</span>{Queue}</div></aside>
         <section className="lv-cam" aria-label="Your camera">
@@ -422,7 +511,7 @@ export default function Live() {
             {/* Chat on the left, controls on the right, like the buyer's Watch */}
             <div className="lv-chatzone">
               <div className="lv-chatcol lv-phone-only">
-                {Prompts}{Chat}
+                {Chat}
                 {/* The host replies here, like buyers do on Watch */}
                 <form className="lv-composer" onSubmit={send}>
                   <label htmlFor="lv-chat" className="sr">Say something</label>
@@ -448,8 +537,8 @@ export default function Live() {
                 <button type="button" className="lv-rb" aria-label="Flip camera" onClick={flip}>{Icon.flip}</button>
               </nav>
             </div>
-            <div className="lv-queue-wrap lv-phone-only">{Queue}</div>
             {ItemCard}
+            <div className="lv-queue-wrap lv-phone-only">{Queue}</div>
           </div>
         </section>
         <aside className="lv-right card">
@@ -465,7 +554,7 @@ export default function Live() {
       </div>
 
       {notesOpen && <NotesSheet notes={show?.notes} busy={notesBusy} onSave={(next) => saveNotes(next)} onClose={() => setNotesOpen(false)} />}
-      {runFor && <RunSheet item={runFor.item} again={runFor.again} busy={busy === 'bid'} onStart={startRun} onClose={() => setRunFor(null)} />}
+      {runFor && <RunSheet item={items.find((i) => i.productId === runFor.item.productId) || runFor.item} again={runFor.again} blocked={!canAct || (runFor.again && !canRunAgain)} error={runError} busy={busy === 'bid'} onStart={startRun} onClose={() => setRunFor(null)} />}
       {confirmEnd && (
         <Sheet label="End the show?" onClose={() => setConfirmEnd(false)}>
           <h2 className="f" style={{ margin: 0, fontSize: 22 }}>End the show?</h2>
@@ -489,7 +578,7 @@ export default function Live() {
           </div>
         </Sheet>
       )}
-      {toast && <div className="toast" role="status" style={{ position: 'fixed', left: 16, right: 16, top: 70, maxWidth: 480, margin: '0 auto', zIndex: 60 }}><span style={{ flex: 1 }}>{toast}</span></div>}
+      {toast && !runFor && <div className="toast" role="status" style={{ position: 'fixed', left: 16, right: 16, top: 70, maxWidth: 480, margin: '0 auto', zIndex: 60 }}><span style={{ flex: 1 }}>{toast}</span></div>}
     </div>
   );
 }

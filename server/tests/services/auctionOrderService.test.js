@@ -173,6 +173,57 @@ describe('auctionOrderService', () => {
       expect((await Product.findById(product._id).lean()).stock).toBe(1);
     });
 
+    it('repairs an older paid ongoing run without charging it again', async () => {
+      const ada = await createBuyer('Ada', 100000);
+      await setStatus('active'); await win(ada, 20000, 0);
+      expect((await order(ada, 20000, 0)).success).toBe(true);
+      await setStatus('ongoing');
+      await Stream.updateOne({ _id: stream._id }, { $unset: { 'products.0.run': 1 } });
+      const next = await run('Blue');
+      expect(next).toMatchObject({ bidStatus: 'pending', run: 2 });
+      expect(await Order.countDocuments()).toBe(1);
+      expect((await wallet(ada)).balance).toBe(80000);
+    });
+    it('repairs an older unsold ongoing run and keeps stock', async () => {
+      await setStatus('ongoing');
+      expect((await run('Red')).bidStatus).toBe('pending');
+      expect((await Product.findById(product._id).lean()).stock).toBe(2);
+    });
+    it('never resets a pending settlement or clears a wallet hold', async () => {
+      const ada = await createBuyer('Ada', 100000);
+      await setStatus('active'); await win(ada, 20000, 0); await setStatus('ongoing');
+      await expect(run('Red')).rejects.toThrow('Finishing the last sale');
+      expect((await wallet(ada)).onHoldAmount).toBe(20000);
+      expect((await streamProduct()).holdAmount).toBe(20000);
+      expect(await Order.countDocuments()).toBe(0);
+    });
+    const endOnServer = async () => {
+      const emit = jest.fn(); const io = { to: () => ({ emit }), in: () => ({ fetchSockets: async () => [] }) };
+      const req = { params: { streamId: String(stream._id) }, body: { productId: String(product._id), sellerId: String(seller._id) }, user: { id: String(seller._id) }, app: { get: () => io } };
+      const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+      await require('@/controllers/streamController').endProductBidding(req, res);
+      return res;
+    };
+    it('the real end controller finishes a sold run and permits Run again', async () => {
+      const ada = await createBuyer('Ada', 100000);
+      await setStatus('active'); await win(ada, 20000, 0);
+      const ended = await endOnServer();
+      expect(ended.statusCode).toBe(200);
+      expect(await streamProduct()).toMatchObject({ bidStatus: 'ended', holdAmount: 0, orderCreated: true });
+      expect((await streamProduct()).product.quantity).toBe(1);
+      expect((await run('Next colour')).run).toBe(2);
+      expect((await wallet(ada)).balance).toBe(80000);
+      expect(await Order.countDocuments()).toBe(1);
+    });
+    it('the real end controller finishes an unsold legacy run and permits Run again', async () => {
+      await setStatus('active');
+      await Stream.updateOne({ _id: stream._id }, { $unset: { 'products.0.run': 1 } });
+      expect((await endOnServer()).statusCode).toBe(200);
+      expect((await streamProduct()).bidStatus).toBe('ended');
+      expect((await run('Try again')).run).toBe(2);
+      expect((await Product.findById(product._id).lean()).stock).toBe(2);
+    });
+
     it('checks the note and refuses while the item is being auctioned', async () => {
       await expect(run('x'.repeat(41))).rejects.toThrow('40 characters');
       await expect(run('call 08031234567')).rejects.toThrow('phone numbers');
