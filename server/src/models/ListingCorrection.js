@@ -5,7 +5,7 @@ const listingCorrectionSchema = new mongoose.Schema({
   product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true, unique: true },
   changes: [{
     _id: false,
-    field: { type: String, enum: ['title', 'category', 'fabric', 'localStyle'], required: true },
+    field: { type: String, enum: ['title', 'category', 'subCategory', 'fabric', 'localStyle'], required: true },
     draftValue: { type: String, maxlength: 100 },
     finalValue: { type: String, maxlength: 100 },
   }],

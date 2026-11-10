@@ -7,7 +7,7 @@ const Product = require('@models/Product');
 const Category = require('@models/Category');
 const Admin = require('@models/Admin');
 const ListingCorrection = require('@models/ListingCorrection');
-const { signDraft, readDraft } = require('@/services/ai/listingCorrections');
+const { signDraft, readDraft, recordCorrection } = require('@/services/ai/listingCorrections');
 let db;
 const sellerId = new mongoose.Types.ObjectId();
 const auth = (role, id = sellerId) => `Bearer ${jwt.sign({ id: String(id), role }, process.env.JWT_SECRET)}`;
@@ -19,7 +19,7 @@ const listing = () => ({ name: 'Adire Bubu Gown', description: 'A loose gown.', 
 beforeAll(async () => {
   db = await MongoMemoryServer.create({ binary: { version: '7.0.3' } });
   await mongoose.connect(db.getUri());
-  await Category.create({ name: 'Women', subCategories: [] });
+  await Category.create({ name: 'Women', subCategories: [{ name: 'Dresses' }] });
 });
 afterAll(async () => { await mongoose.disconnect(); await db.stop(); });
 beforeEach(async () => { await ListingCorrection.deleteMany({}); await Product.deleteMany({}); });
@@ -54,13 +54,59 @@ it('does not record unchanged or manual listings', async () => {
   expect((await request(app).post('/api/products').set('Authorization', auth('Seller')).send(payload)).status).toBe(201);
   expect(await ListingCorrection.countDocuments()).toBe(0);
 });
-it('rejects cross-seller proofs, tampering and expiry before product creation', async () => {
-  for (const proof of [signDraft(original, new mongoose.Types.ObjectId()), listing().draftProof + 'x',
-    jwt.sign({ purpose: 'listing-correction', sellerId: String(sellerId), original }, process.env.JWT_SECRET, { expiresIn: -1 })]) {
-    expect((await request(app).post('/api/products').set('Authorization', auth('Seller')).send({ ...listing(), draftProof: proof })).status).toBe(400);
-  }
-  expect(await Product.countDocuments()).toBe(0);
-  expect(() => readDraft(listing().draftProof, new mongoose.Types.ObjectId())).toThrow();
+it.each([
+  ['missing', () => undefined],
+  ['expired', () => jwt.sign({ purpose: 'listing-correction', sellerId: String(sellerId), original }, process.env.JWT_SECRET, { expiresIn: -1 })],
+  ['invalid', () => 'not-a-proof'],
+  ['tampered', () => listing().draftProof + 'x'],
+  ['another seller', () => signDraft(original, new mongoose.Types.ObjectId())],
+])('creates the product but skips the correction for a %s proof', async (_label, proof) => {
+  const warn = jest.spyOn(console, 'warn');
+  warn.mockClear();
+  const draftProof = proof();
+  const res = await request(app).post('/api/products').set('Authorization', auth('Seller')).send({ ...listing(), draftProof });
+  expect(res.status).toBe(201);
+  expect(await Product.findById(res.body._id)).not.toBeNull();
+  expect(await ListingCorrection.countDocuments()).toBe(0);
+  expect(warn).toHaveBeenCalledWith(expect.stringContaining('Skipping listing correction'));
+  expect(readDraft(draftProof, sellerId)).toBeNull();
+});
+it('still returns 201 when saving the correction fails', async () => {
+  const save = jest.spyOn(ListingCorrection, 'updateOne').mockRejectedValueOnce(new Error('storage unavailable'));
+  const warn = jest.spyOn(console, 'warn');
+  warn.mockClear();
+  try {
+    const res = await request(app).post('/api/products').set('Authorization', auth('Seller')).send(listing());
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ name: 'Adire Bubu Gown', category: 'Women', fabric: 'Adire', stock: 3 });
+    expect(await Product.findById(res.body._id)).not.toBeNull();
+    expect(await ListingCorrection.countDocuments()).toBe(0);
+    expect(save).toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('publishing is unaffected'));
+  } finally { save.mockRestore(); }
+});
+it('does not log unchanged category and sub-category IDs as corrections', async () => {
+  const category = await Category.findOne({ name: 'Women' });
+  const product = new Product({ ...listing(), name: original.title, seller: sellerId,
+    category: String(category._id), subCategory: String(category.subCategories[0]._id), fabric: '', localStyle: '' });
+  await recordCorrection({ ...original, subCategory: 'Dresses' }, product, sellerId);
+  expect(await ListingCorrection.countDocuments()).toBe(0);
+});
+it('compares resolved names and still logs real category changes', async () => {
+  const category = await Category.findOne({ name: 'Women' });
+  const product = new Product({ ...listing(), name: original.title, seller: sellerId,
+    category: String(category._id), subCategory: String(category.subCategories[0]._id), fabric: '', localStyle: '' });
+  await recordCorrection({ ...original, category: 'Men', subCategory: 'Tops' }, product, sellerId);
+  const correction = await ListingCorrection.findOne({ product: product._id }).lean();
+  expect(correction.changes).toEqual([
+    { field: 'category', draftValue: 'Men', finalValue: 'Women' },
+    { field: 'subCategory', draftValue: 'Tops', finalValue: 'Dresses' },
+  ]);
+});
+it('skips the correction if a category lookup fails', async () => {
+  const product = new Product({ ...listing(), seller: sellerId, category: String(new mongoose.Types.ObjectId()) });
+  await expect(recordCorrection(original, product, sellerId)).resolves.toBeUndefined();
+  expect(await ListingCorrection.countDocuments()).toBe(0);
 });
 it('rejects invalid per-colour counts', async () => {
   expect((await request(app).post('/api/products').set('Authorization', auth('Seller')).send({ ...listing(), colourQuantities: [{ colour: 'Blue and white', quantity: 1.5 }] })).status).toBe(400);

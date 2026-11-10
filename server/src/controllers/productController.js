@@ -309,12 +309,11 @@ exports.createProduct = async (req, res) => {
       });
     }
 
+    // Optional learning data must never change a successful creation response.
     await recordCorrection(aiOriginal, newProduct, sellerId);
     res.status(201).json(populatedProduct);
   } catch (error) {
     console.error('Product creation error:', error);
-
-    if (error.status === 400) return res.status(400).json({ message: error.message });
 
     if (error.message.includes('Invalid JSON format')) {
       return res.status(400).json({
