@@ -76,6 +76,8 @@ export default function ListingAgent() {
   const [note, setNote] = useState('');
   const [phase, setPhase] = useState('start'); // start | thinking | draft | published | fallback
   const [draft, setDraft] = useState(null);
+  const [draftProof, setDraftProof] = useState(null);
+  const [colourCounts, setColourCounts] = useState({});
   const [previousDraft, setPreviousDraft] = useState(null);
   const [changed, setChanged] = useState(null); // field the AI just changed
   const [thread, setThread] = useState([]); // seller messages and AI replies after the draft
@@ -136,6 +138,8 @@ export default function ListingAgent() {
     setPhase('thinking');
     try {
       const d = await draftFromPhotos(photos, note.trim());
+      setDraftProof(d.draftProof);
+      setColourCounts({});
       applyDraft(d);
       setPhase('draft');
     } catch (e) {
@@ -153,9 +157,9 @@ export default function ListingAgent() {
     try {
       const before = draft;
       const next = await refineDraft({ ...draft, suggestedPrice: draft.suggestedPrice }, ask);
-      const diff = ['title', 'description', 'tags', 'category', 'condition'].find((k) => JSON.stringify(next[k]) !== JSON.stringify(before[k]));
+      const diff = ['title', 'description', 'tags', 'category', 'condition', 'fabric', 'localStyle'].find((k) => JSON.stringify(next[k]) !== JSON.stringify(before[k]));
       setPreviousDraft(before);
-      setDraft({ ...next, questions: before.questions });
+      setDraft(next);
       setChanged(diff || null);
       setThread((t) => [...t, { from: 'bot', text: diff ? 'Done. It’s updated in the preview.' : 'I kept it as it was. Try saying it another way?', undo: Boolean(diff) }]);
     } catch (e) {
@@ -175,14 +179,22 @@ export default function ListingAgent() {
 
   const update = (patch) => { setDraft((d) => ({ ...d, ...patch })); setChanged(null); };
 
-  const extraQuestions = (draft?.questions || []).filter((q) => !/how many|quantity|official|original|authentic|replica|bootleg|\bsize/i.test(q));
+  const colourVariants = draft?.colourVariants || [];
+  const perColour = colourVariants.length > 1;
+  const stock = perColour ? colourVariants.reduce((sum, colour) => sum + (Number(colourCounts[colour]) || 0), 0) : quantity;
+  const confirmations = draft?.confirmations || [];
+  const confirmField = (field, value) => update({
+    [field]: value === 'Other' ? null : value,
+    confirmations: confirmations.filter((c) => c.field !== field),
+  });
+
   const missing = [];
   if (!photos.length) missing.push('a photo');
   if (!draft?.title?.trim()) missing.push('a title');
   if (!draft?.category) missing.push('a category');
   if (!draft?.condition) missing.push('the condition');
   if (!draft?.description?.trim()) missing.push('a description');
-  if (!quantity) missing.push('how many you have');
+  if (!stock || (perColour && colourVariants.some((c) => colourCounts[c] === undefined || colourCounts[c] === ''))) missing.push(perColour ? 'how many of each colour' : 'how many you have');
   if (!digits(price)) missing.push('a price');
   if (allowAuction && !digits(startingBid)) missing.push('a starting bid');
   if (allowAuction && digits(instant) && digits(instant) <= digits(startingBid)) missing.push('a “sell instantly” price above the starting bid');
@@ -195,7 +207,9 @@ export default function ListingAgent() {
       const product = await publishListing({
         ...draft,
         photos,
-        quantity,
+        quantity: stock,
+        draftProof,
+        colourQuantities: perColour ? colourVariants.map((colour) => ({ colour, quantity: Number(colourCounts[colour]) })) : [],
         price: digits(price),
         authenticity: authenticity || 'unknown',
         auction: allowAuction ? { startingBid: digits(startingBid), instant: digits(instant) || null } : null,
@@ -210,6 +224,7 @@ export default function ListingAgent() {
   };
 
   const reset = () => {
+    setDraftProof(null); setColourCounts({});
     setPhotos([]); setNote(''); setDraft(null); setPreviousDraft(null); setThread([]); setChanged(null);
     setQuantity(null); setAuthenticity(null); setPrice(''); setAllowAuction(false); setStartingBid(''); setInstant('');
     setPublished(null); setError(''); setEditing(null); setPhase('start');
@@ -220,13 +235,18 @@ export default function ListingAgent() {
       state: {
         listingDraft: {
           fromDraft: true,
+          draftProof,
+          fabric: draft?.fabric || '',
+          localStyle: draft?.localStyle || '',
+          colourVariants,
+          colourQuantities: perColour ? colourVariants.map((colour) => ({ colour, quantity: Number(colourCounts[colour]) || 0 })) : [],
           name: draft?.title || '',
           description: draft?.description || note,
           category: draft?.category || '',
           subCategory: draft?.subCategory || '',
           brand: draft?.brand || '',
           price: digits(price) || undefined,
-          stock: quantity || undefined,
+          stock: stock || undefined,
           condition: draft?.condition || '',
           tags: draft?.tags || [],
           weight: draft?.weightKg || 1,
@@ -358,7 +378,7 @@ export default function ListingAgent() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                 <span style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.3 }}>{draft?.title}</span>
                 <span className="f" style={{ fontSize: 18 }}>{naira(digits(price))}</span>
-                <span className="mut" style={{ fontSize: 13 }}>{allowAuction ? `or bid from ${naira(digits(startingBid))} · ` : ''}{quantity} in stock</span>
+                <span className="mut" style={{ fontSize: 13 }}>{allowAuction ? `or bid from ${naira(digits(startingBid))} · ` : ''}{stock} in stock</span>
               </div>
             </div>
             <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -447,6 +467,17 @@ export default function ListingAgent() {
       <Field label="CATEGORY" editing={editing === 'category'} onEdit={() => setEditing('category')} highlight={changed === 'category'} editor={categoryEditor}>
         <span style={{ fontWeight: 700 }}>{draft?.category ? `${draft.category}${draft.subCategory ? ` › ${draft.subCategory}` : ''}` : <span className="mut">Choose a category</span>}</span>
       </Field>
+      {['localStyle', 'fabric'].map((field) => (
+        <Field key={field} label={field === 'localStyle' ? 'LOCAL STYLE' : 'FABRIC'} editing={editing === field} onEdit={() => setEditing(field)} highlight={changed === field} editor={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <label className="sr" htmlFor={`la-${field}`}>{field === 'localStyle' ? 'Local style' : 'Fabric'}</label>
+            <input id={`la-${field}`} className="in" maxLength={60} value={draft?.[field] || ''} placeholder={field === 'localStyle' ? 'e.g. Bubu' : 'e.g. Adire'} onChange={(e) => confirmField(field, e.target.value)} />
+            <button type="button" className="btn2" onClick={() => setEditing(null)}>Done</button>
+          </div>
+        }>
+          <span>{draft?.[field] || <span className="mut">Tap to add</span>}</span>
+        </Field>
+      ))}
       <Field label="CONDITION" editing={editing === 'condition'} onEdit={() => setEditing('condition')} highlight={changed === 'condition'} editor={conditionEditor}>
         <span>{draft?.condition ? <span className="pill p-active">{draft.condition}</span> : <span className="mut">Choose the condition</span>}</span>
       </Field>
@@ -504,13 +535,22 @@ export default function ListingAgent() {
         </Bot>
       )}
 
-      <Bot>How many do you have?</Bot>
+      <Bot>{perColour ? 'How many of each colour?' : 'How many do you have?'}</Bot>
+      {perColour ? <div className="ind" style={{ display: 'grid', gap: 10 }}>
+        {colourVariants.map((colour) => <label key={colour} className="fl">{colour}
+          <input className="in" aria-label={`Stock for ${colour}`} type="number" min={0} max={999} step={1} value={colourCounts[colour] ?? ''} onChange={(e) => setColourCounts((counts) => ({ ...counts, [colour]: e.target.value === '' ? '' : Math.max(0, Math.min(999, Math.floor(Number(e.target.value) || 0))) }))} />
+        </label>)}
+        <span className="hint">{stock} total in stock. Colour choices are saved with this product.</span>
+      </div> : <>
+
       <div className="ind" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }} role="group" aria-label="Quantity">
         {[1, 2].map((n) => <button key={n} type="button" className={`qr${quantity === n ? ' on' : ''}`} aria-pressed={quantity === n} onClick={() => setQuantity(n)}>{n}</button>)}
         {quantity !== null && quantity >= 3
           ? <span className="money" style={{ width: 120, height: 44 }}><label htmlFor="la-qty" className="sr">Quantity</label><input id="la-qty" inputMode="numeric" autoFocus value={quantity} onChange={(e) => setQuantity(Math.max(3, Math.min(999, digits(e.target.value) || 3)))} style={{ fontSize: 16, paddingLeft: 14 }} /></span>
           : <button type="button" className="qr" onClick={() => setQuantity(3)}>3+</button>}
       </div>
+
+      </>}
 
       <Bot>Is it original or a replica?</Bot>
       <div className="ind" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} role="group" aria-label="Original or replica">
@@ -519,7 +559,15 @@ export default function ListingAgent() {
         ))}
       </div>
 
-      {extraQuestions.map((q) => <Bot key={q}>{q} <span className="hint">Reply below.</span></Bot>)}
+      {(!draft?.condition || confirmations.length > 0) && <Bot>
+        {!draft?.condition && <><span>Is it new with tags, thrift or fairly used?</span>{conditionEditor}</>}
+        {confirmations.map((c) => <div key={c.field} style={{ marginTop: 10 }}>
+          <span>{c.field === 'fabric' ? `Is this ${c.value.toLowerCase()}?` : `Is the style ${c.value}?`}</span>
+          <div role="group" aria-label={`Confirm ${c.field}`} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+            {c.choices.map((choice) => <button type="button" className="qr" key={choice} onClick={() => { confirmField(c.field, choice); if (choice === 'Other') setEditing(c.field); }}>{choice}</button>)}
+          </div>
+        </div>)}
+      </Bot>}
 
       <Bot>
         {draft?.suggestedPrice
@@ -559,7 +607,7 @@ export default function ListingAgent() {
             missing={missing}
             busy={busy}
             error={error && !isFallback ? error : ''}
-            placeholder={isFallback ? 'The AI is off for this one' : extraQuestions.length ? 'Answer, or ask for a change' : 'Ask for a change'}
+            placeholder={isFallback ? 'The AI is off for this one' : confirmations.length ? 'Answer, or ask for a change' : 'Ask for a change'}
           />
         </div>
       </div>

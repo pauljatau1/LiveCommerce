@@ -16,12 +16,14 @@ const productBlips = require('../services/products/blips');
 const Fuse = require('fuse.js');
 const { uploadResizedImages } = require('../utils/imageProcessor');
 const { prioritizeGadgetsItems, GADGETS_CATEGORIES } = require('../utils/gadgetsPrioritization.helper');
+const { readDraft, recordCorrection } = require('../services/ai/listingCorrections');
 const baseUrl = process.env.STORE_URL;
 
 // Create a new product
 exports.createProduct = async (req, res) => {
   try {
     const sellerId = req.user.id;
+    const aiOriginal = readDraft(req.body.draftProof, sellerId);
 
     // Validate required fields
     const requiredFields = ['name', 'description', 'price', 'category', 'stock',];
@@ -87,6 +89,20 @@ exports.createProduct = async (req, res) => {
     let variantsToProcess = [];
     if (req.body.variants && Array.isArray(req.body.variants)) {
       variantsToProcess = req.body.variants;
+    }
+
+    if (Array.isArray(parsedBody.colourVariants) && parsedBody.colourVariants.length > 12) {
+      return res.status(400).json({ message: 'Use up to 12 colour variants' });
+    }
+    if (parsedBody.colourQuantities?.length) {
+      const rows = parsedBody.colourQuantities;
+      const colours = parsedBody.colourVariants || [];
+      if (!Array.isArray(rows) || rows.length !== colours.length || new Set(rows.map((r) => r.colour)).size !== rows.length ||
+          rows.some((r) => !colours.includes(r.colour) || !Number.isInteger(r.quantity) || r.quantity < 0 || r.quantity > 999)) {
+        return res.status(400).json({ message: 'Provide a whole stock count for each colour' });
+      }
+      parsedBody.stock = rows.reduce((sum, r) => sum + r.quantity, 0);
+      if (!parsedBody.stock) return res.status(400).json({ message: 'Add stock for at least one colour' });
     }
 
     // Create new product
@@ -293,6 +309,8 @@ exports.createProduct = async (req, res) => {
       });
     }
 
+    // Optional learning data must never change a successful creation response.
+    await recordCorrection(aiOriginal, newProduct, sellerId);
     res.status(201).json(populatedProduct);
   } catch (error) {
     console.error('Product creation error:', error);

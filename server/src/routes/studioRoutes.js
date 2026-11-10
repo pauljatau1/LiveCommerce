@@ -206,7 +206,7 @@ router.get('/shows/:id', validId, async (req, res) => {
     const s = await model('Stream').findOne({ _id: req.params.id, seller: oid(req.user.id) }).lean();
     if (!s) return res.status(404).json({ success: false, message: 'Show not found' });
     const ids = (s.products || []).map(productIdOf).filter((id) => mongoose.Types.ObjectId.isValid(id));
-    const products = await model('Product').find({ _id: { $in: ids.map(oid) } }, { name: 1, images: 1, price: 1, stock: 1, category: 1 }).lean();
+    const products = await model('Product').find({ _id: { $in: ids.map(oid) } }, { name: 1, images: 1, price: 1, stock: 1, category: 1, colourVariants: 1 }).lean();
     const byId = new Map(products.map((p) => [String(p._id), p]));
     const bidderIds = (s.products || []).map((p) => p.currentBidder?._id || p.currentBidder || p.bidWinner?.buyer?._id || p.bidWinner?.buyer).filter((id) => id && mongoose.Types.ObjectId.isValid(String(id)));
     const bidders = bidderIds.length ? await model('Buyer').find({ _id: { $in: bidderIds.map((id) => oid(id)) } }, { firstName: 1, username: 1 }).lean() : [];
@@ -226,6 +226,7 @@ router.get('/shows/:id', validId, async (req, res) => {
         auctionSeconds: sp.auctionSeconds || 30,
         run: sp.run || 1,
         runNote: sp.runNote || '',
+        colourVariants: p.colourVariants || [],
         auctionEndsAt: sp.auctionEndsAt || null,
         isVisible: Boolean(sp.isVisible),
         currentBid: sp.currentBid || 0,

@@ -148,3 +148,60 @@ describe('normaliseDraft', () => {
     expect(out).toMatchObject({ category: null, subCategory: null, condition: null, suggestedPrice: { low: 20000, high: 50000 }, weightKg: 1 });
   });
 });
+
+describe('Nigerian fashion drafting', () => {
+  const { NIGERIAN_FASHION_GUIDE } = require('@/services/ai/nigerianFashionGuide');
+  const { DRAFT_SCHEMA } = require('@/services/ai/listingDraftService');
+  it('includes the guide and switches off legacy generation', async () => {
+    mockPost.mockResolvedValue(geminiReply({ title: 'Adire Bubu Gown, Indigo', category: 'Women', condition: 'Unknown',
+      fabric: 'Adire', localStyle: 'Bubu', fabricConfidence: 'high', styleConfidence: 'high',
+      description: 'Loose flowing gown.', tags: ['adire', 'resist-dye', 'bubu', 'gown'], confidence: 'high' }));
+    const res = await draft({ images: [{ data: PNG, contentType: 'image/png' }] });
+    expect(res.status).toBe(200);
+    expect(res.body.draft).toMatchObject({ fabric: 'Adire', localStyle: 'Bubu', title: 'Adire Bubu Gown, Indigo', condition: null });
+    const body = mockPost.mock.calls[0][1];
+    expect(body.contents[0].parts[0].text).toContain(NIGERIAN_FASHION_GUIDE);
+    const properties = body.generationConfig.responseSchema.properties;
+    expect(properties).toHaveProperty('fabric');
+    expect(properties).toHaveProperty('localStyle');
+    expect(properties).not.toHaveProperty('franchise');
+    expect(properties).not.toHaveProperty('character');
+    expect(DRAFT_SCHEMA.properties).toHaveProperty('franchise');
+    expect(DRAFT_SCHEMA.properties).toHaveProperty('character');
+    expect(res.body.draft.questions).toContain('Is it new with tags, thrift or fairly used?');
+  });
+  it('strips colour lists even when Gemini ignores the instruction', async () => {
+    mockPost.mockResolvedValue(geminiReply({ title: 'Adire Bubu Gown', category: 'Women', condition: 'Unknown',
+      description: 'Loose flowing gown. Available in blue and white, green and yellow, or pink. Wide sleeves.',
+      colourVariants: ['Blue and white', 'Green and yellow', 'Pink'], fabric: 'Adire', localStyle: 'Bubu',
+      fabricConfidence: 'medium', styleConfidence: 'low', tags: [], confidence: 'medium', questions: ['What size?', 'Which character?'] }));
+    const res = await draft({ images: [{ data: PNG, contentType: 'image/png' }] });
+    expect(res.status).toBe(200);
+    const d = res.body.draft;
+    expect(d.colourVariants).toEqual(['Blue and white', 'Green and yellow', 'Pink']);
+    expect(d.description).toBe('Loose flowing gown.\nWide sleeves.');
+    expect(d.questions).toHaveLength(3);
+    expect(d.questions[0]).toBe('How many of each colour?');
+    expect(d.questions[1]).toBe('Is it original or a replica?');
+    expect(d.questions[2]).toContain('Is it new with tags, thrift or fairly used?');
+    expect(d.confirmations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: 'fabric', choices: expect.arrayContaining(['Adire', 'Ankara', 'Other']) }),
+      expect.objectContaining({ field: 'localStyle' }),
+    ]));
+    expect(d.questions.join(' ')).not.toMatch(/character|size/i);
+  });
+  it('uses a neutral description if every sentence lists colours', () => {
+    const d = normaliseDraft({ description: 'Indigo, teal and burgundy.', colourVariants: ['Indigo', 'Teal', 'Burgundy'] }, categories);
+    expect(d.description).not.toMatch(/indigo|teal|burgundy/i);
+    expect(d.description).toBeTruthy();
+  });
+  it('keeps plain jeans in plain English', async () => {
+    mockPost.mockResolvedValue(geminiReply({ title: 'Straight Leg Jeans', category: 'Women', condition: 'Fairly used',
+      description: 'Straight-leg jeans with belt loops.', fabric: '', localStyle: '', colourVariants: [],
+      tags: ['jeans', 'trousers'], confidence: 'high', questions: [] }));
+    const res = await draft({ images: [{ data: PNG, contentType: 'image/png' }] });
+    expect(res.status).toBe(200);
+    expect(res.body.draft).toMatchObject({ title: 'Straight Leg Jeans', fabric: null, localStyle: null, confirmations: [],
+      questions: ['How many do you have?', 'Is it original or a replica?'] });
+  });
+});
