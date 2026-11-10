@@ -37,7 +37,7 @@ export function Header({ back, title }) {
   );
 }
 
-export function Sheet({ title, onClose, children, top = null }) {
+export function Sheet({ title, onClose, children, top = null, className = '' }) {
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -46,7 +46,7 @@ export function Sheet({ title, onClose, children, top = null }) {
   return (
     <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label={title}>
       <div className="scrim" onClick={onClose} />
-      <div className="sheet2">
+      <div className={`sheet2 ${className}`}>
         <span className="grab" aria-hidden="true" />
         {top}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

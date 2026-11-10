@@ -16,6 +16,7 @@ import LiveChat from './LiveChat';
 import { hasNotes } from './NotesEditor';
 import NotesSheet from './NotesSheet';
 import RunSheet from './RunSheet';
+import { acquireTracks, createTrackScope } from './localMedia';
 import useKeyboardInset from './useKeyboardInset';
 import { useIntercomVisibility } from '@/Hooks/useIntercomVisibility';
 
@@ -32,6 +33,8 @@ export default function Live() {
   const videoRef = useRef(null);
   const clientRef = useRef(null);
   const tracksRef = useRef({ audio: null, video: null });
+  const mediaScopeRef = useRef(null);
+  const endedRef = useRef(false);
   const socketRef = useRef(null);
 
   const [phase, setPhase] = useState('connecting'); // connecting | live | reconnecting | error | ending
@@ -83,17 +86,20 @@ export default function Live() {
   // 1. Start (or rejoin) the show, join Agora as host, publish camera + mic
   useEffect(() => {
     let cancelled = false;
+    endedRef.current = false;
+    const scope = createTrackScope();
+    mediaScopeRef.current = scope;
     const client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
     clientRef.current = client;
 
     const run = async () => {
       try {
         const r = await refresh();
-        if (cancelled) return;
-        if (r.show.status === 'ended') { navigate(`/studio/recap/${id}`, { replace: true }); return; }
+        if (cancelled || scope.closed) return;
+        if (r.show.status === 'ended') { scope.close(); endedRef.current = true; navigate(`/studio/recap/${id}`, { replace: true }); return; }
         if (r.show.status !== 'live') await studio.startShow(id);
         const creds = await studio.hostToken(id);
-        if (cancelled) return;
+        if (cancelled || scope.closed) return;
         await client.setClientRole('host');
         client.on('connection-state-change', (cur) => {
           if (cur === 'RECONNECTING' || cur === 'DISCONNECTED') setPhase((p) => (p === 'ending' ? p : 'reconnecting'));
@@ -107,18 +113,21 @@ export default function Live() {
           client.join(creds.agoraAppId || import.meta.env.VITE_AGORA_API_KEY, creds.channelName, creds.token, creds.uid),
           new Promise((_, reject) => setTimeout(() => reject(new Error("Couldn't connect your video. Check your internet, then try again.")), 30000)),
         ]);
-        const [audio, video] = await Promise.all([
-          AgoraRTC.createMicrophoneAudioTrack({ ...(nav?.micId ? { microphoneId: nav.micId } : {}), AEC: true, ANS: true, AGC: true }),
-          AgoraRTC.createCameraVideoTrack({ ...(nav?.cameraId ? { cameraId: nav.cameraId } : { facingMode: 'user' }), encoderConfig: '480p_1', optimizationMode: 'motion' }),
+        if (cancelled || scope.closed) return;
+        const [audio, video] = await acquireTracks(scope, [
+          () => AgoraRTC.createMicrophoneAudioTrack({ ...(nav?.micId ? { microphoneId: nav.micId } : {}), AEC: true, ANS: true, AGC: true }),
+          () => AgoraRTC.createCameraVideoTrack({ ...(nav?.cameraId ? { cameraId: nav.cameraId } : { facingMode: 'user' }), encoderConfig: '480p_1', optimizationMode: 'motion' }),
         ]);
-        if (cancelled) { audio.close(); video.close(); return; }
+        if (cancelled || scope.closed) { scope.close(); return; }
         tracksRef.current = { audio, video };
         if (videoRef.current) video.play(videoRef.current, { fit: 'cover', mirror: true });
         await client.publish([audio, video]);
+        if (cancelled || scope.closed) return;
         setStartedAt((s) => s || Date.now());
         setPhase('live');
       } catch (e) {
-        if (cancelled) return;
+        scope.close();
+        if (cancelled || endedRef.current) return;
         const blocked = e?.code === 'PERMISSION_DENIED' || /permission|NotAllowed/i.test(e?.message || '');
         setError(blocked ? 'Camera or microphone is blocked. Allow them for this site, then reload.' : errorText(e, e?.message || "Couldn't start the show."));
         setPhase('error');
@@ -127,8 +136,8 @@ export default function Live() {
     run();
     return () => {
       cancelled = true;
-      const { audio, video } = tracksRef.current;
-      audio?.close(); video?.close();
+      scope.close();
+      if (mediaScopeRef.current === scope) { tracksRef.current = { audio: null, video: null }; mediaScopeRef.current = null; }
       client.removeAllListeners();
       client.leave().catch(() => {});
     };
@@ -156,6 +165,12 @@ export default function Live() {
       const line = feedEntryFor(n);
       if (line) push(line);
       switch (n?.type) {
+        case 'stream_ended':
+          endedRef.current = true;
+          mediaScopeRef.current?.close();
+          clientRef.current?.leave().catch(() => {});
+          navigate(`/studio/recap/${id}`, { replace: true });
+          break;
         case 'join': if (typeof d.viewerCount === 'number') setViewers(d.viewerCount); break;
         case 'new_bid':
           if (d.product) setItems((l) => l.map((p) => (p.productId === pid(d.product) ? { ...p, currentBid: d.bidAmount, currentBidder: n.user || p.currentBidder, bidStatus: 'active' } : p)));
@@ -180,7 +195,7 @@ export default function Live() {
     socket.on('bid_timer_update', (t) => t?.productId && setTimer((m) => ({ ...m, [String(t.productId)]: t.secondsLeft })));
     socket.on('bid_timer_complete', (t) => t?.productId && setTimer((m) => ({ ...m, [String(t.productId)]: 0 })));
     return () => { socket.emit('stream_notification_unsubscribe', { streamId: id }); socket.disconnect(); };
-  }, [id, push, say, refresh]);
+  }, [id, push, say, refresh, navigate]);
 
   useEffect(() => {
     if (!startedAt) return undefined;
@@ -233,15 +248,20 @@ export default function Live() {
     const old = tracksRef.current.video;
     if (!old) return;
     const next = facing === 'user' ? 'environment' : 'user';
+    const scope = mediaScopeRef.current;
+    if (!scope || scope.closed) return;
+    let track;
     try {
-      const track = await AgoraRTC.createCameraVideoTrack({ facingMode: next, encoderConfig: '480p_1', optimizationMode: 'motion' });
+      track = scope.own(await AgoraRTC.createCameraVideoTrack({ facingMode: next, encoderConfig: '480p_1', optimizationMode: 'motion' }));
+      if (scope.closed) return;
       await clientRef.current.unpublish(old);
-      old.close();
+      scope.release(old);
+      if (scope.closed) return;
       tracksRef.current.video = track;
       track.play(videoRef.current, { fit: 'cover', mirror: next === 'user' });
       await clientRef.current.publish(track);
       setFacing(next);
-    } catch { say("Couldn't switch camera"); }
+    } catch { if (track) scope.release(track); say("Couldn't switch camera"); }
   };
   const toggleMic = async () => { const a = tracksRef.current.audio; if (a) { await a.setEnabled(!micOn); setMicOn(!micOn); } };
 
@@ -257,16 +277,19 @@ export default function Live() {
   const end = async () => {
     setPhase('ending');
     setConfirmEnd(false);
+    endedRef.current = true;
+    mediaScopeRef.current?.close();
+    tracksRef.current = { audio: null, video: null };
     try {
-      const { audio, video } = tracksRef.current;
-      audio?.close(); video?.close();
-      await clientRef.current?.leave().catch(() => {});
+      // Never wait for a stuck RTC leave/unpublish before telling buyers it ended.
+      clientRef.current?.leave().catch(() => {});
       await studio.endShow(id);
       socketRef.current?.emit('stream_notification', { type: 'host_disconnect', data: { streamId: id, message: 'Host has ended the stream' } });
       navigate(`/studio/recap/${id}`, { replace: true });
     } catch (e) {
-      setPhase('live');
-      say(errorText(e, "Couldn't end the show. Try again."));
+      setPhase('error');
+      setError(errorText(e, "Your camera is off, but the show could not be marked ended. Tap End show to retry."));
+      say("Camera and microphone are off. Retry End show to finish.");
     }
   };
 
