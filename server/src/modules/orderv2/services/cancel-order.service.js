@@ -335,14 +335,14 @@ function generateCancellationEmails(order, reason, walletRefundResult) {
 
   const buyerEmail = {
     to: order.buyer.email,
-    from: 'Auqli <support@auqli.com>',
+    from: process.env.EMAIL_FROM,
     subject: 'Order Cancellation Confirmation - Auqli',
     html: buyerEmailHtml
   };
 
   const sellerEmail = {
     to: order.seller.email,
-    from: 'Auqli <support@auqli.com>',
+    from: process.env.EMAIL_FROM,
     subject: 'Order Cancellation Notice - Auqli',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -370,7 +370,7 @@ async function sendAdminRefundNotification(order, reason, walletRefundResult) {
     if (admins && admins.length > 0) {
       const adminEmail = {
         to: admins.map(admin => admin.email).filter(Boolean),
-        from: 'Auqli <support@auqli.com>',
+        from: process.env.EMAIL_FROM,
         subject: 'New Refund Request - Order Cancelled by Seller',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

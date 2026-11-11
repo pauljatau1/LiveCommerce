@@ -4,6 +4,8 @@ const { adminAuth } = require('../../../middlewares/authMiddleware');
 
 const router = express.Router();
 
+router.post('/test-email', adminAuth, require('../../../controllers/testEmailController').testEmail);
+
 router.get('/shipments', adminAuth, adminController.getShipments);
 router.delete('/shipments', adminAuth, adminController.deleteShipment);
 router.post('/shipments/cancel', adminAuth, adminController.cancelShipment);

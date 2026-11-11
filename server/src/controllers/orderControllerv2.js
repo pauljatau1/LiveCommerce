@@ -1,3 +1,4 @@
+const mailer = require('../services/email/mailer');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
@@ -7,7 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 const { agenda } = require('../config/agenda');
 const { mixpanel } = require('../app');
 const { trackPurchase } = require('../controllers/campaignController');
-const sgMail = require('../config/sendgrid');
+
 const terminalAPI = require('../config/terminalAPI');
 const { truncateString, normalizeCountry, formatNigerianPhone, formatAddressForTerminal } = require('../helpers/formatters');
 const { validateAddress, validateItems } = require('../helpers/validators');
@@ -78,10 +79,7 @@ const sendSlackNotificationForPaidOrder = async (order, buyer) => {
     // Send notification to Slack email
     const slackEmailMsg = {
       to: 'orders-aaaaqm2ugmdudvf4jsgf3koetm@auqli.slack.com',
-      from: {
-        email: 'support@auqli.com',
-        name: 'Auqli Orders'
-      },
+      from: process.env.EMAIL_FROM,
       subject: 'Order Paid - Terminal Africa',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -98,7 +96,7 @@ const sendSlackNotificationForPaidOrder = async (order, buyer) => {
       `
     };
 
-    await sgMail.send(slackEmailMsg);
+    await mailer.send({ ...slackEmailMsg, tags: [{ name: 'type', value: 'order-update' }] });
     console.log('✅ Slack notification sent for paid Terminal Africa order:', order.order_id);
   } catch (error) {
     console.error('Error sending Slack notification for paid order:', error);
@@ -113,10 +111,7 @@ const sendOrderConfirmationEmail = async (buyer, order) => {
 
     const emailMsg = {
       to: buyer.email,
-      from: {
-        email: 'support@auqli.com',
-        name: 'Auqli Orders'
-      },
+      from: process.env.EMAIL_FROM,
       subject: `Order Confirmation - ${order.order_id}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -138,7 +133,7 @@ const sendOrderConfirmationEmail = async (buyer, order) => {
       `
     };
 
-    await sgMail.send(emailMsg);
+    await mailer.send({ ...emailMsg, tags: [{ name: 'type', value: 'order-update' }] });
     console.log('✅ Order confirmation email sent for Terminal Africa order:', order.order_id);
   } catch (error) {
     console.error('Error sending order confirmation email:', error);
@@ -1041,10 +1036,7 @@ exports.createOrder = async (req, res) => {
       // Send a simple notification to Slack email
       const slackEmailMsg = {
         to: 'orders-aaaaqm2ugmdudvf4jsgf3koetm@auqli.slack.com',
-        from: {
-          email: 'support@auqli.com',
-          name: 'Auqli Orders'
-        },
+        from: process.env.EMAIL_FROM,
         subject: 'New Order on Auqli (Terminal Africa)',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -1060,7 +1052,7 @@ exports.createOrder = async (req, res) => {
         `
       };
 
-      await sgMail.send(slackEmailMsg);
+      await mailer.send({ ...slackEmailMsg, tags: [{ name: 'type', value: 'order-update' }] });
       console.log('Slack notification email sent for new order');
     } catch (slackEmailError) {
       console.error('Error sending Slack notification email:', slackEmailError);
@@ -1909,14 +1901,14 @@ exports.cancelOrderBySeller = async (req, res) => {
 
     const buyerEmail = {
       to: order.buyer.email,
-      from: 'Auqli Orders <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Order Cancellation Confirmation - Auqli',
       html: buyerEmailHtml
     };
 
     const sellerEmail = {
       to: order.seller.email,
-      from: 'Auqli Orders <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Order Cancellation Notice - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1941,7 +1933,7 @@ exports.cancelOrderBySeller = async (req, res) => {
       if (admins && admins.length > 0) {
         const adminEmail = {
           to: admins.map(admin => admin.email).filter(Boolean),
-          from: 'Auqli Orders <support@auqli.com>',
+          from: process.env.EMAIL_FROM,
           subject: 'New Refund Request - Order Cancelled by Seller',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1962,7 +1954,7 @@ exports.cancelOrderBySeller = async (req, res) => {
         };
 
         try {
-          await sgMail.send(adminEmail);
+          await mailer.send({ ...adminEmail, tags: [{ name: 'type', value: 'order-update' }] });
         } catch (emailError) {
           console.error('Error sending admin notification:', emailError);
         }
@@ -1970,7 +1962,7 @@ exports.cancelOrderBySeller = async (req, res) => {
     }
 
     try {
-      await sgMail.send([buyerEmail, sellerEmail]);
+      await Promise.all([buyerEmail, sellerEmail].map(message => mailer.send({ ...message, tags: [{ name: 'type', value: 'order-update' }] })));
     } catch (emailError) {
       console.error('Error sending cancellation emails:', emailError);
       // Continue processing even if email sending fails
@@ -2230,14 +2222,14 @@ exports.cancelOrderByBuyer = async (req, res) => {
 
     const buyerEmail = {
       to: order.buyer.email,
-      from: 'Auqli Orders <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Order Cancellation Confirmation - Auqli',
       html: buyerEmailHtml
     };
 
     const sellerEmail = {
       to: order.seller.email,
-      from: 'Auqli Orders <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Order Cancellation Notice - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -2262,7 +2254,7 @@ exports.cancelOrderByBuyer = async (req, res) => {
       if (admins && admins.length > 0) {
         const adminEmail = {
           to: admins.map(admin => admin.email).filter(Boolean),
-          from: 'Auqli Orders <support@auqli.com>',
+          from: process.env.EMAIL_FROM,
           subject: 'New Refund Request - Order Cancelled by Buyer',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -2283,7 +2275,7 @@ exports.cancelOrderByBuyer = async (req, res) => {
         };
 
         try {
-          await sgMail.send(adminEmail);
+          await mailer.send({ ...adminEmail, tags: [{ name: 'type', value: 'order-update' }] });
         } catch (emailError) {
           console.error('Error sending admin notification:', emailError);
         }
@@ -2291,7 +2283,7 @@ exports.cancelOrderByBuyer = async (req, res) => {
     }
 
     try {
-      await sgMail.send([buyerEmail, sellerEmail]);
+      await Promise.all([buyerEmail, sellerEmail].map(message => mailer.send({ ...message, tags: [{ name: 'type', value: 'order-update' }] })));
     } catch (emailError) {
       console.error('Error sending cancellation emails:', emailError);
       // Continue processing even if email sending fails
@@ -2731,7 +2723,7 @@ exports.handlePaystackWebhook = async (req, res) => {
       // Send order confirmation email
       if (webhookBuyer && webhookBuyer.email) {
         try {
-          console.log(`Sending order confirmation email to ${webhookBuyer.email} for paid Terminal Africa order ${order.order_id}`);
+          // Email delivery details are logged by the shared mailer.
           await sendOrderConfirmationEmail(webhookBuyer, order);
         } catch (emailError) {
           console.error('Error sending order confirmation email for paid Terminal Africa order:', emailError);
@@ -2847,10 +2839,7 @@ async function sendSimpleTopUpEmail(buyer, transaction) {
 
   const msg = {
     to: buyer.email,
-    from: {
-      email: 'support@auqli.com',
-      name: 'Auqli Support'
-    },
+    from: process.env.EMAIL_FROM,
     subject: 'Wallet Top-Up Confirmation',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -2865,8 +2854,8 @@ async function sendSimpleTopUpEmail(buyer, transaction) {
   };
 
   try {
-    await sgMail.send(msg);
-    console.log('Simple wallet top-up confirmation email sent to:', buyer.email);
+    await mailer.send({ ...msg, tags: [{ name: 'type', value: 'order-update' }] });
+    // Email delivery details are logged by the shared mailer.
     return true;
   } catch (error) {
     console.error('Error sending simple wallet top-up email:', error);
@@ -2999,15 +2988,12 @@ async function handleFailedPayment(paymentData, res) {
 
         const failedPaymentEmail = {
           to: buyer.email,
-          from: {
-            email: 'support@auqli.com',
-            name: 'Auqli Support'
-          },
+          from: process.env.EMAIL_FROM,
           subject: 'Payment Failed - Terminal Africa Order',
           html: emailContent
         };
 
-        await sgMail.send(failedPaymentEmail);
+        await mailer.send({ ...failedPaymentEmail, tags: [{ name: 'type', value: 'order-update' }] });
         console.log('Failed payment notification email sent to buyer');
       } catch (emailError) {
         console.error('Error sending failed payment notification email:', emailError);

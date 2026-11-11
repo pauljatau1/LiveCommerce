@@ -268,7 +268,8 @@ app.get('/health', (req, res) => {
     timestamp: Date.now(),
     dbState: dbStates[dbState] || 'unknown',
     nodeEnv: process.env.NODE_ENV,
-    memoryUsage: process.memoryUsage()
+    memoryUsage: process.memoryUsage(),
+    ...require('./services/email/mailer').configuration()
   };
 
   if (dbState === 1) {

@@ -88,7 +88,7 @@ function getEmailContent(email, otp, firstName, store) {
   // Step 4: Return SendGrid-compatible email object
   return authEmail({
     to: email,
-    from: 'Auqli Nigeria <support@auqli.com>',
+    from: process.env.EMAIL_FROM,
     subject: "Here's Your Auqli OTP",
     html
   }, { kind: 'verify', audience: 'seller', code: otp, name: firstName, store });

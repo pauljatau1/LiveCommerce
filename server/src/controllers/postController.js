@@ -1,3 +1,4 @@
+const mailer = require('../services/email/mailer');
 const Post = require('../models/Post');
 const { s3 } = require('../config/awsConfig');
 const { v4: uuidv4 } = require('uuid');
@@ -9,7 +10,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs').promises;
 const path = require('path');
 const os = require('os');
-const sgMail = require('../config/sendgrid');
+
 const notificationController = require('./notificationController');
 
 // Helper function to generate video thumbnail
@@ -1858,7 +1859,7 @@ exports.reportPost = async (req, res) => {
     // Send email notification
     const msg = {
       to: ['admin@auqli.com', 'bolu@auqli.com'],
-      from: 'Joseph From Auqli <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'New Post Report',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -1897,7 +1898,7 @@ exports.reportPost = async (req, res) => {
       `
     };
 
-    await sgMail.send(msg);
+    await mailer.send({ ...msg, tags: [{ name: 'type', value: 'post-notification' }] });
 
     res.status(201).json({
       message: 'Post reported successfully',

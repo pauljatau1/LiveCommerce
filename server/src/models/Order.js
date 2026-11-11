@@ -1,3 +1,4 @@
+const mailer = require('../services/email/mailer');
 const mongoose = require('mongoose');
 
 
@@ -538,15 +539,10 @@ orderSchema.pre('save', async function (next) {
 
       // Send email notification to seller
       try {
-        const sgMail = require('@sendgrid/mail');
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
         const sellerEmail = {
           to: updatedSeller.email,
-          from: {
-            email: 'support@auqli.com',
-            name: 'Auqli Orders'
-          },
+          from: process.env.EMAIL_FROM,
           subject: 'Order Closed and Payment Released',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -583,15 +579,10 @@ orderSchema.pre('save', async function (next) {
           `
         };
 
-        console.log('Attempting to send email with full config:', {
-          to: sellerEmail.to,
-          from: sellerEmail.from,
-          subject: sellerEmail.subject,
-          apiKey: process.env.SENDGRID_API_KEY ? 'Present' : 'Missing'
-        });
+        // Email delivery details are logged by the shared mailer.
 
         // Send directly with sgMail instead of using the notification controller
-        await sgMail.send(sellerEmail);
+        await mailer.send({ ...sellerEmail, tags: [{ name: 'type', value: 'order-seller-notification' }] });
 
         console.log('Email sent successfully');
       } catch (emailError) {

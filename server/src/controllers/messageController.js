@@ -1,3 +1,4 @@
+const mailer = require('../services/email/mailer');
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const { s3 } = require('../config/awsConfig');
@@ -7,7 +8,7 @@ const { createNotification, createBuyerNotification } = require('./notificationC
 const Order = require('../models/Order');
 const { saveToken, getToken } = require('../../Firebase');
 const { Expo } = require('expo-server-sdk');
-const sgMail = require('@sendgrid/mail');
+
 const { agenda } = require('../config/agenda');
 
 const expo = new Expo();
@@ -77,8 +78,7 @@ const sendSellerMessageNotification = async (sellerId, buyerName, messagePreview
     }
     
     // Set up SendGrid
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    
+
     // Get conversation count for message
     const conversationCount = seller.messageNotifications.conversationsWithNewMessages.length;
     
@@ -113,12 +113,12 @@ const sendSellerMessageNotification = async (sellerId, buyerName, messagePreview
     // Send the email
     const msg = {
       to: seller.email,
-      from: 'Auqli Messages <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: emailSubject,
       html: emailContent
     };
     
-    await sgMail.send(msg);
+    await mailer.send({ ...msg, tags: [{ name: 'type', value: 'new-message' }] });
     console.log(`Message notification email sent to seller ${sellerId}`);
     
     // Update the seller's notification status

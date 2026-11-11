@@ -1,10 +1,11 @@
+const mailer = require('../services/email/mailer');
 const { sellerAppLink } = require('../utils/helpers');
 const Return = require('../models/Return');
 const Order = require('../models/Order');
 const cloudinary = require('../config/cloudinary');
 const { validateReturnEligibility } = require('../utils/returnUtils');
 const Admin = require('../models/Admin');
-const sgMail = require('../config/sendgrid');
+
 const axios = require('axios');
 const NotificationController = require('./notificationController');
 const Product = require('../models/Product');
@@ -643,7 +644,7 @@ exports.resolveDispute = async (req, res) => {
     // Send emails based on resolution
     const buyerEmail = {
       to: returnRequest.buyer.email,
-      from: 'Auqli Returns <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: `Return Dispute Resolution - ${resolution === 'BUYER_FAVORED' ? 'Approved' : 'Rejected'}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -661,7 +662,7 @@ exports.resolveDispute = async (req, res) => {
 
     const sellerEmail = {
       to: returnRequest.seller.email,
-      from: 'Auqli Returns <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: `Return Dispute Resolution - ${resolution === 'SELLER_FAVORED' ? 'In Your Favor' : 'Against'}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -678,8 +679,8 @@ exports.resolveDispute = async (req, res) => {
     };
 
     await Promise.all([
-      sgMail.send(buyerEmail),
-      sgMail.send(sellerEmail)
+      mailer.send({ ...buyerEmail, tags: [{ name: 'type', value: 'return-update' }] }),
+      mailer.send({ ...sellerEmail, tags: [{ name: 'type', value: 'return-update' }] })
     ]);
 
     res.json({
@@ -843,16 +844,11 @@ exports.getReturnStatistics = async (req, res) => {
 // Email notification templates and sending function
 async function sendRefundConfirmationEmails(returnRequest) {
   try {
-    const sgMail = require('@sendgrid/mail');
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
     // Email to buyer
     const buyerEmail = {
       to: returnRequest.buyer.email,
-      from: {
-        email: 'support@auqli.com',
-        name: 'Auqli Returns'
-      },
+      from: process.env.EMAIL_FROM,
       subject: 'Your Refund Has Been Processed',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -872,7 +868,7 @@ async function sendRefundConfirmationEmails(returnRequest) {
       `
     };
 
-    await sgMail.send(buyerEmail);
+    await mailer.send({ ...buyerEmail, tags: [{ name: 'type', value: 'return-update' }] });
     console.log('Refund confirmation email sent to buyer');
 
   } catch (error) {
@@ -943,12 +939,7 @@ exports.createReturnShippingLabel = async (req, res) => {
       else if (returnRequest.order.delivery_address) {
         console.log('No saved addresses in buyer model, using delivery address from order:', 
           JSON.stringify(returnRequest.order.delivery_address));
-        console.log('Buyer info:', JSON.stringify({
-          firstName: returnRequest.buyer?.firstName,
-          lastName: returnRequest.buyer?.lastName,
-          email: returnRequest.buyer?.email,
-          phoneNumber: returnRequest.buyer?.phoneNumber
-        }));
+        // Email delivery details are logged by the shared mailer.
         
         pickup_address = {
           first_name: returnRequest.buyer?.firstName || returnRequest.order.delivery_address.first_name || '',
@@ -1033,14 +1024,7 @@ exports.createReturnShippingLabel = async (req, res) => {
 
     // Log order pickup address details for debugging
     console.log('Order pickup address:', JSON.stringify(returnRequest.order.pickup_address || {}));
-    console.log('Seller address details:', JSON.stringify({
-      firstName: returnRequest.seller.firstName,
-      lastName: returnRequest.seller.lastName,
-      email: returnRequest.seller.email,
-      phoneNumber: returnRequest.seller.phoneNumber,
-      address: returnRequest.seller.address,
-      state: returnRequest.seller.state
-    }));
+    // Email delivery details are logged by the shared mailer.
 
     // Use seller details or warehouse details if order pickup_address is missing
     let sellerAddressForDelivery = null;
@@ -1662,8 +1646,6 @@ exports.createReplacementShippingLabels = async (req, res) => {
 // Helper function to send shipping label emails
 async function sendShippingLabelEmails(returnRequest, replacementProduct, returnShipmentExtras, replacementShipmentExtras) {
   try {
-    const sgMail = require('@sendgrid/mail');
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
     // Get product names
     const originalProductNames = returnRequest.items.map(item => 
@@ -1675,10 +1657,7 @@ async function sendShippingLabelEmails(returnRequest, replacementProduct, return
     // Email to buyer
     const buyerEmail = {
       to: returnRequest.buyer.email,
-      from: {
-        email: 'support@auqli.com',
-        name: 'Auqli Returns'
-      },
+      from: process.env.EMAIL_FROM,
       subject: 'Return and Replacement Shipping Labels Created',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1708,10 +1687,7 @@ async function sendShippingLabelEmails(returnRequest, replacementProduct, return
     // Email to seller
     const sellerEmail = {
       to: returnRequest.seller.email,
-      from: {
-        email: 'support@auqli.com',
-        name: 'Auqli Returns'
-      },
+      from: process.env.EMAIL_FROM,
       subject: 'Return and Replacement Shipping Labels Created',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1747,8 +1723,8 @@ async function sendShippingLabelEmails(returnRequest, replacementProduct, return
 
     // Send emails
     await Promise.all([
-      sgMail.send(buyerEmail),
-      sgMail.send(sellerEmail)
+      mailer.send({ ...buyerEmail, tags: [{ name: 'type', value: 'return-update' }] }),
+      mailer.send({ ...sellerEmail, tags: [{ name: 'type', value: 'return-update' }] })
     ]);
 
     return true;
@@ -1879,7 +1855,7 @@ exports.rejectReturnRequest = async (req, res) => {
     // Send email to buyer
     const buyerEmail = {
       to: returnRequest.buyer.email,
-      from: 'Auqli Returns <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Return Request Rejected - Dispute Created',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1898,7 +1874,7 @@ exports.rejectReturnRequest = async (req, res) => {
     // Send email to seller
     const sellerEmail = {
       to: returnRequest.seller.email,
-      from: 'Auqli Returns <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Return Request Rejection Confirmed',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1917,7 +1893,7 @@ exports.rejectReturnRequest = async (req, res) => {
     // Send email to admin
     const adminEmail = {
       to: 'admin@auqli.com',
-      from: 'Auqli Returns <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'New Return Dispute Created',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1939,9 +1915,9 @@ exports.rejectReturnRequest = async (req, res) => {
 
     // Send all emails
     await Promise.all([
-      sgMail.send(buyerEmail),
-      sgMail.send(sellerEmail),
-      sgMail.send(adminEmail)
+      mailer.send({ ...buyerEmail, tags: [{ name: 'type', value: 'return-update' }] }),
+      mailer.send({ ...sellerEmail, tags: [{ name: 'type', value: 'return-update' }] }),
+      mailer.send({ ...adminEmail, tags: [{ name: 'type', value: 'return-update' }] })
     ]);
 
     // Create notifications
@@ -2010,16 +1986,16 @@ exports.adminUpdateStatus = async (req, res) => {
     };
 
     await Promise.all([
-      sgMail.send({
+      mailer.send({ ...({
         ...emailTemplate,
         to: returnRequest.buyer.email,
-        from: 'Auqli Returns <support@auqli.com>'
-      }),
-      sgMail.send({
+        from: process.env.EMAIL_FROM
+      }), tags: [{ name: 'type', value: 'return-update' }] }),
+      mailer.send({ ...({
         ...emailTemplate,
         to: returnRequest.seller.email,
-        from: 'Auqli Returns <support@auqli.com>'
-      })
+        from: process.env.EMAIL_FROM
+      }), tags: [{ name: 'type', value: 'return-update' }] })
     ]);
 
     res.json({

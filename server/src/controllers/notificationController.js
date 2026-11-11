@@ -1,3 +1,4 @@
+const mailer = require('../services/email/mailer');
 const { sellerAppLink } = require('../utils/helpers');
 const Notification = require('../models/Notification');
 const termiiEmailService = require('../services/termiiEmailService');
@@ -272,10 +273,9 @@ exports.sendEmailNotification = async (seller, notification) => {
   try {
     // Ensure SendGrid API key is set
     const apiKey = process.env.SENDGRID_API_KEY;
-    if (!apiKey) {
+    if (process.env.EMAIL_PROVIDER === 'sendgrid' && !apiKey) {
       throw new Error('SendGrid API key not configured');
     }
-    sgMail.setApiKey(apiKey);
 
     const orderData = notification.data || {};
 
@@ -351,7 +351,7 @@ exports.sendEmailNotification = async (seller, notification) => {
 
     const msg = {
       to: seller.email,
-      from: 'Auqli Seller <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: notification.title,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
@@ -399,7 +399,7 @@ exports.sendEmailNotification = async (seller, notification) => {
 // Helper function to send email notification to buyer
 exports.sendEmailToBuyer = async (buyer, notification) => {
   try {
-    console.log(`Sending direct email to buyer: ${buyer.email} for notification: ${notification.type}`);
+    // Email delivery details are logged by the shared mailer.
 
     // Get order data from notification
     const data = notification.data || {};
@@ -420,13 +420,12 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
 
     // Ensure we have a valid API key
     const apiKey = process.env.SENDGRID_API_KEY;
-    if (!apiKey) {
+    if (process.env.EMAIL_PROVIDER === 'sendgrid' && !apiKey) {
       console.error('Cannot send email: SendGrid API key is not configured');
       throw new Error('SendGrid API key not configured');
     }
 
     // Set the API key for safety
-    sgMail.setApiKey(apiKey);
 
     // Extract data from notification
     const orderInfo = parseNotificationData(data);
@@ -532,18 +531,18 @@ exports.sendEmailToBuyer = async (buyer, notification) => {
     // Send email
     const msg = {
       to: buyer.email,
-      from: 'Auqli <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject,
       html
     };
 
-    console.log(`Attempting to send email to buyer ${buyer.email} for order ${data.order_id || 'N/A'}`);
+    // Email delivery details are logged by the shared mailer.
     await termiiEmailService.sendRawHTMLEmail({
       email: msg.to,
       subject: msg.subject,
       html: msg.html
     });
-    console.log(`Email sent successfully to buyer ${buyer.email} for order ${data.order_id || 'N/A'}`);
+    // Email delivery details are logged by the shared mailer.
 
     return true;
   } catch (error) {
@@ -770,14 +769,11 @@ exports.sendCampaignEmails = async (campaign, seller, recipients) => {
         return { success: false, error: 'Invalid recipient data' };
       }
 
-      console.log('Preparing email for:', recipient.buyer.email);
+      // Email delivery details are logged by the shared mailer.
 
       const msg = {
         to: recipient.buyer.email,
-        from: {
-          email: 'support@auqli.com',
-          name: 'Auqli Campaigns'
-        },
+        from: process.env.EMAIL_FROM,
         subject: `New Campaign from ${seller.businessName || seller.firstName}`,
         html: `
           <div style="background-color: #f9fafb; padding: 20px;">
@@ -818,16 +814,16 @@ exports.sendCampaignEmails = async (campaign, seller, recipients) => {
       };
 
       try {
-        console.log('Sending email to:', recipient.buyer.email);
+        // Email delivery details are logged by the shared mailer.
         await termiiEmailService.sendRawHTMLEmail({
           email: msg.to,
           subject: msg.subject,
           html: msg.html
         });
-        console.log('Email sent successfully to:', recipient.buyer.email);
+        // Email delivery details are logged by the shared mailer.
         return { success: true, email: recipient.buyer.email };
       } catch (error) {
-        console.error(`Failed to send email to ${recipient.buyer.email}:`, error.message);
+        // Email delivery details are logged by the shared mailer.
         return {
           success: false,
           email: recipient.buyer.email,
@@ -1655,10 +1651,11 @@ const createMessageNotifications = async (message, senderName, recipientName) =>
 };
 
 // Helper function to verify SendGrid API key
-const verifySendGridConfig = () => {
+const verifySendGridConfig = () => require('../services/email/mailer').configuration().email === 'configured';
+const legacyVerifySendGridConfig = () => {
   const apiKey = process.env.SENDGRID_API_KEY;
 
-  if (!apiKey) {
+  if (process.env.EMAIL_PROVIDER === 'sendgrid' && !apiKey) {
     console.error('SENDGRID_API_KEY is not set in environment variables!');
     return false;
   }
@@ -1692,11 +1689,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
       return;
     }
 
-    console.log('Found buyer for batch processing:', {
-      buyerId: buyer._id.toString(),
-      email: buyer.email,
-      name: `${buyer.firstName} ${buyer.lastName}`
-    });
+    // Email delivery details are logged by the shared mailer.
 
     // Find all orders for this buyer that haven't had notifications sent
     const orders = await Order.find({
@@ -1791,7 +1784,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
 
           // Send email to seller for this specific order
           await exports.sendEmailNotification(seller, sellerNotification);
-          console.log(`Email sent to seller ${seller.email} for order ${order.order_id}`);
+          // Email delivery details are logged by the shared mailer.
 
           // Mark order as notified
           order.notificationsSent = true;
@@ -1805,7 +1798,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
 
     // For single orders, create a dedicated email to buyer
     if (uniqueOrders.length === 1) {
-      console.log('Processing single order notification for buyer:', buyer.email);
+      // Email delivery details are logged by the shared mailer.
       const order = uniqueOrders[0];
       const sellerName = order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`;
 
@@ -1840,14 +1833,14 @@ exports.processBatchOrderNotifications = async (buyerId) => {
 
         // Send direct email to buyer for single order
         await exports.sendEmailToBuyer(buyer, buyerNotification);
-        console.log(`Direct email sent to buyer ${buyer.email} for single order ${order.order_id}`);
+        // Email delivery details are logged by the shared mailer.
       } catch (error) {
         console.error('Error sending single order notification to buyer:', error);
       }
     }
     // For multiple orders, create a consolidated email for the buyer
     else if (uniqueOrders.length > 1) {
-      console.log('Creating consolidated email for buyer with multiple orders:', buyer.email);
+      // Email delivery details are logged by the shared mailer.
 
       // Create in-app notifications for each order first
       console.log('Creating in-app notifications for buyer first');
@@ -1971,7 +1964,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
       // Send consolidated email to buyer
       const msg = {
         to: buyer.email,
-        from: 'Auqli <support@auqli.com>',
+        from: process.env.EMAIL_FROM,
         subject: `Your Orders Have Been Placed - Auqli`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
@@ -2015,23 +2008,16 @@ exports.processBatchOrderNotifications = async (buyerId) => {
       };
 
       try {
-        console.log('Sending consolidated email to buyer:', {
-          to: buyer.email,
-          from: 'Auqli <support@auqli.com>',
-          subject: `Your Orders Have Been Placed - Auqli`,
-          orderCount: uniqueOrders.length,
-          sellerCount: allSellers.length
-        });
+        // Email delivery details are logged by the shared mailer.
 
         // Ensure SendGrid API key is set
         const apiKey = process.env.SENDGRID_API_KEY;
-        if (!apiKey) {
+        if (process.env.EMAIL_PROVIDER === 'sendgrid' && !apiKey) {
           throw new Error('SendGrid API key not configured');
         }
-        sgMail.setApiKey(apiKey);
 
-        await sgMail.send(msg);
-        console.log(`Batch email sent to buyer: ${buyer.email} for ${uniqueOrders.length} orders`);
+        await mailer.send({ ...msg, tags: [{ name: 'type', value: 'order-notification' }] });
+        // Email delivery details are logged by the shared mailer.
       } catch (emailError) {
         console.error('Error sending batch email to buyer:', emailError);
         console.error('SendGrid error details:', emailError.response?.body?.errors);
@@ -2089,11 +2075,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
       return;
     }
 
-    console.log('Found buyer for batch processing:', {
-      buyerId: buyer._id.toString(),
-      email: buyer.email,
-      name: `${buyer.firstName} ${buyer.lastName}`
-    });
+    // Email delivery details are logged by the shared mailer.
 
     // Find all orders for this buyer that haven't had notifications sent
     const orders = await Order.find({
@@ -2198,7 +2180,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
 
           // Send email to seller for this specific order
           await exports.sendEmailNotification(seller, sellerNotification);
-          console.log(`Email sent to seller ${seller.email} for order ${order.order_id}`);
+          // Email delivery details are logged by the shared mailer.
 
           // Mark order as notified
           order.notificationsSent = true;
@@ -2212,7 +2194,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
 
     // For single orders, create a dedicated email to buyer
     if (uniqueOrders.length === 1) {
-      console.log('Processing single order notification for buyer:', buyer.email);
+      // Email delivery details are logged by the shared mailer.
       const order = uniqueOrders[0];
       const sellerName = order.seller.businessName || `${order.seller.firstName} ${order.seller.lastName}`;
 
@@ -2257,14 +2239,14 @@ exports.processBatchOrderNotifications = async (buyerId) => {
 
         // Send direct email to buyer for single order
         await exports.sendEmailToBuyer(buyer, buyerNotification);
-        console.log(`Direct email sent to buyer ${buyer.email} for single order ${order.order_id}`);
+        // Email delivery details are logged by the shared mailer.
       } catch (error) {
         console.error('Error sending single order notification to buyer:', error);
       }
     }
     // For multiple orders, create a consolidated email for the buyer
     else if (uniqueOrders.length > 1) {
-      console.log('Creating consolidated email for buyer with multiple orders:', buyer.email);
+      // Email delivery details are logged by the shared mailer.
 
       // Create in-app notifications for each order first
       console.log('Creating in-app notifications for buyer first');
@@ -2408,7 +2390,7 @@ exports.processBatchOrderNotifications = async (buyerId) => {
       // Send consolidated email to buyer
       const msg = {
         to: buyer.email,
-        from: 'Auqli <support@auqli.com>',
+        from: process.env.EMAIL_FROM,
         subject: `Your Orders Have Been Placed - Auqli`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
@@ -2452,23 +2434,16 @@ exports.processBatchOrderNotifications = async (buyerId) => {
       };
 
       try {
-        console.log('Sending consolidated email to buyer:', {
-          to: buyer.email,
-          from: 'Auqli <support@auqli.com>',
-          subject: `Your Orders Have Been Placed - Auqli`,
-          orderCount: uniqueOrders.length,
-          sellerCount: allSellers.length
-        });
+        // Email delivery details are logged by the shared mailer.
 
         // Ensure SendGrid API key is set
         const apiKey = process.env.SENDGRID_API_KEY;
-        if (!apiKey) {
+        if (process.env.EMAIL_PROVIDER === 'sendgrid' && !apiKey) {
           throw new Error('SendGrid API key not configured');
         }
-        sgMail.setApiKey(apiKey);
 
-        await sgMail.send(msg);
-        console.log(`Batch email sent to buyer: ${buyer.email} for ${uniqueOrders.length} orders`);
+        await mailer.send({ ...msg, tags: [{ name: 'type', value: 'order-notification' }] });
+        // Email delivery details are logged by the shared mailer.
       } catch (emailError) {
         console.error('Error sending batch email to buyer:', emailError);
         console.error('SendGrid error details:', emailError.response?.body?.errors);
@@ -2497,14 +2472,14 @@ exports.processBatchOrderNotifications = async (buyerId) => {
 // Send email to seller when a buyer follows their store
 exports.sendNewFollowerEmail = async (seller, buyerName) => {
   try {
-    console.log(`Sending new follower email to seller: ${seller.email} for buyer: ${buyerName}`);
+    // Email delivery details are logged by the shared mailer.
 
     // Store name or business name
     const storeName = seller.storeName || seller.businessName || 'Your store';
 
     const msg = {
       to: seller.email,
-      from: 'Auqli <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: '🎉 You have a new follower!',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
@@ -2535,7 +2510,7 @@ exports.sendNewFollowerEmail = async (seller, buyerName) => {
       subject: msg.subject,
       html: msg.html
     });
-    console.log(`New follower email sent successfully to seller: ${seller.email}`);
+    // Email delivery details are logged by the shared mailer.
     return true;
   } catch (error) {
     console.error('Error sending new follower email to seller:', error.message);
@@ -2546,14 +2521,14 @@ exports.sendNewFollowerEmail = async (seller, buyerName) => {
 // Send email to seller when a buyer comments on their blip
 exports.sendBlipCommentEmail = async (seller, buyerName, productName, comment) => {
   try {
-    console.log(`Sending blip comment email to seller: ${seller.email} for buyer: ${buyerName}`);
+    // Email delivery details are logged by the shared mailer.
 
     // Store name or business name
     const sellerName = seller.storeName || seller.businessName || seller.firstName || 'Seller';
 
     const msg = {
       to: seller.email,
-      from: 'Auqli <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: '💬 New comment on your Blip',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
@@ -2587,7 +2562,7 @@ exports.sendBlipCommentEmail = async (seller, buyerName, productName, comment) =
       subject: msg.subject,
       html: msg.html
     });
-    console.log(`Blip comment email sent successfully to seller: ${seller.email}`);
+    // Email delivery details are logged by the shared mailer.
     return true;
   } catch (error) {
     console.error('Error sending blip comment email to seller:', error.message);

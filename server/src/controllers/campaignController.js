@@ -1,7 +1,8 @@
+const mailer = require('../services/email/mailer');
 const { buyerAppUrl } = require('../utils/helpers');
 const Campaign = require('../models/Campaign');
 const Seller = require('../models/Seller');
-const sgMail = require('@sendgrid/mail');
+
 const { s3 } = require('../config/awsConfig');
 const { v4: uuidv4 } = require('uuid');
 const { createMessageNotifications, createNotification } = require('./notificationController');
@@ -9,12 +10,10 @@ const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const mongoose = require('mongoose');
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
 // Helper function for sending campaign emails
 async function sendCampaignEmails(campaign, seller, recipients) {
   console.log('Starting to send campaign emails...');
-  console.log('Using SendGrid From Email:', process.env.SENDGRID_FROM_EMAIL || 'support@auqli.com');
+  console.log('Using SendGrid From Email:', process.env.EMAIL_FROM);
   try {
     if (!recipients || recipients.length === 0) {
       console.log('No recipients found for campaign');
@@ -27,20 +26,14 @@ async function sendCampaignEmails(campaign, seller, recipients) {
     const emailPromises = validRecipients.map(async (recipient) => {
       const buyerEmail = recipient.buyer.email;
       const buyerName = recipient.buyer.firstName || 'Valued Customer';
-      const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'support@auqli.com';
+      const fromEmail = process.env.EMAIL_FROM;
       const sellerName = seller.businessName || seller.firstName;
 
       // Generate unique tracking IDs
-      const trackingId = uuidv4();
+      const trackingId = recipient.trackingId || uuidv4();
       const pixelTrackingUrl = `${process.env.BACKEND_URL}/api/campaigns/track/open/${trackingId}`;
 
-      console.log('Email Configuration:', {
-        from: fromEmail,
-        fromName: sellerName,
-        to: buyerEmail,
-        subject: `${sellerName} shared new products with you`,
-        trackingId
-      });
+
 
       // Add tracking data to recipient
       await Campaign.findOneAndUpdate(
@@ -79,15 +72,15 @@ async function sendCampaignEmails(campaign, seller, recipients) {
           <div style="font-family: Arial, sans-serif; background-color: #f9fafb; padding: 20px;">
             <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
               <h2 style="color: #1f2937; margin-bottom: 20px;">Hi ${buyerName},</h2>
-              
+
               <p style="color: #4b5563; line-height: 1.6; margin-bottom: 20px;">
                 ${sellerName} has shared some exciting products with you:
               </p>
 
               <h1 style="color: #1f2937; margin-bottom: 20px;">${campaign.title}</h1>
-              
+
               <p style="color: #4b5563; line-height: 1.6;">${campaign.message}</p>
-              
+
               ${campaign.selectedProducts?.length > 0 ? `
                 <div style="margin-top: 30px;">
                   <h2 style="color: #1f2937; font-size: 18px; margin-bottom: 15px;">Featured Products:</h2>
@@ -104,14 +97,14 @@ async function sendCampaignEmails(campaign, seller, recipients) {
                   </div>
                 </div>
               ` : ''}
-              
+
               <div style="margin-top: 30px; text-align: center;">
                 <a href="${buyerAppUrl()}/store/${seller._id}?utm_source=email&utm_medium=campaign&utm_campaign=${campaign._id}&tid=${trackingId}"
                    style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">
                   Visit ${sellerName}'s Store
                 </a>
               </div>
-              
+
               <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
                 <p style="color: #6b7280; font-size: 12px; text-align: center; margin: 0;">
                   You're receiving this email because you follow ${sellerName} on Auqli.
@@ -130,12 +123,9 @@ async function sendCampaignEmails(campaign, seller, recipients) {
       };
 
       try {
-        console.log(`Attempting to send email from ${fromEmail} to ${buyerEmail}`);
-        await sgMail.send(msg);
-        console.log(`Email sent successfully from ${fromEmail} to ${buyerEmail}`);
+        await mailer.send({ ...msg, tags: [{ name: 'type', value: 'campaign' }], idempotencyKey: `campaign/${campaign._id}-${recipient.buyer._id}` });
         return { success: true, email: buyerEmail, fromEmail, trackingId };
       } catch (error) {
-        console.error(`Failed to send email from ${fromEmail} to ${buyerEmail}:`, error);
         return {
           success: false,
           email: buyerEmail,
@@ -151,7 +141,7 @@ async function sendCampaignEmails(campaign, seller, recipients) {
       total: results.length,
       successful: results.filter(r => r.success).length,
       failed: results.filter(r => !r.success).length,
-      fromEmail: process.env.SENDGRID_FROM_EMAIL || 'support@auqli.com'
+      fromEmail: process.env.EMAIL_FROM
     });
 
     return results;
@@ -972,4 +962,4 @@ exports.getCampaignPerformance = async (req, res) => {
   }
 };
 
-// Additional controller methods to be continued... 
+// Additional controller methods to be continued...

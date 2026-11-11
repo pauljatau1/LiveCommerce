@@ -214,10 +214,7 @@ exports.sendSlackNotificationForPaidOrder = async (order, buyer, sellerName) => 
   try {
     const slackEmailMsg = {
       to: 'orders-aaaaqm2ugmdudvf4jsgf3koetm@auqli.slack.com',
-      from: {
-        email: 'support@auqli.com',
-        name: 'Auqli Orders'
-      },
+      from: process.env.EMAIL_FROM,
       subject: 'New Paid Order, on Auqli',
       html: `
         <div style="background: #f6f8fa; font-family: 'Segoe UI', Arial, sans-serif; max-width: 520px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(44,62,80,0.10);">
@@ -292,10 +289,7 @@ exports.sendOrderConfirmationEmail = async (order, buyer) => {
 
     const emailMsg = {
       to: buyer.email,
-      from: {
-        email: 'support@auqli.com',
-        name: 'Auqli'
-      },
+      from: process.env.EMAIL_FROM,
       subject: `Order Confirmed! #${order.order_id}`,
       html: `
         <!DOCTYPE html>
@@ -425,10 +419,7 @@ exports.sendSellerOrderNotificationEmail = async (order, seller) => {
 
     const emailMsg = {
       to: seller.email,
-      from: {
-        email: 'support@auqli.com',
-        name: 'Auqli'
-      },
+      from: process.env.EMAIL_FROM,
       subject: `New Order Received! #${order.order_id}`,
       html: `
         <!DOCTYPE html>
@@ -549,10 +540,7 @@ exports.sendShipmentFailureEmail = async (order, buyer, reason) => {
   try {
     const emailMsg = {
       to: buyer.email,
-      from: {
-        email: 'support@auqli.com',
-        name: 'Auqli'
-      },
+      from: process.env.EMAIL_FROM,
       subject: `Shipment Issue - Order #${order.order_id}`,
       html: `
         <!DOCTYPE html>
@@ -839,10 +827,7 @@ exports.handleFailedPayment = async (paymentData) => {
 
         const failedPaymentEmail = {
           to: buyer.email,
-          from: {
-            email: 'support@auqli.com',
-            name: 'Auqli Support'
-          },
+          from: process.env.EMAIL_FROM,
           subject: 'Payment Failed - Terminal Africa Order',
           html: emailContent
         };
@@ -874,10 +859,7 @@ async function sendSimpleTopUpEmail(buyer, transaction) {
 
   const msg = {
     to: buyer.email,
-    from: {
-      email: 'support@auqli.com',
-      name: 'Auqli Support'
-    },
+    from: process.env.EMAIL_FROM,
     subject: 'Wallet Top-Up Confirmation',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -897,7 +879,7 @@ async function sendSimpleTopUpEmail(buyer, transaction) {
       subject: msg.subject,
       html: msg.html
     });
-    console.log('Simple wallet top-up confirmation email sent to:', buyer.email);
+    // Email delivery details are logged by the shared mailer.
     return true;
   } catch (error) {
     console.error('Error sending simple wallet top-up email:', error.message);

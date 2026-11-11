@@ -2,13 +2,13 @@ const { authEmail } = require('../../src/utils/authEmail');
 const { buyerAppUrl, sellerAppUrl, sellerAppLink } = require('../../src/utils/helpers');
 describe('app links and shared auth email', () => {
   const saved = { ...process.env };
-  beforeEach(() => { process.env.APP_NAME='Sample <Studio>';process.env.BUYER_APP_URL='https://shop.example.test/';process.env.SELLER_APP_URL='https://seller.example.test/studio/';delete process.env.CLASSIC_EMAIL_TEMPLATES; });
+  beforeEach(() => { process.env.APP_NAME='Sample <Studio>';process.env.EMAIL_FROM='onboarding@resend.dev';process.env.BUYER_APP_URL='https://shop.example.test/';process.env.SELLER_APP_URL='https://seller.example.test/studio/';delete process.env.CLASSIC_EMAIL_TEMPLATES; });
   afterAll(() => { process.env=saved; });
   test('origins and studio paths avoid duplicate slashes and /studio', () => { expect(buyerAppUrl()).toBe('https://shop.example.test');expect(sellerAppUrl()).toBe('https://seller.example.test');expect(sellerAppLink('/orders')).toBe('https://seller.example.test/studio/orders'); });
   test.each(['buyer','seller'])('verification and reset share the layout for %s', audience => {
     for(const kind of ['verify','reset']) {
       const result=authEmail({html:'classic',from:'Auqli <support@auqli.com>'}, {audience,kind,code:'1234',name:'Ada <script>'});
-      expect(result.from).toEqual({email:'support@auqli.com',name:'Sample <Studio>'});expect(result.subject).toContain('Sample <Studio>');expect(result.html).toContain('Sample &lt;Studio&gt;');expect(result.html).toContain('Ada');expect(result.html).not.toContain('<script>');expect(result.html).toContain('1234');expect(result.html).not.toContain('Auqli');expect(result.html).not.toContain('/dashboard');
+      expect(result.from).toBe('onboarding@resend.dev');expect(result.text).toContain('1234');expect(result.tags).toEqual([{name:'type',value:kind === 'reset' ? 'password-reset' : 'verification-code'}]);expect(result.subject).toContain('Sample <Studio>');expect(result.html).toContain('Sample &lt;Studio&gt;');expect(result.html).toContain('Ada');expect(result.html).not.toContain('<script>');expect(result.html).toContain('1234');expect(result.html).not.toContain('Auqli');expect(result.html).not.toContain('/dashboard');
       expect(result.html).toContain(audience === 'buyer' ? buyerAppUrl() : sellerAppLink());
     }
   });

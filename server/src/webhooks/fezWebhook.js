@@ -504,14 +504,14 @@ const sendStatusEmails = async (order, status, webhookData) => {
     // Send emails
     const buyerEmail = {
       to: order.buyer.email,
-      from: 'Auqli Shipping <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: buyerSubject,
       html: buyerHtml
     };
 
     const sellerEmail = {
       to: order.seller.email,
-      from: 'Auqli Shipping <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: sellerSubject,
       html: sellerHtml
     };

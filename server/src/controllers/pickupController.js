@@ -1,9 +1,9 @@
+const mailer = require('../services/email/mailer');
 const PickupRequest = require('../models/PickupRequest');
 const Order = require('../models/Order');
 const Seller = require('../models/Seller');
 const cloudinary = require('../config/cloudinary');
-const sgMail = require('@sendgrid/mail');
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
 const { s3 } = require('../config/awsConfig')
 const { v4: uuidv4 } = require('uuid');
 const mongoose = require('mongoose');
@@ -91,10 +91,7 @@ exports.createPickupRequest = async (req, res) => {
     // Send email to admin about new pickup request
     const adminEmail = {
       to: 'admin@auqli.com',
-      from: {
-        email: 'support@auqli.com',
-        name: 'Auqli Orders',
-      },
+      from: process.env.EMAIL_FROM,
       subject: 'New Pickup Request Pending Approval',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -110,15 +107,12 @@ exports.createPickupRequest = async (req, res) => {
       `,
     };
 
-    await sgMail.send(adminEmail);
+    await mailer.send({ ...adminEmail, tags: [{ name: 'type', value: 'pickup-update' }] });
 
     // Send confirmation to seller
     const sellerEmail = {
       to: order.seller.email,
-      from: {
-        email: 'support@auqli.com',
-        name: 'Auqli Orders',
-      },
+      from: process.env.EMAIL_FROM,
       subject: 'Pickup Request Submitted',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -131,7 +125,7 @@ exports.createPickupRequest = async (req, res) => {
       `,
     };
 
-    await sgMail.send(sellerEmail);
+    await mailer.send({ ...sellerEmail, tags: [{ name: 'type', value: 'pickup-update' }] });
 
     return res.status(201).json({
       status: 'success',
@@ -228,10 +222,7 @@ exports.processPickupRequest = async (req, res) => {
       // Send email to seller
       const sellerEmail = {
         to: pickupRequest.order.seller.email,
-        from: {
-          email: 'support@auqli.com',
-          name: 'Auqli Orders'
-        },
+        from: process.env.EMAIL_FROM,
         subject: 'Pickup Request Approved',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -244,15 +235,12 @@ exports.processPickupRequest = async (req, res) => {
         `
       };
 
-      await sgMail.send(sellerEmail);
+      await mailer.send({ ...sellerEmail, tags: [{ name: 'type', value: 'pickup-update' }] });
     } else {
       // Send declined notification to seller
       const sellerEmail = {
         to: pickupRequest.order.seller.email,
-        from: {
-          email: 'support@auqli.com',
-          name: 'Auqli Orders'
-        },
+        from: process.env.EMAIL_FROM,
         subject: 'Pickup Request Declined',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -266,7 +254,7 @@ exports.processPickupRequest = async (req, res) => {
         `
       };
 
-      await sgMail.send(sellerEmail);
+      await mailer.send({ ...sellerEmail, tags: [{ name: 'type', value: 'pickup-update' }] });
     }
 
     return res.status(200).json({

@@ -18,7 +18,8 @@ const FEATURES = {
   'Media storage (S3 or R2)': ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'CDN_S3_BUCKET', 'CDN_URL'],
   'Admin sign-up': ['ADMIN_EMAILS'],
   'Browser access (CORS)': ['ALLOWED_ORIGINS'],
-  'Email (SendGrid)': ['SENDGRID_API_KEY', 'SENDGRID_FROM_EMAIL'],
+  // Old credentials remain available when the fallback provider is selected.
+  'Email (Resend)': ['RESEND_API_KEY', 'EMAIL_FROM'],
   'Google sign-in': ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CALLBACK_URL'],
 };
 
@@ -32,6 +33,7 @@ const featureStatus = () =>
   }));
 
 const checkEnv = (log = console) => {
+  require('../services/email/mailer').checkConfig();
   const missingCore = CORE.filter((v) => !isSet(v));
   if (missingCore.length) {
     const message = `Missing required settings: ${missingCore.join(', ')}`;

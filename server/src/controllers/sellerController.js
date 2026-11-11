@@ -202,7 +202,7 @@ exports.requestBankAccountChange = async (req, res) => {
     // Email to admin
     const adminEmailMsg = {
       to: adminEmails,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'New Bank Account Change Request',
       html: `
         <h2>New Bank Account Change Request</h2>
@@ -216,7 +216,7 @@ exports.requestBankAccountChange = async (req, res) => {
     // Email to seller
     const sellerEmailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Bank Account Change Request Submitted',
       html: `
         <h2>Bank Account Change Request Submitted</h2>
@@ -545,7 +545,7 @@ exports.getOnboardingProcess = async (req, res) => {
 async function sendStoreVerificationEmail(seller, status) {
   const sellerMsg = {
     to: seller.email,
-    from: 'Joseph From Auqli <support@auqli.com>',
+    from: process.env.EMAIL_FROM,
     subject: `Store Verification Status - ${status}`,
     html: `
       <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -566,7 +566,7 @@ async function sendStoreVerificationEmail(seller, status) {
 
   const adminMsg = {
     to: 'bolu@auqli.com',
-    from: 'Joseph From Auqli <support@auqli.com>',
+    from: process.env.EMAIL_FROM,
     subject: `Store Verification Status Update - ${seller.storeName}`,
     html: `
       <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -898,7 +898,7 @@ const legacyRequestPasswordReset = async (req, res) => {
     // Send email with reset link
     const msg = {
       to: email,
-      from: 'Joseph From Auqli <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Reset Your Auqli Password',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -1026,7 +1026,7 @@ const legacyResetPasswordWithToken = async (req, res) => {
     // Send confirmation email
     const msg = {
       to: seller.email,
-      from: 'Joseph From Auqli <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Your Auqli Password Has Been Reset',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -1202,7 +1202,7 @@ exports.createWithdrawalRequest = async (req, res) => {
     // Send email notifications asynchronously (non-blocking)
     const emailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Withdrawal Request Received',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1220,7 +1220,7 @@ exports.createWithdrawalRequest = async (req, res) => {
     // Send email notification to Slack payout channel
     const slackPayoutMsg = {
       to: 'seller-payouts-aaaaqyrdz6flakixbbdhmldhjm@auqli.slack.com',
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'New Seller Withdrawal Request',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1360,7 +1360,7 @@ exports.toggleVacationMode = async (req, res) => {
     console.log('[VacationMode] Sending email...');
     const msg = {
       to: seller.email,
-      from: 'Auqli Nigeria <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: `Vacation Mode ${isOn ? 'Enabled' : 'Disabled'}`,
       html: `
         <div style="background-color: #f8f8f8; color: #333333; padding: 20px; font-family: Arial, sans-serif;">
@@ -3309,7 +3309,7 @@ exports.toggleAccountPending = async (req, res) => {
       try {
         const adminMsg = {
           to: 'admin@auqli.com',
-          from: 'Auqli Notifications <support@auqli.com>',
+          from: process.env.EMAIL_FROM,
           subject: `Seller Onboarding Completed - ${seller.storeName || seller.firstName + ' ' + seller.lastName}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -3402,7 +3402,7 @@ exports.markVerified = async (req, res) => {
     try {
       const msg = {
         to: seller.email,
-        from: 'Auqli Nigeria <support@auqli.com>',
+        from: process.env.EMAIL_FROM,
         subject: 'Your Auqli Store is Now Verified',
         html: `
           <div style="background-color: #f8f8f8; color: #333333; padding: 20px; font-family: Arial, sans-serif;">
