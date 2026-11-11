@@ -77,6 +77,12 @@ const moneySummary = async (sellerId) => {
 };
 
 // ---- Home ----
+// Typical weight per category, to pre-fill the product form
+router.get('/category-weights', (req, res) => {
+  const { DEFAULT_WEIGHT_KG } = require('../config/catalogue');
+  res.json({ success: true, ...DEFAULT_WEIGHT_KG });
+});
+
 router.get('/home', async (req, res) => {
   try {
     const sellerId = req.user.id;

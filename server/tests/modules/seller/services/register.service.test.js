@@ -133,7 +133,7 @@ describe('Seller Registration Service', () => {
       expect(termiiEmailService.sendRawHTMLEmail).toHaveBeenCalledWith(
         expect.objectContaining({
           email: 'john.doe@example.com',
-          subject: `Your store is ready · ${process.env.APP_NAME || 'gbam'}`,
+          subject: `Your ${process.env.APP_NAME || 'gbam'} store is ready`,
           html: expect.stringContaining('John') // HTML content check
         })
       );

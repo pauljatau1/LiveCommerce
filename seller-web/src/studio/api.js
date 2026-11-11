@@ -82,6 +82,8 @@ export const account = {
   saveBank: (body) => put(`${BASE_URL_V2}/sellers/profile/bank-details`, body),
   product: (id) => get(`${BASE_URL}/products/${id}`),
   categories: () => get(`${BASE_URL}/public/categories`),
+  // { fallback, categories: { Shoes: 3, … } }: typical weight in kg, to pre-fill a new product
+  categoryWeights: () => get(`${BASE_URL_V2}/studio/category-weights`),
   saveProduct: (id, body) => id ? put(`${BASE_URL}/products/${id}`, body) : post(`${BASE_URL}/products`, body),
 };
 

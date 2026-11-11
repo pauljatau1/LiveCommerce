@@ -448,7 +448,7 @@ exports.forgotPassword = async (req, res) => {
     const termiiEmailService = require('../services/termiiEmailService');
     await termiiEmailService.sendPasswordResetEmail({
       email: email,
-      ...authEmail({ html, subject: 'Reset Your Password - Auqli' }, { kind: 'reset', audience: 'seller', code: resetCode, name: seller.firstName, minutes: 60 })
+      ...authEmail({ html, subject: 'Reset Your Password - Auqli' }, { kind: 'reset', audience: 'seller', code: resetCode, name: seller.firstName, email, minutes: 60 })
     });
 
     // Return success response
@@ -923,7 +923,7 @@ exports.requestPasswordReset = async (req, res) => {
       `
     };
 
-    Object.assign(msg, authEmail(msg, { kind: 'reset', audience: 'seller', name: seller.firstName, minutes: 60, url: `${sellerAppUrl()}/forgot-password?token=${resetToken}` }));
+    Object.assign(msg, authEmail(msg, { kind: 'reset', audience: 'seller', name: seller.firstName, email, minutes: 60, url: `${sellerAppUrl()}/forgot-password?token=${resetToken}` }));
     await termiiEmailService.sendRawHTMLEmail({
       email: msg.to,
       subject: msg.subject,
