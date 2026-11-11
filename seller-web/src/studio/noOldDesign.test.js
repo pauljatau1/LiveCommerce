@@ -24,8 +24,8 @@ test('edit preserves HTML, all variant levels, photos and shipping through the c
   assert.deepEqual(payload.variants,p.variants.map(v=>({...v,images:v.images.map(i=>({...i,contentType:'image/jpeg'})),subVariants:v.subVariants.map(s=>({...s,images:[],subSubVariants:s.subSubVariants.map(ss=>({...ss,images:[]}))}))})));
   assert.deepEqual(payload.colourQuantities,p.colourQuantities);assert.equal(payload.sku,'A01');assert.equal(payload.shippingInfo.freeShipping,true);assert.equal(payload.shippingInfo.shippingClass,'express');
 });
-test('listing hand-off carries proof, strips data prefix and invalidates colour counts if stock changes', () => {
+test('listing hand-off carries proof, strips data prefix and keeps colour stock authoritative', () => {
   const p={fromDraft:true,draftProof:'signed',name:'Gown',price:12000,stock:4,images:[{url:'data:image/png;base64,YWJj'}],colourVariants:['Blue'],colourQuantities:[{colour:'Blue',quantity:4}]};
   let f=editorForm(p), payload=productPayload(f,p);assert.equal(payload.draftProof,'signed');assert.equal(payload.images[0].data,'YWJj');assert.deepEqual(payload.colourQuantities,p.colourQuantities);
-  f.stock=7;assert.deepEqual(productPayload(f,p).colourQuantities,[]);
+  f.stock=7;assert.deepEqual(productPayload(f,p).colourQuantities,p.colourQuantities);assert.equal(productPayload(f,p).stock,4);
 });

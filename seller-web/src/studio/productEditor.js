@@ -130,8 +130,8 @@ export function productPayload(form, original = {}) {
     authenticity: form.authenticity,
     images: form.images.map(imagePayload),
     variants: variantPayload(mergeVariants(form.variants, colours, form.price)),
-    colourVariants: original.colourVariants || [],
-    colourQuantities: stock === Number(original.stock) ? original.colourQuantities || [] : [],
+    colourVariants: colours.map(c => c.value.trim()),
+    colourQuantities: colours.map(c => ({ colour: c.value.trim(), quantity: Number(c.stock) || 0 })),
     ...(original.fromDraft ? { draftProof: original.draftProof } : {}),
     shippingInfo: {
       ...savedShipping,
@@ -169,7 +169,16 @@ export function editorForm(p = {}, weightTable = null) {
     tags: Array.isArray(p.tags) ? p.tags.filter(Boolean) : String(p.tags || '').split(',').map((t) => t.trim()).filter(Boolean),
     images: p.images || [],
     variants: p.variants || [],
-    colours: (p.variants || []).filter(isColourVariant).map(colourRow),
+    colours: p.colourVariants?.length
+      ? p.colourVariants.map(colour => {
+        const saved = (p.variants || []).find(v => isColourVariant(v) && v.value?.toLowerCase() === colour.toLowerCase());
+        const count = (p.colourQuantities || []).find(c => c.colour?.toLowerCase() === colour.toLowerCase());
+        return {
+          ...colourRow(saved), value: colour,
+          stock: count ? Number(count.quantity) || 0 : Number(saved?.totalStock ?? saved?.stock ?? 0),
+        };
+      })
+      : (p.variants || []).filter(isColourVariant).map(colourRow),
   };
   HIDDEN.forEach((k) => delete form[k]);
   return form;
@@ -184,7 +193,10 @@ export function missingFields(form) {
   if (!form.colours?.length && !(Number(form.stock) >= 0)) out.push({ key: 'stock', text: 'Add how many you have.' });
   if (!form.condition) out.push({ key: 'condition', text: 'Pick one so buyers know what to expect.' });
   if (!form.category) out.push({ key: 'category', text: 'Pick a category so buyers can find it.' });
+  if ((form.colours || []).length > 12) out.push({ key: 'colours', text: 'Use up to 12 colours.' });
   if ((form.colours || []).some((c) => !c.value.trim())) out.push({ key: 'colours', text: 'Name each colour, or remove it.' });
+  if ((form.colours || []).some(c => !Number.isInteger(Number(c.stock)) || Number(c.stock) < 0 || Number(c.stock) > 999)) out.push({ key: 'colours', text: 'Use a whole stock count from 0 to 999 for each colour.' });
+  if (new Set((form.colours || []).map(c => c.value.trim().toLowerCase())).size !== (form.colours || []).length) out.push({ key: 'colours', text: 'Use each colour name only once.' });
   const w = weightError(form.weight);
   if (w) out.push({ key: 'weight', text: w });
   return out;

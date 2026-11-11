@@ -15,12 +15,12 @@ const fakeSocket = () => {
 };
 
 describe('guest sockets', () => {
-  it('a token makes a signed-in user; guest: true without one makes a guest; otherwise refused', () => {
+  it('a token makes a signed-in user; guest: true without one makes a guest; otherwise refused', async () => {
     const token = jwt.sign({ id: 'b1', role: 'Buyer' }, process.env.JWT_SECRET);
-    expect(socketUserFromHandshake({ auth: { token } })).toMatchObject({ id: 'b1', role: 'Buyer' });
-    expect(socketUserFromHandshake({ auth: { guest: true } })).toEqual({ id: null, role: 'Guest', guest: true });
-    expect(socketUserFromHandshake({ auth: {} })).toBeNull();
-    expect(() => socketUserFromHandshake({ auth: { token: 'forged' } })).toThrow();
+    expect(await socketUserFromHandshake({ auth: { token } })).toMatchObject({ id: 'b1', role: 'Buyer' });
+    expect(await socketUserFromHandshake({ auth: { guest: true } })).toEqual({ id: null, role: 'Guest', guest: true });
+    expect(await socketUserFromHandshake({ auth: {} })).toBeNull();
+    await expect(socketUserFromHandshake({ auth: { token: 'forged' } })).rejects.toThrow();
   });
 
   it('a guest can follow a show but not chat or bid', () => {

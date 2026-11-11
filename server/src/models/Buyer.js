@@ -65,6 +65,7 @@ const transactionSchema = new mongoose.Schema({
 });
 
 const buyerSchema = new mongoose.Schema({
+  authVersion: {type:Number,default:0},
   firstName: { type: String, required: false },
   lastName: { type: String, required: false },
   username: { type: String, unique: true },

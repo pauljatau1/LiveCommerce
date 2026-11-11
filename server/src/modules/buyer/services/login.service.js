@@ -148,7 +148,7 @@ async function login(data) {
 
   // Step 6: Generate JWT token for session management
   // This provides secure authentication for subsequent requests
-  const token = generateToken(buyer._id);
+  const token = await generateToken(buyer._id, 'Buyer', '500w', buyer.authVersion || 0);
 
   // Step 7: Return authenticated user data and token (exclude password and OTP for security)
   const userResponse = buyer.toObject ? buyer.toObject() : { ...buyer };
@@ -221,7 +221,7 @@ async function googleLoginMobile(data) {
   }
 
   // Step 5: Generate JWT token and return authenticated user (exclude password and OTP for security)
-  const token = generateToken(buyer._id);
+  const token = await generateToken(buyer._id, 'Buyer', '500w', buyer.authVersion || 0);
   const userResponse = buyer.toObject ? buyer.toObject() : { ...buyer };
   delete userResponse.password;
   delete userResponse.otp;

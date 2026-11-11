@@ -31,8 +31,8 @@ function layout({ brand, home, heading, body, why }) {
 // One layout for sign-up codes, welcome and password recovery in both apps.
 // The old templates remain available for rollback, off by default.
 // options: kind verify|reset|welcome, audience buyer|seller, name, store, email, code, minutes, url
-function authEmail(legacy, { kind = 'verify', audience = 'buyer', name, store, email, code, minutes = 10, url } = {}) {
-  if (classicEmailsEnabled()) return legacy;
+function authEmail(legacy, { kind = 'verify', audience = 'buyer', name, store, email, code, minutes = 10, url, forceCurrent = false } = {}) {
+  if (classicEmailsEnabled() && !forceCurrent) return legacy;
   const brand = appName();
   const seller = audience === 'seller';
   const home = seller ? sellerAppLink() : buyerAppUrl();
@@ -44,7 +44,11 @@ function authEmail(legacy, { kind = 'verify', audience = 'buyer', name, store, e
   if (!/^https?:\/\//.test(target) || !/^https?:\/\//.test(home)) throw new Error('Email links require an absolute app URL');
 
   let subject; let heading; let body; let why;
-  if (kind === 'welcome') {
+  if (kind === 'passwordChanged') {
+    subject = `Your ${brand} password was changed`; heading = 'Your password was changed';
+    body = p(`Hi${hi ? ` ${escapeHtml(hi)}` : ''}, your password has been changed. You have been signed out on your other devices.`, 'margin-top:12px') + p("If you didn't do this, request a password reset and contact support.", 'margin-top:20px') + button(home, seller ? 'Go to studio' : 'Open shop');
+    why = `You got this email because the password for your ${escapeHtml(brand)} account changed.`;
+  } else if (kind === 'welcome') {
     subject = seller ? `Your ${brand} store is ready` : `Welcome to ${brand}`;
     heading = seller ? `Your store is ready${hi ? `, ${escapeHtml(hi)}` : ''}` : `Welcome${hi ? `, ${escapeHtml(hi)}` : ''}`;
     body = p(seller ? 'Your products, shows and orders have a home in your studio.' : 'Watch live shows, bid and buy in one tap.', 'margin-top:12px')

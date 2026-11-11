@@ -1,3 +1,5 @@
+// Controller-only fixtures use no accounts; real session revocation is covered separately.
+jest.mock('@/services/auth/sessions', () => ({assertSession: jest.fn().mockResolvedValue(true)}));
 const request = require('supertest');
 const { app } = require('@/app');
 const selectMajorCategoriesService = require('@modules/buyer/services/selectMajorCategories.service');

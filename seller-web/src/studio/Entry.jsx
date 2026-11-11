@@ -1,5 +1,5 @@
 // Sign in, sign up and forgot password for the studio.
-// Forgot password has two ways in: the 4-digit code (email → code + new password),
+// Forgot password has two ways in: the 6-digit code (email → code + new password),
 // and the link in the email (?token=… from the link email, or ?email=…&code=… from
 // the code email's "Reset password" button), which goes straight to a new password.
 import axios from 'axios';
@@ -42,7 +42,7 @@ function fieldIssue(issue, form) {
     storeName: 'Add a store name. You can change it later.',
     phoneNumber: 'Enter the 10 digits after +234, like 801 234 5678.',
     termsAccepted: 'Tick the box to agree to the Terms and Seller policy.',
-    otp: 'Enter the 4-digit code from the email.',
+    otp: 'Enter the 6-digit code from the email.',
   }[field];
   return { field: text ? field : '', text: text || issue.message };
 }
@@ -74,21 +74,21 @@ function Password({ id, value, onChange, error, autoComplete }) {
   );
 }
 
-// Four boxes: typing moves to the next one, backspace to the previous, paste fills all
+// Six boxes: typing moves to the next one, backspace to the previous, paste fills all
 function CodeBoxes({ value, onChange, bad }) {
   const refs = useRef([]);
-  const digits = Array.from({ length: 4 }, (_, i) => value[i] || '');
+  const digits = Array.from({ length: 6 }, (_, i) => value[i] || '');
   const put = (i, d) => {
     const next = [...digits];
     next[i] = d;
-    onChange(next.join('').slice(0, 4));
+    onChange(next.join('').slice(0, 6));
   };
   const paste = (e) => {
-    const got = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
+    const got = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
     if (!got) return;
     e.preventDefault();
     onChange(got);
-    refs.current[Math.min(got.length, 3)]?.focus();
+    refs.current[Math.min(got.length, 5)]?.focus();
   };
   return (
     <div className={`code-boxes${bad ? ' bad' : ''}`} onPaste={paste}>
@@ -100,13 +100,13 @@ function CodeBoxes({ value, onChange, bad }) {
           inputMode="numeric"
           autoComplete={i === 0 ? 'one-time-code' : 'off'}
           autoFocus={i === 0}
-          maxLength={i === 0 ? 4 : 1}
+          maxLength={i === 0 ? 6 : 1}
           value={d}
           onChange={(e) => {
             const typed = e.target.value.replace(/\D/g, '');
-            if (typed.length > 1) { onChange(typed.slice(0, 4)); refs.current[Math.min(typed.length, 3)]?.focus(); return; }
+            if (typed.length > 1) { onChange(typed.slice(0, 6)); refs.current[Math.min(typed.length, 5)]?.focus(); return; }
             put(i, typed);
-            if (typed && i < 3) refs.current[i + 1]?.focus();
+            if (typed && i < 5) refs.current[i + 1]?.focus();
           }}
           onKeyDown={(e) => { if (e.key === 'Backspace' && !digits[i] && i > 0) { put(i - 1, ''); refs.current[i - 1]?.focus(); } }}
         />
@@ -124,7 +124,7 @@ export default function Entry({ mode = 'login' }) {
   const params = new URLSearchParams(location.search);
   const resetToken = params.get('token');
   const linkEmail = params.get('email') || '';
-  const linkCode = /^\d{4}$/.test(params.get('code') || '') ? params.get('code') : '';
+  const linkCode = /^\d{6}$/.test(params.get('code') || '') ? params.get('code') : '';
   const fromLink = mode === 'forgot' && (resetToken || (linkEmail && linkCode));
 
   const [form, setForm] = useState({ fullName: '', storeName: '', phoneNumber: '', email: linkEmail, password: '', termsAccepted: false, otp: '', newPassword: '' });
@@ -202,7 +202,7 @@ export default function Entry({ mode = 'login' }) {
           setResendAt(Date.now() + RESEND_SECONDS * 1000);
           setNow(Date.now());
         } else if (step === 'link' && resetToken) {
-          const v = forgotPasswordStep2Schema.parse({ otp: '0000', newPassword: form.newPassword, confirmPassword: form.newPassword });
+          const v = forgotPasswordStep2Schema.parse({ otp: '000000', newPassword: form.newPassword, confirmPassword: form.newPassword });
           await axios.post(`${BASE_URL}/seller/reset-password-with-token`, { token: resetToken, newPassword: v.newPassword });
           setStep('done');
         } else {
@@ -299,12 +299,12 @@ export default function Entry({ mode = 'login' }) {
         <main className={`entry-body${step === 'link' ? '' : ' near'}`}>
           {step === 'email' && <>
             <h1 className="hero">Reset your password</h1>
-            <p className="lede" style={{ marginTop: 8 }}>Enter the email you sign in with. We'll send you a 4-digit code.</p>
+            <p className="lede" style={{ marginTop: 8 }}>Enter the email you sign in with. We'll send you a 6-digit code.</p>
           </>}
           {step === 'code' && <>
             <h1 className="hero">Check your email</h1>
             <p className="lede" style={{ marginTop: 8 }}>
-              We sent a 4-digit code to <b style={{ color: 'var(--text)' }}>{form.email}</b>.{' '}
+              We sent a 6-digit code to <b style={{ color: 'var(--text)' }}>{form.email}</b>.{' '}
               <button type="button" className="link" style={{ minHeight: 0, fontSize: 15 }} onClick={backTo}>Wrong email?</button>
             </p>
           </>}

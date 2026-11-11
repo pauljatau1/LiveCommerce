@@ -39,9 +39,7 @@ const paystack = axios.create({
 });
 
 // Helper function to generate JWT
-const generateToken = (id) => {
-  return jwt.sign({ id, role: 'Buyer' }, process.env.JWT_SECRET);
-};
+const generateToken = (id,version) => require('../services/auth/sessions').issueToken(id, 'Buyer', '500w', version);
 
 // Helper function to generate OTP (4-digit)
 const generateOTP = () => Math.floor(1000 + Math.random() * 9000).toString();
@@ -133,7 +131,7 @@ exports.register = async (req, res) => {
       await saveToken(newBuyer._id, expoPushToken);
     }
 
-    const token = generateToken(newBuyer._id);
+    const token = await generateToken(newBuyer._id);
 
     const msg = {
       to: email,
@@ -253,7 +251,7 @@ exports.login = async (req, res) => {
       }
     }
 
-    const token = generateToken(buyer._id);
+    const token = await generateToken(buyer._id, buyer.authVersion || 0);
     // Exclude password and OTP from response for security
     const userResponse = buyer.toObject ? buyer.toObject() : { ...buyer };
     delete userResponse.password;
@@ -284,7 +282,7 @@ async function googleLoginMobile(data, res) {
       await buyer.save();
     }
 
-    const token = generateToken(buyer._id);
+    const token = await generateToken(buyer._id, buyer.authVersion || 0);
     // Exclude password and OTP from response for security
     const userResponse = buyer.toObject ? buyer.toObject() : { ...buyer };
     delete userResponse.password;
@@ -341,7 +339,7 @@ async function googleRegisterMobile(data, res) {
     if (expoPushToken) {
       await saveToken(newBuyer._id, expoPushToken);
     }
-    const token = generateToken(newBuyer._id);
+    const token = await generateToken(newBuyer._id);
     // Exclude password and OTP from response for security
     const userResponse = newBuyer.toObject ? newBuyer.toObject() : { ...newBuyer };
     delete userResponse.password;
@@ -362,7 +360,9 @@ exports.checkToken = async (req, res) => {
 
   try {
     const decodedUserData = jwt.verify(token, process.env.JWT_SECRET);
-    const newToken = generateToken(decodedUserData.id);
+    if (decodedUserData.role !== 'Buyer') return res.status(401).json({message:'Please sign in again.'});
+    await require('../services/auth/sessions').assertSession(decodedUserData);
+    const newToken = await generateToken(decodedUserData.id, decodedUserData.v || 0);
     res.json({ message: "Token is valid", token: newToken });
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
@@ -2353,7 +2353,7 @@ exports.updateNotificationPreferences = async (req, res) => {
  * @param {Object} res - Express response object
  * @returns {Promise<void>}
  */
-exports.forgotPassword = async (req, res) => {
+const legacyForgotPassword = async (req, res) => {
   const { email } = req.body;
 
   // Validate email input
@@ -2436,7 +2436,7 @@ exports.forgotPassword = async (req, res) => {
 };
 
 // Reset password with OTP
-exports.resetPassword = async (req, res) => {
+const legacyResetPassword = async (req, res) => {
   const { email, otp, newPassword } = req.body;
 
   if (!email || !otp || !newPassword) {
@@ -2615,7 +2615,7 @@ exports.confirmAccountDeletion = async (req, res) => {
 exports.handleGoogleCallback = async (req, res) => {
   try {
     const buyer = req.user;
-    const token = generateToken(buyer._id);
+    const token = await generateToken(buyer._id, buyer.authVersion || 0);
 
     // If this is a mobile app callback, you might want to redirect to a deep link
     if (req.query.state) {
@@ -3540,3 +3540,5 @@ exports.getSelectedMajorCategories = async (req, res) => {
     });
   }
 };
+exports.forgotPassword = async(req,res)=>{try{res.json(await require('../services/auth/passwordReset').issue('Buyer',req.body.email));}catch{res.json({message:'If an account uses that email, we’ll send a reset code. Check your inbox.'});}};
+exports.resetPassword = async(req,res)=>{try{res.json(await require('../services/auth/passwordReset').reset('Buyer',req.body));}catch(e){res.status(e.status||500).json({message:e.status?e.message:'Couldn’t reset your password. Please try again.'});}};

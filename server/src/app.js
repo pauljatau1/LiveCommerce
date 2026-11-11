@@ -52,6 +52,8 @@ const NotFoundException = require('./utils/errors/NotFoundException');
 const ForbiddenException = require('./utils/errors/ForbiddenException');
 
 const app = express();
+// Render terminates requests at its proxy. Trust one hop, never an arbitrary forwarded chain.
+if (process.env.RENDER === 'true') app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 // Only initialize socket manager if not in test environment
@@ -122,6 +124,9 @@ app.use((req, res, next) => {
     if (isError || isSlow) {
       try {
         const fullUrl = `${baseUrl}${req.originalUrl}`;
+        // Recovery requests must never put passwords, codes or email links into alert emails.
+        const monitoredBody = require('./middlewares/passwordResetLimit').pathMatches(req.path)
+          ? {redacted: 'Password recovery request'} : req.body;
         const timestamp = new Date().toISOString();
         const reason = isError ? `Error Status: ${status}` : `Slow Request (${duration}ms)`;
 
@@ -157,7 +162,7 @@ app.use((req, res, next) => {
 
             <div style="margin-top: 20px;">
               <h3 style="background-color: #333; color: #fff; padding: 5px 10px; border-radius: 3px;">Request Payload</h3>
-              <pre style="background-color: #f4f4f4; padding: 10px; border-radius: 3px; overflow-x: auto;">${JSON.stringify(req.body, null, 2) || '{}'}</pre>
+              <pre style="background-color: #f4f4f4; padding: 10px; border-radius: 3px; overflow-x: auto;">${JSON.stringify(monitoredBody, null, 2) || '{}'}</pre>
             </div>
 
             <div style="margin-top: 20px;">
@@ -289,8 +294,11 @@ const sellerReferralRoutes = require('./modules/referral/routes/seller.referral.
 const { mountOptional } = require('./config/optionalFeatures');
 
 app.use('/api/admin', adminRoutes);
+app.use(require('./middlewares/passwordResetLimit'));
+
 app.use('/api/buyer', buyerRoutes);
 app.use('/api/seller', sellerRoutes);
+for (const [path, handler] of Object.entries({ 'forgot-password':'forgotPassword', 'reset-password':'resetPassword', 'request-password-reset':'requestPasswordReset', 'verify-reset-token':'verifyResetToken', 'reset-password-with-token':'resetPasswordWithToken' })) app.post(`/api/sellers/${path}`, require('./controllers/sellerController')[handler]);
 app.use('/api/products', productRoutes);
 app.use('/api/order', orderRoutes);
 // app.use('/api/v2/order', orderRoutesv2);

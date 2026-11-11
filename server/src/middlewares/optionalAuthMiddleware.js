@@ -12,6 +12,7 @@ const optionalAuthMiddleware = async (req, res, next) => {
     if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    await require('../services/auth/sessions').assertSession(decoded);
         req.user = decoded;
       } catch (error) {
         // Invalid token - just proceed without user info

@@ -196,6 +196,8 @@ describe('DELETE /api/v2/buyers/addresses/:addressId', () => {
 
   describe('Database errors', () => {
     it('should handle database connection errors gracefully', async () => {
+      // Isolate the controller's database error from the separate session check.
+      const sessionCheck = jest.spyOn(require('@/services/auth/sessions'), 'assertSession').mockResolvedValue(true);
       // Temporarily disconnect from database
       await mongoose.disconnect();
 
@@ -214,6 +216,7 @@ describe('DELETE /api/v2/buyers/addresses/:addressId', () => {
 
       // Reconnect to database
       await mongoose.connect(mongoServer.getUri());
+      sessionCheck.mockRestore();
     });
   });
 }); 

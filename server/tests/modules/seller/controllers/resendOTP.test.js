@@ -1,3 +1,5 @@
+// Controller contract tests; persistent IP/email quotas are exercised in passwordResetLimit.test.js.
+jest.mock('@/middlewares/passwordResetLimit', () => (req, res, next) => next());
 const request = require('supertest');
 
 // Import the app without starting the server

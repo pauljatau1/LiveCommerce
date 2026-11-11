@@ -543,3 +543,7 @@
   .studio-app .ed-three > .ed-two{display:contents}
   .studio-app .ed-status{max-width:360px}
 }
+
+/* Six reset digits fit a small phone without shrinking input text below 16px. */
+.studio-app .code-boxes{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;max-width:360px}
+.studio-app .code-boxes input{width:100%;min-width:0;height:56px;font-size:var(--t-display)}

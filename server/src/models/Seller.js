@@ -48,6 +48,7 @@ const reviewSchema = new mongoose.Schema({
 });
 
 const sellerSchema = new mongoose.Schema({
+  authVersion: {type:Number,default:0},
   firstName: { type: String, required: true },
   lastName: { type: String },
   email: { type: String, required: true, unique: true },

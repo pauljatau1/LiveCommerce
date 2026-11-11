@@ -6,6 +6,7 @@ const checkTokenService = require('@modules/buyer/services/checkToken.service');
 
 // Mock jwt
 jest.mock('jsonwebtoken');
+jest.mock('@/services/auth/sessions', () => ({assertSession: jest.fn().mockResolvedValue(true)}));
 
 describe('CheckToken Service', () => {
   beforeEach(() => {
@@ -20,7 +21,7 @@ describe('CheckToken Service', () => {
       const mockNewToken = 'new.jwt.token';
 
       // Mock jwt.verify to return decoded user data
-      jwt.verify.mockReturnValue({ id: mockUserId, role: 'Buyer' });
+      jwt.verify.mockReturnValue({ id: mockUserId, role: 'Buyer', v: 0 });
       
       // Mock jwt.sign to return new token
       jwt.sign.mockReturnValue(mockNewToken);
@@ -32,7 +33,7 @@ describe('CheckToken Service', () => {
       
       // Verify jwt.sign was called with correct parameters
       expect(jwt.sign).toHaveBeenCalledWith(
-        { id: mockUserId, role: 'Buyer' },
+        { id: mockUserId, role: 'Buyer', v: 0 },
         process.env.JWT_SECRET,
         { expiresIn: '500w' }
       );
@@ -112,14 +113,14 @@ describe('CheckToken Service', () => {
       ];
 
       for (const userId of testCases) {
-        jwt.verify.mockReturnValue({ id: userId, role: 'Buyer' });
+        jwt.verify.mockReturnValue({ id: userId, role: 'Buyer', v: 0 });
         jwt.sign.mockReturnValue('new.token');
 
         const result = await checkTokenService.checkToken('valid.token');
 
         expect(jwt.verify).toHaveBeenCalledWith('valid.token', process.env.JWT_SECRET);
         expect(jwt.sign).toHaveBeenCalledWith(
-          { id: userId, role: 'Buyer' },
+          { id: userId, role: 'Buyer', v: 0 },
           process.env.JWT_SECRET,
           { expiresIn: '500w' }
         );
@@ -132,13 +133,13 @@ describe('CheckToken Service', () => {
       const mockToken = 'valid.jwt.token';
       const mockNewToken = 'new.jwt.token';
 
-      jwt.verify.mockReturnValue({ id: mockUserId, role: 'Buyer' });
+      jwt.verify.mockReturnValue({ id: mockUserId, role: 'Buyer', v: 0 });
       jwt.sign.mockReturnValue(mockNewToken);
 
       await checkTokenService.checkToken(mockToken);
 
       expect(jwt.sign).toHaveBeenCalledWith(
-        { id: mockUserId, role: 'Buyer' },
+        { id: mockUserId, role: 'Buyer', v: 0 },
         process.env.JWT_SECRET,
         { expiresIn: '500w' }
       );
@@ -183,13 +184,13 @@ describe('CheckToken Service', () => {
       const mockUserId = '507f1f77bcf86cd799439011';
       const mockNewToken = 'new.jwt.token';
 
-      jwt.verify.mockReturnValue({ id: mockUserId, role: 'Buyer' });
+      jwt.verify.mockReturnValue({ id: mockUserId, role: 'Buyer', v: 0 });
       jwt.sign.mockReturnValue(mockNewToken);
 
       await checkTokenService.checkToken('valid.token');
 
       expect(jwt.sign).toHaveBeenCalledWith(
-        { id: mockUserId, role: 'Buyer' },
+        { id: mockUserId, role: 'Buyer', v: 0 },
         process.env.JWT_SECRET,
         { expiresIn: '500w' }
       );
@@ -198,7 +199,7 @@ describe('CheckToken Service', () => {
     it('should use environment JWT_SECRET', async () => {
       const mockUserId = '507f1f77bcf86cd799439011';
 
-      jwt.verify.mockReturnValue({ id: mockUserId, role: 'Buyer' });
+      jwt.verify.mockReturnValue({ id: mockUserId, role: 'Buyer', v: 0 });
       jwt.sign.mockReturnValue('new.token');
 
       await checkTokenService.checkToken('valid.token');

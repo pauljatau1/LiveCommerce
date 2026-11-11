@@ -66,7 +66,7 @@ describe('Login Service', () => {
       });
       expect(sellerRepository.findByEmail).toHaveBeenCalledWith(validLoginData.email);
       expect(mockSeller.comparePassword).toHaveBeenCalledWith(validLoginData.password);
-      expect(generateToken).toHaveBeenCalledWith(mockSeller._id, 'Seller', '2w');
+      expect(generateToken).toHaveBeenCalledWith(mockSeller._id, 'Seller', '2w', 0);
     });
 
     it('should throw ValidationError when email is missing', async () => {
@@ -147,7 +147,7 @@ describe('Login Service', () => {
       await expect(loginService.login(validLoginData)).rejects.toThrow('Token generation failed');
       expect(sellerRepository.findByEmail).toHaveBeenCalledWith(validLoginData.email);
       expect(mockSeller.comparePassword).toHaveBeenCalledWith(validLoginData.password);
-      expect(generateToken).toHaveBeenCalledWith(mockSeller._id, 'Seller', '2w');
+      expect(generateToken).toHaveBeenCalledWith(mockSeller._id, 'Seller', '2w', 0);
     });
 
     it('should work with numeric password', async () => {
@@ -169,7 +169,7 @@ describe('Login Service', () => {
       });
       expect(sellerRepository.findByEmail).toHaveBeenCalledWith(loginDataWithNumericPassword.email);
       expect(mockSeller.comparePassword).toHaveBeenCalledWith(loginDataWithNumericPassword.password);
-      expect(generateToken).toHaveBeenCalledWith(mockSeller._id, 'Seller', '2w');
+      expect(generateToken).toHaveBeenCalledWith(mockSeller._id, 'Seller', '2w', 0);
     });
 
     it('should handle case-insensitive email lookup', async () => {

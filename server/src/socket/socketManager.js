@@ -174,7 +174,7 @@ function initializeSocket(server) {
   });
 
   // Add debug log for authentication middleware for the main namespace
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     console.log('Socket authentication attempt:', {
       hasToken: !!socket.handshake.auth.token,
       socketId: socket.id
@@ -182,7 +182,7 @@ function initializeSocket(server) {
 
     try {
       // A token makes a signed-in user; { guest: true } without one makes a watch-only guest
-      const decoded = socketUserFromHandshake(socket.handshake);
+      const decoded = await socketUserFromHandshake(socket.handshake);
       if (!decoded) {
         console.log('Authentication failed: No token provided');
         return next(new Error('Authentication error'));
@@ -203,6 +203,7 @@ function initializeSocket(server) {
   // Connection handler for authenticated connections
   io.on('connection', async (socket) => {
     if (socket.user?.id) socket.join(String(socket.user.id));
+    socket.use(async (_packet,next) => { try { await require('../services/auth/sessions').assertSession(socket.user); next(); } catch(e) { socket.emit('session_expired',{message:'Your password changed. Please sign in again.'}); socket.disconnect(true); } });
     // Guests only watch: they get the subscribe handlers and nothing else
     if (socket.user?.guest) {
       registerGuestSocket(socket);
