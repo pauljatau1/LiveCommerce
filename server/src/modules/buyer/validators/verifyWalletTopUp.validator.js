@@ -31,7 +31,7 @@ function validatePaymentReference(reference, errors) {
     errors.push({ field: 'reference', message: 'Payment reference is required' });
   } else if (reference.trim().length === 0) {
     errors.push({ field: 'reference', message: 'Payment reference cannot be empty' });
-  } else if (!/^[A-Z0-9_-]+$/.test(reference)) {
+  } else if (!/^[A-Za-z0-9_-]+$/.test(reference)) {
     errors.push({ field: 'reference', message: 'Invalid payment reference format' });
   }
 }

@@ -886,9 +886,11 @@ router.post('/:streamId/buy-now',
         productId: req.body.productId,
         buyerId: req.user.id,
         quantity: req.body.quantity || 1,
+        expectedAmount: req.body.expectedAmount,
+        expectedRun: req.body.expectedRun,
       });
       if (!result.success) {
-        const status = { insufficient_funds: 402, sold_out: 409, closed: 410, no_address: 422, bad_quantity: 400 }[result.reason] || 400;
+        const status = { insufficient_funds: 402, sold_out: 409, closed: 410, no_address: 422, bad_quantity: 400, changed: 409 }[result.reason] || 400;
         return res.status(status).json(result);
       }
       const io = req.app.get('io');

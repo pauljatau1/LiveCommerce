@@ -1,15 +1,35 @@
 // Add money to the wallet with Paystack. The server credits only what
 // Paystack confirms, for this buyer, as a wallet top-up.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { errorMessage, naira } from '../api';
 import { PaymentCancelled, topUpWithPaystack } from '../payments';
 import { useAuth } from '../auth';
+import StayOnStreamTopUps from './StayOnStreamTopUps';
 import { Sheet } from './ui';
 
 const PRESETS = [5000, 10000, 20000, 50000, 100000, 200000];
 
-export default function TopUpSheet({ onClose, need = 0, onDone, top = null }) {
+export default function TopUpSheet({ onClose, need = 0, onDone, top = null, methods: configuredMethods, onWaiting, onPending, onCancelled, initialBank }) {
   const { buyer, wallet, refreshWallet } = useAuth();
+  const methods = wallet?.topUpMethods || configuredMethods || {};
+  const enhanced = methods.dva || methods.savedCards;
+  const [method, setMethod] = useState(initialBank ? 'bank' : 'card');
+  const [saveCard, setSaveCard] = useState(true);
+  const [doneSource, setDoneSource] = useState('card');
+  const handled = useRef(new Set());
+  const finishRef = useRef(null);
+  const finish = async (reference, credited, source = 'card') => {
+    if (reference && handled.current.has(reference)) return;
+    if (reference) handled.current.add(reference);
+    await refreshWallet(); setDone(credited); setDoneSource(source);
+    onDone?.(reference, credited, source);
+  };
+  finishRef.current = finish;
+  useEffect(() => {
+    const receive = (event) => finishRef.current(event.detail.reference, event.detail.amount, event.detail.source);
+    window.addEventListener('gbam:wallet_credited', receive);
+    return () => window.removeEventListener('gbam:wallet_credited', receive);
+  }, []);
   const suggested = need > 0 ? Math.ceil(need / 1000) * 1000 : 10000;
   const [amount, setAmount] = useState(String(suggested));
   const [busy, setBusy] = useState(false);
@@ -28,11 +48,11 @@ export default function TopUpSheet({ onClose, need = 0, onDone, top = null }) {
     if (value < 100) { setError('Enter at least ₦100.'); return; }
     setBusy(true);
     try {
-      await topUpWithPaystack({ email: buyer?.email, buyerId: buyer?._id, amount: value });
-      await refreshWallet();
-      setDone(value);
-      onDone?.();
+      onPending?.();
+      const reference = await topUpWithPaystack({ email: buyer?.email, buyerId: buyer?._id, amount: value, saveCard: methods.savedCards && saveCard });
+      await finish(reference, value);
     } catch (e) {
+      if (e instanceof PaymentCancelled) onCancelled?.();
       if (!(e instanceof PaymentCancelled)) setError(`${errorMessage(e, e.message || 'We could not confirm the payment yet.')} If you were charged, it will show up shortly.`);
     } finally {
       setBusy(false);
@@ -42,7 +62,7 @@ export default function TopUpSheet({ onClose, need = 0, onDone, top = null }) {
   if (done) {
     return (
       <Sheet className="wallet-sheet" title="Wallet topped up" onClose={onClose} top={top}>
-        <div className="soft s-primary" style={{ fontWeight: 700 }}>{naira(done)} added. You have {naira(wallet?.availableBalance)} to spend.</div>
+        <div className="soft s-primary" style={{ fontWeight: 700 }}>{naira(done)} {doneSource === 'transfer' ? 'received' : 'added'}. You have {naira(wallet?.availableBalance)} to spend.</div>
         <button type="button" className="btn" onClick={onClose}>Back to the show</button>
       </Sheet>
     );
@@ -57,6 +77,8 @@ export default function TopUpSheet({ onClose, need = 0, onDone, top = null }) {
         {wallet?.onHoldAmount > 0 && <small>{naira(wallet.onHoldAmount)} held in bids</small>}
       </div>
       <p className="mut wallet-copy">{need > 0 ? `Add ${naira(need)} more to continue.` : 'Add money for your next bid.'}</p>
+      {enhanced && <StayOnStreamTopUps methods={methods} amount={value} need={need} onDone={finish} onWaiting={onWaiting} onPending={onPending} onMethod={setMethod} onUseAnotherCard={pay} onBusyChange={setBusy} initialBank={initialBank} />}
+      {method !== 'bank' && <>
       <div className="amounts" role="group" aria-label="Amount">
         {PRESETS.map((p) => (
           <button key={p} type="button" className={`qr${value === p ? ' on' : ''}`} aria-pressed={value === p} onClick={() => setAmount(String(p))}>{naira(p)}</button>
@@ -67,8 +89,11 @@ export default function TopUpSheet({ onClose, need = 0, onDone, top = null }) {
         <input id="tu-amt" className="in" inputMode="numeric" value={value ? value.toLocaleString('en-NG') : ''} onChange={(e) => setAmount(e.target.value)} placeholder="₦" />
       </div>
       {error && <span className="err" role="alert">{error}</span>}
-      <button type="button" className="btn" disabled={busy} onClick={pay}>{busy ? 'Waiting for Paystack…' : `Add ${naira(value)}`}</button>
-      <span className="hint" style={{ textAlign: 'center' }}>Secure payment with Paystack</span>
+      {methods.savedCards && <label className="hint"><input type="checkbox" checked={saveCard} onChange={(e) => setSaveCard(e.target.checked)} /> Save this card for one-tap top-ups</label>}
+      <button type="button" className="btn" disabled={busy} onClick={pay}>{busy ? 'Waiting for Paystack…' : enhanced ? `Pay with card · ${naira(value)}` : `Add ${naira(value)}`}</button>
+      <span className="hint" style={{ textAlign: 'center' }}>{enhanced ? "Paystack opens on top of the show. You won't leave it." : 'Secure payment with Paystack'}</span>
+      </>}
+      {method === 'bank' && <button type="button" className="btn2" onClick={onClose}>Back to the show</button>}
     </Sheet>
   );
 }

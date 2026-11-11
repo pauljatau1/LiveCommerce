@@ -81,7 +81,7 @@ const bidderSnapshot = (buyer) => ({
  * @returns {Promise<{ok: true, isWinner: boolean, product: object, bid: object}
  *                 | {ok: false, reason: 'insufficient_funds'|'outbid'|'closed'}>}
  */
-const placeBid = async ({ streamId, productId, buyer, bidAmount, shippingFee = 0, notification, maxBid }) => {
+const placeBid = async ({ streamId, productId, buyer, bidAmount, shippingFee = 0, notification, maxBid, expectedRun }) => {
   const holdAmount = bidAmount + (shippingFee || 0);
 
   if (!(await holdFunds(buyer._id, holdAmount))) {
@@ -119,6 +119,17 @@ const placeBid = async ({ streamId, productId, buyer, bidAmount, shippingFee = 0
           bidStatus: 'active',
           minBid: { $lte: bidAmount },
           currentBid: { $lt: bidAmount },
+          // A resumed bid must still be on the chosen run and a valid next step.
+          ...(expectedRun === undefined ? {} : { $and: [
+            { $or: [{ run: Number(expectedRun) }, ...(Number(expectedRun) === 1 ? [{ run: { $exists: false } }] : [])] },
+            { $or: [{ auctionEndsAt: { $gt: now } }, { auctionEndsAt: { $exists: false } }] },
+            { $or: [
+              { currentBid: { $lte: 0 } },
+              { currentBid: { $gt: 0, $lt: 10000, $lte: bidAmount - 500 } },
+              { currentBid: { $gte: 10000, $lt: 50000, $lte: bidAmount - 1000 } },
+              { currentBid: { $gte: 50000, $lte: bidAmount - 2500 } },
+            ] },
+          ] }),
         },
       },
     },
