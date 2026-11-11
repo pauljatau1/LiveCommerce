@@ -24,7 +24,7 @@ const USERNAME = /^[a-zA-Z0-9_.]{3,20}$/;
  * productId: the item being bid on or bought (the quote is for its weight)
  * onReady(): called once everything is in place; does the bid or buy
  */
-export default function OneStepSheet({ action, deposit = null, quote = null, productId, top = null, streamId, onClose, onReady, onTopUpNeeded, topUpMethods = {} }) {
+export default function OneStepSheet({ action, deposit = null, quote = null, productId, top = null, streamId, onClose, onReady, onOutOfArea, onTopUpNeeded, topUpMethods = {} }) {
   const { buyer, wallet, signedIn, signIn, refresh } = useAuth();
   const address = useAddressForm();
   const [mode, setMode] = useState('signup'); // signup | signin
@@ -83,7 +83,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
     let myW = myWallet;
     if (!(me?.shippingAddresses || []).length) {
       setBusy('Saving your address…');
-      try { await address.save(me); } catch (e) { fail('address', errorMessage(e, "Couldn't save the address.")); return; }
+      try { await address.save(me); } catch (e) { if ((e.response?.data?.code === 'out_of_area' || e.response?.data?.reason === 'out_of_area') && onOutOfArea) { setBusy(''); onOutOfArea(e.response.data); return; } fail('address', errorMessage(e, "Couldn't save the address.")); return; }
       // Reload the profile so the app knows the address is saved (no asking twice)
       try { const r = await refresh(); if (r?.buyer) { who = r.buyer; myW = r.wallet || myW; } } catch { /* the server has it either way */ }
     }
@@ -93,7 +93,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
       const r = await api.watchMe(streamId, productId);
       if (r?.depositDue === null || r?.depositDue === undefined) { fail('address', r?.deliveryProblem || "Couldn't price delivery to your address. Check it and try again."); return; }
       depositDue = Number(r.depositDue) || 0;
-    } catch (e) { fail('address', errorMessage(e, "Couldn't price delivery right now. Try again.")); return; }
+    } catch (e) { if ((e.response?.data?.code === 'out_of_area' || e.response?.data?.reason === 'out_of_area') && onOutOfArea) { setBusy(''); onOutOfArea(e.response.data); return; } fail('address', errorMessage(e, "Couldn't price delivery right now. Try again.")); return; }
     const due = action.amount + depositDue - (myW?.availableBalance || 0);
     const amount = topUpFor(due);
     if (amount > 0 && onTopUpNeeded && (myW?.topUpMethods?.dva || myW?.topUpMethods?.savedCards || topUpMethods.dva || topUpMethods.savedCards)) {
@@ -112,7 +112,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
     }
     setBusy(action.kind === 'bid' ? 'Placing your bid…' : 'Buying…');
     try { await onReady(); } finally { setBusy(''); }
-  }, [action, address, chatOnly, onReady, refresh, streamId, productId, onTopUpNeeded, topUpMethods]);
+  }, [action, address, chatOnly, onReady, onOutOfArea, refresh, streamId, productId, onTopUpNeeded, topUpMethods]);
 
   const afterSignIn = async (token) => {
     const { buyer: me, wallet: w } = await signIn(token, { quiet: true });

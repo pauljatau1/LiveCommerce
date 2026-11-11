@@ -1798,6 +1798,7 @@ exports.getSellerAnalytics = async (req, res) => {
 // Update warehouse details
 exports.updateWarehouseDetails = async (req, res) => {
   try {
+    if (!require('../services/serviceArea').inServiceArea(req.body.warehouseDetails?.address?.state)) return res.status(422).json({ code: 'out_of_area', message: require('../services/serviceArea').pickupMessage() });
     const { warehouseDetails } = req.body;
     const seller = await Seller.findById(req.user.id);
 
@@ -1818,6 +1819,7 @@ exports.updateWarehouseDetails = async (req, res) => {
 // Update business address
 exports.updateBusinessAddress = async (req, res) => {
   try {
+    if (!require('../services/serviceArea').inServiceArea(req.body.businessAddress?.state)) return res.status(422).json({ code: 'out_of_area', message: require('../services/serviceArea').pickupMessage() });
     const { businessAddress } = req.body;
     const seller = await Seller.findById(req.user.id);
 

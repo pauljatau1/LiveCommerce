@@ -321,7 +321,7 @@ describe('Add Business Information Service', () => {
         businessNumber: '+1-234-567-8900',
         businessAddress: {
           country: 'United States',
-          state: 'New York',
+          state: 'Lagos',
           city: 'New York City',
           addressLine1: '123 Main St. #456',
           addressLine2: 'Apt. 7B',

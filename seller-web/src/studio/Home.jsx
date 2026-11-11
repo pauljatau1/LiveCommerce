@@ -1,3 +1,4 @@
+import { usePickupArea, PickupAreaBanner } from './ServiceArea';
 // Studio Home (design: S-Home / S-Home-Desktop / S-Home-Focal).
 // One focal card that changes with what the seller should do next.
 import { useCallback, useEffect, useState } from 'react';
@@ -78,6 +79,7 @@ function Focal({ data, onShare }) {
 }
 
 export default function Home() {
+  const pickupArea = usePickupArea();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [sharing, setSharing] = useState(null);
@@ -90,6 +92,7 @@ export default function Home() {
   const name = data?.seller?.firstName || data?.seller?.storeName || '';
   return (
     <main className="st-main">
+      {pickupArea.allowed === false && <PickupAreaBanner config={pickupArea.config} />}
       <div className="st-head st-hide-desk">
         <span style={{ flex: 1 }}><Brand size='var(--t-h1)' /></span>
         <Link to="/studio/notifications" className="ib" aria-label="Notifications" style={{ background: 'none' }}>{Icon.bell}</Link>

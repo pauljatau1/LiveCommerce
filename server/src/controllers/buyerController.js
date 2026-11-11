@@ -924,6 +924,7 @@ exports.getAddresses = async (req, res) => {
 // Add new address
 exports.addAddress = async (req, res) => {
   try {
+    if (req.body.state !== undefined && !require('../services/serviceArea').inServiceArea(req.body.state)) return res.status(422).json({ code: 'out_of_area', message: require('../services/serviceArea').deliveryMessage() });
     const {
       addressType,
       country,
@@ -1005,6 +1006,7 @@ exports.addAddress = async (req, res) => {
 // Update address
 exports.updateAddress = async (req, res) => {
   try {
+    if (req.body.state !== undefined && !require('../services/serviceArea').inServiceArea(req.body.state)) return res.status(422).json({ code: 'out_of_area', message: require('../services/serviceArea').deliveryMessage() });
     const { addressId } = req.params;
     const buyer = await Buyer.findById(req.user.id);
     if (!buyer) {

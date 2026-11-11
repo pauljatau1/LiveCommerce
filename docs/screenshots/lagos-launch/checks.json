@@ -1,0 +1,184 @@
+{
+  "results": {
+    "buyer-lagos-address": {
+      "path": "http://127.0.0.1:5175/",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "buyer-delivery-price": {
+      "path": "http://127.0.0.1:5175/",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "buyer-updated-address": {
+      "path": "http://127.0.0.1:5175/",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "buyer-outside-lagos": {
+      "path": "http://127.0.0.1:5175/",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "buyer-waitlist-saved": {
+      "path": "http://127.0.0.1:5175/",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "buyer-two-states": {
+      "path": "http://127.0.0.1:5175/",
+      "states": [
+        "Lagos",
+        "Ogun"
+      ]
+    },
+    "seller-lagos-pickup": {
+      "path": "http://127.0.0.1:5174/studio/start?step=pickup",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "seller-two-states": {
+      "path": "http://127.0.0.1:5174/studio/start?step=pickup",
+      "states": [
+        "Lagos",
+        "Ogun"
+      ]
+    },
+    "seller-home-banner": {
+      "path": "http://127.0.0.1:5174/",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "seller-go-live-blocked": {
+      "path": "http://127.0.0.1:5174/",
+      "states": [
+        "Lagos"
+      ]
+    }
+  },
+  "calls": [
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/show/delivery-quote",
+      "method": "POST",
+      "body": {
+        "productId": "product",
+        "address": {
+          "addressLine1": "5 Admiralty Way",
+          "city": "Lekki",
+          "state": "Lagos",
+          "phoneNumber": "08031234567",
+          "email": "ada@example.test"
+        }
+      }
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/buyers/addresses/work",
+      "method": "PUT",
+      "body": {
+        "addressType": "work",
+        "firstName": "Ada",
+        "email": "ada@example.test",
+        "phoneNumber": "08031234567",
+        "country": "NG",
+        "state": "Lagos",
+        "city": "Yaba",
+        "addressLine1": "12 Test Street"
+      }
+    },
+    {
+      "path": "/api/v2/buyers/addresses/work/set-active",
+      "method": "PATCH",
+      "body": {}
+    },
+    {
+      "path": "/api/v2/watch/waitlist",
+      "method": "POST",
+      "body": {
+        "state": "Abuja",
+        "streamId": "show"
+      }
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/orders/states",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/orders/cities/OG",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/orders/states",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/orders/cities/OG",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/studio/home",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    }
+  ]
+}

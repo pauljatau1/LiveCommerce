@@ -149,6 +149,8 @@ const NotFoundException = require('../../../utils/errors/NotFoundException');
  * }
  */
 async function addAddress(buyerId, addressData) {
+  if (addressData.state !== undefined) require('../../../services/serviceArea').requireState(addressData.state);
+
   // Step 1: Validate address data using the validator
   // This ensures all address fields meet validation requirements
   await addAddressValidator.validateAddAddressData(addressData, buyerId);

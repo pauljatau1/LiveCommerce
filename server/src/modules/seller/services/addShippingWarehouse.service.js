@@ -46,6 +46,8 @@ const addShippingWarehouseValidator = require('../validators/addShippingWarehous
  * @throws {Error} If seller is not found or update fails
  */
 async function updateSellerShippingWarehouse(sellerId, shippingWarehouseData) {
+  if (shippingWarehouseData.warehouseDetails?.address?.state) require('../../../services/serviceArea').requireState(shippingWarehouseData.warehouseDetails?.address?.state, true);
+
   // Step 1: Retrieve seller information from repository
   // This ensures we have the latest seller information
   const seller = await sellerRepository.findById(sellerId);

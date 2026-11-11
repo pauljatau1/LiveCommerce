@@ -62,3 +62,13 @@ describe('Getting started', () => {
     expect(saved.isBankVerified).toBe(true);
   });
 });
+
+describe('launch pickup area',()=>{
+ it('rejects pickup outside Lagos and allows Ogun after a setting change',async()=>{
+  const body={state:'Ogun',city:'Ota',addressLine1:'1 Test Road',phone:'08031234567'};
+  expect((await request(app).put('/api/v2/studio/onboarding/pickup').send(body).expect(400)).body.message).toMatch(/within Lagos/);
+  const original=process.env.SERVICE_STATES;
+  try{process.env.SERVICE_STATES='Lagos,Ogun';await request(app).put('/api/v2/studio/onboarding/pickup').send(body).expect(200);}
+  finally{if(original===undefined)delete process.env.SERVICE_STATES;else process.env.SERVICE_STATES=original;}
+ });
+});

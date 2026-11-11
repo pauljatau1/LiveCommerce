@@ -33,7 +33,7 @@ describe('buyNowOrderService', () => {
 
   beforeEach(async () => {
     await Promise.all([Buyer, Seller, Stream, Product, Order].map((m) => m.deleteMany({})));
-    seller = await Seller.collection.insertOne({ firstName: 'Sade', lastName: 'Seller', email: 's@example.com' }).then((r) => ({ _id: r.insertedId }));
+    seller = await Seller.collection.insertOne({ firstName: 'Sade', lastName: 'Seller', email: 's@example.com', sellerAddress: {state:'Lagos', city:'Yaba', addressLine1:'1 Test Street'} }).then((r) => ({ _id: r.insertedId }));
     product = await Product.collection.insertOne({ name: 'Nezuko plush', price: 15000, salePrice: 0, stock: 3, status: 'active', seller: seller._id, images: [] }).then((r) => ({ _id: r.insertedId }));
     stream = await Stream.create({
       seller: seller._id, title: 'Plush drop', category: 'Plushies', channelName: 'ch', status: 'live', type: 'open_show',
@@ -99,6 +99,23 @@ describe('buyNowOrderService', () => {
     expect((await Product.findById(product._id)).stock).toBe(3);
     await Stream.updateOne({ _id: stream._id }, { $set: { 'products.0.isVisible': true } });
     expect(await resume(15000)).toMatchObject({ success: true });
+  });
+
+  it('refuses an Abuja buyer before touching money or stock', async () => {
+    const b = await createBuyer('Abuja', 50000);
+    await Buyer.updateOne({_id:b._id}, {$set:{'shippingAddresses.0.state':'Abuja'}});
+    expect(await buy(b)).toMatchObject({success:false,reason:'out_of_area'});
+    expect((await wallet(b)).balance).toBe(50000);
+    expect((await Product.findById(product._id).lean()).stock).toBe(3);
+    expect(await Order.countDocuments()).toBe(0);
+  });
+  it('refuses an out-of-area seller, and opens Ogun through the setting alone', async () => {
+    const b = await createBuyer('Ogun', 50000);
+    await Seller.updateOne({_id:seller._id}, {$set:{'sellerAddress.state':'Ogun'}});
+    expect(await buy(b)).toMatchObject({success:false,reason:'out_of_area'});
+    const original=process.env.SERVICE_STATES;
+    try { process.env.SERVICE_STATES='Lagos,Ogun'; await Buyer.updateOne({_id:b._id}, {$set:{'shippingAddresses.0.state':'Ogun'}}); expect(await buy(b)).toMatchObject({success:true}); }
+    finally { if(original===undefined)delete process.env.SERVICE_STATES;else process.env.SERVICE_STATES=original; }
   });
 
 });

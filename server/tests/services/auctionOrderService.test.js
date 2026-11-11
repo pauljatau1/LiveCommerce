@@ -49,7 +49,7 @@ describe('auctionOrderService', () => {
 
   beforeEach(async () => {
     await Promise.all([Buyer, Seller, Stream, Product, Order].map((m) => m.deleteMany({})));
-    seller = await Seller.collection.insertOne({ firstName: 'Sade', lastName: 'Seller', email: 's@example.com', storeName: 'Figures' })
+    seller = await Seller.collection.insertOne({ firstName: 'Sade', lastName: 'Seller', email: 's@example.com', sellerAddress: {state:'Lagos', city:'Yaba', addressLine1:'1 Test Street'}, storeName: 'Figures' })
       .then((r) => ({ _id: r.insertedId }));
     product = await Product.collection.insertOne({ name: 'Gojo figure', price: 20000, stock: 1, seller: seller._id, images: [] })
       .then((r) => ({ _id: r.insertedId }));
@@ -231,4 +231,12 @@ describe('auctionOrderService', () => {
       await expect(run('Red')).rejects.toThrow('being auctioned now');
     });
   });
+  it('refuses an out-of-area winner without charging and frees the reservation', async () => {
+    const b=await createBuyer('Ada',50000); await win(b);
+    await Buyer.updateOne({_id:b._id}, {$set:{'shippingAddresses.0.state':'Abuja'}});
+    expect(await order(b)).toMatchObject({success:false,reason:'out_of_area'});
+    expect(await wallet(b)).toMatchObject({balance:50000,onHoldAmount:0});
+    expect(await Order.countDocuments()).toBe(0);
+  });
+
 });

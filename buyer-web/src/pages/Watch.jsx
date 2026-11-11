@@ -1,3 +1,5 @@
+import ServiceAreaSheet from '../components/ServiceAreaSheet';
+import { useServiceArea, allowsState } from '../serviceArea';
 // Watch a live show: full-screen video, chat on the video, bid on the current item, Buy Now.
 // Phone first: top bar, side rail, then chat, state line, item, price, timer and actions at the bottom.
 // Desktop: items on the left, video in the middle, chat on the right.
@@ -24,6 +26,7 @@ const REPORT_REASONS = ['Selling fakes as original', 'Asking to pay outside the 
 
 export default function Watch() {
   const { streamId } = useParams();
+  const { config: serviceArea, error: serviceAreaError } = useServiceArea();
   const navigate = useNavigate();
   const { buyer, wallet, signedIn, loading, refresh, refreshWallet } = useAuth();
   const [show, setShow] = useState(null);
@@ -451,6 +454,7 @@ export default function Watch() {
     socket.on('bid_error', (r) => {
       setBusy(false);
       refreshWallet();
+      if (r?.code === 'out_of_area') { setSheet({ type: 'serviceArea', state: r.state }); return; }
       // Not enough to hold this bid (plus the show's delivery deposit on a first item)
       if (r?.details?.totalRequired && /insufficient/i.test(r?.message || '')) {
         beginTopUpRef.current(r.details.totalRequired - (walletRef.current || 0), lastBidIntent.current);
@@ -585,6 +589,8 @@ export default function Watch() {
 
   // Anything missing (account, address, money) is handled in one sheet, then the action runs
   const ready = (cost, action) => {
+    if (!serviceArea) { say('err', serviceAreaError || 'Checking delivery areas. Please try again in a moment.'); return false; }
+    if (signedIn && buyer?.shippingAddresses?.length && ( !allowsState(serviceArea,buyer.shippingAddresses[0].state))) { setSheet({ type: 'serviceArea', state: buyer.shippingAddresses[0].state }); return false; }
     if (signedIn && hasAddress && deposit !== null && cost + deposit <= available) return true;
     // Address saved but delivery can't be priced (e.g. the host's pickup address
     // is unfinished): say why instead of reopening the address form
@@ -629,7 +635,8 @@ export default function Watch() {
       refreshWallet();
     } catch (e) {
       const reason = e?.response?.data?.reason;
-      if (reason === 'insufficient_funds') beginTopUp((e?.response?.data?.needed || price * quantity) - available, { kind: 'buy', item, amount: price * quantity, quantity });
+      if (reason === 'out_of_area') setSheet({ type: 'serviceArea', state: e.response.data.state });
+      else if (reason === 'insufficient_funds') beginTopUp((e?.response?.data?.needed || price * quantity) - available, { kind: 'buy', item, amount: price * quantity, quantity });
       else if (reason === 'no_address') setSheet({ type: 'onestep', action: { kind: 'buy', amount: price * quantity, item, quantity } });
       else say('err', errorMessage(e, "Couldn't complete the purchase. You weren't charged."));
     } finally {
@@ -720,7 +727,7 @@ export default function Watch() {
   const share = async () => {
     const url = window.location.href;
     try {
-      if (navigator.share) await navigator.share({ title: show?.title, url });
+      if (navigator.share) await navigator.share({ title: show?.title, text: serviceArea?.states?.length ? `${serviceArea.states.join(' and ')} delivery` : 'Delivery available', url });
       else { await navigator.clipboard.writeText(url); say('ok', 'Link copied'); }
     } catch { /* cancelled */ }
   };
@@ -809,6 +816,7 @@ export default function Watch() {
           <div>
             <h1 className="f" style={{ margin: 0, fontSize: 24 }}>{show?.title}</h1>
             <p className="mut" style={{ margin: '4px 0 0' }}>{host.storeName || host.businessName}{items.length ? ` · ${items.length} item${items.length > 1 ? 's' : ''}` : ''}</p>
+            {serviceArea?.states?.length > 0 && <p className="hint" style={{margin:'4px 0 0'}}>{serviceArea.states.join(' and ')} delivery</p>}
             {scheduled && deliveryLine(estimate) && <p style={{ margin: '4px 0 0', fontWeight: 700 }}>{deliveryLine(estimate)}</p>}
           </div>
           {phase === 'ended' || show?.status === 'ended' ? (
@@ -913,6 +921,7 @@ export default function Watch() {
             <span className="av2">{host.storeAvatar?.url ? <img src={host.storeAvatar.url} alt="" /> : hostName.slice(0, 1)}</span>
             <span className="host-tx">
               <span className="host-nm">{hostName}</span>
+              {serviceArea?.states?.length > 0 && <span className="host-sub" style={{fontSize:'var(--t-micro)',fontWeight:400}}>{serviceArea.states.join(' and ')} delivery</span>}
               <span className="host-sub">{[hostStats && !hostStats.isNew ? `★ ${hostStats.rating.toFixed(1)}` : 'New host', shipsLine(hostStats?.shipsInDays)].filter(Boolean).join(' · ')}</span>
             </span>
             {!following && show?.seller?._id && <button type="button" className="follow" onClick={() => follow()}>Follow</button>}
@@ -1042,8 +1051,9 @@ export default function Watch() {
         onWaiting={(account) => { if (['active', 'pending'].includes(account.status)) { fundingPending.current = true; setTransfer(account); } else if (account.status === 'failed') { fundingPending.current = false; setTransfer(null); } }}
         onDone={(reference, amount, source) => receiveCreditRef.current({ reference, amount, source })} />}
       {sheet?.type === 'onestep' && (
-        <OneStepSheet action={sheet.action} deposit={deposit} quote={estimate} productId={sheet.action.productId || (sheet.action.item ? idOf(sheet.action.item) : quoteItemId)} top={sheet.action.kind === 'chat' ? null : miniBare} streamId={streamId} topUpMethods={methods} onTopUpNeeded={beginTopUp} onClose={() => setSheet(null)} onReady={() => afterOneStep(sheet.action)} />
+        <OneStepSheet onOutOfArea={r => setSheet({ type: 'serviceArea', state: r.state })} action={sheet.action} deposit={deposit} quote={estimate} productId={sheet.action.productId || (sheet.action.item ? idOf(sheet.action.item) : quoteItemId)} top={sheet.action.kind === 'chat' ? null : miniBare} streamId={streamId} topUpMethods={methods} onTopUpNeeded={beginTopUp} onClose={() => setSheet(null)} onReady={() => afterOneStep(sheet.action)} />
       )}
+      {sheet?.type === 'serviceArea' && <ServiceAreaSheet config={serviceArea} state={sheet.state || buyer?.shippingAddresses?.[0]?.state} streamId={streamId} onClose={() => setSheet(null)} onAddress={() => setSheet({ type: 'address' })} />}
       {sheet?.type === 'address' && <AddressSheet top={mini} onClose={() => setSheet(null)} onSaved={async () => { setSheet(null); await refresh(); say('ok', 'Address saved. You can bid and buy now.'); }} />}
       {sheet?.type === 'bid' && current && (
         <BidMoreSheet current={current} top={miniBare} onClose={() => setSheet(null)} onPlace={(v) => { setSheet(null); placeBid(v); }} />

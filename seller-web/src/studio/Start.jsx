@@ -7,7 +7,7 @@ import axios from 'axios';
 import { BASE_URL } from '@/Constants/Server';
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
 import { sellerUtils } from '@/util/auth';
-import { onboarding, errorText } from './api';
+import { onboarding, errorText, serviceAreaConfig } from './api';
 import { Problem, Skeleton, TopBar } from './ui';
 
 const STEPS = ['store', 'pickup', 'bank', 'done'];
@@ -41,11 +41,12 @@ export default function Start() {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(null); // a save waiting for the connection
   const [states, setStates] = useState([]);
+  const [areaConfig, setAreaConfig] = useState(null);
   const [cities, setCities] = useState([]);
   const [banks, setBanks] = useState([]);
   const [accountName, setAccountName] = useState('');
 
-  const set = (k) => (e) => setAnswers((a) => { const next = { ...a, [k]: e?.target ? e.target.value : e }; keep(next); return next; });
+  const set = (k) => (e) => setAnswers((a) => { const next = { ...a, [k]: e?.target ? e.target.value : e, ...(k === 'state' ? { city: '' } : {}) }; keep(next); return next; });
 
   const refresh = useCallback(() => onboarding.get().then((r) => {
     setInfo(r);
@@ -53,7 +54,7 @@ export default function Start() {
     setAnswers((a) => {
       const next = {
         storeName: a.storeName ?? r.store.storeName, aboutStore: a.aboutStore ?? r.store.aboutStore, categories: a.categories ?? r.store.categories,
-        state: a.state ?? r.pickup.state ?? '', city: a.city ?? r.pickup.city ?? '', addressLine1: a.addressLine1 ?? r.pickup.addressLine1 ?? '', landmark: a.landmark ?? r.pickup.landmark ?? '', phone: a.phone ?? r.pickup.phone ?? '',
+        state: a.state ?? r.pickup.state ?? '', city: a.city ?? (a.state && a.state !== r.pickup.state ? '' : r.pickup.city) ?? '', addressLine1: a.addressLine1 ?? r.pickup.addressLine1 ?? '', landmark: a.landmark ?? r.pickup.landmark ?? '', phone: a.phone ?? r.pickup.phone ?? '',
         bankCode: a.bankCode ?? '', accountNumber: a.accountNumber ?? '',
       };
       keep(next);
@@ -64,14 +65,18 @@ export default function Start() {
   }).catch((e) => setLoadError(errorText(e, "Couldn't load your setup."))), []);
   useEffect(() => { refresh(); }, [refresh]);
 
+  useEffect(() => { serviceAreaConfig().then(config => {
+    setAreaConfig(config); setStates(config.states.map(name => ({name,isoCode:name})));
+    if(config.states.length === 1) setAnswers(a => ({...a,state:config.states[0],city: a.state && a.state !== config.states[0] ? '' : a.city}));
+  }).catch(() => setLoadError('Couldn’t load delivery areas. Please try again.')); }, []);
   useEffect(() => {
-    axios.get(`${apiOrigin()}/api/v2/orders/states`).then((r) => setStates(r.data?.data || [])).catch(() => {});
-  }, []);
-  useEffect(() => {
-    const st = states.find((s) => s.name === answers.state);
-    setCities([]);
-    if (st) axios.get(`${apiOrigin()}/api/v2/orders/cities/${st.isoCode}`).then((r) => setCities(r.data?.data || [])).catch(() => {});
-  }, [answers.state, states]);
+    const groups = areaConfig?.areas?.[answers.state]; setCities([]);
+    if(groups) setCities(Object.entries(groups).flatMap(([lga,names]) => [...new Set([lga,...names])].map(name => ({name,lga}))));
+    else if(answers.state && areaConfig) axios.get(`${apiOrigin()}/api/v2/orders/states`).then(r => {
+      const st = r.data?.data?.find(s => s.name === answers.state);
+      if(st) return axios.get(`${apiOrigin()}/api/v2/orders/cities/${st.isoCode}`).then(r => setCities(r.data?.data || []));
+    }).catch(()=>{});
+  }, [answers.state,areaConfig]);
   useEffect(() => { if (step === 'bank' && !banks.length) onboarding.banks().then((r) => setBanks(r.banks || [])).catch(() => {}); }, [step, banks.length]);
 
   // Saves; offline, it waits and saves the moment the phone is back online
@@ -84,7 +89,7 @@ export default function Start() {
       await refresh();
       // Keep the signed-in seller up to date, so the studio stops asking for a pickup address
       if (kind === 'pickup' || kind === 'store') {
-        const updated = { ...(seller || sellerUtils.getSeller() || {}), ...(kind === 'pickup' ? { hasFilledAddress: true, hasFilledBusinessAddress: true } : { storeName: body.storeName }) };
+        const updated = { ...(seller || sellerUtils.getSeller() || {}), ...(kind === 'pickup' ? { hasFilledAddress: true, hasFilledBusinessAddress: true, warehouseDetails: { ...seller?.warehouseDetails, address: { state: body.state, city: body.city, addressLine1: body.addressLine1 } } } : { storeName: body.storeName }) };
         sellerUtils.storeSeller(updated);
         dispatch?.({ type: 'STORE_SELLER', payload: updated });
       }
@@ -167,18 +172,15 @@ export default function Start() {
             <p className="mut" style={{ margin: 0 }}>Couriers collect your orders from here, so we can quote delivery before buyers pay.</p>
             <div className="fl">
               <label className="lab" htmlFor="pk-st">State</label>
-              <select id="pk-st" className="sel" value={answers.state || ''} onChange={set('state')}>
+              <select id="pk-st" className="sel" disabled={states.length === 1} value={answers.state || ''} onChange={set('state')}>
                 <option value="">Choose your state</option>
                 {states.map((s) => <option key={s.isoCode} value={s.name}>{s.name}</option>)}
               </select>
             </div>
             <div className="fl">
               <label className="lab" htmlFor="pk-ct">City / area</label>
-              <select id="pk-ct" className="sel" value={answers.city || ''} onChange={set('city')} disabled={!cities.length && !answers.city}>
-                <option value="">{answers.state ? 'Choose your area' : 'Choose a state first'}</option>
-                {answers.city && !cities.some((c) => c.name === answers.city) && <option value={answers.city}>{answers.city}</option>}
-                {cities.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-              </select>
+              <input id="pk-ct" className="in" list="pickup-areas" value={answers.city || ''} onChange={set('city')} placeholder="Search your area" />
+              <datalist id="pickup-areas">{cities.map((c,i) => <option key={i} value={c.name}>{c.lga ? `${c.name} · ${c.lga}` : c.name}</option>)}</datalist>
             </div>
             <div className="fl">
               <label className="lab" htmlFor="pk-l1">Street address</label>

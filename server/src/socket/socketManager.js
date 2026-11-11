@@ -1543,13 +1543,15 @@ function initializeSocket(server) {
 
         // Find the stream
         console.log('[BID] 10. Retrieving stream data for ID:', streamId);
-        const stream = await Stream.findById(streamId).populate('seller', 'storeName storeAvatar warehouseDetails businessAddress');
+        const stream = await Stream.findById(streamId).populate('seller', 'storeName storeAvatar warehouseDetails businessAddress sellerAddress');
 
         if (!stream) {
           console.error('[BID] 11. FAILED: Stream not found');
           socket.emit('bid_error', { message: 'Stream not found' });
           return;
         }
+
+        if (!require('../services/serviceArea').allowBid(socket, buyer, stream.seller)) return;
 
         console.log('[BID] 12. Stream data retrieved successfully', {
           streamId: stream._id,
@@ -1665,7 +1667,7 @@ function initializeSocket(server) {
           shippingFee = await require('../services/deliveryService').depositFor(stream._id, buyer._id, productId);
         } catch (depositError) {
           const plain = depositError.status ? depositError.message : "Couldn't price delivery right now. Try again in a moment.";
-          socket.emit('bid_error', { message: plain, code: /add your delivery address|phone number/i.test(plain) ? 'no_address' : 'delivery_quote' });
+          socket.emit('bid_error', { message: plain, code: depositError.code === 'out_of_area' ? 'out_of_area' : /add your delivery address|phone number/i.test(plain) ? 'no_address' : 'delivery_quote' });
           return;
         }
 

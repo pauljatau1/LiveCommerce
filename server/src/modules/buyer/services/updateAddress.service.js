@@ -188,6 +188,8 @@ function getUpdatedAddressOrThrow(updatedBuyer, addressId) {
  * }
  */
 async function updateAddress(buyerId, addressId, updateData) {
+  if (updateData.state !== undefined) require('../../../services/serviceArea').requireState(updateData.state);
+
   // Step 1: Validate update data using the validator
   // This ensures all address fields meet validation requirements
   await updateAddressValidator.validateUpdateAddressData(updateData, buyerId, addressId);

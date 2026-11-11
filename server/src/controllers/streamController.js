@@ -764,6 +764,9 @@ const processStreamStartBackgroundTasks = async (stream, seller, existingStreams
 
 exports.startStream = async (req, res) => {
   try {
+    const pickupSeller = await Seller.findById(req.user.id).lean();
+    const serviceArea = require('../services/serviceArea');
+    if (!serviceArea.inServiceArea(serviceArea.pickupAddress(pickupSeller).state)) return res.status(422).json({ code: 'out_of_area', message: serviceArea.pickupMessage() });
     // Parallelize critical queries for faster response
     const [existingStreams, stream, seller] = await Promise.all([
       Stream.find({
@@ -850,6 +853,7 @@ exports.startStream = async (req, res) => {
 
 exports.placeBid = async (req, res) => {
   try {
+    try { await require('../services/serviceArea').checkPurchase(req.body.streamId, req.user.id); } catch (e) { if (e.code === 'out_of_area') return res.status(422).json({ code: e.code, reason: e.code, message: e.message }); throw e; }
     console.log(`[RESTBID] 1. Received bid request via REST API:`, {
       streamId: req.body.streamId,
       productId: req.body.productId,

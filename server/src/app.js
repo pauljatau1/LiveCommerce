@@ -339,6 +339,8 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 app.use((err, req, res, next) => {
   console.error(err);
 
+  if (err.code === 'out_of_area') return res.status(422).json({ success: false, code: err.code, reason: err.code, message: err.message, state: err.state });
+
   // Handle JSON parsing errors
   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
     return res.status(400).json({

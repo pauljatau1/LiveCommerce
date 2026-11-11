@@ -41,7 +41,9 @@ export default function DashboardRoute({ children }: { children: React.ReactNode
 
         // Check if current path is restricted and user is unverified
         const currentPath = location.pathname;
-        const isRestrictedPath = restrictedPaths.some(path => currentPath.startsWith(path));
+        // Listing and planning are open before pickup setup; Go Live owns the service-area gate.
+        const planningOrListing = currentPath.startsWith('/studio/list') || currentPath.startsWith('/studio/plan');
+        const isRestrictedPath = !planningOrListing && restrictedPaths.some(path => currentPath.startsWith(path));
 
         if (isRestrictedPath && seller && isPickupAddressRequired) {
           if (!currentPath.startsWith('/studio')) showNotification('Pickup Address Required', 'error', 'dismissible');

@@ -107,6 +107,8 @@ async function updateSellerBusinessInformation(sellerId, businessInformation) {
  * @throws {Error} If validation fails or seller is not found
  */
 async function addBusinessInformation(sellerId, businessInformation) {
+  if (businessInformation.businessAddress?.state) require('../../../services/serviceArea').requireState(businessInformation.businessAddress?.state, true);
+
   // Step 1: Validate business information data using the validator
   // This ensures all required fields are present and valid
   addBusinessInformationValidator.validateAddBusinessInformationData(businessInformation);

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { mkdir,readFile,writeFile } from 'node:fs/promises';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const base=process.env.SELLER_TEST_URL || 'http://127.0.0.1:5174',out='docs/screenshots/no-old-design';
+const base=process.env.SELLER_TEST_URL || 'http://127.0.0.1:5174',out=process.env.SCREENSHOT_DIR || 'docs/screenshots/no-old-design';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox']});
 const image='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="240"><rect width="200" height="240" fill="#294b70"/><path d="M30 0L100 70 50 160 130 240M160 0L100 70 150 160 70 240" stroke="#abcbdc" fill="none" stroke-width="18"/></svg>');
 const me={createdAt:'2026-01-01T00:00:00Z',_id:'seller',firstName:'Sade',lastName:'Test',email:'sade@example.test',storeName:'Sade’s Studio',aboutStore:'Nigerian fabrics, everyday favourites.',phoneNumber:'08031234567',accountType:'individual',hasFilledAddress:true,hasFilledBusinessAddress:true,isVerified:true,emailVerified:true,categories:['Women'],sellerAddress:{state:'Lagos',city:'Lekki',addressLine1:'12 Test Street'},bankDetails:{bankName:'Test Bank',accountNumber:'0123456789',bankIdentifierCode:'001',bankAccountType:'Savings',accountName:'SADE TEST'}};
@@ -18,7 +18,8 @@ async function page({signed=true,missingPickup=false,preview=null,origin=base}={
   if(preview === 'loader' && path.endsWith('/sellers/profile')) { await new Promise(resolve=>setTimeout(resolve,10000)); try { return await r.fulfill({json:{data:me}}); } catch { return; } }
   if(path.startsWith('/api/')){
    calls.push({path,method,body:r.request().postDataJSON()});let json={};
-   if(path.endsWith('/sellers/profile'))json={data:{...me,hasFilledAddress:!missingPickup}};
+   if(path.endsWith('/watch/config'))json={serviceArea:{states:['Lagos'],areas:{Lagos:{'Lagos Mainland':['Yaba','Lekki']}}}};
+   else if(path.endsWith('/sellers/profile'))json={data:{...me,hasFilledAddress:!missingPickup}};
    else if(path.endsWith('/sellers/login')||path.endsWith('/sellers/register')||path.endsWith('/sellers/google-auth'))json={data:{user:me,token:'test-token'}};
    else if(path.endsWith('/banks/verify'))json={data:{accountName:'SADE TEST'}};
    else if(path.endsWith('/banks'))json={data:[{name:'Test Bank',code:'001'},{name:'Another Bank',code:'002'}]};
@@ -73,7 +74,7 @@ try{
  for(const [section,to]of [['products','products'],['orders','orders'],['earnings-payouts','money'],['settings','me'],['live-streams','shows'],['home',''],['help',''],['other','']]){
   for(const tail of ['', '/nested/123']){const path=`/dashboard/${section}${tail}`;await redirectPage.goto(base+path);await redirectPage.waitForURL(base+'/studio'+(to?'/'+to:''));results[path]=new URL(redirectPage.url()).pathname;}
  }await redirectPage.close();
- const pickup=await page({missingPickup:true});await pickup.goto(base+'/studio/list');await pickup.waitForURL('**/studio/start?step=pickup');await pickup.getByRole('status').filter({hasText:'Add your pickup address'}).waitFor();await shot(pickup,'pickup-required-toast');await pickup.close();
+ const pickup=await page({missingPickup:true});await pickup.goto(base+'/studio/golive/demo');await pickup.waitForURL('**/studio/start?step=pickup');await pickup.getByRole('status').filter({hasText:'Add your pickup address'}).waitFor();await shot(pickup,'pickup-required-toast');await pickup.close();
  const missing=await page({signed:false});await missing.goto(base+'/missing-test-page');await missing.getByRole('link',{name:'Go to studio',exact:true}).waitFor();await shot(missing,'not-found');await missing.close();
  for(const preview of ['loader','error']){const p=await page({preview});await p.goto(base+(preview==='loader'?'/studio':'/studio/help'));await p.getByText(preview==='loader'?'Loading your studio…':'Something didn’t load',{exact:true}).waitFor();await shot(p,preview);await p.close();}
  // Capture preserved classic authentication screens from the pre-change baseline.

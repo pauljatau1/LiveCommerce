@@ -1,3 +1,4 @@
+import { useServiceArea, allowsState } from '../serviceArea';
 // Delivery address, asked for once before a first bid or purchase.
 import { useEffect, useState } from 'react';
 import axios from 'axios';
@@ -17,22 +18,31 @@ export const phoneProblem = (raw) => {
 
 export function useAddressForm() {
   const { buyer } = useAuth();
+  const { config, error: areaError } = useServiceArea();
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
-  const [form, setForm] = useState({ state: '', city: '', addressLine1: '', landmark: '', phoneNumber: '' });
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const [form, setForm] = useState({ state: '', city: '', addressLine1: '', landmark: '', phoneNumber: buyer?.phoneNumber || '' });
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value, ...(k === 'state' ? { city: '' } : {}) }));
 
   useEffect(() => {
-    axios.get(`${API}/api/v2/orders/states`).then((r) => setStates(r.data?.data || [])).catch(() => {});
-  }, []);
+    if (!config) return;
+    setStates(config.states.map(name => ({ name, isoCode: name })));
+    if (config.states.length === 1) setForm(f => ({ ...f, state: config.states[0] }));
+  }, [config]);
   useEffect(() => {
-    const st = states.find((s) => s.name === form.state);
+    const groups = config?.areas?.[form.state];
     setCities([]);
-    if (st) axios.get(`${API}/api/v2/orders/cities/${st.isoCode}`).then((r) => setCities(r.data?.data || [])).catch(() => {});
-  }, [form.state, states]);
+    if (groups) setCities(Object.entries(groups).flatMap(([lga,names]) => [...new Set([lga,...names])].map(name => ({ name, lga }))));
+    else if (form.state && config) axios.get(`${API}/api/v2/orders/states`).then(r => {
+      const st = r.data?.data?.find(s => s.name === form.state);
+      if(st) return axios.get(`${API}/api/v2/orders/cities/${st.isoCode}`).then(r => setCities(r.data?.data || []));
+    }).catch(()=>{});
+  }, [config,form.state]);
 
   // Plain-language problem with the form, or '' when it's complete
   const problem = (needPhone) => {
+    if (!config) return areaError || 'Loading delivery areas. Please wait.';
+    if (!allowsState(config,form.state)) return `Delivery is ${config.states.join(' and ')}-only for now. You can keep watching and chatting.`;
     if (!form.state || !form.city || !form.addressLine1.trim()) return 'Add your state, area and street address.';
     if (needPhone || form.phoneNumber) {
       const p = phoneProblem(form.phoneNumber);
@@ -42,8 +52,8 @@ export function useAddressForm() {
   };
 
   // `who` fills the name and email for a buyer who just signed up
-  const save = (who = buyer) => api.addAddress({
-    addressType: 'home',
+  const save = (who = buyer) => (who?.shippingAddresses?.[0]?._id ? async body => { const result = await api.updateAddress(who.shippingAddresses[0]._id, body); await api.activateAddress(who.shippingAddresses[0]._id); return result; } : api.addAddress)({
+    addressType: who?.shippingAddresses?.[0]?.addressType || 'home',
     firstName: who?.firstName,
     lastName: who?.lastName,
     email: who?.email,
@@ -55,7 +65,7 @@ export function useAddressForm() {
     addressLine2: form.landmark.trim() || undefined,
   });
 
-  return { form, set, states, cities, problem, save };
+  return { form, set, states, cities, problem, save, config };
 }
 
 export function AddressFields({ address, askPhone, idPrefix = 'ad' }) {
@@ -64,17 +74,16 @@ export function AddressFields({ address, askPhone, idPrefix = 'ad' }) {
     <>
       <div className="fl">
         <label className="lab" htmlFor={`${idPrefix}-st`}>State</label>
-        <select id={`${idPrefix}-st`} className="sel" value={form.state} onChange={set('state')}>
+        <select id={`${idPrefix}-st`} className="sel" value={form.state} onChange={set('state')} disabled={states.length === 1}>
           <option value="">Choose your state</option>
           {states.map((s) => <option key={s.isoCode} value={s.name}>{s.name}</option>)}
         </select>
+        <span className="hint">{states.length ? `Delivery is ${states.map(s => s.name).join(' and ')}-only for now. You can keep watching and chatting from anywhere.` : 'Loading delivery areas…'}</span>
       </div>
       <div className="fl">
         <label className="lab" htmlFor={`${idPrefix}-ct`}>Area</label>
-        <select id={`${idPrefix}-ct`} className="sel" value={form.city} onChange={set('city')} disabled={!cities.length}>
-          <option value="">{form.state ? 'Choose your area' : 'Choose a state first'}</option>
-          {cities.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
-        </select>
+        <input id={`${idPrefix}-ct`} className="in" list={`${idPrefix}-areas`} value={form.city} onChange={set('city')} placeholder="Search your area" disabled={!form.state} />
+        <datalist id={`${idPrefix}-areas`}>{cities.map((c,i) => <option key={i} value={c.name}>{c.lga ? `${c.name} · ${c.lga}` : c.name}</option>)}</datalist>
       </div>
       <div className="fl">
         <label className="lab" htmlFor={`${idPrefix}-l1`}>Street address</label>
@@ -84,7 +93,7 @@ export function AddressFields({ address, askPhone, idPrefix = 'ad' }) {
         <label className="lab" htmlFor={`${idPrefix}-lm`}>Landmark <span className="hint" style={{ fontWeight: 'var(--w-medium)' }}>optional</span></label>
         <input id={`${idPrefix}-lm`} className="in" value={form.landmark} onChange={set('landmark')} placeholder="e.g. opposite Yaba bus stop" />
       </div>
-      {askPhone && (
+      {(askPhone || address.config) && (
         <div className="fl">
           <label className="lab" htmlFor={`${idPrefix}-ph`}>Phone for the courier</label>
           <input id={`${idPrefix}-ph`} className="in" type="tel" inputMode="tel" value={form.phoneNumber} onChange={set('phoneNumber')} placeholder="e.g. 0803 123 4567" autoComplete="tel" />

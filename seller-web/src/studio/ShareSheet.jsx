@@ -2,7 +2,7 @@
 // Telegram. Instagram and TikTok have no web share link, so we copy the link
 // and say where to paste it.
 import { useEffect, useState } from 'react';
-import { when } from './api';
+import { when, serviceAreaConfig } from './api';
 import { Icon, Sheet } from './ui';
 
 const copy = async (text) => {
@@ -20,9 +20,9 @@ const copy = async (text) => {
   }
 };
 
-export const shareMessage = (show) => (show.status === 'live'
-  ? `I'm LIVE now: ${show.title}. Come and ${show.type === 'drop' ? 'shop' : 'bid'} with me 👇`
-  : `${show.title}: live ${when(show.scheduledStartTime)}. Tap to get a reminder and ${show.type === 'drop' ? 'shop' : 'bid'} live 👇`);
+export const shareMessage = (show, deliveryLabel = '') => (show.status === 'live'
+  ? `I'm LIVE now: ${show.title}. Come and ${show.type === 'drop' ? 'shop' : 'bid'} with me${deliveryLabel ? `. ${deliveryLabel}` : ''} 👇`
+  : `${show.title}: live ${when(show.scheduledStartTime)}. Tap to get a reminder and ${show.type === 'drop' ? 'shop' : 'bid'} live${deliveryLabel ? `. ${deliveryLabel}` : ''} 👇`);
 
 // A short version of the link for the pill: no "https://", "…" in the middle if long
 const shortLink = (link) => {
@@ -36,10 +36,12 @@ const AppIcon = ({ bg, children }) => (
 
 // Like the phone's own share sheet: compact, sized to its content, the video stays visible.
 export default function ShareSheet({ show, onClose }) {
+  const [areaConfig, setAreaConfig] = useState(null);
+  useEffect(() => { serviceAreaConfig().then(setAreaConfig).catch(()=>{}); }, []);
   const [note, setNote] = useState('');
   useEffect(() => { if (!note) return undefined; const t = setTimeout(() => setNote(''), 4000); return () => clearTimeout(t); }, [note]);
   const link = show.link;
-  const text = shareMessage(show);
+  const text = shareMessage(show, areaConfig?.states?.length ? `${areaConfig.states.join(' and ')} delivery` : '');
   const enc = encodeURIComponent;
   const open = (url) => window.open(url, '_blank', 'noopener,noreferrer');
 

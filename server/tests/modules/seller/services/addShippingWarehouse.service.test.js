@@ -151,7 +151,7 @@ describe('Add Shipping Warehouse Service', () => {
           contactNumber: '+2348098765432',
           address: {
             country: 'Nigeria',
-            state: 'Abuja',
+            state: 'Lagos',
             city: 'Abuja',
             addressLine1: '456 Storage Avenue',
             zipCode: '900001'

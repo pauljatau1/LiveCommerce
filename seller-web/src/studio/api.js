@@ -86,3 +86,5 @@ export const account = {
   categoryWeights: () => get(`${BASE_URL_V2}/studio/category-weights`),
   saveProduct: (id, body) => id ? put(`${BASE_URL}/products/${id}`, body) : post(`${BASE_URL}/products`, body),
 };
+
+export const serviceAreaConfig = () => get(`${BASE_URL_V2}/watch/config`).then(r => r.serviceArea);
