@@ -138,7 +138,7 @@ async function register(data) {
 
   // Step 5: Generate JWT token for immediate authentication
   // This allows the user to be logged in immediately after registration
-  const token = generateToken(newBuyer._id);
+  const token = await generateToken(newBuyer._id);
 
   // Step 6: Return user data and authentication token (exclude password and OTP for security)
   const userResponse = newBuyer.toObject ? newBuyer.toObject() : { ...newBuyer };

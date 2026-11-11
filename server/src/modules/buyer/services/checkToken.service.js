@@ -114,10 +114,12 @@ async function checkToken(token) {
     // Step 2: Verify the token and decode user data
     // This validates the JWT signature and extracts user information
     const decodedUserData = jwt.verify(token, process.env.JWT_SECRET);
+    if (decodedUserData.role !== 'Buyer') throw new UnauthorizedException('Please sign in again.');
+    await require('../../../services/auth/sessions').assertSession(decodedUserData);
     
     // Step 3: Generate a new token with extended expiration
     // This provides continued authentication with fresh expiration
-    const newToken = generateToken(decodedUserData.id);
+    const newToken = await generateToken(decodedUserData.id, 'Buyer', '500w', decodedUserData.v || 0);
     
     // Step 4: Return success response with new token
     return {

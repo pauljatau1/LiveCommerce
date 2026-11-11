@@ -16,9 +16,9 @@ export const forgotPasswordStep1Schema = z.object({
 export const forgotPasswordStep2Schema = z.object({
   otp: z
     .string()
-    .min(4, "Please enter the complete 4-digit code")
-    .max(4, "Code must be exactly 4 digits")
-    .regex(/^\d{4}$/, "Please enter a valid 4-digit code"),
+    .min(6, "Please enter the complete 6-digit code")
+    .max(6, "Code must be exactly 6 digits")
+    .regex(/^\d{6}$/, "Please enter a valid 6-digit code"),
   newPassword: z
     .string()
     .min(8, "Password must be at least 8 characters")

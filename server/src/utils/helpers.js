@@ -20,8 +20,8 @@ function generateOTP() {
 }
 
 // Helper function to generate JWT
-function generateToken(id, role = 'Buyer', expiresIn = '500w') {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn });
+function generateToken(id, role = 'Buyer', expiresIn = '500w', verifiedVersion) {
+  return jwt.sign({ id, role, v: Number(verifiedVersion || 0) }, process.env.JWT_SECRET, { expiresIn });
 }
 
 /**

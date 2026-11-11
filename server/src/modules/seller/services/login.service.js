@@ -88,7 +88,7 @@ async function login(data) {
 
   // Step 3: Generate JWT token for session management
   // This provides secure authentication for subsequent requests
-  const token = generateToken(seller._id, 'Seller', '2w');
+  const token = await generateToken(seller._id, 'Seller', '2w', seller.authVersion || 0);
   
   // Step 4: Return authenticated user data and token (exclude password for security)
   const userResponse = seller.toObject ? seller.toObject() : { ...seller };

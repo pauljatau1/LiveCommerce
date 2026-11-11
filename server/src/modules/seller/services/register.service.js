@@ -306,7 +306,7 @@ async function register(data) {
   const savedSeller = await sellerRepository.saveSeller(newSeller);
 
   // Generate JWT token
-  const token = generateToken(savedSeller._id, 'Seller', '2w');
+  const token = await generateToken(savedSeller._id, 'Seller', '2w');
 
   // Send welcome email and admin notification
   // NOTE: Email sending is non-blocking - registration succeeds even if emails fail

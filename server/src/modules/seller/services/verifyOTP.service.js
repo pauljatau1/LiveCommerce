@@ -63,9 +63,7 @@ const { validateVerifyOTPData } = require('../validators/verifyOTP.validator');
  * @param {string} sellerId - Seller's ID for token generation
  * @returns {string} JWT token for authentication
  */
-function generateToken(sellerId) {
-  return jwt.sign({ id: sellerId, role: 'Seller' }, process.env.JWT_SECRET, { expiresIn: '2w' });
-}
+function generateToken(sellerId,version) { return require('../../../services/auth/sessions').issueToken(sellerId, 'Seller', '2w', version); }
 
 /**
  * Updates seller verification status in the database.
@@ -228,7 +226,7 @@ async function verifyOTP(email, otp) {
 
   // Step 5: Generate JWT token for authentication
   // This provides secure access to the seller's account
-  const token = generateToken(seller._id);
+  const token = await generateToken(seller._id,seller.authVersion || 0);
 
   // Step 6: Return verification result with user data and token
   return createVerificationResponse(seller, token);

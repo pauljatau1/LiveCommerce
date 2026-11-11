@@ -95,7 +95,7 @@ const { generateToken } = require('../../../utils/helpers');
  * const result = checkToken('expired_jwt_token');
  * // Throws: UnauthorizedException with message 'Token has expired. Please sign in again.'
  */
-function checkToken(token) {
+async function checkToken(token) {
   // Step 1: Validate token presence
   // This ensures a token is provided before attempting verification
   if (!token) {
@@ -113,10 +113,12 @@ function checkToken(token) {
   // Note: jwt.verify will throw errors for invalid/expired tokens
   // These errors will be propagated to the controller and handled by app.js error middleware
   const decodedUserData = jwt.verify(token, process.env.JWT_SECRET);
+    await require('../../../services/auth/sessions').assertSession(decodedUserData);
   
+  if (decodedUserData.role !== 'Seller') throw new UnauthorizedException('Please sign in again.');
   // Step 4: Generate a new token with extended expiration
   // This provides continued authentication with fresh expiration
-  const newToken = generateToken(decodedUserData.id, 'Seller', '2w');
+  const newToken = await generateToken(decodedUserData.id, 'Seller', '2w', decodedUserData.v || 0);
   
   // Step 5: Return success response with new token
   // IMPORTANT: Return only the token object to match the original API response structure

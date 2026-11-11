@@ -94,7 +94,7 @@ async function hashPassword(password) {
  *   // error instanceof ValidationError
  * }
  */
-async function resetPassword(data) {
+async function legacyResetPassword(data) {
   // Step 1: Validate input data using the validator
   // This ensures email format is correct, OTP is valid, and password meets requirements
   await resetPasswordValidator.validateResetPasswordData(data);
@@ -123,6 +123,8 @@ async function resetPassword(data) {
     message: 'Password reset successfully'
   };
 }
+
+async function resetPassword(data) { return require('../../../services/auth/passwordReset').reset('Buyer', data); }
 
 module.exports = {
   resetPassword

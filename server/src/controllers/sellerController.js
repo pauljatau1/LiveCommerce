@@ -53,9 +53,7 @@ const generateUniqueAgoraUid = async () => {
   return agoraUid;
 };
 
-const generateToken = (id) => {
-  return jwt.sign({ id, role: 'Seller' }, process.env.JWT_SECRET, { expiresIn: '2w' });
-};
+const generateToken = id => require('../services/auth/sessions').issueToken(id, 'Seller', '2w');
 
 // Update seller profile information
 exports.updateProfileInfo = async (req, res) => {
@@ -400,7 +398,7 @@ exports.updateIndividualInformation = async (req, res) => {
  * @param {Object} res - Express response object
  * @returns {Promise<void>}
  */
-exports.forgotPassword = async (req, res) => {
+const legacyForgotPassword = async (req, res) => {
   const { email } = req.body;
 
   // Validate email input
@@ -466,7 +464,7 @@ exports.forgotPassword = async (req, res) => {
 };
 
 // Reset password
-exports.resetPassword = async (req, res) => {
+const legacyResetPassword = async (req, res) => {
   const { email, code, newPassword } = req.body;
 
   if (!email || !code || !newPassword) {
@@ -866,7 +864,7 @@ exports.getBuyerDetails = async (req, res) => {
 };
 
 // Request password reset
-exports.requestPasswordReset = async (req, res) => {
+const legacyRequestPasswordReset = async (req, res) => {
   try {
     const { email } = req.body;
 
@@ -945,7 +943,7 @@ exports.requestPasswordReset = async (req, res) => {
 };
 
 // Verify reset token
-exports.verifyResetToken = async (req, res) => {
+const legacyVerifyResetToken = async (req, res) => {
   try {
     const { token } = req.body;
 
@@ -981,7 +979,7 @@ exports.verifyResetToken = async (req, res) => {
 };
 
 // Reset password with token
-exports.resetPasswordWithToken = async (req, res) => {
+const legacyResetPasswordWithToken = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
 
@@ -3487,3 +3485,11 @@ exports.checkVerificationStatus = async (req, res) => {
     });
   }
 };
+// Inactive legacy handlers above are retained for reference; resets always use the hardened service.
+const resetService=require('../services/auth/passwordReset');
+const resetHandler=fn=>async(req,res)=>{try{res.json(await fn(req.body||{}));}catch(e){res.status(e.status||500).json({message:e.status?e.message:'Couldn’t reset your password. Please try again.'});}};
+exports.forgotPassword=resetHandler(b=>resetService.issue('Seller',b.email));
+exports.requestPasswordReset=resetHandler(b=>resetService.issue('Seller',b.email,{link:true}));
+exports.resetPassword=resetHandler(b=>resetService.reset('Seller',b));
+exports.verifyResetToken=resetHandler(b=>resetService.verifyLink('Seller',b.token));
+exports.resetPasswordWithToken=resetHandler(b=>resetService.reset('Seller',b));

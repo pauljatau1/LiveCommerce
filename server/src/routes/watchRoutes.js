@@ -16,10 +16,10 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 
 // Reads the buyer from the token when there is one; guests carry on without
-const optionalBuyer = (req, res, next) => {
+const optionalBuyer = async (req, res, next) => {
   const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   if (token) {
-    try { const u = jwt.verify(token, process.env.JWT_SECRET); if (u?.role === 'Buyer') req.user = u; } catch { /* treat as a guest */ }
+    try { const u = jwt.verify(token, process.env.JWT_SECRET); await require('../services/auth/sessions').assertSession(u); if (u?.role === 'Buyer') req.user = u; } catch { /* treat as a guest */ }
   }
   next();
 };

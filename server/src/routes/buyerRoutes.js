@@ -1871,14 +1871,10 @@ router.get('/google-callback',
     session: false,
     failureRedirect: buyerAppUrl()
   }),
-  (req, res) => {
+  async (req, res) => {
     try {
       // Generate token
-      const token = jwt.sign(
-        { id: req.user._id, role: 'Buyer' },
-        process.env.JWT_SECRET,
-        { expiresIn: '30d' }
-      );
+      const token = await require('../services/auth/sessions').issueToken(req.user._id, 'Buyer', '30d');
 
       // Prepare user data
       const user = {

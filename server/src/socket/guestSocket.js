@@ -5,9 +5,9 @@ const jwt = require('jsonwebtoken');
 
 // Who is on this socket: a signed-in user from the token, a guest when the
 // client asks for guest access without a token, or null (refuse).
-const socketUserFromHandshake = (handshake = {}) => {
+const socketUserFromHandshake = async (handshake = {}) => {
   const token = handshake.auth?.token;
-  if (token) return jwt.verify(token, process.env.JWT_SECRET);
+  if (token) return require('../services/auth/sessions').assertSession(jwt.verify(token, process.env.JWT_SECRET));
   if (handshake.auth?.guest === true) return { id: null, role: 'Guest', guest: true };
   return null;
 };

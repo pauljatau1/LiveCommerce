@@ -4,13 +4,7 @@ const { Buyer } = require('../models/Buyer');
 const jwt = require('jsonwebtoken');
 
 // Add this helper function
-const generateToken = (userId, role = 'Buyer') => {
-  return jwt.sign(
-    { id: userId, role: role },
-    process.env.JWT_SECRET,
-    { expiresIn: '30d' }
-  );
-};
+const generateToken = (id, role = 'Buyer') => require('../services/auth/sessions').issueToken(id, role, '30d');
 
 passport.serializeUser((user, done) => {
   done(null, user.id);
@@ -66,7 +60,7 @@ if (googleConfigured) passport.use(new GoogleStrategy({
       }
 
       // Generate token
-      const token = generateToken(buyer._id);
+      const token = await generateToken(buyer._id);
       buyer.token = token; // Attach token to user object
 
       return done(null, buyer);

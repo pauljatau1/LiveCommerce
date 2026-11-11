@@ -205,7 +205,7 @@ async function sendResetEmail(email, resetOTP, userName = null) {
  *   // error.errors contains user not found error
  * }
  */
-async function forgotPassword(data) {
+async function legacyForgotPassword(data) {
   // Step 1: Validate input data using the validator
   // This ensures email format is correct and user exists in the system
   await forgotPasswordValidator.validateForgotPasswordData(data);
@@ -249,6 +249,8 @@ async function forgotPassword(data) {
 }
 
 // Export the main service function for use in controllers
+async function forgotPassword(data) { return require('../../../services/auth/passwordReset').issue('Buyer', data.email); }
+
 module.exports = {
   forgotPassword
 }; 

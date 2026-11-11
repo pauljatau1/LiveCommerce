@@ -7,6 +7,7 @@ const UnauthorizedException = require('@utils/errors/UnauthorizedException');
 
 // Mock dependencies
 jest.mock('@utils/helpers');
+jest.mock('@/services/auth/sessions', () => ({assertSession: jest.fn().mockResolvedValue(true)}));
 
 let mongoServer;
 
@@ -38,14 +39,14 @@ describe('Check Token Service', () => {
       const mockNewToken = 'new.jwt.token';
 
       // Mock jwt.verify to return valid user data
-      jest.spyOn(jwt, 'verify').mockReturnValue({ id: mockUserId });
+      jest.spyOn(jwt, 'verify').mockReturnValue({ id: mockUserId, role: 'Seller' });
 
       // Mock generateToken helper
       const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue(mockNewToken);
 
       // Call the service
-      const result = checkTokenService.checkToken(mockToken);
+      const result = await checkTokenService.checkToken(mockToken);
 
       // Verify the result
       expect(result).toEqual({
@@ -56,34 +57,34 @@ describe('Check Token Service', () => {
       expect(jwt.verify).toHaveBeenCalledWith(mockToken, process.env.JWT_SECRET);
 
       // Verify generateToken was called with correct parameters
-      expect(generateToken).toHaveBeenCalledWith(mockUserId, 'Seller', '2w');
+      expect(generateToken).toHaveBeenCalledWith(mockUserId, 'Seller', '2w', 0);
     });
 
-    it('should throw UnauthorizedException when no token is provided', () => {
+    it('should throw UnauthorizedException when no token is provided', async () => {
       // Call the service without token
-      expect(() => checkTokenService.checkToken()).toThrow(UnauthorizedException);
-      expect(() => checkTokenService.checkToken()).toThrow('A token is required for authentication');
+      await expect(checkTokenService.checkToken()).rejects.toThrow(UnauthorizedException);
+      await expect(checkTokenService.checkToken()).rejects.toThrow('A token is required for authentication');
     });
 
-    it('should throw UnauthorizedException when token is null', () => {
+    it('should throw UnauthorizedException when token is null', async () => {
       // Call the service with null token
-      expect(() => checkTokenService.checkToken(null)).toThrow(UnauthorizedException);
-      expect(() => checkTokenService.checkToken(null)).toThrow('A token is required for authentication');
+      await expect(checkTokenService.checkToken(null)).rejects.toThrow(UnauthorizedException);
+      await expect(checkTokenService.checkToken(null)).rejects.toThrow('A token is required for authentication');
     });
 
-    it('should throw UnauthorizedException when token is empty string', () => {
+    it('should throw UnauthorizedException when token is empty string', async () => {
       // Call the service with empty string token
-      expect(() => checkTokenService.checkToken('')).toThrow(UnauthorizedException);
-      expect(() => checkTokenService.checkToken('')).toThrow('A token is required for authentication');
+      await expect(checkTokenService.checkToken('')).rejects.toThrow(UnauthorizedException);
+      await expect(checkTokenService.checkToken('')).rejects.toThrow('A token is required for authentication');
     });
 
-    it('should throw UnauthorizedException when token is undefined', () => {
+    it('should throw UnauthorizedException when token is undefined', async () => {
       // Call the service with undefined token
-      expect(() => checkTokenService.checkToken(undefined)).toThrow(UnauthorizedException);
-      expect(() => checkTokenService.checkToken(undefined)).toThrow('A token is required for authentication');
+      await expect(checkTokenService.checkToken(undefined)).rejects.toThrow(UnauthorizedException);
+      await expect(checkTokenService.checkToken(undefined)).rejects.toThrow('A token is required for authentication');
     });
 
-    it('should throw TokenExpiredError when token has expired', () => {
+    it('should throw TokenExpiredError when token has expired', async () => {
       // Mock data
       const mockToken = 'expired.jwt.token';
       const mockError = new Error('Token has expired');
@@ -95,14 +96,14 @@ describe('Check Token Service', () => {
       });
 
       // Call the service
-      expect(() => checkTokenService.checkToken(mockToken)).toThrow('Token has expired');
-      expect(() => checkTokenService.checkToken(mockToken)).toThrow(Error);
+      await expect(checkTokenService.checkToken(mockToken)).rejects.toThrow('Token has expired');
+      await expect(checkTokenService.checkToken(mockToken)).rejects.toThrow(Error);
 
       // Verify jwt.verify was called
       expect(jwt.verify).toHaveBeenCalledWith(mockToken, process.env.JWT_SECRET);
     });
 
-    it('should throw generic error when token is invalid', () => {
+    it('should throw generic error when token is invalid', async () => {
       // Mock data
       const mockToken = 'invalid.jwt.token';
       const mockError = new Error('Invalid token');
@@ -113,14 +114,14 @@ describe('Check Token Service', () => {
       });
 
       // Call the service
-      expect(() => checkTokenService.checkToken(mockToken)).toThrow('Invalid token');
-      expect(() => checkTokenService.checkToken(mockToken)).toThrow(Error);
+      await expect(checkTokenService.checkToken(mockToken)).rejects.toThrow('Invalid token');
+      await expect(checkTokenService.checkToken(mockToken)).rejects.toThrow(Error);
 
       // Verify jwt.verify was called
       expect(jwt.verify).toHaveBeenCalledWith(mockToken, process.env.JWT_SECRET);
     });
 
-    it('should throw JsonWebTokenError when JWT verification fails with other error types', () => {
+    it('should throw JsonWebTokenError when JWT verification fails with other error types', async () => {
       // Mock data
       const mockToken = 'malformed.jwt.token';
       const mockError = new Error('Malformed token');
@@ -132,14 +133,14 @@ describe('Check Token Service', () => {
       });
 
       // Call the service
-      expect(() => checkTokenService.checkToken(mockToken)).toThrow('Malformed token');
-      expect(() => checkTokenService.checkToken(mockToken)).toThrow(Error);
+      await expect(checkTokenService.checkToken(mockToken)).rejects.toThrow('Malformed token');
+      await expect(checkTokenService.checkToken(mockToken)).rejects.toThrow(Error);
 
       // Verify jwt.verify was called
       expect(jwt.verify).toHaveBeenCalledWith(mockToken, process.env.JWT_SECRET);
     });
 
-    it('should handle JWT verification errors gracefully', () => {
+    it('should handle JWT verification errors gracefully', async () => {
       // Mock data
       const mockToken = 'error.jwt.token';
       const mockError = new Error('JWT secret not provided');
@@ -150,51 +151,51 @@ describe('Check Token Service', () => {
       });
 
       // Call the service
-      expect(() => checkTokenService.checkToken(mockToken)).toThrow('JWT secret not provided');
-      expect(() => checkTokenService.checkToken(mockToken)).toThrow(Error);
+      await expect(checkTokenService.checkToken(mockToken)).rejects.toThrow('JWT secret not provided');
+      await expect(checkTokenService.checkToken(mockToken)).rejects.toThrow(Error);
 
       // Verify jwt.verify was called
       expect(jwt.verify).toHaveBeenCalledWith(mockToken, process.env.JWT_SECRET);
     });
 
-    it('should generate new token with correct parameters when token is valid', () => {
+    it('should generate new token with correct parameters when token is valid', async () => {
       // Mock data
       const mockToken = 'valid.jwt.token';
       const mockUserId = '507f1f77bcf86cd799439011';
       const mockNewToken = 'new.jwt.token';
 
       // Mock jwt.verify to return valid user data
-      jest.spyOn(jwt, 'verify').mockReturnValue({ id: mockUserId });
+      jest.spyOn(jwt, 'verify').mockReturnValue({ id: mockUserId, role: 'Seller' });
 
       // Mock generateToken helper
       const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue(mockNewToken);
 
       // Call the service
-      const result = checkTokenService.checkToken(mockToken);
+      const result = await checkTokenService.checkToken(mockToken);
 
       // Verify generateToken was called with correct parameters
-      expect(generateToken).toHaveBeenCalledWith(mockUserId, 'Seller', '2w');
+      expect(generateToken).toHaveBeenCalledWith(mockUserId, 'Seller', '2w', 0);
 
       // Verify the result contains the new token
       expect(result.token).toBe(mockNewToken);
     });
 
-    it('should return correct token structure when token is valid', () => {
+    it('should return correct token structure when token is valid', async () => {
       // Mock data
       const mockToken = 'valid.jwt.token';
       const mockUserId = '507f1f77bcf86cd799439011';
       const mockNewToken = 'new.jwt.token';
 
       // Mock jwt.verify to return valid user data
-      jest.spyOn(jwt, 'verify').mockReturnValue({ id: mockUserId });
+      jest.spyOn(jwt, 'verify').mockReturnValue({ id: mockUserId, role: 'Seller' });
 
       // Mock generateToken helper
       const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue(mockNewToken);
 
       // Call the service
-      const result = checkTokenService.checkToken(mockToken);
+      const result = await checkTokenService.checkToken(mockToken);
 
       // Verify the result structure
       expect(result).toHaveProperty('token');
@@ -202,24 +203,24 @@ describe('Check Token Service', () => {
       expect(result.token).toBe(mockNewToken);
     });
 
-    it('should handle different user ID formats correctly', () => {
+    it('should handle different user ID formats correctly', async () => {
       // Mock data with different user ID formats
       const mockToken = 'valid.jwt.token';
       const mockUserId = '64f1a2b3c4d5e6f7a8b9c0d1';
       const mockNewToken = 'new.jwt.token';
 
       // Mock jwt.verify to return valid user data
-      jest.spyOn(jwt, 'verify').mockReturnValue({ id: mockUserId });
+      jest.spyOn(jwt, 'verify').mockReturnValue({ id: mockUserId, role: 'Seller' });
 
       // Mock generateToken helper
       const { generateToken } = require('@utils/helpers');
       generateToken.mockReturnValue(mockNewToken);
 
       // Call the service
-      const result = checkTokenService.checkToken(mockToken);
+      const result = await checkTokenService.checkToken(mockToken);
 
       // Verify generateToken was called with the correct user ID
-      expect(generateToken).toHaveBeenCalledWith(mockUserId, 'Seller', '2w');
+      expect(generateToken).toHaveBeenCalledWith(mockUserId, 'Seller', '2w', 0);
 
       // Verify the result
       expect(result.token).toBe(mockNewToken);

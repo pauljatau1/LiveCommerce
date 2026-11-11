@@ -1,0 +1,208 @@
+{
+  "results": {
+    "after/reset-six-boxes": {
+      "url": "/forgot-password",
+      "overflow": false
+    },
+    "after/listing-agent-colours": {
+      "url": "/studio/products/new",
+      "overflow": false
+    },
+    "after/saved-product-colours": {
+      "url": "/studio/products/p0/edit",
+      "overflow": false
+    }
+  },
+  "calls": [
+    {
+      "path": "/api/seller/forgot-password",
+      "method": "POST",
+      "body": {
+        "email": "sade@example.test"
+      }
+    },
+    {
+      "path": "/api/seller/reset-password",
+      "method": "POST",
+      "body": {
+        "email": "sade@example.test",
+        "code": "123456",
+        "newPassword": "new-password-123"
+      }
+    },
+    {
+      "path": "/api/seller/reset-password",
+      "method": "POST",
+      "body": {
+        "email": "sade@example.test",
+        "code": "123456",
+        "newPassword": "linked-password-123"
+      }
+    },
+    {
+      "path": "/api/seller/reset-password-with-token",
+      "method": "POST",
+      "body": {
+        "token": "example-link-token",
+        "newPassword": "linked-password-123"
+      }
+    },
+    {
+      "path": "/api/products",
+      "method": "POST",
+      "body": {
+        "name": "Adire Bubu Gown, Indigo",
+        "description": "<p>Hand-dyed cotton with flowing sleeves.</p>",
+        "price": 11000,
+        "salePrice": 0,
+        "stock": 13,
+        "weight": 0.5,
+        "condition": "New with tags",
+        "status": "active",
+        "category": "Women",
+        "subCategory": "Dresses",
+        "brand": "",
+        "sku": "AD01",
+        "upc": "",
+        "fabric": "Adire",
+        "localStyle": "Bubu",
+        "tags": [
+          "adire",
+          "bubu"
+        ],
+        "authenticity": "unknown",
+        "images": [
+          {
+            "url": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22240%22%3E%3Crect%20width%3D%22200%22%20height%3D%22240%22%20fill%3D%22%23294b70%22%2F%3E%3Cpath%20d%3D%22M30%200L100%2070%2050%20160%20130%20240M160%200L100%2070%20150%20160%2070%20240%22%20stroke%3D%22%23abcbdc%22%20fill%3D%22none%22%20stroke-width%3D%2218%22%2F%3E%3C%2Fsvg%3E",
+            "data": "%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22240%22%3E%3Crect%20width%3D%22200%22%20height%3D%22240%22%20fill%3D%22%23294b70%22%2F%3E%3Cpath%20d%3D%22M30%200L100%2070%2050%20160%20130%20240M160%200L100%2070%20150%20160%2070%20240%22%20stroke%3D%22%23abcbdc%22%20fill%3D%22none%22%20stroke-width%3D%2218%22%2F%3E%3C%2Fsvg%3E",
+            "contentType": "image/jpeg"
+          }
+        ],
+        "variants": [
+          {
+            "name": "Colour",
+            "price": 11000,
+            "subVariants": [],
+            "value": "Blue and white",
+            "totalStock": 9,
+            "images": []
+          },
+          {
+            "name": "Colour",
+            "price": 11000,
+            "subVariants": [],
+            "value": "Green and gold",
+            "totalStock": 4,
+            "images": []
+          }
+        ],
+        "colourVariants": [
+          "Blue and white",
+          "Green and gold"
+        ],
+        "colourQuantities": [
+          {
+            "colour": "Blue and white",
+            "quantity": 9
+          },
+          {
+            "colour": "Green and gold",
+            "quantity": 4
+          }
+        ],
+        "draftProof": "signed-proof",
+        "shippingInfo": {
+          "weight": {
+            "value": 0.5,
+            "unit": "kg"
+          },
+          "dimensions": {
+            "length": 10,
+            "width": 10,
+            "height": 10
+          },
+          "freeShipping": false,
+          "shippingClass": "standard"
+        }
+      }
+    },
+    {
+      "path": "/api/products/p0",
+      "method": "PUT",
+      "body": {
+        "name": "Adire Bubu Gown, Indigo",
+        "description": "<p>Hand-dyed cotton with flowing sleeves.</p>",
+        "price": 11000,
+        "salePrice": 0,
+        "stock": 13,
+        "weight": 0.5,
+        "condition": "New with tags",
+        "status": "active",
+        "category": "Women",
+        "subCategory": "Dresses",
+        "brand": "",
+        "sku": "AD01",
+        "upc": "",
+        "fabric": "Adire",
+        "localStyle": "Bubu",
+        "tags": [
+          "adire",
+          "bubu"
+        ],
+        "authenticity": "unknown",
+        "images": [
+          {
+            "url": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22240%22%3E%3Crect%20width%3D%22200%22%20height%3D%22240%22%20fill%3D%22%23294b70%22%2F%3E%3Cpath%20d%3D%22M30%200L100%2070%2050%20160%20130%20240M160%200L100%2070%20150%20160%2070%20240%22%20stroke%3D%22%23abcbdc%22%20fill%3D%22none%22%20stroke-width%3D%2218%22%2F%3E%3C%2Fsvg%3E",
+            "data": "%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22240%22%3E%3Crect%20width%3D%22200%22%20height%3D%22240%22%20fill%3D%22%23294b70%22%2F%3E%3Cpath%20d%3D%22M30%200L100%2070%2050%20160%20130%20240M160%200L100%2070%20150%20160%2070%20240%22%20stroke%3D%22%23abcbdc%22%20fill%3D%22none%22%20stroke-width%3D%2218%22%2F%3E%3C%2Fsvg%3E",
+            "contentType": "image/jpeg"
+          }
+        ],
+        "variants": [
+          {
+            "name": "Colour",
+            "price": 11000,
+            "subVariants": [],
+            "value": "Blue and white",
+            "totalStock": 9,
+            "images": []
+          },
+          {
+            "name": "Colour",
+            "price": 11000,
+            "subVariants": [],
+            "value": "Green and gold",
+            "totalStock": 4,
+            "images": []
+          }
+        ],
+        "colourVariants": [
+          "Blue and white",
+          "Green and gold"
+        ],
+        "colourQuantities": [
+          {
+            "colour": "Blue and white",
+            "quantity": 9
+          },
+          {
+            "colour": "Green and gold",
+            "quantity": 4
+          }
+        ],
+        "shippingInfo": {
+          "weight": {
+            "value": 0.5,
+            "unit": "kg"
+          },
+          "dimensions": {
+            "length": 10,
+            "width": 10,
+            "height": 10
+          },
+          "freeShipping": false,
+          "shippingClass": "standard"
+        }
+      }
+    }
+  ]
+}

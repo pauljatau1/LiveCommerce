@@ -99,7 +99,7 @@ function formatPhoneNumberForTermii(phoneNumber) {
  * @returns {string} Formatted SMS message content
  */
 function getSMSMessage(resetOTP) {
-  return `Your Auqli password reset code is: ${resetOTP}. Valid for 10 minutes. If you didn't request this, please ignore this message.`;
+  return `Your ${require('../../../utils/helpers').appName()} password reset code is: ${resetOTP}. Valid for 15 minutes. If you didn't request this, please ignore this message.`;
 }
 
 /**
@@ -243,7 +243,7 @@ async function sendResetSMS(phoneNumber, resetOTP) {
  *   // error.errors contains user not found error
  * }
  */
-async function forgotPasswordSMS(data) {
+async function legacyForgotPasswordSMS(data) {
   // Step 1: Validate input data using the validator
   // This ensures phone number format is correct and user exists in the system
   await forgotPasswordSMSValidator.validateForgotPasswordSMSData(data);
@@ -286,7 +286,9 @@ async function forgotPasswordSMS(data) {
 }
 
 // Export the main service function for use in controllers
+async function forgotPasswordSMS(data) { return require('../../../services/auth/passwordReset').issue('Buyer',undefined,{phone:data.phoneNumber}); }
 module.exports = {
+  sendSecureResetSMS: sendResetSMS,
   forgotPasswordSMS
 };
 

@@ -376,7 +376,7 @@ async function authenticateWithGoogle(data) {
   const seller = await findOrCreateSeller(payload);
 
   // Step 4: Generate JWT token for application session management
-  const token = generateToken(seller._id, 'Seller', '2w');
+  const token = await generateToken(seller._id, 'Seller', '2w', seller.authVersion || 0);
 
   // Step 5: Return authenticated user data and token (exclude password for security)
   const userResponse = seller.toObject ? seller.toObject() : { ...seller };

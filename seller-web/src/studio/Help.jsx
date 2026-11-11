@@ -1,3 +1,4 @@
+import { RETURNS_ANSWER, FEES_ANSWER } from './helpCopy';
 // Help: talk to a person first (WhatsApp, then email), then the common questions.
 // Open before sign-in too, so the sign-up page can link to the terms.
 import { Link, useNavigate } from 'react-router-dom';
@@ -14,8 +15,8 @@ const HELP_FAQS = [
   ['How do I get paid?', 'Each order pays out to your bank account 1 day after the buyer receives it. You’ll see every date in Money, and you can withdraw from there.'],
   ['How does delivery work?', 'After your show, book a pickup from Orders. A courier collects from your pickup address and you can follow each parcel in Orders.'],
   ['How do I go live?', 'Tap the red Go Live button, pick the items for your show and start. You can also plan a show ahead and share the link first.'],
-  ['What about returns?', 'Message us on WhatsApp or email with the order, and we’ll sort it out with you and the buyer.'],
-  ['What are the fees?', 'Money shows each sale with the fees taken off, so you always see what reaches your bank. Ask us if anything looks wrong.'],
+  ['What about returns?', RETURNS_ANSWER],
+  ['What are the fees?', FEES_ANSWER],
 ];
 
 export default function Help() {

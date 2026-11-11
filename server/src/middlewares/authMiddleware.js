@@ -10,6 +10,7 @@ exports.verifyToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    await require('../services/auth/sessions').assertSession(decoded);
     req.user = decoded;
     
     // console.log('Auth Token Debug:', {
