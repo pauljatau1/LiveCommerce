@@ -46,6 +46,12 @@ describe('studio routes', () => {
     await Stream.create({ seller: mockSellerId, title: 'Friday drop', category: 'Figures', channelName: 'c1', status: 'scheduled', type: 'open_show', scheduledStartTime: new Date(Date.now() + 86400000), products: [{ product: { productId: String(figure), name: 'Gojo figure' } }] });
   });
 
+  it('category weights: one table, with a fallback', async () => {
+    const res = await request(app).get('/api/v2/studio/category-weights').expect(200);
+    expect(res.body).toMatchObject({ success: true, fallback: 1, categories: { Shoes: 3, Bags: 3, Women: 1 } });
+    expect(Object.values(res.body.categories).every((kg) => kg > 0 && kg <= 30)).toBe(true);
+  });
+
   it('home: next show, products with show status, money', async () => {
     const res = await request(app).get('/api/v2/studio/home').expect(200);
     expect(res.body.seller).toMatchObject({ firstName: 'Tolu', storeName: 'OtakuHub' });

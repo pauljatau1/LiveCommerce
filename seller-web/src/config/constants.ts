@@ -17,3 +17,8 @@ export const API_CONFIG = {
 // Working name of the app. Change it here and the studio follows.
 export const APP_NAME = appNameFor(import.meta.env);
 export const BRAND_NAME = APP_NAME;
+
+// Where sellers reach a person. Help and the error screens read these.
+export const SUPPORT_EMAIL: string = import.meta.env.VITE_SUPPORT_EMAIL || 'support@auqli.com';
+// Digits only, with country code (2348012345678). Empty hides "WhatsApp us".
+export const SUPPORT_WHATSAPP: string = String(import.meta.env.VITE_SUPPORT_WHATSAPP || '').replace(/\D/g, '');
