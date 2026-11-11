@@ -604,7 +604,7 @@ export default function Watch() {
     const sock = await authedSocket();
     if (!sock) { setBusy(false); say('err', "Couldn't reach the show. Your bid wasn't placed. Try again."); return; }
     lastBidRef.current = { amount: bid, productId };
-    lastBidIntent.current = { kind: 'bid', productId, amount: bid, run: current?.run || 1 };
+    lastBidIntent.current = { kind: 'bid', productId, amount: bid, run: expectedRun || current?.run || 1 };
     sock.emit('stream_place_bid', { streamId, productId, bidAmount: bid, ...(expectedRun === undefined ? {} : { expectedRun }) });
     window.setTimeout(() => setBusy(false), 8000);
   };
@@ -646,7 +646,12 @@ export default function Watch() {
     const clocks = timersFor(scene.products || []);
     setTimer(clocks); lastSecs.current = clocks; setPlusSecs(0);
     applyMe(me);
-    const decision = resolveWalletIntent(intent, scene, freshWallet?.availableBalance, Number(me.depositDue) || 0, myIdRef.current);
+    if (!Number.isFinite(me.depositDue) || me.depositDue < 0) {
+      setSheet(null); setFundsOffer(null);
+      say('ok', me.deliveryProblem || 'Money’s in. Check delivery before choosing your bid.', 7000);
+      return;
+    }
+    const decision = resolveWalletIntent(intent, scene, freshWallet?.availableBalance, me.depositDue, myIdRef.current);
     if (decision.type === 'auto') {
       setSheet(null); setFundsOffer(null);
       if (decision.action.kind === 'bid') await sendBid(decision.action.productId, decision.action.amount, decision.action.run);
@@ -959,8 +964,10 @@ export default function Watch() {
           {transfer && <button type="button" className="btn2 on-dark btn-sm" onClick={() => setSheet({ type: 'topup', need: 0, bank: transfer })}>Waiting for your transfer{transfer.accountNumber ? ` · ${transfer.accountNumber}` : ' · setting up'}</button>}
           {fundsOffer && <button type="button" className="btn btn-sm" onClick={async () => {
             try {
-              const w = await refreshWallet();
-              if ((w?.availableBalance || 0) < fundsOffer.amount + deposit) { beginTopUp(fundsOffer.amount + deposit - (w?.availableBalance || 0), fundsOffer); return; }
+              const [w, me] = await Promise.all([refreshWallet(), api.watchMe(streamId, fundsOffer.productId)]);
+              applyMe(me);
+              if (!Number.isFinite(me.depositDue) || me.depositDue < 0) { say('err', me.deliveryProblem || 'Check delivery before choosing your bid.'); return; }
+              if ((w?.availableBalance || 0) < fundsOffer.amount + me.depositDue) { beginTopUp(fundsOffer.amount + me.depositDue - (w?.availableBalance || 0), fundsOffer); return; }
               await fulfillIntent(fundsOffer);
             } catch { say('err', 'Couldn’t reach the show. Try again.'); }
           }}>Money’s in. {fundsOffer.kind === 'bid' ? 'Bid' : 'Buy for'} {naira(fundsOffer.amount)}?</button>}

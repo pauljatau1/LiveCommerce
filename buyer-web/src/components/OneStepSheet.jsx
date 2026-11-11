@@ -96,8 +96,8 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
     } catch (e) { fail('address', errorMessage(e, "Couldn't price delivery right now. Try again.")); return; }
     const due = action.amount + depositDue - (myW?.availableBalance || 0);
     const amount = topUpFor(due);
-    if (amount > 0 && onTopUpNeeded && (myWallet?.topUpMethods?.dva || myWallet?.topUpMethods?.savedCards || topUpMethods.dva || topUpMethods.savedCards)) {
-      setBusy(''); onTopUpNeeded(due, action, me?._id); return;
+    if (amount > 0 && onTopUpNeeded && (myW?.topUpMethods?.dva || myW?.topUpMethods?.savedCards || topUpMethods.dva || topUpMethods.savedCards)) {
+      setBusy(''); onTopUpNeeded(due, action, who?._id); return;
     }
     if (amount > 0) {
       setBusy('Waiting for Paystack…');

@@ -73,6 +73,18 @@ beforeEach(async () => {
 });
 
 describe('GET /api/v2/watch/:id/summary', () => {
+  it('exposes both top-up flags without replacing the per-buyer delivery quote with a flat deposit', async () => {
+    const savedDva = process.env.PAYSTACK_DVA_ENABLED, savedCards = process.env.PAYSTACK_SAVED_CARDS_ENABLED;
+    try {
+      process.env.PAYSTACK_DVA_ENABLED = 'true'; process.env.PAYSTACK_SAVED_CARDS_ENABLED = 'true';
+      const res = await request(app).get(`/api/v2/watch/${show._id}/summary`).expect(200);
+      expect(res.body).toMatchObject({ deliveryDeposit: 0, topUpMethods: { dva: true, savedCards: true } });
+    } finally {
+      if (savedDva === undefined) delete process.env.PAYSTACK_DVA_ENABLED; else process.env.PAYSTACK_DVA_ENABLED = savedDva;
+      if (savedCards === undefined) delete process.env.PAYSTACK_SAVED_CARDS_ENABLED; else process.env.PAYSTACK_SAVED_CARDS_ENABLED = savedCards;
+    }
+  });
+
   it('counts what sold and how many bids each item had, without buyer details', async () => {
     const res = await request(app).get(`/api/v2/watch/${show._id}/summary`).expect(200);
     expect(res.body.sold).toEqual({ [String(productA)]: 3 });

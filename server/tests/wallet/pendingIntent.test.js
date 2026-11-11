@@ -41,3 +41,9 @@ it('automatically buys only at the chosen price and quantity; changes need confi
   expect(decide({ ...p, isVisible: false }, i, 50000).type).toBe('ask');
   expect(decide({ ...p, product: { ...p.product, quantity: 0 } }, i, 50000).type).toBe('none');
 });
+
+it('never resumes spending while the real delivery quote is unavailable', () => {
+  for (const deposit of [null, undefined, NaN, -1]) {
+    expect(resolveWalletIntent(intent, { status: 'live', products: [item()] }, 50000, deposit, 'ada').type).toBe('none');
+  }
+});

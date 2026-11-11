@@ -178,3 +178,34 @@ it('does not credit when the ledger or wallet write fails inside the transaction
   expect(await balance()).toBe(0); expect(await Transaction.countDocuments()).toBe(0);
   await verify('ATOMIC_ROLLBACK'); expect(await balance()).toBe(5000); expect(await Transaction.countDocuments()).toBe(1);
 });
+it('funds a bid and its real Shipbubble quote with a verified saved-card top-up', async () => {
+  const shipbubble = require('@/services/shipbubble');
+  const spies = [
+    jest.spyOn(shipbubble, 'isConfigured').mockReturnValue(true),
+    jest.spyOn(shipbubble, 'validateAddress').mockImplementation(async a => ({ address_code: /Admiralty/.test(a.address) ? 222 : 111 })),
+    jest.spyOn(shipbubble, 'categoryIdFor').mockResolvedValue(90097994),
+    jest.spyOn(shipbubble, 'boxFor').mockResolvedValue({ length: 25, width: 20, height: 10 }),
+    jest.spyOn(shipbubble, 'fetchRates').mockResolvedValue({ couriers: [{ courier_id: 'kwik', courier_name: 'Kwik', rate_card_amount: 6650 }] }),
+  ];
+  try {
+    const Seller = require('@models/Seller'), Product = require('@models/Product'), Stream = require('@models/Stream');
+    const seller = await Seller.collection.insertOne({ firstName: 'Host', email: 'host@test.example', phoneNumber: '08031234567', sellerAddress: { addressLine1: '1 Allen Avenue', city: 'Ikeja', state: 'Lagos' } });
+    const product = await Product.collection.insertOne({ name: 'Adire Bubu', price: 11000, status: 'active', stock: 3, seller: seller.insertedId, shippingInfo: { weight: { value: 0.4 } } });
+    const show = await Stream.create({ seller: seller.insertedId, title: 'Adire live', category: 'Fashion', channelName: 'quoted', status: 'live', type: 'auction', products: [{ product: { productId: String(product.insertedId), name: 'Adire Bubu' }, minBid: 11000, maxBid: 100000, currentBid: 11000, bidStatus: 'active', run: 1, auctionEndsAt: new Date(Date.now() + 60000) }] });
+    await Buyer.updateOne({ _id: buyer._id }, { $set: { 'wallet.balance': 2000, shippingAddresses: [{ country: 'NG', state: 'Lagos', city: 'Lekki', addressLine1: '5 Admiralty Way' }] } });
+    const quotePath = `/api/v2/watch/${show._id}/me?productId=${product.insertedId}`;
+    const quote = await request(app).get(quotePath).set('Authorization', token());
+    expect(quote.body).toMatchObject({ depositDue: 6650, delivery: { amount: 6650, courierName: 'Kwik' } });
+    const id = await saveCard();
+    mockPost.mockResolvedValue(provider({ status: 'success' }));
+    mockGet.mockImplementation(async url => provider(payment(url.split('/').pop(), { amount: 2000000 })));
+    const topUp = await call('post', `/cards/${id}/charge`, { amount: 20000, idempotencyKey: 'quoted_delivery_bid' });
+    expect(topUp.body).toMatchObject({ status: 'success', balance: 22000 });
+    const deposit = await require('@/services/deliveryService').depositFor(show._id, buyer._id, product.insertedId);
+    const result = await require('@/services/streamBidService').placeBid({ streamId: show._id, productId: String(product.insertedId), buyer, bidAmount: 12000, shippingFee: deposit, expectedRun: 1 });
+    expect(result.ok).toBe(true);
+    expect((await Buyer.findById(buyer._id)).wallet).toMatchObject({ balance: 22000, onHoldAmount: 18650 });
+    expect(await Transaction.countDocuments({ type: 'wallet_topup', buyer: buyer._id })).toBe(1);
+    expect(shipbubble.fetchRates).toHaveBeenCalledWith(expect.objectContaining({ sender_address_code: 111, reciever_address_code: 222, package_items: [expect.objectContaining({ unit_weight: '0.4' })] }));
+  } finally { spies.forEach(spy => spy.mockRestore()); }
+});

@@ -5,7 +5,7 @@ export const oneTapAmount = (shortfall) => Math.max(5000, Math.ceil(Math.max(0, 
 
 // Pure policy: the chosen bid/price is a ceiling, never permission to spend more.
 export function resolveWalletIntent(intent, scene, balance, depositDue, buyerId) {
-  if (!intent || scene?.status !== 'live' || !Number.isFinite(balance) || String(intent.buyerId) !== String(buyerId)) return { type: 'none' };
+  if (!intent || scene?.status !== 'live' || !Number.isFinite(balance) || !Number.isFinite(depositDue) || depositDue < 0 || String(intent.buyerId) !== String(buyerId)) return { type: 'none' };
   const items = scene.products || [], item = items.find((p) => idOf(p) === intent.productId);
   if (intent.kind === 'bid') {
     const open = item?.bidStatus === 'active' && (!item.auctionEndsAt || Date.parse(item.auctionEndsAt) > Date.now());
