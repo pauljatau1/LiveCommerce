@@ -227,4 +227,17 @@ describe('late bids through placeBid', () => {
     expect((await wallet(ada)).onHoldAmount).toBe(0);
     expect((await wallet(chidi)).onHoldAmount).toBe(6500);
   });
+  it('does not resume a funded bid on another run, expired deadline or invalid next amount', async () => {
+    const ada = await createBuyer('Ada', 50000);
+    const stream = await createStream({ run: 2, currentBid: 11000 });
+    expect((await bid(stream, ada, 12000, { expectedRun: 1 })).ok).toBe(false);
+    expect((await wallet(ada)).onHoldAmount).toBe(0);
+    await Stream.updateOne({ _id: stream._id }, { $set: { 'products.0.auctionEndsAt': new Date(0) } });
+    expect((await bid(stream, ada, 12000, { expectedRun: 2 })).ok).toBe(false);
+    await Stream.updateOne({ _id: stream._id }, { $set: { 'products.0.auctionEndsAt': new Date(Date.now() + 60000), 'products.0.currentBid': 11500 } });
+    expect((await bid(stream, ada, 12000, { expectedRun: 2 })).ok).toBe(false);
+    expect((await wallet(ada)).onHoldAmount).toBe(0);
+    expect((await bid(stream, ada, 12500, { expectedRun: 2 })).ok).toBe(true);
+  });
+
 });

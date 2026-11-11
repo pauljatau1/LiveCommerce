@@ -4,11 +4,14 @@ const transactionSchema = new mongoose.Schema({
   seller: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Seller',
-    required: true
+    required: function () { return this.type !== 'wallet_topup'; }
   },
+  buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer', required: function () { return this.type === 'wallet_topup'; } },
+  paymentReference: String,
+  source: { type: String, enum: ['bank_transfer', 'card'] },
   type: {
     type: String,
-    enum: ['order_payment', 'withdrawal', 'platform_fee', 'processing_fee', 'referral_reward'],
+    enum: ['order_payment', 'withdrawal', 'platform_fee', 'processing_fee', 'referral_reward', 'wallet_topup'],
     required: true
   },
   amount: {
@@ -41,6 +44,10 @@ const transactionSchema = new mongoose.Schema({
     default: Date.now
   }
 });
+
+transactionSchema.index({ paymentReference: 1 }, { unique: true, partialFilterExpression: { type: 'wallet_topup', paymentReference: { $type: 'string' } } });
+
+transactionSchema.index({ buyer: 1, type: 1, source: 1, createdAt: -1 });
 
 // Add an index for better query performance
 transactionSchema.index({ seller: 1, createdAt: -1 });

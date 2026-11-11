@@ -32,6 +32,13 @@ export const api = {
   profile: () => http.get('/api/v2/buyers/profile').then(data),
   addAddress: (body) => http.post('/api/v2/buyers/addresses', body).then(data),
   wallet: () => http.get('/api/v2/buyers/wallet/balance').then(data),
+  dva: (since) => http.get('/api/v2/wallet/dva', { params: { since } }).then(data),
+  assignDva: () => http.post('/api/v2/wallet/dva', { consent: true }).then(data),
+  requeryDva: () => http.post('/api/v2/wallet/dva/requery').then(data),
+  savedCards: () => http.get('/api/v2/wallet/cards').then((r) => r.data.cards || []),
+  removeCard: (id) => http.delete(`/api/v2/wallet/cards/${id}`).then(data),
+  chargeCard: (id, amount, idempotencyKey) => http.post(`/api/v2/wallet/cards/${id}/charge`, { amount, idempotencyKey }).then(data),
+  topUpStatus: (reference) => http.get(`/api/v2/wallet/topups/${encodeURIComponent(reference)}`).then(data),
   confirmTopUp: (amount, paymentReference) => http.post('/api/v2/buyers/wallet/topup', { amount, paymentReference }, { timeout: 60000 }).then(data),
   orders: () => http.get('/api/v2/buyers/orders').then(data),
   deliveries: () => http.get('/api/v2/deliveries').then((r) => r.data?.deliveries || []),
@@ -57,7 +64,7 @@ export const api = {
   review: (sellerId, body) => http.post(`/api/v2/buyers/seller/${sellerId}/review`, body).then(data),
   watchSummary: (id) => http.get(`/api/v2/watch/${id}/summary`).then((r) => r.data),
   report: (id, reason, note) => http.post(`/api/v2/watch/${id}/report`, { reason, note }).then((r) => r.data),
-  buyNow: (id, productId, quantity) => http.post(`/api/streams/${id}/buy-now`, { productId, quantity }, { timeout: 60000 }).then((r) => r.data),
+  buyNow: (id, productId, quantity, expected = {}) => http.post(`/api/streams/${id}/buy-now`, { productId, quantity, ...expected }, { timeout: 60000 }).then((r) => r.data),
 };
 
 export const naira = (n) => `₦${Math.round(Number(n || 0)).toLocaleString('en-NG')}`;

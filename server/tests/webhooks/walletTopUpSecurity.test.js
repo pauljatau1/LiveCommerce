@@ -2,7 +2,7 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { MongoMemoryReplSet } = require('mongodb-memory-server');
 
 const mockVerify = jest.fn();
 jest.mock('axios', () => {
@@ -33,7 +33,7 @@ describe('wallet top-up endpoints', () => {
   const balance = async (buyer) => (await Buyer.findById(buyer._id).lean()).wallet.balance;
 
   beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create({ binary: { version: '7.0.3' } });
+    mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 }, binary: { version: '7.0.3' } });
     if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
     await mongoose.connect(mongoServer.getUri());
   });
@@ -45,6 +45,7 @@ describe('wallet top-up endpoints', () => {
 
   beforeEach(async () => {
     mockVerify.mockReset();
+    await require('@models/Transaction').deleteMany({ type: 'wallet_topup' });
     await Buyer.deleteMany({});
     ada = await Buyer.create({ email: 'ada@example.com', username: 'ada', authProvider: 'google', wallet: { balance: 0 } });
     bola = await Buyer.create({ email: 'bola@example.com', username: 'bola', authProvider: 'google', wallet: { balance: 0 } });

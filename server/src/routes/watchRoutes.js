@@ -79,6 +79,7 @@ router.get('/:streamId/summary', validId, async (req, res) => {
       bids: countBy(stream.bids || [], (b) => b.product && String(b.product)),
       // The delivery deposit is a Shipbubble quote per buyer (GET /:streamId/me)
       deliveryDeposit: 0,
+      topUpMethods: require('../services/wallet/paystackClient').methods(),
       host: await hostRating(stream.seller),
     });
   } catch (error) {

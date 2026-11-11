@@ -202,6 +202,7 @@ function initializeSocket(server) {
 
   // Connection handler for authenticated connections
   io.on('connection', async (socket) => {
+    if (socket.user?.id) socket.join(String(socket.user.id));
     // Guests only watch: they get the subscribe handlers and nothing else
     if (socket.user?.guest) {
       registerGuestSocket(socket);
@@ -271,6 +272,7 @@ function initializeSocket(server) {
     });
 
     socket.on('join', (userId) => {
+      if (String(userId) !== String(socket.user?.id)) return;
       socket.join(userId);
       console.log(`User ${userId} joined their room`);
     });
@@ -1730,6 +1732,7 @@ function initializeSocket(server) {
           bidAmount,
           shippingFee,
           maxBid: product.maxBid,
+          expectedRun: data.expectedRun,
         });
 
         if (!bidResult.ok) {

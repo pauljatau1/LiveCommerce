@@ -6,6 +6,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { API, api, errorMessage, getToken, imageOf, naira } from '../api';
 import { useAuth } from '../auth';
+import { resolveWalletIntent } from '../walletIntents';
 import { createRecovery, timersFor } from '../watchRecovery';
 import { LATE_BID_SECONDS } from '../config';
 import AddressSheet from '../components/AddressSheet';
@@ -26,6 +27,13 @@ export default function Watch() {
   const navigate = useNavigate();
   const { buyer, wallet, signedIn, loading, refresh, refreshWallet } = useAuth();
   const [show, setShow] = useState(null);
+  const [paymentMethods, setPaymentMethods] = useState({});
+  const [transfer, setTransfer] = useState(null);
+  const [fundsOffer, setFundsOffer] = useState(null);
+  const pendingIntent = useRef(null), fundingPending = useRef(false);
+  const lastBidIntent = useRef(null), beginTopUpRef = useRef(null);
+  const creditedRefs = useRef(new Set()), receiveCreditRef = useRef(() => {});
+  const methods = wallet?.topUpMethods || paymentMethods;
   const [loadError, setLoadError] = useState('');
   const [phase, setPhase] = useState('loading'); // loading | preview | joining | watching | ended | error
   const [items, setItems] = useState([]);
@@ -115,7 +123,7 @@ export default function Watch() {
       .catch((e) => { if (!cancelled) { setLoadError(errorMessage(e, "We couldn't find this show.")); setPhase('error'); } });
     api.notes(streamId).then((r) => { if (!cancelled && r) setNotes({ notes: r.notes, firstLine: r.firstLine, sections: r.sections || [] }); }).catch(() => {});
     api.watchSummary(streamId)
-      .then((sum) => { if (!cancelled) { setSoldCounts(sum?.sold || {}); setBidCounts(sum?.bids || {}); setHostStats(sum?.host || null); } })
+      .then((sum) => { if (!cancelled) { setSoldCounts(sum?.sold || {}); setBidCounts(sum?.bids || {}); setHostStats(sum?.host || null); setPaymentMethods(sum?.topUpMethods || {}); } })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [streamId]);
@@ -445,12 +453,17 @@ export default function Watch() {
       refreshWallet();
       // Not enough to hold this bid (plus the show's delivery deposit on a first item)
       if (r?.details?.totalRequired && /insufficient/i.test(r?.message || '')) {
-        setSheet({ type: 'topup', need: r.details.totalRequired - (walletRef.current || 0) });
+        beginTopUpRef.current(r.details.totalRequired - (walletRef.current || 0), lastBidIntent.current);
         return;
       }
       // Delivery couldn't be priced for this buyer: fix the address in the one sheet
       if (r?.code === 'no_address' && lastBidRef.current) { setSheet({ type: 'onestep', action: { kind: 'bid', ...lastBidRef.current } }); return; }
       say('err', r?.message || 'Your bid did not go through. Nothing was held.');
+    });
+    socket.on('wallet_credited', (receipt) => receiveCreditRef.current(receipt));
+    socket.on('wallet_dva_ready', (account) => {
+      setTransfer((waiting) => waiting ? { ...waiting, ...account } : null);
+      window.dispatchEvent(new CustomEvent('gbam:wallet_dva_ready', { detail: account }));
     });
     socket.on('auction_order_created', (r) => { setSheet({ type: 'won', name: r?.productName, amount: r?.amount, orderId: r?.orderId }); refreshWallet(); });
     socket.on('auction_order_error', () => { if (leadRef.current) { say('err', "We couldn't create your winning order. Your money is back in your wallet, and the host will sort it out.", 7000); refreshWallet(); } });
@@ -558,6 +571,18 @@ export default function Watch() {
     tick();
   });
 
+  const beginTopUp = (need, action, buyerId = myIdRef.current) => {
+    const productId = action?.productId || (action?.item ? idOf(action.item) : '');
+    if ((methods.dva || methods.savedCards) && action && ['bid', 'buy'].includes(action.kind)) pendingIntent.current = { ...action, buyerId, streamId,
+      productId, quantity: action.quantity || 1, run: action.run || action.item?.run || current?.run || 1 };
+    setSheet({ type: 'topup', need });
+  };
+  beginTopUpRef.current = beginTopUp;
+  const closeTopUp = () => {
+    if (!fundingPending.current) pendingIntent.current = null;
+    setSheet(null);
+  };
+
   // Anything missing (account, address, money) is handled in one sheet, then the action runs
   const ready = (cost, action) => {
     if (signedIn && hasAddress && deposit !== null && cost + deposit <= available) return true;
@@ -567,16 +592,20 @@ export default function Watch() {
       say('err', deliveryProblem, 6000);
       return false;
     }
-    setSheet({ type: 'onestep', action });
+    const chosen = { ...action, run: action.run || action.item?.run || current?.run || 1 };
+    // Priced and only short on money: top up over the show (transfer or saved card)
+    if (signedIn && hasAddress && deposit !== null && (methods.dva || methods.savedCards)) beginTopUp(cost + deposit - available, chosen);
+    else setSheet({ type: 'onestep', action: chosen });
     return false;
   };
 
-  const sendBid = async (productId, bid) => {
+  const sendBid = async (productId, bid, expectedRun) => {
     setBusy(true);
     const sock = await authedSocket();
     if (!sock) { setBusy(false); say('err', "Couldn't reach the show. Your bid wasn't placed. Try again."); return; }
     lastBidRef.current = { amount: bid, productId };
-    sock.emit('stream_place_bid', { streamId, productId, bidAmount: bid });
+    lastBidIntent.current = { kind: 'bid', productId, amount: bid, run: current?.run || 1 };
+    sock.emit('stream_place_bid', { streamId, productId, bidAmount: bid, ...(expectedRun === undefined ? {} : { expectedRun }) });
     window.setTimeout(() => setBusy(false), 8000);
   };
 
@@ -590,23 +619,69 @@ export default function Watch() {
     sendBid(idOf(current), bid);
   };
 
-  const doBuy = async (item, quantity = 1) => {
+  const doBuy = async (item, quantity = 1, expected) => {
     const price = priceOf(item);
     setBusy(true);
     try {
-      const r = await api.buyNow(streamId, idOf(item), quantity);
+      const r = await api.buyNow(streamId, idOf(item), quantity, expected);
       const left = typeof item.product?.quantity === 'number' ? item.product.quantity : null;
       setSheet({ type: 'yours', name: item.product?.name, amount: price * quantity, quantity, orderId: r.order?.orderId, deposit: r.delivery?.firstItem ? r.delivery?.depositHeld || 0 : 0, firstItem: Boolean(r.delivery?.firstItem), lastOf: left });
       refreshWallet();
     } catch (e) {
       const reason = e?.response?.data?.reason;
-      if (reason === 'insufficient_funds') setSheet({ type: 'topup', need: (e?.response?.data?.needed || price * quantity) - available });
+      if (reason === 'insufficient_funds') beginTopUp((e?.response?.data?.needed || price * quantity) - available, { kind: 'buy', item, amount: price * quantity, quantity });
       else if (reason === 'no_address') setSheet({ type: 'onestep', action: { kind: 'buy', amount: price * quantity, item, quantity } });
       else say('err', errorMessage(e, "Couldn't complete the purchase. You weren't charged."));
     } finally {
       setBusy(false);
     }
   };
+
+  const fulfillIntent = async (intent) => {
+    if (intent.streamId !== streamId) return;
+    const intentItem = intent.productId || (intent.item ? idOf(intent.item) : quoteItemRef.current);
+    const [scene, freshWallet, me] = await Promise.all([api.show(streamId), refreshWallet(), api.watchMe(streamId, intentItem)]);
+    if (scene.status === 'ended') { endShow(); return; }
+    setShow(scene); setItems(scene.products || []);
+    const clocks = timersFor(scene.products || []);
+    setTimer(clocks); lastSecs.current = clocks; setPlusSecs(0);
+    applyMe(me);
+    const decision = resolveWalletIntent(intent, scene, freshWallet?.availableBalance, Number(me.depositDue) || 0, myIdRef.current);
+    if (decision.type === 'auto') {
+      setSheet(null); setFundsOffer(null);
+      if (decision.action.kind === 'bid') await sendBid(decision.action.productId, decision.action.amount, decision.action.run);
+      else await doBuy(decision.action.item, decision.action.quantity, { expectedAmount: decision.action.amount, expectedRun: decision.action.run });
+    } else {
+      setSheet(null);
+      setFundsOffer(decision.type === 'ask' ? decision.action : null);
+      say('ok', decision.type === 'ask' ? 'Money’s in. Confirm your next move.' : 'Money’s in. Pick an item when you’re ready.', 7000);
+    }
+  };
+  receiveCreditRef.current = async (receipt) => {
+    if (!receipt?.reference || creditedRefs.current.has(receipt.reference)) return;
+    creditedRefs.current.add(receipt.reference);
+    window.dispatchEvent(new CustomEvent('gbam:wallet_credited', { detail: receipt }));
+    const intent = fundingPending.current ? pendingIntent.current : null;
+    if (intent) pendingIntent.current = null;
+    fundingPending.current = false; setTransfer(null);
+    say('ok', `${naira(receipt.amount)} ${receipt.source === 'transfer' ? 'received' : 'added'}`);
+    try { if (intent) await fulfillIntent(intent); else await refreshWallet(); }
+    catch { say('ok', 'Money’s in. Check your wallet, then choose your bid.', 7000); }
+  };
+  useEffect(() => {
+    if (!transfer?.since) return undefined;
+    let active = true;
+    const poll = async () => {
+      try {
+        const account = await api.dva(transfer.since);
+        if (!active) return;
+        setTransfer((waiting) => waiting ? { ...waiting, ...account } : waiting);
+        if (account.latestCredit) receiveCreditRef.current(account.latestCredit);
+      } catch { /* funds remain safe on the server; retry next poll */ }
+    };
+    const timer = setInterval(poll, 3000);
+    return () => { active = false; clearInterval(timer); };
+  }, [transfer?.since]);
 
   const buyNow = (item, quantity = 1) => {
     if (busy || reconnecting) return;
@@ -881,6 +956,14 @@ export default function Watch() {
           </div>
 
           <div className="panel">
+          {transfer && <button type="button" className="btn2 on-dark btn-sm" onClick={() => setSheet({ type: 'topup', need: 0, bank: transfer })}>Waiting for your transfer{transfer.accountNumber ? ` · ${transfer.accountNumber}` : ' · setting up'}</button>}
+          {fundsOffer && <button type="button" className="btn btn-sm" onClick={async () => {
+            try {
+              const w = await refreshWallet();
+              if ((w?.availableBalance || 0) < fundsOffer.amount + deposit) { beginTopUp(fundsOffer.amount + deposit - (w?.availableBalance || 0), fundsOffer); return; }
+              await fulfillIntent(fundsOffer);
+            } catch { say('err', 'Couldn’t reach the show. Try again.'); }
+          }}>Money’s in. {fundsOffer.kind === 'bid' ? 'Bid' : 'Buy for'} {naira(fundsOffer.amount)}?</button>}
           {toast && <div className={`toast-line ${toast.kind}`} role="status">{toast.msg}</div>}
           {stateLine && <div className={`state ${stateLine.tone}`} role="status">{stateLine.text}</div>}
 
@@ -947,9 +1030,12 @@ export default function Watch() {
         {deskComposer}
       </aside>
 
-      {sheet?.type === 'topup' && <TopUpSheet need={sheet.need} onClose={() => setSheet(null)} />}
+      {sheet?.type === 'topup' && <TopUpSheet need={sheet.need} methods={methods} initialBank={sheet.bank} onClose={closeTopUp}
+        onPending={() => { fundingPending.current = true; }} onCancelled={() => { fundingPending.current = false; }}
+        onWaiting={(account) => { if (['active', 'pending'].includes(account.status)) { fundingPending.current = true; setTransfer(account); } else if (account.status === 'failed') { fundingPending.current = false; setTransfer(null); } }}
+        onDone={(reference, amount, source) => receiveCreditRef.current({ reference, amount, source })} />}
       {sheet?.type === 'onestep' && (
-        <OneStepSheet action={sheet.action} deposit={deposit} quote={estimate} productId={sheet.action.productId || (sheet.action.item ? idOf(sheet.action.item) : quoteItemId)} top={sheet.action.kind === 'chat' ? null : miniBare} streamId={streamId} onClose={() => setSheet(null)} onReady={() => afterOneStep(sheet.action)} />
+        <OneStepSheet action={sheet.action} deposit={deposit} quote={estimate} productId={sheet.action.productId || (sheet.action.item ? idOf(sheet.action.item) : quoteItemId)} top={sheet.action.kind === 'chat' ? null : miniBare} streamId={streamId} topUpMethods={methods} onTopUpNeeded={beginTopUp} onClose={() => setSheet(null)} onReady={() => afterOneStep(sheet.action)} />
       )}
       {sheet?.type === 'address' && <AddressSheet top={mini} onClose={() => setSheet(null)} onSaved={async () => { setSheet(null); await refresh(); say('ok', 'Address saved. You can bid and buy now.'); }} />}
       {sheet?.type === 'bid' && current && (

@@ -21,7 +21,7 @@ class BuyNowError extends Error {
   }
 }
 
-const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, shippingFee = 0 }) => {
+const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, shippingFee = 0, expectedAmount, expectedRun }) => {
   const qty = Math.floor(Number(quantity));
   if (!(qty >= 1 && qty <= MAX_QUANTITY)) return { success: false, reason: 'bad_quantity', message: `Choose 1 to ${MAX_QUANTITY}` };
   const fee = Math.max(0, Number(shippingFee) || 0);
@@ -52,6 +52,15 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
       const unitPrice = product.salePrice > 0 && product.salePrice < product.price ? product.salePrice : product.price;
       const subtotal = unitPrice * qty;
       const total = subtotal + fee;
+      // Resumed top-ups carry the original offer into this transaction.
+      // Legacy callers keep their existing purchase behavior.
+      if (expectedAmount !== undefined) {
+        const shown = stream.products[0];
+        if (!Number.isFinite(expectedAmount) || expectedAmount !== subtotal || !shown.isVisible || shown.minBid > 0 ||
+            shown.bidStatus === 'ended' || Number(shown.run || 1) !== Number(expectedRun)) {
+          throw new BuyNowError('changed', 'This item changed. Check the price and choose it again.');
+        }
+      }
 
       // Take the stock first: the conditional write means the last item can only sell once
       const stocked = await model('Product').findOneAndUpdate(

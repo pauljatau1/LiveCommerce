@@ -87,4 +87,18 @@ describe('buyNowOrderService', () => {
     expect(await buy(ada)).toMatchObject({ success: false, reason: 'closed' });
     expect((await wallet(ada)).balance).toBe(50000);
   });
+  it('does not resume a funded purchase after a price, run or visibility change', async () => {
+    const ada = await createBuyer('Ada', 50000);
+    await Stream.updateOne({ _id: stream._id }, { $set: { 'products.0.isVisible': true, 'products.0.run': 2 } });
+    const resume = (expectedAmount, expectedRun = 2) => createBuyNowOrder({ streamId: stream._id, productId: String(product._id), buyerId: ada._id, expectedAmount, expectedRun });
+    expect(await resume(10000)).toMatchObject({ success: false, reason: 'changed' });
+    expect(await resume(15000, 1)).toMatchObject({ success: false, reason: 'changed' });
+    await Stream.updateOne({ _id: stream._id }, { $set: { 'products.0.isVisible': false } });
+    expect(await resume(15000)).toMatchObject({ success: false, reason: 'changed' });
+    expect((await wallet(ada)).balance).toBe(50000); expect(await Order.countDocuments()).toBe(0);
+    expect((await Product.findById(product._id)).stock).toBe(3);
+    await Stream.updateOne({ _id: stream._id }, { $set: { 'products.0.isVisible': true } });
+    expect(await resume(15000)).toMatchObject({ success: true });
+  });
+
 });

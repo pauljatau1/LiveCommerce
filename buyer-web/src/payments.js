@@ -16,7 +16,7 @@ export class PaymentCancelled extends Error {}
 
 // Opens Paystack for `amount` naira and resolves once the server has confirmed
 // and credited the top-up. Rejects with PaymentCancelled if the buyer closes it.
-export const topUpWithPaystack = async ({ email, buyerId, amount }) => {
+export const topUpWithPaystack = async ({ email, buyerId, amount, saveCard = false }) => {
   if (!PAYSTACK_KEY) throw new Error("Payments aren't switched on yet.");
   const PaystackPop = await loadPaystack();
   return new Promise((resolve, reject) => {
@@ -25,7 +25,7 @@ export const topUpWithPaystack = async ({ email, buyerId, amount }) => {
       email,
       amount: amount * 100,
       currency: 'NGN',
-      metadata: { purpose: 'wallet_topup', buyerId },
+      metadata: { purpose: 'wallet_topup', buyerId, ...(saveCard ? { saveCard: true } : {}) },
       onSuccess: async (tx) => {
         try {
           await api.confirmTopUp(amount, tx.reference);
@@ -37,5 +37,14 @@ export const topUpWithPaystack = async ({ email, buyerId, amount }) => {
       onCancel: () => reject(new PaymentCancelled('Payment cancelled')),
       onError: (e) => reject(new Error(e?.message || 'Payment failed.')),
     });
+  });
+};
+
+// Bank checks stay over the page. Always re-verify on success OR close, since a
+// webhook may arrive after the popup has gone away.
+export const resumeSavedCard = async (accessCode) => {
+  const PaystackPop = await loadPaystack();
+  return new Promise((resolve) => {
+    new PaystackPop().resumeTransaction(accessCode, { onSuccess: resolve, onCancel: resolve, onError: resolve });
   });
 };
