@@ -28,20 +28,21 @@
   /* type tokens */
   --font-display:'Fredoka','Nunito',system-ui,sans-serif;
   --font-body:'Nunito',system-ui,sans-serif;
-  --t-display:32px; --t-h1:24px; --t-h2:19px; --t-body:16px; --t-small:14px; --t-caption:12px;
+  --t-hero:32px; --t-display:24px; --t-h1:20px; --t-h2:17px; --t-body:15px; --t-small:13px; --t-caption:12px; --t-micro:11px;
+  --w-regular:400; --w-medium:600; --w-bold:700; --w-display:500;
   /* shape */
   --r-card:24px; --r-input:16px; --r-pill:999px;
   --shadow:0 4px 16px rgba(29,42,36,.06);
   --shadow-up:0 -6px 24px rgba(29,42,36,.10);
 }
 body{margin:0}
-.app{font-family:var(--font-body);color:var(--text);background:var(--surface-page);font-size:var(--t-body);box-sizing:border-box}
+.app{font-family:var(--font-body);color:var(--text);background:var(--surface-page);font-size:var(--legacy-t-body,16px);box-sizing:border-box}
 .app *{box-sizing:border-box}
 .f{font-family:var(--font-display);font-weight:600}
 .mut{color:var(--text-muted)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.h1{margin:0;font:600 var(--t-h1)/1.2 var(--font-display)}
-.h2{margin:0;font:600 var(--t-h2)/1.25 var(--font-display)}
+.h1{margin:0;font:600 var(--legacy-t-h1,24px)/1.2 var(--font-display)}
+.h2{margin:0;font:600 var(--legacy-t-h2,19px)/1.25 var(--font-display)}
 .cap{font-size:var(--t-caption);font-weight:800;color:var(--text-muted)}
 
 /* buttons */
@@ -317,7 +318,7 @@ a{color:var(--primary)}
 .chip-amt .f{font-size:20px}
 .sheet2,.sheet2 *{box-sizing:border-box}
 .step{display:flex;flex-direction:column;gap:12px;padding-top:4px}
-.step-h{margin:0;font:600 var(--t-h2)/1.25 var(--font-display)}
+.step-h{margin:0;font:600 var(--legacy-t-h2,19px)/1.25 var(--font-display)}
 
 /* show notes pinned under the host */
 .pinned{position:absolute;left:12px;right:72px;max-width:calc(100% - 84px);top:calc(max(10px, env(safe-area-inset-top)) + var(--badge) + var(--top-row) + 14px);z-index:3;display:flex;align-items:center;gap:6px;min-height:44px;padding:0;border:0;background:none;color:#fff;font:600 14px var(--font-body);text-align:left;cursor:pointer;text-shadow:0 1px 3px rgba(0,0,0,.6)}
@@ -400,3 +401,30 @@ a{color:var(--primary)}
 .wallet-spinner{display:inline-block;animation:wallet-spin 1s linear infinite}
 @keyframes wallet-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.wallet-spinner{animation:none}}
+
+/* Unified non-live scale. Legacy declarations above preserve the protected live UI.
+   Inputs intentionally stay 16px to prevent iPhone focus zoom. */
+.app,.sheet-wrap{font-size:var(--t-body);font-weight:var(--w-regular)}
+:is(.app, .sheet-wrap) .f:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-family:var(--font-display);font-weight:var(--w-display)}
+:is(.app, .sheet-wrap) .h1:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font:var(--w-display) var(--t-h1)/1.2 var(--font-display)}
+:is(.app, .sheet-wrap) .h2:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) .step-h:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font:var(--w-display) var(--t-h2)/1.25 var(--font-display)}
+:is(.app, .sheet-wrap) strong:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) b:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-weight:var(--w-medium)}
+:is(.app, .sheet-wrap) .btn:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){height:48px;min-height:48px;font:var(--w-medium) var(--t-body) var(--font-body)}
+:is(.app, .sheet-wrap) .btn2:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) .btn3:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){height:44px;min-height:44px;font:var(--w-medium) var(--t-small) var(--font-body);border-width:1px}
+:is(.app, .sheet-wrap) .link:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font:var(--w-medium) var(--t-small) var(--font-body)}
+:is(.app, .sheet-wrap) .ib:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){width:44px;height:44px}
+:is(.app, .sheet-wrap) .chip:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) .qr:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){position:relative;height:38px;min-height:38px;border-width:1px;font:var(--w-medium) var(--t-small) var(--font-body)}
+:is(.app, .sheet-wrap) .chip:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *))::after,:is(.app, .sheet-wrap) .qr:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *))::after{content:"";position:absolute;inset:-3px 0}
+:is(.app, .sheet-wrap) .pill:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){height:22px;padding:0 8px;font:var(--w-medium) var(--t-micro) var(--font-body)}
+:is(.app, .sheet-wrap) .tab:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) .tab-live:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font:var(--w-medium) var(--t-micro) var(--font-body)}
+:is(.app, .sheet-wrap) .cap:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-caption);font-weight:var(--w-medium)}
+:is(.app, .sheet-wrap) .lab:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font:var(--w-medium) var(--t-small) var(--font-body)}
+:is(.app, .sheet-wrap) .hint:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-small);font-weight:var(--w-regular)}
+:is(.app, .sheet-wrap) .in:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) .sel:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){height:48px;border-width:1px;font:var(--w-regular) 16px var(--font-body)}
+:is(.app, .sheet-wrap) .ta:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){height:auto}
+:is(.app, .sheet-wrap) .banner:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) .toast:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) .err:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) .err-text:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) .wallet-chip:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) .dnav:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) .ed:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) .tagline:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) .ai-tag:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-small);font-weight:var(--w-medium)}
+:is(.app, .sheet-wrap) .bub:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),:is(.app, .sheet-wrap) .me:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-body);font-weight:var(--w-regular)}
+:is(.app, .sheet-wrap) .brand:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font:var(--w-display) var(--t-h1) var(--font-display)}
+:is(.app, .sheet-wrap) .wallet-available strong:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-display);font-weight:var(--w-medium)}
+
+:is(.app, .sheet-wrap) .wallet-chip:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:0;border-radius:var(--r-pill);background:var(--surface-sunken);color:var(--text);font:var(--w-medium) var(--t-small) var(--font-body);cursor:pointer;text-decoration:none}

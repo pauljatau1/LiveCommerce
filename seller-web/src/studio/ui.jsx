@@ -56,8 +56,8 @@ export const Pill = ({ map, status }) => {
 export const Empty = ({ icon, title, text, action }) => (
   <div className="card empty">
     <div className="blob" style={{ color: 'var(--primary)' }}>{icon}</div>
-    <span className="f" style={{ fontSize: 19 }}>{title}</span>
-    {text && <span className="mut" style={{ fontSize: 15 }}>{text}</span>}
+    <span className="f" style={{ fontSize: 'var(--t-h2)' }}>{title}</span>
+    {text && <span className="mut" style={{ fontSize: 'var(--t-body)' }}>{text}</span>}
     {action}
   </div>
 );
@@ -84,8 +84,8 @@ export const TopBar = ({ title, sub, onBack, right, close }) => (
   <header className="top" style={{ position: 'sticky', top: 0, zIndex: 5 }}>
     {onBack && <button type="button" className="ib" aria-label={close ? 'Close' : 'Back'} onClick={onBack}>{close ? Icon.close : Icon.back}</button>}
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-      <span className="f" style={{ fontSize: 17, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</span>
-      {sub && <span className="mut" style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</span>}
+      <span className="f" style={{ fontSize: 'var(--t-h2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</span>
+      {sub && <span className="mut" style={{ fontSize: 'var(--t-small)', fontWeight: 'var(--w-medium)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</span>}
     </div>
     {right}
   </header>

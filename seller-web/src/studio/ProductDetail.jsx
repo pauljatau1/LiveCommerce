@@ -41,7 +41,7 @@ export default function ProductDetail() {
   const upcoming = (data?.shows || []).find((s) => ['scheduled', 'live'].includes(s.status));
   return (
     <div className="studio-app">
-      <TopBar title="Product" onBack={() => navigate('/studio/products')} right={p && <Link to={`/dashboard/products/edit-product/${p._id}`} className="btn2" style={{ minHeight: 44 }}>Edit all</Link>} />
+      <TopBar title="Product" onBack={() => navigate('/studio/products')} right={p && <Link to={`/dashboard/products/edit-product/${p._id}`} className="btn2">Edit all</Link>} />
       {error && <div className="st-inner"><Problem text={error} onRetry={load} /></div>}
       {!p && !error && <div className="st-inner"><Skeleton h={300} /><Skeleton h={120} /></div>}
       {p && (
@@ -49,7 +49,7 @@ export default function ProductDetail() {
           <div style={{ position: 'relative' }}>
             {p.images[photo] ? <img src={p.images[photo]} alt={p.name} style={{ display: 'block', width: '100%', height: 320, objectFit: 'cover' }} /> : <span className="sk" style={{ display: 'block', height: 320, borderRadius: 0 }} />}
             {p.images.length > 1 && (
-              <button type="button" className="pill" style={{ position: 'absolute', left: 12, bottom: 12, background: '#fff', color: 'var(--text)', border: 0, height: 32, cursor: 'pointer' }} onClick={() => setPhoto((n) => (n + 1) % p.images.length)} aria-label="Next photo">
+              <button type="button" className="pill" style={{ position: 'absolute', left: 12, bottom: 12, background: '#fff', color: 'var(--text)', border: 0, cursor: 'pointer' }} onClick={() => setPhoto((n) => (n + 1) % p.images.length)} aria-label="Next photo">
                 {photo + 1} / {p.images.length} ›
               </button>
             )}
@@ -60,19 +60,19 @@ export default function ProductDetail() {
               <Pill map={PRODUCT_PILL} status={p.status} />
               {upcoming && <span className="pill p-show">In "{upcoming.title}"</span>}
             </div>
-            <h1 className="f" style={{ margin: 0, fontSize: 24, lineHeight: 1.2 }}>{p.name}</h1>
+            <h1 className="f" style={{ margin: 0, fontSize: 'var(--t-h1)', lineHeight: 1.2 }}>{p.name}</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span className="f" style={{ fontSize: 26 }}>{naira(p.price)}</span>
+              <span className="f" style={{ fontSize: 'var(--t-display)' }}>{naira(p.price)}</span>
               <button type="button" className="link" onClick={() => setEditPrice(String(p.price))}>Change price</button>
             </div>
-            <span className="mut" style={{ fontSize: 14 }}>{p.views} views · {p.sold} sold</span>
+            <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{p.views} views · {p.sold} sold</span>
           </div>
 
           <section className="card" aria-label="Stock" style={{ margin: '0 16px', padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 800 }}>In stock</span><span className="hint">Buyers see "{p.stock} left"</span></div>
-            <button type="button" className="ib" aria-label="One fewer" disabled={Boolean(saving) || p.stock <= 0} style={{ font: '800 22px var(--font-body)' }} onClick={() => save({ stock: p.stock - 1 }, 'stock', 'Stock updated')}>−</button>
-            <span className="f" style={{ width: 40, textAlign: 'center', fontSize: 22 }} aria-live="polite">{p.stock}</span>
-            <button type="button" className="ib" aria-label="One more" disabled={Boolean(saving)} style={{ background: 'var(--primary-soft)', color: 'var(--primary)', font: '800 22px var(--font-body)' }} onClick={() => save({ stock: p.stock + 1 }, 'stock', 'Stock updated')}>+</button>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 'var(--w-medium)' }}>In stock</span><span className="hint">Buyers see "{p.stock} left"</span></div>
+            <button type="button" className="ib" aria-label="One fewer" disabled={Boolean(saving) || p.stock <= 0} style={{ font: 'var(--w-medium) var(--t-h1) var(--font-body)' }} onClick={() => save({ stock: p.stock - 1 }, 'stock', 'Stock updated')}>−</button>
+            <span className="f" style={{ width: 40, textAlign: 'center', fontSize: 'var(--t-h1)' }} aria-live="polite">{p.stock}</span>
+            <button type="button" className="ib" aria-label="One more" disabled={Boolean(saving)} style={{ background: 'var(--primary-soft)', color: 'var(--primary)', font: 'var(--w-medium) var(--t-h1) var(--font-body)' }} onClick={() => save({ stock: p.stock + 1 }, 'stock', 'Stock updated')}>+</button>
           </section>
 
           <section className="card" aria-label="Details" style={{ margin: '0 16px', overflow: 'hidden' }}>
@@ -86,7 +86,7 @@ export default function ProductDetail() {
             ].filter(([, v]) => v).map(([k, v], n) => (
               <div key={k} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, minHeight: 52, padding: '14px 16px', borderTop: n ? '1px solid #F1EBE3' : 0 }}>
                 <span className="cap" style={{ width: 96, paddingTop: 2, flex: 'none' }}>{k}</span>
-                <span style={{ flex: 1, fontWeight: k === 'ABOUT' ? 400 : 700, fontSize: k === 'ABOUT' ? 15 : 16, lineHeight: 1.45, whiteSpace: 'pre-line' }}>{v}</span>
+                <span style={{ flex: 1, fontWeight: k === 'ABOUT' ? 'var(--w-regular)' : 'var(--w-medium)', fontSize: k === 'ABOUT' ? 'var(--t-body)' : 'var(--t-body)', lineHeight: 1.45, whiteSpace: 'pre-line' }}>{v}</span>
               </div>
             ))}
           </section>
@@ -96,7 +96,7 @@ export default function ProductDetail() {
               <h2 className="h2">Shows</h2>
               {data.shows.map((s) => (
                 <Link key={s._id} to={s.status === 'ended' ? `/studio/recap/${s._id}` : `/studio/golive/${s._id}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: 'var(--text)', textDecoration: 'none', minHeight: 44, alignItems: 'center' }}>
-                  <span style={{ fontWeight: 700 }}>{s.title}</span><span className="mut" style={{ fontSize: 13 }}>{s.status === 'ended' ? 'Ended' : when(s.scheduledStartTime)}</span>
+                  <span style={{ fontWeight: 'var(--w-medium)' }}>{s.title}</span><span className="mut" style={{ fontSize: 'var(--t-small)' }}>{s.status === 'ended' ? 'Ended' : when(s.scheduledStartTime)}</span>
                 </Link>
               ))}
             </section>
@@ -113,9 +113,9 @@ export default function ProductDetail() {
 
       {editPrice !== null && (
         <Sheet label="Change price" onClose={() => setEditPrice(null)}>
-          <h2 className="f" style={{ margin: 0, fontSize: 22 }}>Change price</h2>
+          <h2 className="f" style={{ margin: 0, fontSize: 'var(--t-h1)' }}>Change price</h2>
           <form style={{ display: 'flex', flexDirection: 'column', gap: 12 }} onSubmit={async (e) => { e.preventDefault(); if (await save({ price: Number(editPrice) }, 'price', 'Price updated')) setEditPrice(null); }}>
-            <div className="fl"><label className="lab" htmlFor="newprice">Price (₦)</label><input id="newprice" className="in" inputMode="numeric" value={editPrice} onChange={(e) => setEditPrice(e.target.value.replace(/[^\d]/g, ''))} autoFocus style={{ font: '600 22px var(--font-display)' }} /></div>
+            <div className="fl"><label className="lab" htmlFor="newprice">Price (₦)</label><input id="newprice" className="in" inputMode="numeric" value={editPrice} onChange={(e) => setEditPrice(e.target.value.replace(/[^\d]/g, ''))} autoFocus /></div>
             <div style={{ display: 'flex', gap: 8 }}><button type="button" className="btn3" style={{ flex: 1 }} onClick={() => setEditPrice(null)}>Cancel</button><button type="submit" className="btn" style={{ flex: 1.4 }} disabled={saving === 'price' || !editPrice}>{saving === 'price' ? 'Saving…' : `Set ${naira(editPrice)}`}</button></div>
           </form>
         </Sheet>

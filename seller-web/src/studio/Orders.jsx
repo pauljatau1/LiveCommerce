@@ -33,11 +33,11 @@ function Row({ d }) {
     <Link to={`/studio/orders/${d._id}`} className="st-row">
       <Thumbs images={d.items.map((i) => i.image)} />
       <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-        <span style={{ fontWeight: 800 }}>{buyerName(d)} · {d.itemCount} item{d.itemCount === 1 ? '' : 's'}</span>
-        <span className="mut" style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{[d.buyer?.area, d.show?.title].filter(Boolean).join(' · ')}</span>
+        <span style={{ fontWeight: 'var(--w-medium)' }}>{buyerName(d)} · {d.itemCount} item{d.itemCount === 1 ? '' : 's'}</span>
+        <span className="mut" style={{ fontSize: 'var(--t-small)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{[d.buyer?.area, d.show?.title].filter(Boolean).join(' · ')}</span>
       </span>
       <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-        <span className="f" style={{ fontSize: 17 }}>{naira(d.itemsTotal)}</span>
+        <span className="f" style={{ fontSize: 'var(--t-h2)' }}>{naira(d.itemsTotal)}</span>
         <Pill map={DELIVERY_PILL} status={d.status} />
       </span>
     </Link>
@@ -59,7 +59,7 @@ export function Orders() {
 
   return (
     <main className="st-main">
-      <h1 className="f" style={{ margin: 0, fontSize: 26 }}>Orders</h1>
+      <h1 className="f" style={{ margin: 0, fontSize: 'var(--t-display)' }}>Orders</h1>
       <div role="group" aria-label="Order status" className="st-scroll" style={{ gap: 8 }}>
         {TABS.filter((t) => t.key !== 'cancelled' || counts.cancelled).map((t) => (
           <button key={t.key} type="button" className={`chip${active === t.key ? ' on' : ''}`} aria-pressed={active === t.key} onClick={() => setTab(t.key)}>{t.label}{list ? ` · ${counts[t.key]}` : ''}</button>
@@ -68,11 +68,11 @@ export function Orders() {
       {error && <Problem text={error} onRetry={load} />}
       {active === 'ship' && counts.ship > 0 && (
         <div className="soft s-primary" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div className="bot"><span className="av" aria-hidden="true" style={{ background: '#fff' }} /><span style={{ fontSize: 15, lineHeight: 1.45 }}>{counts.ship} package{counts.ship === 1 ? ' is' : 's are'} paid. Pack each one, then tap it and book the pickup. The courier comes to your pickup address.</span></div>
+          <div className="bot"><span className="av" aria-hidden="true" style={{ background: '#fff' }} /><span style={{ fontSize: 'var(--t-body)', lineHeight: 1.45 }}>{counts.ship} package{counts.ship === 1 ? ' is' : 's are'} paid. Pack each one, then tap it and book the pickup. The courier comes to your pickup address.</span></div>
         </div>
       )}
       {active === 'waiting' && counts.waiting > 0 && (
-        <p className="mut" style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>Delivery is priced and paid from the buyer's wallet automatically after the show. If pricing fails we retry every 10 minutes.</p>
+        <p className="mut" style={{ margin: 0, fontSize: 'var(--t-small)', lineHeight: 1.5 }}>Delivery is priced and paid from the buyer's wallet automatically after the show. If pricing fails we retry every 10 minutes.</p>
       )}
       {list === null && <><Skeleton h={72} /><Skeleton h={72} /></>}
       {list && !shown.length && (
@@ -137,32 +137,32 @@ export function OrderDetail() {
       <TopBar title={`${who} · ${d.itemCount} item${d.itemCount === 1 ? '' : 's'}`} sub={`From ${d.show?.title || 'a live show'}`} onBack={() => navigate('/studio/orders')} right={<Pill map={DELIVERY_PILL} status={d.status} />} />
       <div className="st-inner">
         <section className="card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }} aria-label="Buyer">
-          <span style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--surface)', color: 'var(--text)', font: '800 16px var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{who.replace('@', '').slice(0, 2).toUpperCase()}</span>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 800, fontSize: 17 }}>{who}</span><span className="mut" style={{ fontSize: 14 }}>{d.buyer?.area || 'Delivery address on file'}</span></div>
+          <span style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--surface)', color: 'var(--text)', font: 'var(--w-medium) var(--t-body) var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{who.replace('@', '').slice(0, 2).toUpperCase()}</span>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 'var(--w-medium)', fontSize: 'var(--t-h2)' }}>{who}</span><span className="mut" style={{ fontSize: 'var(--t-small)' }}>{d.buyer?.area || 'Delivery address on file'}</span></div>
         </section>
-        {d.itemCount > 1 && <div className="soft s-primary" style={{ fontSize: 14, lineHeight: 1.45 }}>{who} got {d.itemCount} items in this show, so they ship together in one package.</div>}
+        {d.itemCount > 1 && <div className="soft s-primary" style={{ fontSize: 'var(--t-small)', lineHeight: 1.45 }}>{who} got {d.itemCount} items in this show, so they ship together in one package.</div>}
 
         <section className="card" style={{ padding: '4px 16px' }} aria-label="Items">
           {d.items.map((i, n) => (
             <div key={i.order + n} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: n < d.items.length - 1 ? '1px solid #F1EBE3' : 0 }}>
               {i.image ? <img src={i.image} alt="" style={{ width: 52, height: 52, borderRadius: 14, objectFit: 'cover' }} /> : <span className="sk" style={{ width: 52, height: 52 }} />}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 800 }}>{i.name}{i.quantity > 1 ? ` × ${i.quantity}` : ''}</span>{i.note && <span style={{ fontSize: 14 }}>{i.note}</span>}<span className="mut" style={{ fontSize: 13 }}>{i.category}</span></div>
-              <span className="f" style={{ fontSize: 16 }}>{naira(i.unitPrice * (i.quantity || 1))}</span>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 'var(--w-medium)' }}>{i.name}{i.quantity > 1 ? ` × ${i.quantity}` : ''}</span>{i.note && <span style={{ fontSize: 'var(--t-small)' }}>{i.note}</span>}<span className="mut" style={{ fontSize: 'var(--t-small)' }}>{i.category}</span></div>
+              <span className="f" style={{ fontSize: 'var(--t-body)' }}>{naira(i.unitPrice * (i.quantity || 1))}</span>
             </div>
           ))}
         </section>
 
-        <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 15 }} aria-label="Payment">
+        <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 'var(--t-body)' }} aria-label="Payment">
           <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Items</span><span>{naira(d.itemsTotal)}</span></div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Delivery (paid by {who})</span><span>{d.fee ? naira(d.fee) : '—'}</span></div>
-          <div className="mut" style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 10, fontSize: 14 }}><span>You receive after delivery</span><span>{naira(d.itemsTotal)} less fees</span></div>
+          <div className="mut" style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 10, fontSize: 'var(--t-small)' }}><span>You receive after delivery</span><span>{naira(d.itemsTotal)} less fees</span></div>
         </section>
 
         <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }} aria-label="Pickup">
           <h2 className="h2">Pickup</h2>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-            <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 800 }}>{d.courier || 'Courier chosen when priced'}</span><span className="mut" style={{ fontSize: 14 }}>{d.deliveryEta || 'Cheapest courier for this route'}</span></div>
-            {d.fee ? <span className="f" style={{ fontSize: 17 }}>{naira(d.fee)}</span> : null}
+            <div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 'var(--w-medium)' }}>{d.courier || 'Courier chosen when priced'}</span><span className="mut" style={{ fontSize: 'var(--t-small)' }}>{d.deliveryEta || 'Cheapest courier for this route'}</span></div>
+            {d.fee ? <span className="f" style={{ fontSize: 'var(--t-h2)' }}>{naira(d.fee)}</span> : null}
           </div>
           {d.status === 'paid' && <span className="hint">Pack it first. Booking charges your Shipbubble wallet; {who} has already paid you for delivery. Booked after 6pm, pickup is the next day.</span>}
           {d.status === 'booked' && <span className="hint">You can cancel until the courier collects it.</span>}
@@ -194,7 +194,7 @@ export function OrderDetail() {
           {steps.map(([t, done, at], n) => (
             <div key={t} className="tl">
               <span className="d" style={done ? { background: 'var(--success)' } : n === current ? { border: '2.5px solid var(--primary)', background: '#fff' } : { border: '2px solid var(--border-strong)' }}>{done ? Icon.check : null}</span>
-              <span className={`t${done || n === current ? '' : ' mut'}`}><span style={{ fontWeight: done || n === current ? 800 : 700 }}>{t}</span>{done && at ? <span className="mut" style={{ fontSize: 13 }}>{when(at)}</span> : n === current ? <span className="mut" style={{ fontSize: 13 }}>{d.status === 'paid' ? "You're here" : 'Next'}</span> : null}</span>
+              <span className={`t${done || n === current ? '' : ' mut'}`}><span style={{ fontWeight: done || n === current ? 'var(--w-medium)' : 'var(--w-medium)' }}>{t}</span>{done && at ? <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{when(at)}</span> : n === current ? <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{d.status === 'paid' ? "You're here" : 'Next'}</span> : null}</span>
             </div>
           ))}
         </section>

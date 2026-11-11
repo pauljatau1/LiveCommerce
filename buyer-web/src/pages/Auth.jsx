@@ -41,7 +41,7 @@ export default function Auth() {
       <Header back={next} />
       <main className="wrap" style={{ maxWidth: 440, padding: '24px 16px 40px', display: 'flex', flexDirection: 'column', gap: 18 }}>
         <div>
-          <h1 className="f" style={{ margin: 0, fontSize: 28 }}>{mode === 'signup' ? 'Join the show' : 'Welcome back'}</h1>
+          <h1 className="f" style={{ margin: 0, fontSize: 'var(--t-display)' }}>{mode === 'signup' ? 'Join the show' : 'Welcome back'}</h1>
           <p className="mut" style={{ margin: '6px 0 0' }}>{mode === 'signup' ? 'Takes 20 seconds. Then you can chat, bid and buy.' : 'Sign in to bid and buy.'}</p>
         </div>
         <form onSubmit={submit} className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>

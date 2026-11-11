@@ -43,10 +43,10 @@ export default function Notifications() {
               <Link key={n.id} to={n.link || '/studio'} className="st-row" style={{ minHeight: 64 }}>
                 <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', flex: 'none', background: n.unread ? 'var(--primary)' : 'transparent' }} />
                 <span style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  <span style={{ fontWeight: n.unread ? 800 : 700 }}>{n.title}</span>
-                  <span className="mut" style={{ fontSize: 14 }}>{n.body}</span>
+                  <span style={{ fontWeight: n.unread ? 'var(--w-medium)' : 'var(--w-medium)' }}>{n.title}</span>
+                  <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{n.body}</span>
                 </span>
-                <span className="mut" style={{ fontSize: 13 }}>{timeOf(n.at)}</span>
+                <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{timeOf(n.at)}</span>
               </Link>
             ))}
           </section>

@@ -81,7 +81,7 @@ export function AddressFields({ address, askPhone, idPrefix = 'ad' }) {
         <input id={`${idPrefix}-l1`} className="in" value={form.addressLine1} onChange={set('addressLine1')} placeholder="e.g. 12 Herbert Macaulay Way" autoComplete="street-address" />
       </div>
       <div className="fl">
-        <label className="lab" htmlFor={`${idPrefix}-lm`}>Landmark <span className="hint" style={{ fontWeight: 600 }}>optional</span></label>
+        <label className="lab" htmlFor={`${idPrefix}-lm`}>Landmark <span className="hint" style={{ fontWeight: 'var(--w-medium)' }}>optional</span></label>
         <input id={`${idPrefix}-lm`} className="in" value={form.landmark} onChange={set('landmark')} placeholder="e.g. opposite Yaba bus stop" />
       </div>
       {askPhone && (
@@ -120,7 +120,7 @@ export default function AddressSheet({ onClose, onSaved, top = null }) {
 
   return (
     <Sheet title="Where should we deliver?" onClose={onClose} top={top}>
-      <p className="mut" style={{ margin: 0, fontSize: 15 }}>Anything you win or buy ships here.</p>
+      <p className="mut" style={{ margin: 0, fontSize: 'var(--t-body)' }}>Anything you win or buy ships here.</p>
       <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <AddressFields address={address} askPhone={!buyer?.phoneNumber} />
         {error && <span className="err" role="alert">{error}</span>}

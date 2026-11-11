@@ -24,14 +24,14 @@ export function Header({ back, title }) {
   return (
     <header className="top" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
       {back ? <Link to={back} className="ib" aria-label="Back">{Icon.back}</Link> : <Link to="/" className="brand">{BRAND_NAME}<i /></Link>}
-      <span className="f" style={{ flex: 1, fontSize: 18 }}>{title || ''}</span>
+      <span className="f" style={{ flex: 1, fontSize: 'var(--t-h2)' }}>{title || ''}</span>
       {signedIn ? (
         <>
-          <Link to="/orders" className="link" style={{ fontSize: 14, marginRight: 4 }}>Orders</Link>
+          <Link to="/orders" className="link" style={{ fontSize: 'var(--t-small)', marginRight: 4 }}>Orders</Link>
           <Link to="/wallet" className="wallet-chip">{Icon.wallet}{naira(wallet?.availableBalance)}</Link>
         </>
       ) : (
-        <Link to="/signin" className="btn2" style={{ minHeight: 44 }}>Sign in</Link>
+        <Link to="/signin" className="btn2">Sign in</Link>
       )}
     </header>
   );

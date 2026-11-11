@@ -46,15 +46,15 @@ export default function Orders() {
       <main className="wrap" style={{ padding: '20px 16px 40px', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {error && <span className="err" role="alert">{error}</span>}
         {deliveries === null ? <span className="mut">Loading…</span> : deliveries.length === 0 ? (
-          <div className="card empty"><span className="f" style={{ fontSize: 18 }}>No orders yet</span><span className="mut" style={{ fontSize: 14 }}>Things you win or buy in a show appear here, grouped into one delivery per show.</span><Link to="/" className="btn2">Find a show</Link></div>
+          <div className="card empty"><span className="f" style={{ fontSize: 'var(--t-h2)' }}>No orders yet</span><span className="mut" style={{ fontSize: 'var(--t-small)' }}>Things you win or buy in a show appear here, grouped into one delivery per show.</span><Link to="/" className="btn2">Find a show</Link></div>
         ) : deliveries.map((d) => {
           const st = STATE[d.status] || { label: d.status, tone: 'p-show', note: () => '' };
           return (
             <section key={d._id} className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, fontSize: 16 }}>{d.show?.title || 'Live show'}</div>
-                  <div className="mut" style={{ fontSize: 13 }}>{d.seller?.storeName} · {d.itemCount} item{d.itemCount === 1 ? '' : 's'} · {new Date(d.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })}</div>
+                  <div style={{ fontWeight: 'var(--w-medium)', fontSize: 'var(--t-body)' }}>{d.show?.title || 'Live show'}</div>
+                  <div className="mut" style={{ fontSize: 'var(--t-small)' }}>{d.seller?.storeName} · {d.itemCount} item{d.itemCount === 1 ? '' : 's'} · {new Date(d.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })}</div>
                 </div>
                 <span className={`pill ${st.tone}`}>{st.label}</span>
               </div>
@@ -62,19 +62,19 @@ export default function Orders() {
                 {d.items.map((i) => (
                   <div key={i.order} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                     {i.image ? <img src={i.image} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover' }} /> : <span className="sk" style={{ width: 44, height: 44 }} />}
-                    <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{i.name}{i.quantity > 1 ? ` × ${i.quantity}` : ''}{i.note && <span className="mut" style={{ display: 'block', fontWeight: 600 }}>{i.note}</span>}</span>
-                    <span className="f" style={{ fontSize: 15 }}>{naira(i.unitPrice * (i.quantity || 1))}</span>
+                    <span style={{ flex: 1, fontWeight: 'var(--w-medium)', fontSize: 'var(--t-small)' }}>{i.name}{i.quantity > 1 ? ` × ${i.quantity}` : ''}{i.note && <span className="mut" style={{ display: 'block', fontWeight: 'var(--w-medium)' }}>{i.note}</span>}</span>
+                    <span className="f" style={{ fontSize: 'var(--t-body)' }}>{naira(i.unitPrice * (i.quantity || 1))}</span>
                   </div>
                 ))}
               </div>
-              <p className="mut" style={{ margin: 0, fontSize: 14 }}>{st.note(d)}</p>
+              <p className="mut" style={{ margin: 0, fontSize: 'var(--t-small)' }}>{st.note(d)}</p>
               {d.status === 'awaiting_payment' && (
                 <button type="button" className="btn" disabled={busy === d._id} onClick={() => pay(d)}>{busy === d._id ? 'Paying…' : `Pay ${naira(Math.max(0, d.fee - (d.depositHeld || 0)))} for delivery`}</button>
               )}
               {d.trackingUrl && <a className="btn2" href={d.trackingUrl} target="_blank" rel="noopener noreferrer">Track your package</a>}
               {d.status === 'delivered' && d.seller?._id && !rated.includes(String(d.seller._id)) && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ flex: 1, fontSize: 15 }}>Got it? Tell {d.seller.storeName || 'the host'} how it went.</span>
+                  <span style={{ flex: 1, fontSize: 'var(--t-body)' }}>Got it? Tell {d.seller.storeName || 'the host'} how it went.</span>
                   <button type="button" className="btn2" onClick={() => setRating(d)}>Rate</button>
                 </div>
               )}

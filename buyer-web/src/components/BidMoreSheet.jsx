@@ -38,7 +38,7 @@ export default function BidMoreSheet({ current, top, onClose, onPlace }) {
       <p className="mut" style={{ margin: 0 }}>We hold {naira(amount)} from your wallet. It comes back if someone outbids you.</p>
       {confirming ? (
         <>
-          <p style={{ margin: 0, fontWeight: 700 }}>That's {naira(amount - current.currentBid)} more than the top bid. Bid {naira(amount)}?</p>
+          <p style={{ margin: 0, fontWeight: 'var(--w-medium)' }}>That's {naira(amount - current.currentBid)} more than the top bid. Bid {naira(amount)}?</p>
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" className="btn2" style={{ flex: 1 }} onClick={() => setConfirming(false)}>Pick less</button>
             <button type="button" className="btn" style={{ flex: 1 }} onClick={bidNow}>Yes, bid {naira(amount)}</button>

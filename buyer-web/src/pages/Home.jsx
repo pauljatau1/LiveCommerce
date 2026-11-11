@@ -19,8 +19,8 @@ function ShowCard({ s, live }) {
         {live ? <span className="pill p-live">● LIVE · {s.viewers?.length || 0}</span> : <span className="pill s-warm" style={{ color: 'var(--warm)' }}>{when(s.scheduledStartTime)}</span>}
       </span>
       <span className="b">
-        <span style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>{s.title}</span>
-        <span className="mut" style={{ fontSize: 13 }}>{s.seller?.storeName || s.seller?.businessName || 'A creator'}</span>
+        <span style={{ fontWeight: 'var(--w-medium)', fontSize: 'var(--t-body)', lineHeight: 1.25 }}>{s.title}</span>
+        <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{s.seller?.storeName || s.seller?.businessName || 'A creator'}</span>
       </span>
     </Link>
   );
@@ -52,7 +52,7 @@ export default function Home() {
           ) : live.length ? (
             <div className="shows">{live.map((s) => <ShowCard key={s._id} s={s} live />)}</div>
           ) : (
-            <div className="card empty"><span className="blob" aria-hidden="true">{Icon.eye}</span><span className="f" style={{ fontSize: 18 }}>No one is live right now</span><span className="mut" style={{ fontSize: 14 }}>{error || 'Check the upcoming shows below.'}</span></div>
+            <div className="card empty"><span className="blob" aria-hidden="true">{Icon.eye}</span><span className="f" style={{ fontSize: 'var(--t-h2)' }}>No one is live right now</span><span className="mut" style={{ fontSize: 'var(--t-small)' }}>{error || 'Check the upcoming shows below.'}</span></div>
           )}
         </section>
 

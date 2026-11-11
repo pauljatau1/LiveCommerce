@@ -13,7 +13,7 @@ function ShowPicker() {
   useEffect(() => { studio.shows().then((r) => setShows(r.shows)).catch((e) => setError(errorText(e, "Couldn't load your shows."))); }, []);
   return (
     <main className="st-main" style={{ maxWidth: 720 }}>
-      <h1 className="f" style={{ margin: 0, fontSize: 26 }}>Go live</h1>
+      <h1 className="f" style={{ margin: 0, fontSize: 'var(--t-display)' }}>Go live</h1>
       {error && <Problem text={error} />}
       {!shows && !error && <><Skeleton h={80} /><Skeleton h={80} /></>}
       {shows && !shows.length && <Empty icon={Icon.live('var(--primary)', 32)} title="No show planned" text="Pick the items you'll sell and choose auction or drop. It takes a minute." action={<Link to="/studio/plan" className="btn">Plan a show</Link>} />}
@@ -22,7 +22,7 @@ function ShowPicker() {
           {s.images[0] ? <img src={s.images[0]} alt="" style={{ width: 52, height: 52, borderRadius: 14, objectFit: 'cover' }} /> : <span className="sk" style={{ width: 52, height: 52 }} />}
           <span style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <span className="cap">{s.status === 'live' ? 'LIVE NOW' : when(s.scheduledStartTime).toUpperCase()} · {s.type === 'drop' ? 'DROP' : 'AUCTION'} · {s.itemCount} ITEMS</span>
-            <span style={{ fontWeight: 800 }}>{s.title}</span>
+            <span style={{ fontWeight: 'var(--w-medium)' }}>{s.title}</span>
           </span>
           {s.status === 'live' ? <span className="pill p-live">● Live</span> : Icon.chevron('var(--text-muted)')}
         </button>
@@ -110,7 +110,7 @@ function Check({ showId }) {
 
   return (
     <div className="studio-app">
-      <TopBar title="Ready to go live?" sub={data?.show?.title} onBack={() => navigate('/studio/golive')} right={data?.show?.link && <button type="button" className="btn2" style={{ minHeight: 44 }} onClick={() => setSharing(true)}>{Icon.share}Share</button>} />
+      <TopBar title="Ready to go live?" sub={data?.show?.title} onBack={() => navigate('/studio/golive')} right={data?.show?.link && <button type="button" className="btn2" onClick={() => setSharing(true)}>{Icon.share}Share</button>} />
       <div className="st-inner" style={{ paddingBottom: 120 }}>
         {error && <Problem text={error} />}
         <div style={{ position: 'relative', height: 'min(56vh, 420px)', borderRadius: 24, overflow: 'hidden', background: '#2A2F2C' }}>
@@ -123,25 +123,25 @@ function Check({ showId }) {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {cameras.length > 1 && (
             <div className="fl" style={{ flex: '1 1 160px' }}><label className="lab" htmlFor="cam">Camera</label>
-              <select id="cam" className="sel" style={{ height: 48, fontSize: 15 }} value={cameraId} onChange={(e) => open(e.target.value, micId)}>{cameras.map((c, i) => <option key={c.deviceId} value={c.deviceId}>{c.label || `Camera ${i + 1}`}</option>)}</select>
+              <select id="cam" className="sel" style={{ height: 48 }} value={cameraId} onChange={(e) => open(e.target.value, micId)}>{cameras.map((c, i) => <option key={c.deviceId} value={c.deviceId}>{c.label || `Camera ${i + 1}`}</option>)}</select>
             </div>
           )}
           {mics.length > 1 && (
             <div className="fl" style={{ flex: '1 1 160px' }}><label className="lab" htmlFor="mic">Mic</label>
-              <select id="mic" className="sel" style={{ height: 48, fontSize: 15 }} value={micId} onChange={(e) => open(cameraId, e.target.value)}>{mics.map((m, i) => <option key={m.deviceId} value={m.deviceId}>{m.label || `Microphone ${i + 1}`}</option>)}</select>
+              <select id="mic" className="sel" style={{ height: 48 }} value={micId} onChange={(e) => open(cameraId, e.target.value)}>{mics.map((m, i) => <option key={m.deviceId} value={m.deviceId}>{m.label || `Microphone ${i + 1}`}</option>)}</select>
             </div>
           )}
         </div>
         {first && (
           <div className="card" style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
             {first.image ? <img src={first.image} alt="" style={{ width: 52, height: 52, borderRadius: 14, objectFit: 'cover' }} /> : <span className="sk" style={{ width: 52, height: 52 }} />}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}><span className="cap">FIRST UP · 1 OF {data.items.length} · {data.show.type === 'drop' ? 'DROP' : 'AUCTION'}</span><span style={{ fontWeight: 800 }}>{first.name} · {data.show.type === 'drop' ? naira(first.price) : `bids from ${naira(first.minBid)}`}</span></div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}><span className="cap">FIRST UP · 1 OF {data.items.length} · {data.show.type === 'drop' ? 'DROP' : 'AUCTION'}</span><span style={{ fontWeight: 'var(--w-medium)' }}>{first.name} · {data.show.type === 'drop' ? naira(first.price) : `bids from ${naira(first.minBid)}`}</span></div>
           </div>
         )}
-        {data && <div className="bot"><span className="av" aria-hidden="true" /><div className="bub" style={{ fontSize: 15 }}>{data.show.type === 'drop' ? 'Once live, tap an item to put it on sale. Buyers tap Buy now.' : 'Once live, tap an item, then Start bidding. Each auction runs 30 seconds.'}</div></div>}
+        {data && <div className="bot"><span className="av" aria-hidden="true" /><div className="bub" style={{ fontSize: 'var(--t-body)' }}>{data.show.type === 'drop' ? 'Once live, tap an item to put it on sale. Buyers tap Buy now.' : 'Once live, tap an item, then Start bidding. Each auction runs 30 seconds.'}</div></div>}
       </div>
       <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '12px 16px max(18px, env(safe-area-inset-bottom))', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
-        <button type="button" className="btn" style={{ minHeight: 60, fontSize: 19, background: 'var(--live)', width: '100%', maxWidth: 688, margin: '0 auto' }} disabled={!data || Boolean(camError)} onClick={go}>
+        <button type="button" className="btn" style={{  fontSize: 'var(--t-h2)', background: 'var(--live)', width: '100%', maxWidth: 688, margin: '0 auto' }} disabled={!data || Boolean(camError)} onClick={go}>
           <span aria-hidden="true" style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />Go live
         </button>
       </div>

@@ -56,8 +56,8 @@ export default function ShareSheet({ show, onClose }) {
   return (
     <Sheet label="Share your show" onClose={onClose} closeX>
       <div className="sh-head">
-        <h2 className="f" style={{ margin: 0, fontSize: 19 }}>Share your show</h2>
-        <span className="mut" style={{ fontSize: 14 }}>Anyone with the link can watch{show.status === 'live' ? ' now' : ' and set a reminder'}.</span>
+        <h2 className="f" style={{ margin: 0, fontSize: 'var(--t-h2)' }}>Share your show</h2>
+        <span className="mut" style={{ fontSize: 'var(--t-small)' }}>Anyone with the link can watch{show.status === 'live' ? ' now' : ' and set a reminder'}.</span>
       </div>
 
       <div className="sh-pill">

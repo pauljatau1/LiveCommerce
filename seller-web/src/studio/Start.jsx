@@ -142,7 +142,7 @@ export default function Start() {
               <input id="st-name" className="in" value={answers.storeName || ''} onChange={set('storeName')} maxLength={60} />
             </div>
             <div className="fl">
-              <label className="lab" htmlFor="st-bio">One-line bio <span className="hint" style={{ fontWeight: 600 }}>optional</span></label>
+              <label className="lab" htmlFor="st-bio">One-line bio <span className="hint" style={{ fontWeight: 'var(--w-medium)' }}>optional</span></label>
               <input id="st-bio" className="in" value={answers.aboutStore || ''} onChange={set('aboutStore')} maxLength={80} placeholder="e.g. Thrift and Ankara from Yaba. Saturdays 7pm." />
               <span className="hint">{(answers.aboutStore || '').length} / 80</span>
             </div>
@@ -185,7 +185,7 @@ export default function Start() {
               <input id="pk-l1" className="in" value={answers.addressLine1 || ''} onChange={set('addressLine1')} autoComplete="street-address" />
             </div>
             <div className="fl">
-              <label className="lab" htmlFor="pk-lm">Landmark <span className="hint" style={{ fontWeight: 600 }}>optional</span></label>
+              <label className="lab" htmlFor="pk-lm">Landmark <span className="hint" style={{ fontWeight: 'var(--w-medium)' }}>optional</span></label>
               <input id="pk-lm" className="in" value={answers.landmark || ''} onChange={set('landmark')} />
             </div>
             <div className="fl">
@@ -220,7 +220,7 @@ export default function Start() {
             {accountName && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span className="cap">ACCOUNT NAME</span>
-                <span className="f" style={{ fontSize: 19 }}>{accountName}</span>
+                <span className="f" style={{ fontSize: 'var(--t-h2)' }}>{accountName}</span>
                 <span className="hint">Not you? Check the number. Payouts only go to an account in your name.</span>
               </div>
             )}
@@ -234,7 +234,7 @@ export default function Start() {
 
         {step === 'done' && (
           <>
-            <h1 className="f" style={{ margin: 0, fontSize: 32 }}>You're set{info.firstName ? `, ${info.firstName}` : ''}.</h1>
+            <h1 className="f" style={{ margin: 0, fontSize: 'var(--t-display)' }}>You're set{info.firstName ? `, ${info.firstName}` : ''}.</h1>
             <p style={{ margin: 0 }}>{info.store.storeName || 'Your store'} is ready. Let's list your first item.</p>
             {[
               ['Store', info.store.done ? 'Done' : 'Later', 'store'],
@@ -242,7 +242,7 @@ export default function Start() {
               ['Bank account', info.bank.done ? 'Done' : 'Later', 'bank'],
             ].map(([label, state, s]) => (
               <button key={s} type="button" className="st-row" onClick={() => setStep(s)}>
-                <span style={{ flex: 1, fontWeight: 800 }}>{label}</span>
+                <span style={{ flex: 1, fontWeight: 'var(--w-medium)' }}>{label}</span>
                 <span className="mut">{state}</span>
               </button>
             ))}
