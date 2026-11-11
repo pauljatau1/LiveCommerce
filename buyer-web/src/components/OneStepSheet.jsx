@@ -6,10 +6,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, errorMessage, naira } from '../api';
 import { useAuth } from '../auth';
 import { PaymentCancelled, topUpWithPaystack } from '../payments';
-import { AddressFields, useAddressForm } from './AddressSheet';
+import { AddressFields, phoneProblem, useAddressForm } from './AddressSheet';
 import GoogleButton, { googleEnabled } from './GoogleButton';
 import { Sheet } from './ui';
-import { deliveryLine } from './watch';
 
 // Top up a little above what's needed, in whole thousands; the rest stays in the wallet
 export const topUpFor = (need) => (need > 0 ? Math.max(1000, Math.ceil(need / 1000) * 1000) : 0);
@@ -18,73 +17,106 @@ const USERNAME = /^[a-zA-Z0-9_.]{3,20}$/;
 
 /**
  * action: { kind: 'bid', amount } | { kind: 'buy', amount } | { kind: 'chat' } | { kind: 'account' }
- * deposit: delivery deposit still due in this show (0 if already paid)
- * estimate: optional line about delivery cost to the buyer's area
+ * deposit: delivery deposit due before a first item in this show: Shipbubble's
+ *   quote to the buyer's saved address (0 if they already have an item here,
+ *   null if it isn't known yet)
+ * quote: that quote's details ({ area, courierName }) for the wallet line
+ * productId: the item being bid on or bought (the quote is for its weight)
  * onReady(): called once everything is in place; does the bid or buy
  */
-export default function OneStepSheet({ action, deposit = 0, estimate = null, top = null, streamId, onClose, onReady, onTopUpNeeded, topUpMethods = {} }) {
-  const { buyer, wallet, signedIn, signIn } = useAuth();
+export default function OneStepSheet({ action, deposit = null, quote = null, productId, top = null, streamId, onClose, onReady, onTopUpNeeded, topUpMethods = {} }) {
+  const { buyer, wallet, signedIn, signIn, refresh } = useAuth();
   const address = useAddressForm();
   const [mode, setMode] = useState('signup'); // signup | signin
   const [acct, setAcct] = useState({ username: '', email: '', password: '' });
   const [busy, setBusy] = useState('');
   const [error, setError] = useState({ where: '', text: '' });
   const chatOnly = ['chat', 'account', 'follow'].includes(action.kind);
-  const [est, setEst] = useState(null);
-  const { state: pickedState, city: pickedCity } = address.form;
+  // The delivery price for an address typed here comes from Shipbubble too: the
+  // host's pickup address to this exact address, for this item. Nothing is
+  // guessed: until the address is complete there is no price.
+  const [typedQuote, setTypedQuote] = useState({ status: 'idle' });
+  const { state: pickedState, city: pickedCity, addressLine1: pickedLine, phoneNumber: pickedPhone } = address.form;
+  const phoneForQuote = pickedPhone || buyer?.phoneNumber || '';
   useEffect(() => {
-    if (!pickedState || !pickedCity || !streamId) { setEst(null); return undefined; }
+    const complete = pickedState && pickedCity && String(pickedLine).trim().length >= 4 && !phoneProblem(phoneForQuote);
+    if (!complete || !streamId) { setTypedQuote({ status: 'idle' }); return undefined; }
     let live = true;
-    api.estimate(streamId, { state: pickedState, city: pickedCity }).then((r) => live && setEst(r)).catch(() => live && setEst(null));
-    return () => { live = false; };
-  }, [pickedState, pickedCity, streamId]);
+    setTypedQuote({ status: 'loading' });
+    const t = window.setTimeout(() => {
+      api.deliveryQuote(streamId, {
+        productId,
+        address: { addressLine1: String(pickedLine).trim(), city: pickedCity, state: pickedState, phoneNumber: phoneForQuote, email: acct.email.trim() || buyer?.email },
+      })
+        .then((r) => live && setTypedQuote(r?.available ? { status: 'ok', ...r } : { status: 'error', message: r?.message || "Couldn't price delivery to this address." }))
+        .catch((e) => live && setTypedQuote({ status: 'error', message: errorMessage(e, "Couldn't price delivery right now. Try again.") }));
+    }, 700);
+    return () => { live = false; window.clearTimeout(t); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickedState, pickedCity, pickedLine, phoneForQuote, streamId, productId]);
 
   const needAccount = !signedIn;
   const needAddress = !chatOnly && !(buyer?.shippingAddresses || []).length;
   const available = wallet?.availableBalance || 0;
-  const cost = chatOnly ? 0 : action.amount + deposit;
-  const pay = chatOnly ? 0 : topUpFor(cost - available);
+  // Delivery held with a first item: the quote for the typed address, else the saved one
+  const dep = chatOnly ? 0 : needAddress ? (typedQuote.status === 'ok' ? typedQuote.amount : null) : deposit;
+  const depInfo = needAddress ? (typedQuote.status === 'ok' ? typedQuote : null) : quote;
+  // A saved address is priced on the server when the button is pressed (finish)
+  const priced = chatOnly || !needAddress || dep !== null;
+  const cost = chatOnly ? 0 : action.amount + (dep || 0);
+  const pay = chatOnly || !priced ? 0 : topUpFor(cost - available);
 
   const title = action.kind === 'follow' ? 'Follow this host' : action.kind === 'account' ? 'Create an account' : chatOnly ? 'Join the chat' : action.kind === 'bid' ? 'One step, then your bid' : "One step, then it's yours";
   const what = action.kind === 'bid' ? `bid ${naira(action.amount)}` : 'buy';
   const buttonText = chatOnly
     ? (mode === 'signup' ? 'Create account' : 'Sign in')
-    : pay > 0 ? `Pay ${naira(pay)} and ${what}` : action.kind === 'bid' ? `Bid ${naira(action.amount)}` : `Buy now · ${naira(action.amount)}`;
+    : !priced ? (typedQuote.status === 'loading' ? 'Getting the delivery price…' : 'Add your address to continue')
+      : pay > 0 ? `Pay ${naira(pay)} and ${what}` : action.kind === 'bid' ? `Bid ${naira(action.amount)}` : `Buy now · ${naira(action.amount)}`;
 
   const fail = (where, text) => { setError({ where, text }); setBusy(''); };
   const setA = (k) => (e) => setAcct((a) => ({ ...a, [k]: e.target.value }));
 
   // Runs the rest of the steps for a signed-in buyer
-  const finish = useCallback(async (me, myWallet, depositDue) => {
+  const finish = useCallback(async (me, myWallet) => {
     if (chatOnly) { setBusy(''); onReady(); return; }
+    let who = me;
+    let myW = myWallet;
     if (!(me?.shippingAddresses || []).length) {
       setBusy('Saving your address…');
       try { await address.save(me); } catch (e) { fail('address', errorMessage(e, "Couldn't save the address.")); return; }
+      // Reload the profile so the app knows the address is saved (no asking twice)
+      try { const r = await refresh(); if (r?.buyer) { who = r.buyer; myW = r.wallet || myW; } } catch { /* the server has it either way */ }
     }
-    const due = action.amount + depositDue - (myWallet?.availableBalance || 0);
+    // What's held for delivery comes from the server: Shipbubble to the saved address
+    let depositDue = 0;
+    try {
+      const r = await api.watchMe(streamId, productId);
+      if (r?.depositDue === null || r?.depositDue === undefined) { fail('address', r?.deliveryProblem || "Couldn't price delivery to your address. Check it and try again."); return; }
+      depositDue = Number(r.depositDue) || 0;
+    } catch (e) { fail('address', errorMessage(e, "Couldn't price delivery right now. Try again.")); return; }
+    const due = action.amount + depositDue - (myW?.availableBalance || 0);
     const amount = topUpFor(due);
-    if (amount > 0 && onTopUpNeeded && (myWallet?.topUpMethods?.dva || myWallet?.topUpMethods?.savedCards || topUpMethods.dva || topUpMethods.savedCards)) {
-      setBusy(''); onTopUpNeeded(due, action, me?._id); return;
+    if (amount > 0 && onTopUpNeeded && (myW?.topUpMethods?.dva || myW?.topUpMethods?.savedCards || topUpMethods.dva || topUpMethods.savedCards)) {
+      setBusy(''); onTopUpNeeded(due, action, who?._id); return;
     }
     if (amount > 0) {
       setBusy('Waiting for Paystack…');
       try {
-        await topUpWithPaystack({ email: me?.email, buyerId: me?._id, amount });
+        await topUpWithPaystack({ email: who?.email, buyerId: who?._id, amount });
       } catch (e) {
         if (e instanceof PaymentCancelled) { fail('pay', 'Payment cancelled. Your account and address are saved.'); return; }
         fail('pay', `${errorMessage(e, e.message || "We couldn't confirm the payment yet.")} If you were charged, it will show up shortly.`);
         return;
       }
+      try { await refresh(); } catch { /* wallet refreshes on the next screen too */ }
     }
     setBusy(action.kind === 'bid' ? 'Placing your bid…' : 'Buying…');
     try { await onReady(); } finally { setBusy(''); }
-  }, [action, address, chatOnly, onReady, onTopUpNeeded, topUpMethods]);
+  }, [action, address, chatOnly, onReady, refresh, streamId, productId, onTopUpNeeded, topUpMethods]);
 
   const afterSignIn = async (token) => {
     const { buyer: me, wallet: w } = await signIn(token, { quiet: true });
-    let depositDue = deposit;
-    try { depositDue = (await api.watchMe(streamId)).depositDue ?? deposit; } catch { /* use the show's deposit */ }
-    await finish(me, w, depositDue);
+    await finish(me, w);
   };
 
   const go = async () => {
@@ -98,6 +130,8 @@ export default function OneStepSheet({ action, deposit = 0, estimate = null, top
     if (needAddress) {
       const problem = address.problem(!buyer?.phoneNumber);
       if (problem) return fail('address', problem);
+      if (typedQuote.status === 'error') return fail('address', typedQuote.message);
+      if (typedQuote.status !== 'ok') return fail('address', 'Getting the delivery price for your address. One moment.');
     }
     if (needAccount) {
       setBusy(mode === 'signup' ? 'Creating your account…' : 'Signing in…');
@@ -114,7 +148,7 @@ export default function OneStepSheet({ action, deposit = 0, estimate = null, top
       await afterSignIn(token);
       return;
     }
-    await finish(buyer, wallet, deposit);
+    await finish(buyer, wallet);
   };
 
   const google = useCallback(async (credential) => {
@@ -173,17 +207,19 @@ export default function OneStepSheet({ action, deposit = 0, estimate = null, top
         <section className="step" aria-label="Delivery">
           <h3 className="step-h">Delivery</h3>
           <AddressFields address={address} askPhone={!buyer?.phoneNumber} idPrefix="os" />
-          {deliveryLine(est) ? <p style={{ margin: 0, fontWeight: 700 }}>{deliveryLine(est)}</p> : est?.message ? <span className="hint">{est.message}</span> : estimate}
+          {typedQuote.status === 'ok' && <p style={{ margin: 0, fontWeight: 700 }}>Delivery to {typedQuote.area}: {naira(typedQuote.amount)}{typedQuote.courierName ? ` · ${typedQuote.courierName}` : ''}</p>}
+          {typedQuote.status === 'loading' && <span className="hint">Getting the delivery price from Shipbubble…</span>}
+          {typedQuote.status === 'error' && <span className="err" role="alert">{typedQuote.message}</span>}
           {errFor('address')}
         </section>
       )}
 
-      {!chatOnly && pay > 0 && (
+      {!chatOnly && priced && pay > 0 && (
         <section className="step" aria-label="Wallet">
           <h3 className="step-h">Wallet</h3>
           <p style={{ margin: 0 }}>
             {action.kind === 'bid' ? `${naira(action.amount)} is held for your bid. It comes back if someone outbids you.` : `${naira(action.amount)} pays for the item.`}
-            {deposit > 0 ? ` ${naira(deposit)} covers delivery for everything you get in this show.` : ''}
+            {dep > 0 ? ` ${naira(dep)} for delivery${depInfo?.area ? ` to ${depInfo.area}` : ''}, priced by Shipbubble, is held with your first item. The final fee for everything you get in this show is confirmed after it ends.` : ''}
             {pay > cost - available ? ' Anything left stays in your wallet.' : ''}
           </p>
           <span className="hint">Card, bank transfer or USSD, through Paystack.{available > 0 ? ` You have ${naira(available)} already.` : ''}</span>
@@ -192,7 +228,7 @@ export default function OneStepSheet({ action, deposit = 0, estimate = null, top
       )}
 
       {error.where === '' && error.text && <span className="err" role="alert">{error.text}</span>}
-      <button type="button" className="btn" disabled={Boolean(busy)} onClick={go}>{busy || buttonText}</button>
+      <button type="button" className="btn" disabled={Boolean(busy) || !priced} onClick={go}>{busy || buttonText}</button>
       {!chatOnly && <span className="hint" style={{ textAlign: 'center' }}>The show keeps playing while you do this.</span>}
     </Sheet>
   );

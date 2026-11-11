@@ -15,9 +15,11 @@ const card = { id: 'saved', bank: 'Test Bank', brand: 'Visa', last4: '4081', exp
 const account = { status: 'active', bankName: 'Test Bank', bankSlug: 'test-bank', accountNumber: '1234567890', accountName: 'ADA TEST' };
 const product = () => ({ product: { productId: 'adire', name: 'Adire Bubu Gown', price: 11000, quantity: 3 }, run: 1, minBid: 11000, currentBid: 11000, bidStatus: 'active', isVisible: true, auctionEndsAt: new Date(Date.now()+120000).toISOString() });
 const pages = [];
-async function fixture({ enabled = true, saved = true, width = 390 } = {}) {
+async function fixture({ enabled = true, saved = true, width = 390, missingAddress = false, quotedDeposit = 500 } = {}) {
  const page = await browser.newPage({ viewport: { width, height: 760 }, isMobile: true, hasTouch: true }); pages.push(page);
  const state = { balance: 2000, dva: { status: 'none' }, saved: saved ? [card] : [], charge: 'success', show: { _id: 'demo', title: 'Fashion live', status: 'live', seller: { _id: 'host', storeName: 'Test Store' }, products: [product()], viewers: ['one'] }, calls: [], latestCredit: null, chargeResult: null };
+ state.quotedDeposit = quotedDeposit; state.pauseQuote = false; state.deliveryUnavailable = false;
+ state.profile = { _id: 'buyer', firstName: 'Ada', lastName: 'Test', email: 'ada@test.example', phoneNumber: missingAddress ? '' : '08012345678', shippingAddresses: missingAddress ? [] : [{ _id: 'home', isDefault: true }] };
  const errors = []; page.on('pageerror', e => errors.push(e.message)); state.errors = errors;
  await page.addInitScript(() => {
   localStorage.setItem('buyerToken', 'mock-only');
@@ -31,15 +33,22 @@ async function fixture({ enabled = true, saved = true, width = 390 } = {}) {
   if (path.includes('socket__io-client.js')) return route.fulfill({ contentType: 'application/javascript', body: socketMock });
   if (path.includes('agora-rtc-sdk-ng.js')) return route.fulfill({ contentType: 'application/javascript', body: agoraMock });
   if (url.origin === 'http://localhost:8000') {
-   state.calls.push({ path, method: route.request().method(), body: route.request().postDataJSON() });
+   state.calls.push({ path, search: url.search, method: route.request().method(), body: route.request().postDataJSON() });
    let json = {};
-   if (path.endsWith('/profile')) json = { _id: 'buyer', firstName: 'Ada', lastName: 'Test', email: 'ada@test.example', phoneNumber: '08012345678', shippingAddresses: [{ _id: 'home', isDefault: true }] };
+   if (path.endsWith('/profile')) json = state.profile;
+   else if (path.endsWith('/addresses')) { const body = route.request().postDataJSON(); state.profile.shippingAddresses = [{ _id: 'home', ...body }]; json = state.profile; }
+   else if (path.endsWith('/orders/states')) json = { data: [{ name: 'Lagos', isoCode: 'LA' }] };
+   else if (path.endsWith('/orders/cities/LA')) json = { data: [{ name: 'Lekki' }] };
+   else if (path.endsWith('/delivery-quote')) {
+    if (state.pauseQuote) await new Promise(resolve => { state.releaseQuote = resolve; });
+    json = { available: true, amount: state.quotedDeposit, area: 'Lekki, Lagos', courierName: 'Kwik' };
+   }
    else if (path.endsWith('/wallet/balance')) json = { availableBalance: state.balance, onHoldAmount: 0, ...(enabled ? { topUpMethods: flags } : {}) };
    else if (path === '/api/streams/demo') json = state.show;
    else if (path.endsWith('/join')) json = { stream: state.show, agoraAppId: 'mock', channelName: 'mock', token: 'mock', uid: 2 };
    else if (path.endsWith('/summary')) json = { bids: {}, sold: {}, deliveryDeposit: 500, host: { isNew: true }, ...(enabled ? { topUpMethods: flags } : {}) };
    else if (path.endsWith('/notes')) json = { notes: { howToBuy: 'Tap Bid to join' }, firstLine: 'Tap Bid to join' };
-   else if (path.endsWith('/me')) json = { depositDue: 500, following: true };
+   else if (path.endsWith('/me')) json = !state.profile.shippingAddresses.length || state.deliveryUnavailable ? { depositDue: null, following: true, deliveryProblem: state.deliveryUnavailable ? 'Delivery pricing is temporarily unavailable.' : 'Add your delivery address first.' } : { depositDue: state.quotedDeposit, delivery: { amount: state.quotedDeposit, area: 'Lekki, Lagos', courierName: 'Kwik' }, following: true };
    else if (path.endsWith('/chat')) json = { chatInteractions: [{ id: 'hi', user: 'viewer', content: 'Love this adire!' }] };
    else if (path === '/api/v2/wallet/cards' && route.request().method() === 'GET') json = { cards: state.saved };
    else if (path.startsWith('/api/v2/wallet/cards/') && route.request().method() === 'DELETE') { state.saved = []; json = { removed: true }; }
@@ -49,8 +58,9 @@ async function fixture({ enabled = true, saved = true, width = 390 } = {}) {
     json = { ...state.dva, ...(url.searchParams.get('since') && state.latestCredit ? { latestCredit: state.latestCredit } : {}) };
    } else if (path.endsWith('/charge')) {
     if (state.charge === 'declined') return route.fulfill({ status: 422, json: { message: 'Your bank declined this card. Try another card or a bank transfer.' } });
-    state.chargeResult = { status: state.charge, reference: 'MOCK_TOPUP', amount: 15000, ...(state.charge === 'needs_bank_check' ? { accessCode: 'mock_resume' } : {}) };
-    if (state.charge === 'success') state.balance += 15000;
+    const paid = missingAddress ? route.request().postDataJSON().amount : 15000;
+    state.chargeResult = { status: state.charge, reference: 'MOCK_TOPUP', amount: paid, ...(state.charge === 'needs_bank_check' ? { accessCode: 'mock_resume' } : {}) };
+    if (state.charge === 'success') state.balance += paid;
     if (state.charge === 'processing') await new Promise(r => setTimeout(r, 500));
     json = state.chargeResult;
    } else if (path.includes('/topups/')) json = state.chargeResult;
@@ -138,6 +148,61 @@ try {
  await purchase.getByRole('dialog', { name: /It’s yours/ }).waitFor();
  const bought = bsale.calls.find(c => c.path.endsWith('/buy-now'));
  assert.equal(bought.body.expectedAmount, 11000); assert.equal(bought.body.expectedRun, 1); assert.equal(bought.body.quantity, 1); await purchase.close();
+ // Combined regression: a typed address must be quoted and saved once before
+ // any of the three methods funds the original bid plus the real deposit.
+ for (const method of ['saved', 'bank', 'popup']) {
+  const { page: combined, state: qs } = await fixture({ missingAddress: true, quotedDeposit: 6650 });
+  qs.pauseQuote = true;
+  await combined.getByRole('button', { name: 'Bid ₦12,000', exact: false }).click();
+  await combined.locator('#os-st').selectOption('Lagos');
+  await combined.locator('#os-ct').selectOption('Lekki');
+  await combined.locator('#os-l1').fill('5 Admiralty Way');
+  await combined.locator('#os-ph').fill('1234');
+  assert(await combined.getByRole('button', { name: 'Add your address to continue', exact: true }).isDisabled());
+  assert.equal(qs.calls.filter(c => c.path.endsWith('/delivery-quote')).length, 0);
+  await combined.locator('#os-ph').fill('08031234567');
+  await combined.getByText('Getting the delivery price from Shipbubble…', { exact: true }).waitFor();
+  assert(await combined.getByRole('button', { name: 'Getting the delivery price…', exact: true }).isDisabled());
+  for (let i = 0; i < 50 && !qs.releaseQuote; i++) await new Promise(resolve => setTimeout(resolve, 50));
+  assert(qs.releaseQuote, 'complete address must request a quote'); qs.releaseQuote();
+  await combined.getByRole('button', { name: 'Pay ₦17,000 and bid ₦12,000', exact: true }).waitFor();
+  if (method === 'saved') await capture(combined, '16-quoted-one-step');
+  await combined.getByRole('button', { name: 'Pay ₦17,000 and bid ₦12,000', exact: true }).click();
+  await combined.getByRole('dialog', { name: 'Your wallet', exact: true }).waitFor();
+  await combined.getByText('Add ₦16,650 more to continue.', { exact: true }).waitFor();
+  if (method === 'saved') await capture(combined, '17-quoted-top-up-methods');
+  assert.equal(qs.calls.filter(c => c.path.endsWith('/addresses')).length, 1);
+  assert.equal(await combined.locator('#os-l1').count(), 0, 'saved address must not be asked twice');
+  if (method === 'saved') {
+   await combined.getByRole('button', { name: /Top up ₦20,000/ }).click();
+   assert.equal(qs.calls.find(c => c.path.endsWith('/charge')).body.amount, 20000);
+  } else if (method === 'bank') {
+   qs.dva = account;
+   await combined.getByRole('button', { name: /^Bank transfer/ }).click();
+   await combined.getByText('Send at least ₦16,650', { exact: true }).waitFor();
+   qs.balance += 20000;
+   await combined.evaluate(() => window.__socket.trigger('wallet_credited', { reference: 'QUOTED_BANK', amount: 20000, source: 'transfer' }));
+  } else {
+   await combined.getByRole('button', { name: 'Use another card', exact: true }).click();
+   await combined.waitForFunction(() => window.__popupOptions);
+   assert.equal(await combined.evaluate(() => window.__popupOptions.amount), 1700000);
+   qs.balance += 17000;
+   await combined.evaluate(() => window.__popupOptions.onSuccess({ reference: 'QUOTED_POPUP' }));
+  }
+  await combined.waitForFunction(() => window.__emitted?.some(e => e.name === 'stream_place_bid' && e.data.bidAmount === 12000 && e.data.expectedRun === 1));
+  assert.equal(new URLSearchParams(qs.calls.filter(c => c.path.endsWith('/me')).at(-1).search).get('productId'), 'adire');
+  const preview = qs.calls.find(c => c.path.endsWith('/delivery-quote'));
+  assert.equal(preview.body.productId, 'adire'); assert.equal(preview.body.address.phoneNumber, '08031234567');
+  assert.deepEqual(qs.errors, []); await combined.close();
+  console.log(`PASS: ${method} top-up covers bid plus quoted delivery; phone checked, quote awaited, address saved once`);
+ }
+ const { page: noQuote, state: nq } = await fixture({ quotedDeposit: 6650 });
+ await noQuote.getByRole('button', { name: 'Bid ₦12,000', exact: false }).click();
+ nq.deliveryUnavailable = true;
+ await noQuote.getByRole('button', { name: /Top up ₦20,000/ }).click();
+ await noQuote.getByText('Delivery pricing is temporarily unavailable.', { exact: true }).waitFor();
+ assert.equal((await noQuote.evaluate(() => window.__emitted || [])).filter(e => e.name === 'stream_place_bid').length, 0);
+ await noQuote.close();
  const { page: failed, state: fs } = await fixture({ saved: false }); await open(failed);
  await failed.getByRole('button', { name: /^Bank transfer/ }).click(); fs.dva = { status: 'failed' };
  await failed.evaluate(() => window.__socket.trigger('wallet_dva_ready', { status: 'failed' }));

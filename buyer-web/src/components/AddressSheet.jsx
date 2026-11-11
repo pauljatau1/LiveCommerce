@@ -6,6 +6,15 @@ import { useAuth } from '../auth';
 import { Sheet } from './ui';
 
 // The address form, shared by this sheet and the "One step, then your bid" sheet.
+// Nigerian mobile numbers: 0803 123 4567 (11 digits), +234 803 123 4567, or 803 123 4567
+export const phoneProblem = (raw) => {
+  const d = String(raw || '').replace(/[^\d]/g, '');
+  if (!d) return 'Add a phone number so the courier can reach you.';
+  const local = d.startsWith('234') ? d.slice(3) : d.startsWith('0') ? d.slice(1) : d;
+  if (local.length !== 10 || !/^[789]/.test(local)) return 'Check the phone number: it should look like 0803 123 4567 (11 digits).';
+  return '';
+};
+
 export function useAddressForm() {
   const { buyer } = useAuth();
   const [states, setStates] = useState([]);
@@ -25,7 +34,10 @@ export function useAddressForm() {
   // Plain-language problem with the form, or '' when it's complete
   const problem = (needPhone) => {
     if (!form.state || !form.city || !form.addressLine1.trim()) return 'Add your state, area and street address.';
-    if (needPhone && String(form.phoneNumber).replace(/[^\d]/g, '').length < 10) return 'Add a phone number so the courier can reach you.';
+    if (needPhone || form.phoneNumber) {
+      const p = phoneProblem(form.phoneNumber);
+      if (p) return p;
+    }
     return '';
   };
 

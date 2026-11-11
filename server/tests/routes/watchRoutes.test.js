@@ -22,6 +22,24 @@ jest.mock('@/services/deliveryEstimate', () => {
   };
 });
 
+// Delivery prices come from Shipbubble (mocked here): a quote to the buyer's
+// saved address, or to an address typed in the one-step sheet
+jest.mock('@/services/deliveryService', () => {
+  const actual = jest.requireActual('@/services/deliveryService');
+  return {
+    ...actual,
+    depositQuote: jest.fn(async ({ buyerId }) => {
+      const b = await require('mongoose').connection.collection('buyers').findOne({ _id: new (require('mongoose').Types.ObjectId)(String(buyerId)) });
+      if (!b?.shippingAddresses?.length) throw new actual.DeliveryError(422, 'Add your delivery address first.');
+      return { amount: 2450, courierName: 'Kwik', deliveryEta: '1-2 days', area: `${b.shippingAddresses[0].city}, ${b.shippingAddresses[0].state}` };
+    }),
+    previewQuote: jest.fn(async ({ address }) => {
+      if (!address?.addressLine1) throw new actual.DeliveryError(422, 'Add your street, area and state to see the delivery price.');
+      return { amount: 2450, courierName: 'Kwik', area: `${address.city}, ${address.state}` };
+    }),
+  };
+});
+
 const Stream = require('@models/Stream');
 
 let mongoServer; let app; let show;
@@ -55,11 +73,23 @@ beforeEach(async () => {
 });
 
 describe('GET /api/v2/watch/:id/summary', () => {
+  it('exposes both top-up flags without replacing the per-buyer delivery quote with a flat deposit', async () => {
+    const savedDva = process.env.PAYSTACK_DVA_ENABLED, savedCards = process.env.PAYSTACK_SAVED_CARDS_ENABLED;
+    try {
+      process.env.PAYSTACK_DVA_ENABLED = 'true'; process.env.PAYSTACK_SAVED_CARDS_ENABLED = 'true';
+      const res = await request(app).get(`/api/v2/watch/${show._id}/summary`).expect(200);
+      expect(res.body).toMatchObject({ deliveryDeposit: 0, topUpMethods: { dva: true, savedCards: true } });
+    } finally {
+      if (savedDva === undefined) delete process.env.PAYSTACK_DVA_ENABLED; else process.env.PAYSTACK_DVA_ENABLED = savedDva;
+      if (savedCards === undefined) delete process.env.PAYSTACK_SAVED_CARDS_ENABLED; else process.env.PAYSTACK_SAVED_CARDS_ENABLED = savedCards;
+    }
+  });
+
   it('counts what sold and how many bids each item had, without buyer details', async () => {
     const res = await request(app).get(`/api/v2/watch/${show._id}/summary`).expect(200);
     expect(res.body.sold).toEqual({ [String(productA)]: 3 });
     expect(res.body.bids).toEqual({ [String(productB)]: 3 });
-    expect(res.body.deliveryDeposit).toBe(3000);
+    expect(res.body.deliveryDeposit).toBe(0); // no flat deposit: each buyer gets a Shipbubble quote
     expect(JSON.stringify(res.body)).not.toContain('O1');
   });
 
@@ -117,29 +147,41 @@ describe('watching without an account', () => {
 });
 
 describe('GET /api/v2/watch/:id/me', () => {
-  it('tells a buyer the delivery deposit due before their first item', async () => {
-    const res = await request(app).get(`/api/v2/watch/${show._id}/me`).expect(200);
-    expect(res.body.depositDue).toBe(3000);
+  it('tells a buyer the quoted delivery deposit before their first item, or why it can\'t be priced', async () => {
+    const noAddress = await request(app).get(`/api/v2/watch/${show._id}/me`).expect(200);
+    expect(noAddress.body).toMatchObject({ depositDue: null, deliveryProblem: 'Add your delivery address first.' });
+
+    await mongoose.connection.collection('buyers').insertOne({ _id: new mongoose.Types.ObjectId(mockUser.id), username: `m-${mockUser.id}`, email: `m-${mockUser.id}@t.test`, shippingAddresses: [{ state: 'Lagos', city: 'Maryland' }] });
+    const res = await request(app).get(`/api/v2/watch/${show._id}/me?productId=${productA}`).expect(200);
+    expect(res.body).toMatchObject({ depositDue: 2450, delivery: { courierName: 'Kwik', area: 'Maryland, Lagos' } });
+
+    await mongoose.connection.collection('showdeliveries').insertOne({ stream: show._id, buyer: new mongoose.Types.ObjectId(mockUser.id), seller: show.seller, items: [] });
+    expect((await request(app).get(`/api/v2/watch/${show._id}/me`).expect(200)).body.depositDue).toBe(0);
     mockUser = null;
     await request(app).get(`/api/v2/watch/${show._id}/me`).expect(401);
   });
 });
 
-describe('GET /api/v2/watch/:id/estimate', () => {
-  it('estimates delivery to an area for anyone, and to the saved address for a buyer', async () => {
+describe('delivery prices: Shipbubble to a real address only', () => {
+  it('no area guesses: guests are asked for an address; buyers get a quote to their saved address', async () => {
     const jwt = require('jsonwebtoken');
     mockUser = null;
-    const res = await request(app).get(`/api/v2/watch/${show._id}/estimate?state=Lagos&city=Lekki`).expect(200);
-    expect(res.body).toMatchObject({ available: true, amount: 2500, area: 'Lekki', deposit: 3000 });
-
-    const none = await request(app).get(`/api/v2/watch/${show._id}/estimate`).expect(200);
-    expect(none.body).toMatchObject({ available: false, message: expect.stringMatching(/Pick your state/) });
+    const guest = await request(app).get(`/api/v2/watch/${show._id}/estimate?state=Lagos&city=Lekki`).expect(200);
+    expect(guest.body).toMatchObject({ available: false, message: 'Add your delivery address to see the delivery price.' });
 
     const buyerId = new mongoose.Types.ObjectId();
-    await mongoose.connection.collection('buyers').insertOne({ _id: buyerId, shippingAddresses: [{ state: 'Lagos', city: 'Ikeja' }] });
+    await mongoose.connection.collection('buyers').insertOne({ _id: buyerId, username: `i-${buyerId}`, email: `i-${buyerId}@t.test`, shippingAddresses: [{ state: 'Lagos', city: 'Ikeja' }] });
     const token = jwt.sign({ id: String(buyerId), role: 'Buyer' }, process.env.JWT_SECRET);
     const mine = await request(app).get(`/api/v2/watch/${show._id}/estimate`).set('Authorization', `Bearer ${token}`).expect(200);
-    expect(mine.body).toMatchObject({ available: true, area: 'Ikeja' });
+    expect(mine.body).toMatchObject({ available: true, amount: 2450, area: 'Ikeja, Lagos' });
+  });
+
+  it('prices an address typed in the one-step sheet', async () => {
+    mockUser = null;
+    const ok = await request(app).post(`/api/v2/watch/${show._id}/delivery-quote`).send({ productId: String(productA), address: { addressLine1: '3 Ikorodu Rd', city: 'Maryland', state: 'Lagos', phoneNumber: '08031234567' } }).expect(200);
+    expect(ok.body).toMatchObject({ available: true, amount: 2450, area: 'Maryland, Lagos' });
+    const missing = await request(app).post(`/api/v2/watch/${show._id}/delivery-quote`).send({ address: { city: 'Maryland' } }).expect(200);
+    expect(missing.body).toMatchObject({ available: false, message: expect.stringMatching(/street, area and state/) });
   });
 });
 

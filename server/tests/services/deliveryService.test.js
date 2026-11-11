@@ -25,10 +25,14 @@ const Stream = require('@models/Stream');
 const Product = require('@models/Product');
 const Order = require('@models/Order');
 const ShowDelivery = require('@/models/ShowDelivery');
+const DeliveryEstimate = require('@/models/DeliveryEstimate');
 const deliveries = require('@/services/deliveryService');
 const { createBuyNowOrder } = require('@/services/buyNowOrderService');
+const { createAuctionOrder } = require('@/services/auctionOrderService');
+const bids = require('@/services/streamBidService');
 
 let replSet;
+const DEP = 2450; // Shipbubble's quote for the first item, held as the deposit
 const rates = (amount) => ({ request_token: 'tok_1', couriers: [
   { courier_id: 'gig', courier_name: 'GIG', service_code: 'std', rate_card_amount: amount + 700, total: amount + 600 },
   { courier_id: 'kwik', courier_name: 'Kwik', service_code: 'same_day', rate_card_amount: amount, total: amount - 100, delivery_eta: 'Within 24 hrs' },
@@ -60,7 +64,8 @@ describe('deliveryService (one delivery per buyer per show)', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     delete process.env.DELIVERY_DEPOSIT_NGN;
-    await Promise.all([Buyer, Seller, Stream, Product, Order, ShowDelivery].map((m) => m.deleteMany({})));
+    shipbubble.fetchRates.mockResolvedValue(rates(DEP));
+    await Promise.all([Buyer, Seller, Stream, Product, Order, ShowDelivery, DeliveryEstimate].map((m) => m.deleteMany({})));
     seller = await Seller.collection.insertOne({ firstName: 'Sade', lastName: 'Seller', storeName: 'Figure Den', email: 's@example.com', phoneNumber: '8031112222', sellerAddress: { addressLine1: '1 Allen Avenue', city: 'Ikeja', state: 'Lagos' } }).then((r) => ({ _id: r.insertedId }));
     plush = await Product.collection.insertOne({ name: 'Nezuko plush', price: 15000, salePrice: 0, stock: 5, status: 'active', category: 'Plushies & Keychains', inventory: { sku: 'T-PLUSH' }, seo: { slug: 't-plush' }, seller: seller._id, images: [], shippingInfo: { weight: { value: 0.4 } } }).then((r) => ({ _id: r.insertedId }));
     figure = await Product.collection.insertOne({ name: 'Gojo figure', price: 20000, salePrice: 0, stock: 5, status: 'active', category: 'Figures', inventory: { sku: 'T-FIG' }, seo: { slug: 't-fig' }, seller: seller._id, images: [] }).then((r) => ({ _id: r.insertedId }));
@@ -77,16 +82,70 @@ describe('deliveryService (one delivery per buyer per show)', () => {
 
     const list = await ShowDelivery.find({ buyer: ada._id }).lean();
     expect(list).toHaveLength(1);
-    expect(list[0]).toMatchObject({ status: 'collecting', depositHeld: 3000 });
+    expect(list[0]).toMatchObject({ status: 'collecting', depositHeld: DEP });
     expect(list[0].items.map((i) => i.name)).toEqual(['Nezuko plush', 'Gojo figure']);
-    expect(await wallet(ada)).toMatchObject({ balance: 15000, onHoldAmount: 3000 });
+    expect(await wallet(ada)).toMatchObject({ balance: 15000, onHoldAmount: DEP });
     const orders = await Order.find({ buyer: ada._id }).lean();
     expect(orders.every((o) => String(o.delivery) === String(list[0]._id))).toBe(true);
   });
 
+  it('holds a real Shipbubble quote for the first item, to the buyer\'s saved address (no flat fee)', async () => {
+    const ada = await createBuyer('Ada', 50000);
+    const q = await deliveries.depositQuote({ streamId: stream._id, buyerId: ada._id, productId: plush._id });
+    expect(q).toMatchObject({ amount: DEP, courierName: 'Kwik', area: 'Lekki, Lagos' });
+    const body = shipbubble.fetchRates.mock.calls[0][0];
+    expect(body).toMatchObject({ sender_address_code: 111, reciever_address_code: 222 });
+    expect(body.package_items).toEqual([expect.objectContaining({ name: 'Nezuko plush', unit_weight: '0.4' })]);
+    // The same route and weight is reused for a day, not re-quoted on every bid
+    shipbubble.fetchRates.mockClear();
+    await deliveries.depositQuote({ streamId: stream._id, buyerId: ada._id, productId: plush._id });
+    expect(shipbubble.fetchRates).not.toHaveBeenCalled();
+    // A buyer who already has an item in this show owes no second deposit
+    await buy(ada, plush);
+    expect(await deliveries.depositFor(stream._id, ada._id, figure._id)).toBe(0);
+  });
+
+  it('an auction win holds the same quoted deposit (the bid reserved room for it)', async () => {
+    const ada = await createBuyer('Ada', 50000);
+    const auction = await Stream.create({
+      seller: seller._id, title: 'Auction', category: 'Clothing', channelName: 'ch2', status: 'live', type: 'auction',
+      products: [{ product: { productId: plush._id.toString(), name: 'Nezuko plush' }, minBid: 5000, maxBid: 100000, bidStatus: 'active' }],
+    });
+    const fee = await deliveries.depositFor(auction._id, ada._id, plush._id);
+    expect(fee).toBe(DEP);
+    await bids.placeBid({ streamId: auction._id, productId: plush._id.toString(), buyer: ada, bidAmount: 20000, shippingFee: fee, maxBid: 100000 });
+    expect((await wallet(ada)).onHoldAmount).toBe(20000 + DEP);
+    const r = await createAuctionOrder({ streamId: auction._id, productId: plush._id.toString(), buyerId: ada._id, bidAmount: 20000 });
+    expect(r.success).toBe(true);
+    expect(await wallet(ada)).toMatchObject({ balance: 30000, onHoldAmount: DEP });
+    expect(await ShowDelivery.findOne({ stream: auction._id }).lean()).toMatchObject({ depositHeld: DEP });
+  });
+
+  it('won\'t price or sell without the buyer\'s address or the host\'s pickup address, and says why', async () => {
+    const noAddress = await createBuyer('Bola', 50000, { shippingAddresses: [] });
+    expect(await buy(noAddress, plush)).toMatchObject({ success: false, reason: 'no_address', message: 'Add your delivery address first.' });
+    expect((await Product.findById(plush._id).lean()).stock).toBe(5);
+
+    const ada = await createBuyer('Ada', 50000);
+    await Seller.collection.updateOne({ _id: seller._id }, { $unset: { sellerAddress: 1 } });
+    const r = await buy(ada, plush);
+    expect(r).toMatchObject({ success: false, reason: 'delivery' });
+    expect(r.message).toMatch(/host hasn't finished their pickup address/);
+    expect(shipbubble.fetchRates).not.toHaveBeenCalled();
+  });
+
+  it('prices a typed address for the one-step sheet without saving anything', async () => {
+    const before = await Buyer.countDocuments();
+    const q = await deliveries.previewQuote({ streamId: stream._id, productId: plush._id, address: { addressLine1: '5 Admiralty Way', city: 'Lekki', state: 'Lagos', phoneNumber: '08031234567' } });
+    expect(q).toMatchObject({ amount: DEP, area: 'Lekki, Lagos' });
+    expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({ address: '5 Admiralty Way, Lekki, Lagos, Nigeria', phone: '08031234567' }));
+    expect(await Buyer.countDocuments()).toBe(before);
+    await expect(deliveries.previewQuote({ streamId: stream._id, address: { city: 'Lekki', state: 'Lagos' } })).rejects.toThrow(/street, area and state/);
+  });
+
   it('needs room for the deposit on the first purchase only', async () => {
-    const ada = await createBuyer('Ada', 16000); // 15,000 item + 3,000 deposit doesn't fit
-    expect(await buy(ada, plush)).toMatchObject({ success: false, reason: 'insufficient_funds', needed: 18000 });
+    const ada = await createBuyer('Ada', 16000); // 15,000 item + 2,450 quoted deposit doesn't fit
+    expect(await buy(ada, plush)).toMatchObject({ success: false, reason: 'insufficient_funds', needed: 15000 + DEP });
     expect(await wallet(ada)).toMatchObject({ balance: 16000, onHoldAmount: 0 });
   });
 
@@ -100,7 +159,7 @@ describe('deliveryService (one delivery per buyer per show)', () => {
 
     expect(settled).toMatchObject({ status: 'paid', fee: 2800, depositHeld: 0, quote: { courierName: 'Kwik', requestToken: 'tok_1' } });
     expect(await wallet(ada)).toMatchObject({ balance: 15000 - 2800, onHoldAmount: 0 });
-    const body = shipbubble.fetchRates.mock.calls[0][0];
+    const body = shipbubble.fetchRates.mock.calls.at(-1)[0]; // the after-show quote (the first call priced the deposit)
     expect(body).toMatchObject({ sender_address_code: 111, reciever_address_code: 222, category_id: 90097994 });
     expect(body.package_items).toHaveLength(2);
     // Addresses are verified once and reused
@@ -111,11 +170,11 @@ describe('deliveryService (one delivery per buyer per show)', () => {
 
   it('waits for payment when the wallet is short, keeping the deposit, then the buyer pays', async () => {
     const ada = await createBuyer('Ada', 18000);
-    await buy(ada, plush); // 3,000 left, all held as deposit
+    await buy(ada, plush); // 3,000 left, 2,450 of it held as the deposit
     shipbubble.fetchRates.mockResolvedValue(rates(4500));
 
     const [settled] = await deliveries.settleShow(stream._id);
-    expect(settled).toMatchObject({ status: 'awaiting_payment', depositHeld: 3000, quote: { amount: 4500 } });
+    expect(settled).toMatchObject({ status: 'awaiting_payment', depositHeld: DEP, quote: { amount: 4500 } });
     await expect(deliveries.payDelivery({ buyerId: ada._id, deliveryId: settled._id })).rejects.toMatchObject({ status: 402 });
 
     await Buyer.updateOne({ _id: ada._id }, { $inc: { 'wallet.balance': 2000 } }); // top up
@@ -133,14 +192,14 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     shipbubble.fetchRates.mockRejectedValue(new Error('Delivery quote failed: route not covered'));
 
     const [settled] = await deliveries.settleShow(stream._id);
-    expect(settled).toMatchObject({ status: 'quote_failed', depositHeld: 3000 });
+    expect(settled).toMatchObject({ status: 'quote_failed', depositHeld: DEP });
     expect(settled.lastError).toMatch(/route not covered/);
   });
 
   it('retries a failed price on schedule and charges once Shipbubble answers', async () => {
     const ada = await createBuyer('Ada', 50000);
     await buy(ada, plush);
-    shipbubble.validateAddress.mockRejectedValueOnce(new Error('Address check failed: Enable API access in your dashboard to continue'));
+    shipbubble.fetchRates.mockRejectedValueOnce(new Error('Delivery quote failed: Enable API access in your dashboard to continue'));
     const [failed] = await deliveries.settleShow(stream._id);
     expect(failed.status).toBe('quote_failed');
     expect(failed.lastError).toMatch(/switched off on Shipbubble/);
@@ -165,12 +224,10 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     expect(settled).toMatchObject({ status: 'paid', fee: 2000 });
   });
 
-  it('asks for a phone number before quoting a buyer without one', async () => {
+  it('asks for a courier phone number before the first buy, not after the show', async () => {
     const ada = await createBuyer('Ada', 50000, { phoneNumber: undefined });
-    await buy(ada, plush);
-    const [settled] = await deliveries.settleShow(stream._id);
-    expect(settled.status).toBe('quote_failed');
-    expect(settled.lastError).toMatch(/phone number/);
+    expect(await buy(ada, plush)).toMatchObject({ success: false, reason: 'no_address', message: 'Add a phone number for the courier first.' });
+    expect(await ShowDelivery.countDocuments()).toBe(0);
   });
 
   it('lets only the seller book a paid delivery, once', async () => {

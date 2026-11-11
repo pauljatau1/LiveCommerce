@@ -53,8 +53,11 @@ export const api = {
   googleAuth: (idToken) => http.post('/api/v2/buyers/auth/google-auth', { token: idToken }).then(data),
   guestJoin: (id) => http.post(`/api/v2/watch/${id}/guest-join`, {}, { timeout: 60000 }).then((r) => r.data),
   publicChat: (id) => http.get(`/api/v2/watch/${id}/chat`).then((r) => r.data?.chatInteractions || []),
-  watchMe: (id) => http.get(`/api/v2/watch/${id}/me`).then((r) => r.data),
-  estimate: (id, area = {}) => http.get(`/api/v2/watch/${id}/estimate`, { params: area }).then((r) => r.data),
+  // Delivery deposit for this buyer: a Shipbubble quote to their saved address
+  watchMe: (id, productId) => http.get(`/api/v2/watch/${id}/me`, { params: productId ? { productId } : {} }).then((r) => r.data),
+  // Shipbubble price to an address typed in the one-step sheet (nothing saved)
+  deliveryQuote: (id, body) => http.post(`/api/v2/watch/${id}/delivery-quote`, body).then((r) => r.data),
+  estimate: (id, params = {}) => http.get(`/api/v2/watch/${id}/estimate`, { params }).then((r) => r.data),
   notes: (id) => http.get(`/api/v2/watch/${id}/notes`).then((r) => r.data),
   follow: (sellerId) => http.post(`/api/buyer/follow/${sellerId}`).then((r) => r.data).catch((e) => { if (/already following/i.test(e?.response?.data?.message || '')) return { following: true }; throw e; }),
   unfollow: (sellerId) => http.delete(`/api/buyer/follow/${sellerId}`).then((r) => r.data),
