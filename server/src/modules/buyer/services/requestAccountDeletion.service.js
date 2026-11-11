@@ -66,7 +66,7 @@ async function getEmailContent(email, deletionOTP) {
   // Return SendGrid-compatible email object
   return {
     to: email,
-    from: 'Joseph From Auqli <support@auqli.com>',
+    from: process.env.EMAIL_FROM,
     subject: 'Account Deletion Request - Auqli',
     html
   };

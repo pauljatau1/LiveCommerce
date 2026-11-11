@@ -82,9 +82,11 @@ function authEmail(legacy, { kind = 'verify', audience = 'buyer', name, store, e
 
   return {
     ...legacy,
-    ...(legacy.from ? { from: { email: 'support@auqli.com', name: brand } } : {}),
+    ...(legacy.from ? {from: process.env.EMAIL_FROM} : {}),
     subject,
     html: layout({ brand, home, heading, body, why }),
+    text: require('../services/email/content').plainText(layout({brand, home, heading, body, why})),
+    tags: [{name:'type', value: {reset:'password-reset',passwordChanged:'password-changed',verify:'verification-code',welcome:'welcome'}[kind] || 'transactional'}],
   };
 }
 

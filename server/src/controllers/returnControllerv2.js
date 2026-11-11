@@ -1,9 +1,10 @@
+const mailer = require('../services/email/mailer');
 const Return = require('../models/Return');
 const Order = require('../models/Order');
 const cloudinary = require('../config/cloudinary');
 const { validateReturnEligibility } = require('../utils/returnUtils');
 const Admin = require('../models/Admin');
-const sgMail = require('../config/sendgrid');
+
 const { createBuyerNotification, createNotification } = require('./notificationController');
 const Product = require('../models/Product');
 const Buyer = require('../models/Buyer');
@@ -79,12 +80,12 @@ async function notifyAdmins(type, data) {
         
         const adminEmail = {
           to: adminEmails,
-          from: 'Auqli Returns <support@auqli.com>',
+          from: process.env.EMAIL_FROM,
           subject,
           html
         };
         
-        await sgMail.send(adminEmail);
+        await mailer.send({ ...adminEmail, tags: [{ name: 'type', value: 'return-update' }] });
         console.log('Admin notification sent successfully');
       }
     }
@@ -985,10 +986,7 @@ async function sendRefundConfirmationEmails(returnRequest) {
   try {
     const buyerEmail = {
       to: returnRequest.buyer.email,
-      from: {
-        email: 'support@auqli.com',
-        name: 'Auqli Returns'
-      },
+      from: process.env.EMAIL_FROM,
       subject: 'Your Refund Has Been Processed - Terminal Africa Return',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1008,7 +1006,7 @@ async function sendRefundConfirmationEmails(returnRequest) {
       `
     };
 
-    await sgMail.send(buyerEmail);
+    await mailer.send({ ...buyerEmail, tags: [{ name: 'type', value: 'return-update' }] });
     console.log('Refund confirmation email sent to buyer for Terminal Africa return');
 
   } catch (error) {

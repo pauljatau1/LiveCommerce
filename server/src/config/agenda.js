@@ -4,7 +4,8 @@ const mongoose = require('mongoose');
 const axios = require('axios');
 
 // Verify SendGrid API key at startup
-const verifySendGridConfig = () => {
+const verifySendGridConfig = () => require('../services/email/mailer').configuration().email === 'configured';
+const legacyVerifySendGridConfig = () => {
   const apiKey = process.env.SENDGRID_API_KEY;
 
   if (!apiKey) {
@@ -402,7 +403,7 @@ agenda.define('closeOrder', async (job) => {
     console.log(`Sending closure notification emails for order ${order.order_id}`);
     const buyerClosureEmail = {
       to: order.buyer.email,
-      from: 'Auqli Orders <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Order Closed Successfully - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -417,7 +418,7 @@ agenda.define('closeOrder', async (job) => {
 
     const sellerClosureEmail = {
       to: order.seller.email,
-      from: 'Auqli Orders <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Order Closed and Payment Released - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -699,7 +700,7 @@ agenda.define('update-auction-status', async (job) => {
               `
             });
           } catch (emailError) {
-            console.error(`Failed to send auction notification to ${follower.buyerId.email}:`, emailError.message);
+            // Email delivery details are logged by the shared mailer.
           }
         }
       }
@@ -1753,15 +1754,7 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
               createdAt: new Date()
             };
 
-            console.log(`WALLET REFUND - TRANSACTION DETAILS:`, {
-              buyerId: buyer._id,
-              buyerEmail: buyer.email,
-              transactionType: refundTransaction.type,
-              amount: refundTransaction.amount,
-              description: refundTransaction.description,
-              status: refundTransaction.status,
-              createdAt: refundTransaction.createdAt
-            });
+            // Email delivery details are logged by the shared mailer.
 
             // Update buyer's wallet
             const previousBalance = buyer.wallet.balance;
@@ -1787,16 +1780,7 @@ agenda.define('mark_unpaid_orders_stale', async (job) => {
             console.log(`Successfully refunded ${refundAmount} to buyer ${buyer._id} wallet for stale order ${order.order_id}`);
           } else {
             console.error(`Could not find buyer ${order.buyer} to refund wallet amount for stale order ${order.order_id}`);
-            console.error(`WALLET REFUND FAILED - BUYER NOT FOUND:`, {
-              orderId: order.order_id,
-              buyerId: order.buyer,
-              walletAmountUsed: order.paymentInfo.walletAmountUsed,
-              buyerDetails: order.buyer ? {
-                _id: order.buyer._id,
-                email: order.buyer.email,
-                name: `${order.buyer.firstName} ${order.buyer.lastName}`
-              } : 'Not available'
-            });
+            // Email delivery details are logged by the shared mailer.
           }
         } catch (refundError) {
           console.error(`Error refunding wallet amount for stale order ${order.order_id}:`, refundError);
@@ -2438,10 +2422,7 @@ agenda.define('credit_welcome_bonus', async (job) => {
 
     const msg = {
       to: buyer.email,
-      from: {
-        email: 'support@auqli.com',
-        name: 'Auqli'
-      },
+      from: process.env.EMAIL_FROM,
       subject: 'Welcome Bonus Added to Your Wallet! 🎉',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: 'Arial', sans-serif; line-height: 1.6;">
@@ -2533,7 +2514,7 @@ agenda.define('credit_welcome_bonus', async (job) => {
         subject: msg.subject,
         html: msg.html
       });
-      console.log(`Welcome bonus email sent to: ${buyer.email}`);
+      // Email delivery details are logged by the shared mailer.
     } catch (emailError) {
       console.error('Error sending welcome bonus email:', emailError.message);
     }
@@ -2815,7 +2796,7 @@ agenda.define('stream_reminder_push', async (job) => {
             subject: `⏰ Reminder: ${actualStoreName}'s live show starts soon`,
             html: emailHtml
           }).catch(err => {
-            console.error(`[AGENDA] Failed to send 15-min reminder email to ${buyer.email}:`, err.message);
+            // Email delivery details are logged by the shared mailer.
             return null;
           })
         );

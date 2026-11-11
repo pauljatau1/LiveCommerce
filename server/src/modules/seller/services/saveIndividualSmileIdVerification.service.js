@@ -180,7 +180,7 @@ function getVerificationEmailContent(seller, isActuallySuccessful) {
   // Step 5: Return SendGrid-compatible email object
   return {
     to: seller.email,
-    from: 'Auqli Nigeria <support@auqli.com>',
+    from: process.env.EMAIL_FROM,
     subject: 'Identity Verification Completed',
     html
   };

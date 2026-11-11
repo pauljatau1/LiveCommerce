@@ -96,7 +96,7 @@ const TERMII_TRANSACTIONAL_TEMPLATE_ID = 'de58adb8-761f-4bcf-b514-a580074fff42';
  *
  * @example
  * // Send password reset email
- * const result = await sendTemplatedEmail({
+ * const result = await legacySendTemplatedEmail({
  *   email: 'user@example.com',
  *   subject: 'Password Reset Code - Auqli',
  *   variables: {
@@ -108,7 +108,7 @@ const TERMII_TRANSACTIONAL_TEMPLATE_ID = 'de58adb8-761f-4bcf-b514-a580074fff42';
  *
  * @example
  * // Send email with custom template
- * const result = await sendTemplatedEmail({
+ * const result = await legacySendTemplatedEmail({
  *   email: 'user@example.com',
  *   subject: 'Welcome to Auqli',
  *   templateId: 'custom-template-id',
@@ -118,7 +118,7 @@ const TERMII_TRANSACTIONAL_TEMPLATE_ID = 'de58adb8-761f-4bcf-b514-a580074fff42';
  *   }
  * });
  */
-async function sendTemplatedEmail(emailData) {
+async function legacySendTemplatedEmail(emailData) {
   // Step 1: Validate required environment variables
   // This ensures all necessary Termii configuration is present
   if (!process.env.TERMII_API_KEY) {
@@ -138,7 +138,7 @@ async function sendTemplatedEmail(emailData) {
 
   // Step 3: Validate required fields
   if (!email || !subject || !templateId || !emailConfigurationId) {
-    console.error('Missing required fields for Termii email:', { email: !!email, subject: !!subject, templateId: !!templateId, emailConfigurationId: !!emailConfigurationId });
+    // Email delivery details are logged by the shared mailer.
     return { code: 'error', message: 'Missing required configuration', failed: true };
   }
 
@@ -164,7 +164,7 @@ async function sendTemplatedEmail(emailData) {
       return response.data;
     } else {
       // If response doesn't indicate success, log error and return safe response
-      console.error(`Termii email attempt failed: ${response.data?.message || 'Invalid response from Termii API'}`);
+      console.warn('[email] Termii request was refused.');
       return {
         code: 'error',
         message: response.data?.message || 'Invalid response from Termii API',
@@ -174,12 +174,13 @@ async function sendTemplatedEmail(emailData) {
   } catch (error) {
     // Step 7: Handle errors from Termii API
     // Log error details for debugging while maintaining security
-    console.error('Error sending email via Termii:', error.response?.data || error.message);
+    console.warn('[email] Termii request failed.');
 
     // Return safe error object instead of throwing
     return {
       code: 'error',
-      message: `Failed to send email. Please try again later. ${error.response?.data?.message || error.message}`,
+      message: 'We couldn’t send the email. Please try again shortly.',
+      statusCode: error.response?.status,
       failed: true
     };
   }
@@ -208,13 +209,13 @@ async function sendTemplatedEmail(emailData) {
  *
  * @example
  * // Send email with raw HTML
- * const result = await sendRawHTMLEmail({
+ * const result = await legacySendRawHTMLEmail({
  *   email: 'user@example.com',
  *   subject: 'Password Reset Code - Auqli',
  *   html: '<div>Your OTP is: 1234</div>'
  * });
  */
-async function sendRawHTMLEmail(emailData) {
+async function legacySendRawHTMLEmail(emailData) {
   // Step 1: Extract email data with defaults
   // Template ID and email configuration ID are hardcoded but can be overridden if needed
   const {
@@ -228,13 +229,13 @@ async function sendRawHTMLEmail(emailData) {
 
   // Step 2: Validate required fields
   if (!email || !subject || !html || !templateId || !emailConfigurationId) {
-    console.error('Missing required fields for Termii raw HTML email:', { email: !!email, subject: !!subject, html: !!html, templateId: !!templateId, emailConfigurationId: !!emailConfigurationId });
+    // Email delivery details are logged by the shared mailer.
     return { code: 'error', message: 'Missing required configuration', failed: true };
   }
 
   // Step 3: Send email using template with HTML body as variable
   // The template should have {{message}} (or your custom variable name) placeholder
-  return await sendTemplatedEmail({
+  return await legacySendTemplatedEmail({
     email: email,
     subject: subject,
     templateId: templateId,
@@ -270,7 +271,7 @@ async function sendRawHTMLEmail(emailData) {
  *
  * @example
  * // Send password reset email with raw HTML (like SendGrid)
- * const result = await sendPasswordResetEmail({
+ * const result = await legacySendPasswordResetEmail({
  *   email: 'user@example.com',
  *   subject: 'Password Reset Code - Auqli',
  *   html: '<div>Your reset code is: 1234</div>'
@@ -278,13 +279,13 @@ async function sendRawHTMLEmail(emailData) {
  *
  * @example
  * // Send password reset email using template variables
- * const result = await sendPasswordResetEmail({
+ * const result = await legacySendPasswordResetEmail({
  *   email: 'user@example.com',
  *   resetOTP: '1234',
  *   userName: 'John Doe'
  * });
  */
-async function sendPasswordResetEmail(resetData) {
+async function legacySendPasswordResetEmail(resetData) {
   // Step 1: Extract reset data with defaults
   const {
     email,
@@ -302,7 +303,7 @@ async function sendPasswordResetEmail(resetData) {
   // Step 3: If raw HTML is provided, use it (like SendGrid)
   // This allows you to keep your HTML in code
   if (html) {
-    return await sendRawHTMLEmail({
+    return await legacySendRawHTMLEmail({
       email: email,
       subject: subject,
       html: html
@@ -330,7 +331,7 @@ async function sendPasswordResetEmail(resetData) {
   }
 
   // Step 6: Send email using the templated email function
-  return await sendTemplatedEmail({
+  return await legacySendTemplatedEmail({
     email: email,
     subject: subject,
     variables: variables
@@ -349,7 +350,7 @@ async function sendPasswordResetEmail(resetData) {
  * @param {string} emailData.message - The main message content
  * @param {string} [emailData.name] - User's name (optional, defaults to empty string)
  */
-async function sendTransactionalEmail(emailData) {
+async function legacySendTransactionalEmail(emailData) {
   const {
     email,
     subject,
@@ -362,7 +363,7 @@ async function sendTransactionalEmail(emailData) {
   if (!subject) throw new Error('Email subject is required');
   if (!message) throw new Error('Email message is required');
 
-  return await sendTemplatedEmail({
+  return await legacySendTemplatedEmail({
     email,
     subject,
     templateId: TERMII_TRANSACTIONAL_TEMPLATE_ID,
@@ -374,11 +375,40 @@ async function sendTransactionalEmail(emailData) {
   });
 }
 
-// Export service functions for use in other modules
+// Public names and signatures remain compatible. Old transport is selectable only via mailer.
+const mailer = require('./email/mailer');
+const {authEmail, escapeHtml} = require('../utils/authEmail');
+const inferType = subject => /password.*chang/i.test(subject) ? 'password-changed'
+  : /reset/i.test(subject) ? 'password-reset'
+  : /code|verif|otp/i.test(subject) ? 'verification-code'
+  : /welcome|store.*ready/i.test(subject) ? 'welcome' : 'transactional';
+async function sendRawHTMLEmail(data) {
+  try {
+    const result = await mailer.send({
+      ...data, to: data.email || data.to,
+      tags: data.tags || [{name:'type',value:inferType(data.subject)}],
+    });
+    return {code:'ok', ...result};
+  } catch (error) {
+    // Preserve the old adapter's best-effort return contract for business callers.
+    // The mailer has already logged the failure without provider details.
+    return {code:'error', failed:true, message:'We couldn’t send the email. Please try again shortly.'};
+  }
+}
+async function sendPasswordResetEmail(data) {
+  const content = data.html ? data : {...data, ...authEmail({}, {forceCurrent:true,kind:'reset',email:data.email,code:data.resetOTP,name:data.userName,minutes:15})};
+  return sendRawHTMLEmail({...content,tags:data.tags || [{name:'type',value:'password-reset'}]});
+}
+async function sendTemplatedEmail(data) {
+  const vars = data.variables || {};
+  return sendRawHTMLEmail({...data, html: data.html || vars.message || vars.email_body
+    || authEmail({}, {kind:'verify', code:vars.otp || vars.reset_code, name:vars.name}).html});
+}
+async function sendTransactionalEmail(data) {
+  return sendRawHTMLEmail({...data, html:data.html || `<p>${escapeHtml(data.name || '')}</p><p>${data.message}</p>`});
+}
 module.exports = {
-  sendTemplatedEmail,
-  sendRawHTMLEmail,
-  sendPasswordResetEmail,
-  sendTransactionalEmail
+  sendTemplatedEmail, sendRawHTMLEmail, sendPasswordResetEmail, sendTransactionalEmail,
+  legacy: {sendTemplatedEmail: legacySendTemplatedEmail, sendRawHTMLEmail: legacySendRawHTMLEmail,
+    sendPasswordResetEmail: legacySendPasswordResetEmail, sendTransactionalEmail: legacySendTransactionalEmail},
 };
-

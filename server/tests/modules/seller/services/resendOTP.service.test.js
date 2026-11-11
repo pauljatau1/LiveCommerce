@@ -80,9 +80,11 @@ describe('Resend OTP Service', () => {
       // Assert
       expect(result).toEqual({
         to: email,
-        from: { email: 'support@auqli.com', name: process.env.APP_NAME || 'gbam' },
+        from: process.env.EMAIL_FROM,
         subject: `Your ${process.env.APP_NAME || 'gbam'} code is ${otp}`,
-        html: expect.stringContaining(otp)
+        html: expect.stringContaining(otp),
+        text: expect.stringContaining(otp),
+        tags: [{name:'type',value:'verification-code'}]
       });
       expect(result.html).toContain(otp);
       expect(result.html).toContain(firstName);

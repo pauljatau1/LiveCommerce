@@ -36,7 +36,7 @@ async function issue(role, email, {link = false, phone} = {}) {
     const url = link ? `${role === 'Seller' ? sellerAppUrl() : buyerAppUrl()}/forgot-password?token=${token}` : undefined;
     try {
       if (phone) await require('../../modules/buyer/services/forgotPasswordSMS.service').sendSecureResetSMS(phone, code);
-      else await mail.sendPasswordResetEmail({email, ...authEmail({}, {
+      else await mail.sendPasswordResetEmail({email, idempotencyKey: `password-reset/${hash(token)}`, ...authEmail({}, {
         forceCurrent: true, kind: 'reset', audience: role.toLowerCase(),
         name: account.firstName, email, code, minutes: MINUTES, url,
       })});
@@ -105,7 +105,7 @@ async function reset(role, {email, code, otp, token, newPassword, phoneNumber}) 
     console.warn('[password-reset] Could not close active sockets.');
   }
   try {
-    await mail.sendRawHTMLEmail({email: account.email, ...authEmail({}, {
+    await mail.sendRawHTMLEmail({email: account.email, idempotencyKey: `password-changed/${account._id}-${account.authVersion}`, ...authEmail({}, {
       forceCurrent: true, kind: 'passwordChanged', audience: role.toLowerCase(),
       name: account.firstName, email: account.email,
     })});

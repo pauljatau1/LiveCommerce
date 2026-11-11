@@ -171,7 +171,7 @@ function getWelcomeEmailContent(email, firstName) {
   // Step 4: Return SendGrid-compatible email object
   return authEmail({
     to: email,
-    from: 'Auqli <support@auqli.com>',
+    from: process.env.EMAIL_FROM,
     subject: "Welcome to Auqli — Let's Get You Selling",
     html
   }, { kind: 'welcome', audience: 'seller', name: firstName });
@@ -225,7 +225,7 @@ function getAdminNotificationEmailContent(firstName, lastName, email, phoneNumbe
   // Step 4: Return SendGrid-compatible email object
   return {
     to: ['admin@auqli.com'],
-    from: 'Auqli Admin <support@auqli.com>',
+    from: process.env.EMAIL_FROM,
     subject: 'New Seller Registration - Auqli',
     html
   };
@@ -316,16 +316,11 @@ async function register(data) {
     sendAdminNotification(data.firstName, data.lastName, data.email, data.phoneNumber)
   ])
     .then(() => {
-      console.log(`✅ Welcome emails sent successfully for ${data.email}`);
+      // Email delivery details are logged by the shared mailer.
     })
     .catch((emailError) => {
       // Log the error but don't fail the registration
-      console.error('⚠️ Email sending failed during registration, but account was created successfully:', {
-        email: data.email,
-        error: emailError.message,
-        code: emailError.code,
-        sellerId: savedSeller._id
-      });
+      // Email delivery details are logged by the shared mailer.
       // Optionally, you could add this to a retry queue here
     });
 

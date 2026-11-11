@@ -1,3 +1,4 @@
+const mailer = require('../services/email/mailer');
 const Product = require('../models/Product');
 const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
@@ -4150,8 +4151,6 @@ agenda.define('end-auction', async (job) => {
 
     const Product = mongoose.model('Product');
     const Buyer = mongoose.model('Buyer');
-    const sgMail = require('@sendgrid/mail');
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
     const product = await Product.findById(productId)
       .populate('seller', 'email firstName businessName')
@@ -4227,7 +4226,7 @@ agenda.define('end-auction', async (job) => {
       // Send winner notification
       const winnerEmail = {
         to: product.auction.currentHighestBid.buyer.email,
-        from: 'Auqli Auctions <support@auqli.com>',
+        from: process.env.EMAIL_FROM,
         subject: 'Congratulations! You Won the Auction - Auqli',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -4244,7 +4243,7 @@ agenda.define('end-auction', async (job) => {
       // Send seller notification
       const sellerEmail = {
         to: product.seller.email,
-        from: 'Auqli Auctions <support@auqli.com>',
+        from: process.env.EMAIL_FROM,
         subject: 'Your Auction Has Ended - Auqli',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -4264,8 +4263,8 @@ agenda.define('end-auction', async (job) => {
       try {
         console.log(`Sending winner and seller emails for auction: ${productId}`);
         await Promise.all([
-          sgMail.send(winnerEmail),
-          sgMail.send(sellerEmail)
+          mailer.send({ ...winnerEmail, tags: [{ name: 'type', value: 'auction-result' }] }),
+          mailer.send({ ...sellerEmail, tags: [{ name: 'type', value: 'auction-result' }] })
         ]);
         console.log(`Emails sent successfully for auction: ${productId}`);
       } catch (emailError) {

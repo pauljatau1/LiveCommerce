@@ -1,3 +1,4 @@
+const mailer = require('../services/email/mailer');
 const { appName } = require('../utils/helpers');
 const { authEmail, escapeHtml } = require('../utils/authEmail');
 const { buyerAppUrl } = require('../utils/helpers');
@@ -135,7 +136,7 @@ exports.register = async (req, res) => {
 
     const msg = {
       to: email,
-      from: 'Auqli Nigeria <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Your Email Verification Code',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 10px; font-family: 'Arial', sans-serif; line-height: 1.6;">
@@ -194,13 +195,14 @@ exports.register = async (req, res) => {
 
     try {
       Object.assign(msg, authEmail(msg, { kind: 'verify', audience: 'buyer', code: otp, name: firstName }));
-      await sgMail.send(msg);
+      await mailer.send({ ...msg, tags: msg.tags || [{ name: 'type', value: 'buyer-notification' }] });
     } catch (sendError) {
       console.error('SendGrid error:', sendError);
-      return res.status(500).json({
+      // Legacy reply retained for reference. Delivery failure must not change account creation.
+      /* return res.status(500).json({
         message: 'Account created but failed to send verification email',
         error: sendError.message
-      });
+      }); */
     }
 
     // Exclude password and OTP from response for security
@@ -639,7 +641,7 @@ exports.resendOTP = async (req, res) => {
 
     const msg = {
       to: email,
-      from: 'Joseph From Auqli <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Your New Verification Code - Auqli',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -665,7 +667,7 @@ exports.resendOTP = async (req, res) => {
 
     try {
       Object.assign(msg, authEmail(msg, { kind: 'verify', audience: 'buyer', code: otp }));
-      await sgMail.send(msg);
+      await mailer.send({ ...msg, tags: msg.tags || [{ name: 'type', value: 'buyer-notification' }] });
     } catch (sendError) {
       console.error('SendGrid error:', sendError);
       return res.status(500).json({ message: 'Failed to send verification email', error: sendError.message });
@@ -1909,7 +1911,7 @@ exports.verifyIdentity = async (req, res) => {
     // Send email notification to buyer
     const msg = {
       to: buyer.email,
-      from: 'Joseph From Auqli <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Identity Verification Approved - Auqli',
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -1931,7 +1933,7 @@ exports.verifyIdentity = async (req, res) => {
     };
 
     try {
-      await sgMail.send(msg);
+      await mailer.send({ ...msg, tags: msg.tags || [{ name: 'type', value: 'buyer-notification' }] });
     } catch (sendError) {
       console.error('SendGrid error:', sendError);
       // Continue with the response even if email fails
@@ -2900,7 +2902,7 @@ exports.sendWalletTopUpEmail = async (buyer, transaction) => {
       subject: 'Wallet Top-Up Confirmation',
       html: html
     });
-    console.log('Wallet top-up confirmation email sent to:', buyer.email);
+    // Email delivery details are logged by the shared mailer.
     return true;
   } catch (error) {
     console.error('Error sending wallet top-up confirmation email:', error);

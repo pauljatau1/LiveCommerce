@@ -229,15 +229,15 @@ exports.login = async (req, res) => {
 
     // Send the notification email asynchronously 
     try {
-      console.log(`Attempting to send login notification to admin: ${admin.email}`);
+      // Email delivery details are logged by the shared mailer.
 
       // This is now a fire-and-forget operation, don't await it
       sendAdminLoginNotificationEmail(admin.email, admin.username, loginMetadata)
         .then(success => {
           if (success) {
-            console.log(`Login notification email successfully sent to ${admin.email}`);
+            // Email delivery details are logged by the shared mailer.
           } else {
-            console.error(`Could not send login notification email to ${admin.email}`);
+            // Email delivery details are logged by the shared mailer.
           }
         })
         .catch(err => {
@@ -630,9 +630,9 @@ exports.disableSeller = async (req, res) => {
         status: 'success'
       };
 
-      console.log(`📦 Set ${productUpdateResult.modifiedCount} products to draft status for disabled seller ${seller.email}`);
+      // Email delivery details are logged by the shared mailer.
     } catch (productError) {
-      console.error(`❌ Error setting products to draft for seller ${seller.email}:`, productError);
+      // Email delivery details are logged by the shared mailer.
       productStatusUpdate = {
         productsUpdated: 0,
         status: 'error',
@@ -650,12 +650,7 @@ exports.disableSeller = async (req, res) => {
         // Get comprehensive withdrawal safety report
         withdrawalSafetyReport = await getWithdrawalSafetyReport(seller._id);
 
-        console.log(`Withdrawal safety report for ${seller.email}:`, {
-          canWithdraw: withdrawalSafetyReport.withdrawalCalculation.canWithdraw,
-          availableBalance: withdrawalSafetyReport.withdrawalCalculation.availableBalance,
-          existingWithdrawals: withdrawalSafetyReport.existingWithdrawals.count,
-          bankDetailsValid: withdrawalSafetyReport.bankDetails.isValid
-        });
+        // Email delivery details are logged by the shared mailer.
 
         // Only create withdrawal if it's safe to do so
         if (withdrawalSafetyReport.recommendations.shouldCreateWithdrawal) {
@@ -671,7 +666,7 @@ exports.disableSeller = async (req, res) => {
             // Send email notification about automatic withdrawal
             const withdrawalEmailMsg = {
               to: seller.email,
-              from: 'Auqli Admin <support@auqli.com>',
+              from: process.env.EMAIL_FROM,
               subject: 'Automatic Withdrawal Request Created - Account Disabled',
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -694,13 +689,13 @@ exports.disableSeller = async (req, res) => {
 
             // Send emails asynchronously (non-blocking)
             termiiEmailService.sendRawHTMLEmail({ email: withdrawalEmailMsg.to, subject: withdrawalEmailMsg.subject, html: withdrawalEmailMsg.html }).catch(emailError => {
-              console.error(`❌ Error sending withdrawal email to ${seller.email}:`, emailError);
+              // Email delivery details are logged by the shared mailer.
             });
 
             // Also send notification to admin about the automatic withdrawal
             const adminNotificationMsg = {
               to: 'support@auqli.com',
-              from: 'Auqli System <support@auqli.com>',
+              from: process.env.EMAIL_FROM,
               subject: 'Automatic Withdrawal Created for Disabled Seller',
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -728,10 +723,10 @@ exports.disableSeller = async (req, res) => {
               console.error(`❌ Error sending admin notification email:`, emailError);
             });
 
-            console.log(`✅ Automatic withdrawal created for disabled seller ${seller.email}: ₦${automaticWithdrawal.amount.toLocaleString()} (Ref: ${automaticWithdrawal.reference})`);
+            // Email delivery details are logged by the shared mailer.
           } else if (withdrawalResult.requiresSupportContact) {
             // Handle case where seller has no bank details
-            console.log(`📧 Sending no bank details emails for ${seller.email} (Balance: ₦${withdrawalResult.availableBalance.toLocaleString()})`);
+            // Email delivery details are logged by the shared mailer.
 
             // Send no bank details emails asynchronously (non-blocking)
             sendNoBankDetailsEmails(
@@ -739,16 +734,16 @@ exports.disableSeller = async (req, res) => {
               withdrawalResult.availableBalance,
               'Account disabled by admin'
             ).then(() => {
-              console.log(`✅ No bank details emails sent for ${seller.email}`);
+              // Email delivery details are logged by the shared mailer.
             }).catch(emailError => {
-              console.error(`❌ Error sending no bank details emails for ${seller.email}:`, emailError);
+              // Email delivery details are logged by the shared mailer.
             });
           } else {
-            console.log(`⚠️ Automatic withdrawal skipped for ${seller.email}: ${withdrawalResult.reason}`);
+            // Email delivery details are logged by the shared mailer.
             console.log(`   Details:`, withdrawalResult.details);
           }
         } else {
-          console.log(`⚠️ Automatic withdrawal skipped for ${seller.email}: ${withdrawalSafetyReport.recommendations.reason}`);
+          // Email delivery details are logged by the shared mailer.
           console.log(`   Safety report:`, {
             canWithdraw: withdrawalSafetyReport.withdrawalCalculation.canWithdraw,
             existingWithdrawals: withdrawalSafetyReport.existingWithdrawals.count,
@@ -759,7 +754,7 @@ exports.disableSeller = async (req, res) => {
           if (!withdrawalSafetyReport.bankDetails.isValid && withdrawalSafetyReport.withdrawalCalculation.canWithdraw) {
             const invalidBankDetailsAdminMsg = {
               to: 'bolu@auqli.com',
-              from: 'Auqli System <support@auqli.com>',
+              from: process.env.EMAIL_FROM,
               subject: `Action Required: Seller ${seller.firstName} ${seller.lastName} Has Invalid Bank Details`,
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -821,7 +816,7 @@ exports.disableSeller = async (req, res) => {
               console.error(`❌ Error sending invalid bank details admin notification:`, emailError);
             });
 
-            console.log(`📧 Admin notification sent to bolu@auqli.com for invalid bank details: ${seller.email}`);
+            // Email delivery details are logged by the shared mailer.
           }
         }
       } catch (withdrawalError) {
@@ -833,7 +828,7 @@ exports.disableSeller = async (req, res) => {
     // Send notification emails
     const emailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Important: Your Auqli Account Has Been Disabled',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -857,7 +852,7 @@ exports.disableSeller = async (req, res) => {
     if (seller.businessEmail) {
       const businessEmailMsg = {
         to: seller.businessEmail,
-        from: 'Auqli Admin <support@auqli.com>',
+        from: process.env.EMAIL_FROM,
         subject: 'Important: Business Account Status Update - Auqli',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -954,7 +949,7 @@ exports.enableSeller = async (req, res) => {
     // Send notification email
     const emailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Good News! Your Auqli Account Has Been Reactivated 🎉',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -978,7 +973,7 @@ exports.enableSeller = async (req, res) => {
     if (seller.businessEmail) {
       const businessEmailMsg = {
         to: seller.businessEmail,
-        from: 'Auqli Admin <support@auqli.com>',
+        from: process.env.EMAIL_FROM,
         subject: 'Business Account Reactivated - Auqli',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -2571,14 +2566,14 @@ exports.adminCancelOrder = async (req, res) => {
 
     const buyerEmail = {
       to: updatedOrder.buyer.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Order Cancellation Notice - Auqli',
       html: buyerEmailHtml
     };
 
     const sellerEmail = {
       to: updatedOrder.seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Order Cancellation Notification - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -2610,7 +2605,7 @@ exports.adminCancelOrder = async (req, res) => {
         if (adminEmails.length > 0) {
           const adminEmail = {
             to: adminEmails,
-            from: 'Auqli Refunds <support@auqli.com>',
+            from: process.env.EMAIL_FROM,
             subject: `Refund Request Created - Admin Cancelled Order #${updatedOrder.order_id}`,
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -2858,7 +2853,7 @@ exports.updateWithdrawalStatus = async (req, res) => {
     try {
       const emailMsg = {
         to: withdrawal.seller.email,
-        from: 'Auqli <support@auqli.com>',
+        from: process.env.EMAIL_FROM,
         subject: 'Withdrawal Request Update',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -2928,7 +2923,7 @@ exports.verifyBuyerIdentity = async (req, res) => {
     // Send detailed email notification to buyer
     const emailMsg = {
       to: buyer.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: `Identity Verification ${status === 'verified' ? 'Approved' : 'Rejected'}`,
       html: `
         <div style="background-color: #1a1a1a; color: #ffffff; padding: 30px; font-family: Arial, sans-serif;">
@@ -3308,7 +3303,7 @@ exports.rejectBusinessAccount = async (req, res) => {
     // Send rejection email to personal email
     const personalEmailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Important: Your Auqli Business Account Application Status',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -3342,7 +3337,7 @@ exports.rejectBusinessAccount = async (req, res) => {
     if (seller.businessEmail) {
       const businessEmailMsg = {
         to: seller.businessEmail,
-        from: 'Auqli Admin <support@auqli.com>',
+        from: process.env.EMAIL_FROM,
         subject: 'Business Account Verification Status - Action Required',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -4306,7 +4301,7 @@ exports.approveBankChangeRequest = async (req, res) => {
     // Send email notification to seller
     const emailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Bank Account Change Request Approved',
       html: `
         <h2>Bank Account Change Request Approved</h2>
@@ -4368,7 +4363,7 @@ exports.rejectBankChangeRequest = async (req, res) => {
     // Send email notification to seller
     const emailMsg = {
       to: request.seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Bank Account Change Request Rejected',
       html: `
         <h2>Bank Account Change Request Rejected</h2>
@@ -5966,7 +5961,7 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
     // Send the email to seller using SendGrid
     const sellerMsg = {
       to: seller.email,
-      from: 'Auqli Support <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Bulk Product Upload Completed - Auqli',
       html: sellerEmailHTML,
     };
@@ -5974,7 +5969,7 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
     // Send the email to admin using SendGrid
     const adminMsg = {
       to: 'admin@auqli.com',
-      from: 'Auqli Support <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: `Bulk Upload Report: ${seller.businessName || seller.firstName} (${products.length} success, ${errorsCount} errors)`,
       html: adminEmailHTML,
     };
@@ -5984,7 +5979,7 @@ async function sendBulkUploadEmail(seller, products, totalProcessed, errorsCount
       termiiEmailService.sendRawHTMLEmail({ email: adminMsg.to, subject: adminMsg.subject, html: adminMsg.html })
     ]);
 
-    console.log(`Bulk upload notification emails sent to ${seller.email} and admin@auqli.com`);
+    // Email delivery details are logged by the shared mailer.
 
   } catch (error) {
     console.error('Error sending bulk upload email:', error);
@@ -6132,7 +6127,7 @@ exports.deleteBuyerAccount = async (req, res) => {
     // Send email notification to the buyer
     const emailMsg = {
       to: buyerEmail,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Your Auqli Account Has Been Deleted',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -6852,7 +6847,7 @@ exports.updateSellerInfo = async (req, res) => {
     try {
       const emailMsg = {
         to: updatedSeller.email,
-        from: 'Auqli Admin <support@auqli.com>',
+        from: process.env.EMAIL_FROM,
         subject: 'Your Seller Account Has Been Updated',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -6909,7 +6904,7 @@ exports.revokeSellerVerification = async (req, res) => {
     // Send notification emails
     const personalEmailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Important: Verification Status Update - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -6926,7 +6921,7 @@ exports.revokeSellerVerification = async (req, res) => {
     if (seller.businessEmail) {
       const businessEmailMsg = {
         to: seller.businessEmail,
-        from: 'Auqli Admin <support@auqli.com>',
+        from: process.env.EMAIL_FROM,
         subject: 'Important: Business Account Verification Status Update - Auqli',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -7986,7 +7981,7 @@ async function sendProductStatusEmail(seller, product, action, reason) {
 
     const emailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: template.subject,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -8007,7 +8002,7 @@ async function sendProductStatusEmail(seller, product, action, reason) {
     };
 
     await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
-    console.log(`Product ${action} notification email sent to seller: ${seller.email}`);
+    // Email delivery details are logged by the shared mailer.
   } catch (error) {
     console.error(`Error sending product ${action} email:`, error);
     // Don't throw error to prevent API failure
@@ -8266,7 +8261,7 @@ async function sendWalletTransactionEmail(seller, amount, type, reason, newBalan
 
     const emailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: isCredit ? 'Funds Added to Your Wallet - Auqli' : 'Funds Deducted from Your Wallet - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
@@ -8333,7 +8328,7 @@ async function sendWalletTransactionEmail(seller, amount, type, reason, newBalan
     };
 
     await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
-    console.log(`Wallet transaction email sent to seller: ${seller.email}`);
+    // Email delivery details are logged by the shared mailer.
     return true;
   } catch (error) {
     console.error('Error sending wallet transaction email:', error);
@@ -8529,7 +8524,7 @@ exports.deleteAllSellerProducts = async (req, res) => {
     // Send email notification to the seller
     const emailMsg = {
       to: seller.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'All Products Deleted by Admin - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -8551,7 +8546,7 @@ exports.deleteAllSellerProducts = async (req, res) => {
     try {
       // Ensure SendGrid API key is set
       await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
-      console.log(`Products deletion notification email sent to seller: ${seller.email}`);
+      // Email delivery details are logged by the shared mailer.
     } catch (emailError) {
       console.error('Error sending products deletion email:', emailError);
       // Don't throw error to prevent API failure
@@ -8606,7 +8601,7 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
 
     const emailMsg = {
       to: seller.email,
-      from: 'Joseph From Auqli <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Your Shop Is Almost Ready! Finish Setting Up on Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
@@ -8708,7 +8703,7 @@ exports.sendBulkOnboardingReminders = async (req, res) => {
       // Set up email content
       const emailMsg = {
         to: seller.email,
-        from: 'Auqli Admin <support@auqli.com>',
+        from: process.env.EMAIL_FROM,
         subject: 'Complete Your Auqli Seller Onboarding',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
@@ -9534,7 +9529,7 @@ async function sendBuyerWalletTransactionEmail(buyer, amount, type, reason, newB
 
     const emailMsg = {
       to: buyer.email,
-      from: 'Auqli Admin <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: isCredit ? 'Funds Added to Your Wallet - Auqli' : 'Funds Deducted from Your Wallet - Auqli',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
@@ -9603,7 +9598,7 @@ async function sendBuyerWalletTransactionEmail(buyer, amount, type, reason, newB
     };
 
     await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
-    console.log(`Wallet ${type} email sent to buyer: ${buyer.email}`);
+    // Email delivery details are logged by the shared mailer.
     return true;
   } catch (error) {
     console.error(`Error sending wallet ${type} email to buyer:`, error);
@@ -10158,7 +10153,7 @@ exports.sendRemindersToSellersWithoutProducts = async (req, res) => {
           // Prepare email content
           const emailMsg = {
             to: seller.email,
-            from: 'Auqli Support <support@auqli.com>',
+            from: process.env.EMAIL_FROM,
             subject: 'Start Selling on Auqli - Upload Your First Product',
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -10206,9 +10201,9 @@ exports.sendRemindersToSellersWithoutProducts = async (req, res) => {
           await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
           results.emailsSent++;
 
-          console.log(`Reminder email sent to seller without products: ${seller.email}`);
+          // Email delivery details are logged by the shared mailer.
         } catch (emailError) {
-          console.error(`Error sending reminder email to ${seller.email}:`, emailError);
+          // Email delivery details are logged by the shared mailer.
           results.errors.push({
             sellerId: seller._id,
             email: seller.email,
@@ -10295,7 +10290,7 @@ exports.sendRemindersToSellersWithoutBlips = async (req, res) => {
             // Prepare email content
             const emailMsg = {
               to: seller.email,
-              from: 'Auqli Support <support@auqli.com>',
+              from: process.env.EMAIL_FROM,
               subject: 'Boost Your Sales with Product Blips on Auqli',
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -10342,9 +10337,9 @@ exports.sendRemindersToSellersWithoutBlips = async (req, res) => {
             await termiiEmailService.sendRawHTMLEmail({ email: emailMsg.to, subject: emailMsg.subject, html: emailMsg.html });
             results.emailsSent++;
 
-            console.log(`Reminder email sent to seller without blips: ${seller.email}`);
+            // Email delivery details are logged by the shared mailer.
           } catch (emailError) {
-            console.error(`Error sending blip reminder email to ${seller.email}:`, emailError);
+            // Email delivery details are logged by the shared mailer.
             results.errors.push({
               sellerId: seller._id,
               email: seller.email,

@@ -1,7 +1,7 @@
 const termiiEmailService = require('../services/termiiEmailService');
 
 // Use a verified sender email that's known to work
-const VERIFIED_SENDER = 'Auqli <support@auqli.com>';
+const VERIFIED_SENDER = process.env.EMAIL_FROM;
 
 const sendPasswordResetEmail = async (email, token) => {
   const html = `<p>You requested a password reset. Please use the following token to reset your password:</p><p><strong>${token}</strong></p>`;
@@ -12,7 +12,6 @@ const sendPasswordResetEmail = async (email, token) => {
       subject: 'Password Reset Request',
       html: html
     });
-    console.log(`Password reset email sent to ${email}`);
     return true;
   } catch (error) {
     console.error('Failed to send password reset email:', error.message);
@@ -27,7 +26,6 @@ const sendPasswordResetEmail = async (email, token) => {
  * @param {Object} metadata - Login metadata like IP address and browser info
  */
 const sendAdminLoginNotificationEmail = async (email, username, metadata) => {
-  console.log(`Attempting to send login notification to ${email} for user ${username}`);
 
   const loginDate = new Date().toLocaleString();
 
@@ -59,10 +57,8 @@ const sendAdminLoginNotificationEmail = async (email, username, metadata) => {
       subject: 'Admin Dashboard Access Alert',
       html: html
     });
-    console.log(`Login notification email sent to ${email} successfully`);
     return true;
   } catch (error) {
-    console.error(`Failed to send login notification email to ${email}:`, error.message);
     return false;
   }
 };
@@ -72,7 +68,6 @@ const sendAdminLoginNotificationEmail = async (email, username, metadata) => {
  * @param {Object} seller - The seller object
  */
 const sendInternationalSellerEmail = async (seller) => {
-  console.log(`Attempting to send international seller notification to ${seller.email}`);
 
   const sellerName = seller.businessName || `${seller.firstName} ${seller.lastName}`;
 
@@ -109,10 +104,8 @@ const sendInternationalSellerEmail = async (seller) => {
       subject: 'Congratulations! Your Account Has Been Upgraded to International Seller Status',
       html: html
     });
-    console.log(`International seller notification email sent to ${seller.email} successfully`);
     return true;
   } catch (error) {
-    console.error(`Failed to send international seller notification email to ${seller.email}:`, error.message);
     return false;
   }
 };
@@ -138,10 +131,8 @@ const sendShipmentFailureEmail = async (buyer, order, errorMessage) => {
       subject: `Important: Shipment Arrangement Failed for Order #${order.order_id}`,
       html: html
     });
-    console.log(`Shipment failure email sent to ${buyer.email} for order ${order.order_id}`);
     return true;
   } catch (error) {
-    console.error(`Failed to send shipment failure email to ${buyer.email}:`, error.message);
     return false;
   }
 };
@@ -153,10 +144,8 @@ const sendEmail = async (to, subject, text, html) => {
       subject: subject,
       html: html || `<p>${text}</p>`
     });
-    console.log(`Email sent to ${to} with subject: ${subject}`);
     return true;
   } catch (error) {
-    console.error(`Failed to send email to ${to} with subject ${subject}:`, error.message);
     return false;
   }
 };
@@ -169,10 +158,8 @@ const sendTransactionalEmail = async (to, subject, message, name = '') => {
       message: message,
       name: name
     });
-    console.log(`Transactional email sent to ${to} with subject: ${subject}`);
     return true;
   } catch (error) {
-    console.error(`Failed to send transactional email to ${to}:`, error.message);
     return false;
   }
 };

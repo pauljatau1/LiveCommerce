@@ -298,7 +298,7 @@ async function sendNoBankDetailsEmails(seller, availableBalance, reason) {
     // Email to seller
     const sellerEmailMsg = {
       to: seller.email,
-      from: 'Auqli Support <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: 'Account Disabled - Contact Support for Withdrawal',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -357,7 +357,7 @@ async function sendNoBankDetailsEmails(seller, availableBalance, reason) {
     // Email to admin (Bolu)
     const adminEmailMsg = {
       to: 'bolu@auqli.com',
-      from: 'Auqli System <support@auqli.com>',
+      from: process.env.EMAIL_FROM,
       subject: `Action Required: Seller ${seller.firstName} ${seller.lastName} Needs Bank Details for Withdrawal`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -431,7 +431,7 @@ async function sendNoBankDetailsEmails(seller, availableBalance, reason) {
       })
     ]);
 
-    console.log(`📧 No bank details emails sent for ${seller.email} (Balance: ${formattedAmount})`);
+    // Email delivery details are logged by the shared mailer.
 
     return {
       success: true,
