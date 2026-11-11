@@ -74,3 +74,13 @@ export const greeting = () => {
   const h = new Date().getHours();
   return h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : 'Evening';
 };
+
+// Studio replacements deliberately use the same seller and product endpoints as classic.
+export const account = {
+  banks: () => get(`${BASE_URL_V2}/sellers/banks`),
+  checkBank: (body) => post(`${BASE_URL_V2}/sellers/banks/verify`, body),
+  saveBank: (body) => put(`${BASE_URL_V2}/sellers/profile/bank-details`, body),
+  product: (id) => get(`${BASE_URL}/products/${id}`),
+  categories: () => get(`${BASE_URL}/public/categories`),
+  saveProduct: (id, body) => id ? put(`${BASE_URL}/products/${id}`, body) : post(`${BASE_URL}/products`, body),
+};

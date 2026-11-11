@@ -1,3 +1,4 @@
+import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
 import {lazy} from 'react';
 
 //const LoginPage = lazy(() => import('../Pages/LoginPage/LoginPage'));
@@ -8,6 +9,8 @@ const ForgotPasswordPage = lazy(() => import('../Pages/ForgotPasswordPage/Forgot
 const Loader = lazy(() => import('../Components/Loader'));
 const NotFoundPage = lazy(() => import('../Pages/NotFoundPage/NotFoundPage'));
 
+const StudioEntry = lazy(() => import('../studio/Entry.jsx'));
+
 export const publicRoutes = [
     {
         index: true,
@@ -15,17 +18,17 @@ export const publicRoutes = [
     },
     {
         path: 'login',
-        element: <LoginPageV2/>,
+        element: CLASSIC_DASHBOARD ? <LoginPageV2/> : <StudioEntry key="login" mode="login"/>,
         errorElement: <NotFoundPage/>,
     },
     {
         path: 'signup',
-        element: <SignUpPageV2/>,
+        element: CLASSIC_DASHBOARD ? <SignUpPageV2/> : <StudioEntry key="signup" mode="signup"/>,
         errorElement: <NotFoundPage/>,
     },
     {
         path: 'forgot-password',
-        element: <ForgotPasswordPage/>,
+        element: CLASSIC_DASHBOARD ? <ForgotPasswordPage/> : <StudioEntry key="forgot" mode="forgot"/>,
         errorElement: <NotFoundPage/>,
     },
 ];

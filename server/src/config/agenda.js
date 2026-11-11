@@ -1,3 +1,4 @@
+const { buyerAppUrl } = require('../utils/helpers');
 const Agenda = require('agenda');
 const mongoose = require('mongoose');
 const axios = require('axios');
@@ -2481,7 +2482,7 @@ agenda.define('credit_welcome_bonus', async (job) => {
               <p style="font-size: 16px; color: #bbb; text-align: center;">You can use this amount to shop on Auqli right away!</p>
     
               <div style="text-align: center; margin-top: 30px;">
-                <a href="https://app.auqli.live/wallet?itmSource=share" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View Your Wallet</a>
+                <a href="${buyerAppUrl()}/wallet?itmSource=share" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View Your Wallet</a>
               </div>
     
               <p style="font-size: 16px; margin-bottom: 20px; text-align: center;">You've just joined a whole new way to shop online — one where you don't have to guess what you're buying. Watch sellers go live, see the products in action, ask questions in real-time, and buy instantly — all from your phone.</p>
@@ -2797,7 +2798,7 @@ agenda.define('stream_reminder_push', async (job) => {
             </div>
 
             <div style="text-align: center; margin-bottom: 32px;">
-              <a href="https://app.auqli.live/live" style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; padding: 12px 24px; border-radius: 8px;">
+              <a href="${buyerAppUrl()}" style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: bold; padding: 12px 24px; border-radius: 8px;">
                 Join Now
               </a>
             </div>

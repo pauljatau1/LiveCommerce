@@ -1,3 +1,4 @@
+const { buyerAppUrl } = require('../utils/helpers');
 const express = require('express');
 const router = express.Router();
 const buyerController = require('../controllers/buyerController');
@@ -1868,7 +1869,7 @@ router.get('/auth/google',
 router.get('/google-callback',
   passport.authenticate('google', { 
     session: false,
-    failureRedirect: process.env.FRONTEND_URL
+    failureRedirect: buyerAppUrl()
   }),
   (req, res) => {
     try {
@@ -1891,7 +1892,7 @@ router.get('/google-callback',
       console.log('Redirecting with:', { token, user }); // Debug log
 
       // Construct redirect URL
-      const redirectUrl = new URL(process.env.FRONTEND_URL);
+      const redirectUrl = new URL(buyerAppUrl());
       redirectUrl.searchParams.append('token', token);
       redirectUrl.searchParams.append('user', JSON.stringify(user));
 
@@ -1900,7 +1901,7 @@ router.get('/google-callback',
       res.redirect(redirectUrl.toString());
     } catch (error) {
       console.error('Callback error:', error);
-      res.redirect(`${process.env.FRONTEND_URL}?error=callback_failed`);
+      res.redirect(`${buyerAppUrl()}?error=callback_failed`);
     }
   }
 );

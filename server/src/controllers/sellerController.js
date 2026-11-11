@@ -1,3 +1,5 @@
+const { authEmail } = require('../utils/authEmail');
+const { sellerAppUrl } = require('../utils/helpers');
 const Seller = require('../models/Seller');
 const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
@@ -446,8 +448,7 @@ exports.forgotPassword = async (req, res) => {
     const termiiEmailService = require('../services/termiiEmailService');
     await termiiEmailService.sendPasswordResetEmail({
       email: email,
-      html: html,
-      subject: 'Reset Your Password - Auqli'
+      ...authEmail({ html, subject: 'Reset Your Password - Auqli' }, { kind: 'reset', audience: 'seller', code: resetCode, name: seller.firstName, minutes: 60 })
     });
 
     // Return success response
@@ -909,7 +910,7 @@ exports.requestPasswordReset = async (req, res) => {
             <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">Hi there,</p>
             <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">We received a request to reset your password. Click the button below to create a new password:</p>
             <div style="text-align: center; margin-bottom: 30px;">
-              <a href="${process.env.FRONTEND_URL}/reset-password?token=${resetToken}" 
+              <a href="${sellerAppUrl()}/forgot-password?token=${resetToken}"
                  style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
                 Reset Password
               </a>
@@ -922,6 +923,7 @@ exports.requestPasswordReset = async (req, res) => {
       `
     };
 
+    Object.assign(msg, authEmail(msg, { kind: 'reset', audience: 'seller', name: seller.firstName, minutes: 60, url: `${sellerAppUrl()}/forgot-password?token=${resetToken}` }));
     await termiiEmailService.sendRawHTMLEmail({
       email: msg.to,
       subject: msg.subject,

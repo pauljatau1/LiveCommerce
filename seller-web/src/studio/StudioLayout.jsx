@@ -27,7 +27,7 @@ export const Brand = ({ size = 'var(--t-h1)' }) => (
 
 export default function StudioLayout() {
   useIntercomVisibility(true); // the chat launcher would cover the Me tab
-  useEffect(() => { document.title = `${BRAND_NAME} studio`; }, []);
+  useEffect(() => { document.title = `${BRAND_NAME} Studio`; }, []);
 
   // Notifications: a badge on the bell, and a toast for anything new (auto-hides after 5s)
   const [unread, setUnread] = useState(0);

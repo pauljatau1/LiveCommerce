@@ -1,3 +1,4 @@
+const { authEmail } = require('../../../utils/authEmail');
 /**
  * Resend OTP Service
  *
@@ -99,12 +100,12 @@ function getEmailContent(email, otp, firstName) {
   html = html.replace('{{otp}}', otp);
 
   // Step 4: Return SendGrid-compatible email object
-  return {
+  return authEmail({
     to: email,
     from: 'Auqli <support@auqli.com>',
     subject: "Here's Your Auqli OTP",
     html
-  };
+  }, { kind: 'verify', audience: 'buyer', code: otp, name: firstName });
 }
 
 /**

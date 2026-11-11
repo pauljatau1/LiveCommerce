@@ -1,7 +1,10 @@
+import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
+import { StudioLoader } from '@/studio/SharedScreens';
 import { Icon } from '@iconify/react'
 import PropTypes from 'prop-types';
 
 const Loader = ({color = '#0BB248'}) => {
+  if (!CLASSIC_DASHBOARD) return <StudioLoader />;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-200/5 backdrop-blur-xl">

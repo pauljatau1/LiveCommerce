@@ -8,7 +8,7 @@ const sellerValidator = require('@modules/seller/validators/register.validator')
 const Seller = require('@models/Seller');
 
 // Mock external dependencies
-jest.mock('@utils/helpers');
+jest.mock('@utils/helpers', () => ({ ...jest.requireActual('@utils/helpers'), generateToken: jest.fn(), generateOTP: jest.fn() }));
 jest.mock('@services/termiiEmailService', () => ({
   sendRawHTMLEmail: jest.fn().mockResolvedValue(true)
 }));
@@ -133,7 +133,7 @@ describe('Seller Registration Service', () => {
       expect(termiiEmailService.sendRawHTMLEmail).toHaveBeenCalledWith(
         expect.objectContaining({
           email: 'john.doe@example.com',
-          subject: "Welcome to Auqli — Let's Get You Selling",
+          subject: `Your store is ready · ${process.env.APP_NAME || 'gbam'}`,
           html: expect.stringContaining('John') // HTML content check
         })
       );

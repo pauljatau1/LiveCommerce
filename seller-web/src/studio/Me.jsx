@@ -1,8 +1,9 @@
 // Me (design: S-Me): store, settings shortcuts, sign out.
-// Settings not yet redesigned open the classic pages.
+// Studio settings by default; classic destinations remain available on opt-in.
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { studio, errorText } from './api';
+import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
 import { Sheet } from './ui';
 
 const DAYS = [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri'], [6, 'Sat'], [0, 'Sun']];
@@ -45,12 +46,12 @@ export default function Me() {
           {seller?.email && <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{seller.email}</span>}
         </div>
       </section>
-      <Link to="/dashboard/settings" className="btn2">Edit store profile</Link>
+      <Link to={CLASSIC_DASHBOARD ? "/dashboard/settings" : "/studio/profile"} className="btn2">Edit store profile</Link>
 
       <nav className="card" aria-label="Settings" style={{ overflow: 'hidden' }}>
         <div style={{ marginTop: -1 }}>
-          <Row to="/dashboard/settings" title="Pickup address" sub={[address.addressLine1, address.city, address.state].filter(Boolean).join(', ') || 'Add where couriers collect from'} />
-          <Row to="/dashboard/earnings-payouts" title="Bank account" sub={bank.accountNumber ? `${bank.bankName} ••${String(bank.accountNumber).slice(-4)} · ${bank.accountName || ''}` : 'Add a bank account to withdraw'} />
+          <Row to={CLASSIC_DASHBOARD ? "/dashboard/settings" : "/studio/start?step=pickup"} title="Pickup address" sub={[address.addressLine1, address.city, address.state].filter(Boolean).join(', ') || 'Add where couriers collect from'} />
+          <Row to={CLASSIC_DASHBOARD ? "/dashboard/earnings-payouts" : "/studio/bank"} title="Bank account" sub={bank.accountNumber ? `${bank.bankName} ••${String(bank.accountNumber).slice(-4)} · ${bank.accountName || ''}` : 'Add a bank account to withdraw'} />
           <Row to="/studio/money" title="Money" sub="Balance, withdrawals and activity" />
           <Row to="/studio/shows" title="Shows" sub="Upcoming and past shows" />
           <Row title="Weekly show" sub={slot?.saved ? slot.label : 'Pick a regular day and time'} onClick={() => setEditSlot({ day: slot?.day ?? 6, time: slot?.time || '19:00' })} />
@@ -59,8 +60,8 @@ export default function Me() {
 
       <nav className="card" aria-label="More" style={{ overflow: 'hidden' }}>
         <div style={{ marginTop: -1 }}>
-          <Row to="/dashboard/help" title="Help" />
-          <Row to="/dashboard/home" title="Classic dashboard" sub="Coupons, messages, analytics and other older tools" />
+          <Row to={CLASSIC_DASHBOARD ? "/dashboard/help" : "/studio/help"} title="Help" />
+          {CLASSIC_DASHBOARD && <Row to="/dashboard/home" title="Classic dashboard" sub="Coupons, messages, analytics and other older tools" />}
           <Row title="Sign out" danger onClick={() => logout?.()} />
         </div>
       </nav>

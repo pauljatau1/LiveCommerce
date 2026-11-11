@@ -1,3 +1,4 @@
+const { sellerAppLink } = require('../utils/helpers');
 const Notification = require('../models/Notification');
 const termiiEmailService = require('../services/termiiEmailService');
 const Order = require('../models/Order');
@@ -2517,8 +2518,8 @@ exports.sendNewFollowerEmail = async (seller, buyerName) => {
           <p style="color: #555; font-size: 16px;">Keep posting fresh Blips to turn those followers into loyal buyers.</p>
           
           <div style="margin: 25px 0; text-align: center;">
-            <a href="https://seller.auqli.live/" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-right: 10px; display: inline-block;">View your profile</a>
-            <a href="https://seller.auqli.live/" style="background-color: #333333; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">Post a new Blip</a>
+            <a href="${sellerAppLink()}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-right: 10px; display: inline-block;">View your profile</a>
+            <a href="${sellerAppLink()}" style="background-color: #333333; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">Post a new Blip</a>
           </div>
           
           <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 14px; text-align: center;">
@@ -2569,8 +2570,8 @@ exports.sendBlipCommentEmail = async (seller, buyerName, productName, comment) =
           </div>
           
           <div style="margin: 25px 0; text-align: center;">
-            <a href="https://seller.auqli.live/" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-right: 10px; display: inline-block;">Reply to the comment</a>
-            <a href="https://seller.auqli.live/" style="background-color: #333333; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">Keep posting great content</a>
+            <a href="${sellerAppLink()}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-right: 10px; display: inline-block;">Reply to the comment</a>
+            <a href="${sellerAppLink()}" style="background-color: #333333; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">Keep posting great content</a>
           </div>
           
           <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: #777; font-size: 14px; text-align: center;">

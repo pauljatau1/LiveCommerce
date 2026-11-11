@@ -1,3 +1,4 @@
+const { authEmail } = require('../../../utils/authEmail');
 /**
  * Forgot Password Service
  *
@@ -132,8 +133,7 @@ async function sendResetEmail(email, resetOTP, userName = null) {
   // If sending fails, the error will propagate to the calling function
   await termiiEmailService.sendPasswordResetEmail({
     email: email,
-    html: html,
-    subject: 'Password Reset Code - Auqli'
+    ...authEmail({ html, subject: 'Password Reset Code - Auqli' }, { kind: 'reset', audience: 'buyer', code: resetOTP, name: userName })
   });
   
   return true;

@@ -1,10 +1,12 @@
+import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
+import { StudioProblem } from '@/studio/SharedScreens';
 import { useEffect, useState } from "react";
 import { useRouteError } from "react-router-dom";
 // Import NotFoundPage directly (not lazy) for error handler reliability
 // Error handlers should not depend on dynamic imports that might fail
 import NotFoundPage from "../Pages/NotFoundPage/NotFoundPage";
 
-export default function RouterErrorHandler() {
+function ClassicRouterErrorHandler() {
   const [hasChunkError, setHasChunkError] = useState(false);
   const error = useRouteError();
   // A page crash shows the 404 screen; log the real cause so it can be found
@@ -133,4 +135,5 @@ export default function RouterErrorHandler() {
   // If it's not a chunk error, show the normal NotFoundPage
   // Direct import ensures NotFoundPage is available even when chunks fail to load
   return <NotFoundPage />;
-} 
+}
+export default function RouterErrorHandler() { return CLASSIC_DASHBOARD ? <ClassicRouterErrorHandler /> : <StudioProblem title="Something didn’t load" text="Try refreshing the page, or return to your studio." reload />; }

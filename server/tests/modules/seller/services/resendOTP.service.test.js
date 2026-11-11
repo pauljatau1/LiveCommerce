@@ -80,8 +80,8 @@ describe('Resend OTP Service', () => {
       // Assert
       expect(result).toEqual({
         to: email,
-        from: 'Auqli Nigeria <support@auqli.com>',
-        subject: "Here's Your Auqli OTP",
+        from: { email: 'support@auqli.com', name: process.env.APP_NAME || 'gbam' },
+        subject: `Verify your email · ${process.env.APP_NAME || 'gbam'}`,
         html: expect.stringContaining(otp)
       });
       expect(result.html).toContain(otp);
@@ -116,7 +116,7 @@ describe('Resend OTP Service', () => {
       // Assert
       expect(termiiEmailService.sendRawHTMLEmail).toHaveBeenCalledWith(expect.objectContaining({
         email: email,
-        subject: "Here's Your Auqli OTP"
+        subject: `Verify your email · ${process.env.APP_NAME || 'gbam'}`
       }));
     });
 

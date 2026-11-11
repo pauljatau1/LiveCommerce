@@ -1,4 +1,5 @@
 import { IntercomProvider } from 'react-use-intercom';
+import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
 import PropTypes from 'prop-types';
 
 const IntercomWrapper = ({ children }) => {
@@ -17,7 +18,7 @@ const IntercomWrapper = ({ children }) => {
         console.log('Intercom messenger shown');
       }}
       autoBootProps={{
-        hideDefaultLauncher: false // Start with launcher visible by default
+        hideDefaultLauncher: !CLASSIC_DASHBOARD // Start with launcher visible by default
       }}
     >
       {children}

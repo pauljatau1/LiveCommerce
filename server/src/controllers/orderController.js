@@ -1,3 +1,4 @@
+const { buyerAppUrl } = require('../utils/helpers');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Seller = require('../models/Seller');
@@ -5321,8 +5322,8 @@ exports.sendOrderConfirmationEmail = async (order, buyer) => {
         <div style="margin-top: 30px; text-align: center; color: #777; font-size: 14px;">
           <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
           <p>
-            <a href="https://auqli.com/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
-            <a href="https://auqli.com/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+            <a href="${buyerAppUrl()}/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> |
+            <a href="${buyerAppUrl()}/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
           </p>
         </div>
       </div>

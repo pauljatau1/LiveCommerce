@@ -1,0 +1,295 @@
+{
+  "results": {
+    "after/login": {
+      "url": "/login",
+      "overflow": false
+    },
+    "after/signup": {
+      "url": "/signup",
+      "overflow": false
+    },
+    "after/forgot-password": {
+      "url": "/forgot-password",
+      "overflow": false
+    },
+    "after/reset-code": {
+      "url": "/forgot-password",
+      "overflow": false
+    },
+    "after/reset-success": {
+      "url": "/forgot-password",
+      "overflow": false
+    },
+    "after/help": {
+      "url": "/studio/help",
+      "overflow": false
+    },
+    "after/edit-product": {
+      "url": "/studio/products/p0/edit",
+      "overflow": false
+    },
+    "after/store-profile": {
+      "url": "/studio/profile",
+      "overflow": false
+    },
+    "after/bank-account": {
+      "url": "/studio/bank",
+      "overflow": false
+    },
+    "after/bank-verified": {
+      "url": "/studio/bank",
+      "overflow": false
+    },
+    "after/pickup-address": {
+      "url": "/studio/start",
+      "overflow": false
+    },
+    "after/me": {
+      "url": "/studio/me",
+      "overflow": false
+    },
+    "classicRollback": "Classic dashboard row enabled",
+    "/dashboard/products": "/studio/products",
+    "/dashboard/products/nested/123": "/studio/products",
+    "/dashboard/orders": "/studio/orders",
+    "/dashboard/orders/nested/123": "/studio/orders",
+    "/dashboard/earnings-payouts": "/studio/money",
+    "/dashboard/earnings-payouts/nested/123": "/studio/money",
+    "/dashboard/settings": "/studio/me",
+    "/dashboard/settings/nested/123": "/studio/me",
+    "/dashboard/live-streams": "/studio/shows",
+    "/dashboard/live-streams/nested/123": "/studio/shows",
+    "/dashboard/home": "/studio",
+    "/dashboard/home/nested/123": "/studio",
+    "/dashboard/help": "/studio",
+    "/dashboard/help/nested/123": "/studio",
+    "/dashboard/other": "/studio",
+    "/dashboard/other/nested/123": "/studio",
+    "after/pickup-required-toast": {
+      "url": "/studio/start",
+      "overflow": false
+    },
+    "after/not-found": {
+      "url": "/missing-test-page",
+      "overflow": false
+    },
+    "after/loader": {
+      "url": "/studio",
+      "overflow": false
+    },
+    "after/error": {
+      "url": "/studio/help",
+      "overflow": false
+    },
+    "before/login": {
+      "url": "/login",
+      "overflow": false
+    },
+    "before/signup": {
+      "url": "/signup",
+      "overflow": false
+    },
+    "before/forgot-password": {
+      "url": "/forgot-password",
+      "overflow": false
+    }
+  },
+  "calls": [
+    {
+      "path": "/api/seller/forgot-password",
+      "method": "POST",
+      "body": {
+        "email": "sade@example.test"
+      }
+    },
+    {
+      "path": "/api/seller/reset-password",
+      "method": "POST",
+      "body": {
+        "email": "sade@example.test",
+        "code": "1234",
+        "newPassword": "new-password-123"
+      }
+    },
+    {
+      "path": "/api/products/p0",
+      "method": "PUT",
+      "body": {
+        "name": "Edited Adire Bubu",
+        "description": "<p>Hand-dyed cotton with flowing sleeves.</p>",
+        "price": 11000,
+        "salePrice": 0,
+        "stock": 12,
+        "weight": 0.5,
+        "condition": "New with tags",
+        "status": "active",
+        "category": "Women",
+        "subCategory": "Dresses",
+        "brand": "",
+        "sku": "AD01",
+        "upc": "",
+        "fabric": "Adire",
+        "localStyle": "Bubu",
+        "tags": [
+          "adire",
+          "bubu"
+        ],
+        "authenticity": "unknown",
+        "images": [
+          {
+            "url": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22240%22%3E%3Crect%20width%3D%22200%22%20height%3D%22240%22%20fill%3D%22%23294b70%22%2F%3E%3Cpath%20d%3D%22M30%200L100%2070%2050%20160%20130%20240M160%200L100%2070%20150%20160%2070%20240%22%20stroke%3D%22%23abcbdc%22%20fill%3D%22none%22%20stroke-width%3D%2218%22%2F%3E%3C%2Fsvg%3E",
+            "data": "%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22240%22%3E%3Crect%20width%3D%22200%22%20height%3D%22240%22%20fill%3D%22%23294b70%22%2F%3E%3Cpath%20d%3D%22M30%200L100%2070%2050%20160%20130%20240M160%200L100%2070%20150%20160%2070%20240%22%20stroke%3D%22%23abcbdc%22%20fill%3D%22none%22%20stroke-width%3D%2218%22%2F%3E%3C%2Fsvg%3E",
+            "contentType": "image/jpeg"
+          }
+        ],
+        "variants": [],
+        "colourVariants": [],
+        "colourQuantities": [],
+        "shippingInfo": {
+          "weight": {
+            "value": 0.5,
+            "unit": "kg"
+          },
+          "dimensions": {
+            "length": 10,
+            "width": 10,
+            "height": 10
+          },
+          "freeShipping": false,
+          "shippingClass": "standard"
+        }
+      }
+    },
+    {
+      "path": "/api/v2/sellers/banks/verify",
+      "method": "POST",
+      "body": {
+        "accountNumber": "0123456789",
+        "bankCode": "001"
+      }
+    },
+    {
+      "path": "/api/v2/sellers/banks/verify",
+      "method": "POST",
+      "body": {
+        "accountNumber": "1123456789",
+        "bankCode": "001"
+      }
+    },
+    {
+      "path": "/api/v2/sellers/profile/bank-details",
+      "method": "PUT",
+      "body": {
+        "bankDetails": {
+          "bankName": "Test Bank",
+          "accountNumber": "1123456789",
+          "bankIdentifierCode": "001",
+          "bankAccountType": "Savings",
+          "accountName": "SADE TEST",
+          "bankCountry": "Nigeria",
+          "accountCurrency": "NGN"
+        },
+        "isVerified": true
+      }
+    },
+    {
+      "path": "/api/v2/sellers/login",
+      "method": "POST",
+      "body": {
+        "email": "sade@example.test",
+        "password": "test-password-123"
+      }
+    },
+    {
+      "path": "/api/v2/sellers/register",
+      "method": "POST",
+      "body": {
+        "fullName": "Sade Test",
+        "email": "sade@example.test",
+        "storeName": "Sade’s Studio",
+        "phoneNumber": "8031234567",
+        "password": "test-password-123",
+        "confirmPassword": "test-password-123",
+        "termsAccepted": true,
+        "firstName": "Sade",
+        "lastName": "Test"
+      }
+    },
+    {
+      "path": "/api/products",
+      "method": "POST",
+      "body": {
+        "name": "Adire Bubu Gown, Indigo",
+        "description": "<p>Hand-dyed cotton with flowing sleeves.</p>",
+        "price": 11000,
+        "salePrice": 0,
+        "stock": 12,
+        "weight": 0.5,
+        "condition": "New with tags",
+        "status": "active",
+        "category": "Women",
+        "subCategory": "Dresses",
+        "brand": "",
+        "sku": "AD01",
+        "upc": "",
+        "fabric": "Adire",
+        "localStyle": "Bubu",
+        "tags": [
+          "adire",
+          "bubu"
+        ],
+        "authenticity": "unknown",
+        "images": [
+          {
+            "url": "data:image/png;base64,iVBORw0KGgo=",
+            "data": "iVBORw0KGgo=",
+            "contentType": "image/jpeg"
+          }
+        ],
+        "variants": [],
+        "colourVariants": [
+          "Blue"
+        ],
+        "colourQuantities": [
+          {
+            "colour": "Blue",
+            "quantity": 12
+          }
+        ],
+        "draftProof": "signed-proof",
+        "shippingInfo": {
+          "weight": {
+            "value": 0.5,
+            "unit": "kg"
+          },
+          "dimensions": {
+            "length": 10,
+            "width": 10,
+            "height": 10
+          },
+          "freeShipping": false,
+          "shippingClass": "standard"
+        }
+      }
+    },
+    {
+      "path": "/api/seller/store-profile",
+      "method": "PUT",
+      "body": {
+        "storeName": "Sade’s New Studio",
+        "aboutStore": "Nigerian fabrics, everyday favourites.",
+        "categories": [
+          "Women"
+        ]
+      }
+    },
+    {
+      "path": "/api/seller/reset-password-with-token",
+      "method": "POST",
+      "body": {
+        "token": "example-token",
+        "newPassword": "new-password-123"
+      }
+    }
+  ]
+}

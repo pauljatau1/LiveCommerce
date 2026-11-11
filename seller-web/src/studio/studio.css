@@ -378,3 +378,23 @@
 .studio-app .sh-ic:not(:where(.lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-h2);font-weight:var(--w-medium)}
 
 .studio-app .wallet-chip:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:0;border-radius:var(--r-pill);background:var(--surface-sunken);color:var(--text);font:var(--w-medium) var(--t-small) var(--font-body);cursor:pointer;text-decoration:none}
+
+/* Studio entry and account pages, also used before sign-in. */
+.studio-app .entry-screen{max-width:460px;justify-content:center;min-height:100dvh;padding:28px 20px;gap:16px}
+.studio-app .entry-wordmark{font-size:var(--t-display);color:var(--text);text-decoration:none}
+.studio-app .entry-form{display:flex;flex-direction:column;gap:14px}
+.studio-app .entry-screen p{margin:0}
+.studio-app details{padding:12px 0;border-bottom:1px solid var(--border)}
+.studio-app summary{font-weight:var(--w-medium);cursor:pointer}
+.studio-app .studio-feedback{position:fixed;z-index:10000;left:16px;right:16px;bottom:100px;max-width:520px;margin:auto}
+.studio-app .edit-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.studio-app .edit-grid > * { min-width:0; }
+.studio-app .edit-photos { display:flex; gap:12px; overflow-x:auto; }
+.studio-app .edit-photos > div { flex:none; display:flex; flex-direction:column; gap:4px; }
+.studio-app .edit-photos img { width:80px; height:90px; object-fit:cover; border-radius:12px; }
+.studio-app .edit-variant { padding:14px; min-width:0; }
+.studio-app .edit-variant summary { cursor:pointer; font-weight:var(--w-medium); font-size:var(--t-small); padding:8px 0; }
+.studio-app .edit-variant[open] > .entry-form { margin-top:12px; }
+.studio-app .sun-editor { border:1px solid var(--border-strong); border-radius:var(--r-input); overflow:hidden; font-family:var(--font-body); }
+.studio-app .sun-editor .se-toolbar { background:var(--surface-page); outline:none; }
+.studio-app .sun-editor .se-wrapper-inner { font-family:var(--font-body); font-size:var(--t-body); }

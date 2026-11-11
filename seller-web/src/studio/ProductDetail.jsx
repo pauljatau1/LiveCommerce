@@ -1,3 +1,4 @@
+import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
 // Product detail (design: S-Product-Detail): photos, price, stock counter, details, actions.
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -41,7 +42,7 @@ export default function ProductDetail() {
   const upcoming = (data?.shows || []).find((s) => ['scheduled', 'live'].includes(s.status));
   return (
     <div className="studio-app">
-      <TopBar title="Product" onBack={() => navigate('/studio/products')} right={p && <Link to={`/dashboard/products/edit-product/${p._id}`} className="btn2">Edit all</Link>} />
+      <TopBar title="Product" onBack={() => navigate('/studio/products')} right={p && <Link to={CLASSIC_DASHBOARD ? `/dashboard/products/edit-product/${p._id}` : `/studio/products/${p._id}/edit`} className="btn2">Edit all</Link>} />
       {error && <div className="st-inner"><Problem text={error} onRetry={load} /></div>}
       {!p && !error && <div className="st-inner"><Skeleton h={300} /><Skeleton h={120} /></div>}
       {p && (

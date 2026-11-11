@@ -1,3 +1,4 @@
+const { sellerAppLink } = require('../../../utils/helpers');
 const { formatAddressForTerminal: coreFormatAddressForTerminal } = require('../../../helpers/formatters');
 const { formatAddress } = require('./address.helper');
 const terminalAPI = require('../../../config/terminalAPI');
@@ -514,7 +515,7 @@ exports.sendSellerOrderNotificationEmail = async (order, seller) => {
                 
                 <!-- CTA Button -->
                 <div style="text-align: center; margin-top: 24px;">
-                  <a href="https://seller.auqli.live/dashboard/orders" style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 15px;">View Order Details</a>
+                  <a href="${sellerAppLink('orders')}" style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 15px;">View Order Details</a>
                 </div>
                 
               </div>

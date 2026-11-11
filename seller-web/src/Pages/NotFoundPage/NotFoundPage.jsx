@@ -1,9 +1,11 @@
+import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
+import { StudioProblem } from '@/studio/SharedScreens';
 import { Icon } from '@iconify/react';
 import { motion } from 'framer-motion';
 import { authUtils } from '@/util/auth';
 import { useNavigate } from 'react-router-dom';
 
-const NotFoundPage = () => {
+const ClassicNotFoundPage = () => {
     const navigate = useNavigate();
 
     const isDashboardRoute = location.pathname.startsWith('/dashboard');
@@ -95,4 +97,4 @@ const NotFoundPage = () => {
     );
 };
 
-export default NotFoundPage;
+export default function NotFoundPage() { return CLASSIC_DASHBOARD ? <ClassicNotFoundPage /> : <StudioProblem />; }

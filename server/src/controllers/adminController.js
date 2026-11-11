@@ -1,3 +1,6 @@
+const { escapeHtml } = require('../utils/authEmail');
+const { appName } = require('../utils/helpers');
+const { buyerAppUrl, sellerAppUrl, sellerAppLink } = require('../utils/helpers');
 const Admin = require('../models/Admin');
 const Buyer = require('../models/Buyer');
 const Seller = require('../models/Seller');
@@ -1719,7 +1722,7 @@ exports.verifyBusinessAccount = async (req, res) => {
         <li>✅ Go live with your audience</li>
       </ul>
       <p><a href="#" style="color: #4CAF50; text-decoration: none;">🔓 Login and Start Selling →</a></p>
-      <p>For tips, visit <a href="http://help.auqli.live" style="color: #4CAF50; text-decoration: none;">help.auqli.live</a> or reach us at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+      <p>For tips, visit <a href="${sellerAppLink('help')}" style="color: #4CAF50; text-decoration: none;">Studio Help</a> or reach us at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
       <p>Join our community and get support anytime:</p>
       <ul>
         <li>📢 <a href="#" style="color: #4CAF50; text-decoration: none;">Telegram Group</a></li>
@@ -1751,7 +1754,7 @@ exports.verifyBusinessAccount = async (req, res) => {
           <li>Verification Status: Verified</li>
         </ul>
         <p>You can now start managing your business through our platform.</p>
-        <p>For tips, visit <a href="http://help.auqli.live" style="color: #4CAF50; text-decoration: none;">help.auqli.live</a> or reach us at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
+        <p>For tips, visit <a href="${sellerAppLink('help')}" style="color: #4CAF50; text-decoration: none;">Studio Help</a> or reach us at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
         <p>Join our community and get support anytime:</p>
         <ul>
           <li>📢 <a href="#" style="color: #4CAF50; text-decoration: none;">Telegram Group</a></li>
@@ -8268,7 +8271,7 @@ async function sendWalletTransactionEmail(seller, amount, type, reason, newBalan
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
           <div style="text-align: center; margin-bottom: 20px;">
-            <img src="https://auqli.com/logo.png" alt="Auqli Logo" style="max-width: 150px;">
+            <span style="font-size:24px;font-weight:500">${escapeHtml(appName())}</span>
           </div>
           
           <div style="padding: 20px; background-color: #f9f9f9; border-radius: 5px;">
@@ -8321,8 +8324,8 @@ async function sendWalletTransactionEmail(seller, amount, type, reason, newBalan
           <div style="margin-top: 30px; text-align: center; color: #777; font-size: 14px;">
             <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
             <p>
-              <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
-              <a href="https://auqli.live/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+              <a href="${buyerAppUrl()}/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> |
+              <a href="${buyerAppUrl()}/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
             </p>
           </div>
         </div>
@@ -8636,7 +8639,7 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
     
           <p>If you need help, our team is here for you!</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="https://seller.auqli.live/login" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">🎯 Finish Setup Now →</a>
+            <a href="${sellerAppUrl()}/login" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">🎯 Finish Setup Now →</a>
           </div>
     
           <p>Chat with us in the Seller Center or email us at <a href="mailto:support@auqli.com" style="color: #4CAF50; text-decoration: none;">support@auqli.com</a></p>
@@ -8650,8 +8653,8 @@ exports.sendOnboardingReminderEmail = async (req, res) => {
           <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #777; text-align: center;">
             <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
             <p>
-              <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> |
-              <a href="https://auqli.live/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+              <a href="${buyerAppUrl()}/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> |
+              <a href="${buyerAppUrl()}/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
             </p>
           </div>
         </div>
@@ -8728,7 +8731,7 @@ exports.sendBulkOnboardingReminders = async (req, res) => {
             <p style="margin-top: 20px;">To complete your onboarding, simply log in to your Auqli seller account and follow the prompts in your dashboard.</p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="https://auqli.live/seller/login" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Log In to Your Account</a>
+              <a href="${sellerAppUrl()}/login" style="background-color: #4CAF50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Log In to Your Account</a>
             </div>
             
             <p>If you're experiencing any issues or have questions about the onboarding process, please contact our seller support team at <a href="mailto:support@auqli.com">support@auqli.com</a>.</p>
@@ -8738,8 +8741,8 @@ exports.sendBulkOnboardingReminders = async (req, res) => {
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #777; text-align: center;">
               <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
               <p>
-                <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
-                <a href="https://auqli.live/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+                <a href="${buyerAppUrl()}/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> |
+                <a href="${buyerAppUrl()}/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
               </p>
             </div>
           </div>
@@ -9536,7 +9539,7 @@ async function sendBuyerWalletTransactionEmail(buyer, amount, type, reason, newB
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
           <div style="text-align: center; margin-bottom: 20px;">
-            <img src="https://auqli.com/logo.png" alt="Auqli Logo" style="max-width: 150px;">
+            <span style="font-size:24px;font-weight:500">${escapeHtml(appName())}</span>
           </div>
           
           <div style="padding: 20px; background-color: #f9f9f9; border-radius: 5px;">
@@ -9591,8 +9594,8 @@ async function sendBuyerWalletTransactionEmail(buyer, amount, type, reason, newB
           <div style="margin-top: 30px; text-align: center; color: #777; font-size: 14px;">
             <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
             <p>
-              <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
-              <a href="https://auqli.live/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+              <a href="${buyerAppUrl()}/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> |
+              <a href="${buyerAppUrl()}/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
             </p>
           </div>
         </div>
@@ -10184,7 +10187,7 @@ exports.sendRemindersToSellersWithoutProducts = async (req, res) => {
                 </ol>
                 
                 <div style="text-align: center; margin: 25px 0;">
-                  <a href="https://seller.auqli.live" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+                  <a href="${sellerAppLink()}" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">
                     LOGIN TO YOUR ACCOUNT
                   </a>
                 </div>
@@ -10323,7 +10326,7 @@ exports.sendRemindersToSellersWithoutBlips = async (req, res) => {
                   </ol>
                   
                   <div style="text-align: center; margin: 25px 0;">
-                    <a href="https://seller.auqli.live/dashboard/blips" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+                    <a href="${sellerAppLink()}" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">
                       ADD BLIPS NOW
                     </a>
                   </div>

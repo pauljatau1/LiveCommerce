@@ -1,3 +1,4 @@
+import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
 // Listing Agent: add a product by chatting.
 // Seller drops photos → AI drafts the listing → seller answers what the photos
 // can't show (quantity, original or replica, price) → publish.
@@ -231,7 +232,7 @@ export default function ListingAgent() {
   };
 
   const editAll = () => {
-    navigate('/dashboard/products/add-products', {
+    navigate(CLASSIC_DASHBOARD ? '/dashboard/products/add-products' : '/studio/products/new', {
       state: {
         listingDraft: {
           fromDraft: true,
