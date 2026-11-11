@@ -136,4 +136,4 @@ function ClassicRouterErrorHandler() {
   // Direct import ensures NotFoundPage is available even when chunks fail to load
   return <NotFoundPage />;
 }
-export default function RouterErrorHandler() { return CLASSIC_DASHBOARD ? <ClassicRouterErrorHandler /> : <StudioProblem title="Something didn’t load" text="Try refreshing the page, or return to your studio." reload />; }
+export default function RouterErrorHandler() { return CLASSIC_DASHBOARD ? <ClassicRouterErrorHandler /> : <StudioProblem kind="error" reload />; }

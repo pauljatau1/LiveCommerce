@@ -1,32 +1,97 @@
+// Store profile: name, about, what you sell, and the pickup address (which opens
+// the pickup step of Getting started). The store photo stays here too.
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
 import { settingsService } from '@/services/settingsService';
 import { sellerService } from '@/services/sellerService';
 import { sellerUtils, tokenUtils } from '@/util/auth';
-import { TopBar } from './ui';
+import { Icon, TopBar } from './ui';
 import { errorText } from './api';
+import { LAUNCH_CATEGORIES } from './catalogue';
+
+const nameOf = (c) => (typeof c === 'string' ? c : c?.name || '');
 
 export default function StoreProfile() {
-  const { seller, dispatch } = useAuthContext(), navigate = useNavigate();
-  const [name, setName] = useState(seller?.storeName || ''), [about, setAbout] = useState(seller?.aboutStore || '');
-  const [photo, setPhoto] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
-  const save = async e => {
-    e.preventDefault(); setBusy(true); setError('');
+  const { seller, dispatch } = useAuthContext();
+  const navigate = useNavigate();
+  const savedCategories = (seller?.categories || []).map(nameOf).filter(Boolean);
+  const [name, setName] = useState(seller?.storeName || '');
+  const [about, setAbout] = useState(seller?.aboutStore || '');
+  const [sells, setSells] = useState(savedCategories);
+  const [photo, setPhoto] = useState(null);
+  const [error, setError] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const address = seller?.sellerAddress || seller?.businessAddress || {};
+  const addressLine = [address.addressLine1 || address.street, address.city, address.state].filter(Boolean).join(', ');
+  const options = [...new Set([...LAUNCH_CATEGORIES, ...savedCategories])];
+
+  const toggle = (c) => setSells((s) => (s.includes(c) ? s.filter((x) => x !== c) : [...s, c]));
+
+  const save = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    if (name.trim().length < 2) { setNameError('Add a store name. It’s what buyers see on your shows.'); document.getElementById('sp-name')?.focus(); return; }
+    setBusy(true);
+    setError('');
     try {
       if (photo) await settingsService.uploadStoreAvatar(photo);
-      await settingsService.updateStoreProfile({ storeName: name.trim(), aboutStore: about.trim(), categories: seller?.categories || [] });
-      const fresh = await sellerService.fetchSellerDetails(); sellerUtils.storeSeller(fresh);
+      // Keep anything saved under a category (sub-categories) as it was
+      const categories = sells.map((c) => (seller?.categories || []).find((x) => nameOf(x) === c) || { name: c, subCategories: [] });
+      await settingsService.updateStoreProfile({ storeName: name.trim(), aboutStore: about.trim(), categories });
+      const fresh = await sellerService.fetchSellerDetails();
+      sellerUtils.storeSeller(fresh);
       dispatch({ type: 'AUTH_SUCCESS', payload: { seller: fresh, token: tokenUtils.getBearerToken() } });
       navigate('/studio/me', { state: { studioNotice: 'Store profile saved.' } });
-    } catch(e) { setError(errorText(e, 'Couldn’t save your profile. Please try again.')); }
-    finally { setBusy(false); }
+    } catch (err) {
+      setError(errorText(err, 'Couldn’t save your profile. Check your connection and try again.'));
+    } finally {
+      setBusy(false);
+    }
   };
-  return <div className="studio-app"><TopBar title="Edit store profile" onBack={() => navigate('/studio/me')} /><form className="st-inner entry-form" onSubmit={save}>
-    <div className="fl"><span className="lab">Store photo</span>{seller?.storeAvatar?.url && <img src={seller.storeAvatar.url} width="72" height="72" alt="Current store" style={{ borderRadius: '50%', objectFit: 'cover' }} />}<label className="btn3" htmlFor="store-photo">{photo ? photo.name : 'Choose photo'}</label><input id="store-photo" className="sr" type="file" accept="image/*" onChange={e => setPhoto(e.target.files[0] || null)} /></div>
-    <label className="fl"><span className="lab">Store name</span><input className="in" required minLength={2} value={name} onChange={e => setName(e.target.value)} /></label>
-    <label className="fl"><span className="lab">About your store</span><textarea className="in" rows={4} style={{ height: 'auto', padding: 12 }} value={about} onChange={e => setAbout(e.target.value)} /></label>
-    <p className="hint">Tell buyers what you sell and what makes your store yours.</p>
-    {error && <span className="err-text" role="alert">{error}</span>}<button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save profile'}</button>
-  </form></div>;
+
+  return (
+    <div className="studio-app">
+      <TopBar title="Store profile" onBack={() => navigate('/studio/me')} />
+      <form className="ed-page" onSubmit={save} noValidate style={{ maxWidth: 640, margin: '0 auto' }}>
+        <div className="ed-pad ed-fields" style={{ gap: 22, paddingTop: 16, paddingBottom: 24 }}>
+          <div className="fl">
+            <label className="lab" htmlFor="sp-name">Store name</label>
+            <div className={`inbox${nameError ? ' bad' : ''}`}><input id="sp-name" maxLength={60} value={name} onChange={(e) => { setName(e.target.value); setNameError(''); }} aria-describedby="sp-name-err" /></div>
+            {nameError && <p className="field-err" id="sp-name-err">{nameError}</p>}
+          </div>
+          <div className="fl">
+            <label className="lab" htmlFor="sp-about">About the store</label>
+            <div className="inbox ta"><textarea id="sp-about" rows={4} value={about} onChange={(e) => setAbout(e.target.value)} placeholder="What you sell, where you are, when you go live." /></div>
+          </div>
+          <div className="fl">
+            <span className="lab" id="sp-sells">What you sell</span>
+            <div role="group" aria-labelledby="sp-sells" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {options.map((c) => <button key={c} type="button" className={`chip${sells.includes(c) ? ' on' : ''}`} aria-pressed={sells.includes(c)} onClick={() => toggle(c)}>{c}</button>)}
+            </div>
+          </div>
+          <div className="fl">
+            <span className="lab">Store photo</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {seller?.storeAvatar?.url && <img src={seller.storeAvatar.url} width="56" height="56" alt="Current store photo" style={{ borderRadius: '50%', objectFit: 'cover' }} />}
+              <label className="btn2" htmlFor="sp-photo" style={{ display: 'inline-flex', width: 'auto' }}>{photo ? photo.name : seller?.storeAvatar?.url ? 'Change photo' : 'Choose photo'}</label>
+              <input id="sp-photo" className="sr" type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files[0] || null)} />
+            </div>
+          </div>
+          <button type="button" className="list-row" style={{ borderTop: '1px solid var(--border)', minHeight: 72 }} onClick={() => navigate('/studio/start?step=pickup')}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p className="lab">Pickup address</p>
+              <p style={{ marginTop: 2, fontSize: 'var(--t-small)', color: addressLine ? 'var(--text)' : 'var(--text-muted)' }}>{addressLine || 'Add where couriers collect from'}</p>
+            </div>
+            {Icon.chevron('var(--text-muted)')}
+          </button>
+          {error && <p className="field-err" role="alert">{error}</p>}
+        </div>
+        <div className="foot" style={{ borderTop: 0 }}>
+          <button className="btn" style={{ width: '100%' }} disabled={busy}>{busy ? <><span className="spin" aria-hidden="true" />Saving…</> : 'Save changes'}</button>
+        </div>
+      </form>
+    </div>
+  );
 }

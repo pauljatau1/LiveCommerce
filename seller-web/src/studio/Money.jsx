@@ -52,7 +52,7 @@ export default function Money() {
               <span className="f" style={{ fontSize: 'var(--t-hero)', lineHeight: 1 }}>{naira(data.ready)}</span>
               {bank
                 ? <button type="button" className="btn" disabled={data.ready < 1000} onClick={() => { setAmount(String(Math.floor(data.ready))); setSheetError(''); setSheet(true); }}>Withdraw to {bank.bankName} ••{bank.last4}</button>
-                : CLASSIC_DASHBOARD ? <Link to="/dashboard/earnings-payouts" className="btn">Add your bank account</Link> : <button className="btn" onClick={() => setBankSheet(true)}>Add your bank account</button>}
+                : CLASSIC_DASHBOARD ? <Link to="/dashboard/earnings-payouts" className="btn">Add your bank account</Link> : <button className="btn" onClick={() => navigate('/studio/bank', { state: { back: '/studio/money' } })}>Add your bank account</button>}
               {data.ready < 1000 && bank && <span className="hint">The smallest withdrawal is ₦1,000.</span>}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', paddingTop: 12, borderTop: '1px solid #CFE8DA', fontSize: 'var(--t-body)' }}>
                 <span><strong>{naira(data.pending)}</strong> on the way</span><span className="mut" style={{ fontSize: 'var(--t-small)' }}>released a day after delivery</span>
@@ -86,7 +86,7 @@ export default function Money() {
             </div>
             <div className="soft" style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--surface-page)', border: '1px solid var(--border)' }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 'var(--w-medium)' }}>{bank.bankName} ••{bank.last4}</span><span className="mut" style={{ fontSize: 'var(--t-small)' }}>{bank.accountName}</span></div>
-              {CLASSIC_DASHBOARD ? <Link to="/dashboard/earnings-payouts" className="link">Change</Link> : <button type="button" className="link" onClick={() => { setSheet(false); setBankSheet(true); }}>Change</button>}
+              {CLASSIC_DASHBOARD ? <Link to="/dashboard/earnings-payouts" className="link">Change</Link> : <button type="button" className="link" onClick={() => { setSheet(false); navigate('/studio/bank', { state: { back: '/studio/money' } }); }}>Change</button>}
             </div>
             {sheetError && <span className="err-text" role="alert">{sheetError}</span>}
             <div style={{ display: 'flex', gap: 8 }}><button type="button" className="btn3" style={{ flex: 1 }} onClick={() => setSheet(false)}>Cancel</button><button type="submit" className="btn" style={{ flex: 1.5 }} disabled={busy || Number(amount) < 1000}>{busy ? 'Requesting…' : `Withdraw ${naira(amount || 0)}`}</button></div>

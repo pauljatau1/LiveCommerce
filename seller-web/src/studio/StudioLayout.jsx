@@ -25,6 +25,22 @@ export const Brand = ({ size = 'var(--t-h1)' }) => (
   </Link>
 );
 
+// The desktop top bar. Full-screen pages (like the product editor) show it too.
+export const DesktopBar = ({ right = null, className = 'st-dbar' }) => (
+  <header className={`dbar ${className}`}>
+    <span style={{ marginRight: 16 }}><Brand /></span>
+    <nav aria-label="Main" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+      {TABS.filter((t) => !t.live).map((t) => (
+        <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => `dnav${isActive ? ' on' : ''}`}>{t.label}</NavLink>
+      ))}
+      {SHOW_MONEY_IN_TOP_BAR && <NavLink to="/studio/money" className={({ isActive }) => `dnav${isActive ? ' on' : ''}`}>Money</NavLink>}
+    </nav>
+    <span style={{ flex: 1 }} />
+    {right}
+    <Link to="/studio/golive" className="btn" style={{ background: 'var(--live)' }}>{Icon.live('#fff', 18)}Go Live</Link>
+  </header>
+);
+
 export default function StudioLayout() {
   useIntercomVisibility(true); // the chat launcher would cover the Me tab
   useEffect(() => { document.title = `${BRAND_NAME} Studio`; }, []);
@@ -61,18 +77,7 @@ export default function StudioLayout() {
   );
   return (
     <div className="studio-app">
-      <header className="dbar st-dbar">
-        <span style={{ marginRight: 16 }}><Brand /></span>
-        <nav aria-label="Main" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {TABS.filter((t) => !t.live).map((t) => (
-            <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => `dnav${isActive ? ' on' : ''}`}>{t.label}</NavLink>
-          ))}
-          {SHOW_MONEY_IN_TOP_BAR && <NavLink to="/studio/money" className={({ isActive }) => `dnav${isActive ? ' on' : ''}`}>Money</NavLink>}
-        </nav>
-        <span style={{ flex: 1 }} />
-        {Bell}
-        <Link to="/studio/golive" className="btn" style={{ background: 'var(--live)' }}>{Icon.live('#fff', 18)}Go Live</Link>
-      </header>
+      <DesktopBar right={Bell} />
       {toast && (
         <div role="status" className="toast" style={{ position: 'fixed', left: 16, right: 16, bottom: 'calc(96px + env(safe-area-inset-bottom))', zIndex: 60, maxWidth: 520, margin: '0 auto' }}>
           <span style={{ flex: 1 }}><strong>{toast.title}</strong>{toast.body ? ` · ${toast.body}` : ''}</span>

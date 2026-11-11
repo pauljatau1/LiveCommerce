@@ -145,7 +145,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Loader />;
   }
 
-  if (showDisabledDialog && !CLASSIC_DASHBOARD) return <div className="studio-app"><StudioProblem title="Your account is paused" text="Contact support for help getting back to your studio." /><button className="btn2" onClick={handleCloseDisabledDialog}>Sign out</button></div>;
+  if (showDisabledDialog && !CLASSIC_DASHBOARD) return <StudioProblem kind="error" title="Your account is paused" text="Contact support for help getting back to your studio."><button type="button" className="btn2" onClick={handleCloseDisabledDialog}>Sign out</button></StudioProblem>;
 
   return (
     <>

@@ -251,6 +251,7 @@ export default function ListingAgent() {
           condition: draft?.condition || '',
           tags: draft?.tags || [],
           weight: draft?.weightKg || 1,
+          weightKg: draft?.weightKg,
           images: photos.map((p, i) => ({ url: p.dataUrl, contentType: p.contentType, isDefault: i === 0 })),
         },
       },

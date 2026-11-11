@@ -1,14 +1,87 @@
-const { appName, buyerAppUrl, sellerAppLink } = require('./helpers');
-const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const { appName, buyerAppUrl, sellerAppUrl, sellerAppLink } = require('./helpers');
+
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const classicEmailsEnabled = () => /^(true|1)$/i.test(process.env.CLASSIC_EMAIL_TEMPLATES || '');
-// One layout for signup/verification, welcome and password recovery in both apps.
+
+// Studio colours, written out because email clients ignore stylesheets
+const C = { text: '#1D2A24', muted: '#5B6660', primary: '#10734F', sunken: '#F4EFE8', border: '#EEE7DE', page: '#FBF8F4' };
+const BODY = "font-family:Nunito,'Segoe UI',Arial,sans-serif";
+const DISPLAY = "font-family:Fredoka,Nunito,'Segoe UI',Arial,sans-serif";
+
+const firstName = (name) => String(name || '').trim().split(/\s+/)[0];
+const p = (html, style = '') => `<p style="margin:0;${style}">${html}</p>`;
+const codeBox = (code) => p(escapeHtml(code), `margin-top:24px;padding:20px 0;text-align:center;background:${C.sunken};border-radius:16px;${DISPLAY};font-size:40px;line-height:1;font-weight:500;letter-spacing:.3em;color:${C.text}`);
+const button = (href, label, center = false) => `<p style="margin:12px 0 0;${center ? 'text-align:center' : ''}"><a href="${escapeHtml(href)}" style="display:inline-block;min-width:192px;padding:14px 24px;border-radius:999px;background:${C.primary};color:#FFFFFF;${BODY};font-size:16px;font-weight:600;text-align:center;text-decoration:none">${escapeHtml(label)}</a></p>`;
+
+// Text first, one code, at most one button. No images except the wordmark, so it
+// loads on slow data. Inline styles only.
+function layout({ brand, home, heading, body, why }) {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>`
+    + `<body style="margin:0;padding:24px 12px;background:${C.page};color:${C.text};${BODY};font-size:15px;line-height:1.55">`
+    + `<div style="max-width:600px;margin:0 auto;padding:40px 32px;background:#FFFFFF;border-radius:20px;box-sizing:border-box">`
+    + `<a href="${escapeHtml(home)}" style="${DISPLAY};font-size:24px;line-height:1;font-weight:500;letter-spacing:-.02em;color:${C.primary};text-decoration:none">${escapeHtml(brand)}</a>`
+    + `<h1 style="margin:36px 0 0;${DISPLAY};font-size:24px;line-height:1.2;font-weight:500;color:${C.text}">${heading}</h1>`
+    + body
+    + `<div style="margin-top:40px;padding-top:24px;border-top:1px solid ${C.border}">`
+    + p(`${why} Questions? Reply to this email.`, `font-size:12px;line-height:1.5;color:${C.muted}`)
+    + p(`${escapeHtml(brand)} · ${escapeHtml(process.env.APP_LOCATION || 'Lagos, Nigeria')}`, `margin-top:6px;font-size:12px;color:${C.muted}`)
+    + '</div></div></body></html>';
+}
+
+// One layout for sign-up codes, welcome and password recovery in both apps.
 // The old templates remain available for rollback, off by default.
-function authEmail(legacy, { kind = 'verify', audience = 'buyer', name, code, minutes = 10, url } = {}) {
+// options: kind verify|reset|welcome, audience buyer|seller, name, store, email, code, minutes, url
+function authEmail(legacy, { kind = 'verify', audience = 'buyer', name, store, email, code, minutes = 10, url } = {}) {
   if (classicEmailsEnabled()) return legacy;
   const brand = appName();
-  const title = kind === 'reset' ? 'Reset your password' : kind === 'welcome' ? 'Your store is ready' : 'Verify your email';
-  const target = url || (audience === 'seller' ? sellerAppLink(kind === 'welcome' ? 'start' : '') : buyerAppUrl());
-  if (!/^https?:\/\//.test(target)) throw new Error('Email links require an absolute app URL');
-  return { ...legacy, ...(legacy.from ? { from: { email: 'support@auqli.com', name: brand } } : {}), subject: `${title} · ${brand}`, html: `<!doctype html><html><body style="margin:0;padding:24px;background:#fbf8f4;color:#203029;font:15px/1.6 Arial,sans-serif"><main style="max-width:480px;margin:auto;background:white;border:1px solid #e7dfd3;border-radius:20px;padding:28px"><div style="font-size:24px;font-weight:500;color:#117552">${escapeHtml(brand)}</div><h1 style="font-size:20px;font-weight:600">${title}</h1><p>Hi ${escapeHtml(name || 'there')},</p><p>${kind === 'welcome' ? 'Your products, shows and orders have a home in your studio.' : code ? `Use this code to ${kind === 'reset' ? 'choose a new password' : 'verify your email'}.` : 'Choose a new password using the button below.'}</p>${code ? `<div style="font-size:32px;letter-spacing:6px;font-weight:600;color:#117552">${escapeHtml(code)}</div><p style="font-size:13px;color:#63716a">Your code expires in ${Number(minutes)} minutes.</p>` : ''}<p><a href="${escapeHtml(target)}" style="display:inline-block;background:#117552;color:white;padding:12px 20px;border-radius:24px;text-decoration:none;font-weight:600">${kind === 'reset' && !code ? 'Reset password' : audience === 'seller' ? 'Go to studio' : 'Open shop'}</a></p>${kind !== 'welcome' ? `<p style="font-size:13px;color:#63716a">${code ? 'If you didn’t ask for this code, you can ignore this email.' : `This link expires in ${Number(minutes)} minutes. If you didn’t request it, ignore this email.`}</p>` : ''}<p style="font-size:12px;color:#63716a">${escapeHtml(brand)} · <a href="mailto:support@auqli.com" style="color:#117552">Get help</a></p></main></body></html>` };
+  const seller = audience === 'seller';
+  const home = seller ? sellerAppLink() : buyerAppUrl();
+  const hi = firstName(name);
+  const place = seller ? 'the studio' : 'the app';
+  // The reset email's button skips typing the code (the studio fills it in from the link)
+  const resetLink = url || (seller && code && email ? `${sellerAppUrl()}/forgot-password?email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}` : null);
+  const target = url || (seller ? sellerAppLink(kind === 'welcome' ? 'start' : '') : buyerAppUrl());
+  if (!/^https?:\/\//.test(target) || !/^https?:\/\//.test(home)) throw new Error('Email links require an absolute app URL');
+
+  let subject; let heading; let body; let why;
+  if (kind === 'welcome') {
+    subject = seller ? `Your ${brand} store is ready` : `Welcome to ${brand}`;
+    heading = seller ? `Your store is ready${hi ? `, ${escapeHtml(hi)}` : ''}` : `Welcome${hi ? `, ${escapeHtml(hi)}` : ''}`;
+    body = p(seller ? 'Your products, shows and orders have a home in your studio.' : 'Watch live shows, bid and buy in one tap.', 'margin-top:12px')
+      + button(target, seller ? 'Go to studio' : 'Open shop');
+    why = `You got this email because you created ${seller ? 'a seller account' : 'an account'} on ${escapeHtml(brand)}.`;
+  } else if (kind === 'reset') {
+    subject = `Reset your ${brand} password`;
+    heading = 'Reset your password';
+    const whose = email ? ` for ${escapeHtml(email)}` : '';
+    if (code) {
+      body = p(`Hi${hi ? ` ${escapeHtml(hi)}` : ''}, we got a request to reset the password${whose}. Enter this code in ${place}:`, 'margin-top:12px')
+        + codeBox(code)
+        + p(`The code works for ${Number(minutes)} minutes.`, `margin-top:12px;font-size:13px;color:${C.muted};text-align:center`)
+        + (resetLink ? p('Or skip the code:', `margin-top:20px;color:${C.muted};text-align:center`) + button(resetLink, 'Reset password', true) : '');
+    } else {
+      body = p(`Hi${hi ? ` ${escapeHtml(hi)}` : ''}, we got a request to reset the password${whose}. Choose a new one with the button below.`, 'margin-top:12px')
+        + button(target, 'Reset password', true)
+        + p(`The link works for ${Number(minutes)} minutes.`, `margin-top:12px;font-size:13px;color:${C.muted};text-align:center`);
+    }
+    body += p("If you didn't ask for this, ignore this email. Your password stays the same.", `margin-top:28px;color:${C.muted}`);
+    why = `You got this email because someone asked to reset the password for your ${escapeHtml(brand)} ${seller ? 'studio' : 'account'}.`;
+  } else {
+    subject = code ? `Your ${brand} code is ${code}` : `Verify your email for ${brand}`;
+    heading = `Here's your code${hi ? `, ${escapeHtml(hi)}` : ''}`;
+    const finishing = seller ? (store ? `creating ${escapeHtml(store)}` : 'creating your store') : 'creating your account';
+    body = p(`Enter this code in ${place} to finish ${finishing}.`, 'margin-top:12px')
+      + (code ? codeBox(code) + p(`The code works for ${Number(minutes)} minutes.`, `margin-top:12px;font-size:13px;color:${C.muted};text-align:center`) : button(target, 'Verify email'))
+      + p(`If you didn't sign up for ${escapeHtml(brand)}, you can ignore this email.`, `margin-top:20px;color:${C.muted}`);
+    why = `You got this email because someone used this address to sign up${seller ? ' as a seller' : ''} on ${escapeHtml(brand)}.`;
+  }
+
+  return {
+    ...legacy,
+    ...(legacy.from ? { from: { email: 'support@auqli.com', name: brand } } : {}),
+    subject,
+    html: layout({ brand, home, heading, body, why }),
+  };
 }
+
 module.exports = { authEmail, escapeHtml, classicEmailsEnabled };

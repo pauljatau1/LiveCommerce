@@ -81,7 +81,7 @@ describe('Resend OTP Service', () => {
       expect(result).toEqual({
         to: email,
         from: { email: 'support@auqli.com', name: process.env.APP_NAME || 'gbam' },
-        subject: `Verify your email · ${process.env.APP_NAME || 'gbam'}`,
+        subject: `Your ${process.env.APP_NAME || 'gbam'} code is ${otp}`,
         html: expect.stringContaining(otp)
       });
       expect(result.html).toContain(otp);
@@ -116,7 +116,7 @@ describe('Resend OTP Service', () => {
       // Assert
       expect(termiiEmailService.sendRawHTMLEmail).toHaveBeenCalledWith(expect.objectContaining({
         email: email,
-        subject: `Verify your email · ${process.env.APP_NAME || 'gbam'}`
+        subject: `Your ${process.env.APP_NAME || 'gbam'} code is ${otp}`
       }));
     });
 

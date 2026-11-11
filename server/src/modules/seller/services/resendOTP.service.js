@@ -72,7 +72,7 @@ const path = require('path');
  *   - html: processed HTML template content
  * @throws {Error} If template file cannot be read or processed
  */
-function getEmailContent(email, otp, firstName) {
+function getEmailContent(email, otp, firstName, store) {
   // Step 1: Construct the path to the resend OTP email template
   const filePath = path.join(__dirname, '../../../', 'templates', 'resend-otp-email.html');
 
@@ -91,7 +91,7 @@ function getEmailContent(email, otp, firstName) {
     from: 'Auqli Nigeria <support@auqli.com>',
     subject: "Here's Your Auqli OTP",
     html
-  }, { kind: 'verify', audience: 'seller', code: otp, name: firstName });
+  }, { kind: 'verify', audience: 'seller', code: otp, name: firstName, store });
 }
 
 /**
@@ -113,9 +113,9 @@ function getEmailContent(email, otp, firstName) {
  * @returns {Promise<void>} Resolves when email is sent successfully
  * @throws {Error} If SendGrid sending fails
  */
-async function sendOTPEmail(email, otp, firstName) {
+async function sendOTPEmail(email, otp, firstName, store) {
   // Get the email content with processed HTML template
-  const msg = getEmailContent(email, otp, firstName);
+  const msg = getEmailContent(email, otp, firstName, store);
 
   // Send the email using Termii email service
   // If sending fails, the error will propagate to the calling function
@@ -225,7 +225,7 @@ async function resendOTP(email) {
 
   // Step 5: Send OTP email notification
   // This ensures the user receives the verification code
-  await sendOTPEmail(email, otp, seller.firstName);
+  await sendOTPEmail(email, otp, seller.firstName, seller.storeName);
 
   // Step 6: Return success response
   // Note: We don't return the OTP in the response for security reasons
