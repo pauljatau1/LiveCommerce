@@ -1,3 +1,4 @@
+const { buyerAppUrl } = require('../../../utils/helpers');
 const Buyer = require('../../../models/Buyer');
 const Referral = require('../../../models/Referral');
 
@@ -37,7 +38,7 @@ exports.getOverview = async (req, res) => {
       buyer.referralCode = code;
     }
 
-    const referralLink = `${process.env.APP_BASE_URL || 'https://auqli.com'}/invite?ref=${buyer.referralCode}`;
+    const referralLink = `${buyerAppUrl()}/invite?ref=${buyer.referralCode}`;
 
     res.status(200).json({
       success: true,

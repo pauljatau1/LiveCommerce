@@ -1,3 +1,6 @@
+const { appName } = require('../utils/helpers');
+const { authEmail, escapeHtml } = require('../utils/authEmail');
+const { buyerAppUrl } = require('../utils/helpers');
 const verifyWalletTopUpService = require('../modules/buyer/services/verifyWalletTopUp.service');
 const topUpWalletService = require('../modules/buyer/services/topUpWallet.service');
 const Buyer = require('../models/Buyer');
@@ -192,6 +195,7 @@ exports.register = async (req, res) => {
 
 
     try {
+      Object.assign(msg, authEmail(msg, { kind: 'verify', audience: 'buyer', code: otp, name: firstName }));
       await sgMail.send(msg);
     } catch (sendError) {
       console.error('SendGrid error:', sendError);
@@ -660,6 +664,7 @@ exports.resendOTP = async (req, res) => {
     };
 
     try {
+      Object.assign(msg, authEmail(msg, { kind: 'verify', audience: 'buyer', code: otp }));
       await sgMail.send(msg);
     } catch (sendError) {
       console.error('SendGrid error:', sendError);
@@ -2407,8 +2412,7 @@ exports.forgotPassword = async (req, res) => {
     const termiiEmailService = require('../services/termiiEmailService');
     await termiiEmailService.sendPasswordResetEmail({
       email: email,
-      html: html,
-      subject: 'Password Reset Code - Auqli'
+      ...authEmail({ html, subject: 'Password Reset Code - Auqli' }, { kind: 'reset', audience: 'buyer', code: resetOTP, name: buyer.firstName })
     });
 
     // Return success response
@@ -2832,7 +2836,7 @@ exports.sendWalletTopUpEmail = async (buyer, transaction) => {
   const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
         <div style="text-align: center; margin-bottom: 20px;">
-          <img src="https://auqli.com/logo.png" alt="Auqli Logo" style="max-width: 150px;">
+          <span style="font-size:24px;font-weight:500">${escapeHtml(appName())}</span>
         </div>
         
         <div style="padding: 20px; background-color: #f9f9f9; border-radius: 5px;">
@@ -2881,8 +2885,8 @@ exports.sendWalletTopUpEmail = async (buyer, transaction) => {
         <div style="margin-top: 30px; text-align: center; color: #777; font-size: 14px;">
           <p>© ${new Date().getFullYear()} Auqli. All rights reserved.</p>
           <p>
-            <a href="https://auqli.live/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> | 
-            <a href="https://auqli.live/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
+            <a href="${buyerAppUrl()}/terms" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Terms of Service</a> |
+            <a href="${buyerAppUrl()}/privacy" style="color: #4CAF50; text-decoration: none; margin: 0 10px;">Privacy Policy</a>
           </p>
         </div>
       </div>

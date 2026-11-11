@@ -80,7 +80,7 @@ export interface AuthContextMethods {
 
 // Auth login activity interface
 export interface AuthLoginActivity {
-  handleLoginActivity: (seller: Seller, token: string) => void;
+  handleLoginActivity: (seller: Seller, token: string, destination?: string) => void;
 }
 
 // Auth signup activity interface

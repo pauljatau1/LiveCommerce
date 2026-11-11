@@ -1,3 +1,5 @@
+import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
+import { StudioProblem } from '@/studio/SharedScreens';
 import { Seller } from '@/types/seller';
 import { isAxiosError } from 'axios';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -30,7 +32,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const isSignUpRoute = location.pathname.startsWith('/signup');
   const isLoginRoute = location.pathname.startsWith('/login');
   const isForgotPasswordRoute = location.pathname.startsWith('/forgot-password');
-  const isAuthRoute = isSignUpRoute || isLoginRoute || isForgotPasswordRoute;
+  const isAuthRoute = isSignUpRoute || isLoginRoute || isForgotPasswordRoute || location.pathname === '/studio/help';
 
   // Get token and seller from localStorage for initial check
   const token = tokenUtils.getBearerToken();
@@ -72,7 +74,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     // If we don't have a token or seller in localStorage, redirect to login
     if (!token || !seller) {
       console.log("No token or seller found, redirecting to login");
-      navigate('/login', { replace: true });
+      navigate('/login', { replace: true, state: { from: location.pathname + location.search } });
       return;
     }
 
@@ -117,7 +119,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       showNotification("Session expired, please login again", 'error', 'dismissible');
 
       // Redirect to login
-      navigate('/login', { replace: true });
+      navigate('/login', { replace: true, state: { from: location.pathname + location.search } });
       return;
     }
 
@@ -143,12 +145,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Loader />;
   }
 
+  if (showDisabledDialog && !CLASSIC_DASHBOARD) return <div className="studio-app"><StudioProblem title="Your account is paused" text="Contact support for help getting back to your studio." /><button className="btn2" onClick={handleCloseDisabledDialog}>Sign out</button></div>;
+
   return (
     <>
-      <DisabledAccountDialog
-        isOpen={showDisabledDialog}
-        onClose={handleCloseDisabledDialog}
-      />
+      <DisabledAccountDialog isOpen={showDisabledDialog} onClose={handleCloseDisabledDialog} />
       {children}
     </>
   );

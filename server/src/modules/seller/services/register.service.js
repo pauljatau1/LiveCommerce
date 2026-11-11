@@ -1,3 +1,4 @@
+const { authEmail } = require('../../../utils/authEmail');
 /**
  * Register Service
  *
@@ -165,15 +166,15 @@ function getWelcomeEmailContent(email, firstName) {
 
   // Step 3: Replace template placeholders with actual data
   html = html.replace('{{firstName}}', firstName);
-  html = html.replace('{{year}}', new Date().getFullYear());
+  html = html.replace('{{year}}', new Date().getFullYear()).replaceAll('{{sellerAppUrl}}', require('../../../utils/helpers').sellerAppLink());
 
   // Step 4: Return SendGrid-compatible email object
-  return {
+  return authEmail({
     to: email,
     from: 'Auqli <support@auqli.com>',
     subject: "Welcome to Auqli — Let's Get You Selling",
     html
-  };
+  }, { kind: 'welcome', audience: 'seller', name: firstName });
 }
 
 /**

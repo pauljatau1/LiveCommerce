@@ -1,3 +1,4 @@
+const { sellerAppLink } = require('../utils/helpers');
 const { agenda } = require('../config/agenda');
 const mongoose = require('mongoose');
 const crypto = require('crypto');
@@ -633,7 +634,7 @@ const getTerminalEventEmailContent = (event, order, data, buyer, seller) => {
               <p>The order has been completed successfully. Funds will be released to your wallet according to our payment schedule.</p>
               
               <div style="text-align: center; margin: 25px 0;">
-                <a href="https://seller.auqli.live/" class="btn">View Dashboard</a>
+                <a href="${sellerAppLink()}" class="btn">View Dashboard</a>
               </div>
               
               <div class="footer">
@@ -705,7 +706,7 @@ const getTerminalEventEmailContent = (event, order, data, buyer, seller) => {
               
               <div style="text-align: center; margin: 25px 0;">
                 <a href="mailto:support@auqli.com" class="btn">Contact Support</a>
-                <a href="https://seller.auqli.live/" class="btn" style="background-color: #333;">View Dashboard</a>
+                <a href="${sellerAppLink()}" class="btn" style="background-color: #333;">View Dashboard</a>
               </div>
               
               <div class="footer">

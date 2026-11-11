@@ -231,7 +231,7 @@ function AuthProvider({ children }: AuthProviderProps) {
 
 
     // Function to handle login activity
-    const handleLoginActivity = async (seller: Seller, token: string) => {
+    const handleLoginActivity = async (seller: Seller, token: string, destination = '/studio') => {
         try {
             dispatch({ type: 'SET_LOADING', payload: true });
             // shutdown intercom for fresh restart upon login
@@ -338,7 +338,7 @@ function AuthProvider({ children }: AuthProviderProps) {
 
             // wait for 2 seconds after showing banner and then navigate to dashboard
             setTimeout(() => {
-                navigate("/studio", { replace: true });
+                navigate(destination, { replace: true });
             }, 1000);
         } catch (error) {
             console.log(error);

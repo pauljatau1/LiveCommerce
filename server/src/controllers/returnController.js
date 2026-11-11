@@ -1,3 +1,4 @@
+const { sellerAppLink } = require('../utils/helpers');
 const Return = require('../models/Return');
 const Order = require('../models/Order');
 const cloudinary = require('../config/cloudinary');
@@ -1734,7 +1735,7 @@ async function sendShippingLabelEmails(returnRequest, replacementProduct, return
           <p><strong>Next Steps:</strong></p>
           <ol>
             <li>The buyer has been notified to prepare the return package</li>
-            <li>You need to <a href="/dashboard/returns/${returnRequest._id}/arrange-pickup">arrange pickup</a> for both shipments</li>
+            <li>You need to <a href="${sellerAppLink('orders')}">arrange pickup</a> for both shipments</li>
             <li>Track both shipments to ensure smooth return and replacement delivery</li>
           </ol>
           

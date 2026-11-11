@@ -44,10 +44,10 @@ export default function DashboardRoute({ children }: { children: React.ReactNode
         const isRestrictedPath = restrictedPaths.some(path => currentPath.startsWith(path));
 
         if (isRestrictedPath && seller && isPickupAddressRequired) {
-          showNotification('Pickup Address Required', 'error', 'dismissible');
+          if (!currentPath.startsWith('/studio')) showNotification('Pickup Address Required', 'error', 'dismissible');
 
           // Studio pages go to Getting started (pickup step); old dashboard pages keep their dialog
-          navigate(currentPath.startsWith('/studio') ? '/studio/start?step=pickup' : '/dashboard/home', { replace: true });
+          navigate(currentPath.startsWith('/studio') ? '/studio/start?step=pickup' : '/dashboard/home', { replace: true, state: { studioNotice: 'Add your pickup address so couriers know where to collect.' } });
         }
     }, [seller, token, location.pathname]);
 

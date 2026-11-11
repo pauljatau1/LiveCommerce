@@ -1,3 +1,5 @@
+import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
+import '@/studio/studio.css';
 import { createContext, useReducer, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
@@ -65,7 +67,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
             }
 
             // Hide notification when pathname changes (reducer handles if already hidden)
-            dispatch({ type: 'HIDE_NOTIFICATION' });
+            if (location.state?.studioNotice) dispatch({ type: 'SHOW_NOTIFICATION', payload: { message: location.state.studioNotice, type: 'information', visibility: 'dismissible' } });
+            else dispatch({ type: 'HIDE_NOTIFICATION' });
 
             // Update the previous pathname
             prevPathnameRef.current = location.pathname;
@@ -164,6 +167,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     return (
         <NotificationContext.Provider value={contextValue}>
             {children}
+            {state.isVisible && (!CLASSIC_DASHBOARD || location.pathname.startsWith('/studio')) && <div className="studio-app" style={{display:'contents'}}><div className="toast studio-feedback" role={state.type === 'error' ? 'alert' : 'status'}><span style={{flex:1}}>{state.message}</span><button className="link" style={{color:'#fff'}} onClick={hideNotification}>Dismiss</button></div></div>}
         </NotificationContext.Provider>
     );
 }

@@ -1,3 +1,5 @@
+import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
+import ClassicRedirect from '../studio/ClassicRedirect.jsx';
 import { lazy, Suspense } from 'react';
 import AuthProviderV2 from '@/Contexts/AuthContextV2';
 import { NotificationProvider } from '@/Contexts/NotificationContext';
@@ -30,6 +32,10 @@ const StudioShows = lazy(() => import('../studio/Shows.jsx'));
 const StudioPlanner = lazy(() => import('../studio/Planner.jsx'));
 const StudioGoLive = lazy(() => import('../studio/GoLive.jsx'));
 const StudioGoLiveCheck = lazy(() => import('../studio/GoLive.jsx').then((m) => ({ default: m.GoLiveCheck })));
+const StudioProductEditor = lazy(() => import('../studio/ProductEditor.jsx'));
+const StudioProfile = lazy(() => import('../studio/StoreProfile.jsx'));
+const StudioBank = lazy(() => import('../studio/BankAccount.jsx'));
+const StudioHelp = lazy(() => import('../studio/Help.jsx'));
 const StudioLive = lazy(() => import('../studio/Live.jsx'));
 
 // Full-screen studio page: signed in, past the pickup-address check, lazy loaded
@@ -50,6 +56,7 @@ const studioPage = (path: string, Page: any) => ({
 const NotFoundPage = lazy(() => import('../Pages/NotFoundPage/NotFoundPage.jsx'));
 
 export const rootRoutes = [
+    ...(!CLASSIC_DASHBOARD ? [{ path: '/dashboard/*', element: <ClassicRedirect /> }] : []),
     { index: true, element: <Navigate to="studio" replace /> },
     {
         path: '/',
@@ -68,7 +75,7 @@ export const rootRoutes = [
         errorElement: <RouterErrorHandler />,
         children: [
             ...publicRoutes,
-            {
+            ...(CLASSIC_DASHBOARD ? [{
                 path: 'dashboard',
                 element: (
                     <ProtectedRoute>
@@ -78,7 +85,7 @@ export const rootRoutes = [
                     </ProtectedRoute>
                 ),
                 children: dashboardRoutes,
-            },
+            }] : []),
             {
                 // New seller studio: tab bar on phones, top bar on desktop
                 path: 'studio',
@@ -100,9 +107,14 @@ export const rootRoutes = [
                 ],
             },
             // Full-screen studio pages (no tab bar)
+            { path: 'studio/help', element: <Suspense fallback={<Loader />}><StudioHelp /></Suspense> },
             studioPage('studio/start', StudioStart),
             studioPage('studio/notifications', StudioNotifications),
             studioPage('studio/list', ListingAgent),
+            studioPage('studio/products/new', StudioProductEditor),
+            studioPage('studio/products/:id/edit', StudioProductEditor),
+            studioPage('studio/profile', StudioProfile),
+            studioPage('studio/bank', StudioBank),
             studioPage('studio/products/:id', StudioProductDetail),
             studioPage('studio/orders/:id', StudioOrderDetail),
             studioPage('studio/recap/:id', StudioRecap),

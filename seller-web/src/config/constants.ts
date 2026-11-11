@@ -1,3 +1,4 @@
+import { appNameFor } from './brand';
 /**
  * Application Constants
  *
@@ -14,4 +15,5 @@ export const API_CONFIG = {
 } as const;
 
 // Working name of the app. Change it here and the studio follows.
-export const BRAND_NAME = 'gbam';
+export const APP_NAME = appNameFor(import.meta.env);
+export const BRAND_NAME = APP_NAME;

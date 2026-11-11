@@ -81,7 +81,7 @@ describe('forgotPassword.service', () => {
       expect(termiiEmailService.sendPasswordResetEmail).toHaveBeenCalledWith(
         expect.objectContaining({
           email: 'john.doe@example.com',
-          subject: 'Password Reset Code - Auqli'
+          subject: `Reset your password · ${process.env.APP_NAME || 'gbam'}`
         })
       );
 

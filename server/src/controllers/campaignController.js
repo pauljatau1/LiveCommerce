@@ -1,3 +1,4 @@
+const { buyerAppUrl } = require('../utils/helpers');
 const Campaign = require('../models/Campaign');
 const Seller = require('../models/Seller');
 const sgMail = require('@sendgrid/mail');
@@ -60,7 +61,7 @@ async function sendCampaignEmails(campaign, seller, recipients) {
         },
         subject: `${sellerName} shared new products with you`,
         headers: {
-          "List-Unsubscribe": `<${process.env.FRONTEND_URL}/unsubscribe/${recipient.buyer._id}>`,
+          "List-Unsubscribe": `<${buyerAppUrl()}/unsubscribe/${recipient.buyer._id}>`,
           "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
           "X-Campaign-ID": campaign._id.toString(),
           "X-Tracking-ID": trackingId
@@ -105,7 +106,7 @@ async function sendCampaignEmails(campaign, seller, recipients) {
               ` : ''}
               
               <div style="margin-top: 30px; text-align: center;">
-                <a href="${process.env.FRONTEND_URL}/store/${seller._id}?utm_source=email&utm_medium=campaign&utm_campaign=${campaign._id}&tid=${trackingId}" 
+                <a href="${buyerAppUrl()}/store/${seller._id}?utm_source=email&utm_medium=campaign&utm_campaign=${campaign._id}&tid=${trackingId}"
                    style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">
                   Visit ${sellerName}'s Store
                 </a>
@@ -115,7 +116,7 @@ async function sendCampaignEmails(campaign, seller, recipients) {
                 <p style="color: #6b7280; font-size: 12px; text-align: center; margin: 0;">
                   You're receiving this email because you follow ${sellerName} on Auqli.
                   <br>
-                  <a href="${process.env.FRONTEND_URL}/unsubscribe/${recipient.buyer._id}?tid=${trackingId}" 
+                  <a href="${buyerAppUrl()}/unsubscribe/${recipient.buyer._id}?tid=${trackingId}"
                      style="color: #4f46e5; text-decoration: underline; margin-top: 5px; display: inline-block;">
                     Unsubscribe
                   </a>
