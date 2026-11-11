@@ -26,6 +26,27 @@ const optionalBuyer = (req, res, next) => {
 
 const router = express.Router();
 
+const area = require('../services/serviceArea');
+const DeliveryWaitlist = require('../models/DeliveryWaitlist');
+router.get('/config', (req, res) => res.json({ serviceArea: area.serviceAreaConfig() }));
+router.post('/waitlist', rateLimit({ windowMs: 60000, max: 10, message: { message: 'Please wait a minute before trying again.' } }), verifyToken, isBuyer, async (req, res) => {
+  const state = area.normalizeState(req.body?.state);
+  if (!state || state.length > 80) return res.status(400).json({ message: 'Choose the state you want delivery in.' });
+  if (req.body.streamId && !mongoose.isValidObjectId(req.body.streamId)) return res.status(400).json({ message: 'Check the show link and try again.' });
+  try {
+    const buyer = await mongoose.model('Buyer').findById(req.user.id).lean();
+    if (!buyer) return res.status(404).json({ message: 'Please sign in again.' });
+    if (!buyer.email && !buyer.phoneNumber) return res.status(400).json({ message: 'Add an email or phone number to your account so we can notify you.' });
+    await DeliveryWaitlist.init(); // Wait for the unique index before concurrent first requests.
+    await DeliveryWaitlist.updateOne({ buyer: buyer._id, state }, { $setOnInsert: { buyer: buyer._id, email: buyer.email, phone: buyer.phoneNumber, state, streamId: req.body.streamId } }, { upsert: true });
+    res.json({ success: true, message: 'We’ll tell you when delivery opens in your state.' });
+  } catch (e) { if (e.code === 11000) return res.json({ success: true }); res.status(500).json({ message: 'Couldn’t save your request. Please try again.' }); }
+});
+router.get('/waitlist/counts', verifyToken, (req, res, next) => require('../middlewares/authMiddleware').isAdmin(req, res, next), async (req, res) => {
+  try { res.json({ counts: await DeliveryWaitlist.aggregate([{ $group: { _id: '$state', count: { $sum: 1 } } }, { $sort: { count: -1, _id: 1 } }]) }); }
+  catch { res.status(500).json({ message: 'Couldn’t load the waitlist. Please try again.' }); }
+});
+
 const REPORT_REASONS = ['Selling fakes as original', 'Asking to pay outside the app', 'Rude or abusive', 'Something else'];
 
 const validId = (req, res, next) => (mongoose.isValidObjectId(req.params.streamId) ? next() : res.status(404).json({ success: false, message: "We couldn't find this show." }));
@@ -74,6 +95,7 @@ router.get('/:streamId/summary', validId, async (req, res) => {
     const stream = await Stream.findById(req.params.streamId).select('seller orders.product orders.orderDetails.quantity bids.product').lean();
     if (!stream) return res.status(404).json({ success: false, message: "We couldn't find this show." });
     res.json({
+      serviceArea: area.serviceAreaConfig(),
       success: true,
       sold: countBy(stream.orders || [], (o) => o.product && String(o.product), (o) => Number(o.orderDetails?.quantity) || 1),
       bids: countBy(stream.bids || [], (b) => b.product && String(b.product)),
@@ -106,6 +128,7 @@ router.get('/:streamId/me', verifyToken, isBuyer, validId, async (req, res) => {
       res.json({ success: true, depositDue: null, deliveryProblem: e.message, following });
     }
   } catch (error) {
+    if (error.code === 'out_of_area') return res.status(422).json({ code: error.code, reason: error.code, message: error.message, state: error.state });
     console.error('[watch] me', error.message);
     res.status(500).json({ success: false, message: "Couldn't check delivery for you. Try again." });
   }
@@ -120,6 +143,7 @@ router.get('/:streamId/estimate', validId, optionalBuyer, async (req, res) => {
     const q = await deliveries.depositQuote({ streamId: req.params.streamId, buyerId: req.user.id, productId: req.query.productId });
     res.json({ success: true, available: true, ...q });
   } catch (error) {
+    if (error.code === 'out_of_area') return res.status(422).json({ code: error.code, reason: error.code, message: error.message, state: error.state });
     if (error instanceof deliveries.DeliveryError) return res.json({ success: true, available: false, message: error.message });
     console.error('[watch] estimate', error.message);
     res.status(500).json({ success: false, message: "Couldn't get a delivery price. Try again." });
@@ -135,6 +159,7 @@ router.post('/:streamId/delivery-quote', validId, quoteLimiter, async (req, res)
     const q = await deliveries.previewQuote({ streamId: req.params.streamId, productId: req.body?.productId, address: req.body?.address });
     res.json({ success: true, available: true, ...q });
   } catch (error) {
+    if (error.code === 'out_of_area') return res.status(422).json({ code: error.code, reason: error.code, message: error.message, state: error.state });
     if (error instanceof deliveries.DeliveryError) return res.json({ success: true, available: false, message: error.message });
     console.error('[watch] delivery-quote', error.message);
     res.status(500).json({ success: false, message: "Couldn't get a delivery price. Try again." });

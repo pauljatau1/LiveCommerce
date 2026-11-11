@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
 import { settingsService } from '@/services/settingsService';
 import { sellerService } from '@/services/sellerService';
@@ -26,6 +26,7 @@ export default function StoreProfile() {
     <div className="fl"><span className="lab">Store photo</span>{seller?.storeAvatar?.url && <img src={seller.storeAvatar.url} width="72" height="72" alt="Current store" style={{ borderRadius: '50%', objectFit: 'cover' }} />}<label className="btn3" htmlFor="store-photo">{photo ? photo.name : 'Choose photo'}</label><input id="store-photo" className="sr" type="file" accept="image/*" onChange={e => setPhoto(e.target.files[0] || null)} /></div>
     <label className="fl"><span className="lab">Store name</span><input className="in" required minLength={2} value={name} onChange={e => setName(e.target.value)} /></label>
     <label className="fl"><span className="lab">About your store</span><textarea className="in" rows={4} style={{ height: 'auto', padding: 12 }} value={about} onChange={e => setAbout(e.target.value)} /></label>
+    <Link className="btn2" to="/studio/start?step=pickup">Pickup address</Link>
     <p className="hint">Tell buyers what you sell and what makes your store yours.</p>
     {error && <span className="err-text" role="alert">{error}</span>}<button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save profile'}</button>
   </form></div>;

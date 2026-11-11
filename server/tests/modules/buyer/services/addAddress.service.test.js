@@ -147,8 +147,8 @@ describe('Add Address Service', () => {
       const addressWithoutOptional = {
         addressType: 'other',
         country: 'Nigeria',
-        state: 'Abuja',
-        city: 'Abuja',
+        state: 'Lagos',
+        city: 'Ikeja',
         addressLine1: '789 Other Street',
         zipCode: '100003'
       };

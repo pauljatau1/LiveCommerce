@@ -40,7 +40,8 @@ try {
    if(url.origin==='http://localhost:8000') {
     const path=url.pathname;
     let json={};
-    if(path.endsWith('/profile')) json={_id:'buyer',firstName:'Buyer',shippingAddresses:[]};
+    if (path.endsWith('/watch/config')) json={serviceArea:{states:['Lagos'],areas:{Lagos:{'Eti-Osa':['Lekki']}}}};
+    else if(path.endsWith('/profile')) json={_id:'buyer',firstName:'Buyer',shippingAddresses:[]};
     else if(path.endsWith('/wallet/balance')) json={availableBalance:balance,onHoldAmount:1000};
     else if(path==='/api/streams/demo') {showRequests++;json=scene;}
     else if(path.endsWith('/join')) json={stream:scene,agoraAppId:'test',channelName:'test',token:'test',uid:2};

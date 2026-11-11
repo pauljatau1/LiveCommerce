@@ -8,6 +8,7 @@ jest.mock('@/middlewares/authMiddleware', () => ({
   verifyToken: (req, res, next) => (mockUser ? ((req.user = mockUser), next()) : res.status(401).json({ message: 'Sign in first' })),
   isBuyer: (req, res, next) => (req.user.role === 'Buyer' ? next() : res.status(403).json({ message: 'Buyers only' })),
   isSeller: (req, res, next) => next(),
+  isAdmin: (req,res,next) => req.user.role === 'Admin' ? next() : res.status(403).json({message:'Admins only'}),
 }));
 
 jest.mock('@/services/agoraService', () => ({ generateToken: jest.fn(() => 'agora-token') }));
@@ -228,3 +229,19 @@ describe('ships in N days', () => {
     expect((await request(app).get(`/api/v2/watch/${show._id}/summary`)).body.host.shipsInDays).toBe(2);
   });
 });
+
+ describe('launch service area and waitlist', () => {
+  it('exposes delivery settings to guests without gating show summaries',async()=>{
+    mockUser=null;const r=await request(app).get('/api/v2/watch/config').expect(200);
+    expect(r.body.serviceArea.states).toEqual(['Lagos']); expect(r.body.serviceArea.areas.Lagos['Eti-Osa']).toContain('Lekki');
+    await request(app).get(`/api/v2/watch/${show._id}/summary`).expect(200);
+  });
+  it('deduplicates a buyer/state and restricts state counts to admins',async()=>{
+    const Waitlist=require('@/models/DeliveryWaitlist');await Waitlist.deleteMany({});
+    await mongoose.connection.collection('buyers').insertOne({_id:new mongoose.Types.ObjectId(mockUser.id),email:'wait@example.test',username:'wait-test'});
+    await Promise.all(['Abuja',' abuja State '].map(state => request(app).post('/api/v2/watch/waitlist').send({state,streamId:String(show._id)}).expect(200)));
+    expect(await Waitlist.countDocuments()).toBe(1);
+    await request(app).get('/api/v2/watch/waitlist/counts').expect(403);
+    mockUser.role='Admin';expect((await request(app).get('/api/v2/watch/waitlist/counts').expect(200)).body.counts).toEqual([{_id:'abuja',count:1}]);
+  });
+ });

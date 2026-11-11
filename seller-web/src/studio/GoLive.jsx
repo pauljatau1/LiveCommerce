@@ -1,3 +1,4 @@
+import { usePickupArea, PickupAreaBanner } from './ServiceArea';
 // Go Live (design: S-GoLive-Check). Pick a show, check camera and mic, go live.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -6,7 +7,7 @@ import { Icon, Empty, Problem, Skeleton, TopBar } from './ui';
 import { releaseStream } from './localMedia';
 import ShareSheet from './ShareSheet';
 
-function ShowPicker() {
+function GoLiveOriginal() {
   const navigate = useNavigate();
   const [shows, setShows] = useState(null);
   const [error, setError] = useState('');
@@ -150,9 +151,13 @@ function Check({ showId }) {
   );
 }
 
-export function GoLiveCheck() {
+function GoLiveCheckOriginal() {
   const { showId } = useParams();
   return <Check showId={showId} />;
 }
 
-export default ShowPicker;
+// The original show picker is retained inside the service-area gate.
+
+function ServiceAreaGate({children}) { const area=usePickupArea(); const navigate=useNavigate(); if(area.error) return <div className="studio-app"><div className="st-inner"><Problem text={area.error} onRetry={() => location.reload()} /></div></div>; if(area.allowed === null) return <div className="studio-app"><div className="st-inner" role="status">Checking pickup address…</div></div>; if(!area.allowed) return <div className="studio-app"><TopBar title="Go live" onBack={() => navigate('/studio')} /><div className="st-inner"><PickupAreaBanner config={area.config} primary /></div></div>; return children; }
+export default function GoLive() { return <ServiceAreaGate><GoLiveOriginal /></ServiceAreaGate>; }
+export function GoLiveCheck() { return <ServiceAreaGate><GoLiveCheckOriginal /></ServiceAreaGate>; }

@@ -24,6 +24,7 @@ const view = (s) => {
   const a = s.warehouseDetails?.address?.addressLine1 ? s.warehouseDetails.address : s.businessAddress?.addressLine1 ? s.businessAddress : null;
   const b = s.bankDetails || {};
   return {
+    serviceArea: require('../services/serviceArea').serviceAreaConfig(),
     store: { storeName: s.storeName || '', aboutStore: s.aboutStore || '', avatar: s.storeAvatar?.url || null, categories: (s.categories || []).map((c) => c.name), done: Boolean(s.storeName) },
     pickup: a ? { state: a.state, city: a.city, addressLine1: a.addressLine1, landmark: a.addressLine2 || '', phone: s.warehouseDetails?.contactNumber || s.phoneNumber || '', done: true } : { done: false, phone: s.phoneNumber || '' },
     bank: b.accountNumber ? { bankName: b.bankName, last4: String(b.accountNumber).slice(-4), accountName: b.accountName, done: Boolean(s.isBankVerified) } : { done: false },
@@ -60,6 +61,7 @@ router.put('/pickup', async (req, res) => {
   const addressLine1 = clean(req.body?.addressLine1, 160);
   const landmark = clean(req.body?.landmark, 120);
   const phone = digits(req.body?.phone);
+  if (!require('../services/serviceArea').inServiceArea(state)) return bad(res, require('../services/serviceArea').pickupMessage());
   if (!state || !city || !addressLine1) return bad(res, 'Add your state, area and street address.');
   if (!/^(0[789][01]\d{8}|[789][01]\d{8}|234[789][01]\d{8})$/.test(phone)) return bad(res, 'Add a phone number couriers can call, like 0803 123 4567.');
   try {

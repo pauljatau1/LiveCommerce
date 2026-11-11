@@ -33,6 +33,7 @@ const availableExpr = { $subtract: [{ $ifNull: ['$wallet.balance', 0] }, { $ifNu
 // Deposit a new delivery would need: 0 if the buyer already has one in this
 // show, else the Shipbubble quote for this item (see depositQuote).
 const depositFor = async (streamId, buyerId, productId) => {
+  await require('./serviceArea').checkPurchase(streamId, buyerId);
   // Delivery pricing switched off (no SHIPBUBBLE_API_KEY, e.g. local dev): no deposit
   if (!shipbubble.isConfigured()) return 0;
   const existing = await ShowDelivery.exists({ stream: streamId, buyer: buyerId });
@@ -238,9 +239,11 @@ const hostFor = async (streamId, productId) => {
  * @returns {{ amount, courierName, deliveryEta, area }}
  */
 const depositQuote = async ({ streamId, buyerId, productId }) => {
+  await require('./serviceArea').checkPurchase(streamId, buyerId);
   if (!shipbubble.isConfigured()) throw new DeliveryError(503, "Delivery pricing isn't switched on yet.");
   const [{ seller, product }, buyer] = await Promise.all([hostFor(streamId, productId), model('Buyer').findById(buyerId).lean()]);
   if (!buyer) throw new DeliveryError(404, 'Buyer not found');
+  if (buyer.shippingAddresses?.length) require('./serviceArea').requireState((buyer.shippingAddresses.find(a => a.isActive) || buyer.shippingAddresses[0])?.state);
   const dropoff = buyerDropoff(buyer);
   if (!dropoff) throw new DeliveryError(422, 'Add your delivery address first.');
   if (!dropoff.phone) throw new DeliveryError(422, 'Add a phone number for the courier first.');
@@ -260,11 +263,13 @@ const depositQuote = async ({ streamId, buyerId, productId }) => {
  * one-step sheet), so they see the real price before paying. Nothing is saved.
  */
 const previewQuote = async ({ streamId, productId, address }) => {
+  require('./serviceArea').requireState(address?.state);
   if (!shipbubble.isConfigured()) throw new DeliveryError(503, "Delivery pricing isn't switched on yet.");
   const { addressLine1, city, state, phoneNumber, name, email } = address || {};
   if (!addressLine1 || !city || !state) throw new DeliveryError(422, 'Add your street, area and state to see the delivery price.');
   if (!phoneNumber) throw new DeliveryError(422, 'Add a phone number for the courier to see the delivery price.');
   const { seller, product } = await hostFor(streamId, productId);
+  require('./serviceArea').requireState(require('./serviceArea').pickupAddress(seller).state, true);
   let senderCode;
   try { senderCode = await sellerAddressCode(seller); } catch { throw hostAddressProblem(); }
   let verified;

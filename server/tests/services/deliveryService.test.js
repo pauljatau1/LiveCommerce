@@ -129,8 +129,8 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     const ada = await createBuyer('Ada', 50000);
     await Seller.collection.updateOne({ _id: seller._id }, { $unset: { sellerAddress: 1 } });
     const r = await buy(ada, plush);
-    expect(r).toMatchObject({ success: false, reason: 'delivery' });
-    expect(r.message).toMatch(/host hasn't finished their pickup address/);
+    expect(r).toMatchObject({ success: false, reason: 'out_of_area' });
+    expect(r.message).toMatch(/Update your pickup address/);
     expect(shipbubble.fetchRates).not.toHaveBeenCalled();
   });
 
@@ -343,4 +343,19 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     await expect(deliveries.cancelPickup({ sellerId: seller._id, deliveryId: settled._id })).rejects.toMatchObject({ status: 409, message: expect.stringMatching(/already processed/) });
     expect((await ShowDelivery.findById(settled._id).lean()).status).toBe('booked');
   });
+  it('refuses out-of-area quotes without contacting the courier', async () => {
+    const b=await createBuyer('Outside',50000,{shippingAddresses:[{country:'NG',state:'Abuja',city:'Wuse',addressLine1:'1 Test Road'}]});
+    await expect(deliveries.depositQuote({streamId:stream._id,buyerId:b._id,productId:plush._id})).rejects.toMatchObject({code:'out_of_area'});
+    await expect(deliveries.previewQuote({streamId:stream._id,productId:plush._id,address:{state:'Ogun',city:'Ota',addressLine1:'1 Test Road',phoneNumber:'08031234567'}})).rejects.toMatchObject({code:'out_of_area'});
+    expect(shipbubble.fetchRates).not.toHaveBeenCalled();
+  });
+
+  it('keeps an already paid delivery bookable after the service area changes', async () => {
+    const {ada,settled}=await paidDelivery();
+    await Seller.updateOne({_id:seller._id},{$set:{'sellerAddress.state':'Ogun'}});
+    await Buyer.updateOne({_id:ada._id},{$set:{'shippingAddresses.0.state':'Abuja'}});
+    shipbubble.createShipment.mockResolvedValue({order_id:'SB-EXISTING',status:'pending',tracking_url:'existing'});
+    expect(await deliveries.book({sellerId:seller._id,deliveryId:settled._id})).toMatchObject({status:'booked'});
+  });
+
 });

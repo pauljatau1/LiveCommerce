@@ -22,6 +22,9 @@ class BuyNowError extends Error {
 }
 
 const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, shippingFee = 0, expectedAmount, expectedRun }) => {
+  try { await require('./serviceArea').checkPurchase(streamId, buyerId); }
+  catch (e) { if (e.code === 'out_of_area') return { success: false, reason: e.code, message: e.message, state: e.state }; throw e; }
+
   const qty = Math.floor(Number(quantity));
   if (!(qty >= 1 && qty <= MAX_QUANTITY)) return { success: false, reason: 'bad_quantity', message: `Choose 1 to ${MAX_QUANTITY}` };
   const fee = Math.max(0, Number(shippingFee) || 0);
@@ -31,6 +34,7 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
   try {
     deposit = await deliveries.depositFor(streamId, buyerId, productId);
   } catch (error) {
+    if (error.code === 'out_of_area') return { success: false, reason: error.code, message: error.message, state: error.state };
     if (error instanceof deliveries.DeliveryError) {
       return { success: false, reason: /add your delivery address|phone number for the courier/i.test(error.message) ? 'no_address' : 'delivery', message: error.message };
     }
@@ -85,7 +89,9 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
       if (!charged) throw new BuyNowError('insufficient_funds', deposit ? `Not enough in your wallet. You need ₦${(total + deposit).toLocaleString('en-NG')}, including a ₦${deposit.toLocaleString('en-NG')} delivery deposit for this show.` : 'Not enough in your wallet. Top up to buy this.', total + deposit);
       if (!charged.shippingAddresses?.length) throw new BuyNowError('no_address', 'Add a delivery address first');
 
-      const seller = product.seller || {};
+      // Product autopopulation omits some pickup fields; read the seller in this transaction.
+      const seller = await model('Seller').findById(product.seller?._id || product.seller).session(session).lean() || {};
+      require('./serviceArea').checkAddresses(charged, seller);
       const [order] = await model('Order').create(
         [{
           buyer: charged._id,
@@ -140,6 +146,7 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
     });
     return result;
   } catch (error) {
+    if (error.code === 'out_of_area') return { success: false, reason: error.code, message: error.message, state: error.state };
     if (error instanceof BuyNowError) return { success: false, reason: error.reason, message: error.message, ...(error.needed ? { needed: error.needed } : {}) };
     throw error;
   } finally {

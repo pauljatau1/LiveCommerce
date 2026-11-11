@@ -19,7 +19,7 @@ async function fixture({ enabled = true, saved = true, width = 390, missingAddre
  const page = await browser.newPage({ viewport: { width, height: 760 }, isMobile: true, hasTouch: true }); pages.push(page);
  const state = { balance: 2000, dva: { status: 'none' }, saved: saved ? [card] : [], charge: 'success', show: { _id: 'demo', title: 'Fashion live', status: 'live', seller: { _id: 'host', storeName: 'Test Store' }, products: [product()], viewers: ['one'] }, calls: [], latestCredit: null, chargeResult: null };
  state.quotedDeposit = quotedDeposit; state.pauseQuote = false; state.deliveryUnavailable = false;
- state.profile = { _id: 'buyer', firstName: 'Ada', lastName: 'Test', email: 'ada@test.example', phoneNumber: missingAddress ? '' : '08012345678', shippingAddresses: missingAddress ? [] : [{ _id: 'home', isDefault: true }] };
+ state.profile = { _id: 'buyer', firstName: 'Ada', lastName: 'Test', email: 'ada@test.example', phoneNumber: missingAddress ? '' : '08012345678', shippingAddresses: missingAddress ? [] : [{ _id: 'home', isDefault: true, state: 'Lagos', city: 'Lekki', addressLine1: '5 Test Road' }] };
  const errors = []; page.on('pageerror', e => errors.push(e.message)); state.errors = errors;
  await page.addInitScript(() => {
   localStorage.setItem('buyerToken', 'mock-only');
@@ -35,7 +35,8 @@ async function fixture({ enabled = true, saved = true, width = 390, missingAddre
   if (url.origin === 'http://localhost:8000') {
    state.calls.push({ path, search: url.search, method: route.request().method(), body: route.request().postDataJSON() });
    let json = {};
-   if (path.endsWith('/profile')) json = state.profile;
+   if (path.endsWith('/watch/config')) json={serviceArea:{states:['Lagos'],areas:{Lagos:{'Eti-Osa':['Lekki']}}}};
+    else if (path.endsWith('/profile')) json = state.profile;
    else if (path.endsWith('/addresses')) { const body = route.request().postDataJSON(); state.profile.shippingAddresses = [{ _id: 'home', ...body }]; json = state.profile; }
    else if (path.endsWith('/orders/states')) json = { data: [{ name: 'Lagos', isoCode: 'LA' }] };
    else if (path.endsWith('/orders/cities/LA')) json = { data: [{ name: 'Lekki' }] };
@@ -154,8 +155,8 @@ try {
   const { page: combined, state: qs } = await fixture({ missingAddress: true, quotedDeposit: 6650 });
   qs.pauseQuote = true;
   await combined.getByRole('button', { name: 'Bid ₦12,000', exact: false }).click();
-  await combined.locator('#os-st').selectOption('Lagos');
-  await combined.locator('#os-ct').selectOption('Lekki');
+  await combined.locator('#os-st:disabled').waitFor();
+  await combined.locator('#os-ct').fill('Lekki');
   await combined.locator('#os-l1').fill('5 Admiralty Way');
   await combined.locator('#os-ph').fill('1234');
   assert(await combined.getByRole('button', { name: 'Add your address to continue', exact: true }).isDisabled());

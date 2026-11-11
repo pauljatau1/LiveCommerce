@@ -1,3 +1,4 @@
+import { useServiceArea } from '../serviceArea';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
@@ -5,7 +6,7 @@ import { Header, Icon } from '../components/ui';
 
 const when = (d) => new Date(d).toLocaleString('en-NG', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 
-function ShowCard({ s, live }) {
+function ShowCard({ s, live, deliveryLabel }) {
   const cover = s.coverImage?.url || (s.products || []).map((p) => p.product?.images?.[0]?.url || p.images?.[0]?.url).find(Boolean) || null;
   return (
     <Link to={`/live/${s._id}`} className="show">
@@ -21,12 +22,15 @@ function ShowCard({ s, live }) {
       <span className="b">
         <span style={{ fontWeight: 'var(--w-medium)', fontSize: 'var(--t-body)', lineHeight: 1.25 }}>{s.title}</span>
         <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{s.seller?.storeName || s.seller?.businessName || 'A creator'}</span>
+        {deliveryLabel && <span className="hint" style={{fontSize:'var(--t-micro)'}}>{deliveryLabel}</span>}
       </span>
     </Link>
   );
 }
 
 export default function Home() {
+  const { config } = useServiceArea();
+  const deliveryLabel = config?.states?.length ? `${config.states.join(' and ')} delivery` : '';
   const [live, setLive] = useState(null);
   const [upcoming, setUpcoming] = useState([]);
   const [error, setError] = useState('');
@@ -50,7 +54,7 @@ export default function Home() {
           {live === null ? (
             <div className="shows">{[0, 1].map((i) => <span key={i} className="sk" style={{ aspectRatio: '3/4', borderRadius: 20 }} />)}</div>
           ) : live.length ? (
-            <div className="shows">{live.map((s) => <ShowCard key={s._id} s={s} live />)}</div>
+            <div className="shows">{live.map((s) => <ShowCard key={s._id} s={s} deliveryLabel={deliveryLabel} live />)}</div>
           ) : (
             <div className="card empty"><span className="blob" aria-hidden="true">{Icon.eye}</span><span className="f" style={{ fontSize: 'var(--t-h2)' }}>No one is live right now</span><span className="mut" style={{ fontSize: 'var(--t-small)' }}>{error || 'Check the upcoming shows below.'}</span></div>
           )}
@@ -59,7 +63,7 @@ export default function Home() {
         {upcoming.length > 0 && (
           <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <h2 className="h2">Coming up</h2>
-            <div className="shows">{upcoming.map((s) => <ShowCard key={s._id} s={s} />)}</div>
+            <div className="shows">{upcoming.map((s) => <ShowCard key={s._id} s={s} deliveryLabel={deliveryLabel} />)}</div>
           </section>
         )}
       </main>

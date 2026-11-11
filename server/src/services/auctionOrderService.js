@@ -40,7 +40,7 @@ const toDeliveryAddress = (buyer) => {
 };
 
 const toPickupAddress = (seller) => {
-  const a = seller.warehouseDetails?.address || seller.businessAddress || seller.sellerAddress || {};
+  const a = require('./serviceArea').pickupAddress(seller);
   return {
     first_name: seller.firstName,
     last_name: seller.lastName,
@@ -54,6 +54,9 @@ const toPickupAddress = (seller) => {
 };
 
 const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shippingFee = 0 }) => {
+  try { await require('./serviceArea').checkPurchase(streamId, buyerId); }
+  catch (e) { if (e.code === 'out_of_area') { await releaseProductHold(streamId, productId).catch(() => {}); return { success: false, reason: e.code, message: e.message, state: e.state }; } throw e; }
+
   const fee = Math.max(0, Number(shippingFee) || 0);
   const bid = Number(bidAmount);
   const total = bid + fee;
@@ -130,7 +133,9 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
       if (!product) throw new AuctionOrderError('sold_out', 'This item is out of stock');
 
       // 4. Create the paid order.
-      const seller = product.seller || {};
+      // Product autopopulation omits some pickup fields; read the seller in this transaction.
+      const seller = await model('Seller').findById(product.seller?._id || product.seller).session(session).lean() || {};
+      require('./serviceArea').checkAddresses(charged, seller);
       const [order] = await model('Order').create(
         [
           {

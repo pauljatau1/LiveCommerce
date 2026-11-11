@@ -43,9 +43,11 @@ try {
   if(url.pathname.includes('agora-rtc-sdk-ng.js'))return route.fulfill({contentType:'application/javascript',body:agora});
   if(url.pathname.includes('socket__io-client.js'))return route.fulfill({contentType:'application/javascript',body:socket});
   if(url.pathname.startsWith('/src/Hooks/useIntercomVisibility'))return route.fulfill({contentType:'application/javascript',body:'export const useIntercomVisibility=()=>{};'});
+  if(url.pathname.startsWith('/src/Hooks/useAuthContextV2')) return route.fulfill({contentType:'application/javascript',body:"export const useAuthContext=()=>({seller:{sellerAddress:{state:'Lagos',addressLine1:'1 Test Road'}}});"});
   if(url.origin==='http://localhost:8000'){
    let json={};
-   if(url.pathname.endsWith('/shows/demo'))json={show:{_id:'demo',title:'Test show',status,type:'auction',viewers:0},items:[],sales:{count:0,amount:0}};
+   if(url.pathname.endsWith('/watch/config'))json={serviceArea:{states:['Lagos'],areas:{}}};
+   else if(url.pathname.endsWith('/shows/demo'))json={show:{_id:'demo',title:'Test show',status,type:'auction',viewers:0},items:[],sales:{count:0,amount:0}};
    else if(url.pathname.endsWith('/start'))status='live';
    else if(url.pathname.endsWith('/renew-token'))json={agoraAppId:'test',channelName:'test',token:'test',uid:1};
    else if(url.pathname.endsWith('/end')){endRequested=true;await endGate;status='ended';}
