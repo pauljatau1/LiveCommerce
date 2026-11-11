@@ -73,7 +73,7 @@ describe('auctionOrderService', () => {
 
     expect(result).toMatchObject({ success: true, totals: { grandTotal: 22000 } });
     // The bid hold is gone; the show's delivery deposit (3,000) is now held
-    expect(await wallet(ada)).toMatchObject({ balance: 28000, onHoldAmount: 3000 });
+    expect(await wallet(ada)).toMatchObject({ balance: 28000, onHoldAmount: 0 }); // delivery pricing is off in this suite: no deposit
     const saved = await Order.findOne({ buyer: ada._id }).lean();
     expect(saved).toMatchObject({ paid: true, channel: 'auction', totalAmount: 20000, shipping: { fee: { amount: 2000 } } });
     expect(saved.delivery_address.state).toBe('Lagos');
@@ -94,7 +94,7 @@ describe('auctionOrderService', () => {
 
     expect(results.filter((r) => r.success)).toHaveLength(1);
     // The bid hold is gone; the show's delivery deposit (3,000) is now held
-    expect(await wallet(ada)).toMatchObject({ balance: 28000, onHoldAmount: 3000 });
+    expect(await wallet(ada)).toMatchObject({ balance: 28000, onHoldAmount: 0 }); // delivery pricing is off in this suite: no deposit
     expect(await Order.countDocuments({ buyer: ada._id })).toBe(1);
   });
 

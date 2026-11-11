@@ -57,6 +57,10 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
   const fee = Math.max(0, Number(shippingFee) || 0);
   const bid = Number(bidAmount);
   const total = bid + fee;
+  // First item in this show for the winner: hold the Shipbubble-quoted
+  // delivery deposit (their bid already reserved room for it). If it can't be
+  // priced now, nothing is held and the after-show quote covers delivery.
+  const deposit = await deliveries.depositFor(streamId, buyerId, productId).catch(() => 0);
   const session = await mongoose.startSession();
 
   try {
@@ -197,7 +201,7 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
       );
 
       // Ships with the buyer's other items from this show (deposit held on the first)
-      await deliveries.attachOrder({ session, streamId, buyerId: charged._id, sellerId: seller._id || before.seller, order, product, quantity: 1, unitPrice: bid, note: runNote });
+      await deliveries.attachOrder({ session, streamId, buyerId: charged._id, sellerId: seller._id || before.seller, order, product, quantity: 1, unitPrice: bid, note: runNote, deposit });
 
       result = {
         success: true,

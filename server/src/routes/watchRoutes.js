@@ -13,6 +13,7 @@ const { RtcRole } = require('agora-access-token');
 const deliveries = require('../services/deliveryService');
 const deliveryEstimate = require('../services/deliveryEstimate');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 
 // Reads the buyer from the token when there is one; guests carry on without
 const optionalBuyer = (req, res, next) => {
@@ -76,8 +77,8 @@ router.get('/:streamId/summary', validId, async (req, res) => {
       success: true,
       sold: countBy(stream.orders || [], (o) => o.product && String(o.product), (o) => Number(o.orderDetails?.quantity) || 1),
       bids: countBy(stream.bids || [], (b) => b.product && String(b.product)),
-      // Held once per show with a buyer's first item (see deliveryService)
-      deliveryDeposit: deliveries.depositAmount(),
+      // The delivery deposit is a Shipbubble quote per buyer (GET /:streamId/me)
+      deliveryDeposit: 0,
       host: await hostRating(stream.seller),
     });
   } catch (error) {
@@ -86,38 +87,56 @@ router.get('/:streamId/summary', validId, async (req, res) => {
   }
 });
 
-// GET /api/v2/watch/:streamId/me → what this buyer still owes before a first bid:
-// the show's one delivery deposit, unless they already have an item in this show.
+// GET /api/v2/watch/:streamId/me?productId= → what this buyer still owes before a first bid:
+// the delivery deposit, a real Shipbubble quote from the host's pickup address to
+// their saved address (0 if they already have an item in this show).
 router.get('/:streamId/me', verifyToken, isBuyer, validId, async (req, res) => {
   try {
-    const depositDue = await deliveries.depositFor(req.params.streamId, req.user.id);
     const stream = await Stream.findById(req.params.streamId).select('seller').lean();
     const following = Boolean(stream && await mongoose.model('Seller').exists({ _id: stream.seller, 'followers.buyerId': new mongoose.Types.ObjectId(String(req.user.id)) }));
-    res.json({ success: true, depositDue, following });
+    const has = await mongoose.model('ShowDelivery').exists({ stream: req.params.streamId, buyer: req.user.id });
+    if (has) return res.json({ success: true, depositDue: 0, following });
+    try {
+      const q = await deliveries.depositQuote({ streamId: req.params.streamId, buyerId: req.user.id, productId: req.query.productId });
+      res.json({ success: true, depositDue: q.amount, delivery: q, following });
+    } catch (e) {
+      if (!(e instanceof deliveries.DeliveryError)) throw e;
+      // Can't price it yet (no address, host address unfinished, Shipbubble off): say why
+      res.json({ success: true, depositDue: null, deliveryProblem: e.message, following });
+    }
   } catch (error) {
     console.error('[watch] me', error.message);
-    res.status(500).json({ success: false, message: "Couldn't check your delivery deposit. Try again." });
+    res.status(500).json({ success: false, message: "Couldn't check delivery for you. Try again." });
   }
 });
 
-// GET /api/v2/watch/:streamId/estimate?state=&city= → delivery estimate from this host to that area.
-// Signed-in buyers can leave out the area to use their delivery address.
+// GET /api/v2/watch/:streamId/estimate?productId= → the delivery price from this host
+// to the signed-in buyer's saved address, from Shipbubble. No area guesses: without
+// a saved address there is nothing to price.
 router.get('/:streamId/estimate', validId, optionalBuyer, async (req, res) => {
   try {
-    const stream = await Stream.findById(req.params.streamId).select('seller').lean();
-    if (!stream) return res.status(404).json({ success: false, message: "We couldn't find this show." });
-    let { state, city } = req.query;
-    if ((!state || !city) && req.user?.id) {
-      const buyer = await mongoose.model('Buyer').findById(req.user.id).select('shippingAddresses').lean();
-      const a = buyer?.shippingAddresses?.find((x) => x.isActive) || buyer?.shippingAddresses?.[0];
-      state = a?.state; city = a?.city;
-    }
-    const est = await deliveryEstimate.estimate({ sellerId: stream.seller, city, state });
-    res.json({ success: true, available: true, ...est, deposit: deliveries.depositAmount() });
+    if (!req.user?.id) return res.json({ success: true, available: false, message: 'Add your delivery address to see the delivery price.' });
+    const q = await deliveries.depositQuote({ streamId: req.params.streamId, buyerId: req.user.id, productId: req.query.productId });
+    res.json({ success: true, available: true, ...q });
   } catch (error) {
-    if (error instanceof deliveryEstimate.EstimateUnavailable) return res.json({ success: true, available: false, message: error.message });
+    if (error instanceof deliveries.DeliveryError) return res.json({ success: true, available: false, message: error.message });
     console.error('[watch] estimate', error.message);
-    res.status(500).json({ success: false, message: "Couldn't get a delivery estimate. Try again." });
+    res.status(500).json({ success: false, message: "Couldn't get a delivery price. Try again." });
+  }
+});
+
+// POST /api/v2/watch/:streamId/delivery-quote { productId, address } → the Shipbubble
+// price to an address the buyer has typed in the one-step sheet but not saved yet.
+// Nothing is stored. Limited per IP: each call checks the address with Shipbubble.
+const quoteLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false, message: { success: false, message: 'Too many delivery checks. Wait a few minutes.' } });
+router.post('/:streamId/delivery-quote', validId, quoteLimiter, async (req, res) => {
+  try {
+    const q = await deliveries.previewQuote({ streamId: req.params.streamId, productId: req.body?.productId, address: req.body?.address });
+    res.json({ success: true, available: true, ...q });
+  } catch (error) {
+    if (error instanceof deliveries.DeliveryError) return res.json({ success: true, available: false, message: error.message });
+    console.error('[watch] delivery-quote', error.message);
+    res.status(500).json({ success: false, message: "Couldn't get a delivery price. Try again." });
   }
 });
 

@@ -41,6 +41,8 @@ export default function Watch() {
   const [videoMode, setVideoMode] = useState('on'); // on | paused | audio
   const videoModeRef = useRef('on');
   const recoveryRef = useRef(null);
+  const quoteItemRef = useRef(''); // item the delivery quote is for (read by recovery)
+  const lastBidRef = useRef(null); // last bid sent, to reopen the one-step sheet if delivery can't be priced
   const restoreMediaRef = useRef(() => {});
   const [syncState, setSyncState] = useState('ready');
   const [rtcSession, setRtcSession] = useState(0);
@@ -71,8 +73,10 @@ export default function Watch() {
   const signedInRef = useRef(signedIn);
   signedInRef.current = signedIn;
   const startedAsGuest = useRef(false);
-  const [showDeposit, setShowDeposit] = useState(0); // the show's delivery deposit (for a first item)
-  const [depositDue, setDepositDue] = useState(null); // what this buyer still owes (null until known)
+  // Delivery deposit this buyer owes before a first item: a Shipbubble quote to their
+  // saved address. null = not known yet, or can't be priced (deliveryProblem says why)
+  const [depositDue, setDepositDue] = useState(null);
+  const [deliveryProblem, setDeliveryProblem] = useState('');
   const [wentLive, setWentLive] = useState(false);
   const [estimate, setEstimate] = useState(null); // delivery estimate to the buyer's area
   const [notes, setNotes] = useState({ notes: null, firstLine: '', sections: [] }); // the host's pinned show notes
@@ -111,23 +115,32 @@ export default function Watch() {
       .catch((e) => { if (!cancelled) { setLoadError(errorMessage(e, "We couldn't find this show.")); setPhase('error'); } });
     api.notes(streamId).then((r) => { if (!cancelled && r) setNotes({ notes: r.notes, firstLine: r.firstLine, sections: r.sections || [] }); }).catch(() => {});
     api.watchSummary(streamId)
-      .then((sum) => { if (!cancelled) { setSoldCounts(sum?.sold || {}); setBidCounts(sum?.bids || {}); setShowDeposit(Number(sum?.deliveryDeposit) || 0); setHostStats(sum?.host || null); } })
+      .then((sum) => { if (!cancelled) { setSoldCounts(sum?.sold || {}); setBidCounts(sum?.bids || {}); setHostStats(sum?.host || null); } })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [streamId]);
 
-  // What a signed-in buyer still owes for delivery in this show
-  useEffect(() => {
-    if (!signedIn) { setDepositDue(null); return; }
-    api.watchMe(streamId).then((r) => { setDepositDue(Number(r?.depositDue) || 0); setFollowing(Boolean(r?.following)); }).catch(() => setDepositDue(null));
-  }, [signedIn, streamId]);
+  // The item a delivery quote is for: the one on screen now
+  const quoteItemId = useMemo(() => {
+    const c = items.find((p) => p.bidStatus === 'active') || items.find((p) => p.isVisible) || items[0];
+    return c ? idOf(c) : '';
+  }, [items]);
+  const addressKey = (buyer?.shippingAddresses || []).map((a) => `${a.addressLine1}|${a.city}|${a.state}|${a.phoneNumber}`).join(',');
+  const applyMe = useCallback((r) => {
+    if (!r) return;
+    setDepositDue(r.depositDue === null || r.depositDue === undefined ? null : Number(r.depositDue));
+    setDeliveryProblem(r.deliveryProblem || '');
+    setFollowing(Boolean(r.following));
+    // The same Shipbubble quote doubles as the delivery line on screen
+    setEstimate(r.delivery ? { available: true, ...r.delivery } : null);
+  }, []);
 
-  // Delivery estimate from this host to the buyer's saved area (before and during the show)
-  const addressKey = (buyer?.shippingAddresses || []).map((a) => `${a.city}|${a.state}`).join(',');
+  // What a signed-in buyer owes for delivery in this show: Shipbubble, from the
+  // host's pickup address to their saved address (refetched when either changes)
   useEffect(() => {
-    if (!signedIn || !addressKey) { setEstimate(null); return; }
-    api.estimate(streamId).then(setEstimate).catch(() => setEstimate(null));
-  }, [signedIn, addressKey, streamId]);
+    if (!signedIn) { setDepositDue(null); setDeliveryProblem(''); setEstimate(null); return; }
+    api.watchMe(streamId, quoteItemId).then(applyMe).catch(() => setDepositDue(null));
+  }, [signedIn, streamId, quoteItemId, addressKey, applyMe]);
 
   // A scheduled show page notices when the host goes live
   useEffect(() => {
@@ -166,7 +179,7 @@ export default function Watch() {
         const [scene, summary, pinned, history, me] = await Promise.all([
           api.show(streamId), api.watchSummary(streamId).catch(() => null),
           api.notes(streamId).catch(() => null), api.publicChat(streamId).catch(() => null),
-          signedInRef.current ? api.watchMe(streamId).catch(() => null) : null,
+          signedInRef.current ? api.watchMe(streamId, quoteItemRef.current).catch(() => null) : null,
         ]);
         return { scene, summary, pinned, history, me };
       },
@@ -181,7 +194,7 @@ export default function Watch() {
         if (summary) { setBidCounts(summary.bids || {}); setSoldCounts(summary.sold || {}); }
         if (pinned) setNotes({ notes: pinned.notes, firstLine: pinned.firstLine, sections: pinned.sections || [] });
         if (history) setFeed(history.slice(-40).map((m) => ({ id: m.id || m._id, kind: 'comment', user: m.user, avatar: m.avatar, text: m.content, host: Boolean(m.isHost) })));
-        if (me) { setDepositDue(Number(me.depositDue) || 0); setFollowing(Boolean(me.following)); }
+        if (me) applyMe(me);
       },
       status: setSyncState,
     });
@@ -435,6 +448,8 @@ export default function Watch() {
         setSheet({ type: 'topup', need: r.details.totalRequired - (walletRef.current || 0) });
         return;
       }
+      // Delivery couldn't be priced for this buyer: fix the address in the one sheet
+      if (r?.code === 'no_address' && lastBidRef.current) { setSheet({ type: 'onestep', action: { kind: 'bid', ...lastBidRef.current } }); return; }
       say('err', r?.message || 'Your bid did not go through. Nothing was held.');
     });
     socket.on('auction_order_created', (r) => { setSheet({ type: 'won', name: r?.productName, amount: r?.amount, orderId: r?.orderId }); refreshWallet(); });
@@ -528,7 +543,8 @@ export default function Watch() {
   }, [items, myBids, buyer]);
   const nextUp = useMemo(() => items.find((p) => p.bidStatus !== 'ended' && p.bidStatus !== 'active' && !p.isVisible && !(p.minBid === undefined && p.product?.quantity === 0)) || null, [items]);
 
-  const deposit = depositDue ?? showDeposit;
+  const deposit = depositDue; // null until Shipbubble has priced it for this buyer
+  quoteItemRef.current = quoteItemId;
 
   // Bids go out on the buyer's own socket; after signing up mid-show, wait for it
   const authedSocket = () => new Promise((resolve) => {
@@ -544,7 +560,13 @@ export default function Watch() {
 
   // Anything missing (account, address, money) is handled in one sheet, then the action runs
   const ready = (cost, action) => {
-    if (signedIn && hasAddress && cost + deposit <= available) return true;
+    if (signedIn && hasAddress && deposit !== null && cost + deposit <= available) return true;
+    // Address saved but delivery can't be priced (e.g. the host's pickup address
+    // is unfinished): say why instead of reopening the address form
+    if (signedIn && hasAddress && deposit === null && deliveryProblem && !/your delivery address|phone number/i.test(deliveryProblem)) {
+      say('err', deliveryProblem, 6000);
+      return false;
+    }
     setSheet({ type: 'onestep', action });
     return false;
   };
@@ -553,6 +575,7 @@ export default function Watch() {
     setBusy(true);
     const sock = await authedSocket();
     if (!sock) { setBusy(false); say('err', "Couldn't reach the show. Your bid wasn't placed. Try again."); return; }
+    lastBidRef.current = { amount: bid, productId };
     sock.emit('stream_place_bid', { streamId, productId, bidAmount: bid });
     window.setTimeout(() => setBusy(false), 8000);
   };
@@ -578,7 +601,7 @@ export default function Watch() {
     } catch (e) {
       const reason = e?.response?.data?.reason;
       if (reason === 'insufficient_funds') setSheet({ type: 'topup', need: (e?.response?.data?.needed || price * quantity) - available });
-      else if (reason === 'no_address') setSheet({ type: 'address' });
+      else if (reason === 'no_address') setSheet({ type: 'onestep', action: { kind: 'buy', amount: price * quantity, item, quantity } });
       else say('err', errorMessage(e, "Couldn't complete the purchase. You weren't charged."));
     } finally {
       setBusy(false);
@@ -926,7 +949,7 @@ export default function Watch() {
 
       {sheet?.type === 'topup' && <TopUpSheet need={sheet.need} onClose={() => setSheet(null)} />}
       {sheet?.type === 'onestep' && (
-        <OneStepSheet action={sheet.action} deposit={deposit} top={sheet.action.kind === 'chat' ? null : miniBare} streamId={streamId} onClose={() => setSheet(null)} onReady={() => afterOneStep(sheet.action)} />
+        <OneStepSheet action={sheet.action} deposit={deposit} quote={estimate} productId={sheet.action.productId || (sheet.action.item ? idOf(sheet.action.item) : quoteItemId)} top={sheet.action.kind === 'chat' ? null : miniBare} streamId={streamId} onClose={() => setSheet(null)} onReady={() => afterOneStep(sheet.action)} />
       )}
       {sheet?.type === 'address' && <AddressSheet top={mini} onClose={() => setSheet(null)} onSaved={async () => { setSheet(null); await refresh(); say('ok', 'Address saved. You can bid and buy now.'); }} />}
       {sheet?.type === 'bid' && current && (
@@ -950,7 +973,7 @@ export default function Watch() {
           </div>
           <p className="purchase-delivery">{sheet.type === 'yours' && !sheet.firstItem
             ? 'Ships with your other items. No extra delivery fee.'
-            : estimate?.available ? `Delivery to ${estimate.area} ≈ ${naira(estimate.amount)} · one fee per show`
+            : estimate?.available ? `Delivery to ${estimate.area}: ${naira(estimate.amount)} (Shipbubble) · one fee per show`
               : 'Your items ship together · one delivery fee'}{sheet.deposit ? ` · ${naira(sheet.deposit)} held` : ''}</p>
           <button type="button" className="btn" onClick={() => setSheet(null)}>Keep watching</button>
           <div className="purchase-links">

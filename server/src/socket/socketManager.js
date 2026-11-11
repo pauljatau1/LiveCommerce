@@ -1656,7 +1656,16 @@ function initializeSocket(server) {
         // Delivery is paid once per show (deposit held on the buyer's first item,
         // settled with a Shipbubble quote when the show ends). The bid also
         // holds the deposit if this would be their first item in the show.
-        const shippingFee = await require('../services/deliveryService').depositFor(stream._id, buyer._id);
+        // The deposit is a real Shipbubble quote to the buyer's saved address.
+        // If it can't be priced (no address, host's address unfinished), say why.
+        let shippingFee = 0;
+        try {
+          shippingFee = await require('../services/deliveryService').depositFor(stream._id, buyer._id, productId);
+        } catch (depositError) {
+          const plain = depositError.status ? depositError.message : "Couldn't price delivery right now. Try again in a moment.";
+          socket.emit('bid_error', { message: plain, code: /add your delivery address|phone number/i.test(plain) ? 'no_address' : 'delivery_quote' });
+          return;
+        }
 
         // Funds are checked and reserved atomically by streamBids.placeBid below
 

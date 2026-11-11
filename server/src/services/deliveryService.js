@@ -1,7 +1,8 @@
 // Show deliveries: one package per buyer per show.
 //
-//  1. First win/buy in a show: create the delivery and hold a deposit
-//     (DELIVERY_DEPOSIT_NGN, default 3,000) from the buyer's wallet.
+//  1. First win/buy in a show: create the delivery and hold a deposit: a real
+//     Shipbubble quote from the host's verified pickup address to the buyer's
+//     verified delivery address, for that first item. No flat or guessed fee.
 //  2. Show ends: one Shipbubble quote for all the buyer's items (cheapest
 //     courier). Charge it from the wallet, counting the held deposit. If the
 //     wallet is short the buyer sees "Pay delivery" later.
@@ -11,6 +12,7 @@
 const mongoose = require('mongoose');
 const ShowDelivery = require('../models/ShowDelivery');
 const shipbubble = require('./shipbubble');
+require('../models/DeliveryEstimate'); // quote cache
 
 const model = (name) => mongoose.model(name);
 const QUOTE_TTL_MS = 6 * 24 * 60 * 60 * 1000; // Shipbubble tokens last 7 days
@@ -22,19 +24,26 @@ class DeliveryError extends Error {
   }
 }
 
-const depositAmount = () => Math.max(0, Number(process.env.DELIVERY_DEPOSIT_NGN ?? 3000) || 0);
+// Old flat deposit (DELIVERY_DEPOSIT_NGN). No longer used for money: kept so
+// nothing that imports it breaks. Deposits come from depositQuote below.
+const depositAmount = () => 0;
 
 const availableExpr = { $subtract: [{ $ifNull: ['$wallet.balance', 0] }, { $ifNull: ['$wallet.onHoldAmount', 0] }] };
 
-// Deposit a new delivery would need (0 if the buyer already has one in this show)
-const depositFor = async (streamId, buyerId) => {
+// Deposit a new delivery would need: 0 if the buyer already has one in this
+// show, else the Shipbubble quote for this item (see depositQuote).
+const depositFor = async (streamId, buyerId, productId) => {
+  // Delivery pricing switched off (no SHIPBUBBLE_API_KEY, e.g. local dev): no deposit
+  if (!shipbubble.isConfigured()) return 0;
   const existing = await ShowDelivery.exists({ stream: streamId, buyer: buyerId });
-  return existing ? 0 : depositAmount();
+  if (existing) return 0;
+  const q = await depositQuote({ streamId, buyerId, productId });
+  return q.amount;
 };
 
 // Called inside the order transaction: add the order to the buyer's delivery
 // for this show, creating it (and holding the deposit) on the first item.
-const attachOrder = async ({ session, streamId, buyerId, sellerId, order, product, quantity, unitPrice, note }) => {
+const attachOrder = async ({ session, streamId, buyerId, sellerId, order, product, quantity, unitPrice, note, deposit = 0 }) => {
   const item = {
     order: order._id,
     product: product._id,
@@ -53,7 +62,6 @@ const attachOrder = async ({ session, streamId, buyerId, sellerId, order, produc
   );
   if (!delivery) {
     [delivery] = await ShowDelivery.create([{ stream: streamId, buyer: buyerId, seller: sellerId, orders: [order._id], items: [item] }], { session });
-    const deposit = depositAmount();
     if (deposit > 0) {
       const held = await model('Buyer').updateOne(
         { _id: buyerId, $expr: { $gte: [availableExpr, deposit] } },
@@ -142,26 +150,20 @@ const packageFor = (items) => {
   };
 };
 
-const quote = async (delivery) => {
-  const [seller, buyer] = await Promise.all([
-    model('Seller').findById(delivery.seller).lean(),
-    model('Buyer').findById(delivery.buyer).lean(),
+// Cheapest Shipbubble courier between two verified addresses for these items
+const cheapestRate = async (senderCode, receiverCode, items) => {
+  const pkg = packageFor(items);
+  const [categoryId, dimension] = await Promise.all([
+    shipbubble.categoryIdFor(items[0]?.category),
+    shipbubble.boxFor(pkg.weight, items.reduce((n, i) => n + (i.quantity || 1), 0)),
   ]);
-  if (!seller || !buyer) throw new DeliveryError(404, 'Seller or buyer not found');
-  const [senderCode, receiverCode, categoryId] = await Promise.all([
-    sellerAddressCode(seller),
-    buyerAddressCode(buyer),
-    shipbubble.categoryIdFor(delivery.items[0]?.category),
-  ]);
-  const pkg = packageFor(delivery.items);
-  pkg.dimension = await shipbubble.boxFor(pkg.weight, delivery.items.reduce((n, i) => n + (i.quantity || 1), 0));
   const rates = await shipbubble.fetchRates({
     sender_address_code: senderCode,
     reciever_address_code: receiverCode,
     pickup_date: shipbubble.pickupDate(),
     category_id: categoryId,
     package_items: pkg.items,
-    package_dimension: pkg.dimension,
+    package_dimension: dimension,
     service_type: 'pickup',
   });
   const couriers = (rates?.couriers || []).filter((c) => Number(c.rate_card_amount ?? c.total) > 0);
@@ -178,6 +180,106 @@ const quote = async (delivery) => {
     deliveryEta: best.delivery_eta,
     fetchedAt: new Date(),
   };
+};
+
+const quote = async (delivery) => {
+  const [seller, buyer] = await Promise.all([
+    model('Seller').findById(delivery.seller).lean(),
+    model('Buyer').findById(delivery.buyer).lean(),
+  ]);
+  if (!seller || !buyer) throw new DeliveryError(404, 'Seller or buyer not found');
+  const [senderCode, receiverCode] = await Promise.all([sellerAddressCode(seller), buyerAddressCode(buyer)]);
+  return cheapestRate(senderCode, receiverCode, delivery.items);
+};
+
+// ---------- first-item deposit: a real quote, never a flat fee ----------
+
+const DEPOSIT_QUOTE_MS = 24 * 3600 * 1000; // rates move; reuse a quote for a day
+const itemFor = (product) => ({
+  name: product?.name || 'Item',
+  category: product?.category,
+  weightKg: Number(product?.shippingInfo?.weight?.value || product?.weight) || 0.5,
+  unitPrice: Number(product?.price) || 0,
+  quantity: 1,
+});
+
+// Plain words for each reason a delivery price can't be worked out
+const hostAddressProblem = () => new DeliveryError(422, "This host hasn't finished their pickup address, so delivery can't be priced yet. Bidding opens once they do.");
+
+const cachedRate = async (senderCode, receiverCode, item) => {
+  const DeliveryEstimate = model('DeliveryEstimate');
+  const key = `q:${senderCode}>${receiverCode}:${Math.ceil(item.weightKg * 2) / 2}kg`;
+  const hit = await DeliveryEstimate.findOne({ key, expiresAt: { $gt: new Date() } }).lean();
+  if (hit?.amount) return { amount: hit.amount, courierName: hit.courierName, deliveryEta: hit.deliveryEta, cached: true };
+  const r = await cheapestRate(senderCode, receiverCode, [item]);
+  await DeliveryEstimate.updateOne(
+    { key },
+    { $set: { kind: 'quote', amount: r.amount, courierName: r.courierName, deliveryEta: r.deliveryEta, expiresAt: new Date(Date.now() + DEPOSIT_QUOTE_MS) } },
+    { upsert: true }
+  );
+  return { amount: r.amount, courierName: r.courierName, deliveryEta: r.deliveryEta, cached: false };
+};
+
+const hostFor = async (streamId, productId) => {
+  const stream = await model('Stream').findById(streamId).select('seller products.product').lean();
+  if (!stream) throw new DeliveryError(404, "We couldn't find this show.");
+  const seller = await model('Seller').findById(stream.seller).lean();
+  if (!seller) throw new DeliveryError(404, "We couldn't find this host.");
+  let product = null;
+  if (productId && mongoose.isValidObjectId(String(productId))) product = await model('Product').findById(productId).select('name category price weight shippingInfo').lean();
+  return { seller, product };
+};
+
+/**
+ * What's held with a buyer's first item in a show: Shipbubble's cheapest
+ * courier from the host's verified pickup address to the buyer's verified
+ * saved address, for that item. Throws a DeliveryError (plain words) when
+ * either address is missing or Shipbubble can't price it.
+ * @returns {{ amount, courierName, deliveryEta, area }}
+ */
+const depositQuote = async ({ streamId, buyerId, productId }) => {
+  if (!shipbubble.isConfigured()) throw new DeliveryError(503, "Delivery pricing isn't switched on yet.");
+  const [{ seller, product }, buyer] = await Promise.all([hostFor(streamId, productId), model('Buyer').findById(buyerId).lean()]);
+  if (!buyer) throw new DeliveryError(404, 'Buyer not found');
+  const dropoff = buyerDropoff(buyer);
+  if (!dropoff) throw new DeliveryError(422, 'Add your delivery address first.');
+  if (!dropoff.phone) throw new DeliveryError(422, 'Add a phone number for the courier first.');
+  let senderCode;
+  try { senderCode = await sellerAddressCode(seller); } catch { throw hostAddressProblem(); }
+  let receiverCode;
+  try { receiverCode = await buyerAddressCode(buyer); } catch (e) {
+    throw e instanceof DeliveryError ? e : new DeliveryError(422, "Shipbubble couldn't find your delivery address. Check the street and area, then try again.");
+  }
+  const r = await cachedRate(senderCode, receiverCode, itemFor(product));
+  const a = buyer.shippingAddresses.find((x) => x.isActive) || buyer.shippingAddresses[0];
+  return { ...r, area: [a.city, a.state].filter(Boolean).join(', ') };
+};
+
+/**
+ * The same quote for an address the buyer has typed but not saved yet (the
+ * one-step sheet), so they see the real price before paying. Nothing is saved.
+ */
+const previewQuote = async ({ streamId, productId, address }) => {
+  if (!shipbubble.isConfigured()) throw new DeliveryError(503, "Delivery pricing isn't switched on yet.");
+  const { addressLine1, city, state, phoneNumber, name, email } = address || {};
+  if (!addressLine1 || !city || !state) throw new DeliveryError(422, 'Add your street, area and state to see the delivery price.');
+  if (!phoneNumber) throw new DeliveryError(422, 'Add a phone number for the courier to see the delivery price.');
+  const { seller, product } = await hostFor(streamId, productId);
+  let senderCode;
+  try { senderCode = await sellerAddressCode(seller); } catch { throw hostAddressProblem(); }
+  let verified;
+  try {
+    verified = await shipbubble.validateAddress({
+      name: String(name || 'Buyer').slice(0, 60),
+      email: /^\S+@\S+\.\S+$/.test(String(email || '')) ? email : sellerPickup(seller).email,
+      phone: phoneNumber,
+      address: [addressLine1, city, state, 'Nigeria'].join(', '),
+    });
+  } catch {
+    throw new DeliveryError(422, "Shipbubble couldn't find that address. Check the street and area.");
+  }
+  const r = await cachedRate(senderCode, verified.address_code, itemFor(product));
+  return { ...r, area: [city, state].join(', ') };
 };
 
 // Charge the quoted fee from the wallet, counting the held deposit. Atomic.
@@ -412,6 +514,9 @@ const releaseDeposit = async (delivery) => {
 module.exports = {
   depositAmount,
   depositFor,
+  depositQuote,
+  previewQuote,
+  cheapestRate,
   attachOrder,
   settle,
   settleShow,

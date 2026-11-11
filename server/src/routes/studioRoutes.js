@@ -441,7 +441,6 @@ router.post('/show-notes/draft', async (req, res) => {
       type: req.body?.type === 'drop' ? 'drop' : 'auction',
       items: Array.isArray(req.body?.items) ? req.body.items : [],
       auctionSeconds: Number(req.body?.auctionSeconds) || 30,
-      deliveryDeposit: require('../services/deliveryService').depositAmount(),
       hostName: seller?.firstName || seller?.storeName,
       pickupArea: [a.city, a.state].filter(Boolean).join(', '),
     });

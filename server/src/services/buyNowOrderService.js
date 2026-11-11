@@ -25,6 +25,17 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
   const qty = Math.floor(Number(quantity));
   if (!(qty >= 1 && qty <= MAX_QUANTITY)) return { success: false, reason: 'bad_quantity', message: `Choose 1 to ${MAX_QUANTITY}` };
   const fee = Math.max(0, Number(shippingFee) || 0);
+  // The first purchase in a show holds a delivery deposit: a real Shipbubble
+  // quote to the buyer's saved address. Priced before the transaction starts.
+  let deposit = 0;
+  try {
+    deposit = await deliveries.depositFor(streamId, buyerId, productId);
+  } catch (error) {
+    if (error instanceof deliveries.DeliveryError) {
+      return { success: false, reason: /add your delivery address|phone number for the courier/i.test(error.message) ? 'no_address' : 'delivery', message: error.message };
+    }
+    throw error;
+  }
   const session = await mongoose.startSession();
   try {
     let result;
@@ -50,8 +61,6 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
       );
       if (!stocked) throw new BuyNowError('sold_out', qty > 1 ? 'Not enough left. Try a smaller quantity.' : 'Sold out');
 
-      // The first purchase in a show also needs room for the delivery deposit
-      const deposit = await deliveries.depositFor(streamId, buyerId);
       const reference = `buynow_${streamId}_${productId}_${buyerId}_${Date.now()}`;
       const charged = await model('Buyer').findOneAndUpdate(
         {
@@ -108,7 +117,7 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
         orderDetails: { buyer: order.buyerDetails, _id: order._id, order_id: order.order_id, itemsCount: 1, totalAmount: subtotal, shippingFee: fee, orderTotal: total, seller: order.seller, items: order.items },
       };
       await model('Stream').updateOne({ _id: streamId }, { $push: { orders: liveShowOrder } }, { session });
-      const delivery = await deliveries.attachOrder({ session, streamId, buyerId: charged._id, sellerId: seller._id || stream.seller, order, product, quantity: qty, unitPrice });
+      const delivery = await deliveries.attachOrder({ session, streamId, buyerId: charged._id, sellerId: seller._id || stream.seller, order, product, quantity: qty, unitPrice, deposit });
 
       result = {
         success: true,
