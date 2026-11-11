@@ -22,7 +22,7 @@ const USERNAME = /^[a-zA-Z0-9_.]{3,20}$/;
  * estimate: optional line about delivery cost to the buyer's area
  * onReady(): called once everything is in place; does the bid or buy
  */
-export default function OneStepSheet({ action, deposit = 0, estimate = null, top = null, streamId, onClose, onReady }) {
+export default function OneStepSheet({ action, deposit = 0, estimate = null, top = null, streamId, onClose, onReady, onTopUpNeeded, topUpMethods = {} }) {
   const { buyer, wallet, signedIn, signIn } = useAuth();
   const address = useAddressForm();
   const [mode, setMode] = useState('signup'); // signup | signin
@@ -63,6 +63,9 @@ export default function OneStepSheet({ action, deposit = 0, estimate = null, top
     }
     const due = action.amount + depositDue - (myWallet?.availableBalance || 0);
     const amount = topUpFor(due);
+    if (amount > 0 && onTopUpNeeded && (myWallet?.topUpMethods?.dva || myWallet?.topUpMethods?.savedCards || topUpMethods.dva || topUpMethods.savedCards)) {
+      setBusy(''); onTopUpNeeded(due, action, me?._id); return;
+    }
     if (amount > 0) {
       setBusy('Waiting for Paystack…');
       try {
@@ -75,7 +78,7 @@ export default function OneStepSheet({ action, deposit = 0, estimate = null, top
     }
     setBusy(action.kind === 'bid' ? 'Placing your bid…' : 'Buying…');
     try { await onReady(); } finally { setBusy(''); }
-  }, [action, address, chatOnly, onReady]);
+  }, [action, address, chatOnly, onReady, onTopUpNeeded, topUpMethods]);
 
   const afterSignIn = async (token) => {
     const { buyer: me, wallet: w } = await signIn(token, { quiet: true });

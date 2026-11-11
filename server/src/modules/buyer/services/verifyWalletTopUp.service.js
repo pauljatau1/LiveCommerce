@@ -61,8 +61,8 @@ const paystack = () => axios.create({
  * @throws {Error} If Paystack API request fails
  */
 async function verifyPaymentWithPaystack(reference) {
-  const response = await paystack().get(`/transaction/verify/${encodeURIComponent(reference)}`);
-  return response;
+  try { return await paystack().get(`/transaction/verify/${encodeURIComponent(reference)}`); }
+  catch { throw new Error('Payment confirmation is pending. Please check your wallet shortly.'); }
 }
 
 /**
@@ -427,7 +427,7 @@ async function processWalletTopUp(buyer, reference, paymentData, metadata) {
  * //   newBalance: 2500
  * // }
  */
-async function verifyWalletTopUp(reference, { expectedBuyerId } = {}) {
+async function verifyWalletTopUp(reference, { expectedBuyerId, dedicatedCustomerCode } = {}) {
   // Step 1: Validate reference parameter
   // This ensures payment reference is provided before API calls
   validateReference(reference);
@@ -439,6 +439,25 @@ async function verifyWalletTopUp(reference, { expectedBuyerId } = {}) {
   // Step 3: Validate Paystack response
   // Ensure payment verification was successful
   validatePaystackResponse(verificationResponse);
+
+  const verified = verificationResponse.data.data;
+  if (typeof verified.metadata === 'string') { try { verified.metadata = JSON.parse(verified.metadata); } catch { verified.metadata = null; } }
+  // The authenticated webhook is only a notification. Ownership, currency and
+  // amount are checked again against Paystack's verification response.
+  if (verified.reference !== reference || verified.currency !== 'NGN' || !Number.isSafeInteger(verified.amount) || verified.amount <= 0) {
+    throw new ValidationError([{ field: 'reference', message: 'This payment could not be verified' }]);
+  }
+  if (dedicatedCustomerCode || verified.channel === 'dedicated_nuban') {
+    dedicatedCustomerCode = dedicatedCustomerCode || verified.customer?.customer_code;
+    if (!dedicatedCustomerCode) throw new ValidationError([{ field: 'reference', message: 'This payment could not be verified' }]);
+    const Buyer = require('../../../models/Buyer');
+    const buyer = await Buyer.findOne({ paystackCustomerCode: dedicatedCustomerCode, dvaConsentAt: { $ne: null } });
+    if (!buyer || verified.channel !== 'dedicated_nuban' || verified.customer?.customer_code !== dedicatedCustomerCode ||
+        (expectedBuyerId && String(buyer._id) !== String(expectedBuyerId))) {
+      throw new ValidationError([{ field: 'reference', message: 'This payment does not belong to your account' }]);
+    }
+    return require('../../../services/wallet/creditTopUp')(buyer._id, verified, 'bank_transfer');
+  }
 
   // Step 4: Validate the verification response data
   // Additional validation using the validator
@@ -466,7 +485,12 @@ async function verifyWalletTopUp(reference, { expectedBuyerId } = {}) {
 
   // Step 7: Process wallet top-up
   // Handle transaction creation or updates based on existing status
-  return await processWalletTopUp(buyer, reference, paymentData, paymentData.metadata);
+  // The old handlers remain above for compatibility/reference. All verified
+  // Paystack credits now use the unique ledger and transaction.
+  const result = await require('../../../services/wallet/creditTopUp')(buyerId, paymentData, 'card');
+  try { if (result.credited) await require('../../../services/wallet/cardStore').saveCard(buyer, paymentData); }
+  catch { console.warn('[wallet] Top-up credited; saving the card was unavailable.'); }
+  return result;
 }
 
 module.exports = {

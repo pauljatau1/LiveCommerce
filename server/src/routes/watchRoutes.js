@@ -78,6 +78,7 @@ router.get('/:streamId/summary', validId, async (req, res) => {
       bids: countBy(stream.bids || [], (b) => b.product && String(b.product)),
       // Held once per show with a buyer's first item (see deliveryService)
       deliveryDeposit: deliveries.depositAmount(),
+      topUpMethods: require('../services/wallet/paystackClient').methods(),
       host: await hostRating(stream.seller),
     });
   } catch (error) {

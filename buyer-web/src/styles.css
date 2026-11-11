@@ -393,3 +393,10 @@ a{color:var(--primary)}
 .ended-cover{width:120px;height:140px;object-fit:cover;border-radius:18px;align-self:center}
 .ended-content .pill,.ended-content .link{align-self:center}
 .ended-content p{margin:0 0 8px;color:var(--text-muted)}
+
+.wallet-progress{display:inline-block;animation:wallet-wait 1.6s ease-in-out infinite}
+@keyframes wallet-wait{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.wallet-progress{animation:none}}
+.wallet-spinner{display:inline-block;animation:wallet-spin 1s linear infinite}
+@keyframes wallet-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.wallet-spinner{animation:none}}

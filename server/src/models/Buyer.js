@@ -215,6 +215,13 @@ const buyerSchema = new mongoose.Schema({
     },
     createdAt: { type: Date, default: Date.now }
   }],
+  paystackCustomerCode: { type: String },
+  dvaConsentAt: Date,
+  dva: {
+    status: { type: String, enum: ['none', 'pending', 'active', 'failed'], default: 'none' },
+    accountNumber: String, accountName: String, bankName: String, bankSlug: String,
+    assignedAt: Date, requestedAt: Date, lastPolledAt: Date, lastRequeryAt: Date,
+  },
   wallet: {
     balance: {
       type: Number,
@@ -321,5 +328,7 @@ buyerSchema.methods.comparePassword = function (password) {
   }
   return bcrypt.compare(password, this.password);
 };
+
+buyerSchema.index({ paystackCustomerCode: 1 }, { unique: true, partialFilterExpression: { paystackCustomerCode: { $type: 'string' } } });
 
 module.exports = mongoose.model('Buyer', buyerSchema);

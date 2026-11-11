@@ -280,7 +280,7 @@ exports.handlePaystackWebhook = async (req, res) => {
     console.log('Event Type Identified:', event.event);
     console.log('Reference:', event.data?.reference);
   } catch (err) {
-    console.error('❌ Error parsing Paystack webhook body:', err.message);
+    console.error('Error parsing Paystack webhook body.');
     return res.status(400).json({ message: 'Invalid payload' });
   }
 
@@ -291,9 +291,24 @@ exports.handlePaystackWebhook = async (req, res) => {
         // confirmed the payment. The service re-verifies with Paystack and
         // credits each payment at most once, so retries and the app's own
         // confirmation are safe.
+        if (event.data?.channel === 'dedicated_nuban') {
+          if (!event.data.customer?.customer_code) throw new Error('Missing transfer customer');
+          await require('../modules/buyer/services/verifyWalletTopUp.service').verifyWalletTopUp(event.data.reference, { dedicatedCustomerCode: event.data.customer?.customer_code });
+          break;
+        }
         if (event.data?.metadata?.purpose === require('../modules/buyer/services/verifyWalletTopUp.service').WALLET_TOPUP_PURPOSE) {
           await require('../modules/buyer/services/verifyWalletTopUp.service').verifyWalletTopUp(event.data.reference);
         }
+        break;
+      case 'dedicatedaccount.assign.success':
+      case 'assigndedicatedaccount.assign.success':
+      case 'assigndedicatedaccount.success':
+        await require('../services/wallet/dva').assignmentEvent(event, true);
+        break;
+      case 'dedicatedaccount.assign.failed':
+      case 'assigndedicatedaccount.assign.failed':
+      case 'assigndedicatedaccount.failed':
+        await require('../services/wallet/dva').assignmentEvent(event, false);
         break;
       case 'transfer.success':
         console.log('Handling transfer.success...');
@@ -313,7 +328,7 @@ exports.handlePaystackWebhook = async (req, res) => {
 
     res.sendStatus(200);
   } catch (error) {
-    console.error('Webhook processing error:', error);
+    console.error('Webhook processing error:', { name: error.name, status: error.response?.status });
     res.status(500).json({ message: 'Webhook processing failed' });
   }
 };

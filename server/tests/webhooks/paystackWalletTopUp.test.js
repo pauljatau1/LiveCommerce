@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const request = require('supertest');
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { MongoMemoryReplSet } = require('mongodb-memory-server');
 
 // Paystack's verify API, as the server calls it
 const mockVerify = jest.fn();
@@ -44,7 +44,7 @@ describe('Paystack charge.success webhook for wallet top-ups', () => {
 
   beforeAll(async () => {
     process.env.PAYSTACK_SECRET_KEY = SECRET;
-    mongoServer = await MongoMemoryServer.create({ binary: { version: '7.0.3' } });
+    mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 }, binary: { version: '7.0.3' } });
     if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
     await mongoose.connect(mongoServer.getUri());
   });
@@ -58,6 +58,7 @@ describe('Paystack charge.success webhook for wallet top-ups', () => {
   let buyer;
   beforeEach(async () => {
     mockVerify.mockReset();
+    await require('@models/Transaction').deleteMany({ type: 'wallet_topup' });
     await Buyer.deleteMany({});
     buyer = await Buyer.create({
       email: `ada-${Date.now()}@example.com`,

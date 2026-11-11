@@ -176,6 +176,7 @@ async function getWalletBalance(buyerId) {
 
   // Step 6: Return formatted wallet balance information
   return {
+    ...(Object.values(require('../../../services/wallet/paystackClient').methods()).some(Boolean) ? { topUpMethods: require('../../../services/wallet/paystackClient').methods() } : {}),
     balance: buyer.wallet.balance,
     onHoldAmount,
     availableBalance: buyer.wallet.balance - onHoldAmount,
