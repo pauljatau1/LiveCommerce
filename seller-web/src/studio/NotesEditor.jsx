@@ -29,7 +29,7 @@ export default function NotesEditor({ notes, onChange, idPrefix = 'sn' }) {
       {NOTE_SECTIONS.map(([k, label]) => (
         <div key={k} className="fl">
           <label className="lab" htmlFor={`${idPrefix}-${k}`}>{label}</label>
-          {k === 'payment' && <span className="hint" style={{ fontWeight: 700, color: 'var(--text)' }}>{ALWAYS} <span className="mut" style={{ fontWeight: 600 }}>(always included)</span></span>}
+          {k === 'payment' && <span className="hint" style={{ fontWeight: 'var(--w-medium)', color: 'var(--text)' }}>{ALWAYS} <span className="mut" style={{ fontWeight: 'var(--w-medium)' }}>(always included)</span></span>}
           <textarea
             id={`${idPrefix}-${k}`}
             className="in ta"
@@ -39,7 +39,7 @@ export default function NotesEditor({ notes, onChange, idPrefix = 'sn' }) {
           />
         </div>
       ))}
-      <span className="hint" aria-live="polite" style={used > NOTES_MAX ? { color: 'var(--danger)', fontWeight: 800 } : undefined}>
+      <span className="hint" aria-live="polite" style={used > NOTES_MAX ? { color: 'var(--danger)', fontWeight: 'var(--w-medium)' } : undefined}>
         {used} / {NOTES_MAX} characters{used > NOTES_MAX ? ': shorten them a little' : ''}. No links, phone or account numbers.
       </span>
     </div>

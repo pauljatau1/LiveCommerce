@@ -47,7 +47,7 @@ export default function RateSheet({ seller, onClose, onDone }) {
         {REVIEW_TAGS.map((t) => <button key={t} type="button" className={`chip${tags.includes(t) ? ' on' : ''}`} aria-pressed={tags.includes(t)} onClick={() => toggle(t)}>{t}</button>)}
       </div>
       <div className="fl">
-        <label className="lab" htmlFor="rate-c">Anything else? <span className="hint" style={{ fontWeight: 600 }}>optional</span></label>
+        <label className="lab" htmlFor="rate-c">Anything else? <span className="hint" style={{ fontWeight: 'var(--w-medium)' }}>optional</span></label>
         <textarea id="rate-c" className="in ta" value={comment} onChange={(e) => setComment(e.target.value)} maxLength={500} />
       </div>
       {error && <span className="err" role="alert">{error}</span>}

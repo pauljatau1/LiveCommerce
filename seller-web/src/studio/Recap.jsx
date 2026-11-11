@@ -35,10 +35,10 @@ export default function Recap() {
           <>
             <section style={{ padding: 20, borderRadius: 28, background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <span className="cap">{data.show.title.toUpperCase()}{data.minutes ? ` · ${data.minutes} MIN` : ''}</span>
-              <h1 className="f" style={{ margin: 0, fontSize: 30, lineHeight: 1.1 }}>{data.itemsSold ? `Nice one. You made ${naira(data.earned)}.` : 'Show ended. Nothing sold this time.'}</h1>
+              <h1 className="f" style={{ margin: 0, fontSize: 'var(--t-display)', lineHeight: 1.1 }}>{data.itemsSold ? `Nice one. You made ${naira(data.earned)}.` : 'Show ended. Nothing sold this time.'}</h1>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 8 }}>
                 {[[data.itemsSold, 'ITEMS SOLD'], [data.buyers, 'BUYERS'], [data.viewers, 'WATCHED']].map(([n, l]) => (
-                  <div key={l} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 12, borderRadius: 18, background: 'var(--surface)' }}><span className="f" style={{ fontSize: 22 }}>{n}</span><span className="cap">{l}</span></div>
+                  <div key={l} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 12, borderRadius: 18, background: 'var(--surface)' }}><span className="f" style={{ fontSize: 'var(--t-h1)' }}>{n}</span><span className="cap">{l}</span></div>
                 ))}
               </div>
             </section>
@@ -46,8 +46,8 @@ export default function Recap() {
             {data.itemsSold > 0 && (
               <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }} aria-label="Next">
                 <h2 className="h2">Next: send the packages</h2>
-                <span style={{ fontSize: 15, lineHeight: 1.45 }}>Each buyer's items ship together. Delivery is priced and paid from their wallet automatically; you book the pickup.</span>
-                <ul className="mut" style={{ margin: 0, paddingLeft: 18, fontSize: 14, lineHeight: 1.7 }}>
+                <span style={{ fontSize: 'var(--t-body)', lineHeight: 1.45 }}>Each buyer's items ship together. Delivery is priced and paid from their wallet automatically; you book the pickup.</span>
+                <ul className="mut" style={{ margin: 0, paddingLeft: 18, fontSize: 'var(--t-small)', lineHeight: 1.7 }}>
                   {dv.toBook > 0 && <li><b style={{ color: 'var(--text)' }}>{dv.toBook} ready to book</b></li>}
                   {dv.pricing > 0 && <li>{dv.pricing} getting a delivery price… this page updates by itself</li>}
                   {dv.awaitingPayment > 0 && <li>{dv.awaitingPayment} waiting for the buyer to pay delivery</li>}
@@ -67,8 +67,8 @@ export default function Recap() {
                 {data.sold.map((i, n) => (
                   <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, padding: '8px 0', borderTop: '1px solid #F1EBE3' }}>
                     {i.image ? <img src={i.image} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover' }} /> : <span className="sk" style={{ width: 44, height: 44 }} />}
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}><span style={{ fontWeight: 800 }}>{i.name}{i.quantity > 1 ? ` × ${i.quantity}` : ''}</span><span className="mut" style={{ fontSize: 13 }}>{[i.buyer, i.area].filter(Boolean).join(' · ')}</span></div>
-                    <span className="f" style={{ fontSize: 17 }}>{naira(i.amount)}</span>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}><span style={{ fontWeight: 'var(--w-medium)' }}>{i.name}{i.quantity > 1 ? ` × ${i.quantity}` : ''}</span><span className="mut" style={{ fontSize: 'var(--t-small)' }}>{[i.buyer, i.area].filter(Boolean).join(' · ')}</span></div>
+                    <span className="f" style={{ fontSize: 'var(--t-h2)' }}>{naira(i.amount)}</span>
                   </div>
                 ))}
               </section>
@@ -80,8 +80,8 @@ export default function Recap() {
                 {data.unsold.map((p) => (
                   <div key={p._id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     {p.image ? <img src={p.image} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover' }} /> : <span className="sk" style={{ width: 44, height: 44 }} />}
-                    <span style={{ flex: 1, fontWeight: 800 }}>{p.name}</span>
-                    <Link to={`/studio/plan?add=${p._id}`} className="btn2" style={{ minHeight: 44, padding: '0 14px' }}>Next show</Link>
+                    <span style={{ flex: 1, fontWeight: 'var(--w-medium)' }}>{p.name}</span>
+                    <Link to={`/studio/plan?add=${p._id}`} className="btn2" style={{  padding: '0 14px' }}>Next show</Link>
                   </div>
                 ))}
               </section>

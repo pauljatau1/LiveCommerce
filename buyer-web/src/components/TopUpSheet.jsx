@@ -62,7 +62,7 @@ export default function TopUpSheet({ onClose, need = 0, onDone, top = null, meth
   if (done) {
     return (
       <Sheet className="wallet-sheet" title="Wallet topped up" onClose={onClose} top={top}>
-        <div className="soft s-primary" style={{ fontWeight: 700 }}>{naira(done)} {doneSource === 'transfer' ? 'received' : 'added'}. You have {naira(wallet?.availableBalance)} to spend.</div>
+        <div className="soft s-primary" style={{ fontWeight: 'var(--w-medium)' }}>{naira(done)} {doneSource === 'transfer' ? 'received' : 'added'}. You have {naira(wallet?.availableBalance)} to spend.</div>
         <button type="button" className="btn" onClick={onClose}>Back to the show</button>
       </Sheet>
     );

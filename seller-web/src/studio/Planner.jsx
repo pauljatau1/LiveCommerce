@@ -139,7 +139,7 @@ export default function Planner() {
           <section className="card" style={{ overflow: 'hidden' }} aria-label="Scheduled show">
             <div style={{ padding: 18, background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <span className="cap">{when(created.at).toUpperCase()} · {type === 'auction' ? 'AUCTION' : 'DROP'} · {created.count} ITEMS</span>
-              <span className="f" style={{ fontSize: 22, lineHeight: 1.15 }}>{created.title}</span>
+              <span className="f" style={{ fontSize: 'var(--t-h1)', lineHeight: 1.15 }}>{created.title}</span>
             </div>
             <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex' }}>{created.images.slice(0, 6).map((src, n) => (src ? <img key={n} src={src} alt="" style={{ width: 48, height: 48, borderRadius: 14, border: '2px solid #fff', objectFit: 'cover', marginLeft: n ? -10 : 0 }} /> : null))}</div>
@@ -155,7 +155,7 @@ export default function Planner() {
             </div>
           </section>
           <div className="bot"><span className="av" aria-hidden="true" /><div className="bub">You can go live early if you're ready. Buyers with the link will see you're live.</div></div>
-          <Link to={`/studio/golive/${created._id}`} className="btn" style={{ minHeight: 58, background: 'var(--live)', fontSize: 17 }}>{Icon.live('#fff', 20)}Go live</Link>
+          <Link to={`/studio/golive/${created._id}`} className="btn" style={{  background: 'var(--live)', fontSize: 'var(--t-h2)' }}>{Icon.live('#fff', 20)}Go live</Link>
           <Link to="/studio" className="btn3">Done</Link>
         </div>
         {sharing && <ShareSheet show={{ ...created, link, scheduledStartTime: created.at, status: 'scheduled', type }} onClose={() => setSharing(false)} />}
@@ -180,8 +180,8 @@ export default function Planner() {
                   return (
                     <button key={p._id} type="button" aria-pressed={n >= 0} onClick={() => toggle(p._id)} style={{ position: 'relative', padding: 0, border: 0, borderRadius: 18, overflow: 'hidden', background: 'var(--surface-sunken)', cursor: 'pointer', display: 'flex', flexDirection: 'column', textAlign: 'left', font: 'inherit', color: 'var(--text)', outline: n >= 0 ? '3px solid var(--primary)' : 'none', outlineOffset: -3 }}>
                       {p.image ? <img src={p.image} alt="" style={{ display: 'block', width: '100%', aspectRatio: '1', objectFit: 'cover' }} /> : <span className="sk" style={{ display: 'block', aspectRatio: '1', borderRadius: 0 }} />}
-                      {n >= 0 && <span style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', color: '#fff', font: '800 13px var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff' }}>{n + 1}</span>}
-                      <span style={{ padding: '6px 8px 8px', fontSize: 12, fontWeight: 700, lineHeight: 1.2, background: 'var(--surface)' }}>{p.name.length > 34 ? `${p.name.slice(0, 32)}…` : p.name} · {naira(p.price)}</span>
+                      {n >= 0 && <span style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', color: '#fff', font: 'var(--w-medium) var(--t-small) var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff' }}>{n + 1}</span>}
+                      <span style={{ padding: '6px 8px 8px', fontSize: 'var(--t-caption)', fontWeight: 'var(--w-medium)', lineHeight: 1.2, background: 'var(--surface)' }}>{p.name.length > 34 ? `${p.name.slice(0, 32)}…` : p.name} · {naira(p.price)}</span>
                     </button>
                   );
                 })}
@@ -191,7 +191,7 @@ export default function Planner() {
                 <div style={{ display: 'flex', gap: 8 }}>
                   {TYPES.map(([key, name, text]) => (
                     <button key={key} type="button" aria-pressed={type === key} onClick={() => setType(key)} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, padding: 12, borderRadius: 18, border: type === key ? '2px solid var(--primary)' : '1.5px solid var(--border-strong)', background: type === key ? 'var(--primary-soft)' : 'var(--surface)', textAlign: 'left', font: 'inherit', color: 'var(--text)', cursor: 'pointer' }}>
-                      <span className="f" style={{ fontSize: 17 }}>{name}</span><span className="mut" style={{ fontSize: 13 }}>{text}</span>
+                      <span className="f" style={{ fontSize: 'var(--t-h2)' }}>{name}</span><span className="mut" style={{ fontSize: 'var(--t-small)' }}>{text}</span>
                     </button>
                   ))}
                 </div>
@@ -199,7 +199,7 @@ export default function Planner() {
             </>
           )}
           <section aria-label="Selected items" style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px max(16px, env(safe-area-inset-bottom))', background: 'var(--surface)', borderTop: '1px solid var(--border)', boxShadow: 'var(--shadow-up)' }}>
-            <span style={{ flex: 1, fontWeight: 800, maxWidth: 560, marginLeft: 'auto' }}>{items.length} item{items.length === 1 ? '' : 's'}</span>
+            <span style={{ flex: 1, fontWeight: 'var(--w-medium)', maxWidth: 560, marginLeft: 'auto' }}>{items.length} item{items.length === 1 ? '' : 's'}</span>
             <button type="button" className="btn" disabled={!items.length} onClick={goSetup} style={{ marginRight: 'auto' }}>Next</button>
           </section>
         </div>
@@ -208,25 +208,25 @@ export default function Planner() {
       {step === 2 && (
         <div className="st-inner" style={{ paddingBottom: 32 }}>
           <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }} aria-label="Title and description">
-            <div className="fl"><label className="lab" htmlFor="ptitle">Show title</label><input id="ptitle" className="in" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }} /></div>
+            <div className="fl"><label className="lab" htmlFor="ptitle">Show title</label><input id="ptitle" className="in" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} style={{ fontFamily: 'var(--font-display)' }} /></div>
             <div className="fl"><label className="lab" htmlFor="pdesc">Description</label><textarea id="pdesc" className="in ta" value={description} maxLength={500} onChange={(e) => setDescription(e.target.value)} /></div>
           </section>
 
           <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }} aria-label="Running order">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}><h2 className="h2">Running order</h2><span className="hint">You choose when each item starts</span></div>
-            {items.length > 2 && <div className="soft s-primary" style={{ fontSize: 14, lineHeight: 1.45 }}>Tip: start with a cheaper item to warm up the room and save the best for last, when the most people are watching.</div>}
+            {items.length > 2 && <div className="soft s-primary" style={{ fontSize: 'var(--t-small)', lineHeight: 1.45 }}>Tip: start with a cheaper item to warm up the room and save the best for last, when the most people are watching.</div>}
             {items.map((p, i) => (
               <div key={p._id} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 12, borderRadius: 18, background: 'var(--surface-page)', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {p.image ? <img src={p.image} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover' }} /> : <span className="sk" style={{ width: 44, height: 44 }} />}
-                  <span style={{ flex: 1, fontWeight: 800, minWidth: 0 }}>{i + 1} · {p.name}</span>
+                  <span style={{ flex: 1, fontWeight: 'var(--w-medium)', minWidth: 0 }}>{i + 1} · {p.name}</span>
                   <button type="button" className="ib" style={{ width: 40, height: 40 }} aria-label={`Move ${p.name} up`} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
                   <button type="button" className="ib" style={{ width: 40, height: 40 }} aria-label={`Move ${p.name} down`} disabled={i === items.length - 1} onClick={() => move(i, 1)}>↓</button>
                 </div>
                 {type === 'auction' ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <label htmlFor={`bid-${p._id}`} className="hint" style={{ fontWeight: 800 }}>Bids start at ₦</label>
-                    <input id={`bid-${p._id}`} className="in" inputMode="numeric" style={{ width: 130, height: 44, font: '600 16px var(--font-display)' }} value={startBid(p)} onChange={(e) => setBids((b) => ({ ...b, [p._id]: e.target.value.replace(/[^\d]/g, '') }))} />
+                    <label htmlFor={`bid-${p._id}`} className="hint" style={{ fontWeight: 'var(--w-medium)' }}>Bids start at ₦</label>
+                    <input id={`bid-${p._id}`} className="in" inputMode="numeric" style={{ width: 130 }} value={startBid(p)} onChange={(e) => setBids((b) => ({ ...b, [p._id]: e.target.value.replace(/[^\d]/g, '') }))} />
                     <span className="hint">Listed at {naira(p.price)} · {p.stock} in stock{p.stock > 1 ? ': sells one at a time, then "Run again"' : ''}</span>
                     <div style={{ display: 'flex', gap: 6, width: '100%' }} role="group" aria-label={`Auction time for ${p.name}`}>
                       {[[30, '30s'], [60, '60s'], [120, '2 min']].map(([v, l]) => (
@@ -252,14 +252,14 @@ export default function Planner() {
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 {TIMES.map(([v, l]) => <button key={v} type="button" className={`chip${time === v ? ' on' : ''}`} aria-pressed={time === v} onClick={() => setTime(v)}>{l}</button>)}
                 <label className="sr" htmlFor="ptime">Other time</label>
-                <input id="ptime" type="time" className="in" style={{ width: 130, height: 44 }} value={time} onChange={(e) => setTime(e.target.value)} />
+                <input id="ptime" type="time" className="in" style={{ width: 130 }} value={time} onChange={(e) => setTime(e.target.value)} />
               </div>
             )}
             <span className="hint">{now ? 'You go straight to the camera check.' : `Starts ${when(startAt())}. Buyers who open the link get a reminder.`}</span>
           </section>
 
           <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }} aria-label="Cover image">
-            <h2 className="h2">Cover <span className="hint" style={{ fontWeight: 700 }}>(optional)</span></h2>
+            <h2 className="h2">Cover <span className="hint" style={{ fontWeight: 'var(--w-medium)' }}>(optional)</span></h2>
             {cover && <img src={cover.dataUrl} alt="Show cover" style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 20 }} />}
             <label className="btn3" style={{ cursor: 'pointer' }}>
               {cover ? 'Use another photo' : 'Upload a cover photo'}
@@ -301,7 +301,7 @@ export default function Planner() {
               </>
             )}
             {notes && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, fontWeight: 700 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, fontWeight: 'var(--w-medium)' }}>
                 <input type="checkbox" checked={reuseNotes} onChange={(e) => setReuseNotes(e.target.checked)} style={{ width: 22, height: 22 }} />
                 Use these notes for my next shows
               </label>
@@ -309,7 +309,7 @@ export default function Planner() {
           </section>
 
           {saveError && <Problem text={saveError} />}
-          <button type="button" className="btn" style={{ minHeight: 56 }} disabled={busy || notesLength(notes) > NOTES_MAX} onClick={create}>{busy ? 'Creating…' : now ? 'Create and go live' : 'Schedule show'}</button>
+          <button type="button" className="btn" disabled={busy || notesLength(notes) > NOTES_MAX} onClick={create}>{busy ? 'Creating…' : now ? 'Create and go live' : 'Schedule show'}</button>
         </div>
       )}
     </div>

@@ -19,7 +19,7 @@ const TABS = [
 // Money is reached from Home and Me. The top-bar link is kept, switched off, to match the design.
 const SHOW_MONEY_IN_TOP_BAR = false;
 
-export const Brand = ({ size = 22 }) => (
+export const Brand = ({ size = 'var(--t-h1)' }) => (
   <Link to="/studio" className="f" style={{ fontSize: size, display: 'flex', alignItems: 'center', gap: 2, color: 'var(--text)', textDecoration: 'none' }}>
     {BRAND_NAME}<span aria-hidden="true" style={{ width: 9, height: 9, borderRadius: '50% 50% 50% 2px', background: 'var(--primary)', marginTop: -10 }} />
   </Link>
@@ -71,7 +71,7 @@ export default function StudioLayout() {
         </nav>
         <span style={{ flex: 1 }} />
         {Bell}
-        <Link to="/studio/golive" className="btn" style={{ background: 'var(--live)', minHeight: 44 }}>{Icon.live('#fff', 18)}Go Live</Link>
+        <Link to="/studio/golive" className="btn" style={{ background: 'var(--live)' }}>{Icon.live('#fff', 18)}Go Live</Link>
       </header>
       {toast && (
         <div role="status" className="toast" style={{ position: 'fixed', left: 16, right: 16, bottom: 'calc(96px + env(safe-area-inset-bottom))', zIndex: 60, maxWidth: 520, margin: '0 auto' }}>

@@ -207,7 +207,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
         <section className="step" aria-label="Delivery">
           <h3 className="step-h">Delivery</h3>
           <AddressFields address={address} askPhone={!buyer?.phoneNumber} idPrefix="os" />
-          {typedQuote.status === 'ok' && <p style={{ margin: 0, fontWeight: 700 }}>Delivery to {typedQuote.area}: {naira(typedQuote.amount)}{typedQuote.courierName ? ` · ${typedQuote.courierName}` : ''}</p>}
+          {typedQuote.status === 'ok' && <p style={{ margin: 0, fontWeight: 'var(--w-medium)' }}>Delivery to {typedQuote.area}: {naira(typedQuote.amount)}{typedQuote.courierName ? ` · ${typedQuote.courierName}` : ''}</p>}
           {typedQuote.status === 'loading' && <span className="hint">Getting the delivery price from Shipbubble…</span>}
           {typedQuote.status === 'error' && <span className="err" role="alert">{typedQuote.message}</span>}
           {errFor('address')}

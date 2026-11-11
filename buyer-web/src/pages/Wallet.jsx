@@ -18,11 +18,11 @@ export default function Wallet() {
       <main className="wrap" style={{ padding: '20px 16px 40px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <section className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span className="cap">READY TO SPEND</span>
-          <span className="f" style={{ fontSize: 40 }}>{naira(wallet?.availableBalance)}</span>
-          {wallet?.onHoldAmount > 0 && <span className="mut" style={{ fontSize: 14 }}>{naira(wallet.onHoldAmount)} is held for your leading bids. It's released if you're outbid.</span>}
+          <span className="f" style={{ fontSize: 'var(--t-hero)' }}>{naira(wallet?.availableBalance)}</span>
+          {wallet?.onHoldAmount > 0 && <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{naira(wallet.onHoldAmount)} is held for your leading bids. It's released if you're outbid.</span>}
           <button type="button" className="btn" style={{ marginTop: 10 }} onClick={() => setTopUp(true)}>Top up</button>
         </section>
-        <p className="mut" style={{ margin: 0, fontSize: 14 }}>Your wallet pays for bids and Buy Now, so checkout during a show takes one tap.</p>
+        <p className="mut" style={{ margin: 0, fontSize: 'var(--t-small)' }}>Your wallet pays for bids and Buy Now, so checkout during a show takes one tap.</p>
         {wallet?.topUpMethods?.savedCards && <section className="list" aria-label="Saved cards"><h2 className="h2">Saved cards</h2>
           {cardError && <span className="err" role="alert">{cardError}</span>}
           {!cards.length && <span className="hint">No saved cards yet.</span>}

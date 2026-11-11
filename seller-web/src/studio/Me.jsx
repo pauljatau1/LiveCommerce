@@ -11,7 +11,7 @@ import { useAuthContext } from '@/Hooks/useAuthContextV2';
 const Row = ({ to, title, sub, danger, onClick }) => {
   const body = (
     <>
-      <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}><span style={{ fontWeight: 800, color: danger ? 'var(--danger)' : 'var(--text)' }}>{title}</span>{sub && <span className="mut" style={{ fontSize: 13 }}>{sub}</span>}</span>
+      <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}><span style={{ fontWeight: 'var(--w-medium)', color: danger ? 'var(--danger)' : 'var(--text)' }}>{title}</span>{sub && <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{sub}</span>}</span>
       {!danger && <span aria-hidden="true" className="mut">›</span>}
     </>
   );
@@ -38,11 +38,11 @@ export default function Me() {
       <section style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 0' }}>
         {seller?.storeAvatar?.url
           ? <img src={seller.storeAvatar.url} alt="" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover' }} />
-          : <span style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--surface)', color: 'var(--text)', font: '600 26px var(--font-display)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{name.slice(0, 2).toUpperCase()}</span>}
+          : <span style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--surface)', color: 'var(--text)', font: 'var(--w-display) var(--t-display) var(--font-display)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{name.slice(0, 2).toUpperCase()}</span>}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <h1 className="f" style={{ margin: 0, fontSize: 22 }}>{name}</h1>
-          {seller?.aboutStore && <span className="mut" style={{ fontSize: 14 }}>{seller.aboutStore}</span>}
-          {seller?.email && <span className="mut" style={{ fontSize: 14 }}>{seller.email}</span>}
+          <h1 className="f" style={{ margin: 0, fontSize: 'var(--t-h1)' }}>{name}</h1>
+          {seller?.aboutStore && <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{seller.aboutStore}</span>}
+          {seller?.email && <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{seller.email}</span>}
         </div>
       </section>
       <Link to="/dashboard/settings" className="btn2">Edit store profile</Link>

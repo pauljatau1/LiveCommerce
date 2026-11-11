@@ -1,0 +1,993 @@
+{
+  "shop-home": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "h1",
+        "text": "Shop clothes live",
+        "font": "20px",
+        "weight": "500",
+        "height": 24,
+        "width": 358
+      },
+      {
+        "class": "h2",
+        "text": "Live now",
+        "font": "17px",
+        "weight": "500",
+        "height": 21.25,
+        "width": 358
+      },
+      {
+        "class": "pill p-live",
+        "text": "● LIVE · 2",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 63.78125
+      },
+      {
+        "class": "h2",
+        "text": "Coming up",
+        "font": "17px",
+        "weight": "500",
+        "height": 21.25,
+        "width": 358
+      },
+      {
+        "class": "pill s-warm",
+        "text": "Fri 19:00",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 60.671875
+      }
+    ]
+  },
+  "shop-protected-live": [
+    {
+      "class": "btn",
+      "size": "16px",
+      "weight": "800",
+      "height": "52px",
+      "minHeight": "52px",
+      "padding": "0px 22px",
+      "border": "0px"
+    },
+    {
+      "class": "btn2",
+      "size": "15px",
+      "weight": "800",
+      "height": "48px",
+      "minHeight": "48px",
+      "padding": "0px 18px",
+      "border": "1px"
+    },
+    {
+      "class": "chip",
+      "size": "15px",
+      "weight": "700",
+      "height": "44px",
+      "minHeight": "44px",
+      "padding": "0px 16px",
+      "border": "1px"
+    },
+    {
+      "class": "qr",
+      "size": "15px",
+      "weight": "800",
+      "height": "44px",
+      "minHeight": "44px",
+      "padding": "0px 18px",
+      "border": "1px"
+    },
+    {
+      "class": "pill",
+      "size": "12px",
+      "weight": "800",
+      "height": "26px",
+      "minHeight": "0px",
+      "padding": "0px 10px",
+      "border": "0px"
+    },
+    {
+      "class": "f",
+      "size": "16px",
+      "weight": "600",
+      "height": "20px",
+      "minHeight": "0px",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "h1",
+      "size": "24px",
+      "weight": "600",
+      "height": "28.7969px",
+      "minHeight": "0px",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "h2",
+      "size": "19px",
+      "weight": "600",
+      "height": "23.75px",
+      "minHeight": "0px",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "cap",
+      "size": "12px",
+      "weight": "800",
+      "height": "16px",
+      "minHeight": "0px",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "lab",
+      "size": "13px",
+      "weight": "800",
+      "height": "18px",
+      "minHeight": "0px",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "hint",
+      "size": "13px",
+      "weight": "400",
+      "height": "18px",
+      "minHeight": "0px",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "in",
+      "size": "16px",
+      "weight": "600",
+      "height": "52px",
+      "minHeight": "0px",
+      "padding": "0px 14px",
+      "border": "1px"
+    },
+    {
+      "class": "run-sheet",
+      "size": "16px",
+      "weight": "400",
+      "height": "67.75px",
+      "minHeight": "0px",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "h2",
+      "size": "19px",
+      "weight": "600",
+      "height": "23.75px",
+      "minHeight": "0px",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "chip",
+      "size": "15px",
+      "weight": "700",
+      "height": "44px",
+      "minHeight": "44px",
+      "padding": "0px 16px",
+      "border": "1px"
+    }
+  ],
+  "shop-orders": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "pill p-active",
+        "text": "Paid · preparing",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 94.796875
+      },
+      {
+        "class": "pill p-active",
+        "text": "On the way",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 73.796875
+      }
+    ]
+  },
+  "shop-wallet": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "btn",
+        "text": "Top up",
+        "font": "15px",
+        "weight": "600",
+        "height": 48,
+        "width": 318
+      },
+      {
+        "class": "h2",
+        "text": "Saved cards",
+        "font": "17px",
+        "weight": "500",
+        "height": 21.25,
+        "width": 358
+      }
+    ]
+  },
+  "shop-sign-in": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "btn2",
+        "text": "Sign in",
+        "font": "13px",
+        "weight": "600",
+        "height": 44,
+        "width": 78.546875
+      },
+      {
+        "class": "in",
+        "text": "",
+        "font": "16px",
+        "weight": "400",
+        "height": 48,
+        "width": 322
+      },
+      {
+        "class": "in",
+        "text": "",
+        "font": "16px",
+        "weight": "400",
+        "height": 48,
+        "width": 322
+      },
+      {
+        "class": "in",
+        "text": "",
+        "font": "16px",
+        "weight": "400",
+        "height": 48,
+        "width": 322
+      },
+      {
+        "class": "btn",
+        "text": "Create account",
+        "font": "15px",
+        "weight": "600",
+        "height": 48,
+        "width": 322
+      }
+    ]
+  },
+  "shop-top-up": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "btn",
+        "text": "Top up",
+        "font": "15px",
+        "weight": "600",
+        "height": 48,
+        "width": 318
+      },
+      {
+        "class": "h2",
+        "text": "Saved cards",
+        "font": "17px",
+        "weight": "500",
+        "height": 21.25,
+        "width": 358
+      },
+      {
+        "class": "h2",
+        "text": "Your wallet",
+        "font": "17px",
+        "weight": "500",
+        "height": 21.25,
+        "width": 300
+      },
+      {
+        "class": "btn two-line",
+        "text": "Top up ₦10,000 · Test Bank card •••• 4081one tap",
+        "font": "15px",
+        "weight": "600",
+        "height": 48,
+        "width": 354
+      },
+      {
+        "class": "btn2 two-line",
+        "text": "Bank transferGet your own account number · arrives in s",
+        "font": "13px",
+        "weight": "600",
+        "height": 44,
+        "width": 354
+      },
+      {
+        "class": "in",
+        "text": "",
+        "font": "16px",
+        "weight": "400",
+        "height": 48,
+        "width": 354
+      },
+      {
+        "class": "btn",
+        "text": "Pay with card · ₦10,000",
+        "font": "15px",
+        "weight": "600",
+        "height": 48,
+        "width": 354
+      }
+    ]
+  },
+  "studio-home": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "btn",
+        "text": "Go Live",
+        "font": "15px",
+        "weight": "600",
+        "height": 0,
+        "width": 0
+      },
+      {
+        "class": "btn",
+        "text": "Get ready",
+        "font": "15px",
+        "weight": "600",
+        "height": 48,
+        "width": 175.125
+      },
+      {
+        "class": "btn2",
+        "text": "Share",
+        "font": "13px",
+        "weight": "600",
+        "height": 44,
+        "width": 138.875
+      },
+      {
+        "class": "pill p-warn",
+        "text": "To ship",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 51.828125
+      },
+      {
+        "class": "h2",
+        "text": "Recent listings",
+        "font": "17px",
+        "weight": "500",
+        "height": 21.25,
+        "width": 111.3125
+      },
+      {
+        "class": "pill p-active",
+        "text": "Ready",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 47.359375
+      },
+      {
+        "class": "pill p-active",
+        "text": "Ready",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 47.359375
+      },
+      {
+        "class": "pill p-active",
+        "text": "Ready",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 47.359375
+      }
+    ]
+  },
+  "studio-protected-live": [
+    {
+      "class": "btn",
+      "size": "16px",
+      "weight": "800",
+      "height": "52px",
+      "minHeight": "52px",
+      "padding": "0px 22px",
+      "border": "0px"
+    },
+    {
+      "class": "btn2",
+      "size": "15px",
+      "weight": "800",
+      "height": "48px",
+      "minHeight": "48px",
+      "padding": "0px 18px",
+      "border": "1px"
+    },
+    {
+      "class": "chip",
+      "size": "15px",
+      "weight": "700",
+      "height": "44px",
+      "minHeight": "44px",
+      "padding": "0px 16px",
+      "border": "1px"
+    },
+    {
+      "class": "qr",
+      "size": "15px",
+      "weight": "800",
+      "height": "44px",
+      "minHeight": "44px",
+      "padding": "0px 18px",
+      "border": "1px"
+    },
+    {
+      "class": "pill",
+      "size": "12px",
+      "weight": "800",
+      "height": "26px",
+      "minHeight": "auto",
+      "padding": "0px 10px",
+      "border": "0px"
+    },
+    {
+      "class": "f",
+      "size": "16px",
+      "weight": "600",
+      "height": "24px",
+      "minHeight": "auto",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "h1",
+      "size": "24px",
+      "weight": "600",
+      "height": "28.7969px",
+      "minHeight": "auto",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "h2",
+      "size": "19px",
+      "weight": "600",
+      "height": "23.75px",
+      "minHeight": "auto",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "cap",
+      "size": "12px",
+      "weight": "800",
+      "height": "18px",
+      "minHeight": "auto",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "lab",
+      "size": "13px",
+      "weight": "800",
+      "height": "18px",
+      "minHeight": "auto",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "hint",
+      "size": "13px",
+      "weight": "400",
+      "height": "19.5px",
+      "minHeight": "auto",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "in",
+      "size": "16px",
+      "weight": "600",
+      "height": "52px",
+      "minHeight": "auto",
+      "padding": "0px 14px",
+      "border": "1px"
+    },
+    {
+      "class": "run-sheet",
+      "size": "16px",
+      "weight": "400",
+      "height": "85px",
+      "minHeight": "auto",
+      "padding": "10px 16px 16px",
+      "border": "0px"
+    },
+    {
+      "class": "h2",
+      "size": "17px",
+      "weight": "600",
+      "height": "23px",
+      "minHeight": "0px",
+      "padding": "0px",
+      "border": "0px"
+    },
+    {
+      "class": "chip",
+      "size": "12px",
+      "weight": "500",
+      "height": "36px",
+      "minHeight": "36px",
+      "padding": "0px 12px",
+      "border": "1px"
+    }
+  ],
+  "studio-products": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "btn",
+        "text": "Go Live",
+        "font": "15px",
+        "weight": "600",
+        "height": 0,
+        "width": 0
+      },
+      {
+        "class": "btn st-hide-phone",
+        "text": "List item",
+        "font": "15px",
+        "weight": "600",
+        "height": 0,
+        "width": 0
+      },
+      {
+        "class": "chip on",
+        "text": "All · 3",
+        "font": "13px",
+        "weight": "600",
+        "height": 38,
+        "width": 69.28125
+      },
+      {
+        "class": "chip",
+        "text": "Ready for a show · 3",
+        "font": "13px",
+        "weight": "600",
+        "height": 38,
+        "width": 154.625
+      },
+      {
+        "class": "chip",
+        "text": "In a show · 0",
+        "font": "13px",
+        "weight": "600",
+        "height": 38,
+        "width": 108.59375
+      },
+      {
+        "class": "chip",
+        "text": "Sold out · 0",
+        "font": "13px",
+        "weight": "600",
+        "height": 38,
+        "width": 101.703125
+      },
+      {
+        "class": "chip",
+        "text": "Hidden · 0",
+        "font": "13px",
+        "weight": "600",
+        "height": 38,
+        "width": 94.71875
+      },
+      {
+        "class": "pill p-active",
+        "text": "Ready",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 47.359375
+      },
+      {
+        "class": "pill p-active",
+        "text": "Ready",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 47.359375
+      },
+      {
+        "class": "pill p-active",
+        "text": "Ready",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 47.359375
+      },
+      {
+        "class": "btn st-fab st-hide-desk",
+        "text": "List item",
+        "font": "15px",
+        "weight": "600",
+        "height": 48,
+        "width": 130.640625
+      }
+    ]
+  },
+  "studio-product": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "btn2",
+        "text": "Edit all",
+        "font": "13px",
+        "weight": "600",
+        "height": 44,
+        "width": 79.578125
+      },
+      {
+        "class": "pill p-active",
+        "text": "Ready",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 47.359375
+      },
+      {
+        "class": "pill p-show",
+        "text": "In \"Friday fashion finds\"",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 135.140625
+      },
+      {
+        "class": "h2",
+        "text": "Shows",
+        "font": "17px",
+        "weight": "500",
+        "height": 21.25,
+        "width": 326
+      },
+      {
+        "class": "btn2",
+        "text": "Add to a show",
+        "font": "13px",
+        "weight": "600",
+        "height": 44,
+        "width": 358
+      }
+    ]
+  },
+  "studio-orders": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "btn",
+        "text": "Go Live",
+        "font": "15px",
+        "weight": "600",
+        "height": 0,
+        "width": 0
+      },
+      {
+        "class": "chip on",
+        "text": "To ship · 1",
+        "font": "13px",
+        "weight": "600",
+        "height": 38,
+        "width": 94.09375
+      },
+      {
+        "class": "chip",
+        "text": "Waiting · 0",
+        "font": "13px",
+        "weight": "600",
+        "height": 38,
+        "width": 98.765625
+      },
+      {
+        "class": "chip",
+        "text": "On the way · 0",
+        "font": "13px",
+        "weight": "600",
+        "height": 38,
+        "width": 120.0625
+      },
+      {
+        "class": "chip",
+        "text": "Delivered · 0",
+        "font": "13px",
+        "weight": "600",
+        "height": 38,
+        "width": 108.6875
+      },
+      {
+        "class": "pill p-warn",
+        "text": "To ship",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 51.828125
+      }
+    ]
+  },
+  "studio-money": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "btn",
+        "text": "Go Live",
+        "font": "15px",
+        "weight": "600",
+        "height": 0,
+        "width": 0
+      },
+      {
+        "class": "btn",
+        "text": "Withdraw to Test Bank ••7890",
+        "font": "15px",
+        "weight": "600",
+        "height": 48,
+        "width": 318
+      },
+      {
+        "class": "h2",
+        "text": "Activity",
+        "font": "17px",
+        "weight": "500",
+        "height": 41.25,
+        "width": 326
+      }
+    ]
+  },
+  "studio-me": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "btn",
+        "text": "Go Live",
+        "font": "15px",
+        "weight": "600",
+        "height": 0,
+        "width": 0
+      },
+      {
+        "class": "btn2",
+        "text": "Edit store profile",
+        "font": "13px",
+        "weight": "600",
+        "height": 44,
+        "width": 358
+      }
+    ]
+  },
+  "studio-shows": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "btn2",
+        "text": "Plan a show",
+        "font": "13px",
+        "weight": "600",
+        "height": 44,
+        "width": 110.65625
+      },
+      {
+        "class": "h2",
+        "text": "Upcoming",
+        "font": "17px",
+        "weight": "500",
+        "height": 21.25,
+        "width": 358
+      },
+      {
+        "class": "pill p-show",
+        "text": "3 items",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 52.90625
+      },
+      {
+        "class": "h2",
+        "text": "Past shows",
+        "font": "17px",
+        "weight": "500",
+        "height": 21.25,
+        "width": 358
+      }
+    ]
+  },
+  "studio-planner": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "btn",
+        "text": "Next",
+        "font": "15px",
+        "weight": "600",
+        "height": 48,
+        "width": 76.640625
+      }
+    ]
+  },
+  "studio-recap": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "h2",
+        "text": "Next: send the packages",
+        "font": "17px",
+        "weight": "500",
+        "height": 21.25,
+        "width": 326
+      },
+      {
+        "class": "btn",
+        "text": "Ship orders",
+        "font": "15px",
+        "weight": "600",
+        "height": 48,
+        "width": 326
+      },
+      {
+        "class": "btn2",
+        "text": "Plan next show",
+        "font": "13px",
+        "weight": "600",
+        "height": 44,
+        "width": 326
+      },
+      {
+        "class": "h2",
+        "text": "What sold",
+        "font": "17px",
+        "weight": "500",
+        "height": 41.25,
+        "width": 326
+      },
+      {
+        "class": "h2",
+        "text": "Didn't sell",
+        "font": "17px",
+        "weight": "500",
+        "height": 21.25,
+        "width": 326
+      },
+      {
+        "class": "btn2",
+        "text": "Next show",
+        "font": "13px",
+        "weight": "600",
+        "height": 44,
+        "width": 93.734375
+      }
+    ]
+  },
+  "studio-go-live": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "btn2",
+        "text": "Share",
+        "font": "13px",
+        "weight": "600",
+        "height": 44,
+        "width": 98.296875
+      },
+      {
+        "class": "btn",
+        "text": "Go live",
+        "font": "17px",
+        "weight": "600",
+        "height": 48,
+        "width": 358
+      }
+    ]
+  },
+  "studio-listing-agent": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "btn",
+        "text": "Camera",
+        "font": "15px",
+        "weight": "600",
+        "height": 48,
+        "width": 177
+      },
+      {
+        "class": "btn2",
+        "text": "Gallery",
+        "font": "13px",
+        "weight": "600",
+        "height": 44,
+        "width": 171
+      },
+      {
+        "class": "in",
+        "text": "",
+        "font": "16px",
+        "weight": "400",
+        "height": 48,
+        "width": 314
+      }
+    ]
+  },
+  "studio-listing-draft": {
+    "overflow": false,
+    "controls": [
+      {
+        "class": "pill",
+        "text": "Buyer preview · draft",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 120.609375
+      },
+      {
+        "class": "pill p-active",
+        "text": "New with tags",
+        "font": "11px",
+        "weight": "600",
+        "height": 22,
+        "width": 89.328125
+      },
+      {
+        "class": "chip",
+        "text": "Shorter title",
+        "font": "13px",
+        "weight": "600",
+        "height": 38,
+        "width": 105.859375
+      },
+      {
+        "class": "chip",
+        "text": "Funnier description",
+        "font": "13px",
+        "weight": "600",
+        "height": 38,
+        "width": 147.359375
+      },
+      {
+        "class": "chip",
+        "text": "Add the box details",
+        "font": "13px",
+        "weight": "600",
+        "height": 38,
+        "width": 150.0625
+      },
+      {
+        "class": "btn",
+        "text": "Publish for ₦13,000",
+        "font": "17px",
+        "weight": "600",
+        "height": 48,
+        "width": 366
+      },
+      {
+        "class": "in",
+        "text": "",
+        "font": "16px",
+        "weight": "400",
+        "height": 48,
+        "width": 262
+      }
+    ]
+  }
+}

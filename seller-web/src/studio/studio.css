@@ -28,18 +28,19 @@
   
   --font-display:'Fredoka','Nunito',system-ui,sans-serif;
   --font-body:'Nunito',system-ui,sans-serif;
-  --t-display:32px; --t-h1:24px; --t-h2:19px; --t-body:16px; --t-small:14px; --t-caption:12px;
+  --t-hero:32px; --t-display:24px; --t-h1:20px; --t-h2:17px; --t-body:15px; --t-small:13px; --t-caption:12px; --t-micro:11px;
+  --w-regular:400; --w-medium:600; --w-bold:700; --w-display:500;
   
   --r-card:24px; --r-input:16px; --r-pill:999px;
   --shadow:0 4px 16px rgba(29,42,36,.06);
   --shadow-up:0 -6px 24px rgba(29,42,36,.10);}
-.studio-app{font-family:var(--font-body);color:var(--text);background:var(--surface-page);font-size:var(--t-body);box-sizing:border-box}
+.studio-app{font-family:var(--font-body);color:var(--text);background:var(--surface-page);font-size:var(--legacy-t-body,16px);box-sizing:border-box}
 .studio-app *{box-sizing:border-box}
 .studio-app .f{font-family:var(--font-display);font-weight:600}
 .studio-app .mut{color:var(--text-muted)}
 .studio-app .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.studio-app .h1{margin:0;font:600 var(--t-h1)/1.2 var(--font-display)}
-.studio-app .h2{margin:0;font:600 var(--t-h2)/1.25 var(--font-display)}
+.studio-app .h1{margin:0;font:600 var(--legacy-t-h1,24px)/1.2 var(--font-display)}
+.studio-app .h2{margin:0;font:600 var(--legacy-t-h2,19px)/1.25 var(--font-display)}
 .studio-app .cap{font-size:var(--t-caption);font-weight:800;color:var(--text-muted)}
 .studio-app .btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 22px;border:0;border-radius:var(--r-pill);background:var(--primary);color:var(--on-primary);font:800 16px var(--font-body);text-decoration:none;cursor:pointer}
 .studio-app .btn:hover{background:var(--primary-strong);color:var(--on-primary)}
@@ -112,7 +113,7 @@
 .studio-app .tagline{font:800 13px var(--font-body);letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
 
 /* Listing Agent screen */
-.studio-app{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;font-family:var(--font-body);color:var(--text);background:var(--surface-page);font-size:var(--t-body)}
+.studio-app{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;font-family:var(--font-body);color:var(--text);background:var(--surface-page);font-size:var(--legacy-t-body,16px)}
 .studio-app button{font-family:inherit}
 .studio-app .row{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:12px 16px;border:0;border-top:1px solid #F1EBE3;background:none;text-align:left;font:inherit;color:var(--text);cursor:pointer}
 .studio-app .row.hl{background:#FFFBF2}
@@ -345,3 +346,35 @@
 .studio-app .run-error{font-size:12px;color:var(--danger);background:var(--danger-soft);padding:8px 10px;border-radius:10px;line-height:1.35}
 @media(max-width:899px) and (max-height:580px){.lv .lv-feed{max-height:18dvh}.lv .lv-bottom{gap:5px;padding-top:12px}.lv .lv-panel{gap:4px}.lv .lv-rail{flex-direction:row}.lv .lv-rb{width:36px;height:36px}.lv .lv-rb::after{inset:-4px}.lv .lv-chatzone{gap:4px}}
 @media(min-width:900px){.lv .lv-mobile-prompts{display:none}}
+
+/* Unified non-live scale. Legacy declarations above preserve the protected live UI.
+   Inputs intentionally stay 16px to prevent iPhone focus zoom. */
+.studio-app:not(.lv){font-size:var(--t-body);font-weight:var(--w-regular)}
+.studio-app .f:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-family:var(--font-display);font-weight:var(--w-display)}
+.studio-app .h1:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font:var(--w-display) var(--t-h1)/1.2 var(--font-display)}
+.studio-app .h2:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .step-h:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font:var(--w-display) var(--t-h2)/1.25 var(--font-display)}
+.studio-app strong:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app b:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-weight:var(--w-medium)}
+.studio-app .btn:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){height:48px;min-height:48px;font:var(--w-medium) var(--t-body) var(--font-body)}
+.studio-app .btn2:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .btn3:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){height:44px;min-height:44px;font:var(--w-medium) var(--t-small) var(--font-body);border-width:1px}
+.studio-app .link:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font:var(--w-medium) var(--t-small) var(--font-body)}
+.studio-app .ib:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){width:44px;height:44px}
+.studio-app .chip:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .qr:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){position:relative;height:38px;min-height:38px;border-width:1px;font:var(--w-medium) var(--t-small) var(--font-body)}
+.studio-app .chip:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *))::after,.studio-app .qr:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *))::after{content:"";position:absolute;inset:-3px 0}
+.studio-app .pill:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){height:22px;padding:0 8px;font:var(--w-medium) var(--t-micro) var(--font-body)}
+.studio-app .tab:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .tab-live:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font:var(--w-medium) var(--t-micro) var(--font-body)}
+.studio-app .cap:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-caption);font-weight:var(--w-medium)}
+.studio-app .lab:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font:var(--w-medium) var(--t-small) var(--font-body)}
+.studio-app .hint:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-small);font-weight:var(--w-regular)}
+.studio-app .in:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .sel:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){height:48px;border-width:1px;font:var(--w-regular) 16px var(--font-body)}
+.studio-app .ta:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){height:auto}
+.studio-app .banner:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .toast:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .err:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .err-text:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .wallet-chip:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .dnav:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .ed:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .tagline:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .ai-tag:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-small);font-weight:var(--w-medium)}
+.studio-app .bub:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .me:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-body);font-weight:var(--w-regular)}
+.studio-app .brand:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font:var(--w-display) var(--t-h1) var(--font-display)}
+.studio-app .money:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){height:48px;border-width:1px}
+.studio-app .money span:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .money input:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font:var(--w-display) var(--t-h2) var(--font-display)}
+.studio-app .tg:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){height:26px;font-size:var(--t-caption);font-weight:var(--w-medium)}
+.studio-app .sh-pill-tx:not(:where(.lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .nt-tx span:not(:where(.lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-small);font-weight:var(--w-regular)}
+.studio-app .sh-copy:not(:where(.lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .sh-app:not(:where(.lv, .lv *, .run-sheet, .run-sheet *)),.studio-app .nt-edit:not(:where(.lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-small);font-weight:var(--w-medium)}
+.studio-app .sh-ic:not(:where(.lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-h2);font-weight:var(--w-medium)}
+
+.studio-app .wallet-chip:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:0;border-radius:var(--r-pill);background:var(--surface-sunken);color:var(--text);font:var(--w-medium) var(--t-small) var(--font-body);cursor:pointer;text-decoration:none}

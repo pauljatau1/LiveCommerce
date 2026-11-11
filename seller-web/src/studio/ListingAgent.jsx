@@ -268,10 +268,10 @@ export default function ListingAgent() {
     <header className="top" style={{ position: 'sticky', top: 0, zIndex: 5 }}>
       <button type="button" className="ib" aria-label="Close" onClick={() => navigate(-1)}>{Icon.close}</button>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <span className="f" style={{ fontSize: 17 }}>Listing helper</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: phase === 'thinking' ? 'var(--primary)' : 'var(--text-muted)' }}>{status}</span>
+        <span className="f" style={{ fontSize: 'var(--t-h2)' }}>Listing helper</span>
+        <span style={{ fontSize: 'var(--t-small)', fontWeight: 'var(--w-medium)', color: phase === 'thinking' ? 'var(--primary)' : 'var(--text-muted)' }}>{status}</span>
       </div>
-      {phase !== 'published' && <button type="button" className="link" style={{ fontSize: 13 }} onClick={editAll}>Edit all details</button>}
+      {phase !== 'published' && <button type="button" className="link" style={{ fontSize: 'var(--t-small)' }} onClick={editAll}>Edit all details</button>}
     </header>
   );
 
@@ -314,8 +314,8 @@ export default function ListingAgent() {
               <span className="blob" style={{ width: 88, height: 88, borderRadius: 30 }}>
                 <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h3l2-3h8l2 3h3v12H3z" /><circle cx="12" cy="13" r="4" /></svg>
               </span>
-              <span className="f" style={{ fontSize: 21, lineHeight: 1.25, maxWidth: 280 }}>Snap or drop up to 5 photos. I'll write the listing.</span>
-              <span className="mut" style={{ fontSize: 14 }}>Front, back, and any damage. Plain background helps.</span>
+              <span className="f" style={{ fontSize: 'var(--t-h1)', lineHeight: 1.25, maxWidth: 280 }}>Snap or drop up to 5 photos. I'll write the listing.</span>
+              <span className="mut" style={{ fontSize: 'var(--t-small)' }}>Front, back, and any damage. Plain background helps.</span>
             </button>
           ) : (
             <>
@@ -332,9 +332,9 @@ export default function ListingAgent() {
         </div>
         <form className="composer" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }} onSubmit={(e) => { e.preventDefault(); startDraft(); }}>
           <label htmlFor="ls-note" className="sr">Add a note</label>
-          <input id="ls-note" className="in" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Add a note (optional), e.g. used once, box dented" style={{ border: 0, background: 'var(--surface-sunken)', borderRadius: 999, height: 48 }} />
+          <input id="ls-note" className="in" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Add a note (optional), e.g. used once, box dented" style={{ background: 'var(--surface-sunken)', borderRadius: 999 }} />
           {photos.length > 0
-            ? <button type="submit" className="btn" style={{ minHeight: 48, padding: '0 18px', flex: 'none' }} disabled={!online}>Write it</button>
+            ? <button type="submit" className="btn" style={{  padding: '0 18px', flex: 'none' }} disabled={!online}>Write it</button>
             : <button type="submit" className="ib" aria-label="Send" style={{ background: 'var(--primary-soft)' }}>{Icon.send}</button>}
         </form>
       </div>
@@ -371,14 +371,14 @@ export default function ListingAgent() {
           <section className="ind card" aria-label="Published" style={{ overflow: 'hidden' }}>
             <div style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface)' }}>
               <span style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{Icon.check}</span>
-              <span className="f" style={{ fontSize: 19, color: 'var(--success)' }}>Listed</span>
+              <span className="f" style={{ fontSize: 'var(--t-h2)', color: 'var(--success)' }}>Listed</span>
             </div>
             <div style={{ padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'center' }}>
               <img src={photos[0]?.dataUrl} alt="" style={{ width: 80, height: 80, borderRadius: 16, objectFit: 'cover' }} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                <span style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.3 }}>{draft?.title}</span>
-                <span className="f" style={{ fontSize: 18 }}>{naira(digits(price))}</span>
-                <span className="mut" style={{ fontSize: 13 }}>{allowAuction ? `or bid from ${naira(digits(startingBid))} · ` : ''}{stock} in stock</span>
+                <span style={{ fontWeight: 'var(--w-medium)', fontSize: 'var(--t-small)', lineHeight: 1.3 }}>{draft?.title}</span>
+                <span className="f" style={{ fontSize: 'var(--t-h2)' }}>{naira(digits(price))}</span>
+                <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{allowAuction ? `or bid from ${naira(digits(startingBid))} · ` : ''}{stock} in stock</span>
               </div>
             </div>
             <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -396,7 +396,7 @@ export default function ListingAgent() {
   const titleEditor = (
     <div style={{ display: 'flex', gap: 8 }}>
       <label htmlFor="la-title" className="sr">Title</label>
-      <input id="la-title" className="in" autoFocus maxLength={80} value={draft?.title || ''} onChange={(e) => update({ title: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && setEditing(null)} style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }} />
+      <input id="la-title" className="in" autoFocus maxLength={80} value={draft?.title || ''} onChange={(e) => update({ title: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && setEditing(null)} style={{ fontFamily: 'var(--font-display)' }} />
       <button type="button" className="ib" aria-label="Save title" style={{ background: 'var(--primary)' }} onClick={() => setEditing(null)}>{Icon.check}</button>
     </div>
   );
@@ -457,15 +457,15 @@ export default function ListingAgent() {
       <div style={{ position: 'relative' }}>
         {photos[0] ? <img src={photos[0].dataUrl} alt="Cover photo" style={{ display: 'block', width: '100%', height: 230, objectFit: 'cover' }} /> : <div className="sk" style={{ height: 230, borderRadius: 0 }} />}
         <span className="pill" style={{ position: 'absolute', left: 12, top: 12, background: '#fff', color: 'var(--text)' }}>Buyer preview · draft</span>
-        <button type="button" onClick={() => fileInput.current?.click()} disabled={photos.length >= MAX_PHOTOS} style={{ position: 'absolute', right: 10, bottom: 10, minHeight: 40, padding: '0 12px', border: 0, borderRadius: 999, background: 'rgba(255,255,255,.95)', font: '800 13px var(--font-body)', color: 'var(--primary)', cursor: 'pointer' }}>
+        <button type="button" onClick={() => fileInput.current?.click()} disabled={photos.length >= MAX_PHOTOS} style={{ position: 'absolute', right: 10, bottom: 10, minHeight: 40, padding: '0 12px', border: 0, borderRadius: 999, background: 'rgba(255,255,255,.95)', font: 'var(--w-medium) var(--t-small) var(--font-body)', color: 'var(--primary)', cursor: 'pointer' }}>
           {photos.length} photo{photos.length === 1 ? '' : 's'} · add
         </button>
       </div>
       <Field label="TITLE" editing={editing === 'title'} onEdit={() => setEditing('title')} highlight={changed === 'title'} editor={titleEditor}>
-        <span className="f" style={{ fontSize: 19, lineHeight: 1.25 }}>{draft?.title || <span className="mut">Add a title</span>}</span>
+        <span className="f" style={{ fontSize: 'var(--t-h2)', lineHeight: 1.25 }}>{draft?.title || <span className="mut">Add a title</span>}</span>
       </Field>
       <Field label="CATEGORY" editing={editing === 'category'} onEdit={() => setEditing('category')} highlight={changed === 'category'} editor={categoryEditor}>
-        <span style={{ fontWeight: 700 }}>{draft?.category ? `${draft.category}${draft.subCategory ? ` › ${draft.subCategory}` : ''}` : <span className="mut">Choose a category</span>}</span>
+        <span style={{ fontWeight: 'var(--w-medium)' }}>{draft?.category ? `${draft.category}${draft.subCategory ? ` › ${draft.subCategory}` : ''}` : <span className="mut">Choose a category</span>}</span>
       </Field>
       {['localStyle', 'fabric'].map((field) => (
         <Field key={field} label={field === 'localStyle' ? 'LOCAL STYLE' : 'FABRIC'} editing={editing === field} onEdit={() => setEditing(field)} highlight={changed === field} editor={
@@ -482,7 +482,7 @@ export default function ListingAgent() {
         <span>{draft?.condition ? <span className="pill p-active">{draft.condition}</span> : <span className="mut">Choose the condition</span>}</span>
       </Field>
       <Field label="DESCRIPTION" editing={editing === 'description'} onEdit={() => setEditing('description')} highlight={changed === 'description'} editor={descriptionEditor}>
-        <span style={{ fontSize: 15, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{draft?.description || <span className="mut">Add a description</span>}</span>
+        <span style={{ fontSize: 'var(--t-body)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{draft?.description || <span className="mut">Add a description</span>}</span>
       </Field>
       <Field label="TAGS" editing={editing === 'tags'} onEdit={() => setEditing('tags')} highlight={changed === 'tags'} editor={tagsEditor}>
         <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -498,7 +498,7 @@ export default function ListingAgent() {
         <label className="lab" htmlFor="la-price">Buy Now price</label>
         <div className="money"><span>₦</span><input id="la-price" inputMode="numeric" value={price} onChange={(e) => setPrice(fmt(e.target.value))} placeholder="0" /></div>
       </div>
-      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, fontWeight: 800, cursor: 'pointer' }}>
+      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, fontWeight: 'var(--w-medium)', cursor: 'pointer' }}>
         Also take bids
         <span className={`tgl${allowAuction ? ' on' : ''}`} aria-hidden="true"><i /></span>
         <input type="checkbox" className="sr" checked={allowAuction} onChange={(e) => { setAllowAuction(e.target.checked); if (e.target.checked && !startingBid && digits(price)) setStartingBid(fmt(Math.round(digits(price) * 0.6 / 500) * 500)); }} />
@@ -507,7 +507,7 @@ export default function ListingAgent() {
         <>
           <div className="fl"><label className="lab" htmlFor="la-bid">Starting bid</label><div className="money"><span>₦</span><input id="la-bid" inputMode="numeric" value={startingBid} onChange={(e) => setStartingBid(fmt(e.target.value))} /></div></div>
           <div className="fl">
-            <label className="lab" htmlFor="la-inst">Sell instantly at <span className="hint" style={{ fontWeight: 600 }}>optional</span></label>
+            <label className="lab" htmlFor="la-inst">Sell instantly at <span className="hint" style={{ fontWeight: 'var(--w-medium)' }}>optional</span></label>
             <div className="money"><span>₦</span><input id="la-inst" inputMode="numeric" value={instant} onChange={(e) => setInstant(fmt(e.target.value))} /></div>
             <span className="hint">If someone bids this much, the auction ends and they win.</span>
           </div>
@@ -546,7 +546,7 @@ export default function ListingAgent() {
       <div className="ind" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }} role="group" aria-label="Quantity">
         {[1, 2].map((n) => <button key={n} type="button" className={`qr${quantity === n ? ' on' : ''}`} aria-pressed={quantity === n} onClick={() => setQuantity(n)}>{n}</button>)}
         {quantity !== null && quantity >= 3
-          ? <span className="money" style={{ width: 120, height: 44 }}><label htmlFor="la-qty" className="sr">Quantity</label><input id="la-qty" inputMode="numeric" autoFocus value={quantity} onChange={(e) => setQuantity(Math.max(3, Math.min(999, digits(e.target.value) || 3)))} style={{ fontSize: 16, paddingLeft: 14 }} /></span>
+          ? <span className="money" style={{ width: 120 }}><label htmlFor="la-qty" className="sr">Quantity</label><input id="la-qty" inputMode="numeric" autoFocus value={quantity} onChange={(e) => setQuantity(Math.max(3, Math.min(999, digits(e.target.value) || 3)))} style={{ paddingLeft: 14 }} /></span>
           : <button type="button" className="qr" onClick={() => setQuantity(3)}>3+</button>}
       </div>
 
@@ -621,13 +621,13 @@ function ChatComposer({ disabled, onSend, onPhotos, publishLabel, onPublish, mis
     <div className="composer">
       {missing.length > 0 && <span className="hint" role="status">Still needed: {missing.join(', ')}.</span>}
       {error && <span className="err-text" role="alert">{error}</span>}
-      <button type="button" className="btn" style={{ minHeight: 56, fontSize: 17 }} disabled={missing.length > 0 || busy} onClick={onPublish}>
+      <button type="button" className="btn" style={{  fontSize: 'var(--t-h2)' }} disabled={missing.length > 0 || busy} onClick={onPublish}>
         {busy ? 'Working…' : publishLabel}
       </button>
       <form style={{ display: 'flex', gap: 8, alignItems: 'center' }} onSubmit={(e) => { e.preventDefault(); if (text.trim()) { onSend(text); setText(''); } }}>
         <button type="button" className="ib" aria-label="Add photos" onClick={onPhotos}>{Icon.camera()}</button>
         <label htmlFor="la-msg" className="sr">Message</label>
-        <input id="la-msg" className="in" value={text} maxLength={400} disabled={disabled} onChange={(e) => setText(e.target.value)} placeholder={placeholder} style={{ border: 0, background: 'var(--surface-sunken)', borderRadius: 999, height: 48 }} />
+        <input id="la-msg" className="in" value={text} maxLength={400} disabled={disabled} onChange={(e) => setText(e.target.value)} placeholder={placeholder} style={{ background: 'var(--surface-sunken)', borderRadius: 999 }} />
         <button type="submit" className="ib" aria-label="Send" disabled={disabled || !text.trim()} style={{ background: 'var(--primary-soft)' }}>{Icon.send}</button>
       </form>
     </div>

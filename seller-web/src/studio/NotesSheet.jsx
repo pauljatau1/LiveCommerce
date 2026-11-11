@@ -35,10 +35,10 @@ export default function NotesSheet({ notes, busy, onSave, onClose }) {
     return (
       <Sheet label={`Edit ${label}`} onClose={() => setEditing(null)} lift={kb.bottom} maxHeight={kb.bottom ? kb.height - 12 : null}>
         <span className="h2">{label}</span>
-        {editing === 'payment' && <span className="hint" style={{ fontWeight: 700, color: 'var(--text)' }}>{ALWAYS} <span className="mut" style={{ fontWeight: 600 }}>(always included)</span></span>}
+        {editing === 'payment' && <span className="hint" style={{ fontWeight: 'var(--w-medium)', color: 'var(--text)' }}>{ALWAYS} <span className="mut" style={{ fontWeight: 'var(--w-medium)' }}>(always included)</span></span>}
         <label htmlFor="nt-edit" className="sr">{label}</label>
         <textarea id="nt-edit" ref={area} className="in ta" style={{ minHeight: 72, resize: 'none', overflowY: 'auto' }} value={text} onChange={(e) => setText(e.target.value)} autoFocus />
-        <span className="hint" aria-live="polite" style={used > NOTES_MAX ? { color: 'var(--danger)', fontWeight: 800 } : undefined}>
+        <span className="hint" aria-live="polite" style={used > NOTES_MAX ? { color: 'var(--danger)', fontWeight: 'var(--w-medium)' } : undefined}>
           {used} / {NOTES_MAX} characters for all notes. No links, phone or account numbers.
         </span>
         <div style={{ display: 'flex', gap: 8 }}>
