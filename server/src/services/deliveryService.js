@@ -82,13 +82,11 @@ const attachOrder = async ({ session, streamId, buyerId, sellerId, order, produc
 // ---------- Shipbubble addresses (verified once, then reused) ----------
 
 const sellerPickup = (seller) => {
-  const a = seller.warehouseDetails?.address?.addressLine1 ? seller.warehouseDetails.address
-    : seller.businessAddress?.addressLine1 ? seller.businessAddress
-    : seller.sellerAddress || {};
+  const a = require('./serviceArea').pickupAddress(seller);
   return {
     name: seller.storeName || [seller.firstName, seller.lastName].filter(Boolean).join(' ') || 'Seller',
     email: seller.businessEmail || seller.email,
-    phone: seller.phoneNumber,
+    phone: seller.warehouseDetails?.contactNumber || seller.phoneNumber,
     address: require('./areaDirectory').deliveryAddress(a),
     latitude:a.latitude, longitude:a.longitude,
   };
@@ -109,28 +107,39 @@ const buyerDropoff = (buyer) => {
   };
 };
 
-const sellerAddressCode = async (seller) => {
-  const pickup = sellerPickup(seller);
-  if (!pickup.phone) throw new DeliveryError(422, 'Add a phone number to your seller profile so couriers can reach you');
-  if (!pickup.address.replace(/,?\s*Nigeria$/, '')) throw new DeliveryError(422, 'Add a pickup address to your seller profile');
-  const key = `${pickup.address}|${pickup.phone}${Number.isFinite(pickup.latitude)&&Number.isFinite(pickup.longitude)?`|${pickup.latitude},${pickup.longitude}`:''}`;
-  if (seller.shipbubbleAddress?.code && seller.shipbubbleAddress.key === key) return seller.shipbubbleAddress.code;
-  const verified = await shipbubble.validateAddress(pickup);
-  await model('Seller').updateOne({ _id: seller._id }, { shipbubbleAddress: { code: verified.address_code, key } });
-  return verified.address_code;
+// Address failures need an edit; service outages keep the existing timed retry.
+const addressKey = a => `${a.address}|${a.phone}${Number.isFinite(a.latitude)&&Number.isFinite(a.longitude)?`|${a.latitude},${a.longitude}`:''}`;
+const fixableAddressError = error => error.status>=400 && error.status<500 && error.status!==429 && !/api access|kyc|unauthori|forbidden|api key/i.test(error.message) && /phone|address|location|coordinates/i.test(String(error.message).replace(/^Address check failed:\s*/i,''));
+const addressFailure = (party,key,kind) => Object.assign(new DeliveryError(422,party==='buyer'&&kind==='phone'?'Fix your phone number for the courier':`Shipbubble couldn't verify your ${party==='seller'?'pickup':'delivery'} ${kind==='phone'?'phone number':'address'}. Update it and try again.`),{code:kind==='phone'&&party==='buyer'?'courier_phone':'address_needs_fix',fixable:true,party,key,kind});
+const pickupProblem = seller => seller?.pickupValidation && seller.pickupValidation.key===addressKey(sellerPickup(seller)) ? seller.pickupValidation.message : null;
+const recordPickupFailure = async (seller,error) => {
+  if(!error.fixable)return;
+  await model('Seller').updateOne({_id:seller._id},{$set:{pickupValidation:{key:error.key,message:error.message,kind:error.kind,updatedAt:new Date()}}});
 };
-
-const buyerAddressCode = async (buyer) => {
-  const dropoff = buyerDropoff(buyer);
-  if (!dropoff) throw new DeliveryError(422, 'The buyer has no delivery address');
-  if (!dropoff.phone) throw new DeliveryError(422, 'The buyer needs to add a phone number for the courier');
-  const key = `${dropoff.address}|${dropoff.phone}${Number.isFinite(dropoff.latitude)&&Number.isFinite(dropoff.longitude)?`|${dropoff.latitude},${dropoff.longitude}`:''}`;
-  if (dropoff.cached && dropoff.cachedKey === key) return dropoff.cached;
-  const verified = await shipbubble.validateAddress(dropoff);
-  await model('Buyer').updateOne(
-    { _id: buyer._id, 'shippingAddresses._id': dropoff.addressId },
-    { $set: { 'shippingAddresses.$.shipbubbleCode': verified.address_code, 'shippingAddresses.$.shipbubbleKey': key } }
-  );
+const validateCourierAddress = async (party,details) => {
+  const key=addressKey(details);
+  if(require('../utils/phone').phoneProblem(details.phone))throw addressFailure(party,key,'phone');
+  try{return await shipbubble.validateAddress(details);}catch(error){if(fixableAddressError(error))throw addressFailure(party,key,/phone/i.test(error.message)?'phone':'address');throw error;}
+};
+const sellerAddressCode = async seller => {
+  const pickup=sellerPickup(seller),key=addressKey(pickup);
+  try {
+    if(require('../utils/phone').phoneProblem(pickup.phone))throw addressFailure('seller',key,'phone');
+    if(seller.shipbubbleAddress?.code&&seller.shipbubbleAddress.key===key)return seller.shipbubbleAddress.code;
+    const verified=await validateCourierAddress('seller',pickup);
+    await model('Seller').updateOne({_id:seller._id},{$set:{shipbubbleAddress:{code:verified.address_code,key}}});
+    await model('Seller').updateOne({_id:seller._id,'pickupValidation.key':key},{$unset:{pickupValidation:1}});
+    return verified.address_code;
+  }catch(error){await recordPickupFailure(seller,error);throw error;}
+};
+const buyerAddressCode = async buyer => {
+  const dropoff=buyerDropoff(buyer);
+  if(!dropoff)throw new DeliveryError(422,'Add your delivery address first.');
+  const key=addressKey(dropoff);
+  if(require('../utils/phone').phoneProblem(dropoff.phone))throw addressFailure('buyer',key,'phone');
+  if(dropoff.cached&&dropoff.cachedKey===key)return dropoff.cached;
+  const verified=await validateCourierAddress('buyer',dropoff);
+  await model('Buyer').updateOne({_id:buyer._id,'shippingAddresses._id':dropoff.addressId},{$set:{'shippingAddresses.$.shipbubbleCode':verified.address_code,'shippingAddresses.$.shipbubbleKey':key}});
   return verified.address_code;
 };
 
@@ -191,7 +200,8 @@ const quote = async (delivery) => {
     model('Buyer').findById(delivery.buyer).lean(),
   ]);
   if (!seller || !buyer) throw new DeliveryError(404, 'Seller or buyer not found');
-  const [senderCode, receiverCode] = await Promise.all([sellerAddressCode(seller), buyerAddressCode(buyer)]);
+  const senderCode=await sellerAddressCode(seller);
+  const receiverCode=await buyerAddressCode(buyer);
   return cheapestRate(senderCode, receiverCode, delivery.items);
 };
 
@@ -248,9 +258,9 @@ const depositQuote = async ({ streamId, buyerId, productId }) => {
   if (buyer.shippingAddresses?.length) require('./serviceArea').requireState((buyer.shippingAddresses.find(a => a.isActive) || buyer.shippingAddresses[0])?.state);
   const dropoff = buyerDropoff(buyer);
   if (!dropoff) throw new DeliveryError(422, 'Add your delivery address first.');
-  if (!dropoff.phone) throw new DeliveryError(422, 'Add a phone number for the courier first.');
+  if (require('../utils/phone').phoneProblem(dropoff.phone)) throw addressFailure('buyer',addressKey(dropoff),'phone');
   let senderCode;
-  try { senderCode = await sellerAddressCode(seller); } catch { throw hostAddressProblem(); }
+  try { senderCode = await sellerAddressCode(seller); } catch(error) {if(error.fixable)throw Object.assign(hostAddressProblem(),{fixable:true,party:'seller',key:error.key,kind:error.kind});throw hostAddressProblem(); }
   let receiverCode;
   try { receiverCode = await buyerAddressCode(buyer); } catch (e) {
     throw e instanceof DeliveryError ? e : new DeliveryError(422, "Shipbubble couldn't find your delivery address. Check the street and area, then try again.");
@@ -269,11 +279,11 @@ const previewQuote = async ({ streamId, productId, address }) => {
   if (!shipbubble.isConfigured()) throw new DeliveryError(503, "Delivery pricing isn't switched on yet.");
   const { addressLine1, city, state, phoneNumber, name, email } = address || {};
   if (!addressLine1 || !city || !state) throw new DeliveryError(422, 'Add your street, area and state to see the delivery price.');
-  if (!phoneNumber) throw new DeliveryError(422, 'Add a phone number for the courier to see the delivery price.');
+  if (require('../utils/phone').phoneProblem(phoneNumber)) throw addressFailure('buyer','','phone');
   const { seller, product } = await hostFor(streamId, productId);
   require('./serviceArea').requireState(require('./serviceArea').pickupAddress(seller).state, true);
   let senderCode;
-  try { senderCode = await sellerAddressCode(seller); } catch { throw hostAddressProblem(); }
+  try { senderCode = await sellerAddressCode(seller); } catch(error) {if(error.fixable)throw Object.assign(hostAddressProblem(),{fixable:true,party:'seller',key:error.key,kind:error.kind});throw hostAddressProblem(); }
   let verified;
   try {
     verified = await shipbubble.validateAddress({
@@ -313,8 +323,33 @@ const charge = async (delivery) => {
   return true;
 };
 
+const notifyFix = async delivery => {
+  if(!delivery.fix?.notificationId)return;
+  const party=delivery.fix.party;
+  try{await require('../models/Notification').updateOne({_id:delivery.fix.notificationId},{$setOnInsert:{[party]:delivery[party],recipient:party,type:'delivery_needs_fix',title:'Delivery details need fixing',message:delivery.fix.message,data:{deliveryId:delivery._id,link:party==='seller'?'/studio/pickup':'/orders'}}},{upsert:true});}
+  catch{console.warn('[delivery] Could not save address-fix notification.');}
+};
+const pauseForFix = async (delivery,error) => {
+  const fix={party:error.party,key:error.key,kind:error.kind,message:error.message,notificationId:new mongoose.Types.ObjectId()};
+  const claimed=await ShowDelivery.findOneAndUpdate({_id:delivery._id,status:{$in:['collecting','quote_failed','awaiting_payment']}},{$set:{status:'needs_fix',lastError:error.message,fix}},{new:true}).lean();
+  if(claimed)await notifyFix(claimed);
+};
+const resumeAfterEdit = async delivery => {
+  if(delivery.status!=='needs_fix')return true;
+  await notifyFix(delivery); // idempotent inbox entry; never another courier call
+  const party=delivery.fix?.party;
+  const account=await model(party==='seller'?'Seller':'Buyer').findById(delivery[party]).lean();
+  if(!account)return false;
+  const details=party==='seller'?sellerPickup(account):buyerDropoff(account);
+  if(!details||addressKey(details)===delivery.fix.key)return false;
+  const result=await ShowDelivery.updateOne({_id:delivery._id,status:'needs_fix','fix.key':delivery.fix.key},{$set:{status:'quote_failed',updatedAt:new Date(0)},$unset:{fix:1}},{timestamps:false});
+  return result.modifiedCount===1;
+};
+
 // Quote and charge one delivery (after the show, or on retry)
 const settle = async (deliveryId) => {
+  const waiting=await ShowDelivery.findById(deliveryId).lean();
+  if(waiting?.status==='needs_fix'&&!await resumeAfterEdit(waiting))return waiting;
   const delivery = await ShowDelivery.findOneAndUpdate(
     { _id: deliveryId, status: { $in: ['collecting', 'quote_failed', 'awaiting_payment'] } },
     { $set: { lastError: null } },
@@ -328,7 +363,8 @@ const settle = async (deliveryId) => {
     const ok = await charge(delivery);
     return ShowDelivery.findById(delivery._id).lean().then((d) => ({ ...d, charged: ok }));
   } catch (error) {
-    await ShowDelivery.updateOne({ _id: delivery._id }, { status: 'quote_failed', lastError: plainError(error.message) });
+    if(error.fixable)await pauseForFix(delivery,error);
+    else await ShowDelivery.updateOne({ _id: delivery._id }, { status: 'quote_failed', lastError: plainError(error.message) });
     return ShowDelivery.findById(delivery._id).lean();
   }
 };
@@ -348,6 +384,8 @@ const plainError = (msg = '') => {
 const RETRY_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 const retryStuck = async ({ now = Date.now() } = {}) => {
   const since = new Date(now - RETRY_WINDOW_MS);
+  const blocked=await ShowDelivery.find({status:'needs_fix'},{seller:1,buyer:1,status:1,fix:1}).lean();
+  const resumed=[];for(const delivery of blocked)if(await resumeAfterEdit(delivery))resumed.push(delivery._id);
   const failed = await ShowDelivery.find(
     { status: 'quote_failed', createdAt: { $gte: since }, updatedAt: { $lte: new Date(now - 5 * 60 * 1000) } },
     { _id: 1 }
@@ -356,7 +394,7 @@ const retryStuck = async ({ now = Date.now() } = {}) => {
   const ended = collecting.length
     ? new Set((await model('Stream').find({ _id: { $in: collecting.map((d) => d.stream) }, status: 'ended' }, { _id: 1 }).lean()).map((s) => String(s._id)))
     : new Set();
-  const ids = [...failed.map((d) => d._id), ...collecting.filter((d) => ended.has(String(d.stream))).map((d) => d._id)];
+  const ids = [...new Map([...resumed,...failed.map(d=>d._id),...collecting.filter(d=>ended.has(String(d.stream))).map(d=>d._id)].map(id=>[String(id),id])).values()];
   const results = [];
   for (const id of ids) results.push(await settle(id)); // one at a time: Shipbubble rate limits
   return results;
@@ -374,9 +412,11 @@ const payDelivery = async ({ buyerId, deliveryId }) => {
   const delivery = await ShowDelivery.findOne({ _id: deliveryId, buyer: buyerId });
   if (!delivery) throw new DeliveryError(404, 'Delivery not found');
   if (delivery.status === 'paid' || ['booked', 'in_transit', 'delivered'].includes(delivery.status)) return delivery.toObject();
+  if(delivery.status==='needs_fix')throw new DeliveryError(422,delivery.lastError || 'Update the delivery details first.');
   if (delivery.status === 'collecting') throw new DeliveryError(409, 'The show is still on; delivery is settled when it ends');
   if (!delivery.quote?.amount || delivery.status === 'quote_failed' || Date.now() - new Date(delivery.quote.fetchedAt) > QUOTE_TTL_MS) {
     const result = await settle(delivery._id);
+    if (result?.status === 'needs_fix') throw new DeliveryError(422,result.lastError);
     if (result?.status === 'quote_failed') throw new DeliveryError(502, result.lastError || 'Could not get a delivery price');
     if (result?.status === 'paid') return result;
     delivery.quote = result.quote;
@@ -540,6 +580,9 @@ module.exports = {
   statusFrom,
   packageFor,
   sellerPickup,
+  buyerDropoff,
+  addressKey,
+  pickupProblem,
   sellerAddressCode,
   DeliveryError,
 };

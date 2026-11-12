@@ -92,6 +92,7 @@ export default function Home() {
   const name = data?.seller?.firstName || data?.seller?.storeName || '';
   return (
     <main className="st-main">
+      {(data?.courierPhoneInvalid || data?.pickupProblem)&&<div className="banner b-warn" role="alert" style={{flexDirection:'column',alignItems:'stretch'}}><span>{data.courierPhoneInvalid ? "Your courier phone number isn't valid" : data.pickupProblem}</span><Link className="btn2" to="/studio/pickup" state={{from:'/studio'}}>Fix pickup details</Link></div>}
       {pickupArea.allowed === false && <PickupAreaBanner config={pickupArea.config} />}
       <div className="st-head st-hide-desk">
         <span style={{ flex: 1 }}><Brand size='var(--t-h1)' /></span>

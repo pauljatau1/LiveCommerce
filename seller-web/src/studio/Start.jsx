@@ -1,3 +1,4 @@
+import reloadSeller from './reloadSeller';
 import useStudioBack from './useStudioBack';
 import {PHONE_HINT,phoneProblem} from './phone';
 import {allowedPlace} from './googlePlaces';
@@ -100,7 +101,8 @@ export default function Start() {
       await onboarding[kind](body);
       await refresh();
       // Keep the signed-in seller up to date, so the studio stops asking for a pickup address
-      if (kind === 'pickup' || kind === 'store') {
+      if(kind==='pickup')await reloadSeller(dispatch);
+      if (kind === 'store') {
         const updated = { ...(seller || sellerUtils.getSeller() || {}), ...(kind === 'pickup' ? { hasFilledAddress: true, hasFilledBusinessAddress: true, warehouseDetails: { ...seller?.warehouseDetails, address: { state: body.state, city: body.city, lga: body.lga, latitude:body.latitude,longitude:body.longitude,addressSource:body.addressSource,formattedAddress:body.formattedAddress, addressLine1: body.addressLine1, addressLine2: body.landmark } } } : { storeName: body.storeName }) };
         sellerUtils.storeSeller(updated);
         dispatch?.({ type: 'STORE_SELLER', payload: updated });

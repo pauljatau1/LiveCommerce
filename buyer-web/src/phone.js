@@ -4,3 +4,5 @@ const PHONE_ERROR = 'Enter an 11-digit phone number starting with 0, e.g. 0803 1
 const phoneDigits = value => String(value ?? '').replace(/\s/g, '');
 const phoneProblem = value => /^0\d{10}$/.test(phoneDigits(value)) ? '' : PHONE_ERROR;
 export {PHONE_HINT, PHONE_ERROR, phoneDigits, phoneProblem};
+export const deliveryAddressFor = buyer => buyer?.shippingAddresses?.find(a=>a.isActive) || buyer?.shippingAddresses?.[0];
+export const deliveryPhoneFor = buyer => deliveryAddressFor(buyer)?.phoneNumber || buyer?.phoneNumber || '';

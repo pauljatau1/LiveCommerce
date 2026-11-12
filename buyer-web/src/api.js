@@ -31,6 +31,7 @@ export const api = {
   login: (body) => http.post('/api/v2/buyers/auth/login', body).then(data),
   updateProfile:body=>http.put('/api/v2/buyers/profile',body).then(data),
   savePhone:phoneNumber=>http.put('/api/v2/buyers/profile/phone',{phoneNumber}).then(data),
+  saveCourierPhone:(addressId,phoneNumber)=>http.put('/api/v2/buyers/profile/courier-phone',{addressId,phoneNumber}).then(data),
   changePassword:body=>http.post('/api/v2/buyers/profile/change-password',body).then(data),
   addresses:()=>http.get('/api/v2/buyers/addresses').then(data),
   removeAddress:id=>http.delete(`/api/v2/buyers/addresses/${id}`).then(data),

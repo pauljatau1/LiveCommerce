@@ -14,6 +14,16 @@ router.put('/profile/phone',verifyToken,isBuyer, async (req,res)=>{
     res.json({success:true,phoneNumber:phone});
   }catch{return res.status(500).json({message:'Couldn’t save your phone number. Please try again.'});}
 });
+router.put('/profile/courier-phone',verifyToken,isBuyer,async(req,res)=>{
+ const {phoneDigits,phoneProblem}=require('../utils/phone'),phone=phoneDigits(req.body?.phoneNumber);
+ if(phoneProblem(phone))return res.status(400).json({message:phoneProblem(phone)});
+ if(!require('mongoose').isValidObjectId(req.body?.addressId))return res.status(400).json({message:'Choose your delivery address first.'});
+ try{
+  const buyer=await Buyer.findOneAndUpdate({_id:req.user.id,'shippingAddresses._id':req.body.addressId},{$set:{phoneNumber:phone,phoneVerified:false,'shippingAddresses.$.phoneNumber':phone},$unset:{'shippingAddresses.$.shipbubbleCode':1,'shippingAddresses.$.shipbubbleKey':1}},{new:true});
+  if(!buyer)return res.status(404).json({message:'We couldn’t find that delivery address.'});
+  res.json({success:true,phoneNumber:phone});
+ }catch{res.status(500).json({message:'Couldn’t save your courier phone number. Please try again.'});}
+});
 router.post('/profile/change-password',verifyToken,isBuyer,rateLimit({windowMs:15*60*1000,max:5,keyGenerator:req=>String(req.user.id),message:{message:'Too many tries. Wait 15 minutes before trying again.'}}),async(req,res)=>{
   const {currentPassword,newPassword}=req.body || {};
   if(typeof currentPassword!=='string'||typeof newPassword!=='string'||newPassword.length<8||Buffer.byteLength(newPassword)>72)return res.status(400).json({message:'Enter your current password and a new password of 8–72 characters.'});

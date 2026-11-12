@@ -1,3 +1,4 @@
+import {pickupAddress} from './pickup';
 import useStudioBack from './useStudioBack';
 // Store profile: name, about, what you sell, and the pickup address (which opens
 // the pickup step of Getting started). The store photo stays here too.
@@ -25,7 +26,7 @@ export default function StoreProfile() {
   const [error, setError] = useState('');
   const [nameError, setNameError] = useState('');
   const [busy, setBusy] = useState(false);
-  const address = seller?.sellerAddress || seller?.businessAddress || {};
+  const address = pickupAddress(seller);
   const addressLine = [address.addressLine1 || address.street, address.city, address.state].filter(Boolean).join(', ');
   const options = [...new Set([...LAUNCH_CATEGORIES, ...savedCategories])];
 

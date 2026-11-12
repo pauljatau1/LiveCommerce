@@ -1,3 +1,4 @@
+import {pickupAddress} from './pickup';
 // Me (design: S-Me): store, settings shortcuts, sign out.
 // Studio settings by default; classic destinations remain available on opt-in.
 import { useEffect, useState } from 'react';
@@ -23,7 +24,7 @@ const Row = ({ to, state, title, sub, danger, onClick }) => {
 export default function Me() {
   const { seller, logout } = useAuthContext();
   const name = seller?.storeName || [seller?.firstName, seller?.lastName].filter(Boolean).join(' ') || 'Your store';
-  const address = seller?.sellerAddress || seller?.businessAddress || {};
+  const address = pickupAddress(seller);
   const bank = seller?.bankDetails || {};
   // Weekly show slot: buyers who follow get "Live every Saturday at 7pm" and a repeating calendar invite
   const [slot, setSlot] = useState(null);

@@ -21,12 +21,12 @@ const fail = (res, error, fallback) => {
 const bad = (res, message) => res.status(400).json({ success: false, message });
 
 const view = (s) => {
-  const a = s.warehouseDetails?.address?.addressLine1 ? s.warehouseDetails.address : s.businessAddress?.addressLine1 ? s.businessAddress : null;
+  const a = require('../services/serviceArea').pickupAddress(s);
   const b = s.bankDetails || {};
   return {
     serviceArea: require('../services/serviceArea').serviceAreaConfig(),
     store: { storeName: s.storeName || '', aboutStore: s.aboutStore || '', avatar: s.storeAvatar?.url || null, categories: (s.categories || []).map((c) => c.name), done: Boolean(s.storeName) },
-    pickup: a ? { state: a.state, city: a.city, lga: a.lga, latitude:a.latitude, longitude:a.longitude, addressSource:a.addressSource, formattedAddress:a.formattedAddress, addressLine1: a.addressLine1, landmark: a.addressLine2 || '', phone: s.warehouseDetails?.contactNumber || s.phoneNumber || '', done: true } : { done: false, phone: s.phoneNumber || '' },
+    pickup: a.addressLine1 ? { state: a.state, city: a.city, lga: a.lga, latitude:a.latitude, longitude:a.longitude, addressSource:a.addressSource, formattedAddress:a.formattedAddress, addressLine1: a.addressLine1, landmark: a.addressLine2 || '', phone: s.warehouseDetails?.contactNumber || s.phoneNumber || '', done: true } : { done: false, phone: s.warehouseDetails?.contactNumber || s.phoneNumber || '' },
     bank: b.accountNumber ? { bankName: b.bankName, last4: String(b.accountNumber).slice(-4), accountName: b.accountName, done: Boolean(s.isBankVerified) } : { done: false },
     firstName: s.firstName || '',
     categories: LAUNCH_CATEGORY_NAMES,
@@ -74,9 +74,9 @@ router.put('/pickup', async (req, res) => {
         businessAddress: address,
         hasFilledAddress: true,
         hasFilledBusinessAddress: true,
-        ...(req.body?.phone ? { phoneNumber: phone } : {}),
+        phoneNumber: phone,
       },
-      $unset: { shipbubbleAddress: 1 }, // checked again with Shipbubble on the next quote
+      $unset: { shipbubbleAddress: 1, pickupValidation:1 }, // checked again with Shipbubble on the next quote
     }, { new: true }).lean();
     res.json({ success: true, ...view(s) });
   } catch (error) { fail(res, error, "Couldn't save the address. Your answers are still here: try again."); }

@@ -87,7 +87,7 @@ router.get('/home', async (req, res) => {
   try {
     const sellerId = req.user.id;
     const [seller, upcoming, lastEnded, recent, inShows, money, toShip, productCount] = await Promise.all([
-      model('Seller').findById(sellerId, { firstName: 1, storeName: 1, storeAvatar: 1 }).lean(),
+      model('Seller').findById(sellerId, { firstName:1,storeName:1,storeAvatar:1,warehouseDetails:1,businessAddress:1,sellerAddress:1,phoneNumber:1,pickupValidation:1 }).lean(),
       model('Stream').find({ seller: oid(sellerId), $or: [{ status: 'live' }, { status: 'scheduled', scheduledStartTime: { $gt: new Date(Date.now() - 6 * 3600 * 1000) } }] })
         .sort({ status: 1, scheduledStartTime: 1 }).limit(3).lean(),
       model('Stream').findOne({ seller: oid(sellerId), status: 'ended' }).sort({ endTime: -1, updatedAt: -1 }).lean(),
@@ -103,6 +103,8 @@ router.get('/home', async (req, res) => {
     const readyForShow = recent.filter((p) => p.status === 'active' && (p.stock ?? 0) > 0 && !inShows.has(String(p._id))).length;
     res.json({
       success: true,
+      courierPhoneInvalid: Boolean(require('../utils/phone').phoneProblem(seller?.warehouseDetails?.contactNumber || seller?.phoneNumber)),
+      pickupProblem: require('../services/deliveryService').pickupProblem(seller),
       seller: { firstName: seller?.firstName, storeName: seller?.storeName, avatar: seller?.storeAvatar?.url || null },
       nextShow: next ? showCard(next) : null,
       lastShow: lastEnded ? { ...showCard(lastEnded), sold: (lastEnded.orders || []).length } : null,
@@ -289,7 +291,7 @@ router.get('/shows/:id/recap', validId, async (req, res) => {
       sold,
       unsold,
       deliveries: {
-        pricing: deliveries.filter((d) => ['collecting', 'quote_failed'].includes(d.status)).length,
+        pricing: deliveries.filter((d) => ['collecting','quote_failed','needs_fix'].includes(d.status)).length,
         awaitingPayment: deliveries.filter((d) => d.status === 'awaiting_payment').length,
         toBook: deliveries.filter((d) => d.status === 'paid').length,
         booked: deliveries.filter((d) => ['booked', 'in_transit', 'delivered'].includes(d.status)).length,
@@ -319,7 +321,8 @@ router.get('/notifications', async (req, res) => {
       model('Product').countDocuments({ seller: sellerId, status: { $ne: 'draft' }, stock: { $gt: 0 } }),
     ]);
     const who = (b) => b?.firstName || (b?.username ? `@${b.username}` : 'A buyer');
-    const items = [];
+    const fixNotices=await require('../models/Notification').find({seller:sellerId,type:'delivery_needs_fix'}).sort({createdAt:-1}).limit(20).lean();
+    const items = fixNotices.map(n=>({id:`fix-${n._id}`,kind:'delivery',at:n.createdAt,title:n.title,body:n.message,link:'/studio/pickup'}));
     deliveries.forEach((d) => {
       const count = (d.items || []).reduce((n, i) => n + (i.quantity || 1), 0);
       const total = (d.items || []).reduce((n, i) => n + (i.unitPrice || 0) * (i.quantity || 1), 0);

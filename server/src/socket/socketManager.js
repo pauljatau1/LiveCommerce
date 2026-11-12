@@ -1668,7 +1668,7 @@ function initializeSocket(server) {
           shippingFee = await require('../services/deliveryService').depositFor(stream._id, buyer._id, productId);
         } catch (depositError) {
           const plain = depositError.status ? depositError.message : "Couldn't price delivery right now. Try again in a moment.";
-          socket.emit('bid_error', { message: plain, code: depositError.code === 'out_of_area' ? 'out_of_area' : /add your delivery address|phone number/i.test(plain) ? 'no_address' : 'delivery_quote' });
+          socket.emit('bid_error', { message: plain, code: depositError.code === 'out_of_area' ? 'out_of_area' : depositError.code==='courier_phone'?'courier_phone': /add your delivery address|phone number/i.test(plain) ? 'no_address' : 'delivery_quote' });
           return;
         }
 

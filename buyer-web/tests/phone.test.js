@@ -11,3 +11,4 @@ test('buyer, studio and server use the same local phone rule and wording',()=>{
  assert.equal(buyer.phoneProblem('0803 123 4567'),'');
  for(const phone of ['8031234567','+2348031234567','0803123456','abcdefghijk'])assert.equal(buyer.phoneProblem(phone),buyer.PHONE_ERROR);
 });
+test('an invalid saved delivery phone wins over a valid profile phone and requires repair',()=>{const me={phoneNumber:'08031234567',shippingAddresses:[{phoneNumber:'081085565429',isActive:true}]};assert.equal(buyer.deliveryPhoneFor(me),'081085565429');assert.equal(buyer.phoneProblem(buyer.deliveryPhoneFor(me)),buyer.PHONE_ERROR);});

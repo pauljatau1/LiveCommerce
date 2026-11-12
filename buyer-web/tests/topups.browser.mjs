@@ -15,11 +15,12 @@ const card = { id: 'saved', bank: 'Test Bank', brand: 'Visa', last4: '4081', exp
 const account = { status: 'active', bankName: 'Test Bank', bankSlug: 'test-bank', accountNumber: '1234567890', accountName: 'ADA TEST' };
 const product = () => ({ product: { productId: 'adire', name: 'Adire Bubu Gown', price: 11000, quantity: 3 }, run: 1, minBid: 11000, currentBid: 11000, bidStatus: 'active', isVisible: true, auctionEndsAt: new Date(Date.now()+120000).toISOString() });
 const pages = [];
-async function fixture({ enabled = true, saved = true, width = 390, missingAddress = false, quotedDeposit = 500 } = {}) {
+async function fixture({ enabled = true, saved = true, width = 390, missingAddress = false, quotedDeposit = 500, invalidSavedPhone = false } = {}) {
  const page = await browser.newPage({ viewport: { width, height: 760 }, isMobile: true, hasTouch: true }); pages.push(page);
  const state = { balance: 2000, dva: { status: 'none' }, saved: saved ? [card] : [], charge: 'success', show: { _id: 'demo', title: 'Fashion live', status: 'live', seller: { _id: 'host', storeName: 'Test Store' }, products: [product()], viewers: ['one'] }, calls: [], latestCredit: null, chargeResult: null };
  state.quotedDeposit = quotedDeposit; state.pauseQuote = false; state.deliveryUnavailable = false;
  state.profile = { _id: 'buyer', firstName: 'Ada', lastName: 'Test', email: 'ada@test.example', phoneNumber: missingAddress ? '' : '08012345678', shippingAddresses: missingAddress ? [] : [{ _id: 'home', isDefault: true, state: 'Lagos', city: 'Lekki', addressLine1: '5 Test Road' }] };
+ if(invalidSavedPhone)state.profile.shippingAddresses[0].phoneNumber='081085565429';
  const errors = []; page.on('pageerror', e => errors.push(e.message)); state.errors = errors;
  await page.addInitScript(() => {
   localStorage.setItem('buyerToken', 'mock-only');
@@ -37,6 +38,7 @@ async function fixture({ enabled = true, saved = true, width = 390, missingAddre
    let json = {};
    if (path.endsWith('/watch/config')) json={serviceArea:{states:['Lagos'],areas:{Lagos:{'Eti-Osa':['Lekki']}}}};
     else if (path.endsWith('/profile')) json = state.profile;
+   else if(path.endsWith('/profile/courier-phone')){state.repairedPhone=true;state.profile.shippingAddresses[0].phoneNumber=route.request().postDataJSON().phoneNumber;state.profile.phoneNumber=route.request().postDataJSON().phoneNumber;json={success:true};}
    else if (path.endsWith('/addresses')) { const body = route.request().postDataJSON(); state.profile.shippingAddresses = [{ _id: 'home', ...body }]; json = state.profile; }
    else if (path.endsWith('/orders/states')) json = { data: [{ name: 'Lagos', isoCode: 'LA' }] };
    else if (path.endsWith('/orders/cities/LA')) json = { data: [{ name: 'Lekki' }] };
@@ -78,6 +80,11 @@ const capture = async (page, name) => { await page.screenshot({ path: `${shots}/
 const open = async page => { await page.getByRole('button', { name: 'Wallet', exact: true }).click(); await page.getByRole('dialog', { name: 'Your wallet' }).waitFor(); };
 const alternatives=async page=>{const summary=page.getByText('Other ways to pay',{exact:true});if(await summary.count() && !await page.locator('.wallet-other-ways').getAttribute('open'))await summary.click();};
 try {
+ const {page:phoneFix,state:phoneState}=await fixture({invalidSavedPhone:true});phoneState.balance=50000;await phoneFix.reload();await phoneFix.locator('.mock-video').waitFor();
+ await phoneFix.getByRole('button',{name:'Bid ₦12,000',exact:false}).click();await phoneFix.getByRole('heading',{name:'Fix your phone number for the courier',exact:true}).waitFor();
+ assert.equal(await phoneFix.locator('#os-l1').count(),0);await phoneFix.getByLabel('Phone for the courier',{exact:true}).fill('081085565429');await phoneFix.getByRole('button',{name:'Save phone and continue',exact:true}).click();await phoneFix.getByRole('alert').filter({hasText:'11-digit phone number'}).waitFor();
+ assert.equal(phoneState.calls.filter(c=>c.path.endsWith('/profile/courier-phone')).length,0);await phoneFix.getByLabel('Phone for the courier',{exact:true}).fill('08031234567');await capture(phoneFix,'courier-phone-repair');await phoneFix.getByRole('button',{name:'Save phone and continue',exact:true}).click();await phoneFix.waitForFunction(()=>window.__emitted?.some(e=>e.name==='stream_place_bid'));
+ assert.equal(new URL(phoneFix.url()).pathname,'/live/demo');assert.equal(phoneState.calls.filter(c=>c.path.endsWith('/profile/courier-phone')).length,1);await phoneFix.close();
  const { page: before } = await fixture({ enabled: false }); await open(before);
  assert.equal(await before.getByRole('button', { name: /Bank transfer/ }).count(), 0);
  await capture(before, '01-before-popup-only'); await before.close();

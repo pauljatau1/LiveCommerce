@@ -30,6 +30,7 @@ const view = (d) => ({
   trackingUrl: d.shipbubble?.trackingUrl,
   trackingCode: d.shipbubble?.trackingCode,
   lastError: d.lastError,
+  fix: d.fix ? {party:d.fix.party,message:d.fix.message}:undefined,
   createdAt: d.createdAt,
   paidAt: d.paidAt,
   bookedAt: d.shipbubble?.bookedAt,

@@ -1,3 +1,4 @@
+import {pickupAddress} from './pickup';
 import useStudioBack from './useStudioBack';
 // Add and edit a product. Phone: one column with Save fixed at the bottom.
 // Desktop: the studio top bar, Save at the top right, and a live preview.
@@ -273,7 +274,7 @@ function More({ form, set }) {
 }
 
 function Preview({ form, seller }) {
-  const city = seller?.sellerAddress?.city || seller?.businessAddress?.city || '';
+  const city = pickupAddress(seller).city || '';
   const desc = plainText(form.description);
   return (
     <aside className="ed-preview" aria-label="Preview">

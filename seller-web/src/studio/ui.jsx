@@ -40,6 +40,7 @@ export const PRODUCT_PILL = {
 
 // Delivery status → pill (seller's words)
 export const DELIVERY_PILL = {
+  needs_fix:['p-warn','Update delivery details'],
   collecting: ['p-show', 'Show still on'],
   quote_failed: ['p-warn', 'Pricing delivery'],
   awaiting_payment: ['p-warn', 'Buyer to pay delivery'],

@@ -1,3 +1,4 @@
+import {pickupAddress} from './pickup';
 import AreaPicker from './AreaPicker';
 import {pickerAreas} from './areaPicker';
 import { useEffect, useState } from 'react';
@@ -9,7 +10,7 @@ export function usePickupArea() {
   const { seller } = useAuthContext();
   const [config,setConfig]=useState(null),[error,setError]=useState('');
   useEffect(()=>{serviceAreaConfig().then(setConfig).catch(()=>setError('Couldn’t check delivery areas. Please refresh and try again.'));},[]);
-  const a=seller?.warehouseDetails?.address?.addressLine1?seller.warehouseDetails.address:seller?.businessAddress?.addressLine1?seller.businessAddress:seller?.sellerAddress;
+  const a=pickupAddress(seller);
   return { config, error, allowed:config ? config.states.some(s=>normal(s)===normal(a?.state)) : null };
 }
 export function PickupAreaBanner({config, primary = false}) {

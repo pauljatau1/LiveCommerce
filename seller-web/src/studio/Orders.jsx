@@ -7,7 +7,7 @@ import { Icon, Pill, DELIVERY_PILL, Empty, Problem, Skeleton, Thumbs, TopBar } f
 
 const TABS = [
   { key: 'ship', label: 'To ship', statuses: ['paid'] },
-  { key: 'waiting', label: 'Waiting', statuses: ['collecting', 'quote_failed', 'awaiting_payment'] },
+  { key: 'waiting', label: 'Waiting', statuses: ['collecting','quote_failed','needs_fix','awaiting_payment'] },
   { key: 'moving', label: 'On the way', statuses: ['booked', 'in_transit'] },
   { key: 'done', label: 'Delivered', statuses: ['delivered'] },
   { key: 'cancelled', label: 'Cancelled', statuses: ['cancelled'] },
@@ -168,6 +168,7 @@ export function OrderDetail() {
           {d.status === 'booked' && <span className="hint">You can cancel until the courier collects it.</span>}
           {d.status === 'awaiting_payment' && <span className="hint">{who} needs to top up and pay {naira(d.fee)} for delivery. We've told them.</span>}
           {d.status === 'collecting' && <span className="hint">The show is still on. Delivery is priced when it ends.</span>}
+          {d.status==='needs_fix'&&<div className="banner b-warn" role="alert"><span>{d.lastError}</span>{d.fix?.party==='seller'?<Link to="/studio/pickup" className="btn2">Fix pickup details</Link>:<span>The buyer has been asked to update their details.</span>}</div>}
           {d.status === 'quote_failed' && <span className="err-text">{d.lastError || "Couldn't price this delivery yet. We retry every 10 minutes."}</span>}
           {error && <span className="err-text" role="alert">{error}</span>}
           {d.status === 'paid' && <button type="button" className="btn" disabled={Boolean(busy)} onClick={() => act('book', 'book')}>{busy === 'book' ? 'Booking…' : 'Book pickup'}</button>}
