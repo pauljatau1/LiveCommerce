@@ -8,6 +8,7 @@ import './envBadge';
 
 const Watch = lazy(() => import('./pages/Watch'));
 const Auth = lazy(() => import('./pages/Auth'));
+const Me = lazy(() => import('./pages/Me'));
 const Wallet = lazy(() => import('./pages/Wallet'));
 const Orders = lazy(() => import('./pages/Orders'));
 
@@ -22,6 +23,7 @@ createRoot(document.getElementById('root')).render(
             <Route path="/" element={<Home />} />
             <Route path="/live/:streamId" element={<Watch />} />
             <Route path="/signin" element={<Auth />} />
+            <Route path="/me" element={<Me />} />
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="*" element={<Home />} />

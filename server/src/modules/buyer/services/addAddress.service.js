@@ -165,6 +165,7 @@ async function addAddress(buyerId, addressData) {
   // Step 3: Merge provided address data with buyer defaults for contact fields
   const mergedAddressData = {
     ...addressData,
+    ...require('../../../services/areaDirectory').validateArea(addressData),
     firstName: addressData.firstName ?? buyer.firstName ?? undefined,
     lastName: addressData.lastName ?? buyer.lastName ?? undefined,
     email: addressData.email ?? buyer.email ?? undefined,

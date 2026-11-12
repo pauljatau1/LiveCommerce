@@ -29,7 +29,7 @@ beforeEach(async () => {
   sellerId = (await Seller.collection.insertOne({
     storeName: 'Tolu Thrift', email: 't@example.com', phoneNumber: '08031234567', agoraUid: 9,
     businessAddress: { addressLine1: '14 Herbert Macaulay Way', city: 'Yaba', state: 'Lagos' },
-    shipbubbleAddress: { code: 999, key: '14 Herbert Macaulay Way, Yaba, Lagos, Nigeria|08031234567' },
+    shipbubbleAddress: { code: 999, key: '14 Herbert Macaulay Way, Yaba, Lagos Mainland, Lagos, Nigeria|08031234567' },
   })).insertedId;
 });
 
@@ -37,6 +37,7 @@ describe('delivery estimate', () => {
   it('quotes the cheapest courier from the host area to the buyer area, rounded up to ₦100', async () => {
     const est = await estimate({ sellerId, city: 'Lekki', state: 'Lagos' });
     expect(est).toMatchObject({ amount: 2700, area: 'Lekki', courierName: 'Kwik', cached: false });
+    expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({address:'Lekki, Eti-Osa, Lagos, Nigeria'}));
     expect(shipbubble.fetchRates).toHaveBeenCalledWith(expect.objectContaining({ sender_address_code: 999, reciever_address_code: 111 }));
   });
 

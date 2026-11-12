@@ -445,3 +445,8 @@ a{color:var(--primary)}
 .wallet-sheet .wallet-saved-card small{font-size:var(--t-small);font-weight:var(--w-regular)}
 .wallet-card-form .amounts{grid-template-columns:repeat(auto-fit,minmax(6.5em,1fr))}
 .wallet-card-form>.btn{height:auto;min-height:48px;padding-block:12px;white-space:normal;overflow-wrap:anywhere;text-align:center;line-height:1.4}
+/* Bank consent shares the wallet sheet's inset, including on narrow phones. */
+.wallet-sheet{padding-inline:18px}
+.wallet-sheet>.step{width:100%;min-width:0;margin-inline:0;align-self:stretch}
+.wallet-sheet>.step .fl,.wallet-sheet>.step .in{width:100%;min-width:0}
+.wallet-sheet>.step label{overflow-wrap:anywhere}

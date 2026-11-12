@@ -29,6 +29,12 @@ const data = (res) => res.data?.data ?? res.data;
 export const api = {
   register: (body) => http.post('/api/v2/buyers/auth/register', body).then(data),
   login: (body) => http.post('/api/v2/buyers/auth/login', body).then(data),
+  updateProfile:body=>http.put('/api/v2/buyers/profile',body).then(data),
+  savePhone:phoneNumber=>http.put('/api/v2/buyers/profile/phone',{phoneNumber}).then(data),
+  changePassword:body=>http.post('/api/v2/buyers/profile/change-password',body).then(data),
+  addresses:()=>http.get('/api/v2/buyers/addresses').then(data),
+  removeAddress:id=>http.delete(`/api/v2/buyers/addresses/${id}`).then(data),
+  joinWaitlist:body=>http.post('/api/v2/watch/waitlist',body).then(data),
   profile: () => http.get('/api/v2/buyers/profile').then(data),
   activateAddress: (id) => http.patch(`/api/v2/buyers/addresses/${id}/set-active`, {}).then(data),
   updateAddress: (id, body) => http.put(`/api/v2/buyers/addresses/${id}`, body).then(data),

@@ -6,9 +6,23 @@ Share is a five-column grid with SVG brand icons. Guest Send closes the keyboard
 
 ## Validation and audit
 
-Both builds pass. Server: 259 suites / 3,860 tests; buyer: 7 tests; studio: 30 tests. New browser checks cover navigation, keyboard overlap, eyes/copy, share layout, guest comment handoff and wallet at 360px/enlarged text. Existing payment and Watch regression browser suites pass.
+Both builds pass. Server: 261 suites / 3,878 tests; buyer: 19 tests; studio: 40 tests. New browser checks cover navigation, keyboard overlap, eyes/copy, share layout, guest comment handoff and wallet at 360px/enlarged text. Existing payment and Watch regression browser suites pass.
 
 [Full audit, icon sources, reproducible checks and staging steps](https://github.com/pauljatau1/LiveCommerce/blob/fix/staging-feedback-12nov/docs/staging-feedback-12nov.md). The audit lists every checked studio/shop screen and distinguishes local wizard Back from page navigation. Keyboard and large-text captures are Chromium simulations with mocked APIs; physical iPhone/Android staging steps remain for Paul. No credentials or payments were used.
+
+## Combined #52 / #53 verification
+
+Merged `origin/feat/maps-address-profile` (`3fd4721b`, including #51) into this branch without rewriting history. Keep #52’s inline phone step, Maps, pickup coordinates/LGA and fallback picker, alongside #53’s collapsed payment alternatives, two-line one-tap button and keyboard-aware controls. #51/#52 remain unmerged into main; update main after Paul supplies its new SHA.
+
+New regression checks cover phone-save-before-bank-assignment and Maps coordinate/LGA payloads through getting-started pickup, including return navigation. All relevant browser suites were rerun.
+
+| Wallet 360px | Wallet 390px |
+| --- | --- |
+| ![Wallet 360](https://github.com/pauljatau1/LiveCommerce/blob/fix/staging-feedback-12nov/docs/screenshots/staging-feedback-12nov/after/wallet-360.png?raw=true) | ![Wallet 390](https://github.com/pauljatau1/LiveCommerce/blob/fix/staging-feedback-12nov/docs/screenshots/staging-feedback-12nov/after/wallet-390.png?raw=true) |
+
+| Inline phone 360px | Inline phone 390px |
+| --- | --- |
+| ![Bank phone 360](https://github.com/pauljatau1/LiveCommerce/blob/fix/staging-feedback-12nov/docs/screenshots/staging-feedback-12nov/after/wallet-bank-phone-360.png?raw=true) | ![Bank phone 390](https://github.com/pauljatau1/LiveCommerce/blob/fix/staging-feedback-12nov/docs/screenshots/staging-feedback-12nov/after/wallet-bank-phone-390.png?raw=true) |
 
 ## Phone before / after
 

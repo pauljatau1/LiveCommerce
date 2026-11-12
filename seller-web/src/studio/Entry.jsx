@@ -1,3 +1,4 @@
+import {PHONE_HINT,PHONE_ERROR,phoneProblem,phoneDigits} from './phone';
 // Sign in, sign up and forgot password for the studio.
 // Forgot password has two ways in: the 6-digit code (email → code + new password),
 // and the link in the email (?token=… from the link email, or ?email=…&code=… from
@@ -40,7 +41,7 @@ function fieldIssue(issue, form) {
     newPassword: weakPassword(form.newPassword),
     fullName: 'Add your full name.',
     storeName: 'Add a store name. You can change it later.',
-    phoneNumber: 'Enter the 10 digits after +234, like 801 234 5678.',
+    phoneNumber: PHONE_ERROR,
     termsAccepted: 'Tick the box to agree to the Terms and Seller policy.',
     otp: 'Enter the 6-digit code from the email.',
   }[field];
@@ -212,11 +213,12 @@ export default function Entry({ mode = 'login' }) {
           setStep('done');
         }
       } else if (mode === 'signup') {
-        let phoneNumber = form.phoneNumber.replace(/\D/g, '');
-        if (phoneNumber.startsWith('234')) phoneNumber = phoneNumber.slice(3);
-        if (phoneNumber.startsWith('0')) phoneNumber = phoneNumber.slice(1);
+        const phoneNumber=phoneDigits(form.phoneNumber);
+        if(phoneProblem(phoneNumber))throw {issues:[{path:['phoneNumber'],message:PHONE_ERROR}]};
         // No "confirm password" on screen: the eye shows what was typed
-        await finish(await authService.signUp(signupSchema.parse({ ...form, phoneNumber, confirmPassword: form.password })));
+        // Keep the classic signup schema for classic screens; studio submits the local form.
+        const validated=signupSchema.parse({...form,phoneNumber:phoneNumber.slice(1),confirmPassword:form.password});
+        await finish(await authService.signUp({...validated,phoneNumber}));
       } else {
         await finish(await authService.login(loginSchema.parse(form)));
       }
@@ -368,8 +370,8 @@ export default function Entry({ mode = 'login' }) {
               <Field id="en-email" label="Email" error={errors.email === 'used' ? <>This email already has a store. <Link to="/login">Sign in instead</Link>, or use another email.</> : errors.email}>
                 <div className={`inbox${errors.email ? ' bad' : ''}`}><input id="en-email" type="email" autoComplete="email" placeholder="you@example.com" value={form.email} onChange={set('email')} aria-invalid={!!errors.email} aria-describedby="en-email-err" /></div>
               </Field>
-              <Field id="en-phone" label="Phone" error={errors.phoneNumber}>
-                <div className={`inbox${errors.phoneNumber ? ' bad' : ''}`}><span className="pre">+234</span><input id="en-phone" type="tel" inputMode="numeric" autoComplete="tel-national" placeholder="801 234 5678" value={form.phoneNumber} onChange={set('phoneNumber')} aria-describedby="en-phone-err" /></div>
+              <Field id="en-phone" label="Phone" note={PHONE_HINT} error={errors.phoneNumber}>
+                <div className={`inbox${errors.phoneNumber ? ' bad' : ''}`}><input id="en-phone" type="tel" inputMode="numeric" autoComplete="tel-national" placeholder="0803 123 4567" value={form.phoneNumber} onChange={set('phoneNumber')} aria-describedby="en-phone-err" /></div>
               </Field>
             </div>
             <Field id="en-pw" label="Password" error={errors.password} hint="At least 8 characters.">

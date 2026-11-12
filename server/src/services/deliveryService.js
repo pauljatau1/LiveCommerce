@@ -89,7 +89,8 @@ const sellerPickup = (seller) => {
     name: seller.storeName || [seller.firstName, seller.lastName].filter(Boolean).join(' ') || 'Seller',
     email: seller.businessEmail || seller.email,
     phone: seller.phoneNumber,
-    address: [a.addressLine1, a.addressLine2, a.city, a.state, 'Nigeria'].filter(Boolean).join(', '),
+    address: require('./areaDirectory').deliveryAddress(a),
+    latitude:a.latitude, longitude:a.longitude,
   };
 };
 
@@ -103,7 +104,8 @@ const buyerDropoff = (buyer) => {
     name: [a.firstName || buyer.firstName, a.lastName || buyer.lastName].filter(Boolean).join(' ') || buyer.username || 'Buyer',
     email: a.email || buyer.email,
     phone: a.phoneNumber || buyer.phoneNumber,
-    address: [a.addressLine1, a.addressLine2, a.city, a.state, 'Nigeria'].filter(Boolean).join(', '),
+    address: require('./areaDirectory').deliveryAddress(a),
+    latitude:a.latitude, longitude:a.longitude,
   };
 };
 
@@ -111,7 +113,7 @@ const sellerAddressCode = async (seller) => {
   const pickup = sellerPickup(seller);
   if (!pickup.phone) throw new DeliveryError(422, 'Add a phone number to your seller profile so couriers can reach you');
   if (!pickup.address.replace(/,?\s*Nigeria$/, '')) throw new DeliveryError(422, 'Add a pickup address to your seller profile');
-  const key = `${pickup.address}|${pickup.phone}`;
+  const key = `${pickup.address}|${pickup.phone}${Number.isFinite(pickup.latitude)&&Number.isFinite(pickup.longitude)?`|${pickup.latitude},${pickup.longitude}`:''}`;
   if (seller.shipbubbleAddress?.code && seller.shipbubbleAddress.key === key) return seller.shipbubbleAddress.code;
   const verified = await shipbubble.validateAddress(pickup);
   await model('Seller').updateOne({ _id: seller._id }, { shipbubbleAddress: { code: verified.address_code, key } });
@@ -122,7 +124,7 @@ const buyerAddressCode = async (buyer) => {
   const dropoff = buyerDropoff(buyer);
   if (!dropoff) throw new DeliveryError(422, 'The buyer has no delivery address');
   if (!dropoff.phone) throw new DeliveryError(422, 'The buyer needs to add a phone number for the courier');
-  const key = `${dropoff.address}|${dropoff.phone}`;
+  const key = `${dropoff.address}|${dropoff.phone}${Number.isFinite(dropoff.latitude)&&Number.isFinite(dropoff.longitude)?`|${dropoff.latitude},${dropoff.longitude}`:''}`;
   if (dropoff.cached && dropoff.cachedKey === key) return dropoff.cached;
   const verified = await shipbubble.validateAddress(dropoff);
   await model('Buyer').updateOne(
@@ -278,7 +280,8 @@ const previewQuote = async ({ streamId, productId, address }) => {
       name: String(name || 'Buyer').slice(0, 60),
       email: /^\S+@\S+\.\S+$/.test(String(email || '')) ? email : sellerPickup(seller).email,
       phone: phoneNumber,
-      address: [addressLine1, city, state, 'Nigeria'].join(', '),
+      address: require('./areaDirectory').deliveryAddress(address),
+      latitude:address.latitude, longitude:address.longitude,
     });
   } catch {
     throw new DeliveryError(422, "Shipbubble couldn't find that address. Check the street and area.");

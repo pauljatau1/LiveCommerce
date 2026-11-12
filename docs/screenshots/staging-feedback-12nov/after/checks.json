@@ -8,6 +8,9 @@
     "wallet-360",
     "wallet-large-text",
     "wallet-alternatives-large",
+    "wallet-bank-phone-360",
+    "wallet-390",
+    "wallet-bank-phone-390",
     "wallet-no-saved-card",
     "product-keyboard",
     "address-keyboard"
@@ -129,6 +132,74 @@
       "url": "/api/v2/wallet/dva",
       "method": "GET",
       "body": null
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/wallet/cards",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/buyers/profile/phone",
+      "method": "PUT",
+      "body": {
+        "phoneNumber": "0803 123 4567"
+      }
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/wallet/dva",
+      "method": "POST",
+      "body": {
+        "consent": true
+      }
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/wallet/cards",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/buyers/profile/phone",
+      "method": "PUT",
+      "body": {
+        "phoneNumber": "0803 123 4567"
+      }
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/wallet/dva",
+      "method": "POST",
+      "body": {
+        "consent": true
+      }
     },
     {
       "kind": "wallet",

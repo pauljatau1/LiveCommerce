@@ -9,7 +9,7 @@ const fontData=await Promise.all(['Nunito','Fredoka'].map(async name=>[name,`dat
 const buyer={_id:'buyer',firstName:'Ada',lastName:'Test',email:'ada@example.test',phoneNumber:'08031234567',shippingAddresses:[]};
 const seller={_id:'seller',firstName:'Sade',lastName:'Test',storeName:'Sade’s Studio',email:'sade@example.test',phoneNumber:'08031234567',categories:['Women'],accountType:'individual',hasFilledAddress:true,hasFilledBusinessAddress:true,sellerAddress:{state:'Lagos',city:'Lekki',addressLine1:'12 Test Road'},bankDetails:{bankName:'Test Bank',accountName:'SADE TEST',accountNumber:'0123456789'}};
 let activePage;const calls=[],checks=[];
-async function fixture(kind,{width=390,large=false,saved=true}={}){
+async function fixture(kind,{width=390,large=false,saved=true,missingPhone=false}={}){
  const studio=['navigation','listing','share','product','pickup'].includes(kind),base=`http://127.0.0.1:${studio?(before?5189:5174):(before?5188:5185)}`;
  const p=await browser.newPage({viewport:{width,height:844},isMobile:true,hasTouch:true});activePage=p;p.setDefaultTimeout(12000);const errors=[];p.on('pageerror',e=>{errors.push(e.message);console.error(kind,e.stack);});
  await p.addInitScript(()=>{let height=innerHeight;const viewport=new EventTarget();Object.defineProperties(viewport,{height:{get:()=>height},offsetTop:{value:0}});window.__keyboard=h=>{height=h;viewport.dispatchEvent(new Event('resize'));let overlay=document.querySelector('[data-test-keyboard]');if(h<innerHeight-80){if(!overlay){overlay=document.createElement('div');overlay.dataset.testKeyboard='';document.body.appendChild(overlay);}overlay.textContent='Keyboard area (simulated)';Object.assign(overlay.style,{position:'fixed',top:h+'px',left:0,right:0,bottom:0,zIndex:9999,background:'#d3d6db',borderTop:'1px solid #aaa',padding:'24px',font:'14px system-ui',textAlign:'center',color:'#525963'});}else overlay?.remove();};Object.defineProperty(window,'visualViewport',{value:viewport,configurable:true});});
@@ -22,13 +22,13 @@ async function fixture(kind,{width=390,large=false,saved=true}={}){
  await p.route('**/*',async r=>{
   const u=new URL(r.request().url()),url=u.pathname,method=r.request().method();
   if(url==='/src/main.jsx')return r.fulfill({contentType:'application/javascript',body:entry});
-  if(url.startsWith('/src/auth.jsx'))return r.fulfill({contentType:'application/javascript',body:`const refreshWallet=async()=>({availableBalance:50000});export const useAuth=()=>({buyer:${JSON.stringify(buyer)},wallet:{availableBalance:50000,topUpMethods:{savedCards:true,dva:true}},signedIn:${kind!=='auth'},refreshWallet,refresh:async()=>{},signIn:async()=>{},signOut(){}});`});
+  if(url.startsWith('/src/auth.jsx'))return r.fulfill({contentType:'application/javascript',body:`const refreshWallet=async()=>({availableBalance:50000});export const useAuth=()=>({buyer:${JSON.stringify({...buyer,phoneNumber:missingPhone?'':buyer.phoneNumber})},wallet:{availableBalance:50000,topUpMethods:{savedCards:true,dva:true}},signedIn:${kind!=='auth'},refreshWallet,refresh:async()=>{},signIn:async()=>{},signOut(){}});`});
   if(url.startsWith('/src/Hooks/useAuthContextV2'))return r.fulfill({contentType:'application/javascript',body:`export const useAuthContext=()=>({seller:${JSON.stringify(seller)},dispatch(){}});`});
   if(url.startsWith('/src/studio/listingApi.js'))return r.fulfill({contentType:'application/javascript',body:`export const fetchCategories=async()=>[{name:'Women',subCategories:['Dresses']}];export const shrinkPhoto=async file=>({file,id:'photo',bytes:1024,dataUrl:'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="120"%3E%3Crect width="100" height="120" fill="%23446a7a"/%3E%3C/svg%3E'});export const draftFromPhotos=async()=>({title:'Adire Bubu Gown',category:'Women',condition:'New with tags',description:'Hand-dyed cotton with flowing sleeves.',tags:['adire','bubu'],confidence:'high',suggestedPrice:{low:11000,high:11000},questions:[]});export const refineDraft=async()=>({});export const publishListing=async()=>({_id:'new'});`});
   if(url.includes('/api/')){calls.push({kind,url,method,body:r.request().postDataJSON()});let json={};
    if(url.endsWith('/watch/config'))json={serviceArea:{states:['Lagos'],areas:{Lagos:{'Eti-Osa':['Lekki']}}}};
    else if(url.endsWith('/wallet/cards'))json={cards:saved?[{id:'card',bank:'Test Bank',last4:'4081',usable:true,expMonth:12,expYear:2035}]:[]};
-   else if(url.endsWith('/wallet/dva'))json={status:'none'};
+   else if(url.endsWith('/wallet/dva'))json={status:method==='POST'?'pending':'none'};
    else if(url.endsWith('/auth/login'))return r.fulfill({status:401,json:{message:'Invalid credentials'}});
    else if(url.endsWith('/studio/money'))json={ready:84500,pending:12000,requested:0,bank:null,activity:[]};
    else if(url.endsWith('/banks'))json={data:[{name:'Test Bank',code:'001'}]};
@@ -50,6 +50,21 @@ try{
  f=await fixture('share');await f.p.getByRole('group',{name:'Share to'}).waitFor();if(!before){assert.equal(await f.p.locator('.sh-apps').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),5);assert.equal(await f.p.locator('.sh-app svg').count(),6);assert(await f.p.locator('.sh-apps').evaluate(e=>e.scrollWidth===e.clientWidth));}await f.shot('share-grid');await f.p.close();
  f=await fixture('auth');await f.p.getByLabel('Email',{exact:true}).fill('ada@example.test');await f.p.getByLabel('Password',{exact:true}).fill('mock-password');if(!before){await f.p.getByRole('button',{name:'Show password'}).click();assert.equal(await f.p.getByLabel('Password',{exact:true}).getAttribute('type'),'text');await f.p.getByRole('button',{name:'Hide password'}).click();}await f.p.getByRole('button',{name:'Sign in',exact:true}).click();await f.p.getByRole('alert').waitFor();if(!before)assert.equal(await f.p.getByRole('alert').innerText(),'Wrong email or password. Try again or reset it.');await f.shot('buyer-signin');await f.p.getByRole('button',{name:'Create an account',exact:true}).click();await f.shot('buyer-signup');await f.p.close();
  for(const large of [false,true]){f=await fixture('wallet',{width:360,large});await f.p.getByRole('button',{name:/Top up ₦10,000/}).waitFor();if(!before){assert.equal(await f.p.locator('.wallet-other-ways').getAttribute('open'),null);const card=f.p.getByRole('button',{name:/Top up ₦10,000/});assert(await card.evaluate(el=>el.scrollWidth<=el.clientWidth));const inset=await f.p.locator('.wallet-copy').boundingBox(),button=await card.boundingBox();assert.equal(inset.x,button.x);await f.shot(large?'wallet-large-text':'wallet-360');await f.p.getByText('Other ways to pay',{exact:true}).click();assert(await f.p.getByRole('button',{name:/Bank transfer/}).isVisible());assert(await f.p.getByRole('group',{name:'Amount'}).isVisible());assert(await f.p.locator('.wallet-sheet').evaluate(el=>el.scrollWidth<=el.clientWidth));if(large)await f.shot('wallet-alternatives-large');}else {await f.shot(large?'wallet-large-text':'wallet-360');if(large)await f.shot('wallet-alternatives-large');}await f.p.close();}
+
+ for(const width of [360,390]){
+  f=await fixture('wallet',{width,missingPhone:true});
+  await f.p.getByRole('button',{name:/Top up ₦10,000/}).waitFor();
+  if(width===390)await f.shot('wallet-390');
+  await f.p.getByText('Other ways to pay',{exact:true}).click();await f.p.getByRole('button',{name:/Bank transfer/}).click();
+  await f.p.getByLabel('Phone',{exact:true}).fill('0803 123 4567');await f.p.getByRole('checkbox').check();
+  const phone=await f.p.getByLabel('Phone',{exact:true}).boundingBox(),balance=await f.p.locator('.wallet-sheet>.wallet-available').boundingBox();
+  assert.equal(phone.x,balance.x);assert.equal(phone.width,balance.width);assert(phone.x>=18&&phone.x+phone.width<=width-18);
+  await f.shot(`wallet-bank-phone-${width}`);
+  const start=calls.length,assigned=f.p.waitForResponse(r=>r.url().endsWith('/wallet/dva')&&r.request().method()==='POST');
+  await f.p.getByRole('button',{name:'Get my account number',exact:true}).click();await assigned;
+  const recent=calls.slice(start),phoneIndex=recent.findIndex(c=>c.url.endsWith('/profile/phone')),dvaIndex=recent.findIndex(c=>c.url.endsWith('/wallet/dva')&&c.method==='POST');assert(phoneIndex>=0&&dvaIndex>phoneIndex);
+  await f.p.close();
+ }
  f=await fixture('wallet',{width:360,saved:false});await f.p.getByRole('button',{name:/Bank transfer/}).waitFor();if(!before){const bank=await f.p.getByRole('button',{name:/Bank transfer/}).boundingBox(),amounts=await f.p.getByRole('group',{name:'Amount'}).boundingBox();assert(bank.y<amounts.y);}await f.shot('wallet-no-saved-card');await f.p.close();
  f=await fixture('product');await f.p.getByLabel('Name',{exact:true}).waitFor();await f.p.getByLabel('Name',{exact:true}).fill('Adire Bubu Gown');await f.p.evaluate(()=>window.__keyboard(500));await f.p.waitForTimeout(100);if(!before)assert(!await f.p.locator('.foot').isVisible());await f.shot('product-keyboard');await f.p.close();
  f=await fixture('address');await f.p.getByLabel('Street address',{exact:true}).fill('12 Test Street');await f.p.evaluate(()=>window.__keyboard(500));await f.p.waitForTimeout(100);if(!before){const input=await f.p.getByLabel('Street address',{exact:true}).boundingBox();assert(input.y+input.height<=500);}await f.shot('address-keyboard');await f.p.close();

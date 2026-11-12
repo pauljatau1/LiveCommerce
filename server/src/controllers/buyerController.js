@@ -968,12 +968,14 @@ exports.addAddress = async (req, res) => {
       addr => addr.addressType === addressType
     );
 
+    const area = require('../services/areaDirectory').validateArea(req.body);
     // Default missing contact fields from buyer profile
     const newAddress = {
       addressType,
       country,
       state,
-      city,
+      city: area.city,
+      lga: area.lga,
       addressLine1,
       addressLine2,
       zipCode,
@@ -997,6 +999,7 @@ exports.addAddress = async (req, res) => {
       address: addedAddress
     });
   } catch (error) {
+    if (error.code === 'invalid_area' || error.code === 'out_of_area') return res.status(error.status || 400).json({code:error.code,message:error.message});
     console.error('Add address error:', error); // Add this for debugging
     res.status(500).json({
       message: 'Failed to add address',
@@ -1052,6 +1055,8 @@ exports.updateAddress = async (req, res) => {
       ...updates
     };
 
+    if (updates.city !== undefined && updates.lga === undefined && require('../services/areaDirectory').normalizeArea(updates.city) !== require('../services/areaDirectory').normalizeArea(buyer.shippingAddresses[addressIndex].city)) delete updatedAddress.lga;
+    Object.assign(updatedAddress, require('../services/areaDirectory').validateArea(updatedAddress));
     buyer.shippingAddresses[addressIndex] = updatedAddress;
     await buyer.save();
 
@@ -1060,6 +1065,7 @@ exports.updateAddress = async (req, res) => {
       address: updatedAddress
     });
   } catch (error) {
+    if (error.code === 'invalid_area' || error.code === 'out_of_area') return res.status(error.status || 400).json({code:error.code,message:error.message});
     res.status(500).json({
       message: 'Failed to update address',
       error: error.message

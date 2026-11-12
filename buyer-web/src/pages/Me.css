@@ -1,0 +1,12 @@
+.buyer-profile .lab{flex-direction:column;align-items:stretch;gap:6px}
+.buyer-profile .in{width:100%}
+.buyer-profile .pill{margin-left:8px}
+.buyer-profile .h2{margin:0 0 4px}
+.buyer-profile .profile-email{overflow-wrap:anywhere;font-size:var(--t-body);font-weight:var(--w-regular)}
+.buyer-profile .profile-default{background:var(--surface-sunken);color:var(--primary);border:1px solid #CFE3D7;vertical-align:middle}
+.buyer-profile .profile-address-action{min-width:72px;height:44px;padding:0 14px}
+.profile-account-actions{padding:0 16px;display:grid;gap:12px}
+.profile-password{position:relative}
+.profile-password .in{padding-right:52px}
+.profile-password .ib{position:absolute;right:2px;top:2px;width:44px;height:44px;background:transparent}
+.eye-slash{position:absolute;width:22px;height:2px;background:currentColor;transform:rotate(45deg)}

@@ -1,6 +1,6 @@
 # Staging feedback: 12 November
 
-Branch starts at main `364c741d` (#50). Earlier unmerged address-picker/Maps work is separate. Paul merges this change.
+Branch starts at main `364c741d` (#50), then merges `origin/feat/maps-address-profile` at `3fd4721b` (including #51’s `deab20e9`). This keeps #52’s Maps, pickup and inline-phone changes alongside #53’s keyboard and wallet changes. #51/#52 are not merged into main yet; Paul will confirm the new main SHA after merging them. No force-push is used.
 
 ## Behaviour
 
@@ -40,8 +40,8 @@ Every studio TopBar with a navigation Back uses the shared history policy. Inter
 
 ## Validation
 
-- Server: all 259 suites / 3,860 tests passed.
-- Buyer: 7 tests passed. Studio: 30 tests passed, including history/fallback/redirect policy tests.
+- Server: all 261 suites / 3,878 tests passed after the #52 merge.
+- Buyer: 19 tests passed. Studio: 40 tests passed, including history/fallback/redirect policy tests.
 - Both production builds passed; seller built with `NODE_OPTIONS=--max-old-space-size=6144`.
 - Browser before/after checks cover bank history, profile/help/pickup/editor return paths and direct bank entry; listing inline focus/blur and composer focus; product/address keyboard visibility; grid icons; auth eyes/error copy; wallet at 360px and enlarged text, including expanded alternatives.
 - Guest browser checks cover cancel, signup, signin, input blur and exactly one queued comment.
@@ -59,3 +59,17 @@ To reproduce: run buyer at 5185 with a local API URL and mock Paystack public ke
 4. As a guest, type and Send, cancel and confirm text remains. Repeat, signup/signin, and confirm the message appears once.
 5. Check password eyes on shop signup/signin and Join the chat. Wrong credentials show the new plain message.
 6. At 360px and large phone text, check saved-card amount/bank lines, collapsed alternatives, transfer and card entry, and no clipping. Repeat without a saved card and confirm bank transfer is first.
+
+## Merge verification
+
+Resolved the three conflicts by keeping both behaviours:
+
+- `StayOnStreamTopUps.jsx`: strict inline phone entry and phone-save-before-DVA from #52, plus the two-line saved-card action, collapsed alternatives and payment busy guards from #53.
+- Buyer styles: the 18px wallet/phone insets from #52, plus keyboard-aware sheets, responsive amount chips, wrapping saved-card text and collapsed payment styles from #53.
+- Studio Start: the shared Maps/fallback pickup form, LGA/coordinates and out-of-area validation from #52, plus the history-aware return and pickup-edit completion from #53. The new standalone pickup screen also uses the shared history-aware return.
+
+Retook saved-card wallet captures at 360px/390px and inline-phone bank-consent captures at both widths. Browser assertions check equal balance/input side insets, a collapsed alternatives disclosure, and phone-save completion before DVA assignment. The Maps browser suite also saves a current-location address through the getting-started pickup form and checks latitude, longitude and LGA in the payload and return navigation.
+
+Reran staging feedback, Maps/profile, area-picker, guest-comment, top-up and Watch browser suites. Requests are mocked; no live Maps billing, account creation or payment is used.
+
+Combined result: both builds passed; all 3,878 server, 19 buyer and 40 studio tests passed; all six relevant browser suites passed. Wallet captures were refreshed at 360px and 390px, including inline phone consent at both widths.

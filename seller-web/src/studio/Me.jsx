@@ -9,7 +9,7 @@ import { Sheet } from './ui';
 const DAYS = [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri'], [6, 'Sat'], [0, 'Sun']];
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
 
-const Row = ({ to, title, sub, danger, onClick }) => {
+const Row = ({ to, state, title, sub, danger, onClick }) => {
   const body = (
     <>
       <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}><span style={{ fontWeight: 'var(--w-medium)', color: danger ? 'var(--danger)' : 'var(--text)' }}>{title}</span>{sub && <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{sub}</span>}</span>
@@ -17,7 +17,7 @@ const Row = ({ to, title, sub, danger, onClick }) => {
     </>
   );
   const style = { display: 'flex', alignItems: 'center', gap: 12, minHeight: 60, padding: '8px 16px', borderTop: '1px solid #F1EBE3', textDecoration: 'none', color: 'var(--text)', width: '100%', background: 'none', border: 0, font: 'inherit', textAlign: 'left', cursor: 'pointer' };
-  return onClick ? <button type="button" style={style} onClick={onClick}>{body}</button> : <Link to={to} style={style}>{body}</Link>;
+  return onClick ? <button type="button" style={style} onClick={onClick}>{body}</button> : <Link to={to} state={state} style={style}>{body}</Link>;
 };
 
 export default function Me() {
@@ -50,7 +50,7 @@ export default function Me() {
 
       <nav className="card" aria-label="Settings" style={{ overflow: 'hidden' }}>
         <div style={{ marginTop: -1 }}>
-          <Row to={CLASSIC_DASHBOARD ? "/dashboard/settings" : "/studio/start?step=pickup"} title="Pickup address" sub={[address.addressLine1, address.city, address.state].filter(Boolean).join(', ') || 'Add where couriers collect from'} />
+          <Row to={CLASSIC_DASHBOARD ? "/dashboard/settings" : "/studio/pickup"} state={{from:"/studio/me"}} title="Pickup address" sub={[address.addressLine1, address.city, address.state].filter(Boolean).join(', ') || 'Add where couriers collect from'} />
           <Row to={CLASSIC_DASHBOARD ? "/dashboard/earnings-payouts" : "/studio/bank"} title="Bank account" sub={bank.accountNumber ? `${bank.bankName} ••${String(bank.accountNumber).slice(-4)} · ${bank.accountName || ''}` : 'Add a bank account to withdraw'} />
           <Row to="/studio/money" title="Money" sub="Balance, withdrawals and activity" />
           <Row to="/studio/shows" title="Shows" sub="Upcoming and past shows" />

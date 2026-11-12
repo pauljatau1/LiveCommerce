@@ -24,6 +24,7 @@ const StudioProductDetail = lazy(() => import('../studio/ProductDetail.jsx'));
 const StudioOrders = lazy(() => import('../studio/Orders.jsx').then((m) => ({ default: m.Orders })));
 const StudioOrderDetail = lazy(() => import('../studio/Orders.jsx').then((m) => ({ default: m.OrderDetail })));
 const StudioRecap = lazy(() => import('../studio/Recap.jsx'));
+const StudioPickup = lazy(() => import('../studio/PickupAddress.jsx'));
 const StudioStart = lazy(() => import('../studio/Start.jsx'));
 const StudioNotifications = lazy(() => import('../studio/Notifications.jsx'));
 const StudioMoney = lazy(() => import('../studio/Money.jsx'));
@@ -109,6 +110,7 @@ export const rootRoutes = [
             // Full-screen studio pages (no tab bar)
             { path: 'studio/help', element: <Suspense fallback={<Loader />}><StudioHelp /></Suspense> },
             studioPage('studio/start', StudioStart),
+            studioPage('studio/pickup', StudioPickup),
             studioPage('studio/notifications', StudioNotifications),
             studioPage('studio/list', ListingAgent),
             studioPage('studio/products/new', StudioProductEditor),

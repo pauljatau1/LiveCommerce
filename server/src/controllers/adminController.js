@@ -6807,9 +6807,9 @@ exports.updateSellerInfo = async (req, res) => {
     if (accountType) seller.accountType = accountType;
 
     // Update addresses
-    if (businessAddress) seller.businessAddress = businessAddress;
-    if (sellerAddress) seller.sellerAddress = sellerAddress;
-    if (warehouseDetails) seller.warehouseDetails = warehouseDetails;
+    if (businessAddress) seller.businessAddress = {...businessAddress,...require('../services/areaDirectory').validateArea(businessAddress)};
+    if (sellerAddress) seller.sellerAddress = {...sellerAddress,...require('../services/areaDirectory').validateArea(sellerAddress)};
+    if (warehouseDetails) seller.warehouseDetails = {...warehouseDetails,...(warehouseDetails.address ? {address:{...warehouseDetails.address,...require('../services/areaDirectory').validateArea(warehouseDetails.address)}} : {})};
 
     // Update bank details
     if (bankDetails) seller.bankDetails = bankDetails;
@@ -6871,6 +6871,7 @@ exports.updateSellerInfo = async (req, res) => {
       seller: updatedSeller
     });
   } catch (error) {
+    if (error.code === 'invalid_area' || error.code === 'out_of_area') return res.status(error.status || 400).json({code:error.code,message:error.message});
     console.error('Error updating seller information:', error);
     res.status(500).json({
       success: false,

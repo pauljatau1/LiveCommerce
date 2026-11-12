@@ -136,7 +136,7 @@ export default function Watch() {
     const c = items.find((p) => p.bidStatus === 'active') || items.find((p) => p.isVisible) || items[0];
     return c ? idOf(c) : '';
   }, [items]);
-  const addressKey = (buyer?.shippingAddresses || []).map((a) => `${a.addressLine1}|${a.city}|${a.state}|${a.phoneNumber}`).join(',');
+  const addressKey = (buyer?.shippingAddresses || []).map((a) => `${a.addressLine1}|${a.addressLine2 || ''}|${a.city}|${a.lga || ''}|${a.latitude ?? ''}|${a.longitude ?? ''}|${a.state}|${a.phoneNumber}`).join(',');
   const applyMe = useCallback((r) => {
     if (!r) return;
     setDepositDue(r.depositDue === null || r.depositDue === undefined ? null : Number(r.depositDue));

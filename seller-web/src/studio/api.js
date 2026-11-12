@@ -88,3 +88,5 @@ export const account = {
 };
 
 export const serviceAreaConfig = () => get(`${BASE_URL_V2}/watch/config`).then(r => r.serviceArea);
+
+export const notifyDeliveryState = state => post(`${BASE_URL_V2}/watch/waitlist`,{state});

@@ -47,7 +47,7 @@ describe('Add Address Service', () => {
       addressType: 'home',
       country: 'Nigeria',
       state: 'Lagos',
-      city: 'Lagos',
+      city: 'Yaba',
       addressLine1: '123 Main Street',
       addressLine2: 'Apt 4B',
       zipCode: '100001'
@@ -81,7 +81,8 @@ describe('Add Address Service', () => {
       expect(result.address.addressType).toBe('home');
       expect(result.address.country).toBe('Nigeria');
       expect(result.address.state).toBe('Lagos');
-      expect(result.address.city).toBe('Lagos');
+      expect(result.address.city).toBe('Yaba');
+      expect(result.address.lga).toBe('Lagos Mainland');
       expect(result.address.addressLine1).toBe('123 Main Street');
       expect(result.address.addressLine2).toBe('Apt 4B');
       expect(result.address.zipCode).toBe('100001');

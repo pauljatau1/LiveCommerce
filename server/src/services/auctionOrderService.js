@@ -33,6 +33,8 @@ const toDeliveryAddress = (buyer) => {
     line1: a.addressLine1,
     line2: a.addressLine2,
     city: a.city,
+    ...(a.lga ? {lga:a.lga} : {}),
+    ...(Number.isFinite(a.latitude)&&Number.isFinite(a.longitude)?{latitude:a.latitude,longitude:a.longitude}:{}),
     state: a.state,
     country: a.country || 'NG',
     zip: a.zipCode || a.postalCode || a.zip,
@@ -48,6 +50,8 @@ const toPickupAddress = (seller) => {
     phone: seller.phoneNumber,
     line1: a.addressLine1,
     city: a.city,
+    ...(a.lga ? {lga:a.lga} : {}),
+    ...(Number.isFinite(a.latitude)&&Number.isFinite(a.longitude)?{latitude:a.latitude,longitude:a.longitude}:{}),
     state: a.state,
     country: a.country || 'NG',
   };
