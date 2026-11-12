@@ -1,3 +1,4 @@
+import useStudioBack from './useStudioBack';
 // Store profile: name, about, what you sell, and the pickup address (which opens
 // the pickup step of Getting started). The store photo stays here too.
 import { useState } from 'react';
@@ -15,6 +16,7 @@ const nameOf = (c) => (typeof c === 'string' ? c : c?.name || '');
 export default function StoreProfile() {
   const { seller, dispatch } = useAuthContext();
   const navigate = useNavigate();
+  const back=useStudioBack('/studio/me');
   const savedCategories = (seller?.categories || []).map(nameOf).filter(Boolean);
   const [name, setName] = useState(seller?.storeName || '');
   const [about, setAbout] = useState(seller?.aboutStore || '');
@@ -43,7 +45,7 @@ export default function StoreProfile() {
       const fresh = await sellerService.fetchSellerDetails();
       sellerUtils.storeSeller(fresh);
       dispatch({ type: 'AUTH_SUCCESS', payload: { seller: fresh, token: tokenUtils.getBearerToken() } });
-      navigate('/studio/me', { state: { studioNotice: 'Store profile saved.' } });
+      back();
     } catch (err) {
       setError(errorText(err, 'Couldn’t save your profile. Check your connection and try again.'));
     } finally {
@@ -53,7 +55,7 @@ export default function StoreProfile() {
 
   return (
     <div className="studio-app">
-      <TopBar title="Store profile" onBack={() => navigate('/studio/me')} />
+      <TopBar title="Store profile" backTo="/studio/me" />
       <form className="ed-page" onSubmit={save} noValidate style={{ maxWidth: 640, margin: '0 auto' }}>
         <div className="ed-pad ed-fields" style={{ gap: 22, paddingTop: 16, paddingBottom: 24 }}>
           <div className="fl">

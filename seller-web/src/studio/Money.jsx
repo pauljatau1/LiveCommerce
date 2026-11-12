@@ -41,7 +41,7 @@ export default function Money() {
   const bank = data?.bank;
   return (
     <div className="studio-app">
-      <TopBar title="Money" onBack={() => navigate(-1)} />
+      <TopBar title="Money" backTo="/studio" />
       <div className="st-inner">
         {error && <Problem text={error} onRetry={load} />}
         {!data && !error && <><Skeleton h={200} r={24} /><Skeleton h={240} /></>}

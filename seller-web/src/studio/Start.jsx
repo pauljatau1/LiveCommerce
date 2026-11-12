@@ -1,3 +1,4 @@
+import useStudioBack from './useStudioBack';
 // Getting started (design A): Your store → Pickup address → Get paid → Finished.
 // Replaces the old dashboard onboarding for new sellers. Answers are kept on
 // this phone, so a weak signal never loses them.
@@ -31,6 +32,8 @@ const useOnline = () => {
 export default function Start() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const returnBack=useStudioBack('/studio/me');
+  const pickupEdit=params.get('step')==='pickup';
   const { seller, dispatch } = useAuthContext();
   const online = useOnline();
   const [info, setInfo] = useState(null);
@@ -94,13 +97,13 @@ export default function Start() {
         dispatch?.({ type: 'STORE_SELLER', payload: updated });
       }
       setPending(null);
-      setStep(next);
+      if(next==='return')returnBack();else setStep(next);
     } catch (e) {
       setError(errorText(e, "Couldn't save. Your answers are still here: try again."));
     } finally {
       setBusy('');
     }
-  }, [refresh, seller, dispatch]);
+  }, [refresh, seller, dispatch, returnBack]);
   useEffect(() => { if (online && pending) save(pending.kind, pending.body, pending.next); }, [online, pending, save]);
 
   const checkAccount = async () => {
@@ -131,7 +134,7 @@ export default function Start() {
       <TopBar
         title="Getting started"
         sub={step === 'done' ? 'All set' : `Step ${index + 1} of 3`}
-        onBack={index > 0 && step !== 'done' ? () => setStep(STEPS[index - 1]) : undefined}
+        onBack={pickupEdit ? returnBack : index > 0 && step !== 'done' ? () => setStep(STEPS[index - 1]) : returnBack}
         right={step === 'store' || step === 'bank' ? <button type="button" className="link" onClick={() => setStep(STEPS[index + 1])}>Do this later</button> : null}
       />
       {!online && <div className="banner b-off" role="status">You're offline. Your answers are saved on this phone.</div>}
@@ -197,7 +200,7 @@ export default function Start() {
             </div>
             {pending?.kind === 'pickup' && <span className="hint">We'll save this the moment you're back online. No need to type it again.</span>}
             {error && <Problem text={error} />}
-            <button type="button" className="btn" disabled={busy === 'pickup'} onClick={() => save('pickup', { state: answers.state, city: answers.city, addressLine1: answers.addressLine1, landmark: answers.landmark, phone: answers.phone }, 'bank')}>
+            <button type="button" className="btn" disabled={busy === 'pickup'} onClick={() => save('pickup', { state: answers.state, city: answers.city, addressLine1: answers.addressLine1, landmark: answers.landmark, phone: answers.phone }, pickupEdit ? 'return' : 'bank')}>
               {busy === 'pickup' ? 'Saving…' : pending?.kind === 'pickup' ? 'Save when I’m back online' : 'Save address'}
             </button>
           </>

@@ -1,0 +1,164 @@
+{
+  "checks": [
+    "bank-back",
+    "listing-keyboard",
+    "share-grid",
+    "buyer-signin",
+    "buyer-signup",
+    "wallet-360",
+    "wallet-large-text",
+    "wallet-alternatives-large",
+    "wallet-no-saved-card",
+    "product-keyboard",
+    "address-keyboard"
+  ],
+  "calls": [
+    {
+      "kind": "navigation",
+      "url": "/studio/undefined/api/v2/studio/money",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "navigation",
+      "url": "/studio/undefined/api/v2/sellers/banks",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "navigation",
+      "url": "/studio/undefined/api/v2/studio/money",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "navigation",
+      "url": "/studio/undefined/api/v2/studio/money",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "navigation",
+      "url": "/studio/undefined/api/v2/studio/money",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "navigation",
+      "url": "/studio/undefined/api/v2/studio/money",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "navigation",
+      "url": "/studio/undefined/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "navigation",
+      "url": "/studio/undefined/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "navigation",
+      "url": "/studio/undefined/api/v2/studio/money",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "navigation",
+      "url": "/studio/products/undefined/api/public/categories",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "navigation",
+      "url": "/studio/products/undefined/api/v2/studio/category-weights",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "navigation",
+      "url": "/studio/undefined/api/v2/studio/money",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "navigation",
+      "url": "/studio/undefined/api/v2/sellers/banks",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "share",
+      "url": "/undefined/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "auth",
+      "url": "/api/v2/buyers/auth/login",
+      "method": "POST",
+      "body": {
+        "email": "ada@example.test",
+        "password": "mock-password"
+      }
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/wallet/cards",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/wallet/cards",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/wallet/cards",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "wallet",
+      "url": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "product",
+      "url": "/studio/products/undefined/api/public/categories",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "product",
+      "url": "/studio/products/undefined/api/v2/studio/category-weights",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "address",
+      "url": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    }
+  ]
+}

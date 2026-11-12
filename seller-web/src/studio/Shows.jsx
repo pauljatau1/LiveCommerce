@@ -29,7 +29,7 @@ export default function Shows() {
   }, []);
   return (
     <div className="studio-app">
-      <TopBar title="Shows" onBack={() => navigate(-1)} right={<Link to="/studio/plan" className="btn2">Plan a show</Link>} />
+      <TopBar title="Shows" backTo="/studio" right={<Link to="/studio/plan" className="btn2">Plan a show</Link>} />
       <div className="st-inner">
         {error && <Problem text={error} />}
         {!upcoming && !error && <><Skeleton h={76} /><Skeleton h={76} /></>}

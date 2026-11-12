@@ -428,3 +428,20 @@ a{color:var(--primary)}
 :is(.app, .sheet-wrap) .wallet-available strong:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-display);font-weight:var(--w-medium)}
 
 :is(.app, .sheet-wrap) .wallet-chip:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:0;border-radius:var(--r-pill);background:var(--surface-sunken);color:var(--text);font:var(--w-medium) var(--t-small) var(--font-body);cursor:pointer;text-decoration:none}
+/* Address, account and wallet sheets use the visible viewport, not the keyboard. */
+.sheet-wrap[data-form-keyboard=true]{bottom:var(--form-keyboard-bottom,0px)}
+.sheet-wrap[data-form-keyboard=true] .sheet2{max-height:calc(var(--form-viewport-height,90dvh) - 16px)}
+.password-input{position:relative;width:100%}
+.password-input .in{width:100%;padding-right:52px}
+.password-input .ib{position:absolute;right:2px;top:2px;width:44px;height:44px;background:transparent}
+.wallet-sheet .wallet-copy{margin:0;width:100%;text-align:left}
+.wallet-card-form,.wallet-alternatives{display:flex;flex-direction:column;gap:12px;min-width:0;width:100%}
+.wallet-other-ways{min-width:0}
+.wallet-other-ways summary{min-height:44px;display:flex;align-items:center;gap:8px;color:var(--primary);font-weight:var(--w-medium);cursor:pointer}
+.wallet-other-ways summary::after{content:'⌄';margin-left:auto}
+.wallet-other-ways[open] summary::after{content:'⌃'}
+.wallet-sheet .wallet-saved-card,.wallet-sheet .two-line{height:auto!important;min-height:56px;padding:10px 14px;white-space:normal;overflow:visible;text-align:center;max-width:100%;overflow-wrap:anywhere}
+.wallet-sheet .wallet-saved-card>span,.wallet-sheet .wallet-saved-card>small{display:block;min-width:0;max-width:100%;white-space:normal;line-height:1.4}
+.wallet-sheet .wallet-saved-card small{font-size:var(--t-small);font-weight:var(--w-regular)}
+.wallet-card-form .amounts{grid-template-columns:repeat(auto-fit,minmax(6.5em,1fr))}
+.wallet-card-form>.btn{height:auto;min-height:48px;padding-block:12px;white-space:normal;overflow-wrap:anywhere;text-align:center;line-height:1.4}

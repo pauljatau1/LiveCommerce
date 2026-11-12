@@ -547,3 +547,13 @@
 /* Six reset digits fit a small phone without shrinking input text below 16px. */
 .studio-app .code-boxes{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;max-width:360px}
 .studio-app .code-boxes input{width:100%;min-width:0;height:56px;font-size:var(--t-display)}
+/* Non-live form fields own the visible space while editing. */
+.studio-app[data-form-editing=true] :is(.composer,.foot,.st-tabbar,.st-fab,[data-keyboard-bar]){display:none!important}
+.studio-app[data-form-composing=true] .composer{bottom:var(--form-keyboard-bottom,0px)}
+.studio-app[data-form-composing=true] .composer>.btn{display:none}
+.studio-app[data-form-composing=true] .st-tabbar{display:none}
+.studio-app .sheet[data-form-keyboard=true]{bottom:var(--form-keyboard-bottom,0px)!important;max-height:calc(var(--form-viewport-height,85dvh) - 16px)!important}
+/* Keep every destination visible; retain the old row rules above for rollback. */
+.studio-app .sh-apps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px 4px;overflow:visible;margin:0;padding:2px 0}
+.studio-app .sh-app{width:auto;min-width:0;min-height:44px;font-size:var(--t-micro);overflow-wrap:anywhere}
+.studio-app .sh-ic{width:44px;height:44px;flex:none}

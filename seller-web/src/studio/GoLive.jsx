@@ -111,7 +111,7 @@ function Check({ showId }) {
 
   return (
     <div className="studio-app">
-      <TopBar title="Ready to go live?" sub={data?.show?.title} onBack={() => navigate('/studio/golive')} right={data?.show?.link && <button type="button" className="btn2" onClick={() => setSharing(true)}>{Icon.share}Share</button>} />
+      <TopBar title="Ready to go live?" sub={data?.show?.title} backTo="/studio/golive" right={data?.show?.link && <button type="button" className="btn2" onClick={() => setSharing(true)}>{Icon.share}Share</button>} />
       <div className="st-inner" style={{ paddingBottom: 120 }}>
         {error && <Problem text={error} />}
         <div style={{ position: 'relative', height: 'min(56vh, 420px)', borderRadius: 24, overflow: 'hidden', background: '#2A2F2C' }}>
@@ -141,7 +141,7 @@ function Check({ showId }) {
         )}
         {data && <div className="bot"><span className="av" aria-hidden="true" /><div className="bub" style={{ fontSize: 'var(--t-body)' }}>{data.show.type === 'drop' ? 'Once live, tap an item to put it on sale. Buyers tap Buy now.' : 'Once live, tap an item, then Start bidding. Each auction runs 30 seconds.'}</div></div>}
       </div>
-      <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '12px 16px max(18px, env(safe-area-inset-bottom))', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
+      <div data-keyboard-bar style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '12px 16px max(18px, env(safe-area-inset-bottom))', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
         <button type="button" className="btn" style={{  fontSize: 'var(--t-h2)', background: 'var(--live)', width: '100%', maxWidth: 688, margin: '0 auto' }} disabled={!data || Boolean(camError)} onClick={go}>
           <span aria-hidden="true" style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />Go live
         </button>
@@ -158,6 +158,6 @@ function GoLiveCheckOriginal() {
 
 // The original show picker is retained inside the service-area gate.
 
-function ServiceAreaGate({children}) { const area=usePickupArea(); const navigate=useNavigate(); if(area.error) return <div className="studio-app"><div className="st-inner"><Problem text={area.error} onRetry={() => location.reload()} /></div></div>; if(area.allowed === null) return <div className="studio-app"><div className="st-inner" role="status">Checking pickup address…</div></div>; if(!area.allowed) return <div className="studio-app"><TopBar title="Go live" onBack={() => navigate('/studio')} /><div className="st-inner"><PickupAreaBanner config={area.config} primary /></div></div>; return children; }
+function ServiceAreaGate({children}) { const area=usePickupArea(); const navigate=useNavigate(); if(area.error) return <div className="studio-app"><div className="st-inner"><Problem text={area.error} onRetry={() => location.reload()} /></div></div>; if(area.allowed === null) return <div className="studio-app"><div className="st-inner" role="status">Checking pickup address…</div></div>; if(!area.allowed) return <div className="studio-app"><TopBar title="Go live" backTo="/studio" /><div className="st-inner"><PickupAreaBanner config={area.config} primary /></div></div>; return children; }
 export default function GoLive() { return <ServiceAreaGate><GoLiveOriginal /></ServiceAreaGate>; }
 export function GoLiveCheck() { return <ServiceAreaGate><GoLiveCheckOriginal /></ServiceAreaGate>; }

@@ -1,3 +1,4 @@
+import useFormKeyboard from '../hooks/useFormKeyboard';
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { naira } from '../api';
@@ -20,9 +21,10 @@ export const Icon = {
 };
 
 export function Header({ back, title }) {
+  const keyboardRef=useFormKeyboard();
   const { signedIn, wallet } = useAuth();
   return (
-    <header className="top" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+    <header ref={keyboardRef} className="top" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
       {back ? <Link to={back} className="ib" aria-label="Back">{Icon.back}</Link> : <Link to="/" className="brand">{BRAND_NAME}<i /></Link>}
       <span className="f" style={{ flex: 1, fontSize: 'var(--t-h2)' }}>{title || ''}</span>
       {signedIn ? (
@@ -38,13 +40,14 @@ export function Header({ back, title }) {
 }
 
 export function Sheet({ title, onClose, children, top = null, className = '' }) {
+  const keyboardRef=useFormKeyboard();
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
-    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label={title}>
+    <div ref={keyboardRef} className="sheet-wrap" role="dialog" aria-modal="true" aria-label={title}>
       <div className="scrim" onClick={onClose} />
       <div className={`sheet2 ${className}`}>
         <span className="grab" aria-hidden="true" />

@@ -76,6 +76,7 @@ async function fixture({ enabled = true, saved = true, width = 390, missingAddre
 }
 const capture = async (page, name) => { await page.screenshot({ path: `${shots}/${name}.png` }); console.log('Captured', name); };
 const open = async page => { await page.getByRole('button', { name: 'Wallet', exact: true }).click(); await page.getByRole('dialog', { name: 'Your wallet' }).waitFor(); };
+const alternatives=async page=>{const summary=page.getByText('Other ways to pay',{exact:true});if(await summary.count() && !await page.locator('.wallet-other-ways').getAttribute('open'))await summary.click();};
 try {
  const { page: before } = await fixture({ enabled: false }); await open(before);
  assert.equal(await before.getByRole('button', { name: /Bank transfer/ }).count(), 0);
@@ -83,7 +84,7 @@ try {
  const { page, state } = await fixture();
  await page.getByRole('button', { name: 'Bid ₦12,000', exact: false }).click();
  await page.getByRole('button', { name: /Top up ₦15,000/ }).waitFor(); await capture(page, '02-methods');
- await page.getByRole('button', { name: /^Bank transfer/ }).click();
+ await alternatives(page); await page.getByRole('button', { name: /^Bank transfer/ }).click();
  await page.getByRole('heading', { name: 'Get your own account number' }).waitFor();
  assert(await page.getByRole('button', { name: 'Get my account number' }).isDisabled());
  await capture(page, '03-bank-consent');
@@ -108,7 +109,7 @@ try {
  await page.waitForFunction(() => window.__emitted?.some(e => e.name === 'stream_place_bid' && e.data.bidAmount === 16000));
  assert.deepEqual(state.errors, []); await page.close();
  const { page: bank, state: bs } = await fixture({ saved: false }); bs.dva = account; await open(bank);
- await bank.getByRole('button', { name: /^Bank transfer/ }).click(); await bank.getByText('1234567890', { exact: true }).waitFor();
+ await alternatives(bank); await bank.getByRole('button', { name: /^Bank transfer/ }).click(); await bank.getByText('1234567890', { exact: true }).waitFor();
  bs.balance += 5000;
  await bank.evaluate(() => window.__socket.trigger('wallet_credited', { reference: 'BANK_RECEIPT', amount: 5000, source: 'transfer' }));
  await bank.getByRole('dialog', { name: 'Wallet topped up' }).getByText(/₦5,000 received/).waitFor(); await capture(bank, '08-transfer-received'); await bank.close();
@@ -124,7 +125,7 @@ try {
  await charging.getByRole('button', { name: /Top up ₦10,000/ }).click();
  await charging.getByText('Charging Test Bank •••• 4081…', { exact: true }).waitFor(); await capture(charging, '09-card-charging');
  await charging.getByText('Confirming your top-up…', { exact: true }).waitFor(); await capture(charging, '14-card-confirming');
- assert(await charging.getByRole('button', { name: /^Bank transfer/ }).isDisabled()); await charging.close();
+ assert.equal(await charging.getByText('Other ways to pay',{exact:true}).getAttribute('aria-disabled'),'true'); await charging.close();
  const { page: paused, state: ps } = await fixture(); ps.charge = 'needs_bank_check'; await open(paused);
  await paused.getByRole('button', { name: /Top up ₦10,000/ }).click();
  await paused.getByText('Test Bank wants a code. This happens now and then, even with a saved card.').waitFor();
@@ -133,8 +134,10 @@ try {
  const { page: decline, state: ds } = await fixture({ width: 320 }); ds.charge = 'declined'; await open(decline);
  await decline.getByRole('button', { name: /Top up ₦10,000/ }).click();
  await decline.getByText('Your bank declined this card. Try another card or a bank transfer.').waitFor(); await capture(decline, '11-card-declined-small-phone');
- await decline.getByRole('button', { name: 'Use another card' }).click(); await decline.waitForFunction(() => window.__popupOptions);
+ await alternatives(decline); await decline.getByRole('button', { name: /Pay with card ·/ }).click(); await decline.waitForFunction(() => window.__popupOptions);
  assert.equal(await decline.evaluate(() => window.__popupOptions.metadata.saveCard), true);
+ assert(await decline.getByRole('button',{name:/Top up ₦10,000/}).isDisabled());
+ assert.equal(await decline.getByText('Other ways to pay',{exact:true}).getAttribute('aria-disabled'),'true');
  await decline.close();
  const { page: added } = await fixture(); await open(added); await added.getByRole('button', { name: /Top up ₦10,000/ }).click();
  await added.getByRole('dialog', { name: 'Wallet topped up' }).getByText(/₦15,000 added/).waitFor(); await capture(added, '12-card-added');
@@ -179,12 +182,12 @@ try {
    assert.equal(qs.calls.find(c => c.path.endsWith('/charge')).body.amount, 20000);
   } else if (method === 'bank') {
    qs.dva = account;
-   await combined.getByRole('button', { name: /^Bank transfer/ }).click();
+   await alternatives(combined); await combined.getByRole('button', { name: /^Bank transfer/ }).click();
    await combined.getByText('Send at least ₦16,650', { exact: true }).waitFor();
    qs.balance += 20000;
    await combined.evaluate(() => window.__socket.trigger('wallet_credited', { reference: 'QUOTED_BANK', amount: 20000, source: 'transfer' }));
   } else {
-   await combined.getByRole('button', { name: 'Use another card', exact: true }).click();
+   await alternatives(combined); await combined.getByRole('button', { name: /Pay with card ·/ }).click();
    await combined.waitForFunction(() => window.__popupOptions);
    assert.equal(await combined.evaluate(() => window.__popupOptions.amount), 1700000);
    qs.balance += 17000;
@@ -205,7 +208,7 @@ try {
  assert.equal((await noQuote.evaluate(() => window.__emitted || [])).filter(e => e.name === 'stream_place_bid').length, 0);
  await noQuote.close();
  const { page: failed, state: fs } = await fixture({ saved: false }); await open(failed);
- await failed.getByRole('button', { name: /^Bank transfer/ }).click(); fs.dva = { status: 'failed' };
+ await alternatives(failed); await failed.getByRole('button', { name: /^Bank transfer/ }).click(); fs.dva = { status: 'failed' };
  await failed.evaluate(() => window.__socket.trigger('wallet_dva_ready', { status: 'failed' }));
  await failed.getByText('We can’t set up an account number right now. Use a card instead.').waitFor(); await capture(failed, '15-bank-unavailable'); await failed.close();
  console.log('PASS: flags, DVA consent/polling/requery/waiting/receipt, saved-card success/paused/decline/popup, duplicate receipts, original-bid auto-place, price-moved confirmation, removal.');

@@ -27,7 +27,7 @@ export default function Recap() {
   const dv = data?.deliveries || {};
   return (
     <div className="studio-app">
-      <TopBar title="Show recap" onBack={() => navigate('/studio')} close />
+      <TopBar title="Show recap" backTo="/studio" close />
       <div className="st-inner">
         {error && <Problem text={error} onRetry={load} />}
         {!data && !error && <><Skeleton h={200} r={28} /><Skeleton h={160} /></>}

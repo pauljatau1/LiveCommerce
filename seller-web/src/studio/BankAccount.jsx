@@ -1,3 +1,4 @@
+import useStudioBack from './useStudioBack';
 // Where payouts go: pick a bank (searchable), type the 10-digit number, and the
 // name check runs by itself. Then "Is this you?" with the name the bank has.
 // Opened from Money and from Me; goes back to wherever it came from.
@@ -188,9 +189,10 @@ export default function BankAccount() {
   const navigate = useNavigate();
   const location = useLocation();
   const back = location.state?.back === '/studio/money' ? '/studio/money' : '/studio/me';
+  const returnBack=useStudioBack(back);
   return (
     <div className="studio-app">
-      <BankFlow onBack={() => navigate(back)} onDone={() => navigate(back, { replace: true, state: { studioNotice: 'Bank account saved. Payouts go here now.' } })} />
+      <BankFlow onBack={returnBack} onDone={returnBack} />
     </div>
   );
 }

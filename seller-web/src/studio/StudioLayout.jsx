@@ -1,3 +1,4 @@
+import useFormKeyboard from './useFormKeyboard';
 // The new seller studio shell: tab bar on phones, slim top bar on desktop.
 // Same five places everywhere: Home, Products, Go Live, Orders, Me.
 import { useEffect, useRef, useState } from 'react';
@@ -42,6 +43,7 @@ export const DesktopBar = ({ right = null, className = 'st-dbar' }) => (
 );
 
 export default function StudioLayout() {
+  const keyboardRef=useFormKeyboard();
   useIntercomVisibility(true); // the chat launcher would cover the Me tab
   useEffect(() => { document.title = `${BRAND_NAME} Studio`; }, []);
 
@@ -76,7 +78,7 @@ export default function StudioLayout() {
     </Link>
   );
   return (
-    <div className="studio-app">
+    <div ref={keyboardRef} className="studio-app">
       <DesktopBar right={Bell} />
       {toast && (
         <div role="status" className="toast" style={{ position: 'fixed', left: 16, right: 16, bottom: 'calc(96px + env(safe-area-inset-bottom))', zIndex: 60, maxWidth: 520, margin: '0 auto' }}>

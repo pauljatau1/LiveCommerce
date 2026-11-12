@@ -701,12 +701,13 @@ export default function Watch() {
     doBuy(item, quantity);
   };
 
+  const pendingChat=useRef(null);
   const sendChat = async (e) => {
     e?.preventDefault();
     const content = text.trim();
     if (!content) return;
     // Guests read chat; posting needs an account (no payment)
-    if (!signedIn) { setSheet({ type: 'onestep', action: { kind: 'chat' } }); return; }
+    if (!signedIn) { document.activeElement?.blur();setTyping(false);pendingChat.current={streamId,content:content.slice(0,300)};setSheet({ type: 'onestep', action: { kind: 'chat' } }); return; }
     const sock = await authedSocket();
     if (!sock) { say('err', "Couldn't send. Check your connection."); return; }
     sock.emit('stream_comment', { streamId, content: content.slice(0, 300) });
@@ -719,7 +720,14 @@ export default function Watch() {
     setSheet(null);
     if (action.kind === 'bid') await sendBid(action.productId, action.amount);
     else if (action.kind === 'buy') await doBuy(action.item, action.quantity);
-    else if (action.kind === 'chat') say('ok', "You're in. Say hi.");
+    else if (action.kind === 'chat') {
+      const pending=pendingChat.current;pendingChat.current=null;
+      if(!pending || pending.streamId!==streamId)return;
+      const sock=await authedSocket();
+      if(!sock){say('err',"Couldn't send. Your message is still in the box. Try again.");return;}
+      sock.emit('stream_comment',{streamId,content:pending.content});
+      setText(current=>current.trim()===pending.content ? '' : current);
+    }
     else if (action.kind === 'account') setSheet({ type: 'topup', need: 0 });
     else if (action.kind === 'follow') await follow(true);
   };
@@ -1051,7 +1059,7 @@ export default function Watch() {
         onWaiting={(account) => { if (['active', 'pending'].includes(account.status)) { fundingPending.current = true; setTransfer(account); } else if (account.status === 'failed') { fundingPending.current = false; setTransfer(null); } }}
         onDone={(reference, amount, source) => receiveCreditRef.current({ reference, amount, source })} />}
       {sheet?.type === 'onestep' && (
-        <OneStepSheet onOutOfArea={r => setSheet({ type: 'serviceArea', state: r.state })} action={sheet.action} deposit={deposit} quote={estimate} productId={sheet.action.productId || (sheet.action.item ? idOf(sheet.action.item) : quoteItemId)} top={sheet.action.kind === 'chat' ? null : miniBare} streamId={streamId} topUpMethods={methods} onTopUpNeeded={beginTopUp} onClose={() => setSheet(null)} onReady={() => afterOneStep(sheet.action)} />
+        <OneStepSheet onOutOfArea={r => setSheet({ type: 'serviceArea', state: r.state })} action={sheet.action} deposit={deposit} quote={estimate} productId={sheet.action.productId || (sheet.action.item ? idOf(sheet.action.item) : quoteItemId)} top={sheet.action.kind === 'chat' ? null : miniBare} streamId={streamId} topUpMethods={methods} onTopUpNeeded={beginTopUp} onClose={() => {if(sheet.action.kind==='chat')pendingChat.current=null;setSheet(null);}} onReady={() => afterOneStep(sheet.action)} />
       )}
       {sheet?.type === 'serviceArea' && <ServiceAreaSheet config={serviceArea} state={sheet.state || buyer?.shippingAddresses?.[0]?.state} streamId={streamId} onClose={() => setSheet(null)} onAddress={() => setSheet({ type: 'address' })} />}
       {sheet?.type === 'address' && <AddressSheet top={mini} onClose={() => setSheet(null)} onSaved={async () => { setSheet(null); await refresh(); say('ok', 'Address saved. You can bid and buy now.'); }} />}
