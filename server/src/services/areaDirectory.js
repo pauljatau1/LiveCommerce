@@ -29,8 +29,15 @@ function validateArea(address) {
   if (!address?.city || !address?.state) throw Object.assign(new BadRequestException('Choose your area from the list.'), {status:400, code:'invalid_area'});
   requireState(address.state);
   const row = findArea(address);
+  if (address.addressSource === 'google') {
+    const {latitude, longitude} = address;
+    if (typeof latitude !== 'number' || typeof longitude !== 'number' || !Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude)>90 || Math.abs(longitude)>180 || !String(address.addressLine1 || '').trim()) {
+      throw Object.assign(new BadRequestException('Choose your address again so we can find it on the map.'), {status:400});
+    }
+    return {city:row?.name || String(address.city).trim(), lga:row?.lga || String(address.lga || '').trim(), latitude, longitude, addressSource:'google', formattedAddress:String(address.formattedAddress || '').slice(0,500)};
+  }
   if (!row) throw Object.assign(new BadRequestException('Choose your area from the list.'), {status:400, code:'invalid_area'});
-  return {city:row.name, lga:row.lga};
+  return {city:row.name, lga:row.lga, ...(address.addressSource || address.latitude != null || address.longitude != null ? {latitude:null,longitude:null,addressSource:'manual',formattedAddress:''} : {})};
 }
 // No strict validation here: older saved addresses must remain usable for quotes/orders.
 function deliveryAddress(address = {}) {

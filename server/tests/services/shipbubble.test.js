@@ -31,6 +31,14 @@ describe('shipbubble client', () => {
     expect(mockPost).toHaveBeenCalledTimes(1);
   });
 
+  it('passes optional map coordinates without changing old address requests', async () => {
+    mockPost.mockResolvedValue({data:{status:'success',data:{address_code:123}}});
+    await shipbubble.validateAddress({name:'Ada',phone:'08031234567',address:'1 Road',latitude:6.5,longitude:3.4});
+    expect(mockPost).toHaveBeenLastCalledWith('/shipping/address/validate',expect.objectContaining({latitude:6.5,longitude:3.4}));
+    await shipbubble.validateAddress({name:'Ada',phone:'08031234567',address:'Old Road'});
+    expect(mockPost.mock.calls[1][1]).not.toHaveProperty('latitude');
+  });
+
   it('formats Nigerian phone numbers', () => {
     expect(shipbubble.toPhone('08031234567')).toBe('+2348031234567');
     expect(shipbubble.toPhone('8031234567')).toBe('+2348031234567');

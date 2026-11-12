@@ -239,7 +239,7 @@ describe('ships in N days', () => {
   it('deduplicates a buyer/state and restricts state counts to admins',async()=>{
     const Waitlist=require('@/models/DeliveryWaitlist');await Waitlist.deleteMany({});
     await mongoose.connection.collection('buyers').insertOne({_id:new mongoose.Types.ObjectId(mockUser.id),email:'wait@example.test',username:'wait-test'});
-    await Promise.all(['Abuja',' abuja State '].map(state => request(app).post('/api/v2/watch/waitlist').send({state,streamId:String(show._id)}).expect(200)));
+    await Promise.all(['Abuja',' abuja State '].map(state => request(app).post('/api/v2/watch/waitlist').set('Authorization',`Bearer ${require('jsonwebtoken').sign({id:mockUser.id,role:'Buyer'},process.env.JWT_SECRET)}`).send({state,streamId:String(show._id)}).expect(200)));
     expect(await Waitlist.countDocuments()).toBe(1);
     await request(app).get('/api/v2/watch/waitlist/counts').expect(403);
     mockUser.role='Admin';expect((await request(app).get('/api/v2/watch/waitlist/counts').expect(200)).body.counts).toEqual([{_id:'abuja',count:1}]);

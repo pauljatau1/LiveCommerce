@@ -236,6 +236,7 @@ async function updateShippingAddress(buyerId, addressId, updateData) {
   };
 
   if (updateData.city !== undefined && updateData.lga === undefined && require('../../../services/areaDirectory').normalizeArea(updateData.city) !== require('../../../services/areaDirectory').normalizeArea(existingAddress.city)) delete mergedAddress.lga;
+  if (['city','state','addressLine1'].some(key=>updateData[key] !== undefined && updateData[key] !== existingAddress[key]) && updateData.addressSource !== 'google') Object.assign(mergedAddress,{latitude:null,longitude:null,addressSource:'manual',formattedAddress:''});
   Object.assign(mergedAddress, require('../../../services/areaDirectory').validateArea(mergedAddress));
 
   // Step 4: Normalize addressId for arrayFilters

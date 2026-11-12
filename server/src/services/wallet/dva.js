@@ -32,7 +32,7 @@ async function assign(buyerId, consent) {
   if (buyer.dva?.status === 'active' || buyer.dva?.status === 'pending') return details(buyer);
   if (!buyer.firstName?.trim() || !buyer.lastName?.trim()) throw new Error(400, 'Add your first and last name to your profile.');
   const phone = phoneFor(buyer.phoneNumber);
-  if (!phone) throw new Error(400, 'Add an 11-digit Nigerian phone number to your profile.');
+  if (!phone) throw new Error(400, 'Enter an 11-digit Nigerian phone number here to get your account number.');
   const preferredBank = process.env.PAYSTACK_DVA_BANK || (process.env.PAYSTACK_SECRET_KEY?.startsWith('sk_test_') ? 'test-bank' : null);
   if (!preferredBank) throw new Error(503, failure);
   const claimed = await Buyer.findOneAndUpdate({ _id: buyerId, 'dva.status': { $nin: ['pending', 'active'] } },

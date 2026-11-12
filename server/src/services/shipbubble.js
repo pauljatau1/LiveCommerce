@@ -47,8 +47,8 @@ const toPhone = (raw) => {
   return `+234${digits}`;
 };
 
-const validateAddress = ({ name, email, phone, address }) =>
-  call((c) => c.post('/shipping/address/validate', { name, email, phone: toPhone(phone), address }), 'Address check');
+const validateAddress = ({ name, email, phone, address, latitude, longitude }) =>
+  call((c) => c.post('/shipping/address/validate', { name, email, phone: toPhone(phone), address, ...(Number.isFinite(latitude) && Number.isFinite(longitude) ? {latitude, longitude} : {}) }), 'Address check');
 
 let categoryCache = null;
 const categories = async () => {
