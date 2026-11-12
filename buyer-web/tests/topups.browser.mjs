@@ -156,7 +156,8 @@ try {
   qs.pauseQuote = true;
   await combined.getByRole('button', { name: 'Bid ₦12,000', exact: false }).click();
   await combined.locator('#os-st:disabled').waitFor();
-  await combined.locator('#os-ct').fill('Lekki');
+  await combined.locator('#os-ct').click();
+  await combined.getByRole('button',{name:'Lekki, Eti-Osa',exact:true}).first().click();
   await combined.locator('#os-l1').fill('5 Admiralty Way');
   await combined.locator('#os-ph').fill('1234');
   assert(await combined.getByRole('button', { name: 'Add your address to continue', exact: true }).isDisabled());

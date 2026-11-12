@@ -43,7 +43,7 @@ describe('Add Shipping Warehouse Service', () => {
         address: {
           country: 'Nigeria',
           state: 'Lagos',
-          city: 'Lagos',
+          city: 'Yaba',
           addressLine1: '123 Warehouse Street',
           addressLine2: 'Building A',
           zipCode: '100001'
@@ -152,7 +152,7 @@ describe('Add Shipping Warehouse Service', () => {
           address: {
             country: 'Nigeria',
             state: 'Lagos',
-            city: 'Abuja',
+            city: 'Ikeja',
             addressLine1: '456 Storage Avenue',
             zipCode: '900001'
           }
@@ -233,7 +233,7 @@ describe('Add Shipping Warehouse Service', () => {
           address: {
             country: 'Nigeria',
             state: 'Lagos',
-            city: 'Lagos',
+            city: 'Yaba',
             addressLine1: '',
             zipCode: '100001'
           }
@@ -276,7 +276,7 @@ describe('Add Shipping Warehouse Service', () => {
           address: {
             country: 'Nigeria',
             state: 'Lagos',
-            city: 'Lagos',
+            city: 'Yaba',
             addressLine1: '   ',
             zipCode: '100001'
           }

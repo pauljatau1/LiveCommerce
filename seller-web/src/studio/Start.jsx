@@ -1,3 +1,5 @@
+import {PickupAreaField} from './ServiceArea';
+const LEGACY_AREA_INPUT = false; // Native datalist kept inactive for reference.
 // Getting started (design A): Your store → Pickup address → Get paid → Finished.
 // Replaces the old dashboard onboarding for new sellers. Answers are kept on
 // this phone, so a weak signal never loses them.
@@ -46,7 +48,7 @@ export default function Start() {
   const [banks, setBanks] = useState([]);
   const [accountName, setAccountName] = useState('');
 
-  const set = (k) => (e) => setAnswers((a) => { const next = { ...a, [k]: e?.target ? e.target.value : e, ...(k === 'state' ? { city: '' } : {}) }; keep(next); return next; });
+  const set = (k) => (e) => setAnswers((a) => { const next = { ...a, [k]: e?.target ? e.target.value : e, ...(k === 'state' ? { city: '', lga: '' } : {}) }; keep(next); return next; });
 
   const refresh = useCallback(() => onboarding.get().then((r) => {
     setInfo(r);
@@ -54,7 +56,7 @@ export default function Start() {
     setAnswers((a) => {
       const next = {
         storeName: a.storeName ?? r.store.storeName, aboutStore: a.aboutStore ?? r.store.aboutStore, categories: a.categories ?? r.store.categories,
-        state: a.state ?? r.pickup.state ?? '', city: a.city ?? (a.state && a.state !== r.pickup.state ? '' : r.pickup.city) ?? '', addressLine1: a.addressLine1 ?? r.pickup.addressLine1 ?? '', landmark: a.landmark ?? r.pickup.landmark ?? '', phone: a.phone ?? r.pickup.phone ?? '',
+        state: a.state ?? r.pickup.state ?? '', city: a.city ?? (a.state && a.state !== r.pickup.state ? '' : r.pickup.city) ?? '', lga: a.lga ?? r.pickup.lga ?? '', addressLine1: a.addressLine1 ?? r.pickup.addressLine1 ?? '', landmark: a.landmark ?? r.pickup.landmark ?? '', phone: a.phone ?? r.pickup.phone ?? '',
         bankCode: a.bankCode ?? '', accountNumber: a.accountNumber ?? '',
       };
       keep(next);
@@ -67,9 +69,10 @@ export default function Start() {
 
   useEffect(() => { serviceAreaConfig().then(config => {
     setAreaConfig(config); setStates(config.states.map(name => ({name,isoCode:name})));
-    if(config.states.length === 1) setAnswers(a => ({...a,state:config.states[0],city: a.state && a.state !== config.states[0] ? '' : a.city}));
+    if(config.states.length === 1) setAnswers(a => ({...a,state:config.states[0],city: a.state && a.state !== config.states[0] ? '' : a.city, lga: a.state && a.state !== config.states[0] ? '' : a.lga}));
   }).catch(() => setLoadError('Couldn’t load delivery areas. Please try again.')); }, []);
   useEffect(() => {
+    if (!LEGACY_AREA_INPUT) return;
     const groups = areaConfig?.areas?.[answers.state]; setCities([]);
     if(groups) setCities(Object.entries(groups).flatMap(([lga,names]) => [...new Set([lga,...names])].map(name => ({name,lga}))));
     else if(answers.state && areaConfig) axios.get(`${apiOrigin()}/api/v2/orders/states`).then(r => {
@@ -89,7 +92,7 @@ export default function Start() {
       await refresh();
       // Keep the signed-in seller up to date, so the studio stops asking for a pickup address
       if (kind === 'pickup' || kind === 'store') {
-        const updated = { ...(seller || sellerUtils.getSeller() || {}), ...(kind === 'pickup' ? { hasFilledAddress: true, hasFilledBusinessAddress: true, warehouseDetails: { ...seller?.warehouseDetails, address: { state: body.state, city: body.city, addressLine1: body.addressLine1 } } } : { storeName: body.storeName }) };
+        const updated = { ...(seller || sellerUtils.getSeller() || {}), ...(kind === 'pickup' ? { hasFilledAddress: true, hasFilledBusinessAddress: true, warehouseDetails: { ...seller?.warehouseDetails, address: { state: body.state, city: body.city, lga: body.lga, addressLine1: body.addressLine1, addressLine2: body.landmark } } } : { storeName: body.storeName }) };
         sellerUtils.storeSeller(updated);
         dispatch?.({ type: 'STORE_SELLER', payload: updated });
       }
@@ -178,9 +181,11 @@ export default function Start() {
               </select>
             </div>
             <div className="fl">
-              <label className="lab" htmlFor="pk-ct">City / area</label>
+              <label className="lab" htmlFor="pk-ct">Area</label>
+              {LEGACY_AREA_INPUT ? <>
               <input id="pk-ct" className="in" list="pickup-areas" value={answers.city || ''} onChange={set('city')} placeholder="Search your area" />
               <datalist id="pickup-areas">{cities.map((c,i) => <option key={i} value={c.name}>{c.lga ? `${c.name} · ${c.lga}` : c.name}</option>)}</datalist>
+              </> : <PickupAreaField config={areaConfig} state={answers.state} value={answers.city || ''} lga={answers.lga || ''} onChange={area=>setAnswers(previous=>{const next={...previous,city:area.name,lga:area.lga};keep(next);return next;})} />}
             </div>
             <div className="fl">
               <label className="lab" htmlFor="pk-l1">Street address</label>
@@ -197,7 +202,7 @@ export default function Start() {
             </div>
             {pending?.kind === 'pickup' && <span className="hint">We'll save this the moment you're back online. No need to type it again.</span>}
             {error && <Problem text={error} />}
-            <button type="button" className="btn" disabled={busy === 'pickup'} onClick={() => save('pickup', { state: answers.state, city: answers.city, addressLine1: answers.addressLine1, landmark: answers.landmark, phone: answers.phone }, 'bank')}>
+            <button type="button" className="btn" disabled={busy === 'pickup'} onClick={() => save('pickup', { state: answers.state, city: answers.city, lga: answers.lga, addressLine1: answers.addressLine1, landmark: answers.landmark, phone: answers.phone }, 'bank')}>
               {busy === 'pickup' ? 'Saving…' : pending?.kind === 'pickup' ? 'Save when I’m back online' : 'Save address'}
             </button>
           </>

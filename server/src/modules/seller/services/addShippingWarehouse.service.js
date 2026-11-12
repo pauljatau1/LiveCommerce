@@ -61,6 +61,8 @@ async function updateSellerShippingWarehouse(sellerId, shippingWarehouseData) {
     seller.shippingOptions = shippingWarehouseData.shippingOptions;
   }
 
+  if (shippingWarehouseData.warehouseDetails?.address) Object.assign(shippingWarehouseData.warehouseDetails.address, require('../../../services/areaDirectory').validateArea(shippingWarehouseData.warehouseDetails.address));
+
   // Step 3: Update warehouse details if provided
   // This updates the seller's warehouse details information
   if (shippingWarehouseData.warehouseDetails !== undefined) {

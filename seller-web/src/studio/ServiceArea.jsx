@@ -1,3 +1,5 @@
+import AreaPicker from './AreaPicker';
+import {pickerAreas} from './areaPicker';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
@@ -12,4 +14,8 @@ export function usePickupArea() {
 }
 export function PickupAreaBanner({config, primary = false}) {
   return <div className="banner b-warn" role="alert" style={{flexDirection:'column',alignItems:'stretch'}}><span>We deliver within {config.states.join(' and ')} for now. Update your pickup address to go live.</span><Link className={primary ? 'btn' : 'btn2'} to="/studio/start?step=pickup">Update pickup address</Link></div>;
+}
+
+export function PickupAreaField({config,state,value,lga,onChange,id='pk-ct'}) {
+  return <AreaPicker id={id} value={value} lga={lga} areas={pickerAreas(config,state)} disabled={!state} onChange={onChange} />;
 }

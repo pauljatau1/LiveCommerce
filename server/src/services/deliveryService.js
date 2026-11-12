@@ -89,7 +89,7 @@ const sellerPickup = (seller) => {
     name: seller.storeName || [seller.firstName, seller.lastName].filter(Boolean).join(' ') || 'Seller',
     email: seller.businessEmail || seller.email,
     phone: seller.phoneNumber,
-    address: [a.addressLine1, a.addressLine2, a.city, a.state, 'Nigeria'].filter(Boolean).join(', '),
+    address: require('./areaDirectory').deliveryAddress(a),
   };
 };
 
@@ -103,7 +103,7 @@ const buyerDropoff = (buyer) => {
     name: [a.firstName || buyer.firstName, a.lastName || buyer.lastName].filter(Boolean).join(' ') || buyer.username || 'Buyer',
     email: a.email || buyer.email,
     phone: a.phoneNumber || buyer.phoneNumber,
-    address: [a.addressLine1, a.addressLine2, a.city, a.state, 'Nigeria'].filter(Boolean).join(', '),
+    address: require('./areaDirectory').deliveryAddress(a),
   };
 };
 
@@ -278,7 +278,7 @@ const previewQuote = async ({ streamId, productId, address }) => {
       name: String(name || 'Buyer').slice(0, 60),
       email: /^\S+@\S+\.\S+$/.test(String(email || '')) ? email : sellerPickup(seller).email,
       phone: phoneNumber,
-      address: [addressLine1, city, state, 'Nigeria'].join(', '),
+      address: require('./areaDirectory').deliveryAddress(address),
     });
   } catch {
     throw new DeliveryError(422, "Shipbubble couldn't find that address. Check the street and area.");

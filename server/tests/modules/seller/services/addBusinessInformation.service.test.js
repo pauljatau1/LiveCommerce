@@ -37,7 +37,7 @@ describe('Add Business Information Service', () => {
       businessAddress: {
         country: 'Nigeria',
         state: 'Lagos',
-        city: 'Lagos',
+        city: 'Yaba',
         addressLine1: '123 Business Street',
         addressLine2: 'Suite 100',
         zipCode: '100001'
@@ -287,31 +287,12 @@ describe('Add Business Information Service', () => {
       expect(sellerWithExistingData.businessAddress).toEqual(validBusinessInformation.businessAddress);
     });
 
-    it('should handle empty string business address fields', async () => {
-      // Arrange: Mock business information with empty string address fields
-      const businessInfoWithEmptyFields = {
-        ...validBusinessInformation,
-        businessAddress: {
-          country: '',
-          state: '',
-          city: '',
-          addressLine1: '',
-          zipCode: ''
-        }
-      };
-
-      // Mock validator to not throw (simulating bypassed validation)
-      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(() => { });
+    it('refuses saving an address with no listed area, even if a validator is bypassed', async () => {
+      const data = {...validBusinessInformation,businessAddress:{country:'',state:'',city:'',addressLine1:'',zipCode:''}};
+      addBusinessInformationValidator.validateAddBusinessInformationData.mockImplementation(()=>{});
       sellerRepository.findById.mockResolvedValue(mockSeller);
-      sellerRepository.save.mockResolvedValue(mockSeller);
-
-      // Act: Call the service function
-      await addBusinessInformation('507f1f77bcf86cd799439011', businessInfoWithEmptyFields);
-
-      // Assert: Verify business address was updated with empty fields
-      expect(mockSeller.businessAddress).toEqual(businessInfoWithEmptyFields.businessAddress);
-      // Since addressLine1 is empty, hasFilledBusinessAddress should be false
-      expect(mockSeller.hasFilledBusinessAddress).toBe(false);
+      await expect(addBusinessInformation('507f1f77bcf86cd799439011',data)).rejects.toThrow('Choose your area from the list.');
+      expect(sellerRepository.save).not.toHaveBeenCalled();
     });
 
     it('should handle special characters in business information', async () => {
@@ -322,7 +303,7 @@ describe('Add Business Information Service', () => {
         businessAddress: {
           country: 'United States',
           state: 'Lagos',
-          city: 'New York City',
+          city: 'Amuwo-Odofin',
           addressLine1: '123 Main St. #456',
           addressLine2: 'Apt. 7B',
           zipCode: '10001-1234'
@@ -357,7 +338,7 @@ describe('Add Business Information Service', () => {
           businessAddress: {
             country: 'Nigeria',
             state: 'Lagos',
-            city: 'Lagos',
+            city: 'Yaba',
             addressLine1: '123 Test Street',
             zipCode: '100001'
           }
@@ -382,7 +363,7 @@ describe('Add Business Information Service', () => {
           businessAddress: {
             country: 'Nigeria',
             state: 'Lagos',
-            city: 'Lagos',
+            city: 'Yaba',
             addressLine1: '123 Test Street',
             zipCode: '100001'
           }
@@ -407,7 +388,7 @@ describe('Add Business Information Service', () => {
           businessAddress: {
             country: 'Nigeria',
             state: 'Lagos',
-            city: 'Lagos',
+            city: 'Yaba',
             addressLine1: '123 Test Street',
             zipCode: '100001'
           }
@@ -432,7 +413,7 @@ describe('Add Business Information Service', () => {
           businessAddress: {
             country: 'Nigeria',
             state: 'Lagos',
-            city: 'Lagos',
+            city: 'Yaba',
             addressLine1: '123 Test Street',
             zipCode: '100001'
           }

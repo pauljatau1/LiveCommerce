@@ -943,7 +943,7 @@ describe('Buyer Repository', () => {
             _id: new mongoose.Types.ObjectId(),
             addressType: 'home',
             addressLine1: '123 Main St',
-            city: 'Lagos',
+            city: 'Yaba',
             state: 'Lagos',
             country: 'Nigeria',
             zipCode: '100001',
@@ -957,7 +957,7 @@ describe('Buyer Repository', () => {
       const updateData = {
         addressLine1: '789 Updated St',
         addressType: 'home',
-        city: 'Lagos',
+        city: 'Yaba',
         state: 'Lagos',
         country: 'Nigeria',
         zipCode: '100001'
@@ -978,7 +978,7 @@ describe('Buyer Repository', () => {
             _id: new mongoose.Types.ObjectId(),
             addressType: 'home',
             addressLine1: '123 Main St',
-            city: 'Lagos',
+            city: 'Yaba',
             state: 'Lagos',
             country: 'Nigeria',
             zipCode: '100001',

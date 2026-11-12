@@ -51,7 +51,7 @@ describe('Add Address Controller', () => {
       addressType: 'home',
       country: 'Nigeria',
       state: 'Lagos',
-      city: 'Lagos',
+      city: 'Yaba',
       addressLine1: '123 Main Street',
       addressLine2: 'Apt 4B',
       zipCode: '100001'
@@ -91,7 +91,7 @@ describe('Add Address Controller', () => {
       expect(response.body.data.address.addressType).toBe('home');
       expect(response.body.data.address.country).toBe('Nigeria');
       expect(response.body.data.address.state).toBe('Lagos');
-      expect(response.body.data.address.city).toBe('Lagos');
+      expect(response.body.data.address.city).toBe('Yaba');
       expect(response.body.data.address.addressLine1).toBe('123 Main Street');
       expect(response.body.data.address.addressLine2).toBe('Apt 4B');
       expect(response.body.data.address.zipCode).toBe('100001');

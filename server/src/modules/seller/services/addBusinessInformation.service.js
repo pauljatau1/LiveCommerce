@@ -55,6 +55,8 @@ async function updateSellerBusinessInformation(sellerId, businessInformation) {
     throw new Error('Seller not found');
   }
 
+  if (businessInformation.businessAddress) Object.assign(businessInformation.businessAddress, require('../../../services/areaDirectory').validateArea(businessInformation.businessAddress));
+
   // Step 2: Update business contact information
   // This updates the seller's business email and phone number
   // Normalize phone number to ensure consistent format (without leading 0)

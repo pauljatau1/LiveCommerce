@@ -36,7 +36,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
   // host's pickup address to this exact address, for this item. Nothing is
   // guessed: until the address is complete there is no price.
   const [typedQuote, setTypedQuote] = useState({ status: 'idle' });
-  const { state: pickedState, city: pickedCity, addressLine1: pickedLine, phoneNumber: pickedPhone } = address.form;
+  const { state: pickedState, city: pickedCity, lga: pickedLga, landmark: pickedLandmark, addressLine1: pickedLine, phoneNumber: pickedPhone } = address.form;
   const phoneForQuote = pickedPhone || buyer?.phoneNumber || '';
   useEffect(() => {
     const complete = pickedState && pickedCity && String(pickedLine).trim().length >= 4 && !phoneProblem(phoneForQuote);
@@ -46,14 +46,14 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
     const t = window.setTimeout(() => {
       api.deliveryQuote(streamId, {
         productId,
-        address: { addressLine1: String(pickedLine).trim(), city: pickedCity, state: pickedState, phoneNumber: phoneForQuote, email: acct.email.trim() || buyer?.email },
+        address: { addressLine1: String(pickedLine).trim(), city: pickedCity, lga: pickedLga, addressLine2: pickedLandmark, state: pickedState, phoneNumber: phoneForQuote, email: acct.email.trim() || buyer?.email },
       })
         .then((r) => live && setTypedQuote(r?.available ? { status: 'ok', ...r } : { status: 'error', message: r?.message || "Couldn't price delivery to this address." }))
         .catch((e) => live && setTypedQuote({ status: 'error', message: errorMessage(e, "Couldn't price delivery right now. Try again.") }));
     }, 700);
     return () => { live = false; window.clearTimeout(t); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickedState, pickedCity, pickedLine, phoneForQuote, streamId, productId]);
+  }, [pickedState, pickedCity, pickedLga, pickedLandmark, pickedLine, phoneForQuote, streamId, productId]);
 
   const needAccount = !signedIn;
   const needAddress = !chatOnly && !(buyer?.shippingAddresses || []).length;

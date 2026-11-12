@@ -358,6 +358,7 @@ exports.updateIndividualInformation = async (req, res) => {
 
     seller.firstName = firstName;
     seller.lastName = lastName;
+    if (sellerAddress) Object.assign(sellerAddress, require('../services/areaDirectory').validateArea(sellerAddress));
     seller.sellerAddress = sellerAddress;
 
     // Update completion flags
@@ -371,6 +372,7 @@ exports.updateIndividualInformation = async (req, res) => {
       seller: updatedSeller
     });
   } catch (error) {
+    if (error.code === 'invalid_area' || error.code === 'out_of_area') return res.status(error.status || 400).json({code:error.code,message:error.message});
     res.status(500).json({
       success: false,
       message: 'Failed to update individual information',
@@ -1804,12 +1806,14 @@ exports.updateWarehouseDetails = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
+    Object.assign(warehouseDetails.address, require('../services/areaDirectory').validateArea(warehouseDetails.address));
     seller.warehouseDetails = warehouseDetails;
     seller.hasFilledWarehouseAddress = true;
 
     const updatedSeller = await seller.save();
     res.json({ message: 'Warehouse details updated successfully', seller: updatedSeller });
   } catch (error) {
+    if (error.code === 'invalid_area') return res.status(400).json({message:error.message});
     res.status(500).json({ message: 'Failed to update warehouse details', error: error.message });
   }
 };
@@ -1825,12 +1829,14 @@ exports.updateBusinessAddress = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
+    Object.assign(businessAddress, require('../services/areaDirectory').validateArea(businessAddress));
     seller.businessAddress = businessAddress;
     seller.hasFilledBusinessAddress = true;
 
     const updatedSeller = await seller.save();
     res.json({ message: 'Business address updated successfully', seller: updatedSeller });
   } catch (error) {
+    if (error.code === 'invalid_area') return res.status(400).json({message:error.message});
     res.status(500).json({ message: 'Failed to update business address', error: error.message });
   }
 };

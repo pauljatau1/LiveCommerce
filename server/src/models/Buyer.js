@@ -15,6 +15,7 @@ const addressSchema = new mongoose.Schema({
   country: { type: String, required: true },
   state: { type: String, required: true },
   city: { type: String, required: true },
+  lga: {type:String},
   addressLine1: { type: String, required: true },
   addressLine2: { type: String },
   zipCode: { type: String }, // optional: most Nigerian addresses don't use one
