@@ -1,7 +1,8 @@
+import SafeDescription from './SafeDescription';
 import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
 // Product detail (design: S-Product-Detail): photos, price, stock counter, details, actions.
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { studio, errorText, naira, when } from './api';
 import { Pill, PRODUCT_PILL, Problem, Skeleton, TopBar, Sheet } from './ui';
 import { authenticityLabel } from './catalogue';
@@ -9,7 +10,8 @@ import { authenticityLabel } from './catalogue';
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
+  const location=useLocation();
+  const [data, setData] = useState(location.state?.savedProduct || null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState('');
   const [photo, setPhoto] = useState(0);
@@ -18,7 +20,7 @@ export default function ProductDetail() {
 
   const load = useCallback(() => {
     setError('');
-    studio.product(id).then(setData).catch((e) => setError(errorText(e, "Couldn't load this product.")));
+    studio.product(id).then(result => {if(!result?.product)throw new Error('Missing product');setData(result);}).catch((e) => setError(errorText(e, "Couldn't load this product.")));
   }, [id]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (!toast) return undefined; const t = setTimeout(() => setToast(''), 2500); return () => clearTimeout(t); }, [toast]);
@@ -87,7 +89,7 @@ export default function ProductDetail() {
             ].filter(([, v]) => v).map(([k, v], n) => (
               <div key={k} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, minHeight: 52, padding: '14px 16px', borderTop: n ? '1px solid #F1EBE3' : 0 }}>
                 <span className="cap" style={{ width: 96, paddingTop: 2, flex: 'none' }}>{k}</span>
-                <span style={{ flex: 1, fontWeight: k === 'ABOUT' ? 'var(--w-regular)' : 'var(--w-medium)', fontSize: k === 'ABOUT' ? 'var(--t-body)' : 'var(--t-body)', lineHeight: 1.45, whiteSpace: 'pre-line' }}>{v}</span>
+                <div style={{ flex: 1, fontWeight: k === 'ABOUT' ? 'var(--w-regular)' : 'var(--w-medium)', fontSize: k === 'ABOUT' ? 'var(--t-body)' : 'var(--t-body)', lineHeight: 1.45, whiteSpace: 'pre-line' }}>{k === 'ABOUT' ? <SafeDescription value={v}/> : v}</div>
               </div>
             ))}
           </section>

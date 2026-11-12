@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+const {storedPhone}=require('../utils/phone');
 
 const addressSchema = new mongoose.Schema({
   // Address type is optional and can be any string value
@@ -10,7 +11,7 @@ const addressSchema = new mongoose.Schema({
   firstName: { type: String },
   lastName: { type: String },
   email: { type: String },
-  phoneNumber: { type: String },
+  phoneNumber: { type: String, set: storedPhone },
   // Location fields
   country: { type: String, required: true },
   state: { type: String, required: true },
@@ -74,7 +75,7 @@ const buyerSchema = new mongoose.Schema({
   username: { type: String, unique: true },
   email: { type: String, required: true, unique: true },
   country: { type: String, default: 'NG', required: false },
-  phoneNumber: { type: String, required: false },
+  phoneNumber: { type: String, set: storedPhone, required: false },
   password: {
     type: String,
     required: function () {

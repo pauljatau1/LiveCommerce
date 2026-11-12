@@ -332,9 +332,10 @@ async function getProfile(sellerId) {
     throw new NotFoundException('Seller not found');
   }
 
-  // Step 2.5: Validate phone number format and reset profile if needed
+  // Historical destructive reset, retained for explicit rollback only.
+  // Leading zero is the correct stored format; normal profile reads never write.
   // Check if phone number uses old format (starting with "0")
-  if (seller.phoneNumber && seller.phoneNumber.startsWith('0')) {
+  if (process.env.LEGACY_PHONE_RESET === 'true' && seller.phoneNumber && seller.phoneNumber.startsWith('0')) {
     // Reset profile fields to trigger re-completion with correct phone format
     // Update seller object fields for consistency in response
 

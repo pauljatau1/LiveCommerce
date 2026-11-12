@@ -213,7 +213,7 @@ router.get('/categories', async (req, res) => {
     // Prioritize Gadgets & Electronics categories
     const prioritizedCategories = prioritizeGadgetsCategories(updatedCategories);
 
-    res.json(prioritizedCategories);
+    res.json(require('../config/catalogue').launchCategories(prioritizedCategories));
 
   } catch (error) {
     console.error('Error retrieving categories:', error);
@@ -261,6 +261,7 @@ router.get('/categories/search', async (req, res) => {
     // 2. Any subcategory name matches
     // 3. Any sub-subcategory name matches
     const categories = await Category.find({
+      name: {$in: require('../config/catalogue').LAUNCH_CATEGORY_NAMES},
       $or: [
         { name: searchRegex },
         { 'subCategories.name': searchRegex },

@@ -510,8 +510,8 @@ describe('Register Validator', () => {
     it('should pass validation for various phone number formats', async () => {
       const validPhoneNumbers = [
         '+2348012345678',
-        '+1234567890',
-        '+44123456789',
+        '+2348031234567',
+        '2348031234567',
         '08012345678',
         '1234567890'
       ];

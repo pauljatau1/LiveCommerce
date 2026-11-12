@@ -88,7 +88,7 @@ const sellerPickup = (seller) => {
   return {
     name: seller.storeName || [seller.firstName, seller.lastName].filter(Boolean).join(' ') || 'Seller',
     email: seller.businessEmail || seller.email,
-    phone: seller.phoneNumber,
+    phone: require('../utils/phone').normalisePhone(seller.warehouseDetails?.contactNumber || seller.phoneNumber),
     address: require('./areaDirectory').deliveryAddress(a),
     latitude:a.latitude, longitude:a.longitude,
   };
@@ -103,7 +103,7 @@ const buyerDropoff = (buyer) => {
     cachedKey: a.shipbubbleKey,
     name: [a.firstName || buyer.firstName, a.lastName || buyer.lastName].filter(Boolean).join(' ') || buyer.username || 'Buyer',
     email: a.email || buyer.email,
-    phone: a.phoneNumber || buyer.phoneNumber,
+    phone: require('../utils/phone').normalisePhone(a.phoneNumber || buyer.phoneNumber),
     address: require('./areaDirectory').deliveryAddress(a),
     latitude:a.latitude, longitude:a.longitude,
   };

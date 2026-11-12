@@ -56,7 +56,7 @@ describe('GET /api/v2/buyers/following', () => {
       firstName: 'Test',
       lastName: 'Seller',
       email: 'seller@example.com',
-      phoneNumber: '+1234567890',
+      phoneNumber: '08031234567',
       password: 'password123',
       username: 'testseller',
       storeName: 'Test Store',
@@ -175,7 +175,7 @@ describe('GET /api/v2/buyers/following', () => {
           firstName: `Seller${i}`,
           lastName: 'Test',
           email: `seller${i}@example.com`,
-          phoneNumber: `+123456789${i}`,
+          phoneNumber: `0803123${String(i).padStart(4,'0')}`,
           password: 'password123',
           username: `seller${i}`,
           storeName: `Store ${i}`,
@@ -230,7 +230,7 @@ describe('GET /api/v2/buyers/following', () => {
         firstName: 'First',
         lastName: 'Seller',
         email: 'first@example.com',
-        phoneNumber: '+1234567891',
+        phoneNumber: '08031234569',
         password: 'password123',
         username: 'firstseller',
         storeName: 'First Store'
@@ -241,7 +241,7 @@ describe('GET /api/v2/buyers/following', () => {
         firstName: 'Second',
         lastName: 'Seller',
         email: 'second@example.com',
-        phoneNumber: '+1234567892',
+        phoneNumber: '08031234562',
         password: 'password123',
         username: 'secondseller',
         storeName: 'Second Store'
@@ -287,7 +287,7 @@ describe('GET /api/v2/buyers/following', () => {
         firstName: 'No',
         lastName: 'Store',
         email: 'nostore@example.com',
-        phoneNumber: '+1234567893',
+        phoneNumber: '08031234563',
         password: 'password123',
         username: 'nostore',
         businessName: 'Business Only'
@@ -321,7 +321,7 @@ describe('GET /api/v2/buyers/following', () => {
         firstName: 'No',
         lastName: 'Image',
         email: 'noimage@example.com',
-        phoneNumber: '+1234567894',
+        phoneNumber: '08031234564',
         password: 'password123',
         username: 'noimage',
         storeName: 'No Image Store'

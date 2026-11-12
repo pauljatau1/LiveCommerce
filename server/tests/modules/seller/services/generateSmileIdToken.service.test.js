@@ -110,7 +110,7 @@ describe('Generate SmileID Token Service', () => {
         lastName: 'Smith',
         email: 'jane.smith@example.com',
         password: 'password456',
-        phoneNumber: '0987654321',
+        phoneNumber: '09876543210',
         storeName: 'Jane Store'
       });
       await seller.save();

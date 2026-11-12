@@ -558,7 +558,24 @@ describe('Get Profile Service', () => {
      * These tests verify the profile reset logic for sellers with old phone number formats
      */
     describe('phone number format validation', () => {
-      it('should reset profile fields when phone number starts with 0', async () => {
+      afterEach(() => { delete process.env.LEGACY_PHONE_RESET; });
+      it('does not mutate the seller or write on a normal profile GET', async () => {
+        delete process.env.LEGACY_PHONE_RESET;
+        mockSeller.phoneNumber = '08106430258';
+        mockSeller.storeName = 'Paul’s Store';
+        mockSeller.hasFilledAddress = true;
+        mockSeller.hasFilledBusinessAddress = true;
+        sellerRepository.findByIdWithFields.mockResolvedValue(mockSeller);
+        productRepository.findProductsBySeller.mockResolvedValue([]);
+        const before = structuredClone(mockSeller);
+        const result = await getProfile(mockSeller._id);
+        expect(mockSeller).toEqual(before);
+        expect(result.storeName).toBe('Paul’s Store');
+        expect(result.phoneNumber).toBe('08106430258');
+        expect(sellerRepository.findByIdAndUpdate).not.toHaveBeenCalled();
+      });
+      it('retains the reset only with explicit legacy opt-in', async () => {
+        process.env.LEGACY_PHONE_RESET = 'true';
         // Arrange: Mock seller with old phone number format
         const mockSeller = {
           _id: 'sellerId123',

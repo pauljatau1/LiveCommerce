@@ -46,7 +46,8 @@ it('requires buyer authentication and flags; off keeps methods unavailable', asy
 it('requires consent and profile details before contacting Paystack', async () => {
   expect((await call('post', '/dva', {})).status).toBe(400);
   expect((await call('post', '/dva', { consent: true }, other)).body.message).toMatch(/profile/);
-  await Buyer.updateOne({ _id: buyer._id }, { $set: { phoneNumber: '1234' } });
+  // Bypass setters to represent invalid pre-existing data.
+  await Buyer.collection.updateOne({ _id: buyer._id }, { $set: { phoneNumber: '1234' } });
   expect((await call('post', '/dva', { consent: true })).body.message).toMatch(/11-digit/);
   expect(mockPost).not.toHaveBeenCalled();
 });

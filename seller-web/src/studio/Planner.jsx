@@ -1,3 +1,4 @@
+import {serviceAreaConfig} from './api';
 import useStudioBack from './useStudioBack';
 // Show Planner (design: S-Planner-Pick / S-Planner-Setup / S-Planner-Scheduled).
 // Step 1: pick items + auction or drop. Step 2: title, order, prices, time, cover.
@@ -30,6 +31,8 @@ export default function Planner() {
   const [type, setType] = useState('auction');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [deliveryStates,setDeliveryStates]=useState([]);
+  useEffect(()=>{serviceAreaConfig().then(config=>setDeliveryStates(config.states)).catch(()=>{});},[]);
   const [bids, setBids] = useState({});
   const [now, setNow] = useState(false);
   const [day, setDay] = useState(0);
@@ -84,7 +87,7 @@ export default function Planner() {
       const names = items.slice(0, 2).map((p) => p.name.split(/[,(]|\s[–-]\s/)[0].trim().slice(0, 28));
       setTitle(`${type === 'auction' ? 'Live auction' : 'Live drop'}: ${names.join(' & ')}${items.length > 2 ? ` + ${items.length - 2} more` : ''}`.slice(0, 80));
     }
-    if (!description) setDescription(`${items.map((p) => p.name).join(', ')}. ${type === 'auction' ? 'Bid live, highest bid wins.' : 'Fixed prices, limited stock: first to buy gets it.'} Delivery across Nigeria.`.slice(0, 500));
+    if (!description) setDescription(`${items.map((p) => p.name).join(', ')}. ${type === 'auction' ? 'Bid live, highest bid wins.' : 'Fixed prices, limited stock: first to buy gets it.'} ${deliveryStates.length ? `Delivery within ${deliveryStates.join(' and ')}.` : 'Delivery within our service area.'}`.slice(0, 500));
     setStep(2);
     window.scrollTo(0, 0);
   };

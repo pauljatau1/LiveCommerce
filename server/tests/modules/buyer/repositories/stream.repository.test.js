@@ -49,7 +49,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -95,7 +95,7 @@ describe('Stream Repository', () => {
         lastName: 'Smith',
         email: 'jane@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'Jane\'s Store'
       });
       await testSeller.save();
@@ -134,7 +134,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -161,7 +161,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -188,7 +188,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -242,7 +242,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -280,7 +280,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -310,7 +310,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -321,7 +321,7 @@ describe('Stream Repository', () => {
         lastName: 'Johnson',
         email: 'alice@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890'
+        phoneNumber: '08031234567'
       });
       await testBuyer.save();
 
@@ -448,7 +448,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -476,7 +476,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -505,7 +505,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -528,7 +528,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -551,7 +551,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -573,7 +573,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -596,7 +596,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -619,7 +619,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -651,7 +651,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -683,7 +683,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -715,7 +715,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -755,7 +755,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -795,7 +795,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -837,7 +837,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -886,7 +886,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -930,7 +930,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -970,7 +970,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -1009,7 +1009,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       const seller2 = new Seller({
@@ -1017,7 +1017,7 @@ describe('Stream Repository', () => {
         lastName: 'Smith',
         email: 'jane@example.com',
         password: 'password123',
-        phoneNumber: '+1987654321',
+        phoneNumber: '08031234568',
         businessName: 'Jane\'s Store'
       });
       await Promise.all([seller1.save(), seller2.save()]);
@@ -1065,7 +1065,7 @@ describe('Stream Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();

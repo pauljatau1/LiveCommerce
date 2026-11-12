@@ -7,7 +7,7 @@ import 'suneditor/dist/css/suneditor.min.css';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
-import { account, errorText, naira } from './api';
+import { studio, account, errorText, naira } from './api';
 import { Problem, Skeleton, TopBar } from './ui';
 import { DesktopBar } from './StudioLayout';
 import {
@@ -315,7 +315,7 @@ export default function ProductEditor() {
 
   useEffect(() => {
     account.categories()
-      .then((r) => setCategories(Array.isArray(r) ? r : r.categories || r.data || []))
+      .then((r) => setCategories((Array.isArray(r) ? r : r.categories || r.data || [])))
       .catch((e) => setError(errorText(e, 'Couldn’t load categories. Check your connection and try again.')));
     account.categoryWeights().then(setWeights).catch(() => {});
     if (id) {
@@ -355,8 +355,11 @@ export default function ProductEditor() {
     try {
       const r = await account.saveProduct(id, productPayload(form, original));
       setPhase('saved');
-      const target = id || r._id || r.product?._id || r.data?._id;
-      setTimeout(() => navigate(`/studio/products/${target}`, { replace: true, state: { studioNotice: 'Saved. It’s in your products.' } }), 700);
+      const target = id || r._id || r.product?._id || r.data?.product?._id || r.data?._id;
+      if(!target) throw new Error('Missing saved product ID');
+      // A temporary read failure must not make a retry create a second product.
+      const detail = await studio.product(target).catch(()=>null);
+      navigate(`/studio/products/${target}`, { replace: true, state: { savedProduct: detail, studioNotice: 'Saved. It’s in your products.' } });
     } catch (err) {
       setPhase('');
       setError(errorText(err, 'Couldn’t save this product. Check your connection and try again. Nothing you typed is lost.'));
@@ -381,6 +384,7 @@ export default function ProductEditor() {
       <div className={`inbox${errFor(key) ? ' bad' : ''}`}>
         <select id={`pe-${key}-in`} value={form[key]} onChange={(e) => (onPick ? onPick(e.target.value) : set(key, e.target.value))}>
           <option value="">Choose</option>
+          {form[key] && !options.includes(form[key]) && <option value={form[key]} disabled>{form[key]} (saved category)</option>}
           {options.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
         {Down('var(--text-muted)')}

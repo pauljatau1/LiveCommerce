@@ -79,7 +79,7 @@ function generateResetOTP() {
  */
 function formatPhoneNumberForTermii(phoneNumber) {
   // Remove + prefix if present, as Termii API requires phone numbers without +
-  return phoneNumber.startsWith('+') ? phoneNumber.substring(1) : phoneNumber;
+  return require('../../../utils/phone').internationalPhone(phoneNumber).replace(/^\+/, '');
 }
 
 /**

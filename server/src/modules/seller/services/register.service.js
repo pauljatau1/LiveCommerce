@@ -296,7 +296,7 @@ async function register(data) {
     lastName: data.lastName,
     email: data.email,
     password: data.password,
-    phoneNumber: data.phoneNumber,
+    phoneNumber: data.phoneNumber ? require('../../../utils/phone').storedPhone(data.phoneNumber) : data.phoneNumber,
     storeName: data.storeName,
     emailVerified: true, // Automatically verify email on registration
     agoraUid: agoraUid

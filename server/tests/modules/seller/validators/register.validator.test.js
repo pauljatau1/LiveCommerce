@@ -663,7 +663,7 @@ describe('Seller Registration Validator', () => {
           lastName: 'A'.repeat(50),
           email: 'a'.repeat(240) + '@example.com',
           password: 'password123',
-          phoneNumber: '123456789012345',
+          phoneNumber: '+2348031234567',
           storeName: 'A'.repeat(100)
         };
 

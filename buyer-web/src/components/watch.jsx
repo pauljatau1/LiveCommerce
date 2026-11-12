@@ -1,3 +1,4 @@
+import SafeDescription from './SafeDescription';
 // Presentational pieces of the Watch screen. Watch.jsx owns the state.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { imageOf, naira } from '../api';
@@ -158,6 +159,7 @@ export function ItemsList({ items, current, buyerId, busy, onBuy }) {
               {isNow && <div className="cap">ON NOW</div>}
               <div style={{ fontWeight: 700 }}>{p.product?.name}</div>
               <div className="mut" style={{ fontSize: 14 }}>{line}</div>
+              {p.product?.description && <details><summary className="link">About this item</summary><SafeDescription value={p.product.description}/></details>}
             </div>
             {onBuy && !p.minBid && !ended && stock !== 0 && (
               <button type="button" className="btn" style={{ minHeight: 44, padding: '0 14px' }} disabled={busy} onClick={() => onBuy(p)}>{naira(priceOf(p))}</button>

@@ -256,7 +256,7 @@ async function getNewBuyerObject(data) {
     username: data.username,
     email: data.email,
     country: data.country,
-    phoneNumber: data.phoneNumber,
+    phoneNumber: data.phoneNumber ? require('../../../utils/phone').storedPhone(data.phoneNumber) : data.phoneNumber,
     password: data.password,
     // Step 2: Email is auto-verified (no OTP required)
     emailVerified: true,

@@ -107,6 +107,8 @@ function validatePhoneNumberField(phoneNumber, errors) {
     errors.push({ field: 'phoneNumber', message: 'Phone number must be at least 10 characters long' });
   } else if (phoneNumber.trim().length > 15) {
     errors.push({ field: 'phoneNumber', message: 'Phone number must not exceed 15 characters' });
+  } else if (!require('../../../utils/phone').normalisePhone(phoneNumber)) {
+    errors.push({field:'phoneNumber',message:require('../../../utils/phone').PHONE_ERROR});
   }
 }
 
