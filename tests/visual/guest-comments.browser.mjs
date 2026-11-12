@@ -22,7 +22,7 @@ async function fixture({ enabled = true, saved = true, width = 390, missingAddre
  state.profile = { _id: 'buyer', firstName: 'Ada', lastName: 'Test', email: 'ada@test.example', phoneNumber: missingAddress ? '' : '08012345678', shippingAddresses: missingAddress ? [] : [{ _id: 'home', isDefault: true, state: 'Lagos', city: 'Lekki', addressLine1: '5 Test Road' }] };
  const errors = []; page.on('pageerror', e => errors.push(e.message)); state.errors = errors;
  await page.addInitScript(() => {
-  
+
   window.PaystackPop = class {
    newTransaction(options) { window.__popupOptions = options; }
    resumeTransaction(code, options) { window.__resumed = code; window.__resumeOptions = options; }
