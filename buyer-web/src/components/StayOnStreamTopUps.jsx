@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { api, errorMessage, naira } from '../api';
 import { resumeSavedCard } from '../payments';
 import { useAuth } from '../auth';
-import {phoneProblem} from './AddressSheet';
+import {phoneProblem,PHONE_HINT} from '../phone';
 import { oneTapAmount } from '../walletIntents';
 
 export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWaiting, onPending, onMethod, onUseAnotherCard, onBusyChange, initialBank }) {
   const { buyer,refresh } = useAuth();
   const [phone,setPhone]=useState('');
+  const needsPhone=Boolean(phoneProblem(buyer?.phoneNumber));
   const [cards, setCards] = useState([]), [dva, setDva] = useState({ status: 'none' });
   const [bank, setBank] = useState(Boolean(initialBank)), [consent, setConsent] = useState(false);
   const [error, setError] = useState(''), [busy, setBusy] = useState(''), [notice, setNotice] = useState('');
@@ -59,7 +60,7 @@ export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWa
   };
   const assign = async () => {
     setBusy('Setting up your account number…'); setError('');
-    try { if(!buyer?.phoneNumber){const problem=phoneProblem(phone);if(problem)throw {response:{data:{message:problem}}};await api.savePhone(phone);await refresh();} const account = await api.assignDva(); setDva(account); callbacks.current.onWaiting?.({ ...account, since: waitingSince.current }); }
+    try { if(needsPhone){const problem=phoneProblem(phone);if(problem)throw {response:{data:{message:problem}}};await api.savePhone(phone);await refresh();} const account = await api.assignDva(); setDva(account); callbacks.current.onWaiting?.({ ...account, since: waitingSince.current }); }
     catch (e) { setError(errorMessage(e, 'We can’t set up an account number right now. Use a card instead.')); }
     finally { if (mounted.current) setBusy(''); }
   };
@@ -94,8 +95,8 @@ export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWa
       <h3 className="h2">Get your own account number</h3>
       <p className="hint">Paystack opens a bank account number in your name. Any transfer to it lands in your gbam wallet in seconds. You keep it for every show.</p>
       <span>{[buyer?.firstName, buyer?.lastName].filter(Boolean).join(' ') || 'Add your name in your profile'}</span>
-      <span className="hint">{buyer?.phoneNumber ? `•••••••${buyer.phoneNumber.slice(-4)}` : 'Add your phone here to get an account number.'}</span>
-      {!buyer?.phoneNumber&&<div className="fl"><label className="lab" htmlFor="dva-phone">Phone</label><input id="dva-phone" className="in" type="tel" autoComplete="tel" placeholder="0803 123 4567" value={phone} onChange={e=>setPhone(e.target.value)}/></div>}
+      <span className="hint">{!needsPhone ? `•••••••${buyer.phoneNumber.slice(-4)}` : 'Add your phone here to get an account number.'}</span>
+      {needsPhone&&<div className="fl"><label className="lab" htmlFor="dva-phone">Phone</label><input id="dva-phone" className="in" type="tel" autoComplete="tel" placeholder="0803 123 4567" value={phone} onChange={e=>setPhone(e.target.value)}/><span className="hint">{PHONE_HINT}</span></div>}
       <label className="hint"><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} /> I agree to Paystack opening an account number in my name for gbam top-ups.</label>
       <button type="button" className="btn" disabled={!consent} onClick={assign}>Get my account number</button>
     </>}

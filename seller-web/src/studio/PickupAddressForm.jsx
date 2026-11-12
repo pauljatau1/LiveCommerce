@@ -1,3 +1,4 @@
+import {PHONE_HINT} from './phone';
 import GoogleAddress from './GoogleAddress';
 import {PickupAreaField} from './ServiceArea';
 export default function PickupAddressForm({config,value,onChange,onNotify}) {
@@ -9,6 +10,6 @@ export default function PickupAddressForm({config,value,onChange,onNotify}) {
    <div className="fl"><label className="lab" htmlFor="pk-l1">Street address</label><input id="pk-l1" className="in" value={value.addressLine1 || ''} onChange={set('addressLine1')} autoComplete="street-address" /></div>
   </GoogleAddress>
   <div className="fl"><label className="lab" htmlFor="pk-lm">Landmark <span className="hint">optional</span></label><input id="pk-lm" className="in" value={value.landmark || ''} onChange={set('landmark')} /></div>
-  <div className="fl"><label className="lab" htmlFor="pk-ph">Phone for couriers</label><input id="pk-ph" className="in" type="tel" inputMode="tel" value={value.phone || ''} onChange={set('phone')} autoComplete="tel" placeholder="0803 123 4567" /><span className="hint">10 or 11 digits, e.g. 0803 123 4567</span></div>
+  <div className="fl"><label className="lab" htmlFor="pk-ph">Phone for couriers</label><input id="pk-ph" className="in" type="tel" inputMode="tel" value={value.phone || ''} onChange={set('phone')} autoComplete="tel" placeholder="0803 123 4567" /><span className="hint">{PHONE_HINT}</span></div>
  </>;
 }

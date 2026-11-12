@@ -28,6 +28,7 @@ function findArea({state, city, lga} = {}) {
 function validateArea(address) {
   if (!address?.city || !address?.state) throw Object.assign(new BadRequestException('Choose your area from the list.'), {status:400, code:'invalid_area'});
   requireState(address.state);
+  if(address.phoneNumber !== undefined && require('../utils/phone').phoneProblem(address.phoneNumber))throw Object.assign(new BadRequestException(require('../utils/phone').PHONE_ERROR),{status:400});
   const row = findArea(address);
   if (address.addressSource === 'google') {
     const {latitude, longitude} = address;

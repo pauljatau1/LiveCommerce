@@ -5,9 +5,9 @@ const rateLimit = require('express-rate-limit');
 const Buyer = require('../models/Buyer');
 const {verifyToken,isBuyer} = require('../middlewares/authMiddleware');
 router.put('/profile/phone',verifyToken,isBuyer, async (req,res)=>{
-  let phone=String(req.body?.phoneNumber || '').replace(/\D/g,'');
-  if(phone.startsWith('234')) phone='0'+phone.slice(3);
-  if(!/^0[789]\d{9}$/.test(phone))return res.status(400).json({message:'Enter an 11-digit Nigerian phone number, like 0803 123 4567.'});
+  const {phoneDigits,phoneProblem}=require('../utils/phone');
+  const phone=phoneDigits(req.body?.phoneNumber);
+  if(phoneProblem(phone))return res.status(400).json({message:phoneProblem(phone)});
   try {
     const buyer=await Buyer.findByIdAndUpdate(req.user.id,{$set:{phoneNumber:phone,phoneVerified:false}},{new:true});
     if(!buyer)return res.status(404).json({message:'Please sign in again.'});

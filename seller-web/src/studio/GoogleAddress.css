@@ -1,3 +1,5 @@
 .ga-address{display:flex;flex-direction:column;gap:12px}.ga-picked{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #DDD5C9;border-radius:12px;background:#fff}.ga-picked>span{flex:1;min-width:0;font-size:15px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ga-picked button{flex-shrink:0}.ga-suggestions{display:flex;flex-direction:column;border:1px solid #DDD5C9;border-radius:12px;overflow:hidden;background:#fff;max-height:250px;overflow-y:auto}.ga-suggestions button{min-height:48px;padding:12px 14px;border:0;border-bottom:1px solid #EEE7DE;background:transparent;text-align:left;color:#1D2A24;font:400 15px/1.4 Nunito,system-ui,sans-serif}.ga-suggestions button[aria-selected=true]{background:#F4EFE8}.ga-outside{border:1px solid #DDD5C9;border-radius:12px;padding:12px;background:#F4EFE8;font-size:13px}.ga-outside strong{font-weight:600}.ga-outside p{margin:8px 0 12px}
 
 .ga-outside .lab{display:flex;flex-direction:column;align-items:stretch;margin-bottom:12px}
+.ga-selection{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ga-selection .ga-location-note{margin:0;padding:0 2px}

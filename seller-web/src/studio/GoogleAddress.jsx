@@ -18,13 +18,14 @@ export default function GoogleAddress({config,value,onChange,onNotify,needContac
     return()=>{clearTimeout(timer);sequence.current++;};
   },[query,status,editing,config]);
   useEffect(()=>{if(status==='fallback'&&config?.states?.length===1&&!allowedPlace(config,value.state))onChange({state:config.states[0],city:'',lga:'',addressLine1:'',latitude:null,longitude:null,addressSource:'manual',formattedAddress:''});},[status,config,value.state,onChange]);
-  const apply=place=>{
+  const [fromLocation,setFromLocation]=useState(false);
+  const apply=(place,currentLocation=false)=>{
     if(!config?.states?.length){setError('Delivery areas are still loading. Please try again.');return;}
     const address=mapPlace(place);
     if(address.country.toUpperCase()!=='NG'){setError('Choose an address in Nigeria.');return;}
     if(!allowedPlace(config,address.state)){setSuggestions([]);setNotice('');setOutside(address.state);onChange({...address,addressLine1:''});return;}
     if(!address.addressLine1||!address.city||!Number.isFinite(address.latitude)||!Number.isFinite(address.longitude)){setError('Google didn’t return a complete address. Choose your area below.');setStatus('fallback');return;}
-    setOutside(null);onChange(address);setSuggestions([]);setEditing(false);setError('');
+    setFromLocation(currentLocation);setOutside(null);onChange(address);setSuggestions([]);setEditing(false);setError('');
   };
   const pick=async suggestion=>{setBusy(true);setError('');sequence.current++;try{
     const place=suggestion.placePrediction.toPlace();await place.fetchFields({fields:PLACE_FIELDS});if(active.current)apply(place);
@@ -36,14 +37,14 @@ export default function GoogleAddress({config,value,onChange,onNotify,needContac
     setBusy(true);navigator.geolocation.getCurrentPosition(async position=>{try{
       const {Geocoder}=await sdk.current.maps.importLibrary('geocoding');
       const result=await new Geocoder().geocode({location:{lat:position.coords.latitude,lng:position.coords.longitude},region:'ng'});
-      if(active.current){if(!result.results?.length)throw new Error('empty');apply(result.results[0]);setNotice('Address found from your current location.');}
+      if(active.current){if(!result.results?.length)throw new Error('empty');apply(result.results[0],true);setNotice('');}
     }catch{if(active.current)setError('We couldn’t find an address at your location. Type your address instead.');}
     finally{if(active.current)setBusy(false);}},failure=>{if(active.current){setBusy(false);setNotice('');setError(failure.code===1?'Location permission was denied. Type your address instead.':'We couldn’t get your location. Type your address instead.');}},{enableHighAccuracy:true,timeout:12000,maximumAge:30000});
   };
   if(status==='fallback')return <>{error&&<p className="hint" role="status">{error}</p>}{children}</>;
   return <section className="ga-address" aria-label="Find your address">
     {status==='loading'?<p className="hint" role="status">Loading address search…</p>:<>
-      {!editing&&value.addressLine1?<div className="ga-picked"><span>{value.formattedAddress || [value.addressLine1,value.city,value.state].filter(Boolean).join(', ')}</span><button type="button" className="link" onClick={()=>{setEditing(true);setQuery('');setNotice('');onChange({addressLine1:'',city:'',lga:'',latitude:null,longitude:null,addressSource:'manual',formattedAddress:''});}}>Change</button></div>:<>
+      {!editing&&value.addressLine1?<div className="ga-selection"><div className="ga-picked"><span>{value.formattedAddress || [value.addressLine1,value.city,value.state].filter(Boolean).join(', ')}</span><button type="button" className="link" onClick={()=>{setEditing(true);setQuery('');setNotice('');onChange({addressLine1:'',city:'',lga:'',latitude:null,longitude:null,addressSource:'manual',formattedAddress:''});}}>Change</button></div>{fromLocation&&<p className="hint ga-location-note" role="status">Address found from your current location</p>}</div>:<>
         <label className="lab" htmlFor={`places-${id}`}>Start typing your street or building</label>
         <input id={`places-${id}`} className="in" placeholder="Start typing your street or building" value={query} disabled={busy} autoComplete="off" role="combobox" aria-autocomplete="list" aria-expanded={suggestions.length>0} aria-controls={`places-list-${id}`} aria-activedescendant={suggestions.length?`places-option-${id}-${highlight}`:undefined} onChange={e=>{setQuery(e.target.value);setError('');setOutside(null);}} onKeyDown={e=>{if(e.key==='ArrowDown'&&suggestions.length){e.preventDefault();setHighlight(i=>(i+1)%suggestions.length);}if(e.key==='ArrowUp'&&suggestions.length){e.preventDefault();setHighlight(i=>(i+suggestions.length-1)%suggestions.length);}if(e.key==='Enter'){e.preventDefault();if(suggestions[highlight])pick(suggestions[highlight]);}if(e.key==='Escape'&&suggestions.length){e.preventDefault();e.stopPropagation();setSuggestions([]);}}} />
         {!!suggestions.length&&<div id={`places-list-${id}`} className="ga-suggestions" role="listbox">{suggestions.map((suggestion,i)=><button id={`places-option-${id}-${i}`} key={suggestion.placePrediction.placeId || i} type="button" role="option" aria-selected={i===highlight} disabled={busy} onClick={()=>pick(suggestion)}>{suggestion.placePrediction.text.toString()}</button>)}</div>}

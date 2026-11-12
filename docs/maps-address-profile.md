@@ -12,7 +12,7 @@ The picker remains available when the key is absent, script/library loading fail
 
 Seller pickup editing uses `/studio/pickup` and returns to Me, Store profile or the studio page that opened the pickup banner. The getting-started flow keeps its own steps and reuses the same form. Legacy pickup markup remains behind its inactive flag.
 
-Buyer `/me` uses existing profile and address APIs. The new buyer-only phone action applies the Nigerian mobile check and normalization used by bank setup. The password action verifies the current password, limits guesses, invalidates old session tokens, returns a fresh current-session token and sends the existing password-changed email. Phone is entered and saved inline before DVA creation when missing; the live screen stays mounted.
+Buyer `/me` uses existing profile and address APIs. The new buyer-only phone action applies the local phone rule used by bank setup: 11 digits starting with 0, with spaces allowed for readability. The active seller sign-up, pickup, buyer address/profile and bank-consent forms share matching hint/error constants, with a parity test across buyer, studio and server helpers. New phone/address and pickup saves reject 10-digit or +234 entries. The password action verifies the current password, limits guesses, invalidates old session tokens, returns a fresh current-session token and sends the existing password-changed email. Phone is entered and saved inline before DVA creation when missing; the live screen stays mounted.
 
 ## Configuration
 
@@ -20,7 +20,7 @@ Set `VITE_GOOGLE_MAPS_KEY` on the shop and studio static sites, then rebuild. En
 
 ## Validation results
 
-261 server suites / 3,874 tests passed. Buyer: 18 tests passed. Studio: 38 tests passed. Both app builds passed. The new Maps/profile browser checks and the existing stay-on-stream top-up browser suite passed, including saved card, transfer and popup paths with a real quoted-deposit fixture.
+261 server suites / 3,878 tests passed. Buyer: 19 tests passed. Studio: 38 tests passed. Both app builds passed. The new Maps/profile browser checks and the existing stay-on-stream top-up browser suite passed, including saved card, transfer and popup paths with a real quoted-deposit fixture.
 
 ## Local checks
 
@@ -43,3 +43,11 @@ Screenshots and browser API records in `docs/screenshots/maps-address-profile` u
 5. Edit pickup from Me and Store profile; save and confirm return to the originating page without bank/store questions.
 6. Visit buyer My profile from Home and Wallet. Edit details/phone; add, edit, default and remove an address. Change password; confirm an old session is refused and the current page stays signed in. Sign out.
 7. On a show with a buyer whose profile has no phone, choose Bank transfer. Enter the phone inside consent and continue without leaving the show.
+
+## Pre-PR UI review
+
+Retook all eight original captures after the review changes and added `inline-dva-phone-360.png`. Bank consent is captured inside the real `TopUpSheet`, with assertions at 360px and 390px that its phone input aligns to the balance row at 18px side insets. Outside-state addresses disable Save in buyer/pickup forms and the one-step Bid/Pay action; server enforcement remains active.
+
+My profile uses plain email text, 44px Edit/Remove buttons, a styled Default pill, section-aligned Wallet/Sign out controls and independently accessible password show/hide buttons. The current-location confirmation is grouped directly under the selected address at a 4px gap.
+
+Browser assertions cover both password toggles, tap heights, profile button alignment, disabled outside-state buyer/pickup actions, wallet insets and location-note grouping. Phone parity and endpoint tests reject 10 digits, +234, wrong lengths and letters with the same error.

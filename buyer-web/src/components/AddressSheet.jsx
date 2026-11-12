@@ -11,15 +11,8 @@ import { useAuth } from '../auth';
 import { Sheet } from './ui';
 
 // The address form, shared by this sheet and the "One step, then your bid" sheet.
-// Nigerian mobile numbers: 0803 123 4567 (11 digits), +234 803 123 4567, or 803 123 4567
-export const phoneProblem = (raw) => {
-  const d = String(raw || '').replace(/[^\d]/g, '');
-  if (!d) return 'Add a phone number so the courier can reach you.';
-  const local = d.startsWith('234') ? d.slice(3) : d.startsWith('0') ? d.slice(1) : d;
-  if (local.length !== 10 || !/^[789]/.test(local)) return 'Check the phone number: it should look like 0803 123 4567 (11 digits).';
-  return '';
-};
-
+export {phoneProblem} from '../phone';
+import {phoneProblem,PHONE_HINT} from '../phone';
 export function useAddressForm(initialAddress = null) {
   const { buyer } = useAuth();
   const { config, error: areaError } = useServiceArea();
@@ -74,7 +67,7 @@ export function useAddressForm(initialAddress = null) {
   });
 
   const chooseArea = area => setForm(form=>({...form,city:area.name,lga:area.lga,latitude:null,longitude:null,addressSource:'manual',formattedAddress:''}));
-  return {form,set,chooseArea,states,cities,problem,save,config,buyer,chooseGoogleAddress:address=>setForm(form=>({...form,...address})),notify:(state,email)=>api.joinWaitlist({state,email})};
+  return {outOfArea:Boolean(config && form.state && !allowsState(config,form.state)),form,set,chooseArea,states,cities,problem,save,config,buyer,chooseGoogleAddress:address=>setForm(form=>({...form,...address})),notify:(state,email)=>api.joinWaitlist({state,email})};
 }
 
 export function AddressFields({ address, askPhone, idPrefix = 'ad', contactEmail = '' }) {
@@ -109,7 +102,8 @@ export function AddressFields({ address, askPhone, idPrefix = 'ad', contactEmail
       {(askPhone || address.config) && (
         <div className="fl">
           <label className="lab" htmlFor={`${idPrefix}-ph`}>Phone for the courier</label>
-          <input id={`${idPrefix}-ph`} className="in" type="tel" inputMode="tel" value={form.phoneNumber} onChange={set('phoneNumber')} placeholder="e.g. 0803 123 4567" autoComplete="tel" />
+          <input id={`${idPrefix}-ph`} className="in" type="tel" inputMode="tel" value={form.phoneNumber} onChange={set('phoneNumber')} placeholder="0803 123 4567" autoComplete="tel" />
+          <span className="hint">{PHONE_HINT}</span>
         </div>
       )}
     </>
@@ -146,7 +140,7 @@ export default function AddressSheet({ onClose, onSaved, top = null, initialAddr
       <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <AddressFields address={address} askPhone={!buyer?.phoneNumber} />
         {error && <span className="err" role="alert">{error}</span>}
-        <button type="submit" className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save address'}</button>
+        <button type="submit" className="btn" disabled={busy || address.outOfArea}>{busy ? 'Saving…' : 'Save address'}</button>
       </form>
     </Sheet>
   );

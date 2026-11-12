@@ -62,7 +62,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
   const dep = chatOnly ? 0 : needAddress ? (typedQuote.status === 'ok' ? typedQuote.amount : null) : deposit;
   const depInfo = needAddress ? (typedQuote.status === 'ok' ? typedQuote : null) : quote;
   // A saved address is priced on the server when the button is pressed (finish)
-  const priced = chatOnly || !needAddress || dep !== null;
+  const priced = chatOnly || !needAddress || (!address.outOfArea && dep !== null);
   const cost = chatOnly ? 0 : action.amount + (dep || 0);
   const pay = chatOnly || !priced ? 0 : topUpFor(cost - available);
 
@@ -228,7 +228,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
       )}
 
       {error.where === '' && error.text && <span className="err" role="alert">{error.text}</span>}
-      <button type="button" className="btn" disabled={Boolean(busy) || !priced} onClick={go}>{busy || buttonText}</button>
+      <button type="button" className="btn" disabled={Boolean(busy) || !priced || (needAddress && address.outOfArea)} onClick={go}>{busy || buttonText}</button>
       {!chatOnly && <span className="hint" style={{ textAlign: 'center' }}>The show keeps playing while you do this.</span>}
     </Sheet>
   );

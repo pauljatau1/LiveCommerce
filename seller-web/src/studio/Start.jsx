@@ -1,3 +1,5 @@
+import {PHONE_HINT,phoneProblem} from './phone';
+import {allowedPlace} from './googlePlaces';
 import PickupAddressForm from './PickupAddressForm';
 import {notifyDeliveryState} from './api';
 const LEGACY_PICKUP_FORM = false; // Existing manual form remains available as the Google fallback below.
@@ -88,6 +90,7 @@ export default function Start() {
   // Saves; offline, it waits and saves the moment the phone is back online
   const save = useCallback(async (kind, body, next) => {
     setError('');
+    if(kind==='pickup' && phoneProblem(body.phone)){setError(phoneProblem(body.phone));return;}
     if (!navigator.onLine) { setPending({ kind, body, next }); return; }
     setBusy(kind);
     try {
@@ -202,12 +205,12 @@ export default function Start() {
             <div className="fl">
               <label className="lab" htmlFor="pk-ph">Phone for couriers</label>
               <input id="pk-ph" className="in" type="tel" inputMode="tel" value={answers.phone || ''} onChange={set('phone')} placeholder="0803 123 4567" autoComplete="tel" />
-              <span className="hint">10 or 11 digits, e.g. 0803 123 4567</span>
+              <span className="hint">{PHONE_HINT}</span>
             </div>
             </> : <PickupAddressForm config={areaConfig} value={answers} onChange={next=>{setAnswers(next);keep(next);}} onNotify={notifyDeliveryState} />}
             {pending?.kind === 'pickup' && <span className="hint">We'll save this the moment you're back online. No need to type it again.</span>}
             {error && <Problem text={error} />}
-            <button type="button" className="btn" disabled={busy === 'pickup'} onClick={() => save('pickup', {state:answers.state,city:answers.city,lga:answers.lga,addressLine1:answers.addressLine1,landmark:answers.landmark,phone:answers.phone,latitude:answers.latitude,longitude:answers.longitude,addressSource:answers.addressSource,formattedAddress:answers.formattedAddress}, 'bank')}>
+            <button type="button" className="btn" disabled={busy === 'pickup' || Boolean(areaConfig && answers.state && !allowedPlace(areaConfig,answers.state))} onClick={() => save('pickup', {state:answers.state,city:answers.city,lga:answers.lga,addressLine1:answers.addressLine1,landmark:answers.landmark,phone:answers.phone,latitude:answers.latitude,longitude:answers.longitude,addressSource:answers.addressSource,formattedAddress:answers.formattedAddress}, 'bank')}>
               {busy === 'pickup' ? 'Saving…' : pending?.kind === 'pickup' ? 'Save when I’m back online' : 'Save address'}
             </button>
           </>

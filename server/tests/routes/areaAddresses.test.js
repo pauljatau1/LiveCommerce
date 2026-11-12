@@ -45,7 +45,7 @@ test('inline phone save is buyer-only and normalises Nigerian numbers',async()=>
  const save=(token,phoneNumber)=>request(app).put('/api/v2/buyers/profile/phone').set('Authorization',`Bearer ${token}`).send({phoneNumber});
  expect((await save(sellerToken,'08031234567')).status).toBe(403);
  expect((await save(buyerToken,'123')).status).toBe(400);
- expect((await save(buyerToken,'+234 803 123 4567')).status).toBe(200);
+ expect((await save(buyerToken,'0803 123 4567')).status).toBe(200);
  expect((await Buyer.findById(buyer)).phoneNumber).toBe('08031234567');
 });
 test('change password requires current password and invalidates other sessions',async()=>{
@@ -61,4 +61,12 @@ test('guest and seller outside-state notifications deduplicate',async()=>{
  for(let i=0;i<2;i++)expect((await request(app).post('/api/v2/watch/waitlist').send({state:'Ogun',email:'guest@example.test'})).status).toBe(200);
  for(let i=0;i<2;i++)expect((await request(app).post('/api/v2/watch/waitlist').set('Authorization',`Bearer ${sellerToken}`).send({state:'Ogun'})).status).toBe(200);
  expect(await Waitlist.countDocuments({state:'ogun'})).toBe(2);
+});
+
+test.each(['8031234567','+2348031234567','0803123456','abc08031234567'])('buyer and seller phone writes reject %s with the same message',async phone=>{
+ const message=require('@utils/phone').PHONE_ERROR;
+ const buyerPhone=await request(app).put('/api/v2/buyers/profile/phone').set('Authorization',`Bearer ${buyerToken}`).send({phoneNumber:phone});
+ const buyerAddress=await request(app).post('/api/v2/buyers/addresses').set('Authorization',`Bearer ${buyerToken}`).send({...payload,phoneNumber:phone});
+ const sellerPickup=await request(app).put('/api/v2/studio/onboarding/pickup').set('Authorization',`Bearer ${sellerToken}`).send({...payload,phone});
+ for(const result of [buyerPhone,buyerAddress,sellerPickup]){expect(result.status).toBe(400);expect(result.body.message).toBe(message);}
 });

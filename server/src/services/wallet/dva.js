@@ -2,11 +2,8 @@ const Buyer = require('../../models/Buyer');
 const Transaction = require('../../models/Transaction');
 const { client, requireMethod, WalletPaymentError: Error, emit } = require('./paystackClient');
 const failure = "We can't set up an account number right now. Use a card instead.";
-const phoneFor = (value) => {
-  let digits = String(value || '').replace(/\D/g, '');
-  if (digits.startsWith('234') && digits.length === 13) digits = `0${digits.slice(3)}`;
-  return /^0[789]\d{9}$/.test(digits) ? digits : null;
-};
+const {phoneDigits,phoneProblem,PHONE_ERROR}=require('../../utils/phone');
+const phoneFor = value => phoneProblem(value) ? null : phoneDigits(value);
 const details = (buyer) => ({ status: buyer.dva?.status || 'none', accountNumber: buyer.dva?.accountNumber,
   accountName: buyer.dva?.accountName, bankName: buyer.dva?.bankName, bankSlug: buyer.dva?.bankSlug,
   assignedAt: buyer.dva?.assignedAt });
@@ -32,7 +29,7 @@ async function assign(buyerId, consent) {
   if (buyer.dva?.status === 'active' || buyer.dva?.status === 'pending') return details(buyer);
   if (!buyer.firstName?.trim() || !buyer.lastName?.trim()) throw new Error(400, 'Add your first and last name to your profile.');
   const phone = phoneFor(buyer.phoneNumber);
-  if (!phone) throw new Error(400, 'Enter an 11-digit Nigerian phone number here to get your account number.');
+  if (!phone) throw new Error(400, PHONE_ERROR);
   const preferredBank = process.env.PAYSTACK_DVA_BANK || (process.env.PAYSTACK_SECRET_KEY?.startsWith('sk_test_') ? 'test-bank' : null);
   if (!preferredBank) throw new Error(503, failure);
   const claimed = await Buyer.findOneAndUpdate({ _id: buyerId, 'dva.status': { $nin: ['pending', 'active'] } },

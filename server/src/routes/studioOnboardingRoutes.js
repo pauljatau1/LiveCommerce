@@ -60,10 +60,11 @@ router.put('/pickup', async (req, res) => {
   const city = clean(req.body?.city, 60);
   const addressLine1 = clean(req.body?.addressLine1, 160);
   const landmark = clean(req.body?.landmark, 120);
-  const phone = digits(req.body?.phone);
+  const {phoneDigits,phoneProblem}=require('../utils/phone');
+  const phone = phoneDigits(req.body?.phone);
   if (!require('../services/serviceArea').inServiceArea(state)) return bad(res, require('../services/serviceArea').pickupMessage());
   if (!state || !city || !addressLine1) return bad(res, 'Add your state, area and street address.');
-  if (!/^(0[789][01]\d{8}|[789][01]\d{8}|234[789][01]\d{8})$/.test(phone)) return bad(res, 'Add a phone number couriers can call, like 0803 123 4567.');
+  if (phoneProblem(phone)) return bad(res, phoneProblem(phone));
   try {
     const address = { country: 'NG', state, city, addressLine1, addressLine2: landmark || undefined, ...require('../services/areaDirectory').validateArea({...req.body,state,city,addressLine1}) };
     const s = await Seller().findByIdAndUpdate(req.user.id, {
