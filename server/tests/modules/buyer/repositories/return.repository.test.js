@@ -49,7 +49,7 @@ describe('Return Repository', () => {
       firstName: 'Jane',
       lastName: 'Smith',
       email: 'jane.smith@example.com',
-      phoneNumber: '+1234567890',
+      phoneNumber: '08031234567',
       password: 'password123',
       storeName: 'Jane\'s Store'
     });
@@ -868,7 +868,7 @@ describe('Return Repository', () => {
         firstName: 'Bob',
         lastName: 'Wilson',
         email: 'bob.wilson@example.com',
-        phoneNumber: '+1987654321',
+        phoneNumber: '08031234568',
         password: 'password123',
         storeName: 'Bob\'s Store'
       });

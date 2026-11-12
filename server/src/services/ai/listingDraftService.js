@@ -75,7 +75,7 @@ const loadCategories = async () => {
   // Offer only the launch (clothing) categories once they exist; older
   // databases still hold the anime and gaming ones, which stay untouched.
   const launch = rows.filter((c) => LAUNCH_CATEGORY_NAMES.includes(c.name));
-  return (launch.length ? launch : rows).map((c) => ({ name: c.name, subCategories: (c.subCategories || []).map((s) => s.name) }));
+  return (process.env.LEGACY_CATEGORIES === 'true' ? rows : launch).map((c) => ({ name: c.name, subCategories: (c.subCategories || []).map((s) => s.name) }));
 };
 
 const buildInstructions = (categories, note) => `You help Nigerian sellers of clothing, shoes, bags and accessories list items for a live shopping app.

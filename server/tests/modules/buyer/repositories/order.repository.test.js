@@ -132,7 +132,7 @@ describe('Order Repository', () => {
         lastName: 'Doe',
         email: 'seller@test.com',
         password: 'password123',
-        phoneNumber: '+1234567890'
+        phoneNumber: '08031234567'
       });
       await Product.create({ 
         _id: productId, 
@@ -280,7 +280,7 @@ describe('Order Repository', () => {
         lastName: 'Smith',
         email: 'jane@test.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         storeName: 'Test Store'
       });
       await testSeller.save();
@@ -474,7 +474,7 @@ describe('Order Repository', () => {
         lastName: 'Smith',
         email: 'jane@test.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         storeName: 'Test Store'
       });
       await testSeller.save();
@@ -531,7 +531,7 @@ describe('Order Repository', () => {
         lastName: 'Johnson',
         email: 'bob@test.com',
         password: 'password123',
-        phoneNumber: '+1234567891',
+        phoneNumber: '08031234569',
         storeName: 'Other Store'
       });
       await otherSeller.save();
@@ -567,7 +567,7 @@ describe('Order Repository', () => {
         lastName: 'Smith',
         email: 'jane@test.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         storeName: 'Test Store'
       });
       await testSeller.save();
@@ -761,7 +761,7 @@ describe('Order Repository', () => {
         lastName: 'Smith',
         email: 'jane@test.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         storeName: 'Test Store'
       });
       await testSeller.save();

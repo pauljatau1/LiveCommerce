@@ -26,7 +26,7 @@ const view = (s) => {
   return {
     serviceArea: require('../services/serviceArea').serviceAreaConfig(),
     store: { storeName: s.storeName || '', aboutStore: s.aboutStore || '', avatar: s.storeAvatar?.url || null, categories: (s.categories || []).map((c) => c.name), done: Boolean(s.storeName) },
-    pickup: a.addressLine1 ? { state: a.state, city: a.city, lga: a.lga, latitude:a.latitude, longitude:a.longitude, addressSource:a.addressSource, formattedAddress:a.formattedAddress, addressLine1: a.addressLine1, landmark: a.addressLine2 || '', phone: s.warehouseDetails?.contactNumber || s.phoneNumber || '', done: true } : { done: false, phone: s.warehouseDetails?.contactNumber || s.phoneNumber || '' },
+    pickup: a.addressLine1 ? { state: a.state, city: a.city, lga: a.lga, latitude:a.latitude, longitude:a.longitude, addressSource:a.addressSource, formattedAddress:a.formattedAddress, addressLine1: a.addressLine1, landmark: a.addressLine2 || '', phone: require('../utils/phone').normalisePhone(s.warehouseDetails?.contactNumber || s.phoneNumber) || '', done: true } : { done: false, phone: require('../utils/phone').normalisePhone(s.phoneNumber) || '' },
     bank: b.accountNumber ? { bankName: b.bankName, last4: String(b.accountNumber).slice(-4), accountName: b.accountName, done: Boolean(s.isBankVerified) } : { done: false },
     firstName: s.firstName || '',
     categories: LAUNCH_CATEGORY_NAMES,

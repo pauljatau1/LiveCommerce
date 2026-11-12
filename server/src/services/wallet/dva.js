@@ -3,7 +3,7 @@ const Transaction = require('../../models/Transaction');
 const { client, requireMethod, WalletPaymentError: Error, emit } = require('./paystackClient');
 const failure = "We can't set up an account number right now. Use a card instead.";
 const {phoneDigits,phoneProblem,PHONE_ERROR}=require('../../utils/phone');
-const phoneFor = value => phoneProblem(value) ? null : phoneDigits(value);
+const phoneFor = value => require('../../utils/phone').normalisePhone(value);
 const details = (buyer) => ({ status: buyer.dva?.status || 'none', accountNumber: buyer.dva?.accountNumber,
   accountName: buyer.dva?.accountName, bankName: buyer.dva?.bankName, bankSlug: buyer.dva?.bankSlug,
   assignedAt: buyer.dva?.assignedAt });

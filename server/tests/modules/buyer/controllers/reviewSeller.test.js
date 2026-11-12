@@ -58,7 +58,7 @@ describe('POST /api/v2/buyers/seller/:sellerId/review', () => {
       firstName: 'Test',
       lastName: 'Seller',
       email: 'seller@example.com',
-      phoneNumber: '+1234567890',
+      phoneNumber: '08031234567',
       password: 'password123',
       username: 'testseller',
       storeName: 'Test Store',

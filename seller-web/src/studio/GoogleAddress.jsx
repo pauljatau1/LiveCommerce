@@ -17,7 +17,8 @@ export default function GoogleAddress({config,value,onChange,onNotify,needContac
     }catch{if(active.current&&serial===sequence.current){setError('Address search isn’t available right now. Choose your area below.');setStatus('fallback');}}},300);
     return()=>{clearTimeout(timer);sequence.current++;};
   },[query,status,editing,config]);
-  useEffect(()=>{if(status==='fallback'&&config?.states?.length===1&&!allowedPlace(config,value.state))onChange({state:config.states[0],city:'',lga:'',addressLine1:'',latitude:null,longitude:null,addressSource:'manual',formattedAddress:''});},[status,config,value.state,onChange]);
+  useEffect(()=>{if(status==='fallback'&&config?.states?.length===1&&!allowedPlace(config,value.state))onChange({state:config.states[0],city:'',lga:'',addressLine1:query.trim() || value.addressLine1 || '',latitude:null,longitude:null,addressSource:'manual',formattedAddress:''});},[status,config,value.state,onChange]);
+  useEffect(()=>{if(status === 'fallback' && query.trim()) onChange({addressLine1:query.trim(),addressSource:'manual',formattedAddress:'',latitude:null,longitude:null});},[status,query]);
   const [fromLocation,setFromLocation]=useState(false);
   const apply=(place,currentLocation=false)=>{
     if(!config?.states?.length){setError('Delivery areas are still loading. Please try again.');return;}

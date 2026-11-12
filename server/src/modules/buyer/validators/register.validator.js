@@ -127,6 +127,7 @@ async function validateUsername(username, errors) {
  * await validatePhoneNumber(null, errors); // Valid (optional)
  */
 async function validatePhoneNumber(phoneNumber, errors) {
+  if(phoneNumber && !require('../../../utils/phone').normalisePhone(phoneNumber))errors.push({field:'phoneNumber',message:require('../../../utils/phone').PHONE_ERROR});
   // Phone number is now optional - no validation required
   // This allows flexible registration without phone number requirement
   // and removes uniqueness constraint to allow multiple accounts with same phone

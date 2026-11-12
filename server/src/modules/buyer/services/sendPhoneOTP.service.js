@@ -204,7 +204,7 @@ async function sendPhoneOTP(buyerId, phoneNumber) {
   const sns = createSNSClient();
   const params = {
     Message: `Your Auqli verification code is: ${phoneOTP}. Valid for 10 minutes.`,
-    PhoneNumber: phoneNumber,
+    PhoneNumber: require('../../../utils/phone').internationalPhone(phoneNumber),
     MessageAttributes: {
       'AWS.SNS.SMS.SenderID': {
         'DataType': 'String',

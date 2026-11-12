@@ -1827,7 +1827,7 @@ function initializeSocket(server) {
             const selectedAddress = {
               recipientName: `${buyer.firstName} ${buyer.lastName}`,
               recipientEmail: buyer.email,
-              recipientPhone: String(buyer.phoneNumber || '').replace(/-/g, ''), // buyers may not have a phone yet
+              recipientPhone: require('../utils/phone').normalisePhone(buyer.phoneNumber) || '', // buyers may not have a phone yet
               recipientAddress: buyer.shippingAddresses[0].addressLine1,
               recipientState: buyer.shippingAddresses[0].state,
             };

@@ -1,4 +1,6 @@
+import {setupNext,setupPrefill} from './sellerSnapshot';
 import reloadSeller from './reloadSeller';
+const LEGACY_LOCAL_SELLER_PATCH = false;
 import useStudioBack from './useStudioBack';
 import {PHONE_HINT,phoneProblem} from './phone';
 import {allowedPlace} from './googlePlaces';
@@ -21,8 +23,8 @@ import { Problem, Skeleton, TopBar } from './ui';
 
 const STEPS = ['store', 'pickup', 'bank', 'done'];
 const SAVED_KEY = 'studioStartAnswers';
-const load = () => { try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '{}'); } catch { return {}; } };
-const keep = (v) => { try { localStorage.setItem(SAVED_KEY, JSON.stringify(v)); } catch { /* private mode */ } };
+const load = (sellerId) => { try { return JSON.parse(localStorage.getItem(`${SAVED_KEY}:${sellerId}`) || '{}'); } catch { return {}; } };
+const keep = (v,sellerId) => { try { localStorage.setItem(`${SAVED_KEY}:${sellerId}`, JSON.stringify(v)); } catch { /* private mode */ } };
 const apiOrigin = () => { try { return new URL(BASE_URL).origin; } catch { return String(BASE_URL).replace(/\/api\/?$/, ''); } };
 
 const useOnline = () => {
@@ -41,13 +43,13 @@ export default function Start() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const returnBack=useStudioBack('/studio/me');
-  const pickupEdit=params.get('step')==='pickup';
+  const pickupEdit=false; // Editing lives at /studio/pickup; getting started always continues to bank.
   const { seller, dispatch } = useAuthContext();
   const online = useOnline();
   const [info, setInfo] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [step, setStep] = useState(params.get('step') || null);
-  const [answers, setAnswers] = useState(load);
+  const [answers, setAnswers] = useState(()=>load(seller?._id));
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(null); // a save waiting for the connection
@@ -57,23 +59,24 @@ export default function Start() {
   const [banks, setBanks] = useState([]);
   const [accountName, setAccountName] = useState('');
 
-  const set = (k) => (e) => setAnswers((a) => { const next = { ...a, [k]: e?.target ? e.target.value : e, ...(k === 'state' ? { city: '', lga: '' } : {}) }; keep(next); return next; });
+  const set = (k) => (e) => setAnswers((a) => { const next = { ...a, [k]: e?.target ? e.target.value : e, ...(k === 'state' ? { city: '', lga: '' } : {}) }; keep(next,seller?._id); return next; });
 
   const refresh = useCallback(() => onboarding.get().then((r) => {
     setInfo(r);
     setLoadError('');
     setAnswers((a) => {
       const next = {
-        storeName: a.storeName ?? r.store.storeName, aboutStore: a.aboutStore ?? r.store.aboutStore, categories: a.categories ?? r.store.categories,
-        state: a.state ?? r.pickup.state ?? '', city: a.city ?? (a.state && a.state !== r.pickup.state ? '' : r.pickup.city) ?? '', lga: a.lga ?? r.pickup.lga ?? '',latitude:a.latitude ?? r.pickup.latitude,longitude:a.longitude ?? r.pickup.longitude,addressSource:a.addressSource ?? r.pickup.addressSource,formattedAddress:a.formattedAddress ?? r.pickup.formattedAddress, addressLine1: a.addressLine1 ?? r.pickup.addressLine1 ?? '', landmark: a.landmark ?? r.pickup.landmark ?? '', phone: a.phone ?? r.pickup.phone ?? '',
+        ...setupPrefill(a,r),
+        aboutStore: a.aboutStore ?? r.store.aboutStore, categories: a.categories ?? r.store.categories,
+        state: a.state ?? r.pickup.state ?? '', city: a.city ?? (a.state && a.state !== r.pickup.state ? '' : r.pickup.city) ?? '', lga: a.lga ?? r.pickup.lga ?? '',latitude:a.latitude ?? r.pickup.latitude,longitude:a.longitude ?? r.pickup.longitude,addressSource:a.addressSource ?? r.pickup.addressSource,formattedAddress:a.formattedAddress ?? r.pickup.formattedAddress, addressLine1: a.addressLine1 ?? r.pickup.addressLine1 ?? '', landmark: a.landmark ?? r.pickup.landmark ?? '',
         bankCode: a.bankCode ?? '', accountNumber: a.accountNumber ?? '',
       };
-      keep(next);
+      keep(next,seller?._id);
       return next;
     });
     setStep((s) => s || (!r.store.done ? 'store' : !r.pickup.done ? 'pickup' : !r.bank.done ? 'bank' : 'done'));
     return r;
-  }).catch((e) => setLoadError(errorText(e, "Couldn't load your setup."))), []);
+  }).catch((e) => setLoadError(errorText(e, "Couldn't load your setup."))), [seller?._id]);
   useEffect(() => { refresh(); }, [refresh]);
 
   useEffect(() => { serviceAreaConfig().then(config => {
@@ -98,17 +101,18 @@ export default function Start() {
     if (!navigator.onLine) { setPending({ kind, body, next }); return; }
     setBusy(kind);
     try {
+      if(kind === 'store' && !body.storeName?.trim()) throw {response:{data:{message:'Add your store name before continuing.'}}};
       await onboarding[kind](body);
+      await reloadSeller(dispatch);
       await refresh();
       // Keep the signed-in seller up to date, so the studio stops asking for a pickup address
-      if(kind==='pickup')await reloadSeller(dispatch);
-      if (kind === 'store') {
+      if (LEGACY_LOCAL_SELLER_PATCH && (kind === 'pickup' || kind === 'store')) {
         const updated = { ...(seller || sellerUtils.getSeller() || {}), ...(kind === 'pickup' ? { hasFilledAddress: true, hasFilledBusinessAddress: true, warehouseDetails: { ...seller?.warehouseDetails, address: { state: body.state, city: body.city, lga: body.lga, latitude:body.latitude,longitude:body.longitude,addressSource:body.addressSource,formattedAddress:body.formattedAddress, addressLine1: body.addressLine1, addressLine2: body.landmark } } } : { storeName: body.storeName }) };
         sellerUtils.storeSeller(updated);
         dispatch?.({ type: 'STORE_SELLER', payload: updated });
       }
       setPending(null);
-      if(next==='return')returnBack();else setStep(next);
+      if(next==='return')returnBack();else setStep(setupNext(kind) || next);
     } catch (e) {
       setError(errorText(e, "Couldn't save. Your answers are still here: try again."));
     } finally {
@@ -135,7 +139,7 @@ export default function Start() {
 
   const bankName = useMemo(() => banks.find((b) => b.code === answers.bankCode)?.name || '', [banks, answers.bankCode]);
   const index = STEPS.indexOf(step);
-  const finish = (to) => { try { localStorage.removeItem(SAVED_KEY); } catch { /* fine */ } navigate(to, { replace: true }); };
+  const finish = (to) => { try { localStorage.removeItem(`${SAVED_KEY}:${seller?._id}`); } catch { /* fine */ } navigate(to, { replace: true }); };
 
   if (loadError) return <div className="studio-app"><TopBar title="Getting started" /><div className="st-inner"><Problem text={loadError} onRetry={refresh} /></div></div>;
   if (!info || !step) return <div className="studio-app"><TopBar title="Getting started" /><div className="st-inner"><Skeleton h={48} /><Skeleton h={220} /></div></div>;
@@ -197,7 +201,7 @@ export default function Start() {
               {LEGACY_AREA_INPUT ? <>
               <input id="pk-ct" className="in" list="pickup-areas" value={answers.city || ''} onChange={set('city')} placeholder="Search your area" />
               <datalist id="pickup-areas">{cities.map((c,i) => <option key={i} value={c.name}>{c.lga ? `${c.name} · ${c.lga}` : c.name}</option>)}</datalist>
-              </> : <PickupAreaField config={areaConfig} state={answers.state} value={answers.city || ''} lga={answers.lga || ''} onChange={area=>setAnswers(previous=>{const next={...previous,city:area.name,lga:area.lga};keep(next);return next;})} />}
+              </> : <PickupAreaField config={areaConfig} state={answers.state} value={answers.city || ''} lga={answers.lga || ''} onChange={area=>setAnswers(previous=>{const next={...previous,city:area.name,lga:area.lga};keep(next,seller?._id);return next;})} />}
             </div>
             <div className="fl">
               <label className="lab" htmlFor="pk-l1">Street address</label>
@@ -212,7 +216,7 @@ export default function Start() {
               <input id="pk-ph" className="in" type="tel" inputMode="tel" value={answers.phone || ''} onChange={set('phone')} placeholder="0803 123 4567" autoComplete="tel" />
               <span className="hint">{PHONE_HINT}</span>
             </div>
-            </> : <PickupAddressForm config={areaConfig} value={answers} onChange={next=>{setAnswers(next);keep(next);}} onNotify={notifyDeliveryState} />}
+            </> : <PickupAddressForm config={areaConfig} value={answers} onChange={next=>{setAnswers(next);keep(next,seller?._id);}} onNotify={notifyDeliveryState} />}
             {pending?.kind === 'pickup' && <span className="hint">We'll save this the moment you're back online. No need to type it again.</span>}
             {error && <Problem text={error} />}
             <button type="button" className="btn" disabled={busy === 'pickup' || Boolean(areaConfig && answers.state && !allowedPlace(areaConfig,answers.state))} onClick={() => save('pickup', {state:answers.state,city:answers.city,lga:answers.lga,addressLine1:answers.addressLine1,landmark:answers.landmark,phone:answers.phone,latitude:answers.latitude,longitude:answers.longitude,addressSource:answers.addressSource,formattedAddress:answers.formattedAddress}, pickupEdit ? 'return' : 'bank')}>

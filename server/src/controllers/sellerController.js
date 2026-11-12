@@ -1300,6 +1300,7 @@ exports.getWithdrawalRequests = async (req, res) => {
 exports.updateStoreProfile = async (req, res) => {
   try {
     const { storeName, aboutStore, categories } = req.body;
+    if(storeName !== undefined && (typeof storeName !== 'string' || storeName.trim().length < 2))return res.status(400).json({message:'Add your store name before saving.'});
     const seller = await Seller.findById(req.user.id);
 
     if (!seller) {

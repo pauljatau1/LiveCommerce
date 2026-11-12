@@ -35,10 +35,10 @@ async function validatePhoneNumberFormat(phoneNumber, errors) {
   // Validate phone number format (E.164 international format)
   // Must start with +, followed by country code (1-3 digits), then number (7-14 digits)
   const phoneRegex = /^\+[1-9]\d{1,14}$/;
-  if (!phoneRegex.test(phoneNumber)) {
+  if (!require('../../../utils/phone').normalisePhone(phoneNumber)) {
     errors.push({
       field: 'phoneNumber',
-      message: 'Invalid phone number format. Please include country code (e.g., +23490126727)'
+      message: 'Enter an 11-digit phone number starting with 0, e.g. 0803 123 4567.'
     });
     return;
   }

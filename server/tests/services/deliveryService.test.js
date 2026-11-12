@@ -121,8 +121,8 @@ describe('deliveryService (one delivery per buyer per show)', () => {
   });
   it.each(['seller','buyer'])('pauses %s address failures, notifies once and resumes only after an edit',async party=>{
     const ada=await createBuyer('Fix',50000);await buy(ada,plush);
-    if(party==='seller')await Seller.updateOne({_id:seller._id},{$set:{phoneNumber:'081085565429'}});
-    else await Buyer.updateOne({_id:ada._id},{$set:{'shippingAddresses.0.phoneNumber':'081085565429'}});
+    if(party==='seller')await Seller.collection.updateOne({_id:seller._id},{$set:{phoneNumber:'081085565429'}});
+    else await Buyer.collection.updateOne({_id:ada._id},{$set:{'shippingAddresses.0.phoneNumber':'081085565429'}});
     const [paused]=await deliveries.settleShow(stream._id);expect(paused.status).toBe('needs_fix');expect(paused.fix.party).toBe(party);
     const Notification=require('@models/Notification');expect(await Notification.countDocuments({type:'delivery_needs_fix',[party]:party==='seller'?seller._id:ada._id})).toBe(1);
     shipbubble.validateAddress.mockClear();await deliveries.retryStuck({now:Date.now()+60*60*1000});await deliveries.settle(paused._id);

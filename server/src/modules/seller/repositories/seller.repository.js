@@ -117,7 +117,9 @@ async function getCategoriesCount(sellerId) {
  * @returns {Promise<Object|null>} Seller data or null if not found
  */
 async function findByPhoneNumber(phoneNumber) {
-  return Seller.findOne({ phoneNumber: phoneNumber });
+  const normal = require('../../../utils/phone').normalisePhone(phoneNumber);
+  if(!normal)return null;
+  return Seller.findOne({ $expr: { $in: ['$phoneNumber',[normal,normal.slice(1),`234${normal.slice(1)}`,`+234${normal.slice(1)}`]] } });
 }
 
 /**

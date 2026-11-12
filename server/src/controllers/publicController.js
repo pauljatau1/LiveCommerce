@@ -75,7 +75,7 @@ exports.getMajorCategories = async (req, res) => {
 
     res.json({
       success: true,
-      data: majorCategories
+      data: majorCategories.map(m => ({...(m.toObject ? m.toObject() : m), categories: require('../config/catalogue').launchCategories(m.categories)})).filter(m=>m.categories.length)
     });
   } catch (error) {
     console.error('Get major categories error:', error);

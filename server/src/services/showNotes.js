@@ -65,7 +65,7 @@ const templateDraft = ({ type, auctionSeconds, hostName } = {}) => normalise({
   howToBuy: type === 'drop'
     ? 'Tap Buy now while an item is on screen. Stock is real: when it says 2 left, there are 2 left.'
     : `Tap Bid to bid. Each item runs ${auctionSeconds && auctionSeconds !== 30 ? `${auctionSeconds >= 120 ? '2 minutes' : `${auctionSeconds} seconds`}` : '30 seconds'}, and a bid in the last 5 seconds adds 5 seconds. Highest bid wins.`,
-  delivery: 'One delivery fee for everything you get from this show. Shipbubble prices it to your address: that amount is held with your first item, and the final fee is quoted after the show.',
+  delivery: `Delivery within ${require('./serviceArea').allowedStates().join(' and ')}. One delivery fee for everything you get from this show. Shipbubble prices it to your address: that amount is held with your first item, and the final fee is quoted after the show.`,
   payment: 'Bids are held from your wallet and come back if someone outbids you.',
   sizes: "Sizes are in each item's title. Ask in chat before you bid if you're not sure.",
   fromSeller: hostName ? `Thanks for coming. I'm ${hostName}: ask me anything in chat.` : 'Thanks for coming. Ask me anything in chat.',
@@ -86,7 +86,7 @@ const draft = async (plan = {}, { gemini } = {}) => {
   const prompt = `You write short show notes for a Nigerian live clothing sale. The seller pins them for buyers.
 Write five short sections, plain and warm, no hype, no exclamation marks, no emojis:
 - howToBuy: how to ${plan.type === 'drop' ? 'buy (fixed price, tap Buy now, stock is real)' : `bid (tap Bid; each item runs ${plan.auctionSeconds || 30} seconds; a bid in the last 5 seconds adds 5 seconds; highest bid wins)`}.
-- delivery: one delivery fee for everything a buyer gets in this show. Shipbubble prices it to the buyer's address and that amount is held with their first item; the final fee is quoted after the show. Never state a naira amount for delivery.${plan.pickupArea ? ` Items ship from ${clean(plan.pickupArea)}.` : ''}
+- delivery: Delivery within ${require('./serviceArea').allowedStates().join(' and ')} only. Never claim nationwide delivery. One delivery fee for everything a buyer gets in this show. Shipbubble prices it to the buyer's address and that amount is held with their first item; the final fee is quoted after the show. Never state a naira amount for delivery.${plan.pickupArea ? ` Items ship from ${clean(plan.pickupArea)}.` : ''}
 - payment: bids are held from the wallet and come back if outbid. Do not include phone numbers, account numbers or links.
 - sizes: sizes are in each item's title or description, in the seller's words; ask in chat before bidding. Do not invent sizes or a returns policy the seller didn't give.
 - fromSeller: one friendly line from the seller${plan.hostName ? ` (${clean(plan.hostName)})` : ''}.
@@ -118,7 +118,7 @@ const WINDOW_MS = 15 * 60 * 1000;
 const THRESHOLD = 3;
 
 const LINES = {
-  delivery: (place) => `We deliver to ${place || 'all states'}. One fee for everything you get, quoted after the show.`,
+  delivery: (place) => `Delivery within ${require('./serviceArea').allowedStates().join(' and ')}. One fee for everything you get, quoted after the show.`,
   sizes: () => "Sizes are in each item's title. Ask in chat before you bid if you're not sure.",
   returns: () => 'Check sizes before you bid. Message me in the app after delivery if something is wrong.',
   original: () => 'Each item says original or replica in its details.',

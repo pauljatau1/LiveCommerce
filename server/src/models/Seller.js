@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+const {storedPhone}=require('../utils/phone');
 
 
 const subCategorySchema = new mongoose.Schema({
@@ -53,7 +54,7 @@ const sellerSchema = new mongoose.Schema({
   lastName: { type: String },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: function() { return !this.googleId; } }, // Password not required if Google OAuth
-  phoneNumber: { type: String, required: function() { return !this.googleId; } }, // Phone not required if Google OAuth
+  phoneNumber: { type: String, set: storedPhone, required: function() { return !this.googleId; } }, // Phone not required if Google OAuth
   // Google OAuth fields
   googleId: { type: String, unique: true, sparse: true }, // sparse allows multiple null values
   googleProfilePicture: { type: String },
@@ -118,7 +119,7 @@ const sellerSchema = new mongoose.Schema({
   },
   warehouseDetails: {
     name: { type: String },
-    contactNumber: { type: String },
+    contactNumber: { type: String, set: storedPhone },
     address: {
       country: { type: String },
       state: { type: String },

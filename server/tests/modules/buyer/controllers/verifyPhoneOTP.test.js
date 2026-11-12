@@ -54,7 +54,7 @@ describe('Verify Phone OTP Controller', () => {
       email: 'john@example.com',
       username: 'johndoe',
       password: 'password123',
-      phoneNumber: '+1234567890',
+      phoneNumber: '08031234567',
       phoneVerification: {
         otp: '123456',
         expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now

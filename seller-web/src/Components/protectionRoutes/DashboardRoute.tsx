@@ -23,7 +23,8 @@ export default function DashboardRoute({ children }: { children: React.ReactNode
             navigate("/login", { replace: true });
         }
 
-        const isPickupAddressRequired = seller?.accountType === 'individual' ? seller?.hasFilledAddress === false : seller?.hasFilledBusinessAddress === false;
+        const currentSeller = seller || sellerUtils.getSeller();
+        const isPickupAddressRequired = currentSeller?.accountType === 'individual' ? currentSeller?.hasFilledAddress === false : currentSeller?.hasFilledBusinessAddress === false;
         
         // Restricted paths that require verification
         const restrictedPaths = [

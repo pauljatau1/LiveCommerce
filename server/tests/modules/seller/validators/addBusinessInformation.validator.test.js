@@ -398,7 +398,7 @@ describe('Add Business Information Validator', () => {
         '123',                 // Too short (after normalization)
         '081',                 // Too short for Nigerian number
         '12345',               // Too short
-        '00000000000',         // Invalid leading zeros
+        '000000000000',        // Invalid length
         '1234567',             // Less than 10 digits
         '12345678901234567'    // Too long
       ];

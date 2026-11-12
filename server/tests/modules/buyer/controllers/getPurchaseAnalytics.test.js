@@ -154,7 +154,7 @@ describe('Get Purchase Analytics Controller', () => {
         lastName: 'Doe',
         email: 'seller@test.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         storeName: 'Test Store'
       });
 
@@ -185,7 +185,7 @@ describe('Get Purchase Analytics Controller', () => {
         lastName: 'Doe',
         email: 'seller@test.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         storeName: 'Test Store'
       });
 

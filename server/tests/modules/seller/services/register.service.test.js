@@ -54,7 +54,7 @@ describe('Seller Registration Service', () => {
       lastName: 'Doe',
       email: 'john.doe@example.com',
       password: 'password123',
-      phoneNumber: '1234567890',
+      phoneNumber: '08031234567',
       storeName: 'John Store'
     };
 
@@ -67,7 +67,7 @@ describe('Seller Registration Service', () => {
       expect(result.user.firstName).toBe('John');
       expect(result.user.lastName).toBe('Doe');
       expect(result.user.email).toBe('john.doe@example.com');
-      expect(result.user.phoneNumber).toBe('1234567890');
+      expect(result.user.phoneNumber).toBe('08031234567');
       expect(result.user.storeName).toBe('John Store');
       expect(result.user.agoraUid).toBeDefined();
       expect(result.user.emailVerified).toBe(true);
@@ -93,7 +93,7 @@ describe('Seller Registration Service', () => {
         lastName: 'Smith',
         email: 'john.doe@example.com',
         password: 'password456',
-        phoneNumber: '0987654321',
+        phoneNumber: '09876543210',
         storeName: 'Jane Store'
       });
       await existingSeller.save();
@@ -183,7 +183,7 @@ describe('Seller Registration Service', () => {
       expect(savedSeller.firstName).toBe('John');
       expect(savedSeller.lastName).toBe('Doe');
       expect(savedSeller.email).toBe('john.doe@example.com');
-      expect(savedSeller.phoneNumber).toBe('1234567890');
+      expect(savedSeller.phoneNumber).toBe('08031234567');
       expect(savedSeller.storeName).toBe('John Store');
       expect(savedSeller.agoraUid).toBeDefined();
       expect(savedSeller.emailVerified).toBe(true);
@@ -195,7 +195,7 @@ describe('Seller Registration Service', () => {
         lastName: '  Doe  ',
         email: 'john.doe@example.com',
         password: 'password123',
-        phoneNumber: '  1234567890  ',
+        phoneNumber: '0803 123 4567',
         storeName: '  John Store  '
       };
 
@@ -204,7 +204,7 @@ describe('Seller Registration Service', () => {
       expect(result.user.firstName).toBe('  John  ');
       expect(result.user.lastName).toBe('  Doe  ');
       expect(result.user.email).toBe('john.doe@example.com');
-      expect(result.user.phoneNumber).toBe('  1234567890  ');
+      expect(result.user.phoneNumber).toBe('08031234567');
       expect(result.user.storeName).toBe('  John Store  ');
     });
 
@@ -215,7 +215,7 @@ describe('Seller Registration Service', () => {
         lastName: 'Smith',
         email: 'jane@example.com',
         password: 'password456',
-        phoneNumber: '0987654321',
+        phoneNumber: '09876543210',
         storeName: 'Jane Store',
         agoraUid: 123456789
       });
@@ -269,7 +269,7 @@ describe('Seller Registration Service', () => {
           lastName: 'Smith',
           email: 'john.doe@example.com',
           password: 'password456',
-          phoneNumber: '0987654321',
+          phoneNumber: '09876543210',
           storeName: 'Jane Store'
         });
         await existingSeller.save();
