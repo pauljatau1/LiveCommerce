@@ -64,11 +64,11 @@ describe('Getting started', () => {
 });
 
 describe('launch pickup area',()=>{
- it('rejects pickup outside Lagos and allows Ogun after a setting change',async()=>{
+ it('requires an approved area directory even when another state is allowed',async()=>{
   const body={state:'Ogun',city:'Ota',addressLine1:'1 Test Road',phone:'08031234567'};
   expect((await request(app).put('/api/v2/studio/onboarding/pickup').send(body).expect(400)).body.message).toMatch(/within Lagos/);
   const original=process.env.SERVICE_STATES;
-  try{process.env.SERVICE_STATES='Lagos,Ogun';await request(app).put('/api/v2/studio/onboarding/pickup').send(body).expect(200);}
+  try{process.env.SERVICE_STATES='Lagos,Ogun';expect((await request(app).put('/api/v2/studio/onboarding/pickup').send(body).expect(400)).body.message).toBe('Choose your area from the list.');}
   finally{if(original===undefined)delete process.env.SERVICE_STATES;else process.env.SERVICE_STATES=original;}
  });
 });

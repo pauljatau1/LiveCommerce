@@ -1,0 +1,163 @@
+{
+  "results": {
+    "buyer-before-datalist": {
+      "path": "http://127.0.0.1:5175/",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "buyer-closed-field": {
+      "path": "http://127.0.0.1:5175/",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "buyer-open-picker": {
+      "path": "http://127.0.0.1:5175/",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "buyer-search-results": {
+      "path": "http://127.0.0.1:5175/",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "buyer-chosen-area": {
+      "path": "http://127.0.0.1:5175/",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "seller-pickup-step": {
+      "path": "http://127.0.0.1:5174/studio/start?step=pickup",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "seller-open-picker": {
+      "path": "http://127.0.0.1:5174/studio/start?step=pickup",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "area-change-price": {
+      "path": "http://127.0.0.1:5175/",
+      "states": [
+        "Lagos"
+      ]
+    },
+    "desktop-dialog": {
+      "path": "http://127.0.0.1:5175/",
+      "states": [
+        "Lagos"
+      ]
+    }
+  },
+  "calls": [
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/buyers/addresses",
+      "method": "POST",
+      "body": {
+        "addressType": "home",
+        "firstName": "Ada",
+        "email": "ada@example.test",
+        "phoneNumber": "08031234567",
+        "country": "NG",
+        "state": "Lagos",
+        "city": "Victoria Island",
+        "lga": "Eti-Osa",
+        "addressLine1": "12 Test Street",
+        "addressLine2": "Near the gate"
+      }
+    },
+    {
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/show/delivery-quote",
+      "method": "POST",
+      "body": {
+        "productId": "product",
+        "address": {
+          "addressLine1": "5 Admiralty Way",
+          "city": "Lekki",
+          "lga": "Eti-Osa",
+          "addressLine2": "",
+          "state": "Lagos",
+          "phoneNumber": "08031234567",
+          "email": "ada@example.test"
+        }
+      }
+    },
+    {
+      "path": "/api/v2/watch/show/delivery-quote",
+      "method": "POST",
+      "body": {
+        "productId": "product",
+        "address": {
+          "addressLine1": "5 Admiralty Way",
+          "city": "Yaba",
+          "lga": "Lagos Mainland",
+          "addressLine2": "",
+          "state": "Lagos",
+          "phoneNumber": "08031234567",
+          "email": "ada@example.test"
+        }
+      }
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    }
+  ]
+}

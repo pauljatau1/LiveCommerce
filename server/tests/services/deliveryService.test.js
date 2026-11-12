@@ -138,7 +138,7 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     const before = await Buyer.countDocuments();
     const q = await deliveries.previewQuote({ streamId: stream._id, productId: plush._id, address: { addressLine1: '5 Admiralty Way', city: 'Lekki', state: 'Lagos', phoneNumber: '08031234567' } });
     expect(q).toMatchObject({ amount: DEP, area: 'Lekki, Lagos' });
-    expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({ address: '5 Admiralty Way, Lekki, Lagos, Nigeria', phone: '08031234567' }));
+    expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({ address: '5 Admiralty Way, Lekki, Eti-Osa, Lagos, Nigeria', phone: '08031234567' }));
     expect(await Buyer.countDocuments()).toBe(before);
     await expect(deliveries.previewQuote({ streamId: stream._id, address: { city: 'Lekki', state: 'Lagos' } })).rejects.toThrow(/street, area and state/);
   });

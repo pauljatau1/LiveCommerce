@@ -1,3 +1,6 @@
+import AreaPicker from './AreaPicker';
+import {pickerAreas} from './areaPicker';
+const LEGACY_AREA_INPUT = false; // Retained native datalist; the picker is the active UI.
 import { useServiceArea, allowsState } from '../serviceArea';
 // Delivery address, asked for once before a first bid or purchase.
 import { useEffect, useState } from 'react';
@@ -21,8 +24,8 @@ export function useAddressForm() {
   const { config, error: areaError } = useServiceArea();
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
-  const [form, setForm] = useState({ state: '', city: '', addressLine1: '', landmark: '', phoneNumber: buyer?.phoneNumber || '' });
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value, ...(k === 'state' ? { city: '' } : {}) }));
+  const [form, setForm] = useState({ state: '', city: '', lga: '', addressLine1: '', landmark: '', phoneNumber: buyer?.phoneNumber || '' });
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value, ...(k === 'state' ? { city: '', lga: '' } : {}) }));
 
   useEffect(() => {
     if (!config) return;
@@ -30,6 +33,7 @@ export function useAddressForm() {
     if (config.states.length === 1) setForm(f => ({ ...f, state: config.states[0] }));
   }, [config]);
   useEffect(() => {
+    if (!LEGACY_AREA_INPUT) {setCities(pickerAreas(config, form.state));return;}
     const groups = config?.areas?.[form.state];
     setCities([]);
     if (groups) setCities(Object.entries(groups).flatMap(([lga,names]) => [...new Set([lga,...names])].map(name => ({ name, lga }))));
@@ -43,6 +47,7 @@ export function useAddressForm() {
   const problem = (needPhone) => {
     if (!config) return areaError || 'Loading delivery areas. Please wait.';
     if (!allowsState(config,form.state)) return `Delivery is ${config.states.join(' and ')}-only for now. You can keep watching and chatting.`;
+    if (!cities.some(area=>area.name === form.city && area.lga === form.lga)) return 'Choose your area from the list.';
     if (!form.state || !form.city || !form.addressLine1.trim()) return 'Add your state, area and street address.';
     if (needPhone || form.phoneNumber) {
       const p = phoneProblem(form.phoneNumber);
@@ -61,11 +66,13 @@ export function useAddressForm() {
     country: 'NG',
     state: form.state,
     city: form.city,
+    lga: form.lga,
     addressLine1: form.addressLine1.trim(),
     addressLine2: form.landmark.trim() || undefined,
   });
 
-  return { form, set, states, cities, problem, save, config };
+  const chooseArea = area => setForm(form=>({...form,city:area.name,lga:area.lga}));
+  return { form, set, chooseArea, states, cities, problem, save, config };
 }
 
 export function AddressFields({ address, askPhone, idPrefix = 'ad' }) {
@@ -82,8 +89,10 @@ export function AddressFields({ address, askPhone, idPrefix = 'ad' }) {
       </div>
       <div className="fl">
         <label className="lab" htmlFor={`${idPrefix}-ct`}>Area</label>
+        {LEGACY_AREA_INPUT ? <>
         <input id={`${idPrefix}-ct`} className="in" list={`${idPrefix}-areas`} value={form.city} onChange={set('city')} placeholder="Search your area" disabled={!form.state} />
         <datalist id={`${idPrefix}-areas`}>{cities.map((c,i) => <option key={i} value={c.name}>{c.lga ? `${c.name} · ${c.lga}` : c.name}</option>)}</datalist>
+        </> : <AreaPicker id={`${idPrefix}-ct`} value={form.city} lga={form.lga} areas={cities} disabled={!form.state} onChange={address.chooseArea} />}
       </div>
       <div className="fl">
         <label className="lab" htmlFor={`${idPrefix}-l1`}>Street address</label>

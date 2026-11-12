@@ -2,7 +2,7 @@ const lagosAreas = require('../data/lagosAreas.json');
 const normalizeState = state => String(state || '').trim().replace(/\s+/g, ' ').replace(/\s+state$/i, '').trim().toLowerCase();
 const allowedStates = () => [...new Map((process.env.SERVICE_STATES || 'Lagos').split(',').filter(s => normalizeState(s)).map(s => [normalizeState(s), normalizeState(s).replace(/\b\w/g, c => c.toUpperCase())])).values()];
 const inServiceArea = state => allowedStates().some(s => normalizeState(s) === normalizeState(state));
-const serviceAreaConfig = () => ({ states: allowedStates(), areas: { Lagos: lagosAreas } });
+const serviceAreaConfig = () => ({ states: allowedStates(), areas: { Lagos: lagosAreas }, areaOptions: {Lagos: require('./areaDirectory').areaOptions('Lagos')} });
 const deliveryMessage = () => `Delivery is ${allowedStates().join(' and ')}-only for now`;
 const pickupMessage = () => `We deliver within ${allowedStates().join(' and ')} for now. Update your pickup address to go live.`;
 const pickupAddress = s => s?.warehouseDetails?.address?.addressLine1 ? s.warehouseDetails.address : s?.businessAddress?.addressLine1 ? s.businessAddress : s?.sellerAddress || {};

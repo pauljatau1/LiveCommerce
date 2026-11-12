@@ -43,7 +43,7 @@ describe('Default Active Address Functionality', () => {
             addressType: 'home',
             country: 'Nigeria',
             state: 'Lagos',
-            city: 'Lagos',
+            city: 'Yaba',
             addressLine1: '123 Main Street',
             zipCode: '100001',
             isActive: false
@@ -53,7 +53,7 @@ describe('Default Active Address Functionality', () => {
             addressType: 'work',
             country: 'Nigeria',
             state: 'Lagos',
-            city: 'Lagos',
+            city: 'Yaba',
             addressLine1: '456 Work Street',
             zipCode: '100002',
             isActive: false
@@ -109,7 +109,7 @@ describe('Default Active Address Functionality', () => {
             addressType: 'home',
             country: 'Nigeria',
             state: 'Lagos',
-            city: 'Lagos',
+            city: 'Yaba',
             addressLine1: '123 Main Street',
             zipCode: '100001',
             isActive: false
@@ -119,7 +119,7 @@ describe('Default Active Address Functionality', () => {
             addressType: 'work',
             country: 'Nigeria',
             state: 'Lagos',
-            city: 'Lagos',
+            city: 'Yaba',
             addressLine1: '456 Work Street',
             zipCode: '100002',
             isActive: true
@@ -168,7 +168,7 @@ describe('Default Active Address Functionality', () => {
       addressType: 'home',
       country: 'Nigeria',
       state: 'Lagos',
-      city: 'Lagos',
+      city: 'Yaba',
       addressLine1: '789 New Street',
       zipCode: '100003'
     };
@@ -239,7 +239,7 @@ describe('Default Active Address Functionality', () => {
             addressType: 'home',
             country: 'Nigeria',
             state: 'Lagos',
-            city: 'Lagos',
+            city: 'Yaba',
             addressLine1: '123 Main Street',
             zipCode: '100001',
             isActive: true

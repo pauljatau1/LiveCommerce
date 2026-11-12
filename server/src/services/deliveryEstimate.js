@@ -23,12 +23,12 @@ const sellerArea = (seller) => {
 };
 
 // Shipbubble needs an address code for the drop-off; for an area we check
-// "<area>, <state>, Nigeria" once and keep the code.
+// "<area>, <LGA when known>, <state>, Nigeria" once and keep the code.
 const areaCode = async (city, state, contact) => {
   const key = `area:${areaKey(city, state)}`;
   const hit = await DeliveryEstimate.findOne({ key, expiresAt: { $gt: new Date() } }).lean();
   if (hit?.addressCode) return hit.addressCode;
-  const verified = await shipbubble.validateAddress({ ...contact, address: `${norm(city)}, ${norm(state)}, Nigeria` });
+  const verified = await shipbubble.validateAddress({ ...contact, address: require('./areaDirectory').deliveryAddress({city:norm(city),state:norm(state)}) });
   await DeliveryEstimate.updateOne({ key }, { $set: { kind: 'area', addressCode: verified.address_code, expiresAt: new Date(Date.now() + AREA_TTL_MS) } }, { upsert: true });
   return verified.address_code;
 };
