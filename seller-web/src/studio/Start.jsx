@@ -1,3 +1,8 @@
+import {PHONE_HINT,phoneProblem} from './phone';
+import {allowedPlace} from './googlePlaces';
+import PickupAddressForm from './PickupAddressForm';
+import {notifyDeliveryState} from './api';
+const LEGACY_PICKUP_FORM = false; // Existing manual form remains available as the Google fallback below.
 import {PickupAreaField} from './ServiceArea';
 const LEGACY_AREA_INPUT = false; // Native datalist kept inactive for reference.
 // Getting started (design A): Your store → Pickup address → Get paid → Finished.
@@ -56,7 +61,7 @@ export default function Start() {
     setAnswers((a) => {
       const next = {
         storeName: a.storeName ?? r.store.storeName, aboutStore: a.aboutStore ?? r.store.aboutStore, categories: a.categories ?? r.store.categories,
-        state: a.state ?? r.pickup.state ?? '', city: a.city ?? (a.state && a.state !== r.pickup.state ? '' : r.pickup.city) ?? '', lga: a.lga ?? r.pickup.lga ?? '', addressLine1: a.addressLine1 ?? r.pickup.addressLine1 ?? '', landmark: a.landmark ?? r.pickup.landmark ?? '', phone: a.phone ?? r.pickup.phone ?? '',
+        state: a.state ?? r.pickup.state ?? '', city: a.city ?? (a.state && a.state !== r.pickup.state ? '' : r.pickup.city) ?? '', lga: a.lga ?? r.pickup.lga ?? '',latitude:a.latitude ?? r.pickup.latitude,longitude:a.longitude ?? r.pickup.longitude,addressSource:a.addressSource ?? r.pickup.addressSource,formattedAddress:a.formattedAddress ?? r.pickup.formattedAddress, addressLine1: a.addressLine1 ?? r.pickup.addressLine1 ?? '', landmark: a.landmark ?? r.pickup.landmark ?? '', phone: a.phone ?? r.pickup.phone ?? '',
         bankCode: a.bankCode ?? '', accountNumber: a.accountNumber ?? '',
       };
       keep(next);
@@ -69,7 +74,7 @@ export default function Start() {
 
   useEffect(() => { serviceAreaConfig().then(config => {
     setAreaConfig(config); setStates(config.states.map(name => ({name,isoCode:name})));
-    if(config.states.length === 1) setAnswers(a => ({...a,state:config.states[0],city: a.state && a.state !== config.states[0] ? '' : a.city, lga: a.state && a.state !== config.states[0] ? '' : a.lga}));
+    if(config.states.length === 1) setAnswers(a => ({...a,state:a.state || config.states[0]}));
   }).catch(() => setLoadError('Couldn’t load delivery areas. Please try again.')); }, []);
   useEffect(() => {
     if (!LEGACY_AREA_INPUT) return;
@@ -85,6 +90,7 @@ export default function Start() {
   // Saves; offline, it waits and saves the moment the phone is back online
   const save = useCallback(async (kind, body, next) => {
     setError('');
+    if(kind==='pickup' && phoneProblem(body.phone)){setError(phoneProblem(body.phone));return;}
     if (!navigator.onLine) { setPending({ kind, body, next }); return; }
     setBusy(kind);
     try {
@@ -92,7 +98,7 @@ export default function Start() {
       await refresh();
       // Keep the signed-in seller up to date, so the studio stops asking for a pickup address
       if (kind === 'pickup' || kind === 'store') {
-        const updated = { ...(seller || sellerUtils.getSeller() || {}), ...(kind === 'pickup' ? { hasFilledAddress: true, hasFilledBusinessAddress: true, warehouseDetails: { ...seller?.warehouseDetails, address: { state: body.state, city: body.city, lga: body.lga, addressLine1: body.addressLine1, addressLine2: body.landmark } } } : { storeName: body.storeName }) };
+        const updated = { ...(seller || sellerUtils.getSeller() || {}), ...(kind === 'pickup' ? { hasFilledAddress: true, hasFilledBusinessAddress: true, warehouseDetails: { ...seller?.warehouseDetails, address: { state: body.state, city: body.city, lga: body.lga, latitude:body.latitude,longitude:body.longitude,addressSource:body.addressSource,formattedAddress:body.formattedAddress, addressLine1: body.addressLine1, addressLine2: body.landmark } } } : { storeName: body.storeName }) };
         sellerUtils.storeSeller(updated);
         dispatch?.({ type: 'STORE_SELLER', payload: updated });
       }
@@ -173,6 +179,7 @@ export default function Start() {
             <span className="cap">REQUIRED</span>
             <h1 className="h1">Pickup address</h1>
             <p className="mut" style={{ margin: 0 }}>Couriers collect your orders from here, so we can quote delivery before buyers pay.</p>
+            {LEGACY_PICKUP_FORM ? <>
             <div className="fl">
               <label className="lab" htmlFor="pk-st">State</label>
               <select id="pk-st" className="sel" disabled={states.length === 1} value={answers.state || ''} onChange={set('state')}>
@@ -198,11 +205,12 @@ export default function Start() {
             <div className="fl">
               <label className="lab" htmlFor="pk-ph">Phone for couriers</label>
               <input id="pk-ph" className="in" type="tel" inputMode="tel" value={answers.phone || ''} onChange={set('phone')} placeholder="0803 123 4567" autoComplete="tel" />
-              <span className="hint">10 or 11 digits, e.g. 0803 123 4567</span>
+              <span className="hint">{PHONE_HINT}</span>
             </div>
+            </> : <PickupAddressForm config={areaConfig} value={answers} onChange={next=>{setAnswers(next);keep(next);}} onNotify={notifyDeliveryState} />}
             {pending?.kind === 'pickup' && <span className="hint">We'll save this the moment you're back online. No need to type it again.</span>}
             {error && <Problem text={error} />}
-            <button type="button" className="btn" disabled={busy === 'pickup'} onClick={() => save('pickup', { state: answers.state, city: answers.city, lga: answers.lga, addressLine1: answers.addressLine1, landmark: answers.landmark, phone: answers.phone }, 'bank')}>
+            <button type="button" className="btn" disabled={busy === 'pickup' || Boolean(areaConfig && answers.state && !allowedPlace(areaConfig,answers.state))} onClick={() => save('pickup', {state:answers.state,city:answers.city,lga:answers.lga,addressLine1:answers.addressLine1,landmark:answers.landmark,phone:answers.phone,latitude:answers.latitude,longitude:answers.longitude,addressSource:answers.addressSource,formattedAddress:answers.formattedAddress}, 'bank')}>
               {busy === 'pickup' ? 'Saving…' : pending?.kind === 'pickup' ? 'Save when I’m back online' : 'Save address'}
             </button>
           </>

@@ -79,7 +79,7 @@ export default function StoreProfile() {
               <input id="sp-photo" className="sr" type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files[0] || null)} />
             </div>
           </div>
-          <button type="button" className="list-row" style={{ borderTop: '1px solid var(--border)', minHeight: 72 }} onClick={() => navigate('/studio/start?step=pickup')}>
+          <button type="button" className="list-row" style={{ borderTop: '1px solid var(--border)', minHeight: 72 }} onClick={() => navigate('/studio/pickup',{state:{from:'/studio/profile'}})}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p className="lab">Pickup address</p>
               <p style={{ marginTop: 2, fontSize: 'var(--t-small)', color: addressLine ? 'var(--text)' : 'var(--text-muted)' }}>{addressLine || 'Add where couriers collect from'}</p>

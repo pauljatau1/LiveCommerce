@@ -5,6 +5,7 @@ import { useAuth } from '../auth';
 import { BRAND_NAME } from '../config';
 
 export const Icon = {
+  person: <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg>,
   close: <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>,
   back: <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>,
   send: <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 20l18-8L3 4l2 8z" /></svg>,
@@ -27,6 +28,7 @@ export function Header({ back, title }) {
       <span className="f" style={{ flex: 1, fontSize: 'var(--t-h2)' }}>{title || ''}</span>
       {signedIn ? (
         <>
+          {title!=='My profile'&&<Link to="/me" className="ib" aria-label="My profile">{Icon.person}</Link>}
           <Link to="/orders" className="link" style={{ fontSize: 'var(--t-small)', marginRight: 4 }}>Orders</Link>
           <Link to="/wallet" className="wallet-chip">{Icon.wallet}{naira(wallet?.availableBalance)}</Link>
         </>

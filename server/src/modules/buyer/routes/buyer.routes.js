@@ -22,6 +22,7 @@ const analyticsRoutes = require('./buyer.analytics.routes');
 // Mount Auth routes (moved to buyer.auth.routes.js)
 router.use(authRoutes);
 // Mount Profile routes (moved to buyer.profile.routes.js)
+router.use(require('../../../routes/buyerAccountRoutes'));
 router.use(profileRoutes);
 // Mount Addresses routes (moved to buyer.addresses.routes.js)
 router.use(addressesRoutes);

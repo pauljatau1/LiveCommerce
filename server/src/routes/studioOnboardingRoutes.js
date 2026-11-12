@@ -26,7 +26,7 @@ const view = (s) => {
   return {
     serviceArea: require('../services/serviceArea').serviceAreaConfig(),
     store: { storeName: s.storeName || '', aboutStore: s.aboutStore || '', avatar: s.storeAvatar?.url || null, categories: (s.categories || []).map((c) => c.name), done: Boolean(s.storeName) },
-    pickup: a ? { state: a.state, city: a.city, lga: a.lga, addressLine1: a.addressLine1, landmark: a.addressLine2 || '', phone: s.warehouseDetails?.contactNumber || s.phoneNumber || '', done: true } : { done: false, phone: s.phoneNumber || '' },
+    pickup: a ? { state: a.state, city: a.city, lga: a.lga, latitude:a.latitude, longitude:a.longitude, addressSource:a.addressSource, formattedAddress:a.formattedAddress, addressLine1: a.addressLine1, landmark: a.addressLine2 || '', phone: s.warehouseDetails?.contactNumber || s.phoneNumber || '', done: true } : { done: false, phone: s.phoneNumber || '' },
     bank: b.accountNumber ? { bankName: b.bankName, last4: String(b.accountNumber).slice(-4), accountName: b.accountName, done: Boolean(s.isBankVerified) } : { done: false },
     firstName: s.firstName || '',
     categories: LAUNCH_CATEGORY_NAMES,
@@ -60,12 +60,13 @@ router.put('/pickup', async (req, res) => {
   const city = clean(req.body?.city, 60);
   const addressLine1 = clean(req.body?.addressLine1, 160);
   const landmark = clean(req.body?.landmark, 120);
-  const phone = digits(req.body?.phone);
+  const {phoneDigits,phoneProblem}=require('../utils/phone');
+  const phone = phoneDigits(req.body?.phone);
   if (!require('../services/serviceArea').inServiceArea(state)) return bad(res, require('../services/serviceArea').pickupMessage());
   if (!state || !city || !addressLine1) return bad(res, 'Add your state, area and street address.');
-  if (!/^(0[789][01]\d{8}|[789][01]\d{8}|234[789][01]\d{8})$/.test(phone)) return bad(res, 'Add a phone number couriers can call, like 0803 123 4567.');
+  if (phoneProblem(phone)) return bad(res, phoneProblem(phone));
   try {
-    const address = { country: 'NG', state, city, addressLine1, addressLine2: landmark || undefined, ...require('../services/areaDirectory').validateArea({state,city,lga:req.body.lga}) };
+    const address = { country: 'NG', state, city, addressLine1, addressLine2: landmark || undefined, ...require('../services/areaDirectory').validateArea({...req.body,state,city,addressLine1}) };
     const s = await Seller().findByIdAndUpdate(req.user.id, {
       $set: {
         'warehouseDetails.address': address,

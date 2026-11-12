@@ -89,6 +89,22 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     expect(orders.every((o) => String(o.delivery) === String(list[0]._id))).toBe(true);
   });
 
+  it('uses coordinates in pickup, typed quotes and saved quotes; a changed pin revalidates the cached address', async () => {
+    await Seller.updateOne({_id:seller._id},{$set:{'sellerAddress.latitude':6.6,'sellerAddress.longitude':3.3}});
+    const ada=await createBuyer('Map',50000,{shippingAddresses:[{country:'NG',state:'Lagos',city:'Lekki',addressLine1:'5 Admiralty Way',latitude:6.45,longitude:3.47}]});
+    await deliveries.depositQuote({streamId:stream._id,buyerId:ada._id,productId:plush._id});
+    expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({latitude:6.6,longitude:3.3}));
+    expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({latitude:6.45,longitude:3.47}));
+    shipbubble.validateAddress.mockClear();
+    await deliveries.depositQuote({streamId:stream._id,buyerId:ada._id,productId:plush._id});
+    expect(shipbubble.validateAddress).not.toHaveBeenCalled();
+    await Buyer.updateOne({_id:ada._id},{$set:{'shippingAddresses.0.latitude':6.46}});
+    await deliveries.depositQuote({streamId:stream._id,buyerId:ada._id,productId:plush._id});
+    expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({latitude:6.46,longitude:3.47}));
+    await deliveries.previewQuote({streamId:stream._id,productId:plush._id,address:{addressLine1:'5 Admiralty Way',city:'Lekki',state:'Lagos',phoneNumber:'08031234567',latitude:6.48,longitude:3.49}});
+    expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({latitude:6.48,longitude:3.49}));
+  });
+
   it('holds a real Shipbubble quote for the first item, to the buyer\'s saved address (no flat fee)', async () => {
     const ada = await createBuyer('Ada', 50000);
     const q = await deliveries.depositQuote({ streamId: stream._id, buyerId: ada._id, productId: plush._id });

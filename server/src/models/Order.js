@@ -11,6 +11,8 @@ const addressSchema = new mongoose.Schema({
   line1: { type: String },
   line2: { type: String },
   lga: String,
+  latitude: {type:Number,min:-90,max:90}, longitude: {type:Number,min:-180,max:180},
+  addressSource: String, formattedAddress: String,
   city: { type: String },
   state: { type: String },
   country: { type: String },

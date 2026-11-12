@@ -1,3 +1,4 @@
+import GoogleAddress from './GoogleAddress';
 import AreaPicker from './AreaPicker';
 import {pickerAreas} from './areaPicker';
 const LEGACY_AREA_INPUT = false; // Retained native datalist; the picker is the active UI.
@@ -10,27 +11,20 @@ import { useAuth } from '../auth';
 import { Sheet } from './ui';
 
 // The address form, shared by this sheet and the "One step, then your bid" sheet.
-// Nigerian mobile numbers: 0803 123 4567 (11 digits), +234 803 123 4567, or 803 123 4567
-export const phoneProblem = (raw) => {
-  const d = String(raw || '').replace(/[^\d]/g, '');
-  if (!d) return 'Add a phone number so the courier can reach you.';
-  const local = d.startsWith('234') ? d.slice(3) : d.startsWith('0') ? d.slice(1) : d;
-  if (local.length !== 10 || !/^[789]/.test(local)) return 'Check the phone number: it should look like 0803 123 4567 (11 digits).';
-  return '';
-};
-
-export function useAddressForm() {
+export {phoneProblem} from '../phone';
+import {phoneProblem,PHONE_HINT} from '../phone';
+export function useAddressForm(initialAddress = null) {
   const { buyer } = useAuth();
   const { config, error: areaError } = useServiceArea();
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
-  const [form, setForm] = useState({ state: '', city: '', lga: '', addressLine1: '', landmark: '', phoneNumber: buyer?.phoneNumber || '' });
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value, ...(k === 'state' ? { city: '', lga: '' } : {}) }));
+  const [form, setForm] = useState(() => ({state:'',city:'',lga:'',addressLine1:'',landmark:'',phoneNumber:buyer?.phoneNumber || '',...initialAddress,landmark:initialAddress?.addressLine2 || initialAddress?.landmark || ''}));
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value, ...(['state','city','addressLine1'].includes(k)?{latitude:null,longitude:null,addressSource:'manual',formattedAddress:''}:{}), ...(k === 'state' ? { city: '', lga: '' } : {}) }));
 
   useEffect(() => {
     if (!config) return;
     setStates(config.states.map(name => ({ name, isoCode: name })));
-    if (config.states.length === 1) setForm(f => ({ ...f, state: config.states[0] }));
+    if (config.states.length === 1) setForm(f => ({ ...f, state:f.state || config.states[0] }));
   }, [config]);
   useEffect(() => {
     if (!LEGACY_AREA_INPUT) {setCities(pickerAreas(config, form.state));return;}
@@ -47,7 +41,7 @@ export function useAddressForm() {
   const problem = (needPhone) => {
     if (!config) return areaError || 'Loading delivery areas. Please wait.';
     if (!allowsState(config,form.state)) return `Delivery is ${config.states.join(' and ')}-only for now. You can keep watching and chatting.`;
-    if (!cities.some(area=>area.name === form.city && area.lga === form.lga)) return 'Choose your area from the list.';
+    if (form.addressSource !== 'google' && !cities.some(area=>area.name === form.city && area.lga === form.lga)) return 'Choose your area from the list.';
     if (!form.state || !form.city || !form.addressLine1.trim()) return 'Add your state, area and street address.';
     if (needPhone || form.phoneNumber) {
       const p = phoneProblem(form.phoneNumber);
@@ -57,8 +51,8 @@ export function useAddressForm() {
   };
 
   // `who` fills the name and email for a buyer who just signed up
-  const save = (who = buyer) => (who?.shippingAddresses?.[0]?._id ? async body => { const result = await api.updateAddress(who.shippingAddresses[0]._id, body); await api.activateAddress(who.shippingAddresses[0]._id); return result; } : api.addAddress)({
-    addressType: who?.shippingAddresses?.[0]?.addressType || 'home',
+  const save = (who = buyer) => ((initialAddress?._id || (!initialAddress && who?.shippingAddresses?.[0]?._id)) ? async body => { const id=initialAddress?._id || who.shippingAddresses[0]._id;const result = await api.updateAddress(id, body); if(!initialAddress) await api.activateAddress(id); return result; } : api.addAddress)({
+    addressType: initialAddress?.addressType || who?.shippingAddresses?.[0]?.addressType || 'home',
     firstName: who?.firstName,
     lastName: who?.lastName,
     email: who?.email,
@@ -67,18 +61,20 @@ export function useAddressForm() {
     state: form.state,
     city: form.city,
     lga: form.lga,
+    latitude: form.latitude ?? null,longitude: form.longitude ?? null,addressSource:form.addressSource || 'manual',formattedAddress:form.formattedAddress || '',
     addressLine1: form.addressLine1.trim(),
-    addressLine2: form.landmark.trim() || undefined,
+    addressLine2: form.landmark.trim(),
   });
 
-  const chooseArea = area => setForm(form=>({...form,city:area.name,lga:area.lga}));
-  return { form, set, chooseArea, states, cities, problem, save, config };
+  const chooseArea = area => setForm(form=>({...form,city:area.name,lga:area.lga,latitude:null,longitude:null,addressSource:'manual',formattedAddress:''}));
+  return {outOfArea:Boolean(config && form.state && !allowsState(config,form.state)),form,set,chooseArea,states,cities,problem,save,config,buyer,chooseGoogleAddress:address=>setForm(form=>({...form,...address})),notify:(state,email)=>api.joinWaitlist({state,email})};
 }
 
-export function AddressFields({ address, askPhone, idPrefix = 'ad' }) {
+export function AddressFields({ address, askPhone, idPrefix = 'ad', contactEmail = '' }) {
   const { form, set, states, cities } = address;
   return (
     <>
+      <GoogleAddress config={address.config} value={form} onChange={address.chooseGoogleAddress} onNotify={address.notify} needContact={!address.buyer} initialNotifyEmail={contactEmail}>
       <div className="fl">
         <label className="lab" htmlFor={`${idPrefix}-st`}>State</label>
         <select id={`${idPrefix}-st`} className="sel" value={form.state} onChange={set('state')} disabled={states.length === 1}>
@@ -98,6 +94,7 @@ export function AddressFields({ address, askPhone, idPrefix = 'ad' }) {
         <label className="lab" htmlFor={`${idPrefix}-l1`}>Street address</label>
         <input id={`${idPrefix}-l1`} className="in" value={form.addressLine1} onChange={set('addressLine1')} placeholder="e.g. 12 Herbert Macaulay Way" autoComplete="street-address" />
       </div>
+      </GoogleAddress>
       <div className="fl">
         <label className="lab" htmlFor={`${idPrefix}-lm`}>Landmark <span className="hint" style={{ fontWeight: 'var(--w-medium)' }}>optional</span></label>
         <input id={`${idPrefix}-lm`} className="in" value={form.landmark} onChange={set('landmark')} placeholder="e.g. opposite Yaba bus stop" />
@@ -105,7 +102,8 @@ export function AddressFields({ address, askPhone, idPrefix = 'ad' }) {
       {(askPhone || address.config) && (
         <div className="fl">
           <label className="lab" htmlFor={`${idPrefix}-ph`}>Phone for the courier</label>
-          <input id={`${idPrefix}-ph`} className="in" type="tel" inputMode="tel" value={form.phoneNumber} onChange={set('phoneNumber')} placeholder="e.g. 0803 123 4567" autoComplete="tel" />
+          <input id={`${idPrefix}-ph`} className="in" type="tel" inputMode="tel" value={form.phoneNumber} onChange={set('phoneNumber')} placeholder="0803 123 4567" autoComplete="tel" />
+          <span className="hint">{PHONE_HINT}</span>
         </div>
       )}
     </>
@@ -113,9 +111,9 @@ export function AddressFields({ address, askPhone, idPrefix = 'ad' }) {
 }
 
 // Change the delivery address later (the first one is asked in the one-step sheet).
-export default function AddressSheet({ onClose, onSaved, top = null }) {
+export default function AddressSheet({ onClose, onSaved, top = null, initialAddress = null }) {
   const { buyer, refresh } = useAuth();
-  const address = useAddressForm();
+  const address = useAddressForm(initialAddress);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -142,7 +140,7 @@ export default function AddressSheet({ onClose, onSaved, top = null }) {
       <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <AddressFields address={address} askPhone={!buyer?.phoneNumber} />
         {error && <span className="err" role="alert">{error}</span>}
-        <button type="submit" className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save address'}</button>
+        <button type="submit" className="btn" disabled={busy || address.outOfArea}>{busy ? 'Saving…' : 'Save address'}</button>
       </form>
     </Sheet>
   );

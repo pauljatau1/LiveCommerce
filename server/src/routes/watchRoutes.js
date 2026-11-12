@@ -29,16 +29,22 @@ const router = express.Router();
 const area = require('../services/serviceArea');
 const DeliveryWaitlist = require('../models/DeliveryWaitlist');
 router.get('/config', (req, res) => res.json({ serviceArea: area.serviceAreaConfig() }));
-router.post('/waitlist', rateLimit({ windowMs: 60000, max: 10, message: { message: 'Please wait a minute before trying again.' } }), verifyToken, isBuyer, async (req, res) => {
+const optionalAccount = async (req,res,next)=>{
+  const token=String(req.headers.authorization || '').replace(/^Bearer\s+/i,'');
+  if(token){try{const u=jwt.verify(token,process.env.JWT_SECRET);await require('../services/auth/sessions').assertSession(u);if(['Buyer','Seller'].includes(u.role))req.user=u;}catch{return res.status(401).json({message:'Please sign in again.'});}}
+  next();
+};
+router.post('/waitlist', rateLimit({ windowMs: 60000, max: 10, message: { message: 'Please wait a minute before trying again.' } }), optionalAccount, async (req, res) => {
   const state = area.normalizeState(req.body?.state);
   if (!state || state.length > 80) return res.status(400).json({ message: 'Choose the state you want delivery in.' });
   if (req.body.streamId && !mongoose.isValidObjectId(req.body.streamId)) return res.status(400).json({ message: 'Check the show link and try again.' });
   try {
-    const buyer = await mongoose.model('Buyer').findById(req.user.id).lean();
-    if (!buyer) return res.status(404).json({ message: 'Please sign in again.' });
+    let buyer,owner;
+    if(req.user){buyer=await mongoose.model(req.user.role).findById(req.user.id).lean();owner={[req.user.role.toLowerCase()]:buyer?._id};if(!buyer)return res.status(404).json({message:'Please sign in again.'});}
+    else {const email=String(req.body?.email || '').trim().toLowerCase();if(!/^\S+@\S+\.\S+$/.test(email)||email.length>254)return res.status(401).json({message:'Add your email so we can notify you.'});buyer={email};owner={contactType:'guest',email};}
     if (!buyer.email && !buyer.phoneNumber) return res.status(400).json({ message: 'Add an email or phone number to your account so we can notify you.' });
     await DeliveryWaitlist.init(); // Wait for the unique index before concurrent first requests.
-    await DeliveryWaitlist.updateOne({ buyer: buyer._id, state }, { $setOnInsert: { buyer: buyer._id, email: buyer.email, phone: buyer.phoneNumber, state, streamId: req.body.streamId } }, { upsert: true });
+    await DeliveryWaitlist.updateOne({ ...owner, state }, { $setOnInsert: { ...owner, email: buyer.email, phone: buyer.phoneNumber, state, streamId: req.body.streamId } }, { upsert: true });
     res.json({ success: true, message: 'We’ll tell you when delivery opens in your state.' });
   } catch (e) { if (e.code === 11000) return res.json({ success: true }); res.status(500).json({ message: 'Couldn’t save your request. Please try again.' }); }
 });

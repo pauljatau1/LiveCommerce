@@ -1,0 +1,192 @@
+{
+  "checks": [
+    "typing-address",
+    "picked-address",
+    "out-of-area",
+    "current-location",
+    "fallback-picker",
+    "seller-pickup-edit",
+    "buyer-profile",
+    "inline-dva-phone",
+    "inline-dva-phone-360"
+  ],
+  "calls": [
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/buyers/addresses/home",
+      "method": "PUT",
+      "body": {
+        "addressType": "home",
+        "firstName": "Ada",
+        "lastName": "Test",
+        "email": "ada@example.test",
+        "phoneNumber": "08031234567",
+        "country": "NG",
+        "state": "Lagos",
+        "city": "Lekki",
+        "lga": "Eti-Osa",
+        "latitude": 6.45,
+        "longitude": 3.47,
+        "addressSource": "google",
+        "formattedAddress": "12 Admiralty Way, Lekki, Lagos, Nigeria",
+        "addressLine1": "12 Admiralty Way",
+        "addressLine2": ""
+      }
+    },
+    {
+      "path": "/api/v2/buyers/addresses/home/set-active",
+      "method": "PATCH",
+      "body": {}
+    },
+    {
+      "path": "/api/v2/watch/waitlist",
+      "method": "POST",
+      "body": {
+        "state": "Federal Capital Territory",
+        "email": ""
+      }
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/studio/undefined/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/studio/undefined/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/studio/undefined/api/v2/studio/onboarding/pickup",
+      "method": "PUT",
+      "body": {
+        "done": true,
+        "state": "Lagos",
+        "city": "Lekki",
+        "addressLine1": "12 Admiralty Way",
+        "phone": "08031234567",
+        "lga": "Eti-Osa",
+        "latitude": 6.45,
+        "longitude": 3.47,
+        "addressSource": "google",
+        "formattedAddress": "12 Admiralty Way, Lekki, Lagos, Nigeria",
+        "country": "NG"
+      }
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/buyers/addresses",
+      "method": "POST",
+      "body": {
+        "addressType": "home",
+        "firstName": "Ada",
+        "lastName": "Test",
+        "email": "ada@example.test",
+        "phoneNumber": "08031234567",
+        "country": "NG",
+        "state": "Lagos",
+        "city": "Lekki",
+        "lga": "Eti-Osa",
+        "latitude": 6.45,
+        "longitude": 3.47,
+        "addressSource": "google",
+        "formattedAddress": "12 Admiralty Way, Lekki, Lagos, Nigeria",
+        "addressLine1": "12 Admiralty Way",
+        "addressLine2": ""
+      }
+    },
+    {
+      "path": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/buyers/profile/phone",
+      "method": "PUT",
+      "body": {
+        "phoneNumber": "08031234567"
+      }
+    },
+    {
+      "path": "/api/v2/wallet/dva",
+      "method": "POST",
+      "body": {
+        "consent": true
+      }
+    },
+    {
+      "path": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/waitlist",
+      "method": "POST",
+      "body": {
+        "state": "Federal Capital Territory",
+        "email": "guest@example.test"
+      }
+    },
+    {
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/api/v2/watch/show/delivery-quote",
+      "method": "POST",
+      "body": {
+        "productId": "product",
+        "address": {
+          "addressLine1": "12 Admiralty Way",
+          "city": "Lekki",
+          "lga": "Eti-Osa",
+          "latitude": 6.45,
+          "longitude": 3.47,
+          "addressLine2": "",
+          "state": "Lagos",
+          "phoneNumber": "08031234567",
+          "email": "ada@example.test"
+        }
+      }
+    }
+  ]
+}

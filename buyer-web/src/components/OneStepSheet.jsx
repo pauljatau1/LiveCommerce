@@ -36,7 +36,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
   // host's pickup address to this exact address, for this item. Nothing is
   // guessed: until the address is complete there is no price.
   const [typedQuote, setTypedQuote] = useState({ status: 'idle' });
-  const { state: pickedState, city: pickedCity, lga: pickedLga, landmark: pickedLandmark, addressLine1: pickedLine, phoneNumber: pickedPhone } = address.form;
+  const { state: pickedState, city: pickedCity, lga: pickedLga, landmark: pickedLandmark, latitude: pickedLat, longitude: pickedLng, addressLine1: pickedLine, phoneNumber: pickedPhone } = address.form;
   const phoneForQuote = pickedPhone || buyer?.phoneNumber || '';
   useEffect(() => {
     const complete = pickedState && pickedCity && String(pickedLine).trim().length >= 4 && !phoneProblem(phoneForQuote);
@@ -46,14 +46,14 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
     const t = window.setTimeout(() => {
       api.deliveryQuote(streamId, {
         productId,
-        address: { addressLine1: String(pickedLine).trim(), city: pickedCity, lga: pickedLga, addressLine2: pickedLandmark, state: pickedState, phoneNumber: phoneForQuote, email: acct.email.trim() || buyer?.email },
+        address: { addressLine1: String(pickedLine).trim(), city: pickedCity, lga: pickedLga, latitude:pickedLat,longitude:pickedLng, addressLine2: pickedLandmark, state: pickedState, phoneNumber: phoneForQuote, email: acct.email.trim() || buyer?.email },
       })
         .then((r) => live && setTypedQuote(r?.available ? { status: 'ok', ...r } : { status: 'error', message: r?.message || "Couldn't price delivery to this address." }))
         .catch((e) => live && setTypedQuote({ status: 'error', message: errorMessage(e, "Couldn't price delivery right now. Try again.") }));
     }, 700);
     return () => { live = false; window.clearTimeout(t); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickedState, pickedCity, pickedLga, pickedLandmark, pickedLine, phoneForQuote, streamId, productId]);
+  }, [pickedState, pickedCity, pickedLga, pickedLat, pickedLng, pickedLandmark, pickedLine, phoneForQuote, streamId, productId]);
 
   const needAccount = !signedIn;
   const needAddress = !chatOnly && !(buyer?.shippingAddresses || []).length;
@@ -62,7 +62,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
   const dep = chatOnly ? 0 : needAddress ? (typedQuote.status === 'ok' ? typedQuote.amount : null) : deposit;
   const depInfo = needAddress ? (typedQuote.status === 'ok' ? typedQuote : null) : quote;
   // A saved address is priced on the server when the button is pressed (finish)
-  const priced = chatOnly || !needAddress || dep !== null;
+  const priced = chatOnly || !needAddress || (!address.outOfArea && dep !== null);
   const cost = chatOnly ? 0 : action.amount + (dep || 0);
   const pay = chatOnly || !priced ? 0 : topUpFor(cost - available);
 
@@ -206,7 +206,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
       {needAddress && (
         <section className="step" aria-label="Delivery">
           <h3 className="step-h">Delivery</h3>
-          <AddressFields address={address} askPhone={!buyer?.phoneNumber} idPrefix="os" />
+          <AddressFields address={address} askPhone={!buyer?.phoneNumber} idPrefix="os" contactEmail={acct.email} />
           {typedQuote.status === 'ok' && <p style={{ margin: 0, fontWeight: 'var(--w-medium)' }}>Delivery to {typedQuote.area}: {naira(typedQuote.amount)}{typedQuote.courierName ? ` · ${typedQuote.courierName}` : ''}</p>}
           {typedQuote.status === 'loading' && <span className="hint">Getting the delivery price from Shipbubble…</span>}
           {typedQuote.status === 'error' && <span className="err" role="alert">{typedQuote.message}</span>}
@@ -228,7 +228,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
       )}
 
       {error.where === '' && error.text && <span className="err" role="alert">{error.text}</span>}
-      <button type="button" className="btn" disabled={Boolean(busy) || !priced} onClick={go}>{busy || buttonText}</button>
+      <button type="button" className="btn" disabled={Boolean(busy) || !priced || (needAddress && address.outOfArea)} onClick={go}>{busy || buttonText}</button>
       {!chatOnly && <span className="hint" style={{ textAlign: 'center' }}>The show keeps playing while you do this.</span>}
     </Sheet>
   );

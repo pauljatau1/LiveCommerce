@@ -428,3 +428,8 @@ a{color:var(--primary)}
 :is(.app, .sheet-wrap) .wallet-available strong:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){font-size:var(--t-display);font-weight:var(--w-medium)}
 
 :is(.app, .sheet-wrap) .wallet-chip:not(:where(.watch :not(.sheet-wrap, .sheet-wrap *), .lv, .lv *, .run-sheet, .run-sheet *)){display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:0;border-radius:var(--r-pill);background:var(--surface-sunken);color:var(--text);font:var(--w-medium) var(--t-small) var(--font-body);cursor:pointer;text-decoration:none}
+/* Bank consent shares the wallet sheet's inset, including on narrow phones. */
+.wallet-sheet{padding-inline:18px}
+.wallet-sheet>.step{width:100%;min-width:0;margin-inline:0;align-self:stretch}
+.wallet-sheet>.step .fl,.wallet-sheet>.step .in{width:100%;min-width:0}
+.wallet-sheet>.step label{overflow-wrap:anywhere}
