@@ -1,3 +1,4 @@
+import useStudioBack from './useStudioBack';
 import {phoneProblem} from './phone';
 import {allowedPlace} from './googlePlaces';
 import {useEffect,useState} from 'react';
@@ -10,7 +11,7 @@ import PickupAddressForm from './PickupAddressForm';
 export default function PickupAddress() {
  const location=useLocation(),navigate=useNavigate(),{seller,dispatch}=useAuthContext();
  const [value,setValue]=useState(null),[config,setConfig]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[retry,setRetry]=useState(0);
- const destination=location.state?.from;const back=()=>navigate(typeof destination==='string'&&(destination==='/studio'||destination.startsWith('/studio/'))&&destination!=='/studio/pickup'?destination:'/studio/me',{replace:true});
+ const destination=location.state?.from;const back=useStudioBack(destination || '/studio/me');
  useEffect(()=>{let active=true;Promise.all([onboarding.get(),serviceAreaConfig()]).then(([data,area])=>{if(active){setConfig(area);setValue({...data.pickup,state:data.pickup.state || area.states[0] || ''});}}).catch(()=>{if(active)setError('Couldn’t load your pickup address. Please try again.');});return()=>{active=false;};},[retry]);
  const save=async event=>{event.preventDefault();setBusy(true);setError('');try{
   if(phoneProblem(value.phone))throw {response:{data:{message:phoneProblem(value.phone)}}};

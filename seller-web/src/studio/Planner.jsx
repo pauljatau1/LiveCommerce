@@ -1,3 +1,4 @@
+import useStudioBack from './useStudioBack';
 // Show Planner (design: S-Planner-Pick / S-Planner-Setup / S-Planner-Scheduled).
 // Step 1: pick items + auction or drop. Step 2: title, order, prices, time, cover.
 // Then the show is scheduled and the seller gets the link to share.
@@ -19,6 +20,7 @@ const dayLabel = (d, i) => (i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocal
 const TIMES = [['18:00', '6:00 PM'], ['19:00', '7:00 PM'], ['20:00', '8:00 PM'], ['21:00', '9:00 PM']];
 
 export default function Planner() {
+  const back=useStudioBack('/studio/shows');
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [step, setStep] = useState(1);
@@ -134,7 +136,7 @@ export default function Planner() {
     const link = created.streamLink;
     return (
       <div className="studio-app">
-        <TopBar title="Your show" onBack={() => navigate('/studio')} right={<span className="pill p-active">Scheduled</span>} />
+        <TopBar title="Your show" backTo="/studio" right={<span className="pill p-active">Scheduled</span>} />
         <div className="st-inner">
           <section className="card" style={{ overflow: 'hidden' }} aria-label="Scheduled show">
             <div style={{ padding: 18, background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -165,7 +167,7 @@ export default function Planner() {
 
   return (
     <div className="studio-app">
-      <TopBar title="Plan a show" sub={step === 1 ? 'Step 1 of 2 · pick items' : `Step 2 of 2 · ${type === 'auction' ? 'auction' : 'drop'} · ${items.length} item${items.length === 1 ? '' : 's'}`} onBack={() => (step === 2 ? setStep(1) : navigate(-1))} close={step === 1} />
+      <TopBar title="Plan a show" sub={step === 1 ? 'Step 1 of 2 · pick items' : `Step 2 of 2 · ${type === 'auction' ? 'auction' : 'drop'} · ${items.length} item${items.length === 1 ? '' : 's'}`} onBack={() => (step === 2 ? setStep(1) : back())} close={step === 1} />
       {step === 1 && (
         <div className="st-inner" style={{ paddingBottom: 120 }}>
           {error && <Problem text={error} />}
@@ -198,7 +200,7 @@ export default function Planner() {
               </fieldset>
             </>
           )}
-          <section aria-label="Selected items" style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px max(16px, env(safe-area-inset-bottom))', background: 'var(--surface)', borderTop: '1px solid var(--border)', boxShadow: 'var(--shadow-up)' }}>
+          <section data-keyboard-bar aria-label="Selected items" style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 10, display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px max(16px, env(safe-area-inset-bottom))', background: 'var(--surface)', borderTop: '1px solid var(--border)', boxShadow: 'var(--shadow-up)' }}>
             <span style={{ flex: 1, fontWeight: 'var(--w-medium)', maxWidth: 560, marginLeft: 'auto' }}>{items.length} item{items.length === 1 ? '' : 's'}</span>
             <button type="button" className="btn" disabled={!items.length} onClick={goSetup} style={{ marginRight: 'auto' }}>Next</button>
           </section>

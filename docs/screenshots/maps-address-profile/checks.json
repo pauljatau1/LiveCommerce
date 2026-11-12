@@ -93,6 +93,37 @@
       }
     },
     {
+      "path": "/studio/undefined/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/studio/undefined/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "path": "/studio/undefined/api/v2/studio/onboarding/pickup",
+      "method": "PUT",
+      "body": {
+        "state": "Lagos",
+        "city": "Lekki",
+        "lga": "Eti-Osa",
+        "addressLine1": "12 Admiralty Way",
+        "landmark": "",
+        "phone": "08031234567",
+        "latitude": 6.45,
+        "longitude": 3.47,
+        "addressSource": "google",
+        "formattedAddress": "12 Admiralty Way, Lekki, Lagos, Nigeria"
+      }
+    },
+    {
+      "path": "/studio/undefined/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
       "path": "/api/v2/watch/config",
       "method": "GET",
       "body": null

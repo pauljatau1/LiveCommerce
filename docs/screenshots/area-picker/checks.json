@@ -93,27 +93,31 @@
         "state": "Lagos",
         "city": "Victoria Island",
         "lga": "Eti-Osa",
+        "latitude": null,
+        "longitude": null,
+        "addressSource": "manual",
+        "formattedAddress": "",
         "addressLine1": "12 Test Street",
         "addressLine2": "Near the gate"
       }
     },
     {
-      "path": "/api/v2/studio/onboarding",
+      "path": "/studio/undefined/api/v2/studio/onboarding",
       "method": "GET",
       "body": null
     },
     {
-      "path": "/api/v2/watch/config",
+      "path": "/studio/undefined/api/v2/watch/config",
       "method": "GET",
       "body": null
     },
     {
-      "path": "/api/v2/studio/onboarding",
+      "path": "/studio/undefined/api/v2/studio/onboarding",
       "method": "GET",
       "body": null
     },
     {
-      "path": "/api/v2/watch/config",
+      "path": "/studio/undefined/api/v2/watch/config",
       "method": "GET",
       "body": null
     },
@@ -131,6 +135,8 @@
           "addressLine1": "5 Admiralty Way",
           "city": "Lekki",
           "lga": "Eti-Osa",
+          "latitude": null,
+          "longitude": null,
           "addressLine2": "",
           "state": "Lagos",
           "phoneNumber": "08031234567",
@@ -147,6 +153,8 @@
           "addressLine1": "5 Admiralty Way",
           "city": "Yaba",
           "lga": "Lagos Mainland",
+          "latitude": null,
+          "longitude": null,
           "addressLine2": "",
           "state": "Lagos",
           "phoneNumber": "08031234567",

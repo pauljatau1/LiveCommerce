@@ -1,3 +1,5 @@
+import ShareIcon from './ShareIcons';
+const LEGACY_SHARE_MARKS=false;
 // Share a show: copy the link, or send it straight to WhatsApp, X, Facebook,
 // Telegram. Instagram and TikTok have no web share link, so we copy the link
 // and say where to paste it.
@@ -69,7 +71,7 @@ export default function ShareSheet({ show, onClose }) {
 
       <div className="sh-apps" role="group" aria-label="Share to">
         {targets.map((t) => (
-          <button key={t.name} type="button" className="sh-app" onClick={t.go}><AppIcon bg={t.bg}>{t.mark}</AppIcon>{t.name}</button>
+          <button key={t.name} type="button" className="sh-app" onClick={t.go}><AppIcon bg={t.bg}>{LEGACY_SHARE_MARKS ? t.mark : <ShareIcon name={t.name.toLowerCase()}/>}</AppIcon>{t.name}</button>
         ))}
         {canShare && (
           <button type="button" className="sh-app" onClick={() => navigator.share({ title: show.title, text, url: link }).catch(() => {})}>

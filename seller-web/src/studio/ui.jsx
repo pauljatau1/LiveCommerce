@@ -1,3 +1,5 @@
+import useFormKeyboard from './useFormKeyboard';
+import useStudioBack from './useStudioBack';
 // Shared studio pieces: icons, status pills, empty and error states.
 /* eslint-disable react-refresh/only-export-components */
 import { useRef, useState } from 'react';
@@ -80,9 +82,13 @@ export const Thumbs = ({ images = [], size = 44 }) => (
 );
 
 // Page header for inner screens: back button, title, optional right side
-export const TopBar = ({ title, sub, onBack, right, close }) => (
-  <header className="top" style={{ position: 'sticky', top: 0, zIndex: 5 }}>
-    {onBack && <button type="button" className="ib" aria-label={close ? 'Close' : 'Back'} onClick={onBack}>{close ? Icon.close : Icon.back}</button>}
+export const TopBar = ({ title, sub, onBack, backTo, right, close }) => {
+  const keyboardRef=useFormKeyboard();
+  const goBack=useStudioBack(backTo);
+  const back=onBack || (backTo ? goBack : null);
+  return (
+  <header ref={keyboardRef} className="top" style={{ position: 'sticky', top: 0, zIndex: 5 }}>
+    {back && <button type="button" className="ib" aria-label={close ? 'Close' : 'Back'} onClick={back}>{close ? Icon.close : Icon.back}</button>}
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
       <span className="f" style={{ fontSize: 'var(--t-h2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</span>
       {sub && <span className="mut" style={{ fontSize: 'var(--t-small)', fontWeight: 'var(--w-medium)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</span>}
@@ -90,11 +96,12 @@ export const TopBar = ({ title, sub, onBack, right, close }) => (
     {right}
   </header>
 );
+};
 
 // Bottom sheet with scrim, sized to its content. Closes on a scrim tap, Escape,
 // swiping down, or the optional ✕ at the top right.
 export const Sheet = ({ label, onClose, children, closeX = false, lift = 0, maxHeight = null, className = '' }) => {
-  const ref = useRef(null);
+  const ref = useFormKeyboard();
   const startY = useRef(null);
   const [drag, setDrag] = useState(0);
   const onTouchStart = (e) => { if ((ref.current?.scrollTop || 0) <= 0) startY.current = e.touches[0].clientY; };

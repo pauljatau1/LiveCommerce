@@ -118,7 +118,7 @@ export function OrderDetail() {
   if (!d) {
     return (
       <div className="studio-app">
-        <TopBar title="Order" onBack={() => navigate('/studio/orders')} />
+        <TopBar title="Order" backTo="/studio/orders" />
         <div className="st-inner">{loadError ? <Problem text={loadError} onRetry={load} /> : list ? <Problem text="Order not found." /> : <><Skeleton h={80} /><Skeleton h={200} /></>}</div>
       </div>
     );
@@ -134,7 +134,7 @@ export function OrderDetail() {
   const current = steps.findIndex(([, done]) => !done);
   return (
     <div className="studio-app">
-      <TopBar title={`${who} · ${d.itemCount} item${d.itemCount === 1 ? '' : 's'}`} sub={`From ${d.show?.title || 'a live show'}`} onBack={() => navigate('/studio/orders')} right={<Pill map={DELIVERY_PILL} status={d.status} />} />
+      <TopBar title={`${who} · ${d.itemCount} item${d.itemCount === 1 ? '' : 's'}`} sub={`From ${d.show?.title || 'a live show'}`} backTo="/studio/orders" right={<Pill map={DELIVERY_PILL} status={d.status} />} />
       <div className="st-inner">
         <section className="card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }} aria-label="Buyer">
           <span style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--surface)', color: 'var(--text)', font: 'var(--w-medium) var(--t-body) var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{who.replace('@', '').slice(0, 2).toUpperCase()}</span>

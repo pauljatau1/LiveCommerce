@@ -1,3 +1,4 @@
+import useStudioBack from './useStudioBack';
 import {PHONE_HINT,phoneProblem} from './phone';
 import {allowedPlace} from './googlePlaces';
 import PickupAddressForm from './PickupAddressForm';
@@ -38,6 +39,8 @@ const useOnline = () => {
 export default function Start() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const returnBack=useStudioBack('/studio/me');
+  const pickupEdit=params.get('step')==='pickup';
   const { seller, dispatch } = useAuthContext();
   const online = useOnline();
   const [info, setInfo] = useState(null);
@@ -103,13 +106,13 @@ export default function Start() {
         dispatch?.({ type: 'STORE_SELLER', payload: updated });
       }
       setPending(null);
-      setStep(next);
+      if(next==='return')returnBack();else setStep(next);
     } catch (e) {
       setError(errorText(e, "Couldn't save. Your answers are still here: try again."));
     } finally {
       setBusy('');
     }
-  }, [refresh, seller, dispatch]);
+  }, [refresh, seller, dispatch, returnBack]);
   useEffect(() => { if (online && pending) save(pending.kind, pending.body, pending.next); }, [online, pending, save]);
 
   const checkAccount = async () => {
@@ -140,7 +143,7 @@ export default function Start() {
       <TopBar
         title="Getting started"
         sub={step === 'done' ? 'All set' : `Step ${index + 1} of 3`}
-        onBack={index > 0 && step !== 'done' ? () => setStep(STEPS[index - 1]) : undefined}
+        onBack={pickupEdit ? returnBack : index > 0 && step !== 'done' ? () => setStep(STEPS[index - 1]) : returnBack}
         right={step === 'store' || step === 'bank' ? <button type="button" className="link" onClick={() => setStep(STEPS[index + 1])}>Do this later</button> : null}
       />
       {!online && <div className="banner b-off" role="status">You're offline. Your answers are saved on this phone.</div>}
@@ -210,7 +213,7 @@ export default function Start() {
             </> : <PickupAddressForm config={areaConfig} value={answers} onChange={next=>{setAnswers(next);keep(next);}} onNotify={notifyDeliveryState} />}
             {pending?.kind === 'pickup' && <span className="hint">We'll save this the moment you're back online. No need to type it again.</span>}
             {error && <Problem text={error} />}
-            <button type="button" className="btn" disabled={busy === 'pickup' || Boolean(areaConfig && answers.state && !allowedPlace(areaConfig,answers.state))} onClick={() => save('pickup', {state:answers.state,city:answers.city,lga:answers.lga,addressLine1:answers.addressLine1,landmark:answers.landmark,phone:answers.phone,latitude:answers.latitude,longitude:answers.longitude,addressSource:answers.addressSource,formattedAddress:answers.formattedAddress}, 'bank')}>
+            <button type="button" className="btn" disabled={busy === 'pickup' || Boolean(areaConfig && answers.state && !allowedPlace(areaConfig,answers.state))} onClick={() => save('pickup', {state:answers.state,city:answers.city,lga:answers.lga,addressLine1:answers.addressLine1,landmark:answers.landmark,phone:answers.phone,latitude:answers.latitude,longitude:answers.longitude,addressSource:answers.addressSource,formattedAddress:answers.formattedAddress}, pickupEdit ? 'return' : 'bank')}>
               {busy === 'pickup' ? 'Saving…' : pending?.kind === 'pickup' ? 'Save when I’m back online' : 'Save address'}
             </button>
           </>

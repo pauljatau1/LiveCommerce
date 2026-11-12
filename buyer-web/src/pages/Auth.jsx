@@ -1,3 +1,5 @@
+import PasswordInput from '../components/PasswordInput';
+import {loginError} from '../loginError';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, errorMessage } from '../api';
@@ -30,7 +32,7 @@ export default function Auth() {
       await signIn(token);
       navigate(next, { replace: true });
     } catch (err) {
-      setError(errorMessage(err, mode === 'signup' ? "Couldn't create your account." : 'Email or password is wrong.'));
+      setError(mode==='signin' ? loginError(err) : errorMessage(err,"Couldn't create your account."));
     } finally {
       setBusy(false);
     }
@@ -58,7 +60,7 @@ export default function Auth() {
           </div>
           <div className="fl">
             <label className="lab" htmlFor="au-p">Password</label>
-            <input id="au-p" className="in" type="password" value={form.password} onChange={set('password')} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required />
+            <PasswordInput id="au-p" className="in" type="password" value={form.password} onChange={set('password')} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required />
           </div>
           {error && <span className="err" role="alert">{error}</span>}
           <button type="submit" className="btn" disabled={busy}>{busy ? 'One moment…' : mode === 'signup' ? 'Create account' : 'Sign in'}</button>

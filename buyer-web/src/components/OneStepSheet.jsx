@@ -1,3 +1,5 @@
+import PasswordInput from './PasswordInput';
+import {loginError} from '../loginError';
 // "One step, then your bid": everything a new buyer needs, in one sheet over
 // the show. Only the missing parts are shown: an account, a delivery address,
 // and enough in the wallet. One button does them in order, then bids or buys.
@@ -143,7 +145,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
         token = res?.token || res?.accessToken || res?.data?.token;
         if (!token) throw new Error('No token');
       } catch (e) {
-        return fail('account', errorMessage(e, mode === 'signup' ? "Couldn't create your account." : 'Email or password is wrong.'));
+        return fail('account', mode==='signin' ? loginError(e) : errorMessage(e,"Couldn't create your account."));
       }
       await afterSignIn(token);
       return;
@@ -194,7 +196,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
           </div>
           <div className="fl">
             <label className="lab" htmlFor="os-p">Password</label>
-            <input id="os-p" className="in" type="password" value={acct.password} onChange={setA('password')} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
+            <PasswordInput id="os-p" className="in" type="password" value={acct.password} onChange={setA('password')} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
           </div>
           {errFor('account')}
           <button type="button" className="link" onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setError({ where: '', text: '' }); }}>

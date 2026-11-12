@@ -1,3 +1,4 @@
+import useStudioBack from './useStudioBack';
 // Add and edit a product. Phone: one column with Save fixed at the bottom.
 // Desktop: the studio top bar, Save at the top right, and a live preview.
 // Opened from the listing agent it arrives filled in ("Filled in from your photos").
@@ -364,7 +365,7 @@ export default function ProductEditor() {
 
   const sub = categories.find((c) => c.name === form?.category)?.subCategories || [];
   const title = id ? 'Edit product' : 'Add product';
-  const back = () => navigate(id ? `/studio/products/${id}` : '/studio/list');
+  const back = useStudioBack(id ? `/studio/products/${id}` : '/studio/products');
   const busy = phase !== '';
   const saveLabel = phase === 'saving' ? 'Saving…' : phase === 'saved' ? 'Saved' : id ? 'Save changes' : 'Save product';
   const saveButton = (style) => (

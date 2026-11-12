@@ -1,3 +1,4 @@
+import useStudioBack from './useStudioBack';
 import { RETURNS_ANSWER, FEES_ANSWER } from './helpCopy';
 // Help: talk to a person first (WhatsApp, then email), then the common questions.
 // Open before sign-in too, so the sign-up page can link to the terms.
@@ -21,7 +22,7 @@ const HELP_FAQS = [
 
 export default function Help() {
   const navigate = useNavigate();
-  const back = () => (window.history.length > 1 ? navigate(-1) : navigate('/studio'));
+  const back = useStudioBack('/studio/me');
   return (
     <div className="studio-app">
       <TopBar title="Help" onBack={back} />

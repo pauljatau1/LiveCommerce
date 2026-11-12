@@ -1,3 +1,4 @@
+const LEGACY_TOPUP_LAYOUT=false; // Retain the prior expanded layout for rollback.
 import { useEffect, useRef, useState } from 'react';
 import { api, errorMessage, naira } from '../api';
 import { resumeSavedCard } from '../payments';
@@ -5,8 +6,8 @@ import { useAuth } from '../auth';
 import {phoneProblem,PHONE_HINT} from '../phone';
 import { oneTapAmount } from '../walletIntents';
 
-export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWaiting, onPending, onMethod, onUseAnotherCard, onBusyChange, initialBank }) {
-  const { buyer,refresh } = useAuth();
+export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWaiting, onPending, onMethod, onUseAnotherCard, onBusyChange, initialBank,cardForm,externalBusy=false }) {
+  const {buyer,refresh}=useAuth();
   const [phone,setPhone]=useState('');
   const needsPhone=Boolean(phoneProblem(buyer?.phoneNumber));
   const [cards, setCards] = useState([]), [dva, setDva] = useState({ status: 'none' });
@@ -65,7 +66,7 @@ export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWa
     finally { if (mounted.current) setBusy(''); }
   };
   const chargeSaved = async () => {
-    if (!card || busy) return;
+    if (!card || busy || externalBusy) return;
     setBusy(`Charging ${card.bank} •••• ${card.last4}…`); setError('');
     if (!attempt.current || attempt.current.amount !== topUp || attempt.current.card !== card.id) attempt.current = { key: crypto.randomUUID(), amount: topUp, card: card.id };
     callbacks.current.onPending?.();
@@ -103,12 +104,21 @@ export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWa
     {error && <span className="err" role="alert">{error}</span>}{notice && <span className="hint" role="status">{notice}</span>}
     <button type="button" className="link" onClick={useCard}>Pay with card instead</button>
   </section>;
-  return <section className="step" aria-label="Top-up methods">
+  const legacy = <section className="step" aria-label="Top-up methods">
     {methods.savedCards && card && <>
-      <button type="button" className="btn two-line" disabled={Boolean(busy)} onClick={chargeSaved}>{busy ? <span><span className="wallet-spinner" aria-hidden="true">◌ </span><span>{busy}</span></span> : <><span>Top up {naira(topUp)} · {card.bank} card •••• {card.last4}</span><small>one tap</small></>}</button>
-      <button type="button" className="link" disabled={Boolean(busy)} onClick={anotherCard}>Use another card</button>
+      <button type="button" className="btn two-line" disabled={Boolean(busy || externalBusy)} onClick={chargeSaved}>{busy ? <span><span className="wallet-spinner" aria-hidden="true">◌ </span><span>{busy}</span></span> : <><span>Top up {naira(topUp)}</span><small>{card.bank} •••• {card.last4} · one tap</small></>}</button>
+      <button type="button" className="link" disabled={Boolean(busy || externalBusy)} onClick={anotherCard}>Use another card</button>
     </>}
-    {methods.dva && <button type="button" className="btn2 two-line" disabled={Boolean(busy)} onClick={selectBank}><span>Bank transfer</span><small>{dva.status === 'active' ? `To your account ${dva.accountNumber}` : 'Get your own account number'} · arrives in seconds</small></button>}
+    {methods.dva && <button type="button" className="btn2 two-line" disabled={Boolean(busy || externalBusy)} onClick={selectBank}><span>Bank transfer</span><small>{dva.status === 'active' ? `To your account ${dva.accountNumber}` : 'Get your own account number'} · arrives in seconds</small></button>}
     {notice && <span className="hint" role="status">{notice}</span>}{error && <span className="err" role="alert">{error}</span>}
+  </section>;
+  if(LEGACY_TOPUP_LAYOUT)return <>{legacy}{cardForm}</>;
+  const bankButton=methods.dva&&<button type="button" className="btn2 two-line" disabled={Boolean(busy || externalBusy)} onClick={selectBank}><span>Bank transfer</span><small>{dva.status==='active'?`To your account ${dva.accountNumber}`:'Get your own account number'} · arrives in seconds</small></button>;
+  return <section className="step wallet-methods" aria-label="Top-up methods">
+    {methods.savedCards&&card?<>
+      <button type="button" className="btn two-line wallet-saved-card" disabled={Boolean(busy || externalBusy)} onClick={chargeSaved}>{busy?<span role="status">{busy}</span>:<><span>Top up {naira(topUp)}</span><small>{card.bank} •••• {card.last4} · one tap</small></>}</button>
+      <details className="wallet-other-ways"><summary aria-disabled={Boolean(busy || externalBusy)} onClick={e=>{if(busy || externalBusy)e.preventDefault();}}>Other ways to pay</summary><div className="wallet-alternatives">{bankButton}{cardForm}</div></details>
+    </>:<>{bankButton}{cardForm}</>}
+    {notice&&<span className="hint" role="status">{notice}</span>}{error&&<span className="err" role="alert">{error}</span>}
   </section>;
 }

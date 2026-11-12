@@ -31,7 +31,7 @@ export default function Notifications() {
 
   return (
     <div className="studio-app">
-      <TopBar title="Notifications" onBack={() => navigate(-1)} right={data?.unread ? <button type="button" className="link" onClick={markAll}>Mark all read</button> : null} />
+      <TopBar title="Notifications" backTo="/studio" right={data?.unread ? <button type="button" className="link" onClick={markAll}>Mark all read</button> : null} />
       <div className="st-inner">
         {error && <Problem text={error} onRetry={load} />}
         {!data && !error && <><Skeleton h={64} /><Skeleton h={64} /><Skeleton h={64} /></>}

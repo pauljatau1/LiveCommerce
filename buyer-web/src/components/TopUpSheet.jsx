@@ -59,6 +59,23 @@ export default function TopUpSheet({ onClose, need = 0, onDone, top = null, meth
     }
   };
 
+  const cardForm=<div className="wallet-card-form">
+      <div className="amounts" role="group" aria-label="Amount">
+        {PRESETS.map((p) => (
+          <button key={p} type="button" className={`qr${value === p ? ' on' : ''}`} aria-pressed={value === p} onClick={() => setAmount(String(p))}>{naira(p)}</button>
+        ))}
+      </div>
+      <div className="fl">
+        <label className="lab" htmlFor="tu-amt">Top-up amount</label>
+        <input id="tu-amt" className="in" inputMode="numeric" value={value ? value.toLocaleString('en-NG') : ''} onChange={(e) => setAmount(e.target.value)} placeholder="₦" />
+      </div>
+      {error && <span className="err" role="alert">{error}</span>}
+      {methods.savedCards && <label className="hint"><input type="checkbox" checked={saveCard} onChange={(e) => setSaveCard(e.target.checked)} /> Save this card for one-tap top-ups</label>}
+      <button type="button" className="btn" disabled={busy} onClick={pay}>{busy ? 'Waiting for Paystack…' : enhanced ? `Pay with card · ${naira(value)}` : `Add ${naira(value)}`}</button>
+      <span className="hint" style={{ textAlign: 'center' }}>{enhanced ? "Paystack opens on top of the show. You won't leave it." : 'Secure payment with Paystack'}</span>
+
+  </div>;
+
   if (done) {
     return (
       <Sheet className="wallet-sheet" title="Wallet topped up" onClose={onClose} top={top}>
@@ -77,22 +94,8 @@ export default function TopUpSheet({ onClose, need = 0, onDone, top = null, meth
         {wallet?.onHoldAmount > 0 && <small>{naira(wallet.onHoldAmount)} held in bids</small>}
       </div>
       <p className="mut wallet-copy">{need > 0 ? `Add ${naira(need)} more to continue.` : 'Add money for your next bid.'}</p>
-      {enhanced && <StayOnStreamTopUps methods={methods} amount={value} need={need} onDone={finish} onWaiting={onWaiting} onPending={onPending} onMethod={setMethod} onUseAnotherCard={pay} onBusyChange={setBusy} initialBank={initialBank} />}
-      {method !== 'bank' && <>
-      <div className="amounts" role="group" aria-label="Amount">
-        {PRESETS.map((p) => (
-          <button key={p} type="button" className={`qr${value === p ? ' on' : ''}`} aria-pressed={value === p} onClick={() => setAmount(String(p))}>{naira(p)}</button>
-        ))}
-      </div>
-      <div className="fl">
-        <label className="lab" htmlFor="tu-amt">Top-up amount</label>
-        <input id="tu-amt" className="in" inputMode="numeric" value={value ? value.toLocaleString('en-NG') : ''} onChange={(e) => setAmount(e.target.value)} placeholder="₦" />
-      </div>
-      {error && <span className="err" role="alert">{error}</span>}
-      {methods.savedCards && <label className="hint"><input type="checkbox" checked={saveCard} onChange={(e) => setSaveCard(e.target.checked)} /> Save this card for one-tap top-ups</label>}
-      <button type="button" className="btn" disabled={busy} onClick={pay}>{busy ? 'Waiting for Paystack…' : enhanced ? `Pay with card · ${naira(value)}` : `Add ${naira(value)}`}</button>
-      <span className="hint" style={{ textAlign: 'center' }}>{enhanced ? "Paystack opens on top of the show. You won't leave it." : 'Secure payment with Paystack'}</span>
-      </>}
+      {enhanced && <StayOnStreamTopUps methods={methods} amount={value} need={need} onDone={finish} onWaiting={onWaiting} onPending={onPending} onMethod={setMethod} onUseAnotherCard={pay} onBusyChange={setBusy} initialBank={initialBank} cardForm={cardForm} externalBusy={busy} />}
+      {!enhanced&&cardForm}
       {method === 'bank' && <button type="button" className="btn2" onClick={onClose}>Back to the show</button>}
     </Sheet>
   );

@@ -1,3 +1,5 @@
+import useFormKeyboard from './useFormKeyboard';
+import useStudioBack from './useStudioBack';
 import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
 // Listing Agent: add a product by chatting.
 // Seller drops photos → AI drafts the listing → seller answers what the photos
@@ -71,6 +73,8 @@ function Field({ label, editing, onEdit, highlight, children, editor }) {
 }
 
 export default function ListingAgent() {
+  const back=useStudioBack('/studio/products');
+  const keyboardRef=useFormKeyboard();
   const navigate = useNavigate();
   const sellerName = sellerUtils.getSeller()?.firstName;
   const [photos, setPhotos] = useState([]);
@@ -267,8 +271,8 @@ export default function ListingAgent() {
   );
 
   const header = (status) => (
-    <header className="top" style={{ position: 'sticky', top: 0, zIndex: 5 }}>
-      <button type="button" className="ib" aria-label="Close" onClick={() => navigate(-1)}>{Icon.close}</button>
+    <header ref={keyboardRef} className="top" style={{ position: 'sticky', top: 0, zIndex: 5 }}>
+      <button type="button" className="ib" aria-label="Close" onClick={back}>{Icon.close}</button>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <span className="f" style={{ fontSize: 'var(--t-h2)' }}>Listing helper</span>
         <span style={{ fontSize: 'var(--t-small)', fontWeight: 'var(--w-medium)', color: phase === 'thinking' ? 'var(--primary)' : 'var(--text-muted)' }}>{status}</span>
