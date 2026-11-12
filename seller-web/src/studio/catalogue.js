@@ -1,7 +1,8 @@
 // Launch catalogue for the studio: clothing. Mirrors server/src/config/catalogue.js.
 // There are no size fields: sellers write size in the title or description.
 
-export const LAUNCH_CATEGORIES = ['Women', 'Men', 'Thrift', 'Shoes', 'Bags', 'Accessories'];
+// Previous local fallback retained but inactive. The API owns the launch list.
+export const LEGACY_LAUNCH_CATEGORIES = ['Women', 'Men', 'Thrift', 'Shoes', 'Bags', 'Accessories'];
 
 export const CONDITIONS = ['New with tags', 'Thrift', 'Fairly used'];
 

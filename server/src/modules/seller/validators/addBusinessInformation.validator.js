@@ -229,7 +229,7 @@ function isValidPhoneNumber(phoneNumber) {
 
   // Validate normalized format: exactly 10 digits, starts with a digit 7-9
   // (Nigerian mobile numbers typically start with 7, 8, or 9)
-  const normalizedPhoneRegex = /^[7-9]\d{9}$/;
+  const normalizedPhoneRegex = process.env.LEGACY_PHONE_FORMAT === 'true' ? /^[7-9]\d{9}$/ : /^0\d{10}$/;
 
   return normalizedPhoneRegex.test(phoneNumber);
 }

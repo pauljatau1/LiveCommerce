@@ -35,7 +35,7 @@ function formatPhoneNumberForTermii(phoneNumber) {
   }
   
   // Remove + prefix if present, as Termii API requires phone numbers without +
-  const formatted = phoneNumber.startsWith('+') ? phoneNumber.substring(1) : phoneNumber;
+  const formatted = require('../../../utils/phone').internationalPhone(phoneNumber).replace(/^\+/, '');
   
   // Basic validation: should be numeric and have reasonable length
   if (!/^\d{10,15}$/.test(formatted)) {

@@ -272,6 +272,8 @@ function validatePhoneNumber(phoneNumber, errors) {
   // Length range accommodates international phone number formats
   if (phoneNumber.length < 10 || phoneNumber.length > 15) {
     errors.push({ field: 'phoneNumber', message: 'Phone number must be between 10 and 15 characters' });
+  } else if (!require('../../../utils/phone').normalisePhone(phoneNumber)) {
+    errors.push({field:'phoneNumber',message:require('../../../utils/phone').PHONE_ERROR});
   }
 }
 

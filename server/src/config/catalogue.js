@@ -41,7 +41,8 @@ const LEGACY_CATALOGUE = [
   },
 ];
 
-const LAUNCH_CATEGORY_NAMES = CATALOGUE.flatMap((g) => g.categories.map((c) => c.name));
+const LAUNCH_CATEGORY_NAMES = require('./launchCategories.json');
+const launchCategories = categories => (categories || []).filter(c => LAUNCH_CATEGORY_NAMES.includes(typeof c === 'string' ? c : c.name));
 
 const CONDITIONS = ['New with tags', 'Thrift', 'Fairly used'];
 
@@ -53,4 +54,4 @@ const DEFAULT_WEIGHT_KG = {
   categories: { Women: 1, Men: 1, Thrift: 1, Shoes: 3, Bags: 3, Accessories: 0.5 },
 };
 
-module.exports = { CATALOGUE, LEGACY_CATALOGUE, LAUNCH_CATEGORY_NAMES, CONDITIONS, DEFAULT_WEIGHT_KG };
+module.exports = { launchCategories, CATALOGUE, LEGACY_CATALOGUE, LAUNCH_CATEGORY_NAMES, CONDITIONS, DEFAULT_WEIGHT_KG };

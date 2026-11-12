@@ -13,6 +13,7 @@ const truncateString = (str, maxLength) => {
  * Convert various Nigerian phone number representations to E.164 format (+234XXXXXXXXXX).
  */
 const formatNigerianPhone = (phone) => {
+  if(process.env.LEGACY_PHONE_FORMAT !== 'true') return require('../utils/phone').internationalPhone(phone);
   if (!phone) return '';
 
   // Remove spaces and dashes
@@ -120,6 +121,7 @@ const formatAddressForTerminal = (address) => {
  * normalizePhoneNumber('+1-234-567-8900') // returns '2345678900'
  */
 const normalizePhoneNumber = (phone) => {
+  if(process.env.LEGACY_PHONE_FORMAT !== 'true') return require('../utils/phone').normalisePhone(phone) || '';
   if (!phone) return '';
 
   // Remove spaces, dashes, and other non-numeric characters except +

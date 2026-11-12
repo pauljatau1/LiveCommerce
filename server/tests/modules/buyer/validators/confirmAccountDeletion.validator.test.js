@@ -38,7 +38,7 @@ describe('confirmAccountDeletion.validator', () => {
       email: 'john.doe@example.com',
       password: 'hashedPassword123',
       username: 'johndoe123',
-      phoneNumber: '+1234567890',
+      phoneNumber: '08031234567',
       isVerified: true,
       accountDeletion: {
         otp: '1234',

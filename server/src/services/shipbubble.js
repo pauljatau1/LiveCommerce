@@ -39,14 +39,14 @@ const call = async (fn, what) => {
 };
 
 // Nigerian numbers as +234XXXXXXXXXX
-const toPhone = (raw) => {
+const legacyToPhone = (raw) => {
   const digits = String(raw || '').replace(/[^\d]/g, '');
   if (!digits) return '';
   if (digits.startsWith('234')) return `+${digits}`;
   if (digits.startsWith('0')) return `+234${digits.slice(1)}`;
   return `+234${digits}`;
 };
-
+const toPhone = raw => process.env.LEGACY_PHONE_TRANSPORT === 'true' ? legacyToPhone(raw) : require('../utils/phone').internationalPhone(raw);
 const validateAddress = ({ name, email, phone, address, latitude, longitude }) =>
   call((c) => c.post('/shipping/address/validate', { name, email, phone: toPhone(phone), address, ...(Number.isFinite(latitude) && Number.isFinite(longitude) ? {latitude, longitude} : {}) }), 'Address check');
 

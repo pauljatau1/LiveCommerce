@@ -8,14 +8,14 @@ describe('Send Phone OTP Validator', () => {
       await expect(validateSendPhoneOTPData(validData)).resolves.not.toThrow();
     });
 
-    it('should not throw for valid US phone number', async () => {
+    it('should refuse US phone numbers', async () => {
       const validData = { phoneNumber: '+1234567890' };
-      await expect(validateSendPhoneOTPData(validData)).resolves.not.toThrow();
+      await expect(validateSendPhoneOTPData(validData)).rejects.toThrow(ValidationError);
     });
 
-    it('should not throw for valid UK phone number', async () => {
+    it('should refuse UK phone numbers', async () => {
       const validData = { phoneNumber: '+447911123456' };
-      await expect(validateSendPhoneOTPData(validData)).resolves.not.toThrow();
+      await expect(validateSendPhoneOTPData(validData)).rejects.toThrow(ValidationError);
     });
 
     it('should throw ValidationError when phoneNumber is null', async () => {
@@ -58,13 +58,13 @@ describe('Send Phone OTP Validator', () => {
     });
 
     it('should throw ValidationError when phoneNumber is missing country code', async () => {
-      const invalidData = { phoneNumber: '2348012345678' };
+      const invalidData = { phoneNumber: '234801234567' };
       await expect(validateSendPhoneOTPData(invalidData)).rejects.toThrow(ValidationError);
       await expect(validateSendPhoneOTPData(invalidData)).rejects.toMatchObject({
         errors: [
           {
             field: 'phoneNumber',
-            message: 'Invalid phone number format. Please include country code (e.g., +1234567890)'
+            message: 'Enter an 11-digit phone number starting with 0, e.g. 0803 123 4567.'
           }
         ]
       });
@@ -77,7 +77,7 @@ describe('Send Phone OTP Validator', () => {
         errors: [
           {
             field: 'phoneNumber',
-            message: 'Invalid phone number format. Please include country code (e.g., +1234567890)'
+            message: 'Enter an 11-digit phone number starting with 0, e.g. 0803 123 4567.'
           }
         ]
       });
@@ -90,7 +90,7 @@ describe('Send Phone OTP Validator', () => {
         errors: [
           {
             field: 'phoneNumber',
-            message: 'Invalid phone number format. Please include country code (e.g., +1234567890)'
+            message: 'Enter an 11-digit phone number starting with 0, e.g. 0803 123 4567.'
           }
         ]
       });
@@ -103,20 +103,20 @@ describe('Send Phone OTP Validator', () => {
         errors: [
           {
             field: 'phoneNumber',
-            message: 'Invalid phone number format. Please include country code (e.g., +1234567890)'
+            message: 'Enter an 11-digit phone number starting with 0, e.g. 0803 123 4567.'
           }
         ]
       });
     });
 
     it('should throw ValidationError when phoneNumber has no country code', async () => {
-      const invalidData = { phoneNumber: '1234567890' };
+      const invalidData = { phoneNumber: '12345' };
       await expect(validateSendPhoneOTPData(invalidData)).rejects.toThrow(ValidationError);
       await expect(validateSendPhoneOTPData(invalidData)).rejects.toMatchObject({
         errors: [
           {
             field: 'phoneNumber',
-            message: 'Invalid phone number format. Please include country code (e.g., +1234567890)'
+            message: 'Enter an 11-digit phone number starting with 0, e.g. 0803 123 4567.'
           }
         ]
       });
@@ -129,7 +129,7 @@ describe('Send Phone OTP Validator', () => {
         errors: [
           {
             field: 'phoneNumber',
-            message: 'Invalid phone number format. Please include country code (e.g., +1234567890)'
+            message: 'Enter an 11-digit phone number starting with 0, e.g. 0803 123 4567.'
           }
         ]
       });
@@ -142,7 +142,7 @@ describe('Send Phone OTP Validator', () => {
         errors: [
           {
             field: 'phoneNumber',
-            message: 'Invalid phone number format. Please include country code (e.g., +1234567890)'
+            message: 'Enter an 11-digit phone number starting with 0, e.g. 0803 123 4567.'
           }
         ]
       });
@@ -169,19 +169,19 @@ describe('Send Phone OTP Validator', () => {
 
       it('should include specific error message for invalid phone number format', async () => {
         await expect(validateSendPhoneOTPData({ phoneNumber: 'invalid' })).rejects.toMatchObject({
-          errors: [{ field: 'phoneNumber', message: 'Invalid phone number format. Please include country code (e.g., +1234567890)' }]
+          errors: [{ field: 'phoneNumber', message: 'Enter an 11-digit phone number starting with 0, e.g. 0803 123 4567.' }]
         });
       });
 
       it('should include specific error message for phone number without country code', async () => {
-        await expect(validateSendPhoneOTPData({ phoneNumber: '1234567890' })).rejects.toMatchObject({
-          errors: [{ field: 'phoneNumber', message: 'Invalid phone number format. Please include country code (e.g., +1234567890)' }]
+        await expect(validateSendPhoneOTPData({ phoneNumber: '12345' })).rejects.toMatchObject({
+          errors: [{ field: 'phoneNumber', message: 'Enter an 11-digit phone number starting with 0, e.g. 0803 123 4567.' }]
         });
       });
 
       it('should include specific error message for phone number starting with +0', async () => {
         await expect(validateSendPhoneOTPData({ phoneNumber: '+0' })).rejects.toMatchObject({
-          errors: [{ field: 'phoneNumber', message: 'Invalid phone number format. Please include country code (e.g., +1234567890)' }]
+          errors: [{ field: 'phoneNumber', message: 'Enter an 11-digit phone number starting with 0, e.g. 0803 123 4567.' }]
         });
       });
     });

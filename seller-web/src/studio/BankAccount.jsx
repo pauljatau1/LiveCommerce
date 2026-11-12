@@ -1,3 +1,4 @@
+import reloadSeller from './reloadSeller';
 import useStudioBack from './useStudioBack';
 // Where payouts go: pick a bank (searchable), type the 10-digit number, and the
 // name check runs by itself. Then "Is this you?" with the name the bank has.
@@ -109,11 +110,7 @@ export function BankFlow({ onDone, onBack }) {
         },
         isVerified: true,
       });
-      try {
-        const fresh = await sellerService.fetchSellerDetails();
-        sellerUtils.storeSeller(fresh);
-        dispatch({ type: 'AUTH_SUCCESS', payload: { seller: fresh, token: tokenUtils.getBearerToken() } });
-      } catch { /* saved; the profile refreshes next time */ }
+      await reloadSeller(dispatch);
       onDone();
     } catch (e) {
       setError(errorText(e, 'Couldn’t save your account. Check your connection and try again.'));

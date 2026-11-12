@@ -11,7 +11,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import { authService } from '@/services/authService';
 import { useAuthContext } from '@/Hooks/useAuthContextV2';
 import { loginSchema } from '@/schemas/loginSchema';
-import { signupSchema } from '@/schemas/signupSchema';
+import { studioSignupSchema as signupSchema } from '@/schemas/signupSchema';
 import { forgotPasswordStep1Schema, forgotPasswordStep2Schema } from '@/schemas/forgotPasswordSchema';
 import { APP_NAME } from '@/config/constants';
 import { safeStudioReturn } from '@/config/featureFlags';
@@ -217,7 +217,7 @@ export default function Entry({ mode = 'login' }) {
         if(phoneProblem(phoneNumber))throw {issues:[{path:['phoneNumber'],message:PHONE_ERROR}]};
         // No "confirm password" on screen: the eye shows what was typed
         // Keep the classic signup schema for classic screens; studio submits the local form.
-        const validated=signupSchema.parse({...form,phoneNumber:phoneNumber.slice(1),confirmPassword:form.password});
+        const validated=signupSchema.parse({...form,phoneNumber,confirmPassword:form.password});
         await finish(await authService.signUp({...validated,phoneNumber}));
       } else {
         await finish(await authService.login(loginSchema.parse(form)));

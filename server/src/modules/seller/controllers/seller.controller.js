@@ -274,7 +274,7 @@ async function completeProfile(req, res, next) {
 
     // Validate phone number format (basic validation)
     const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-    if (!phoneRegex.test(phoneNumber.replace(/\s/g, ''))) {
+    if (!(process.env.LEGACY_PHONE_FORMAT === 'true' ? phoneRegex.test(phoneNumber.replace(/\s/g, '')) : require('../../../utils/phone').normalisePhone(phoneNumber))) {
       return res.status(400).json({
         success: false,
         message: 'Validation failed',

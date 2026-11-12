@@ -1,0 +1,52 @@
+{
+  "checks": [
+    "store-profile",
+    "pickup-returned-to-me",
+    "product-description"
+  ],
+  "calls": [
+    {
+      "kind": "pickup-flow",
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup-flow",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup-flow",
+      "path": "/api/v2/studio/onboarding/pickup",
+      "method": "PUT",
+      "body": {
+        "state": "Lagos",
+        "city": "Lekki",
+        "lga": "Eti-Osa",
+        "addressLine1": "12 Admiralty Way",
+        "landmark": "",
+        "phone": "08031234567"
+      }
+    },
+    {
+      "kind": "pickup-flow",
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup-flow",
+      "path": "/api/v2/studio/slot",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "detail",
+      "path": "/api/v2/studio/products/507f1f77bcf86cd799439011",
+      "method": "GET",
+      "body": null
+    }
+  ]
+}

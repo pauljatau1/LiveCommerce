@@ -50,7 +50,9 @@ async function findByEmail(email) {
  * @returns {Promise<Buyer|null>} The buyer with the matching phone number or null if not found
  */
 async function findByPhoneNumber(phoneNumber) {
-  return Buyer.findOne({ phoneNumber: phoneNumber });
+  const normal = require('../../../utils/phone').normalisePhone(phoneNumber);
+  if(!normal)return null;
+  return Buyer.findOne({ $expr: { $in: ['$phoneNumber',[normal,normal.slice(1),`234${normal.slice(1)}`,`+234${normal.slice(1)}`]] } });
 }
 
 /**

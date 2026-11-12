@@ -107,7 +107,7 @@ describe('Add Business Information Service', () => {
       // Assert: Verify seller fields were updated correctly
       expect(mockSeller.businessEmail).toBe(validBusinessInformation.businessEmail);
       // Phone number should be normalized ('+2348012345678' -> '8012345678')
-      expect(mockSeller.businessNumber).toBe('8012345678');
+      expect(mockSeller.businessNumber).toBe('08012345678');
       expect(mockSeller.businessAddress).toEqual(validBusinessInformation.businessAddress);
       expect(mockSeller.hasFilledBusinessAddress).toBe(true);
     });
@@ -283,7 +283,7 @@ describe('Add Business Information Service', () => {
       // Assert: Verify business information was updated
       expect(sellerWithExistingData.businessEmail).toBe(validBusinessInformation.businessEmail);
       // Phone number should be normalized ('+2348012345678' -> '8012345678')
-      expect(sellerWithExistingData.businessNumber).toBe('8012345678');
+      expect(sellerWithExistingData.businessNumber).toBe('08012345678');
       expect(sellerWithExistingData.businessAddress).toEqual(validBusinessInformation.businessAddress);
     });
 
@@ -299,7 +299,7 @@ describe('Add Business Information Service', () => {
       // Arrange: Mock business information with special characters
       const businessInfoWithSpecialChars = {
         businessEmail: 'business+test@tech-solutions.co.uk',
-        businessNumber: '+1-234-567-8900',
+        businessNumber: '+234-803-123-4567',
         businessAddress: {
           country: 'United States',
           state: 'Lagos',
@@ -321,7 +321,7 @@ describe('Add Business Information Service', () => {
       expect(mockSeller.businessEmail).toBe(businessInfoWithSpecialChars.businessEmail);
       // Phone number should be normalized ('+1-234-567-8900' -> '2345678900')
       // The normalization removes country code (+1) and special characters
-      expect(mockSeller.businessNumber).toBe('2345678900');
+      expect(mockSeller.businessNumber).toBe('08031234567');
       expect(mockSeller.businessAddress).toEqual(businessInfoWithSpecialChars.businessAddress);
     });
 
@@ -352,7 +352,7 @@ describe('Add Business Information Service', () => {
         await addBusinessInformation('507f1f77bcf86cd799439011', businessInfo);
 
         // Assert: Phone number should be normalized to '8106430258'
-        expect(mockSeller.businessNumber).toBe('8106430258');
+        expect(mockSeller.businessNumber).toBe('08106430258');
       });
 
       it('should normalize phone numbers in +234 format', async () => {
@@ -377,7 +377,7 @@ describe('Add Business Information Service', () => {
         await addBusinessInformation('507f1f77bcf86cd799439011', businessInfo);
 
         // Assert: Phone number should be normalized to '8106430258'
-        expect(mockSeller.businessNumber).toBe('8106430258');
+        expect(mockSeller.businessNumber).toBe('08106430258');
       });
 
       it('should normalize phone numbers in 234 format (without +)', async () => {
@@ -402,7 +402,7 @@ describe('Add Business Information Service', () => {
         await addBusinessInformation('507f1f77bcf86cd799439011', businessInfo);
 
         // Assert: Phone number should be normalized to '8106430258'
-        expect(mockSeller.businessNumber).toBe('8106430258');
+        expect(mockSeller.businessNumber).toBe('08106430258');
       });
 
       it('should leave already-normalized phone numbers unchanged', async () => {
@@ -427,7 +427,7 @@ describe('Add Business Information Service', () => {
         await addBusinessInformation('507f1f77bcf86cd799439011', businessInfo);
 
         // Assert: Phone number should remain '8106430258'
-        expect(mockSeller.businessNumber).toBe('8106430258');
+        expect(mockSeller.businessNumber).toBe('08106430258');
       });
     });
   });

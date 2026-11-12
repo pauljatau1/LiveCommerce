@@ -83,10 +83,10 @@ function validatePhoneNumberFormat(phoneNumber, errors) {
     // - Country code: 1-3 digits (e.g., +1, +44, +234)
     // - Phone number: 1-14 digits (total length 7-15 digits)
     const phoneRegex = /^\+[1-9]\d{1,14}$/;
-    if (!phoneRegex.test(phoneNumber)) {
+    if (!require('../../../utils/phone').normalisePhone(phoneNumber)) {
       errors.push({ 
         field: 'phoneNumber', 
-        message: 'Invalid phone number format. Please include country code (e.g., +1234567890)' 
+        message: 'Enter an 11-digit phone number starting with 0, e.g. 0803 123 4567.'
       });
     }
   }

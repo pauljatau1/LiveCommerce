@@ -49,7 +49,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         storeName: 'JohnStore',
         aboutStore: 'A great store',
@@ -101,7 +101,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         storeName: 'JohnStore',
         aboutStore: 'A great store',
@@ -164,7 +164,7 @@ describe('Seller Repository', () => {
         lastName: 'Smith',
         email: 'jane@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'Jane\'s Electronics',
         businessType: 'Retail',
         taxInformation: 'TAX123456',
@@ -234,7 +234,7 @@ describe('Seller Repository', () => {
         },
         warehouseDetails: {
           name: 'Main Distribution Center',
-          contactNumber: '+1234567890',
+          contactNumber: '08031234567',
           address: {
             country: 'USA',
             state: 'CA',
@@ -436,7 +436,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         followers: [
           { buyerId: new mongoose.Types.ObjectId() },
@@ -458,7 +458,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         followers: []
       });
@@ -503,7 +503,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         followers: followers
       });
@@ -519,7 +519,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         followers: [
           {
@@ -570,7 +570,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         followers: [
           {
@@ -612,7 +612,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         storeVisits: 10
       });
@@ -632,7 +632,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
       await testSeller.save();
@@ -671,7 +671,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         storeVisits: 5
       });
@@ -693,7 +693,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         storeVisits: 100,
         stats: {
@@ -730,7 +730,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         storeVisits: 0
       });
@@ -748,7 +748,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         storeVisits: 999999
       });
@@ -769,7 +769,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store'
       });
 
@@ -796,7 +796,7 @@ describe('Seller Repository', () => {
         lastName: 'Smith',
         email: 'jane@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'Jane\'s Store'
       });
 
@@ -808,7 +808,7 @@ describe('Seller Repository', () => {
       expect(result.lastName).toBe('Smith');
       expect(result.email).toBe('jane@example.com');
       expect(result.password).toBeDefined(); // Password gets hashed
-      expect(result.phoneNumber).toBe('+1234567890');
+      expect(result.phoneNumber).toBe('08031234567');
       expect(result.businessName).toBe('Jane\'s Store');
       expect(result.createdAt).toBeDefined();
     });
@@ -819,7 +819,7 @@ describe('Seller Repository', () => {
         lastName: 'Seller',
         email: 'complex@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'Complex Store',
         businessType: 'Retail',
         taxInformation: 'TAX123456',
@@ -882,7 +882,7 @@ describe('Seller Repository', () => {
         },
         warehouseDetails: {
           name: 'Main Distribution Center',
-          contactNumber: '+1234567890',
+          contactNumber: '08031234567',
           address: {
             country: 'USA',
             state: 'CA',
@@ -1108,7 +1108,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'invalid-email-format',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'Invalid Store'
       });
 
@@ -1125,7 +1125,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'duplicate@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'First Store'
       });
       await sellerRepository.save(seller1);
@@ -1136,7 +1136,7 @@ describe('Seller Repository', () => {
         lastName: 'Smith',
         email: 'duplicate@example.com',
         password: 'password123',
-        phoneNumber: '+1987654321',
+        phoneNumber: '08031234568',
         businessName: 'Second Store'
       });
 
@@ -1152,7 +1152,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         reviews: [
           { 
@@ -1195,7 +1195,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         storeName: 'JohnStore',
         aboutStore: 'Great electronics store',
@@ -1212,7 +1212,7 @@ describe('Seller Repository', () => {
         lastName: 'Smith',
         email: 'jane@example.com',
         password: 'password123',
-        phoneNumber: '+1987654321',
+        phoneNumber: '08031234568',
         businessName: 'Jane\'s Store',
         storeName: 'JaneStore',
         aboutStore: 'Fashion store',
@@ -1256,7 +1256,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         isVerified: true
       });
@@ -1265,7 +1265,7 @@ describe('Seller Repository', () => {
         lastName: 'Smith',
         email: 'jane@example.com',
         password: 'password123',
-        phoneNumber: '+1987654321',
+        phoneNumber: '08031234568',
         businessName: 'Jane\'s Store',
         isVerified: true
       });
@@ -1274,7 +1274,7 @@ describe('Seller Repository', () => {
         lastName: 'Johnson',
         email: 'bob@example.com',
         password: 'password123',
-        phoneNumber: '+1122334455',
+        phoneNumber: '08031234560',
         businessName: 'Bob\'s Store',
         isVerified: false
       });
@@ -1295,7 +1295,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         storeName: 'JohnStore',
         aboutStore: 'Great store',
@@ -1312,7 +1312,7 @@ describe('Seller Repository', () => {
         lastName: 'Smith',
         email: 'jane@example.com',
         password: 'password123',
-        phoneNumber: '+1987654321',
+        phoneNumber: '08031234568',
         businessName: 'Jane\'s Store',
         storeName: 'JaneStore',
         aboutStore: 'Fashion store',
@@ -1356,7 +1356,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         followers: [{ buyerId: buyerId }]
       });
@@ -1365,7 +1365,7 @@ describe('Seller Repository', () => {
         lastName: 'Smith',
         email: 'jane@example.com',
         password: 'password123',
-        phoneNumber: '+1987654321',
+        phoneNumber: '08031234568',
         businessName: 'Jane\'s Store',
         followers: [{ buyerId: buyerId }]
       });
@@ -1374,7 +1374,7 @@ describe('Seller Repository', () => {
         lastName: 'Johnson',
         email: 'bob@example.com',
         password: 'password123',
-        phoneNumber: '+1122334455',
+        phoneNumber: '08031234560',
         businessName: 'Bob\'s Store',
         followers: []
       });
@@ -1407,7 +1407,7 @@ describe('Seller Repository', () => {
         lastName: 'Doe',
         email: 'john@example.com',
         password: 'password123',
-        phoneNumber: '+1234567890',
+        phoneNumber: '08031234567',
         businessName: 'John\'s Store',
         followers: []
       });

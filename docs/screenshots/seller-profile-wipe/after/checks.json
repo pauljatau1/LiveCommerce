@@ -1,0 +1,250 @@
+{
+  "checks": [
+    "store-profile",
+    "pickup-continues-to-bank",
+    "getting-started-finished",
+    "product-description",
+    "signup-store-prefill",
+    "signup-courier-prefill",
+    "search-fallback-keeps-street",
+    "new-product-loaded"
+  ],
+  "calls": [
+    {
+      "kind": "profile",
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "profile",
+      "path": "/api/seller/store-profile",
+      "method": "PUT",
+      "body": {
+        "storeName": "Sade’s Studio",
+        "aboutStore": "",
+        "categories": [
+          {
+            "name": "Women"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "profile",
+      "path": "/studio/undefined/api/v2/sellers/profile",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "profile",
+      "path": "/api/v2/studio/slot",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup-flow",
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup-flow",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup-flow",
+      "path": "/api/v2/studio/onboarding/pickup",
+      "method": "PUT",
+      "body": {
+        "state": "Lagos",
+        "city": "Lekki",
+        "lga": "Eti-Osa",
+        "addressLine1": "12 Admiralty Way",
+        "landmark": "",
+        "phone": "08031234567"
+      }
+    },
+    {
+      "kind": "pickup-flow",
+      "path": "/studio/undefined/api/v2/sellers/profile",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup-flow",
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup-flow",
+      "path": "/api/v2/studio/onboarding/banks",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup-flow",
+      "path": "/api/v2/studio/onboarding/bank/check",
+      "method": "POST",
+      "body": {
+        "bankCode": "001",
+        "accountNumber": "0123456789"
+      }
+    },
+    {
+      "kind": "pickup-flow",
+      "path": "/api/v2/studio/onboarding/bank",
+      "method": "PUT",
+      "body": {
+        "bankCode": "001",
+        "bankName": "Test Bank",
+        "accountNumber": "0123456789"
+      }
+    },
+    {
+      "kind": "pickup-flow",
+      "path": "/studio/undefined/api/v2/sellers/profile",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup-flow",
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "detail",
+      "path": "/api/v2/studio/products/507f1f77bcf86cd799439011",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "setup",
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "setup",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "setup",
+      "path": "/api/v2/studio/onboarding/store",
+      "method": "PUT",
+      "body": {
+        "storeName": "Sade’s Studio",
+        "categories": [
+          "Women"
+        ]
+      }
+    },
+    {
+      "kind": "setup",
+      "path": "/studio/undefined/api/v2/sellers/profile",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "setup",
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "fallback",
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "fallback",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "editor",
+      "path": "/api/v2/studio/slot",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "editor",
+      "path": "/api/public/categories",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "editor",
+      "path": "/api/v2/studio/category-weights",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "editor",
+      "path": "/api/products",
+      "method": "POST",
+      "body": {
+        "name": "Adire Bubu Gown",
+        "description": "<p>Hand-dyed <strong>Adire cotton</strong></p><ul><li>Flowing sleeves</li><li>Lightweight fabric</li></ul>",
+        "price": 11000,
+        "salePrice": 0,
+        "stock": 3,
+        "weight": 1,
+        "condition": "New with tags",
+        "status": "active",
+        "category": "Women",
+        "subCategory": "Dresses",
+        "brand": "",
+        "sku": "",
+        "upc": "",
+        "fabric": "",
+        "localStyle": "",
+        "tags": [],
+        "authenticity": "official",
+        "images": [
+          {
+            "url": "data:image/svg+xml,%3Csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"400\" height=\"300\"%3E%3Crect width=\"400\" height=\"300\" fill=\"%23446a7a\"/%3E%3C/svg%3E",
+            "data": "%3Csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"400\" height=\"300\"%3E%3Crect width=\"400\" height=\"300\" fill=\"%23446a7a\"/%3E%3C/svg%3E",
+            "contentType": "image/svg+xml"
+          }
+        ],
+        "variants": [],
+        "colourVariants": [],
+        "colourQuantities": [],
+        "shippingInfo": {
+          "weight": {
+            "value": 1,
+            "unit": "kg"
+          },
+          "dimensions": {
+            "length": 10,
+            "width": 10,
+            "height": 10
+          },
+          "freeShipping": false,
+          "shippingClass": "standard"
+        }
+      }
+    },
+    {
+      "kind": "editor",
+      "path": "/api/v2/studio/products/507f1f77bcf86cd799439011",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "editor",
+      "path": "/api/v2/studio/products/507f1f77bcf86cd799439011",
+      "method": "GET",
+      "body": null
+    }
+  ]
+}

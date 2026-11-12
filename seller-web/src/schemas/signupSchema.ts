@@ -39,4 +39,7 @@ export const signupSchema = z.object({
   path: ["confirmPassword"],
 });
 
+// Classic schema is retained for the disabled dashboard. Studio stores local 11 digits.
+export const studioSignupSchema = signupSchema.safeExtend({phoneNumber:z.string().regex(/^0\d{10}$/, 'Enter an 11-digit phone number starting with 0, e.g. 0803 123 4567.')});
+
 export type SignupFormData = z.infer<typeof signupSchema>;
