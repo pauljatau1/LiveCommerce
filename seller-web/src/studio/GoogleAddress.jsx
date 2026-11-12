@@ -1,15 +1,15 @@
 import {useEffect,useId,useRef,useState} from 'react';
-import {allowedPlace,loadGoogleMaps,locationBias,mapPlace,PLACE_FIELDS} from './googlePlaces';
+import {googleAddressEnabled,allowedPlace,loadGoogleMaps,locationBias,mapPlace,PLACE_FIELDS} from './googlePlaces';
 import './GoogleAddress.css';
-export default function GoogleAddress({config,value,onChange,onNotify,needContact=false,initialNotifyEmail='',children,mapsKey=import.meta.env.VITE_GOOGLE_MAPS_KEY || ''}) {
-  const id=useId(),[status,setStatus]=useState(mapsKey?'loading':'fallback'),[query,setQuery]=useState(''),[suggestions,setSuggestions]=useState([]),[error,setError]=useState(''),[outside,setOutside]=useState(null),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[editing,setEditing]=useState(!value.addressLine1);
+export default function GoogleAddress({config,value,onChange,onNotify,needContact=false,initialNotifyEmail='',children,mapsKey=import.meta.env.VITE_GOOGLE_MAPS_KEY || '',addressSearch=import.meta.env.VITE_ADDRESS_SEARCH}) {
+  const id=useId(),[status,setStatus]=useState(googleAddressEnabled(addressSearch)&&mapsKey?'loading':'fallback'),[query,setQuery]=useState(''),[suggestions,setSuggestions]=useState([]),[error,setError]=useState(''),[outside,setOutside]=useState(null),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[editing,setEditing]=useState(!value.addressLine1);
   const [notifyEmail,setNotifyEmail]=useState(initialNotifyEmail);
   const sdk=useRef(null),token=useRef(null),sequence=useRef(0),active=useRef(true),[highlight,setHighlight]=useState(0);
-  useEffect(()=>{active.current=true;if(!mapsKey){setStatus('fallback');return()=>{active.current=false;};}
+  useEffect(()=>{active.current=true;if(!googleAddressEnabled(addressSearch)||!mapsKey){setStatus('fallback');return()=>{active.current=false;};}
     const failed=()=>{if(active.current){setError('Address search couldn’t load. Choose your area below.');setStatus('fallback');}};window.addEventListener('commerce:maps-error',failed);
     loadGoogleMaps(mapsKey).then(async maps=>{const places=await maps.importLibrary('places');if(active.current){sdk.current={maps,places};token.current=new places.AutocompleteSessionToken();setStatus('ready');}}).catch(()=>{if(active.current){setError('Address search couldn’t load. Choose your area below.');setStatus('fallback');}});
     return()=>{active.current=false;sequence.current++;window.removeEventListener('commerce:maps-error',failed);};
-  },[mapsKey]);
+  },[mapsKey,addressSearch]);
   useEffect(()=>{if(status!=='ready'||query.trim().length<3||!editing){setSuggestions([]);return undefined;}
     const serial=++sequence.current;const timer=setTimeout(async()=>{try{
       const result=await sdk.current.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({input:query,includedRegionCodes:['ng'],sessionToken:token.current,...(locationBias(config)?{locationBias:locationBias(config)}:{})});
@@ -42,7 +42,7 @@ export default function GoogleAddress({config,value,onChange,onNotify,needContac
     }catch{if(active.current)setError('We couldn’t find an address at your location. Type your address instead.');}
     finally{if(active.current)setBusy(false);}},failure=>{if(active.current){setBusy(false);setNotice('');setError(failure.code===1?'Location permission was denied. Type your address instead.':'We couldn’t get your location. Type your address instead.');}},{enableHighAccuracy:true,timeout:12000,maximumAge:30000});
   };
-  if(status==='fallback')return <>{error&&<p className="hint" role="status">{error}</p>}{children}</>;
+  if(!googleAddressEnabled(addressSearch)||status==='fallback')return <>{error&&<p className="hint" role="status">{error}</p>}{children}</>;
   return <section className="ga-address" aria-label="Find your address">
     {status==='loading'?<p className="hint" role="status">Loading address search…</p>:<>
       {!editing&&value.addressLine1?<div className="ga-selection"><div className="ga-picked"><span>{value.formattedAddress || [value.addressLine1,value.city,value.state].filter(Boolean).join(', ')}</span><button type="button" className="link" onClick={()=>{setEditing(true);setQuery('');setNotice('');onChange({addressLine1:'',city:'',lga:'',latitude:null,longitude:null,addressSource:'manual',formattedAddress:''});}}>Change</button></div>{fromLocation&&<p className="hint ga-location-note" role="status">Address found from your current location</p>}</div>:<>

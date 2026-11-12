@@ -70,3 +70,34 @@ test.each(['8031234567','+2348031234567','0803123456','abc08031234567'])('buyer 
  const sellerPickup=await request(app).put('/api/v2/studio/onboarding/pickup').set('Authorization',`Bearer ${sellerToken}`).send({...payload,phone});
  for(const result of [buyerPhone,buyerAddress,sellerPickup]){expect(result.status).toBe(400);expect(result.body.message).toBe(message);}
 });
+
+test('pickup saves one normalised courier phone in warehouse and account fields',async()=>{
+ await Seller.collection.updateOne({_id:seller},{$set:{phoneNumber:null,'warehouseDetails.contactNumber':'081085565429'}});
+ const result=await request(app).put('/api/v2/studio/onboarding/pickup').set('Authorization',`Bearer ${sellerToken}`).send({...payload,phone:'0803 123 4567'});expect(result.status).toBe(200);
+ const saved=await Seller.findById(seller).lean();expect(saved.phoneNumber).toBe('08031234567');expect(saved.warehouseDetails.contactNumber).toBe(saved.phoneNumber);
+});
+test('courier phone repair updates only the owned address and works with legacy city data',async()=>{
+ await Buyer.collection.updateOne({_id:buyer},{$push:{shippingAddresses:{_id:new mongoose.Types.ObjectId(),...payload,city:'Old city label',phoneNumber:'081085565429',isActive:true}}});const address=(await Buyer.findById(buyer)).shippingAddresses[0];
+ const call=(token,phoneNumber,addressId=String(address._id))=>request(app).put('/api/v2/buyers/profile/courier-phone').set('Authorization',`Bearer ${token}`).send({addressId,phoneNumber});
+ expect((await call(buyerToken,'081085565429')).status).toBe(400);expect((await call(sellerToken,'08031234567')).status).toBe(403);
+ expect((await call(buyerToken,'0803 123 4567',String(new mongoose.Types.ObjectId()))).status).toBe(404);
+ expect((await call(buyerToken,'0803 123 4567')).status).toBe(200);const saved=await Buyer.findById(buyer).lean();expect(saved.shippingAddresses[0]).toMatchObject({city:'Old city label',phoneNumber:'08031234567'});
+});
+test('the real delivery-quote route returns a price for a Lagos warehouse-only contact',async()=>{
+ const sb=require('@services/shipbubble'),spies=[];const stub=(name,value)=>{const spy=jest.spyOn(sb,name).mockImplementation(value);spies.push(spy);};
+ stub('isConfigured',()=>true);let code=0;stub('validateAddress',async()=>({address_code:++code}));stub('categoryIdFor',async()=>1);stub('boxFor',async()=>({length:20,width:20,height:20}));stub('fetchRates',async()=>({request_token:'test',couriers:[{courier_id:'test',courier_name:'Test Courier',rate_card_amount:2450,total:2350}]}));
+ try{
+  await Seller.updateOne({_id:seller},{$set:{phoneNumber:null,'warehouseDetails.contactNumber':'08031234567','warehouseDetails.address':{...payload}}});
+  const Stream=require('@models/Stream'),Product=require('@models/Product');const product=(await Product.collection.insertOne({name:'Adire Bubu',price:11000,weight:.5,seller})).insertedId;const stream=(await Stream.collection.insertOne({seller,status:'live',products:[]})).insertedId;
+  const result=await request(app).post(`/api/v2/watch/${stream}/delivery-quote`).send({productId:String(product),address:{...payload,addressLine2:'By the gate'}});
+  expect(result.status).toBe(200);expect(result.body).toMatchObject({available:true,amount:2450});expect(sb.validateAddress).toHaveBeenCalledWith(expect.objectContaining({phone:'08031234567'}));
+ }finally{for(const spy of spies)spy.mockRestore();}
+});
+test('Home reports the effective pickup phone and the stored verification reason',async()=>{
+ const host={...payload};await Seller.collection.updateOne({_id:seller},{$set:{phoneNumber:null,'warehouseDetails.contactNumber':'081085565429','warehouseDetails.address':host}});
+ let r=await request(app).get('/api/v2/studio/home').set('Authorization',`Bearer ${sellerToken}`);expect(r.status).toBe(200);expect(r.body.courierPhoneInvalid).toBe(true);
+ await Seller.updateOne({_id:seller},{$set:{'warehouseDetails.contactNumber':'08031234567'}});const service=require('@services/deliveryService'),account=await Seller.findById(seller).lean(),key=service.addressKey(service.sellerPickup(account));
+ await Seller.updateOne({_id:seller},{$set:{pickupValidation:{key,kind:'phone',message:"Shipbubble couldn't verify your pickup phone number"}}});
+ r=await request(app).get('/api/v2/studio/home').set('Authorization',`Bearer ${sellerToken}`);expect(r.body.courierPhoneInvalid).toBe(false);expect(r.body.pickupProblem).toMatch(/pickup phone number/);
+ await Seller.updateOne({_id:seller},{$set:{'warehouseDetails.contactNumber':'08031234568'}});r=await request(app).get('/api/v2/studio/home').set('Authorization',`Bearer ${sellerToken}`);expect(r.body.pickupProblem).toBeNull();
+});

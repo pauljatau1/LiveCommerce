@@ -47,7 +47,7 @@ const toPickupAddress = (seller) => {
     first_name: seller.firstName,
     last_name: seller.lastName,
     email: seller.businessEmail || seller.email,
-    phone: seller.phoneNumber,
+    phone: seller.warehouseDetails?.contactNumber || seller.phoneNumber,
     line1: a.addressLine1,
     city: a.city,
     ...(a.lga ? {lga:a.lga} : {}),

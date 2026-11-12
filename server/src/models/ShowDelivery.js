@@ -3,6 +3,7 @@
 //
 // collecting        show is live; items are being added, deposit held
 // quote_failed      couldn't get a Shipbubble quote yet (retryable)
+// needs_fix         waiting for a phone/address edit; no timed courier retry
 // awaiting_payment  quoted, but the wallet couldn't cover it; buyer pays later
 // paid              delivery paid; seller can book the pickup
 // booked            courier booked with Shipbubble
@@ -30,7 +31,7 @@ const showDeliverySchema = new mongoose.Schema({
   }],
   status: {
     type: String,
-    enum: ['collecting', 'quote_failed', 'awaiting_payment', 'paid', 'booked', 'in_transit', 'delivered', 'cancelled'],
+    enum: ['collecting', 'quote_failed', 'needs_fix', 'awaiting_payment', 'paid', 'booked', 'in_transit', 'delivered', 'cancelled'],
     default: 'collecting',
   },
   depositHeld: { type: Number, default: 0 }, // currently held in the buyer's wallet
@@ -48,6 +49,7 @@ const showDeliverySchema = new mongoose.Schema({
     fetchedAt: Date,
   },
   lastError: String,
+  fix: {party:String,key:String,kind:String,message:String,notificationId:mongoose.Schema.Types.ObjectId},
   shipbubble: {
     orderId: String,
     trackingUrl: String,

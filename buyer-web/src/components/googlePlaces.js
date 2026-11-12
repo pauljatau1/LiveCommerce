@@ -1,3 +1,4 @@
+export const googleAddressEnabled = value => value === 'google';
 export const PLACE_FIELDS = ['formattedAddress','addressComponents','location'];
 export const normalState = value => String(value || '').trim().replace(/\s+state$/i,'').trim().toLowerCase();
 export const allowedPlace = (config,state) => Boolean(config?.states?.some(value=>normalState(value)===normalState(state)));

@@ -1,3 +1,5 @@
+import {deliveryPhoneFor} from '../phone';
+import {phoneProblem} from '../components/AddressSheet';
 import ServiceAreaSheet from '../components/ServiceAreaSheet';
 import { useServiceArea, allowsState } from '../serviceArea';
 // Watch a live show: full-screen video, chat on the video, bid on the current item, Buy Now.
@@ -461,7 +463,7 @@ export default function Watch() {
         return;
       }
       // Delivery couldn't be priced for this buyer: fix the address in the one sheet
-      if (r?.code === 'no_address' && lastBidRef.current) { setSheet({ type: 'onestep', action: { kind: 'bid', ...lastBidRef.current } }); return; }
+      if ((r?.code === 'no_address' || r?.code === 'courier_phone') && lastBidRef.current) { setSheet({ type: 'onestep', action: { kind: 'bid', ...lastBidRef.current } }); return; }
       say('err', r?.message || 'Your bid did not go through. Nothing was held.');
     });
     socket.on('wallet_credited', (receipt) => receiveCreditRef.current(receipt));
@@ -591,6 +593,7 @@ export default function Watch() {
   const ready = (cost, action) => {
     if (!serviceArea) { say('err', serviceAreaError || 'Checking delivery areas. Please try again in a moment.'); return false; }
     if (signedIn && buyer?.shippingAddresses?.length && ( !allowsState(serviceArea,buyer.shippingAddresses[0].state))) { setSheet({ type: 'serviceArea', state: buyer.shippingAddresses[0].state }); return false; }
+    if(signedIn&&hasAddress&&phoneProblem(deliveryPhoneFor(buyer))){setSheet({type:'onestep',action:{...action,run:action.run || action.item?.run || current?.run || 1}});return false;}
     if (signedIn && hasAddress && deposit !== null && cost + deposit <= available) return true;
     // Address saved but delivery can't be priced (e.g. the host's pickup address
     // is unfinished): say why instead of reopening the address form

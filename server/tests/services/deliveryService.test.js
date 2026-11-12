@@ -66,7 +66,7 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     delete process.env.DELIVERY_DEPOSIT_NGN;
     shipbubble.fetchRates.mockResolvedValue(rates(DEP));
     await Promise.all([Buyer, Seller, Stream, Product, Order, ShowDelivery, DeliveryEstimate].map((m) => m.deleteMany({})));
-    seller = await Seller.collection.insertOne({ firstName: 'Sade', lastName: 'Seller', storeName: 'Figure Den', email: 's@example.com', phoneNumber: '8031112222', sellerAddress: { addressLine1: '1 Allen Avenue', city: 'Ikeja', state: 'Lagos' } }).then((r) => ({ _id: r.insertedId }));
+    seller = await Seller.collection.insertOne({ firstName: 'Sade', lastName: 'Seller', storeName: 'Figure Den', email: 's@example.com', phoneNumber: '08031112222', sellerAddress: { addressLine1: '1 Allen Avenue', city: 'Ikeja', state: 'Lagos' } }).then((r) => ({ _id: r.insertedId }));
     plush = await Product.collection.insertOne({ name: 'Nezuko plush', price: 15000, salePrice: 0, stock: 5, status: 'active', category: 'Plushies & Keychains', inventory: { sku: 'T-PLUSH' }, seo: { slug: 't-plush' }, seller: seller._id, images: [], shippingInfo: { weight: { value: 0.4 } } }).then((r) => ({ _id: r.insertedId }));
     figure = await Product.collection.insertOne({ name: 'Gojo figure', price: 20000, salePrice: 0, stock: 5, status: 'active', category: 'Figures', inventory: { sku: 'T-FIG' }, seo: { slug: 't-fig' }, seller: seller._id, images: [] }).then((r) => ({ _id: r.insertedId }));
     stream = await Stream.create({
@@ -103,6 +103,39 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({latitude:6.46,longitude:3.47}));
     await deliveries.previewQuote({streamId:stream._id,productId:plush._id,address:{addressLine1:'5 Admiralty Way',city:'Lekki',state:'Lagos',phoneNumber:'08031234567',latitude:6.48,longitude:3.49}});
     expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({latitude:6.48,longitude:3.49}));
+  });
+
+  it('quotes using the warehouse contact when the account phone is null',async()=>{
+    await Seller.updateOne({_id:seller._id},{$set:{phoneNumber:null,'warehouseDetails.contactNumber':'08031234567','warehouseDetails.address':{state:'Lagos',city:'Yaba',lga:'Lagos Mainland',addressLine1:'14 Herbert Macaulay Way',addressLine2:'By the gate'}}});
+    const ada=await createBuyer('Warehouse',50000);
+    const q=await deliveries.previewQuote({streamId:stream._id,productId:plush._id,address:{state:'Lagos',city:'Lekki',addressLine1:'5 Admiralty Way',phoneNumber:'08031234567'}});
+    expect(q.amount).toBe(DEP);expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({phone:'08031234567',address:'14 Herbert Macaulay Way, By the gate, Yaba, Lagos Mainland, Lagos, Nigeria'}));
+    expect((await deliveries.depositQuote({streamId:stream._id,buyerId:ada._id,productId:plush._id})).amount).toBe(DEP);
+  });
+  it('remembers a fixable host validation failure and clears it after a corrected quote',async()=>{
+    const host=await Seller.findById(seller._id).lean();
+    shipbubble.validateAddress.mockRejectedValueOnce(Object.assign(new Error('Invalid phone number'),{status:422}));
+    await expect(deliveries.sellerAddressCode(host)).rejects.toMatchObject({fixable:true,party:'seller',kind:'phone'});
+    const failed=await Seller.findById(seller._id).lean();expect(deliveries.pickupProblem(failed)).toMatch(/pickup phone number/);
+    await deliveries.sellerAddressCode(failed);expect((await Seller.findById(seller._id).lean()).pickupValidation).toBeUndefined();
+  });
+  it.each(['seller','buyer'])('pauses %s address failures, notifies once and resumes only after an edit',async party=>{
+    const ada=await createBuyer('Fix',50000);await buy(ada,plush);
+    if(party==='seller')await Seller.collection.updateOne({_id:seller._id},{$set:{phoneNumber:'081085565429'}});
+    else await Buyer.collection.updateOne({_id:ada._id},{$set:{'shippingAddresses.0.phoneNumber':'081085565429'}});
+    const [paused]=await deliveries.settleShow(stream._id);expect(paused.status).toBe('needs_fix');expect(paused.fix.party).toBe(party);
+    const Notification=require('@models/Notification');expect(await Notification.countDocuments({type:'delivery_needs_fix',[party]:party==='seller'?seller._id:ada._id})).toBe(1);
+    shipbubble.validateAddress.mockClear();await deliveries.retryStuck({now:Date.now()+60*60*1000});await deliveries.settle(paused._id);
+    expect(shipbubble.validateAddress).not.toHaveBeenCalled();expect(await Notification.countDocuments({type:'delivery_needs_fix',[party]:party==='seller'?seller._id:ada._id})).toBe(1);
+    if(party==='seller')await Seller.updateOne({_id:seller._id},{$set:{phoneNumber:'08031234567'}});
+    else await Buyer.updateOne({_id:ada._id},{$set:{'shippingAddresses.0.phoneNumber':'08031234567'}});
+    const [retried]=await deliveries.retryStuck({now:Date.now()+60*60*1000});expect(retried.status).toBe('paid');
+  });
+  it('pauses an address-not-found response instead of polling Shipbubble',async()=>{
+    const ada=await createBuyer('AddressFix',50000);await buy(ada,plush);await Buyer.updateOne({_id:ada._id},{$unset:{'shippingAddresses.0.shipbubbleCode':1}});
+    shipbubble.validateAddress.mockRejectedValueOnce(Object.assign(new Error('Address not found'),{status:422}));
+    const [paused]=await deliveries.settleShow(stream._id);expect(paused).toMatchObject({status:'needs_fix',fix:{party:'buyer',kind:'address'}});
+    shipbubble.validateAddress.mockClear();await deliveries.retryStuck({now:Date.now()+600000});expect(shipbubble.validateAddress).not.toHaveBeenCalled();
   });
 
   it('holds a real Shipbubble quote for the first item, to the buyer\'s saved address (no flat fee)', async () => {
@@ -242,7 +275,7 @@ describe('deliveryService (one delivery per buyer per show)', () => {
 
   it('asks for a courier phone number before the first buy, not after the show', async () => {
     const ada = await createBuyer('Ada', 50000, { phoneNumber: undefined });
-    expect(await buy(ada, plush)).toMatchObject({ success: false, reason: 'no_address', message: 'Add a phone number for the courier first.' });
+    expect(await buy(ada, plush)).toMatchObject({ success: false, reason: 'no_address', message: 'Fix your phone number for the courier' });
     expect(await ShowDelivery.countDocuments()).toBe(0);
   });
 

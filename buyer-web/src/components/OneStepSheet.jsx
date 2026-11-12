@@ -1,3 +1,4 @@
+import {deliveryAddressFor,deliveryPhoneFor,PHONE_HINT,phoneDigits} from '../phone';
 import PasswordInput from './PasswordInput';
 import {loginError} from '../loginError';
 // "One step, then your bid": everything a new buyer needs, in one sheet over
@@ -33,6 +34,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
   const [acct, setAcct] = useState({ username: '', email: '', password: '' });
   const [busy, setBusy] = useState('');
   const [error, setError] = useState({ where: '', text: '' });
+  const [courierPhone,setCourierPhone]=useState('');
   const chatOnly = ['chat', 'account', 'follow'].includes(action.kind);
   // The delivery price for an address typed here comes from Shipbubble too: the
   // host's pickup address to this exact address, for this item. Nothing is
@@ -57,6 +59,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pickedState, pickedCity, pickedLga, pickedLat, pickedLng, pickedLandmark, pickedLine, phoneForQuote, streamId, productId]);
 
+  const needsCourierPhone=!chatOnly&&Boolean(deliveryAddressFor(buyer))&&Boolean(phoneProblem(deliveryPhoneFor(buyer)));
   const needAccount = !signedIn;
   const needAddress = !chatOnly && !(buyer?.shippingAddresses || []).length;
   const available = wallet?.availableBalance || 0;
@@ -70,7 +73,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
 
   const title = action.kind === 'follow' ? 'Follow this host' : action.kind === 'account' ? 'Create an account' : chatOnly ? 'Join the chat' : action.kind === 'bid' ? 'One step, then your bid' : "One step, then it's yours";
   const what = action.kind === 'bid' ? `bid ${naira(action.amount)}` : 'buy';
-  const buttonText = chatOnly
+  const buttonText = needsCourierPhone ? 'Save phone and continue' : chatOnly
     ? (mode === 'signup' ? 'Create account' : 'Sign in')
     : !priced ? (typedQuote.status === 'loading' ? 'Getting the delivery price…' : 'Add your address to continue')
       : pay > 0 ? `Pay ${naira(pay)} and ${what}` : action.kind === 'bid' ? `Bid ${naira(action.amount)}` : `Buy now · ${naira(action.amount)}`;
@@ -83,6 +86,11 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
     if (chatOnly) { setBusy(''); onReady(); return; }
     let who = me;
     let myW = myWallet;
+    if(deliveryAddressFor(me)&&phoneProblem(deliveryPhoneFor(me))){
+      if(phoneProblem(courierPhone))return fail('phone',phoneProblem(courierPhone));
+      setBusy('Saving your courier phone…');
+      try{await api.saveCourierPhone(deliveryAddressFor(me)._id,phoneDigits(courierPhone));const fresh=await refresh();if(fresh?.buyer){who=fresh.buyer;myW=fresh.wallet || myW;}}catch(e){return fail('phone',errorMessage(e,'Couldn’t save your courier phone. Try again.'));}
+    }
     if (!(me?.shippingAddresses || []).length) {
       setBusy('Saving your address…');
       try { await address.save(me); } catch (e) { if ((e.response?.data?.code === 'out_of_area' || e.response?.data?.reason === 'out_of_area') && onOutOfArea) { setBusy(''); onOutOfArea(e.response.data); return; } fail('address', errorMessage(e, "Couldn't save the address.")); return; }
@@ -114,7 +122,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
     }
     setBusy(action.kind === 'bid' ? 'Placing your bid…' : 'Buying…');
     try { await onReady(); } finally { setBusy(''); }
-  }, [action, address, chatOnly, onReady, onOutOfArea, refresh, streamId, productId, onTopUpNeeded, topUpMethods]);
+  }, [action, address, chatOnly, courierPhone, onReady, onOutOfArea, refresh, streamId, productId, onTopUpNeeded, topUpMethods]);
 
   const afterSignIn = async (token) => {
     const { buyer: me, wallet: w } = await signIn(token, { quiet: true });
@@ -205,6 +213,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
         </section>
       )}
 
+      {needsCourierPhone&&<section className="step" aria-label="Courier phone"><h3 className="step-h">Fix your phone number for the courier</h3><label className="lab" htmlFor="courier-phone">Phone for the courier</label><input id="courier-phone" className="in" type="tel" autoComplete="tel" value={courierPhone} onChange={e=>setCourierPhone(e.target.value)} placeholder="0803 123 4567"/><span className="hint">{PHONE_HINT}</span>{errFor('phone')}</section>}
       {needAddress && (
         <section className="step" aria-label="Delivery">
           <h3 className="step-h">Delivery</h3>

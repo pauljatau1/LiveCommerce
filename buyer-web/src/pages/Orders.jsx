@@ -8,6 +8,7 @@ import RateSheet from '../components/RateSheet';
 import { Header } from '../components/ui';
 
 const STATE = {
+  needs_fix:{label:'Update delivery details',tone:'p-warn',note:d=>d.lastError || 'Update your delivery details so we can get a price.'},
   collecting: { label: 'Show still on', tone: 'p-show', note: (d) => `Everything you get in this show ships together.${d.depositHeld ? ` ${naira(d.depositHeld)} is held for delivery.` : ''}` },
   quote_failed: { label: 'Pricing delivery', tone: 'p-warn', note: () => "We're getting a delivery price. The host has been told." },
   awaiting_payment: { label: 'Pay delivery', tone: 'p-warn', note: (d) => `Delivery to you is ${naira(d.fee)}${d.courier ? ` with ${d.courier}` : ''}.` },
@@ -68,6 +69,7 @@ export default function Orders() {
                 ))}
               </div>
               <p className="mut" style={{ margin: 0, fontSize: 'var(--t-small)' }}>{st.note(d)}</p>
+              {d.status==='needs_fix'&&(d.fix?.party==='buyer'?<Link className="btn2" to="/me">Fix delivery details</Link>:<span className="hint">The host has been asked to update their pickup details.</span>)}
               {d.status === 'awaiting_payment' && (
                 <button type="button" className="btn" disabled={busy === d._id} onClick={() => pay(d)}>{busy === d._id ? 'Paying…' : `Pay ${naira(Math.max(0, d.fee - (d.depositHeld || 0)))} for delivery`}</button>
               )}
