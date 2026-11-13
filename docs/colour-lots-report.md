@@ -24,10 +24,10 @@ Part 1 was absent from main. This branch adds colour stock settlement and separa
 
 ## Validation
 
-- Full server suite: 268 suites / 3,930 tests passed before final identity metadata additions. Final complete rerun is being recorded before push.
+- Full server suite: final complete rerun passed 268 suites / 3,931 tests. Earlier full run passed 268 suites / 3,930 tests; the added delivery-weight regression also passes.
 - Focused real MongoDB transaction tests: 5 suites / 67 tests passed, including a last-colour race, separate auction lot settlement, plain products, real delivery weight lookup and existing delivery flows.
 - Added server snapshot / conditional stock tests and delivery-weight regression; added studio lot expansion / singular count tests; added buyer top-up colour preservation / sold-out tests.
-- Both apps' unit tests and production builds run; final results recorded before push. Seller uses the requested 6144 MB heap.
+- Shop: 31 tests passed. Studio: 52 tests passed. Both final production builds passed. Seller uses the requested 6144 MB heap.
 - Browser: S9 sold-out/quantity/selection, T4 inactive total plus colour-stock edit, T5 separate rows, S10 win title passed. The actual Watch purchase sends the chosen colour and keeps the buyer on the show.
 - Studio browser checks passed at 320×568, 375×600, 390×700 and 1280×800: colour on item/queue/run, Run again retry, settlement gate, foreground/socket recovery and ended-show handling.
 - Screenshots: [colour-lots](screenshots/colour-lots/). APIs, camera and payment SDK are mocked; no real accounts, bids or charges were created.
