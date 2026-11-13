@@ -7,3 +7,15 @@
 .ap-search{padding:8px 16px 12px}.ap-search input{appearance:none;width:100%;height:48px;padding:10px 14px;border:1px solid #DDD5C9;border-radius:12px;background:#fff;color:#1D2A24;font:400 16px/1.4 Nunito,system-ui,sans-serif}.ap-search input:focus{outline:2px solid #10734F;outline-offset:1px}
 .ap-results{overflow:auto;overscroll-behavior:contain;min-height:0;flex:1;padding:0 16px 12px;-webkit-overflow-scrolling:touch}.ap-group{font:600 12px/1.4 Nunito,system-ui,sans-serif;color:#5B6660;margin:16px 0 6px;letter-spacing:.04em}.ap-option{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:60px;border:0;border-bottom:1px solid #EEE7DE;padding:10px 2px;background:transparent;color:#1D2A24;text-align:left;font:600 15px/1.3 Nunito,system-ui,sans-serif;cursor:pointer}.ap-option small{display:block;margin-top:3px;color:#5B6660;font:400 13px/1.3 Nunito,system-ui,sans-serif}.ap-option[aria-pressed=true]{color:#10734F}.ap-check{color:#10734F}.ap-empty{font-size:13px;color:#5B6660;padding:10px 0}.ap-help{flex-shrink:0;margin:0;padding:14px 16px;border-top:1px solid #EEE7DE;background:#FBF8F4;font:400 12px/1.5 Nunito,system-ui,sans-serif;color:#5B6660}.ap-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
 @media(min-width:700px){.ap-layer{align-items:center;padding:24px}.ap-dialog{max-width:440px;border-radius:20px;max-height:min(85dvh,760px)}.ap-grab{display:none}}
+/* S5: popular choices are chips; search results retain full LGA rows. */
+.ap-layer{font-size:var(--t-body);font-weight:var(--w-regular)}
+.ap-dialog,.ap-help{background:var(--surface,#fff)}
+.ap-head h2{font-size:var(--t-h2);font-weight:var(--w-display)}
+.ap-group{font-size:var(--t-caption);font-weight:var(--w-regular);letter-spacing:0}
+.ap-option{font-size:var(--t-body);font-weight:var(--w-regular);min-height:52px}
+.ap-option small{font-size:var(--t-small);font-weight:var(--w-regular)}
+.ap-popular{display:flex;flex-wrap:wrap;gap:8px}
+.ap-popular .ap-group{flex-basis:100%;margin:2px 0}
+.ap-popular .ap-option{position:relative;width:auto;min-height:38px;border:1px solid var(--border);border-radius:999px;padding:8px 16px;font-size:var(--t-small);font-weight:var(--w-medium)}
+.ap-popular .ap-option:after{content:'';position:absolute;inset:-3px 0}
+.ap-help{font-size:var(--t-small)}

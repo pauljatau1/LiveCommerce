@@ -38,6 +38,7 @@ export default function Watch() {
   const [show, setShow] = useState(null);
   const [paymentMethods, setPaymentMethods] = useState({});
   const [transfer, setTransfer] = useState(null);
+  const fundedBid=useRef(null);
   const [fundsOffer, setFundsOffer] = useState(null);
   const pendingIntent = useRef(null), fundingPending = useRef(false);
   const lastBidIntent = useRef(null), beginTopUpRef = useRef(null);
@@ -447,6 +448,7 @@ export default function Watch() {
     });
     socket.on('bid_timer_complete', (t) => t?.productId && setTimer((m) => ({ ...m, [String(t.productId)]: 0 })));
     socket.on('bid_placed', (r) => {
+      if(fundedBid.current && r?.product && idOf(r.product)===fundedBid.current.productId){setSheet({type:'receipt',...fundedBid.current});fundedBid.current=null;}
       recoveryRef.current?.invalidate();
       setBusy(false);
       if (r?.product) {
@@ -459,6 +461,7 @@ export default function Watch() {
       refreshWallet();
     });
     socket.on('bid_error', (r) => {
+      fundedBid.current=null;
       setBusy(false);
       refreshWallet();
       if (r?.code === 'out_of_area') { setSheet({ type: 'serviceArea', state: r.state }); return; }
@@ -653,7 +656,7 @@ export default function Watch() {
     }
   };
 
-  const fulfillIntent = async (intent) => {
+  const fulfillIntent = async (intent, receipt) => {
     if (intent.streamId !== streamId) return;
     const intentItem = intent.productId || (intent.item ? idOf(intent.item) : quoteItemRef.current);
     const [scene, freshWallet, me] = await Promise.all([api.show(streamId), refreshWallet(), api.watchMe(streamId, intentItem)]);
@@ -670,7 +673,7 @@ export default function Watch() {
     const decision = resolveWalletIntent(intent, scene, freshWallet?.availableBalance, me.depositDue, myIdRef.current);
     if (decision.type === 'auto') {
       setSheet(null); setFundsOffer(null);
-      if (decision.action.kind === 'bid') await sendBid(decision.action.productId, decision.action.amount, decision.action.run);
+      if (decision.action.kind === 'bid') {if(receipt)fundedBid.current={received:receipt.amount,productId:decision.action.productId,bid:decision.action.amount,name:scene.products?.find(p=>idOf(p)===decision.action.productId)?.product?.name || 'this item'};await sendBid(decision.action.productId, decision.action.amount, decision.action.run);}
       else await doBuy(decision.action.item, decision.action.quantity, { expectedAmount: decision.action.amount, expectedRun: decision.action.run });
     } else {
       setSheet(null);
@@ -686,7 +689,7 @@ export default function Watch() {
     if (intent) pendingIntent.current = null;
     fundingPending.current = false; setTransfer(null);
     say('ok', `${naira(receipt.amount)} ${receipt.source === 'transfer' ? 'received' : 'added'}`);
-    try { if (intent) await fulfillIntent(intent); else await refreshWallet(); }
+    try { if (intent) await fulfillIntent(intent, receipt); else await refreshWallet(); }
     catch { say('ok', 'Money’s in. Check your wallet, then choose your bid.', 7000); }
   };
   useEffect(() => {
@@ -955,6 +958,7 @@ export default function Watch() {
           </button>
         )}
 
+        {transfer && !reconnecting && <button type="button" className="transfer-waiting" aria-label={`Waiting for your transfer · ${transfer.accountNumber || 'setting up'}`} onClick={()=>setSheet({type:'topup',need:0,bank:transfer})}><span aria-hidden="true">●</span><span>Waiting for your transfer · {transfer.bankName || 'setting up'}{transfer.accountNumber&&<small>{transfer.accountNumber}</small>}</span><span>Open</span></button>}
         {reconnecting && (
           <div className="reconnect" role="status">
             <span className="connection-dot" aria-hidden="true" />
@@ -988,7 +992,7 @@ export default function Watch() {
           </div>
 
           <div className="panel">
-          {transfer && <button type="button" className="btn2 on-dark btn-sm" onClick={() => setSheet({ type: 'topup', need: 0, bank: transfer })}>Waiting for your transfer{transfer.accountNumber ? ` · ${transfer.accountNumber}` : ' · setting up'}</button>}
+          {transfer && <span className="transfer-bid-hint">Top up to bid · we're watching for your transfer</span>}
           {fundsOffer && <button type="button" className="btn btn-sm" onClick={async () => {
             try {
               const [w, me] = await Promise.all([refreshWallet(), api.watchMe(streamId, fundsOffer.productId)]);
@@ -1064,6 +1068,7 @@ export default function Watch() {
         {deskComposer}
       </aside>
 
+      {sheet?.type==='receipt'&&<Sheet className="wallet-sheet" title={`${naira(sheet.received)} received`} onClose={()=>setSheet(null)}><div className="wallet-available"><span>Available to spend</span><strong>{naira(wallet?.availableBalance)}</strong><small>{naira(sheet.bid)} held for your bid</small></div><p>Your bid is in. {naira(sheet.bid)} on {sheet.name}. You're winning.</p><button type="button" className="btn" onClick={()=>setSheet(null)}>Back to the show</button></Sheet>}
       {sheet?.type === 'topup' && <TopUpSheet need={sheet.need} methods={methods} initialBank={sheet.bank} onClose={closeTopUp}
         onPending={() => { fundingPending.current = true; }} onCancelled={() => { fundingPending.current = false; }}
         onWaiting={(account) => { if (['active', 'pending'].includes(account.status)) { fundingPending.current = true; setTransfer(account); } else if (account.status === 'failed') { fundingPending.current = false; setTransfer(null); } }}
