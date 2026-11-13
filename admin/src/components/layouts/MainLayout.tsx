@@ -1,9 +1,12 @@
-import { Outlet } from 'react-router-dom';
+import {REVIEWED_WITHDRAWALS} from '@/config/withdrawals';
+import { Outlet,useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import { SidebarProvider } from '@/context/sidebarContext';
 
 function MainLayout() {
+  const location=useLocation();
+  if(REVIEWED_WITHDRAWALS && location.pathname.replace(/\/+$/,'')==='/dashboard/withdrawals')return <Outlet/>;
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-background">

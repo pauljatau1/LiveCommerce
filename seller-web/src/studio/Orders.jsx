@@ -110,7 +110,7 @@ export function OrderDetail() {
 
   // While waiting on Shipbubble, refresh quietly
   useEffect(() => {
-    if (!d || !['collecting', 'quote_failed'].includes(d.status)) return undefined;
+    if (!d || !['collecting', 'quote_failed','needs_fix'].includes(d.status)) return undefined;
     const t = setInterval(load, 10000);
     return () => clearInterval(t);
   }, [d, load]);
@@ -125,6 +125,7 @@ export function OrderDetail() {
   }
 
   const who = buyerName(d);
+  if(d.status==='needs_fix'&&d.fix?.party==='buyer'&&['name','phone'].includes(d.fix.kind))return <div className="studio-app"><TopBar title={`Order · ${who}`} backTo="/studio/orders"/><main className="st-inner"><div className="banner pickup-banner" role="status">Buyer needs to fix their {d.fix.kind} for the courier. We've asked {who} to {d.fix.kind==='name'?'add their last name':'update their phone number'}. You can book the pickup once they do.</div>{d.items.map((i,n)=><div key={i.order || n} className="repair-order-item">{i.image?<img src={i.image} alt=""/>:<span className="sk"/>}<span>{i.name}<small>{d.show?.title} · {d.show?.type==='auction'?'won at auction':'bought in show'}</small></span><span>{naira(i.unitPrice*(i.quantity || 1))}</span></div>)}<div className="repair-deliver-to"><span className="cap">DELIVER TO</span><p>{who} · {[d.buyer?.address?.addressLine1,d.buyer?.address?.city,d.buyer?.address?.state].filter(Boolean).join(', ') || d.buyer?.area}</p><p className="hint">{d.fix.kind==='name'?(d.buyer?.firstName&&!d.buyer?.lastName?'Last name missing':'Full name needed'):'Phone number needs updating'}{d.buyer?.phoneNumber?` · ${d.buyer.phoneNumber}`:''}</p><span className="pill p-warn">Waiting for buyer</span></div></main><div className="repair-order-bottom"><button className="btn" disabled>Book pickup</button></div></div>;
   const steps = [
     ['Paid', ['paid', 'booked', 'in_transit', 'delivered'].includes(d.status), d.paidAt],
     ['Pickup booked', ['booked', 'in_transit', 'delivered'].includes(d.status), d.bookedAt],

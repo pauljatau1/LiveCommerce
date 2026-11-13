@@ -1,0 +1,128 @@
+Base: a6ff89ff (unchanged admin sources)
+Command: npm --prefix admin run build
+Baseline TypeScript errors: 120
+Feature full TypeScript errors: 120
+Identical after ignoring shifted line numbers: True
+New WithdrawalReview module focused TypeScript check: PASS
+Admin Vite production bundle: PASS
+
+src/auth/login.tsx(27,1): error TS6133: 'Link' is declared but its value is never read.
+src/components/dashboard/add-major-category-modal.tsx(4,22): error TS6133: 'Plus' is declared but its value is never read.
+src/components/dashboard/add-major-category-modal.tsx(4,28): error TS6133: 'Trash2' is declared but its value is never read.
+src/components/dashboard/add-major-category-modal.tsx(31,1): error TS6133: 'Checkbox' is declared but its value is never read.
+src/components/layouts/Navbar.tsx(15,1): error TS6133: 'cn' is declared but its value is never read.
+src/components/layouts/Navbar.tsx(84,41): error TS2339: Property 'profileImage' does not exist on type 'User'.
+src/components/layouts/Navbar.tsx(86,26): error TS2339: Property 'firstName' does not exist on type 'User'.
+src/components/layouts/Navbar.tsx(102,45): error TS2339: Property 'profileImage' does not exist on type 'User'.
+src/components/layouts/Navbar.tsx(104,30): error TS2339: Property 'firstName' does not exist on type 'User'.
+src/components/layouts/Navbar.tsx(108,85): error TS2339: Property 'firstName' does not exist on type 'User'.
+src/components/layouts/Navbar.tsx(108,103): error TS2339: Property 'lastName' does not exist on type 'User'.
+src/components/ui/calendar.tsx(4,1): error TS6192: All imports in import declaration are unused.
+src/components/ui/date-range-picker.tsx(3,1): error TS6133: 'React' is declared but its value is never read.
+src/pages/ReturnRequests.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/ReturnRequests.tsx(43,31): error TS7006: Parameter 'request' implicitly has an 'any' type.
+src/pages/ReturnRequests.tsx(51,55): error TS18047: 'selectedRequest' is possibly 'null'.
+src/pages/ReturnRequests.tsx(63,19): error TS18046: 'error' is of type 'unknown'.
+src/pages/ReturnRequests.tsx(69,37): error TS7006: Parameter 'requestId' implicitly has an 'any' type.
+src/pages/ReturnRequests.tsx(94,76): error TS2339: Property 'order' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(95,75): error TS2339: Property 'sellerResponse' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(96,73): error TS2339: Property 'buyer' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(96,109): error TS2339: Property 'buyer' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(156,40): error TS2339: Property '_id' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(157,39): error TS2339: Property 'order' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(158,39): error TS2339: Property 'buyer' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(158,66): error TS2339: Property 'buyer' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(159,39): error TS2339: Property 'seller' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(160,40): error TS2339: Property 'sellerResponse' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(161,39): error TS2339: Property 'sellerResponse' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(164,23): error TS2322: Type '"default" | "destructive" | "success"' is not assignable to type '"default" | "destructive" | "outline" | "secondary" | null | undefined'.
+src/pages/ReturnRequests.tsx(165,33): error TS2339: Property 'status' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(167,37): error TS2339: Property 'status' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(172,32): error TS2339: Property 'status' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(175,48): error TS2339: Property 'sellerResponse' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(178,32): error TS2339: Property 'status' does not exist on type 'never'.
+src/pages/ReturnRequests.tsx(190,71): error TS2339: Property '_id' does not exist on type 'never'.
+src/pages/announcements.tsx(51,53): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'ExternalToast | undefined'.
+src/pages/banners.tsx(13,1): error TS6133: 'Textarea' is declared but its value is never read.
+src/pages/buyers.tsx(88,21): error TS6133: 'setExporting' is declared but its value is never read.
+src/pages/categories.tsx(2,41): error TS6133: 'ChevronDown' is declared but its value is never read.
+src/pages/categories.tsx(2,54): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/pages/categories.tsx(2,101): error TS6133: 'Eye' is declared but its value is never read.
+src/pages/categories.tsx(2,127): error TS6133: 'Check' is declared but its value is never read.
+src/pages/categories.tsx(11,41): error TS6133: 'PaginationEllipsis' is declared but its value is never read.
+src/pages/categories.tsx(61,10): error TS6133: 'expandedSubCategories' is declared but its value is never read.
+src/pages/categories.tsx(140,9): error TS6133: 'toggleSubCategory' is declared but its value is never read.
+src/pages/dashboard.tsx(5,3): error TS6133: 'ArrowUp' is declared but its value is never read.
+src/pages/dashboard.tsx(9,3): error TS6133: 'Package' is declared but its value is never read.
+src/pages/dashboard.tsx(10,3): error TS6133: 'Clock' is declared but its value is never read.
+src/pages/dashboard.tsx(15,3): error TS6133: 'CircleDollarSign' is declared but its value is never read.
+src/pages/dashboard.tsx(17,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/pages/dashboard.tsx(24,3): error TS6133: 'MessageSquare' is declared but its value is never read.
+src/pages/dashboard.tsx(36,3): error TS6133: 'BarChart' is declared but its value is never read.
+src/pages/dashboard.tsx(37,3): error TS6133: 'Bar' is declared but its value is never read.
+src/pages/dashboard.tsx(38,3): error TS6133: 'PieChart' is declared but its value is never read.
+src/pages/dashboard.tsx(39,3): error TS6133: 'Pie' is declared but its value is never read.
+src/pages/dashboard.tsx(40,3): error TS6133: 'Cell' is declared but its value is never read.
+src/pages/dashboard.tsx(41,3): error TS6133: 'Legend' is declared but its value is never read.
+src/pages/dashboard.tsx(47,31): error TS6133: 'useMemo' is declared but its value is never read.
+src/pages/dashboard.tsx(128,7): error TS6133: 'COLORS' is declared but its value is never read.
+src/pages/errorLogs.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/errorLogs.tsx(7,79): error TS6133: 'DialogTrigger' is declared but its value is never read.
+src/pages/errorLogs.tsx(10,25): error TS6133: 'Clock' is declared but its value is never read.
+src/pages/errorLogs.tsx(10,32): error TS6133: 'FileText' is declared but its value is never read.
+src/pages/majorCategories.tsx(9,41): error TS6133: 'PaginationEllipsis' is declared but its value is never read.
+src/pages/orderDetail.tsx(33,3): error TS6133: 'Bell' is declared but its value is never read.
+src/pages/orderDetail.tsx(35,3): error TS6133: 'RefreshCw' is declared but its value is never read.
+src/pages/orders.tsx(4,3): error TS6133: 'Trash2' is declared but its value is never read.
+src/pages/orders.tsx(11,3): error TS6133: 'MoreHorizontal' is declared but its value is never read.
+src/pages/orders.tsx(13,3): error TS6133: 'Truck' is declared but its value is never read.
+src/pages/orders.tsx(16,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/pages/orders.tsx(19,3): error TS6133: 'User' is declared but its value is never read.
+src/pages/orders.tsx(20,3): error TS6133: 'ExternalLink' is declared but its value is never read.
+src/pages/orders.tsx(36,3): error TS6133: 'DropdownMenuItem' is declared but its value is never read.
+src/pages/payments.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/payments.tsx(13,3): error TS6133: 'ArrowUp' is declared but its value is never read.
+src/pages/products.tsx(2,10): error TS6133: 'Pencil' is declared but its value is never read.
+src/pages/products.tsx(2,26): error TS6133: 'Plus' is declared but its value is never read.
+src/pages/products.tsx(2,57): error TS6133: 'Tag' is declared but its value is never read.
+src/pages/products.tsx(521,9): error TS6133: 'handleSellerChange' is declared but its value is never read.
+src/pages/products.tsx(678,9): error TS6133: 'formatDate' is declared but its value is never read.
+src/pages/refund-requests.tsx(22,33): error TS6133: 'useMemo' is declared but its value is never read.
+src/pages/resources.tsx(4,41): error TS6133: 'FileText' is declared but its value is never read.
+src/pages/resources.tsx(4,59): error TS6133: 'LinkIcon' is declared but its value is never read.
+src/pages/returnDetail.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/returnDetail.tsx(23,3): error TS6133: 'MapPin' is declared but its value is never read.
+src/pages/returnDetail.tsx(26,12): error TS6133: 'ImageIcon' is declared but its value is never read.
+src/pages/returnDetail.tsx(27,3): error TS6133: 'ShoppingCart' is declared but its value is never read.
+src/pages/returnDetail.tsx(31,3): error TS6133: 'ExternalLink' is declared but its value is never read.
+src/pages/returnDetail.tsx(272,7): error TS6133: 'getStatusDot' is declared but its value is never read.
+src/pages/returnDetail.tsx(493,9): error TS6133: 'getStatusIcon' is declared but its value is never read.
+src/pages/returnDetail.tsx(644,5): error TS2552: Cannot find name 'fetchReturnData'. Did you mean 'setReturnData'?
+src/pages/sellerDetail.tsx(33,3): error TS6133: 'Briefcase' is declared but its value is never read.
+src/pages/sellerDetail.tsx(35,3): error TS6133: 'Calendar' is declared but its value is never read.
+src/pages/sellerDetail.tsx(39,3): error TS6133: 'Download' is declared but its value is never read.
+src/pages/sellerDetail.tsx(48,3): error TS6133: 'Megaphone' is declared but its value is never read.
+src/pages/sellerDetail.tsx(51,3): error TS6133: 'Phone' is declared but its value is never read.
+src/pages/sellerDetail.tsx(69,3): error TS6133: 'BarChart2' is declared but its value is never read.
+src/pages/sellerDetail.tsx(306,10): error TS6133: 'recentActivity' is declared but its value is never read.
+src/pages/sellers.tsx(30,3): error TS6133: 'ChevronLeft' is declared but its value is never read.
+src/pages/sellers.tsx(31,3): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/pages/streams.tsx(13,13): error TS6133: 'Play' is declared but its value is never read.
+src/pages/streams.tsx(95,21): error TS6133: 'setSortOrder' is declared but its value is never read.
+src/pages/systemLogs.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/systemLogs.tsx(7,79): error TS6133: 'DialogTrigger' is declared but its value is never read.
+src/pages/systemLogs.tsx(11,25): error TS6133: 'Clock' is declared but its value is never read.
+src/pages/systemLogs.tsx(11,32): error TS6133: 'FileText' is declared but its value is never read.
+src/pages/terminalShipments.tsx(36,84): error TS6133: 'Settings' is declared but its value is never read.
+src/pages/terminalShipments.tsx(38,1): error TS6133: 'Textarea' is declared but its value is never read.
+src/pages/terminalShipments.tsx(153,11): error TS6196: 'WebhookApiResponse' is declared but never used.
+src/pages/terminalShipments.tsx(212,10): error TS6133: 'selectedWebhook' is declared but its value is never read.
+src/pages/terminalShipments.tsx(212,27): error TS6133: 'setSelectedWebhook' is declared but its value is never read.
+src/pages/terminalShipments.tsx(222,25): error TS6133: 'setWebhookEvents' is declared but its value is never read.
+src/pages/terminalShipments.tsx(523,16): error TS18048: 'shipmentsData.shipments.length' is possibly 'undefined'.
+src/pages/terminalShipments.tsx(524,17): error TS18047: 'shipmentsData' is possibly 'null'.
+src/pages/withdrawals.tsx(2,29): error TS6133: 'CardHeader' is declared but its value is never read.
+src/pages/withdrawals.tsx(2,41): error TS6133: 'CardTitle' is declared but its value is never read.
+src/pages/withdrawals.tsx(116,10): error TS6133: 'transferCode' is declared but its value is never read.
+src/routes/AppRoutes.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+vite.config.ts(8,5): error TS2769: No overload matches this call.

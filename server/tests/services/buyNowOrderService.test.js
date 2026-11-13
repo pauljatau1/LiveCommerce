@@ -125,7 +125,7 @@ describe('buyNowOrderService', () => {
     const results=await Promise.all([a,b].map(buyer=>createBuyNowOrder({streamId:stream._id,productId:String(product._id),buyerId:buyer._id,colour:'Indigo'})));
     expect(results.filter(r=>r.success)).toHaveLength(1);
     const p=await Product.findById(product._id).lean();expect(p.stock).toBe(1);expect(p.colourQuantities.map(c=>c.quantity)).toEqual([0,1]);
-    const orders=await Order.find().lean();expect(orders).toHaveLength(1);expect(orders[0].items[0]).toMatchObject({colour:'Indigo',productName:'Nezuko plush · Indigo'});
+    const orders=await Order.find().lean();expect(orders).toHaveLength(1);expect(orders[0].items[0]).toMatchObject({colour:'Indigo',productName:'Nezuko plush · Indigo'});expect((await require('@/models/ShowDelivery').findOne({stream:stream._id}).lean()).items[0].name).toBe('Nezuko plush · Indigo');
     expect((await wallet(a)).balance+(await wallet(b)).balance).toBe(85000);
   });
 

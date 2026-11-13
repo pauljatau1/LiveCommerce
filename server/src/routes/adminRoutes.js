@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+router.use('/withdrawals',require('./reviewedWithdrawalAliases'));
 const adminController = require('../controllers/adminController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');

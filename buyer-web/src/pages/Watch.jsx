@@ -449,7 +449,7 @@ export default function Watch() {
     });
     socket.on('bid_timer_complete', (t) => t?.productId && setTimer((m) => ({ ...m, [String(t.productId)]: 0 })));
     socket.on('bid_placed', (r) => {
-      if(fundedBid.current && r?.product && idOf(r.product)===fundedBid.current.productId){setSheet({type:'receipt',...fundedBid.current});fundedBid.current=null;}
+      if(fundedBid.current && r?.product && idOf(r.product)===fundedBid.current.productId && Number(r.product.currentBid)===fundedBid.current.bid){setSheet({type:'receipt',...fundedBid.current});fundedBid.current=null;}
       recoveryRef.current?.invalidate();
       setBusy(false);
       if (r?.product) {

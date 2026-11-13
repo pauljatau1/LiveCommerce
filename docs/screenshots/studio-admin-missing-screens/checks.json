@@ -1,0 +1,312 @@
+{
+  "checks": [
+    "T1-pickup",
+    "T1-area-picker",
+    "T1-area-selected",
+    "T2-lagos-banner",
+    "T2-phone-banner",
+    "T3-pre-show-block",
+    "T7-seller-order",
+    "T7-buyer-orders-name",
+    "T7-fix-name",
+    "T7-buyer-orders-phone",
+    "T7-fix-phone",
+    "A1-withdrawals-390",
+    "A1-reject-390",
+    "A1-withdrawals-1280",
+    "A1-reject-1280",
+    "A1-empty"
+  ],
+  "calls": [
+    {
+      "kind": "pickup",
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/studio/onboarding/pickup",
+      "method": "PUT",
+      "body": {
+        "state": "Lagos",
+        "city": "Ikeja",
+        "lga": "Ikeja",
+        "addressLine1": "1 Example Street",
+        "phone": "08031234567",
+        "landmark": ""
+      }
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/studio/onboarding/pickup",
+      "method": "PUT",
+      "body": {
+        "state": "Lagos",
+        "city": "Ikeja",
+        "lga": "Ikeja",
+        "addressLine1": "1 Example Street",
+        "phone": "08031234567",
+        "landmark": ""
+      }
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/studio/home",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/studio/onboarding/pickup",
+      "method": "PUT",
+      "body": {
+        "state": "Lagos",
+        "city": "Ikeja",
+        "lga": "Ikeja",
+        "addressLine1": "1 Example Street",
+        "phone": "08031234567",
+        "landmark": ""
+      }
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/studio/onboarding",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "pickup",
+      "path": "/api/v2/studio/onboarding/pickup",
+      "method": "PUT",
+      "body": {
+        "state": "Lagos",
+        "city": "Ikeja",
+        "lga": "Ikeja",
+        "addressLine1": "1 Example Street",
+        "phone": "08031234567",
+        "landmark": ""
+      }
+    },
+    {
+      "kind": "home-area",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "home-area",
+      "path": "/api/v2/studio/home",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "home-phone",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "home-phone",
+      "path": "/api/v2/studio/home",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "home-clean",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "home-clean",
+      "path": "/api/v2/studio/home",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "check",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "check",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "check",
+      "path": "/api/v2/studio/shows/show",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "order",
+      "path": "/api/v2/deliveries/seller",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "buyer-name",
+      "path": "/api/v2/deliveries",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "buyer-name",
+      "path": "/api/v2/buyers/profile",
+      "method": "PUT",
+      "body": {
+        "firstName": "Ada",
+        "lastName": "Okafor"
+      }
+    },
+    {
+      "kind": "buyer-name",
+      "path": "/api/v2/deliveries/delivery/retry",
+      "method": "POST",
+      "body": {}
+    },
+    {
+      "kind": "buyer-name",
+      "path": "/api/v2/deliveries",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "buyer-phone",
+      "path": "/api/v2/deliveries",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "buyer-phone",
+      "path": "/api/v2/buyers/profile/courier-phone",
+      "method": "PUT",
+      "body": {
+        "addressId": "address",
+        "phoneNumber": "08031234567"
+      }
+    },
+    {
+      "kind": "buyer-phone",
+      "path": "/api/v2/deliveries/delivery/retry",
+      "method": "POST",
+      "body": {}
+    },
+    {
+      "kind": "buyer-phone",
+      "path": "/api/v2/deliveries",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "admin",
+      "path": "/api/admin/withdrawals",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "admin",
+      "path": "/api/admin/withdrawals/a/reject",
+      "method": "POST",
+      "body": {
+        "reason": "The account name doesn't match the store owner. Update your bank account in Me, then request again."
+      }
+    },
+    {
+      "kind": "admin",
+      "path": "/api/admin/withdrawals/b/approve",
+      "method": "POST",
+      "body": {}
+    },
+    {
+      "kind": "admin",
+      "path": "/api/admin/withdrawals",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "admin",
+      "path": "/api/admin/withdrawals/a/reject",
+      "method": "POST",
+      "body": {
+        "reason": "The account name doesn't match the store owner. Update your bank account in Me, then request again."
+      }
+    },
+    {
+      "kind": "admin",
+      "path": "/api/admin/withdrawals/b/approve",
+      "method": "POST",
+      "body": {}
+    },
+    {
+      "kind": "admin-empty",
+      "path": "/api/admin/withdrawals",
+      "method": "GET",
+      "body": null
+    }
+  ]
+}

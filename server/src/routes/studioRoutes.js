@@ -556,7 +556,7 @@ router.get('/money', async (req, res) => {
         _id: w._id,
         kind: 'out',
         label: `Withdrawal to ${w.bankDetails?.bankName || 'bank'}`,
-        detail: w.status === 'completed' ? 'Sent' : w.status === 'pending' || w.status === 'processing' ? 'Processing' : w.status[0].toUpperCase() + w.status.slice(1),
+        detail: w.status==='rejected' && w.rejectionReason?`Rejected · ${w.rejectionReason}`:w.status === 'completed' ? 'Sent' : w.status === 'pending' || w.status === 'processing' ? 'Processing' : w.status[0].toUpperCase() + w.status.slice(1),
         amount: w.amount,
         date: w.createdAt || w.requestDate,
       })),

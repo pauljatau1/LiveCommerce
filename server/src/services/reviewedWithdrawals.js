@@ -63,7 +63,7 @@ async function approve(id,adminId){
 }
 async function reject(id,adminId,reason){
  if(process.env.LEGACY_WITHDRAWAL_REQUESTS==='true')throw fail(409,'Switch off the legacy payout flow before reviewing withdrawals.');
- const w=await Withdrawal.findOneAndUpdate({_id:id,status:'pending','paymentInfo.transferReference':{$in:[null,'']}},{$set:{payoutFlow:'review',status:'rejected',processedDate:new Date()},$push:{notes:{content:`Rejected by admin ${adminId}: ${String(reason || 'Please check your bank details.').slice(0,250)}`,addedBy:'admin'}}},{new:true}).lean();
+ const w=await Withdrawal.findOneAndUpdate({_id:id,status:'pending','paymentInfo.transferReference':{$in:[null,'']}},{$set:{payoutFlow:'review',status:'rejected',rejectionReason:String(reason || 'Please check your bank details.').trim().slice(0,250),processedDate:new Date()},$push:{notes:{content:`Rejected by admin ${adminId}: ${String(reason || 'Please check your bank details.').slice(0,250)}`,addedBy:'admin'}}},{new:true}).lean();
  if(!w)throw fail(409,'Only a pending withdrawal can be rejected.');return w;
 }
 async function webhook(event,data){

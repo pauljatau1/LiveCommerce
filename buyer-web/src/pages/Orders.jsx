@@ -1,3 +1,4 @@
+import CourierRepairSheet from '../components/CourierRepairSheet';
 import {settlementText} from '../deliverySettlement';
 // Your orders, grouped as deliveries: everything from one show ships together.
 import { useCallback, useEffect, useState } from 'react';
@@ -26,7 +27,8 @@ export default function Orders() {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
   const [topUp, setTopUp] = useState(null);
-  const [rating, setRating] = useState(null); // the delivery being rated
+  const [rating, setRating] = useState(null);
+  const [repair,setRepair]=useState(null); // the delivery being rated
   // Hosts already rated from this phone (the server also refuses a second rating)
   const [rated, setRated] = useState(() => { try { return JSON.parse(localStorage.getItem('ratedHosts') || '[]'); } catch { return []; } });
   const markRated = (sellerId) => setRated((l) => { const next = [...new Set([...l, String(sellerId)])]; try { localStorage.setItem('ratedHosts', JSON.stringify(next)); } catch { /* private mode */ } return next; });
@@ -58,7 +60,7 @@ export default function Orders() {
                   <div style={{ fontWeight: 'var(--w-medium)', fontSize: 'var(--t-body)' }}>{d.show?.title || 'Live show'}</div>
                   <div className="mut" style={{ fontSize: 'var(--t-small)' }}>{d.seller?.storeName} · {d.itemCount} item{d.itemCount === 1 ? '' : 's'} · {new Date(d.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })}</div>
                 </div>
-                <span className={`pill ${st.tone}`}>{st.label}</span>
+                <span className={`pill ${st.tone}`}>{d.status==='needs_fix'&&d.fix?.party==='buyer'&&['name','phone'].includes(d.fix.kind)?`Needs your ${d.fix.kind}`:st.label}</span>
               </div>
               <div className="list">
                 {d.items.map((i) => (
@@ -69,9 +71,9 @@ export default function Orders() {
                   </div>
                 ))}
               </div>
-              <p className="mut" style={{ margin: 0, fontSize: 'var(--t-small)' }}>{st.note(d)}</p>
+              <p className="mut" style={{ margin: 0, fontSize: 'var(--t-small)' }}>{d.status==='needs_fix'&&d.fix?.party==='buyer'&&['name','phone'].includes(d.fix.kind)?'':st.note(d)}</p>
               {settlementText(d)&&<p className="hint">{settlementText(d)}</p>}
-              {d.status==='needs_fix'&&(d.fix?.party==='buyer'?<Link className="btn2" to="/me">Fix delivery details</Link>:<span className="hint">The host has been asked to update their pickup details.</span>)}
+              {d.status==='needs_fix'&&(d.fix?.party==='buyer'?['name','phone'].includes(d.fix.kind)?<div className="order-fix-line"><span>{d.fix.kind==='name'?'Add your full name so the courier can deliver.':'Fix your phone number so the courier can call you.'}</span><button type="button" className="btn2" onClick={()=>setRepair(d)}>Fix</button></div>:<Link className="btn2" to="/me">Fix delivery details</Link>:<span className="hint">The host has been asked to update their pickup details.</span>)}
               {d.status === 'awaiting_payment' && (
                 <button type="button" className="btn" disabled={busy === d._id} onClick={() => pay(d)}>{busy === d._id ? 'Paying…' : `Pay ${naira(Math.max(0, d.fee - (d.depositHeld || 0)))} for delivery`}</button>
               )}
@@ -86,6 +88,7 @@ export default function Orders() {
           );
         })}
       </main>
+      {repair&&<CourierRepairSheet kind={repair.fix.kind} onClose={()=>setRepair(null)} onSaved={async()=>{await api.retryDelivery(repair._id);await Promise.all([load(),refreshWallet()]);setRepair(null);}}/>}
       {topUp !== null && <TopUpSheet need={topUp} onClose={() => { setTopUp(null); load(); }} />}
       {rating && <RateSheet seller={rating.seller} onClose={() => setRating(null)} onDone={() => { markRated(rating.seller._id); setRating(null); }} />}
     </div>

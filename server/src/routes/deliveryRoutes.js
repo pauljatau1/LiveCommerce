@@ -14,12 +14,13 @@ const fail = (res, error) => {
 };
 const validId = (req, res, next) => (mongoose.isValidObjectId(req.params.id) ? next() : res.status(404).json({ success: false, message: 'Delivery not found' }));
 
+const addressView=buyer=>{const a=buyer?.shippingAddresses?.find(a=>a.isActive)||buyer?.shippingAddresses?.[0];return a?{addressLine1:a.addressLine1,addressLine2:a.addressLine2,city:a.city,state:a.state}:undefined;};
 const view = (d) => ({
   _id: d._id,
   status: d.status,
-  show: d.stream && { _id: d.stream._id, title: d.stream.title, coverImage: d.stream.coverImage?.url },
+  show: d.stream && { _id: d.stream._id, title: d.stream.title,type:d.stream.type, coverImage: d.stream.coverImage?.url },
   seller: d.seller && { _id: d.seller._id, storeName: d.seller.storeName },
-  buyer: d.buyer && { _id: d.buyer._id, username: d.buyer.username, firstName: d.buyer.firstName, lastName: d.buyer.lastName, area: [d.buyer.shippingAddresses?.[0]?.city, d.buyer.shippingAddresses?.[0]?.state].filter(Boolean).join(', ') },
+  buyer: d.buyer && { _id: d.buyer._id, username: d.buyer.username, firstName: d.buyer.firstName, lastName: d.buyer.lastName, phoneNumber:require('../utils/phone').normalisePhone(d.buyer.shippingAddresses?.find(a=>a.isActive)?.phoneNumber || d.buyer.phoneNumber),address:addressView(d.buyer), area: [d.buyer.shippingAddresses?.[0]?.city, d.buyer.shippingAddresses?.[0]?.state].filter(Boolean).join(', ') },
   items: d.items,
   itemCount: (d.items || []).reduce((n, i) => n + (i.quantity || 1), 0),
   itemsTotal: (d.items || []).reduce((n, i) => n + (i.unitPrice || 0) * (i.quantity || 1), 0),
@@ -30,7 +31,7 @@ const view = (d) => ({
   trackingUrl: d.shipbubble?.trackingUrl,
   trackingCode: d.shipbubble?.trackingCode,
   lastError: d.lastError,
-  fix: d.fix ? {party:d.fix.party,message:d.fix.message}:undefined,
+  fix: d.fix ? {party:d.fix.party,kind:d.fix.kind,message:d.fix.message}:undefined,
   createdAt: d.createdAt,
   paidAt: d.paidAt,
   bookedAt: d.shipbubble?.bookedAt,
@@ -38,9 +39,9 @@ const view = (d) => ({
   updatedAt: d.updatedAt,
 });
 const populate = (q) => q
-  .populate('stream', 'title coverImage')
+  .populate('stream', 'title coverImage type')
   .populate('seller', 'storeName')
-  .populate('buyer', 'username firstName lastName shippingAddresses.city shippingAddresses.state');
+  .populate('buyer', 'username firstName lastName phoneNumber shippingAddresses');
 
 // ---- buyer ----
 router.get('/', verifyToken, isBuyer, async (req, res) => {
@@ -56,6 +57,21 @@ router.post('/:id/pay', verifyToken, isBuyer, validId, async (req, res) => {
     const d = await populate(ShowDelivery.findById(req.params.id)).lean();
     res.json({ success: true, delivery: view(d) });
   } catch (e) { fail(res, e); }
+});
+
+// The buyer can retry only their own name/phone repair, through the existing
+// settlement and booking services. Unchanged details remain paused.
+router.post('/:id/retry',verifyToken,isBuyer,validId,async(req,res)=>{
+ try{
+  const d=await ShowDelivery.findOne({_id:req.params.id,buyer:req.user.id}).lean();
+  if(!d)return res.status(404).json({message:'Delivery not found'});
+  if(d.status==='needs_fix'&&d.fix?.party==='buyer'&&['name','phone'].includes(d.fix.kind)){
+   const fresh=await deliveries.settle(d._id);
+   if(fresh?.status==='paid')await deliveries.book({sellerId:d.seller,deliveryId:d._id});
+  }
+  const fresh=await populate(ShowDelivery.findById(d._id)).lean();
+  res.json({success:true,delivery:view(fresh)});
+ }catch(e){fail(res,e);}
 });
 
 // ---- seller ----
