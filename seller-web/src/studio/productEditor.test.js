@@ -2,9 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  editorForm, productPayload, missingFields, weightError, initialWeight, categoryWeight, colourRow,
+  editorForm as raweditorForm, productPayload as rawproductPayload, missingFields as rawmissingFields, weightError, initialWeight, categoryWeight, colourRow,
   WEIGHT_ERROR, WEIGHT_PICKS, DEFAULT_DIMENSIONS,
 } from './productEditor.js';
+const editorForm=(p,t)=>raweditorForm(p,t,true);
+const productPayload=(f,p)=>rawproductPayload(f,p,true);
+const missingFields=f=>rawmissingFields(f,true);
+
 
 const table = { fallback: 1, categories: { Shoes: 3, Accessories: 0.5 } };
 const editorSource = readFileSync(new URL('./ProductEditor.jsx', import.meta.url), 'utf8');

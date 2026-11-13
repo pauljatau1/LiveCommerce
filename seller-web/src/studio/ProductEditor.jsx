@@ -1,3 +1,4 @@
+import {COLOURS} from './features';
 import {saveFieldProblems} from './productEditor';
 import {pickupAddress} from './pickup';
 import useStudioBack from './useStudioBack';
@@ -447,7 +448,7 @@ export default function ProductEditor() {
                   {fromAgent && !priceTouched.current && Number(form.price) > 0 && <p className="hint pe-phone" style={{ margin: '-14px 0 0' }}>{naira(form.price)} is an estimate from your photos. Change it if you like.</p>}
                   <div className="fl" id="pe-stock">
                     <span className="lab">Quantity in stock</span>
-                    {form.colours.length
+                    {COLOURS && form.colours.length
                       ? <p className="hint" style={{ margin: 0, minHeight: 48, display: 'flex', alignItems: 'center' }}><b style={{ color: 'var(--text)' }}>{coloursTotal(form.colours)}</b>&nbsp;in total, from your colours</p>
                       : <Stepper label="Quantity in stock" value={form.stock} onChange={(v) => set('stock', v)} />}
                   </div>
@@ -487,7 +488,7 @@ export default function ProductEditor() {
 
               <div className="ed-pad">
                 <More form={form} set={set} />
-                <Colours colours={form.colours} onChange={(colours) => set('colours', colours)} error={errFor('colours')} />
+                {COLOURS&&<Colours colours={form.colours} onChange={(colours) => set('colours', colours)} error={errFor('colours')} />}
                 <Weight form={form} set={set} error={errFor('weight')} />
               </div>
 

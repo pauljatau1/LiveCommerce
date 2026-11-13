@@ -47,7 +47,7 @@ exports.createProduct = async (req, res) => {
     };
 
     // Parse JSON strings for objects with error handling
-    const parsedBody = {
+    let parsedBody = {
       ...req.body,
       returnPolicy: parseJsonField(req.body.returnPolicy, 'returnPolicy'),
       shippingInfo: parseJsonField(req.body.shippingInfo, 'shippingInfo'),
@@ -79,6 +79,7 @@ exports.createProduct = async (req, res) => {
       }
     }
 
+    parsedBody=require('../config/colours').productInput(parsedBody);
     // Handle main product images - will be processed after product is saved
     let imagesLinks = [];
     let imagesToProcess = [];
@@ -88,7 +89,7 @@ exports.createProduct = async (req, res) => {
 
     // Process variant images - will be processed after product is saved
     let variantsToProcess = [];
-    if (req.body.variants && Array.isArray(req.body.variants)) {
+    if (require('../config/colours').coloursEnabled() && req.body.variants && Array.isArray(req.body.variants)) {
       variantsToProcess = req.body.variants;
     }
 
@@ -1016,7 +1017,7 @@ exports.getProduct = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = require('../config/colours').productInput(req.body);
     const sellerId = req.user.id;
 
     // Find the product and verify ownership

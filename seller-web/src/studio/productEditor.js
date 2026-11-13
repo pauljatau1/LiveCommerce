@@ -1,3 +1,4 @@
+import {COLOURS} from './features.js';
 // Product editor: turns a saved product (or a listing-agent draft) into the form,
 // and the form back into the payload the classic product API expects.
 //
@@ -100,7 +101,7 @@ export function mergeVariants(saved = [], colours = [], price = 0) {
   return [...kept, ...added];
 }
 
-export function productPayload(form, original = {}) {
+function legacyProductPayload(form, original = {}) {
   const kg = toKg(toNumber(form.weight), form.weightUnit);
   const colours = form.colours || [];
   const stock = colours.length ? coloursTotal(colours) : Number(form.stock);
@@ -146,7 +147,7 @@ export function productPayload(form, original = {}) {
 // Keys the form never shows, even if the product has them
 const HIDDEN = ['size', 'sizes', 'dimensions', 'length', 'width', 'height', 'freeShipping', 'shippingClass'];
 
-export function editorForm(p = {}, weightTable = null) {
+function legacyEditorForm(p = {}, weightTable = null) {
   const form = {
     ...p,
     name: p.name || '',
@@ -185,7 +186,7 @@ export function editorForm(p = {}, weightTable = null) {
 }
 
 // Everything still missing, in the order the fields appear. [{ key, text }]
-export function missingFields(form) {
+function legacyMissingFields(form) {
   const out = [];
   if (!form.images?.length) out.push({ key: 'photos', text: 'Add at least one photo. Buyers look at photos first.' });
   if (!form.name?.trim()) out.push({ key: 'name', text: 'Add a name so buyers know what it is.' });
@@ -208,3 +209,7 @@ export function saveFieldProblems(message='') {
  const keys=required?required.split(',').map(s=>s.trim()):/colou?r|variant/i.test(message)?['colours']:/stock|quantity/i.test(message)?['stock']:/price/i.test(message)?['price']:[];
  return [...new Set(keys)].filter(k=>labels[k]).map(key=>({key,text:labels[key]}));
 }
+
+export function editorForm(p={},weightTable=null,enabled=COLOURS){const form=legacyEditorForm(p,weightTable);return enabled?form:{...form,colours:[],stock:p.stock ?? 0};}
+export function productPayload(form,original={},enabled=COLOURS){if(enabled)return legacyProductPayload(form,original);const payload=legacyProductPayload({...form,colours:[],variants:[]},original);for(const key of ['variants','colourVariants','colourQuantities','colors'])delete payload[key];return payload;}
+export function missingFields(form,enabled=COLOURS){return legacyMissingFields(enabled?form:{...form,colours:[]});}

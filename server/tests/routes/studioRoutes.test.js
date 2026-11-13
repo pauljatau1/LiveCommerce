@@ -1,3 +1,5 @@
+jest.mock('@/services/agoraService',()=>({generateToken:jest.fn(()=> 'test-token')}));
+jest.mock('@/config/agenda',()=>({agenda:{schedule:jest.fn(async()=>({})),jobs:jest.fn(async()=>[]),cancel:jest.fn(async()=>0)}}));
 const mongoose = require('mongoose');
 const express = require('express');
 const request = require('supertest');
@@ -90,6 +92,7 @@ describe('studio routes', () => {
   });
 
   it('show: items with live state, stock and sales; other sellers get 404', async () => {
+    process.env.COLOURS='true';
     await Product.updateOne({ _id: figure }, { $set: { colourVariants: ['Blue and white', 'Green'] } });
     const show = await Stream.findOne({ title: 'Friday drop' }).lean();
     const res = await request(app).get(`/api/v2/studio/shows/${show._id}`).expect(200);
@@ -116,6 +119,7 @@ describe('studio routes', () => {
   });
 
   it('colour stock edits preserve the total and cannot be bypassed with a scalar stock', async()=>{
+    process.env.COLOURS='true';
     const p=(await Product.collection.insertOne({seller:mockSellerId,name:'Adire Bubu',price:11000,stock:5,status:'active',images:[],colourVariants:['Blue','Red'],colourQuantities:[{colour:'Blue',quantity:2},{colour:'Red',quantity:3}],variants:[{name:'Colour',value:'Blue',totalStock:2},{name:'Colour',value:'Red',totalStock:3}]})).insertedId;
     await request(app).patch(`/api/v2/studio/products/${p}`).send({stock:9}).expect(400);
     const colourQuantities=[{colour:'Blue',quantity:3},{colour:'Red',quantity:1}];
@@ -201,4 +205,18 @@ describe('studio routes', () => {
     res = await request(app).get('/api/v2/studio/notifications').expect(200);
     expect(res.body.unread).toBe(0);
   });
+  it.each(['auction','drop'])('planner %s notes are saved on creation and exposed pinned to studio and buyers',async type=>{
+    delete process.env.COLOURS;
+    const controller=require('@/controllers/streamController');
+    const endpoint=`/create-${type}`;app.post(endpoint,(req,res)=>{req.user={id:String(mockSellerId),agoraUid:1};return (type==='auction'?controller.createStream:controller.createOpenLiveShow)(req,res);});
+    const drafted=await request(app).post('/api/v2/studio/show-notes/draft').send({type,title:'Adire show'}).expect(200);
+    const created=await request(app).post(endpoint).send({title:'Planned with notes',description:'Adire',category:'Women',scheduledStartTime:new Date(Date.now()+60000).toISOString(),products:[{product:{productId:String(figure)},minBid:1000,maxBid:100000}],showNotes:drafted.body.notes,saveNotesAsDefault:true}).expect(201);
+    const id=created.body.stream._id;await Stream.updateOne({_id:id},{$set:{status:'live'}});
+    const detail=await request(app).get(`/api/v2/studio/shows/${id}`).expect(200);expect(detail.body.show.notes.howToBuy).toBe(drafted.body.notes.howToBuy);
+    app.use('/watch-notes',require('@/routes/watchRoutes'));const buyer=await request(app).get(`/watch-notes/${id}/notes`).expect(200);expect(buyer.body.notes.howToBuy).toBe(drafted.body.notes.howToBuy);expect(buyer.body.firstLine).toBeTruthy();
+    const dbShow=await Stream.findById(id).lean();expect(dbShow.products).toHaveLength(1);expect(dbShow.products[0].product.name).toBe('Gojo figure');
+  });
+
 });
+
+afterEach(()=>{delete process.env.COLOURS;});

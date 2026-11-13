@@ -1,3 +1,5 @@
+const LEGACY_SEPARATE_PLANNER_NOTES = false; // Notes now persist in the show creation write.
+import {COLOURS} from './features';
 const LEGACY_COMBINED_RUNNING_ORDER=false;
 import {colourLots} from './colourLots';
 import {serviceAreaConfig} from './api';
@@ -89,7 +91,7 @@ export default function Planner() {
   const startBid = (p) => bids[p._id] ?? String(Math.max(500, Math.round((p.price * 0.6) / 500) * 500));
 
   const goSetup = () => {
-    setLots(colourLots(picked.map(id=>byId.get(id)).filter(Boolean)));
+    setLots(COLOURS?colourLots(picked.map(id=>byId.get(id)).filter(Boolean)):picked.map(id=>byId.get(id)).filter(Boolean));
     if (!title) {
       const names = items.slice(0, 2).map((p) => p.name.split(/[,(]|\s[–-]\s/)[0].trim().slice(0, 28));
       setTitle(`${type === 'auction' ? 'Live auction' : 'Live drop'}: ${names.join(' & ')}${items.length > 2 ? ` + ${items.length - 2} more` : ''}`.slice(0, 80));
@@ -108,6 +110,7 @@ export default function Planner() {
   };
 
   const create = async () => {
+    if (notesState === 'drafting') return;
     setSaveError('');
     const at = startAt();
     if (!now && at < new Date()) { setSaveError('That time has passed. Pick a later time or "Go live now".'); return; }
@@ -118,19 +121,20 @@ export default function Planner() {
     const body = {
       title: title.trim(),
       description: description.trim(),
+      ...(hasNotes(notes) ? {showNotes: notes, saveNotesAsDefault: reuseNotes} : {}),
       category: items[0]?.category || 'Clothing',
       scheduledStartTime: at.toISOString(),
       ...(cover ? { coverImage: { data: cover.base64, contentType: cover.contentType } } : {}),
       products: items.map((p) => (type === 'auction'
-        ? { product: { productId: p.catalogueProductId || p._id },...(p.colour?{colour:p.colour}:{}), minBid: Number(startBid(p)), maxBid: Math.max(Number(startBid(p)) * 100, 1000000), auctionSeconds: lengthOf(p) }
-        : { product: { productId: p.catalogueProductId || p._id },...(p.colour?{colour:p.colour}:{}) })),
+        ? { product: { productId: p.catalogueProductId || p._id },...(COLOURS&&p.colour?{colour:p.colour}:{}), minBid: Number(startBid(p)), maxBid: Math.max(Number(startBid(p)) * 100, 1000000), auctionSeconds: lengthOf(p) }
+        : { product: { productId: p.catalogueProductId || p._id },...(COLOURS&&p.colour?{colour:p.colour}:{}) })),
     };
     try {
       const res = type === 'auction' ? await studio.createAuction(body) : await studio.createDrop(body);
       const show = res.stream || res.data?.stream || res;
       if (!show?._id) throw new Error('No show returned');
       // Pin the notes on the new show; a problem here never blocks the show
-      if (hasNotes(notes)) {
+      if (LEGACY_SEPARATE_PLANNER_NOTES && hasNotes(notes)) {
         try { await studio.saveNotes(show._id, notes, reuseNotes); } catch (e) { setSaveError(`Your show is set, but the notes didn't save: ${errorText(e)} You can pin them from the live studio.`); }
       }
       if (now) { navigate(`/studio/golive/${show._id}`, { replace: true }); return; }
@@ -217,7 +221,7 @@ export default function Planner() {
         </div>
       )}
 
-      {step === 2 && !review && <><div className="st-inner colour-running-order"><p className="hint">Drag to change the order. Each colour runs as its own item.</p>{items.map((p,i)=><div className="colour-lot-row" key={p._id} draggable onDragStart={e=>{e.dataTransfer.setData('text/plain',String(i));e.dataTransfer.effectAllowed='move';setDragged(i);}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(dragged===null)return;setLots(rows=>{const next=[...rows];const [row]=next.splice(dragged,1);next.splice(i,0,row);return next;});setDragged(null);}}><button className="link" type="button" aria-label={`Move ${p.name}; use arrow keys`} onKeyDown={e=>{if(['ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();move(i,e.key==='ArrowUp'?-1:1);}}}>⠿</button><span>{i+1}</span>{p.image?<img src={p.image} alt=""/>:<span className="sk"/>}<span className="grow">{p.name}<small>{p.stock} in stock · {type==='auction'?'auction from ':''}{naira(type==='auction'?Number(startBid(p)):p.price)}</small></span><button type="button" className="ib" aria-label={`Remove ${p.name}`} onClick={()=>setLots(rows=>rows.filter(row=>row._id!==p._id))}>×</button></div>)}</div>{items.length>20&&<p className="err" role="alert">Choose up to 20 colour lots for one show.</p>}<div className="colour-order-next" data-keyboard-bar><span>{items.length} items</span><button type="button" className="btn" disabled={!items.length || items.length>20} onClick={()=>setReview(true)}>Next</button></div></>}
+      {step === 2 && !review && <><div className="st-inner colour-running-order"><p className="hint">{COLOURS?'Drag to change the order. Each colour runs as its own item.':'Drag to change the order.'}</p>{items.map((p,i)=><div className="colour-lot-row" key={p._id} draggable onDragStart={e=>{e.dataTransfer.setData('text/plain',String(i));e.dataTransfer.effectAllowed='move';setDragged(i);}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(dragged===null)return;setLots(rows=>{const next=[...rows];const [row]=next.splice(dragged,1);next.splice(i,0,row);return next;});setDragged(null);}}><button className="link" type="button" aria-label={`Move ${p.name}; use arrow keys`} onKeyDown={e=>{if(['ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();move(i,e.key==='ArrowUp'?-1:1);}}}>⠿</button><span>{i+1}</span>{p.image?<img src={p.image} alt=""/>:<span className="sk"/>}<span className="grow">{p.name}<small>{p.stock} in stock · {type==='auction'?'auction from ':''}{naira(type==='auction'?Number(startBid(p)):p.price)}</small></span><button type="button" className="ib" aria-label={`Remove ${p.name}`} onClick={()=>setLots(rows=>rows.filter(row=>row._id!==p._id))}>×</button></div>)}</div>{items.length>20&&<p className="err" role="alert">Choose up to 20 items for one show.</p>}<div className="colour-order-next" data-keyboard-bar><span>{items.length} items</span><button type="button" className="btn" disabled={!items.length || items.length>20} onClick={()=>setReview(true)}>Next</button></div></>}
       {step === 2 && review && (
         <div className="st-inner" style={{ paddingBottom: 32 }}>
           <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }} aria-label="Title and description">
@@ -228,7 +232,7 @@ export default function Planner() {
           {LEGACY_COMBINED_RUNNING_ORDER&&<>
           <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }} aria-label="Running order">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}><h2 className="h2">Running order</h2><span className="hint">{items.length} items</span></div>
-            <p className="hint">Drag to change the order. Each colour runs as its own item.</p>
+            <p className="hint">{COLOURS?'Drag to change the order. Each colour runs as its own item.':'Drag to change the order.'}</p>
             {items.length > 2 && <div className="soft s-primary" style={{ fontSize: 'var(--t-small)', lineHeight: 1.45 }}>Tip: start with a cheaper item to warm up the room and save the best for last, when the most people are watching.</div>}
             {items.map((p, i) => (
               <div key={p._id} draggable onDragStart={e=>{e.dataTransfer.setData('text/plain',String(i));e.dataTransfer.effectAllowed='move';setDragged(i);}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(dragged===null)return;setLots(rows=>{const next=[...rows];const [row]=next.splice(dragged,1);next.splice(i,0,row);return next;});setDragged(null);}} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 12, borderRadius: 18, background: 'var(--surface-page)', border: '1px solid var(--border)' }}>
@@ -325,7 +329,7 @@ export default function Planner() {
           </section>
 
           {saveError && <Problem text={saveError} />}
-          <button type="button" className="btn" disabled={busy || notesLength(notes) > NOTES_MAX} onClick={create}>{busy ? 'Creating…' : now ? 'Create and go live' : 'Schedule show'}</button>
+          <button type="button" className="btn" disabled={busy || notesState === 'drafting' || notesLength(notes) > NOTES_MAX} onClick={create}>{busy ? 'Creating…' : now ? 'Create and go live' : 'Schedule show'}</button>
         </div>
       )}
     </div>

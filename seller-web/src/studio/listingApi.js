@@ -1,3 +1,4 @@
+import {COLOURS} from './features.js';
 // Server calls and photo handling for the Listing Agent.
 import axios from 'axios';
 import { BASE_URL, BASE_URL_V2 } from '@/Constants/Server';
@@ -90,8 +91,7 @@ export const publishListing = async (listing) => {
     condition: listing.condition,
     localStyle: listing.localStyle || '',
     fabric: listing.fabric || '',
-    colourVariants: listing.colourVariants || [],
-    colourQuantities: listing.colourQuantities || [],
+    ...(COLOURS ? {colourVariants: listing.colourVariants || [], colourQuantities: listing.colourQuantities || []} : {}),
     draftProof: listing.draftProof,
     status: 'active',
     category: listing.category,

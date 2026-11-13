@@ -2,7 +2,7 @@ const loginService = require('@modules/buyer/services/login.service');
 const buyerRepository = require('@modules/buyer/repositories/buyer.repository');
 const loginValidator = require('@modules/buyer/validators/login.validator');
 const ValidationError = require('@utils/errors/ValidationError');
-const NotFoundException = require('@utils/errors/NotFoundException');
+const UnauthorizedException = require('@utils/errors/UnauthorizedException');
 
 // Mock dependencies
 jest.mock('@modules/buyer/repositories/buyer.repository');
@@ -99,7 +99,7 @@ describe('Login Service', () => {
     });
 
     describe('Authentication Errors', () => {
-      it('should throw NotFoundException when buyer is not found', async () => {
+      it('should throw UnauthorizedException when buyer is not found', async () => {
         const loginData = {
           email: 'nonexistent@example.com',
           password: 'password123'
@@ -108,11 +108,12 @@ describe('Login Service', () => {
         loginValidator.validateLoginData.mockResolvedValue();
         buyerRepository.findByEmail.mockResolvedValue(null);
 
-        await expect(loginService.login(loginData)).rejects.toThrow(NotFoundException);
+        await expect(loginService.login(loginData)).rejects.toThrow(UnauthorizedException);
         await expect(loginService.login(loginData)).rejects.toThrow('Invalid credentials');
+        await expect(loginService.login(loginData)).rejects.toMatchObject({statusCode:401});
       });
 
-      it('should throw NotFoundException when password is incorrect', async () => {
+      it('should throw UnauthorizedException when password is incorrect', async () => {
         const loginData = {
           email: 'test@example.com',
           password: 'wrongpassword'
@@ -122,8 +123,9 @@ describe('Login Service', () => {
         buyerRepository.findByEmail.mockResolvedValue(mockBuyer);
         mockBuyer.comparePassword.mockResolvedValue(false);
 
-        await expect(loginService.login(loginData)).rejects.toThrow(NotFoundException);
+        await expect(loginService.login(loginData)).rejects.toThrow(UnauthorizedException);
         await expect(loginService.login(loginData)).rejects.toThrow('Invalid credentials');
+        await expect(loginService.login(loginData)).rejects.toMatchObject({statusCode:401});
       });
     });
 

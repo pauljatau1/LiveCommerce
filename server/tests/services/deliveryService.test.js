@@ -1,3 +1,5 @@
+let mockWatchBuyer;
+jest.mock('@/middlewares/authMiddleware',()=>({verifyToken:(req,res,next)=>{req.user={id:mockWatchBuyer,role:'Buyer'};next();},isBuyer:(req,res,next)=>next()}));
 const mongoose = require('mongoose');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
 
@@ -420,6 +422,20 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     shipbubble.createShipment.mockResolvedValue({order_id:'SB-ONCE',status:'pending',tracking_url:'t'});
     const results=await Promise.allSettled([deliveries.book({sellerId:seller._id,deliveryId:settled._id}),deliveries.book({sellerId:seller._id,deliveryId:settled._id})]);
     expect(results.some(r=>r.status==='fulfilled')).toBe(true);expect(shipbubble.createShipment).toHaveBeenCalledTimes(1);
+  });
+
+  it('no productId is a typed delivery failure before any zero-value generic parcel is quoted',async()=>{
+    const buyer=await createBuyer('CurrentItem',50000);
+    await expect(deliveries.depositQuote({streamId:stream._id,buyerId:buyer._id})).rejects.toMatchObject({status:422,message:'Choose an item to see its delivery price.'});
+    expect(shipbubble.fetchRates).not.toHaveBeenCalled();
+  });
+  it('GET me without an item or when Shipbubble fails returns 200 and a plain deliveryProblem',async()=>{
+    const express=require('express'), request=require('supertest'), app=express();app.use('/watch',require('@/routes/watchRoutes'));
+    const buyer=await createBuyer('QuoteFailure',50000);mockWatchBuyer=String(buyer._id);
+    shipbubble.fetchRates.mockRejectedValueOnce(new Error('provider internal raw response'));
+    let r=await request(app).get(`/watch/${stream._id}/me?productId=${plush._id}`).expect(200);expect(r.body.depositDue).toBeNull();expect(r.body.deliveryProblem).toBe("Couldn't get a delivery price right now. Please try again.");
+    // Missing ID must be safe even while the show contains products.
+    r=await request(app).get(`/watch/${stream._id}/me`).expect(200);expect(r.body.deliveryProblem).toBe('Choose an item to see its delivery price.');
   });
 
 });

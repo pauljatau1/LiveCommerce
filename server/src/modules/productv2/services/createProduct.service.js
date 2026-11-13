@@ -25,7 +25,7 @@ class CreateProductService {
         }
       };
 
-      const parsedBody = {
+      let parsedBody = {
         ...req.body,
         returnPolicy: parseJsonField(req.body.returnPolicy, 'returnPolicy'),
         shippingInfo: parseJsonField(req.body.shippingInfo, 'shippingInfo'),
@@ -38,6 +38,8 @@ class CreateProductService {
       if (typeof req.body.colors === 'string') {
         parsedBody.colors = req.body.colors.split(',').map(color => color.trim());
       }
+
+      parsedBody = require('../../../config/colours').productInput(parsedBody);
 
       // Validate category and subcategory
       const categoryDoc = await Category.findOne({ name: parsedBody.category });
@@ -59,7 +61,7 @@ class CreateProductService {
       }
 
       let variantsToProcess = [];
-      if (req.body.variants && Array.isArray(req.body.variants)) {
+      if (require('../../../config/colours').coloursEnabled() && req.body.variants && Array.isArray(req.body.variants)) {
         variantsToProcess = req.body.variants;
       }
 

@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { classicDashboardEnabled, studioDestination, safeStudioReturn } from '../config/featureFlags.js';
-import { editorForm, productPayload } from './productEditor.js';
+import { editorForm as raweditorForm, productPayload as rawproductPayload } from './productEditor.js';
+const editorForm=(p,t)=>raweditorForm(p,t,true);
+const productPayload=(f,p)=>rawproductPayload(f,p,true);
+
 
 test('classic dashboard defaults off, with explicit rollback opt-in', () => {
   for (const value of [undefined,'','false','0']) assert.equal(classicDashboardEnabled({ VITE_CLASSIC_DASHBOARD: value }), false);

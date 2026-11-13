@@ -83,7 +83,7 @@ const prepareRun = async ({ streamId, sellerId, productId, note, minBid, seconds
   if (item.bidStatus === 'ended') {
     // A fresh run needs one in stock
     const product = await mongoose.model('Product').findById(require('./colourLots').catalogueId(item), { stock: 1,colourVariants:1,colourQuantities:1,variants:1 }).lean();
-    const stock = item.product?.colour?require('./productColours').colourRows(product || {}).find(c=>c.colour===item.product.colour)?.quantity || 0:Number(product?.stock) || 0;
+    const stock = require('../config/colours').coloursEnabled()&&item.product?.colour?require('./productColours').colourRows(product || {}).find(c=>c.colour===item.product.colour)?.quantity || 0:Number(product?.stock) || 0;
     if (stock < 1) throw new RunError(409, 'None left in stock, so it can’t run again.');
     Object.assign(set, {
       'products.$.bidStatus': 'pending',

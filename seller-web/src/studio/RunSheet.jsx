@@ -1,3 +1,4 @@
+import {COLOURS} from './features';
 // Before a run: an optional note in the seller's own words ("Red, size M", up to
 // 40 characters), the starting bid and the auction time. Used for "Run again" and
 // for adding a note before the first run. Kept above the keyboard.
@@ -17,12 +18,12 @@ export default function RunSheet({ item, again, busy, blocked = false, error = '
 
   return (
     <Sheet className="run-sheet" label={again ? 'Run again' : 'Before bidding starts'} onClose={onClose} lift={kb.bottom} maxHeight={kb.bottom ? kb.height - 12 : null}>
-      <span className="h2">{again ? `Run again · ${item.colour?`${item.colour} · `:''}${item.stock} left` : item.name}</span>
+      <span className="h2">{again ? `Run again · ${COLOURS&&item.colour?`${item.colour} · `:''}${item.stock} left` : item.name}</span>
       <span className="hint run-item-name">{again ? item.name : "One item per run"}</span>
       {error && <div className="run-error" role="alert">{error}</div>}
       <div className="fl">
         <label className="lab" htmlFor="run-note">Note for this run <span className="hint" style={{ fontWeight: 600 }}>optional</span></label>
-        {!item.colour && (item.colourVariants || []).length > 1 && <div role="group" aria-label="Suggested colour notes" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {COLOURS && !item.colour && (item.colourVariants || []).length > 1 && <div role="group" aria-label="Suggested colour notes" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {item.colourVariants.map((colour) => <button key={colour} type="button" className={`chip${note === colour.slice(0, 40) ? ' on' : ''}`} onClick={() => setNote(colour.slice(0, 40))}>{colour}</button>)}
         </div>}
         <input id="run-note" className="in" value={note} maxLength={40} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Red, size M" />

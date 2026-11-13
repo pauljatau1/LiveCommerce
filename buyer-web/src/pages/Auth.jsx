@@ -69,8 +69,8 @@ export default function Auth() {
             <label className="lab" htmlFor="au-p">Password</label>
             <PasswordInput id="au-p" className="in" type="password" value={form.password} onChange={set('password')} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required />
           </div>
-          {mode==='signin'&&<button className="link" type="button" onClick={()=>setReset(true)}>Forgot password?</button>}
           {error && <span className="err" role="alert">{mode==='signin' && error==='Wrong email or password. Try again or reset it.' ? <>Wrong email or password. Try again or <button type="button" className="link" onClick={()=>setReset(true)}>reset it</button>.</> : error}</span>}
+          {mode==='signin'&&<button className="link" type="button" onClick={()=>setReset(true)}>Forgot password?</button>}
           <button type="submit" className="btn" disabled={busy}>{busy ? 'One moment…' : mode === 'signup' ? 'Create account' : 'Sign in'}</button>
         </form>
         <p style={{ margin: 0, textAlign: 'center' }} className="mut">

@@ -1,0 +1,55 @@
+// Phone checks with real components and invented API data. No accounts/payments are created.
+import assert from 'node:assert/strict';import {mkdir,readFile,writeFile} from 'node:fs/promises';import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),config=require('../../server/src/services/serviceArea').serviceAreaConfig();
+const {chromium}=await import(process.env.PLAYWRIGHT_MODULE || 'playwright');const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox']});
+const out='docs/screenshots/simplify-colours';await mkdir(out,{recursive:true});const calls=[],checks=[];let active;let recapSold=1;
+const fonts=await Promise.all(['Nunito','Fredoka'].map(async name=>[name,`data:font/woff2;base64,${(await readFile(`tests/visual/fonts/${name.toLowerCase()}.woff2`)).toString('base64')}`]));
+async function fixture(kind,width=390){
+ const studio=['colours','planner','money','recap'].includes(kind),base=studio?(process.env.SELLER_TEST_URL || 'http://127.0.0.1:5174'):(process.env.BUYER_TEST_URL || 'http://127.0.0.1:5175'),page=await browser.newPage({viewport:{width,height:844},isMobile:true,hasTouch:true});active=page;page.setDefaultTimeout(12000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(()=>{window.__ready=0;window.__buyer={_id:'buyer',email:'ada@example.test',firstName:'',lastName:'',phoneNumber:'',firstName:'Ada',lastName:'Okafor',username:'ada',shippingAddresses:[{_id:'address',isActive:true,phoneNumber:'08031234567',city:'Lekki',state:'Lagos',addressLine1:'12 Admiralty Way'}]};localStorage.setItem('sellerToken',JSON.stringify({data:'test-only-token'}));});
+ const source=await(await fetch(base+(studio?'/src/studio/Start.jsx':'/src/main.jsx'))).text(),react=source.match(/"([^"]*\/react\.js\?v=[a-z0-9]+)"/)[1],router=source.match(/"([^"]*\/react-router-dom\.js\?v=[a-z0-9]+)"/)[1];
+ const imports=studio?"import Detail from '/src/studio/ProductDetail.jsx';import Planner from '/src/studio/Planner.jsx';import Money from '/src/studio/Money.jsx';import Recap from '/src/studio/Recap.jsx';import '/src/studio/base.css';":"import PurchaseSheet from '/src/components/PurchaseSheet.jsx';import ColourSheet from '/src/components/ColourSheet.jsx';import Auth from '/src/pages/Auth.jsx';import Me from '/src/pages/Me.jsx';import OneStep from '/src/components/OneStepSheet.jsx';import '/src/styles.css';";
+ const component=kind==='profile'?"h(Me)":kind==='planner'?"h(Planner)":kind==='choose-colour'?"h(ColourSheet,{item:{product:{name:'Adire Two-Piece',price:13000,colourQuantities:[{colour:'Indigo',quantity:2},{colour:'Rust',quantity:1},{colour:'Cream',quantity:0}]}},onClose(){},onBuy(colour,quantity){window.__chosen={colour,quantity}}})":kind==='win'?"h(PurchaseSheet,{purchase:{type:'won',name:'Adire Two-Piece · Indigo',amount:15000},delivery:{status:'paid',fee:1100,depositApplied:591,adjustment:509,paidAt:'now'},ended:true,onClose(){}})":kind==='auth'?"h(Auth)":kind==='colours'?"h(Detail)":kind==='money'?"h(Money)":kind==='recap'?"h(Recap)":`h(OneStep,{action:{kind:'${kind==='join'?'chat':'bid'}',amount:11000},streamId:'show',productId:'product',onClose(){},onReady(){window.__ready++;}})`;
+ const entry=`import React from '${react}';import ReactDOM from '${react.replace('react.js','react-dom_client.js')}';import{BrowserRouter,Routes,Route}from'${router}';${imports}const h=React.createElement;ReactDOM.createRoot(document.getElementById('root')).render(h(BrowserRouter,null,h('div',{className:'${studio?'studio-app':'app'}'},h(Routes,null,h(Route,{path:'${studio?'/studio/products/:id':'*'}',element:${component}})))));`;
+ let product={_id:'p',name:'Adire Bubu Gown',price:11000,stock:5,images:[],status:'active',colourVariants:['Indigo','Rust','Cream'],colourQuantities:[{colour:'Indigo',quantity:2},{colour:'Rust',quantity:3},{colour:'Cream',quantity:0}]};
+ await page.route('**/*',async route=>{const path=new URL(route.request().url()).pathname,method=route.request().method(),body=route.request().postDataJSON();
+  if(path==='/src/main.jsx')return route.fulfill({contentType:'application/javascript',body:entry});
+  if(path.startsWith('/src/Constants/Server'))return route.fulfill({contentType:'application/javascript',body:"export const BASE_URL='http://api.example.test/api',BASE_URL_V2='http://api.example.test/api/v2';"});
+  if(path.startsWith('/src/Hooks/useAuthContextV2'))return route.fulfill({contentType:'application/javascript',body:"export const useAuthContext=()=>({seller:{_id:'seller',firstName:'Sade'},dispatch(){}});"});
+  if(path.startsWith('/src/auth.jsx'))return route.fulfill({contentType:'application/javascript',body:`export const useAuth=()=>({buyer:${['auth','join'].includes(kind)?'null':'window.__buyer'},wallet:{availableBalance:50000},signedIn:${!['auth','join'].includes(kind)},loading:false,refresh:async()=>({buyer:window.__buyer,wallet:{availableBalance:50000}}),signIn:async()=>({buyer:window.__buyer,wallet:{availableBalance:50000}})});`});
+  if(path.startsWith('/api/')){
+   calls.push({kind,path,method,body});let json={success:true};
+   if(path.endsWith('/watch/config'))json={serviceArea:config};
+   else if(path.endsWith('/forgot-password'))json={message:'If an account uses that email, we’ll send a reset code.'};
+   else if(path.endsWith('/reset-password'))json={message:'Password reset successfully'};
+   else if(path.endsWith('/delivery-quote'))json={available:true,amount:591,area:'Lekki, Lagos'};
+   else if(path.endsWith('/profile')&&method==='PUT'){await page.evaluate(data=>Object.assign(window.__buyer,data),body);}
+   else if(path.endsWith('/addresses')&&method==='POST'){await page.evaluate(data=>window.__buyer.shippingAddresses=[{...data,_id:'address'}],body);}
+   else if(path.endsWith('/watch/show/me'))json={depositDue:591,delivery:{amount:591}};
+   else if(path.endsWith('/studio/show-notes/draft')){await new Promise(r=>setTimeout(r,600));json={notes:{howToBuy:'Tap Bid to join.',delivery:'Delivery within Lagos.',payment:'Never pay outside the app.'}};}
+   else if(path.endsWith('/streams/create'))json={stream:{_id:'planned',title:body.title,showNotes:body.showNotes}};
+   else if(path.endsWith('/phone')){await page.evaluate(data=>window.__buyer.phoneNumber=data.phoneNumber,body);}
+   else if(path.endsWith('/studio/products'))json={products:[{...product,status:'active'},{_id:'jeans',name:'Vintage denim jacket',price:5000,stock:1,status:'active'}]};
+   else if(path.endsWith('/studio/show-notes/default'))json={notes:null};
+   else if(path.includes('/studio/products/')){if(method==='PATCH'){product={...product,...body};}json={product,shows:[]};}
+   else if(path.endsWith('/studio/money'))json={ready:10000,pending:0,requested:3000,bank:{bankName:'Test Bank',last4:'6789',accountName:'SADE TEST'},activity:[]};
+   else if(path.endsWith('/recap'))json={show:{title:'Adire Friday'},itemsSold:recapSold,buyers:1,viewers:5,totalSales:11000,items:[],sold:[],unsold:[],orders:[],earned:10000};
+   return route.fulfill({json});
+  }
+  if(new URL(route.request().url()).origin!==base)return route.fulfill({body:''});return route.continue();
+ });
+ await page.goto(base+(studio?'/studio/products/p':kind==='auth'?'/signin':'/live/show'));
+ const shot=async name=>{await page.evaluate(async fonts=>{for(const[name,data]of fonts){const face=await new FontFace(name,`url(${data})`,{weight:'100 900'}).load();document.fonts.add(face);}},fonts);await page.screenshot({path:`${out}/${name}.png`,fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);checks.push(name);};
+ return {page,shot};
+}
+
+try{
+ for(const width of [360,390]){
+  let f=await fixture('auth',width);await f.page.getByLabel('Email',{exact:true}).fill('ada@example.test');await f.page.getByLabel('Password',{exact:true}).fill('incorrect');await f.page.getByRole('button',{name:'Sign in',exact:true}).click();const error=f.page.getByRole('alert');await error.waitFor();assert.match(await error.innerText(),/Wrong email or password/);const password=await f.page.getByLabel('Password',{exact:true}).boundingBox(),err=await error.boundingBox(),forgot=await f.page.getByRole('button',{name:'Forgot password?',exact:true}).boundingBox();assert(password.y+password.height<=err.y);assert(err.y+err.height<=forgot.y);await f.shot(`sign-in-error-${width}`);await f.page.close();
+  f=await fixture('profile',width);assert.equal(await f.page.locator('input[autocomplete=tel]').inputValue(),'08031234567');await f.page.getByRole('button',{name:'Save details',exact:true}).click();await f.page.getByText('Profile saved.',{exact:true}).waitFor();assert.equal(calls.findLast(c=>c.path.endsWith('/phone')).body.phoneNumber,'08031234567');await f.shot(`profile-phone-${width}`);await f.page.close();
+ }
+ let f=await fixture('colours');await f.page.getByRole('heading',{name:'Adire Bubu Gown'}).waitFor();assert.equal(await f.page.getByText('Colours',{exact:true}).count(),0);assert.equal(await f.page.getByRole('button',{name:'Edit colour stock'}).count(),0);await f.page.getByRole('button',{name:'One more',exact:true}).click();await f.page.waitForFunction(()=>document.body.innerText.includes('6'));assert.deepEqual(calls.findLast(c=>c.method==='PATCH').body,{stock:6});await f.shot('product-plain-stock');await f.page.close();
+ f=await fixture('planner');await f.page.getByRole('button',{name:'Next',exact:true}).click();await f.page.getByText('Drag to change the order.',{exact:true}).waitFor();assert.equal(await f.page.locator('.colour-lot-row').count(),2);assert.equal(await f.page.getByText(/Adire Bubu Gown ·/).count(),0);await f.shot('planner-plain-products');await f.page.getByRole('button',{name:'Next',exact:true}).click();await f.page.getByRole('button',{name:'Go live now',exact:true}).click();await f.page.getByRole('button',{name:'Write them for me',exact:true}).click();assert.equal(await f.page.getByRole('button',{name:'Create and go live',exact:true}).isDisabled(),true);await f.page.getByText('Tap Bid to join.',{exact:true}).waitFor();await f.shot('planner-pinned-notes');await f.page.getByRole('button',{name:'Create and go live',exact:true}).click();await f.page.waitForURL('**/studio/golive/planned');const created=calls.findLast(c=>c.path.endsWith('/streams/create')).body;assert.equal(created.showNotes.howToBuy,'Tap Bid to join.');assert.equal(created.products.length,2);for(const p of created.products)assert.equal(Object.hasOwn(p,'colour'),false);assert.equal(calls.some(c=>c.method==='PUT'&&c.path.endsWith('/notes')),false);await f.page.close();
+ for(const n of [1,2]){recapSold=n;const f=await fixture('recap');await f.page.getByText(n===1?'ITEM SOLD':'ITEMS SOLD',{exact:true}).waitFor();await f.shot(`recap-${n}-sold`);await f.page.close();}
+ await writeFile(`${out}/checks.json`,JSON.stringify({checks,calls},null,2));console.log('PASS',checks.join(', '));
+}catch(e){console.error('BODY',await active?.locator('body').innerText());await active?.screenshot({path:'/tmp/simplify-browser-failure.png',fullPage:true});throw e;}finally{await browser.close();}

@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const source = fs.readFileSync(path.resolve(__dirname, '../../../buyer-web/src/walletIntents.js'), 'utf8');
-const { resolveWalletIntent, oneTapAmount } = new Function(`${source.replace(/^export /gm, '')}; return { resolveWalletIntent, oneTapAmount };`)();
+const { resolveWalletIntent, oneTapAmount } = new Function(`${source.replace(/^import .*features.js';\n/m, 'const COLOURS=false;\n').replace(/^export /gm, '')}; return { resolveWalletIntent, oneTapAmount };`)();
 const item = (extra = {}) => ({ product: { productId: 'adire', price: 11000, quantity: 3 }, minBid: 11000,
   bidStatus: 'active', currentBid: 11000, isVisible: true, run: 2, auctionEndsAt: new Date(Date.now() + 60000).toISOString(), ...extra });
 const intent = { kind: 'bid', productId: 'adire', amount: 12000, run: 2, buyerId: 'ada' };

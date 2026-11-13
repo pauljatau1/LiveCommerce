@@ -122,7 +122,7 @@ async function login(data) {
   // Find buyer by email and verify password
   const buyer = await findByEmail(email);
   if (!buyer || !(await buyer.comparePassword(password))) {
-    throw new NotFoundException('Invalid credentials');
+    throw new UnauthorizedException('Invalid credentials');
   }
 
   // Step 4: Save Expo push token for notifications (if provided)

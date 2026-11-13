@@ -28,7 +28,7 @@ const productCard = (p, showIds = new Set()) => ({
   image: image(p),
   status: p.status === 'draft' ? 'hidden' : (p.stock ?? 0) <= 0 ? 'sold_out' : showIds.has(String(p._id)) ? 'in_show' : 'active',
   category: p.category,
-  colourVariants:p.colourVariants,colourQuantities:require('../services/productColours').colourRows(p),
+  ...(require('../config/colours').coloursEnabled()?{colourVariants:p.colourVariants}:{}),...(require('../config/colours').coloursEnabled()?{colourQuantities:require('../services/productColours').colourRows(p)}:{}),
   createdAt: p.createdAt,
 });
 
@@ -151,7 +151,7 @@ router.get('/products/:id', validId, async (req, res) => {
       product: {
         ...productCard(p, inShows),
         description: p.description,
-        colourVariants:p.colourVariants,colourQuantities:require('../services/productColours').colourRows(p),variants:p.variants,
+        ...(require('../config/colours').coloursEnabled()?{colourVariants:p.colourVariants}:{}),...(require('../config/colours').coloursEnabled()?{colourQuantities:require('../services/productColours').colourRows(p)}:{}),variants:p.variants,
         condition: p.condition,
         brand: p.brand,
         subCategory: p.subCategory,
@@ -171,7 +171,7 @@ router.get('/products/:id', validId, async (req, res) => {
 router.patch('/products/:id', validId, async (req, res) => {
   try {
     const set = {};
-    const { price, stock, hidden, colourQuantities } = req.body || {};
+    const { price, stock, hidden, colourQuantities } = require('../config/colours').productInput(req.body);
     const existing=await model('Product').findOne({_id:oid(req.params.id),seller:oid(req.user.id)}).lean();
     if(!existing)return res.status(404).json({success:false,message:'Product not found'});
     const colours=require('../services/productColours');
@@ -199,7 +199,7 @@ router.patch('/products/:id', validId, async (req, res) => {
     const p = done?.value || done;
     if (!p || !p._id) return res.status(404).json({ success: false, message: 'Product not found' });
     const inShows = await productsInShows(req.user.id);
-    res.json({ success: true, product: {...productCard(p,inShows),colourVariants:p.colourVariants,colourQuantities:require('../services/productColours').colourRows(p),variants:p.variants} });
+    res.json({ success: true, product: {...productCard(p,inShows),...(require('../config/colours').coloursEnabled()?{colourVariants:p.colourVariants}:{}),...(require('../config/colours').coloursEnabled()?{colourQuantities:require('../services/productColours').colourRows(p)}:{}),variants:p.variants} });
   } catch (e) { fail(res, e); }
 });
 
@@ -227,11 +227,11 @@ router.get('/shows/:id', validId, async (req, res) => {
     const bidderIds = (s.products || []).map((p) => p.currentBidder?._id || p.currentBidder || p.bidWinner?.buyer?._id || p.bidWinner?.buyer).filter((id) => id && mongoose.Types.ObjectId.isValid(String(id)));
     const bidders = bidderIds.length ? await model('Buyer').find({ _id: { $in: bidderIds.map((id) => oid(id)) } }, { firstName: 1, username: 1 }).lean() : [];
     const nameOf = (id) => { const b = bidders.find((x) => String(x._id) === String(id?._id || id)); return b ? (b.firstName || `@${b.username}`) : null; };
-    const soldBy = (s.orders || []).reduce((m, o) => { const colour=o.orderDetails?.items?.[0]?.colour;const k = String(o.product)+(colour?`:${colour}`:''); m[k] = m[k] || { count: 0, amount: 0 }; m[k].count += o.orderDetails?.items?.[0]?.quantity || 1; m[k].amount += o.orderDetails?.totalAmount || o.amount || 0; return m; }, {});
+    const soldBy = (s.orders || []).reduce((m, o) => { const colour=require('../config/colours').coloursEnabled()?o.orderDetails?.items?.[0]?.colour:undefined;const k = String(o.product)+(colour?`:${colour}`:''); m[k] = m[k] || { count: 0, amount: 0 }; m[k].count += o.orderDetails?.items?.[0]?.quantity || 1; m[k].amount += o.orderDetails?.totalAmount || o.amount || 0; return m; }, {});
     const items = (s.products || []).map((sp) => {
       const id = productIdOf(sp);
       const p = byId.get(String(require('../services/colourLots').catalogueId(sp))) || {};
-      const colour=sp.product?.colour;
+      const colour=require('../config/colours').coloursEnabled()?sp.product?.colour:undefined;
       const stock=colour?require('../services/productColours').colourRows(p).find(c=>c.colour===colour)?.quantity || 0:p.stock ?? 0;
       return {
         productId: id,
@@ -247,7 +247,7 @@ router.get('/shows/:id', validId, async (req, res) => {
         auctionSeconds: sp.auctionSeconds || 30,
         run: sp.run || 1,
         runNote: sp.runNote || '',
-        colourVariants: p.colourVariants || [],
+        ...(require('../config/colours').coloursEnabled()?{colourVariants:p.colourVariants || []}:{}),
         auctionEndsAt: sp.auctionEndsAt || null,
         isVisible: Boolean(sp.isVisible),
         currentBid: sp.currentBid || 0,

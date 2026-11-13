@@ -254,11 +254,12 @@ const hostFor = async (streamId, productId) => {
  * either address is missing or Shipbubble can't price it.
  * @returns {{ amount, courierName, deliveryEta, area }}
  */
-const depositQuote = async ({ streamId, buyerId, productId }) => {
+const legacyDepositQuote = async ({ streamId, buyerId, productId }) => {
   await require('./serviceArea').checkPurchase(streamId, buyerId);
   if (!shipbubble.isConfigured()) throw new DeliveryError(503, "Delivery pricing isn't switched on yet.");
   const [{ seller, product }, buyer] = await Promise.all([hostFor(streamId, productId), model('Buyer').findById(buyerId).lean()]);
   if (!buyer) throw new DeliveryError(404, 'Buyer not found');
+  if(!product)throw new DeliveryError(422,'Choose an item to see its delivery price.');
   if (buyer.shippingAddresses?.length) require('./serviceArea').requireState((buyer.shippingAddresses.find(a => a.isActive) || buyer.shippingAddresses[0])?.state);
   const dropoff = buyerDropoff(buyer);
   if (!dropoff) throw new DeliveryError(422, 'Add your delivery address first.');
@@ -272,6 +273,20 @@ const depositQuote = async ({ streamId, buyerId, productId }) => {
   const r = await cachedRate(senderCode, receiverCode, itemFor(product));
   const a = buyer.shippingAddresses.find((x) => x.isActive) || buyer.shippingAddresses[0];
   return { ...r, area: [a.city, a.state].filter(Boolean).join(', ') };
+};
+
+// Every quote-boundary failure is safe for /watch/me to display. Preserve
+// service-area codes/details while shielding provider/database error internals.
+const depositQuote = async (params) => {
+  try {
+    return await legacyDepositQuote(params);
+  } catch (error) {
+    if (error instanceof DeliveryError) throw error;
+    if (error?.code === 'out_of_area') {
+      throw Object.assign(new DeliveryError(422, error.message), {code: error.code, state: error.state});
+    }
+    throw new DeliveryError(503, "Couldn't get a delivery price right now. Please try again.");
+  }
 };
 
 /**
