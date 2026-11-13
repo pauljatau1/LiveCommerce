@@ -407,4 +407,12 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     expect(await deliveries.book({sellerId:seller._id,deliveryId:settled._id})).toMatchObject({status:'booked'});
   });
 
+  it('quotes a colour lot using its catalogue product weight',async()=>{
+    const ada=await createBuyer('ColourQuote',50000),lot=new mongoose.Types.ObjectId();
+    await Stream.updateOne({_id:stream._id},{$set:{products:[{product:{productId:lot,catalogueProductId:plush._id,colour:'Indigo',name:'Nezuko plush · Indigo'}}]}});
+    await deliveries.depositQuote({streamId:stream._id,buyerId:ada._id,productId:lot});
+    const body=shipbubble.fetchRates.mock.calls[0][0];
+    expect(body.package_items).toEqual([expect.objectContaining({unit_weight:'0.4'})]);
+  });
+
 });

@@ -442,7 +442,7 @@ export default function Live() {
           {!canRunAgain && <span className="lv-un-price">{isAuction ? `from ${naira(nextItem.minBid)}` : naira(nextItem.price)}</span>}
         </button>
       ) : <span className="lv-un-tx lv-un-none">Nothing else in this show</span>}
-      {canRunAgain && <button type="button" className="lv-run" disabled={!canAct || Boolean(busy)} onClick={() => { setRunError(''); setRunFor({ item: current, again: true }); }}>Run again · {current.stock} left</button>}
+      {canRunAgain && <button type="button" className="lv-run" disabled={!canAct || Boolean(busy)} onClick={() => { setRunError(''); setRunFor({ item: current, again: true }); }}>Run again · {current.colour?`${current.colour} · `:''}{current.stock} left</button>}
       <button type="button" className="lv-all" onClick={() => setQueueOpen(true)}>All</button>
     </div>
   );

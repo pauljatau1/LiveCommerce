@@ -98,13 +98,13 @@ const countBy = (list, key, amount = () => 1) => list.reduce((m, x) => {
 // GET /api/v2/watch/:streamId/summary → { sold: {productId: n}, bids: {productId: n} }
 router.get('/:streamId/summary', validId, async (req, res) => {
   try {
-    const stream = await Stream.findById(req.params.streamId).select('seller orders.product orders.orderDetails.quantity bids.product').lean();
+    const stream = await Stream.findById(req.params.streamId).select('seller orders.product orders.orderDetails.quantity orders.lotId bids.product bids.lotId').lean();
     if (!stream) return res.status(404).json({ success: false, message: "We couldn't find this show." });
     res.json({
       serviceArea: area.serviceAreaConfig(),
       success: true,
-      sold: countBy(stream.orders || [], (o) => o.product && String(o.product), (o) => Number(o.orderDetails?.quantity) || 1),
-      bids: countBy(stream.bids || [], (b) => b.product && String(b.product)),
+      sold: countBy(stream.orders || [], (o) => (o.lotId || o.product) && String(o.lotId || o.product), (o) => Number(o.orderDetails?.quantity) || 1),
+      bids: countBy(stream.bids || [], (b) => (b.lotId || b.product) && String(b.lotId || b.product)),
       // The delivery deposit is a Shipbubble quote per buyer (GET /:streamId/me)
       deliveryDeposit: 0,
       topUpMethods: require('../services/wallet/paystackClient').methods(),

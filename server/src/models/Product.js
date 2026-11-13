@@ -249,6 +249,7 @@ const productSchema = new mongoose.Schema({
   // Colour labels feed run-note suggestions; counts retain the initial allocation.
   colourVariants: [{ type: String, trim: true, maxlength: 60 }],
   colourQuantities: [{
+    image:{type:String},
     _id: false,
     colour: { type: String, required: true, maxlength: 60 },
     quantity: { type: Number, required: true, min: 0, max: 999, validate: Number.isInteger },

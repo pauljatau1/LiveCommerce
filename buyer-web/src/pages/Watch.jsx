@@ -1,3 +1,4 @@
+import ColourSheet from '../components/ColourSheet';
 import PurchaseSheet from '../components/PurchaseSheet';
 const LEGACY_PURCHASE_SHEET=false; // Original markup retained below; the shared sheet also works after show end.
 import {hasCourierName} from '../courierName';
@@ -408,7 +409,7 @@ export default function Watch() {
           break;
         case 'buy_now':
           if (d.productId) {
-            setItems((l) => l.map((p) => (idOf(p) === String(d.productId) ? { ...p, product: { ...p.product, quantity: d.stockLeft } } : p)));
+            setItems((l) => l.map((p) => (idOf(p) === String(d.productId) ? { ...p, product: { ...p.product, quantity:p.product?.colour&&d.colour&&p.product.colour!==d.colour?p.product.quantity:d.stockLeft,...(d.colourQuantities?{colourQuantities:d.colourQuantities}:{}) } } : p)));
             setSoldCounts((m) => ({ ...m, [String(d.productId)]: (m[String(d.productId)] || 0) + (Number(d.quantity) || 1) }));
           }
           push({ kind: 'bid', user: n.user, avatar: n.avatar, text: n.content });
@@ -641,16 +642,16 @@ export default function Watch() {
     const price = priceOf(item);
     setBusy(true);
     try {
-      const r = await api.buyNow(streamId, idOf(item), quantity, expected);
+      const r = await api.buyNow(streamId, idOf(item), quantity, {...expected,colour:item.product?.chosenColour || item.product?.colour});
       const left = typeof item.product?.quantity === 'number' ? item.product.quantity : null;
-      setSheet({ type: 'yours', name: item.product?.name, amount: price * quantity, quantity, orderId: r.order?.orderId, deposit: r.delivery?.firstItem ? r.delivery?.depositHeld || 0 : 0, firstItem: Boolean(r.delivery?.firstItem), lastOf: left });
+      setSheet({ type: 'yours', name: r.productName || item.product?.name, amount: price * quantity, quantity, orderId: r.order?.orderId, deposit: r.delivery?.firstItem ? r.delivery?.depositHeld || 0 : 0, firstItem: Boolean(r.delivery?.firstItem), lastOf: left });
       refreshWallet();
     } catch (e) {
       const reason = e?.response?.data?.reason;
       if (reason === 'out_of_area') setSheet({ type: 'serviceArea', state: e.response.data.state });
       else if (reason === 'insufficient_funds') beginTopUp((e?.response?.data?.needed || price * quantity) - available, { kind: 'buy', item, amount: price * quantity, quantity });
       else if (reason === 'no_address') setSheet({ type: 'onestep', action: { kind: 'buy', amount: price * quantity, item, quantity } });
-      else say('err', errorMessage(e, "Couldn't complete the purchase. You weren't charged."));
+      else {const message=errorMessage(e,"Couldn't complete the purchase. You weren't charged.");setSheet(s=>s?.type==='colour'?{...s,error:message}:s);say('err',message);}
     } finally {
       setBusy(false);
     }
@@ -708,6 +709,7 @@ export default function Watch() {
   }, [transfer?.since]);
 
   const buyNow = (item, quantity = 1) => {
+    if(item.product?.colourQuantities?.length&&!item.product?.chosenColour){setSheet({type:'colour',item});return;}
     if (busy || reconnecting) return;
     if (!ready(priceOf(item) * quantity, { kind: 'buy', amount: priceOf(item) * quantity, item, quantity })) return;
     doBuy(item, quantity);
@@ -1068,6 +1070,7 @@ export default function Watch() {
         {deskComposer}
       </aside>
 
+      {sheet?.type==='colour'&&<ColourSheet item={sheet.item} busy={busy} error={sheet.error} onClose={()=>setSheet(null)} onBuy={(colour,quantity)=>{const p=sheet.item.product;const name=p.colour?p.name.slice(0,-(p.colour.length+3)):p.name;buyNow({...sheet.item,product:{...p,name:`${name} · ${colour}`,chosenColour:colour}},quantity);}}/>}
       {sheet?.type==='receipt'&&<Sheet className="wallet-sheet" title={`${naira(sheet.received)} received`} onClose={()=>setSheet(null)}><div className="wallet-available"><span>Available to spend</span><strong>{naira(wallet?.availableBalance)}</strong><small>{naira(sheet.bid)} held for your bid</small></div><p>Your bid is in. {naira(sheet.bid)} on {sheet.name}. You're winning.</p><button type="button" className="btn" onClick={()=>setSheet(null)}>Back to the show</button></Sheet>}
       {sheet?.type === 'topup' && <TopUpSheet need={sheet.need} methods={methods} initialBank={sheet.bank} onClose={closeTopUp}
         onPending={() => { fundingPending.current = true; }} onCancelled={() => { fundingPending.current = false; }}

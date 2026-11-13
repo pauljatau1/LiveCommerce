@@ -1,0 +1,55 @@
+{
+  "checks": [
+    "S9-colour-sheet",
+    "T4-colour-stock",
+    "T5-running-colour-lots",
+    "S10-win-colour"
+  ],
+  "calls": [
+    {
+      "kind": "colours",
+      "path": "/api/v2/studio/products/p",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "colours",
+      "path": "/api/v2/studio/products/p",
+      "method": "PATCH",
+      "body": {
+        "colourQuantities": [
+          {
+            "colour": "Indigo",
+            "quantity": 3
+          },
+          {
+            "colour": "Rust",
+            "quantity": 1
+          },
+          {
+            "colour": "Cream",
+            "quantity": 0
+          }
+        ]
+      }
+    },
+    {
+      "kind": "planner",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "planner",
+      "path": "/api/v2/studio/products",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "planner",
+      "path": "/api/v2/studio/show-notes/default",
+      "method": "GET",
+      "body": null
+    }
+  ]
+}

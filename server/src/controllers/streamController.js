@@ -104,13 +104,14 @@ exports.createStream = async (req, res) => {
 
         // Fetch complete product details from database
         const completeProduct = await Product.findById(productId).select(
-          '_id name description category images price sku stock variants'
+          '_id name description category images price sku stock variants colourVariants colourQuantities'
         );
 
         if (!completeProduct) {
           return p; // If product not found, return as is
         }
 
+        if(p.colour)return {...p,product:require('../services/colourLots').snapshot(completeProduct,p.colour)};
         // Return the product with complete details from database
         return {
           ...p,
@@ -123,7 +124,8 @@ exports.createStream = async (req, res) => {
             quantity: completeProduct.stock || 0,
             price: completeProduct.price,
             description: completeProduct.description,
-            variants: completeProduct.variants
+            variants: completeProduct.variants,
+            colourVariants:completeProduct.colourVariants,colourQuantities:require('../services/productColours').colourRows(completeProduct)
           }
         };
       })
@@ -973,7 +975,7 @@ exports.placeBid = async (req, res) => {
     // Fetch the full product details to get the weight
     console.log('[RESTBID] 18. Fetching full product details from database');
     const Product = mongoose.model('Product');
-    const fullProductDetails = await Product.findById(productDetails.productId);
+    const fullProductDetails = await Product.findById(productDetails.catalogueProductId || productDetails.productId);
 
     if (!fullProductDetails) {
       console.warn('[RESTBID] 19. WARNING: Could not retrieve full product details, using default weight');
@@ -2210,7 +2212,7 @@ exports.createOpenLiveShow = async (req, res) => {
       const completeProducts = await Product.find({
         _id: { $in: productIds }
       })
-        .select('_id name description category discount images price sku stock variants')
+        .select('_id name description category discount images price sku stock variants colourVariants colourQuantities')
         .lean();
 
       const productMap = new Map(completeProducts.map(p => [p._id.toString(), p]));
@@ -2223,6 +2225,7 @@ exports.createOpenLiveShow = async (req, res) => {
           return { product: p.product || {} };
         }
 
+        if(p.colour)return {product:require('../services/colourLots').snapshot(completeProduct,p.colour)};
         const discountedPrice = completeProduct.discount?.discountedPrice || completeProduct.price;
         return {
           product: {
@@ -2235,6 +2238,7 @@ exports.createOpenLiveShow = async (req, res) => {
             price: completeProduct.price,
             description: completeProduct.description,
             variants: completeProduct.variants,
+            colourVariants:completeProduct.colourVariants,colourQuantities:require('../services/productColours').colourRows(completeProduct),
             discountedPrice: discountedPrice
           }
         };
@@ -3863,7 +3867,7 @@ exports.endProductBidding = async (req, res) => {
         console.log('[END_BID] 15. Fetching full product details');
         const Product = mongoose.model('Product');
         // Get productId from the stream product
-        const productIdToFetch = product.product.productId || product.product._id;
+        const productIdToFetch = product.product.catalogueProductId || product.product.productId || product.product._id;
         const fullProductDetails = await Product.findById(productIdToFetch).populate('seller');
 
         if (!fullProductDetails) {
@@ -4040,7 +4044,7 @@ exports.endProductBidding = async (req, res) => {
                 orderId: orderResult.orders[0].orderId,
                 streamId: stream._id,
                 orderDetails: orderResult.orders[0],
-                productName: fullProductDetails.name,
+                productName: require('../services/colourLots').label(fullProductDetails.name,product.product?.colour),
                 amount: stream.products[productIndex].currentBid,
                 shippingFee: 0, // delivery is settled once per show
                 total: stream.products[productIndex].currentBid
@@ -4057,7 +4061,7 @@ exports.endProductBidding = async (req, res) => {
             streamId: stream._id,
             buyerId: winningBidderId,
             productId: fullProductDetails._id,
-            productName: fullProductDetails.name,
+            productName: require('../services/colourLots').label(fullProductDetails.name,product.product?.colour),
             buyerName: buyer.firstName + " " + buyer.lastName,
             buyerUsername: buyer.username,
             orderId: orderResult.orders[0].orderId,
@@ -4087,7 +4091,7 @@ exports.endProductBidding = async (req, res) => {
             success: false,
             message: 'Failed to create order for auction win',
             error: orderResult?.message || 'Unknown error occurred during order creation',
-            productName: fullProductDetails.name,
+            productName: require('../services/colourLots').label(fullProductDetails.name,product.product?.colour),
           });
         }
       } catch (orderError) {

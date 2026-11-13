@@ -243,7 +243,7 @@ const hostFor = async (streamId, productId) => {
   const seller = await model('Seller').findById(stream.seller).lean();
   if (!seller) throw new DeliveryError(404, "We couldn't find this host.");
   let product = null;
-  if (productId && mongoose.isValidObjectId(String(productId))) product = await model('Product').findById(productId).select('name category price weight shippingInfo').lean();
+  if (productId && mongoose.isValidObjectId(String(productId))) product = await model('Product').findById(require('./colourLots').catalogueId(stream.products?.find(p=>String(p.product?.productId)===String(productId))) || productId).select('name category price weight shippingInfo').lean();
   return { seller, product };
 };
 

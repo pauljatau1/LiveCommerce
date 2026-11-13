@@ -557,3 +557,9 @@
 .studio-app .sh-apps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px 4px;overflow:visible;margin:0;padding:2px 0}
 .studio-app .sh-app{width:auto;min-width:0;min-height:44px;font-size:var(--t-micro);overflow-wrap:anywhere}
 .studio-app .sh-ic{width:44px;height:44px;flex:none}
+/* T4: total stock is explanatory; only colour rows change inventory. */
+.colour-total-stepper{opacity:.4;background:var(--surface-sunken)!important;color:var(--text-muted)!important}
+.colour-running-order{padding-bottom:100px}.colour-lot-row{display:flex;align-items:center;gap:10px;border-top:1px solid var(--border);padding:12px 0;font-size:var(--t-body);font-weight:var(--w-medium)}
+.colour-lot-row>img,.colour-lot-row>.sk{width:44px;height:44px;object-fit:cover;border-radius:12px}.colour-lot-row small{display:block;color:var(--text-muted);font-size:var(--t-small);font-weight:var(--w-regular)}
+.colour-order-next{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px max(16px,env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--surface);font-size:var(--t-body);font-weight:var(--w-medium)}
+.colour-lot-row .grow{flex:1;min-width:0}

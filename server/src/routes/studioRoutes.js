@@ -28,6 +28,7 @@ const productCard = (p, showIds = new Set()) => ({
   image: image(p),
   status: p.status === 'draft' ? 'hidden' : (p.stock ?? 0) <= 0 ? 'sold_out' : showIds.has(String(p._id)) ? 'in_show' : 'active',
   category: p.category,
+  colourVariants:p.colourVariants,colourQuantities:require('../services/productColours').colourRows(p),
   createdAt: p.createdAt,
 });
 
@@ -37,7 +38,7 @@ const productsInShows = async (sellerId) => {
     { seller: oid(sellerId), status: { $in: ['scheduled', 'live'] }, $or: [{ status: 'live' }, { scheduledStartTime: { $gt: new Date(Date.now() - 6 * 3600 * 1000) } }] },
     { products: 1 }
   ).lean();
-  return new Set(shows.flatMap((s) => (s.products || []).map(productIdOf)).filter(Boolean));
+  return new Set(shows.flatMap((s) => (s.products || []).map(p=>String(require('../services/colourLots').catalogueId(p)))).filter(Boolean));
 };
 
 const showCard = (s) => ({
@@ -91,7 +92,7 @@ router.get('/home', async (req, res) => {
       model('Stream').find({ seller: oid(sellerId), $or: [{ status: 'live' }, { status: 'scheduled', scheduledStartTime: { $gt: new Date(Date.now() - 6 * 3600 * 1000) } }] })
         .sort({ status: 1, scheduledStartTime: 1 }).limit(3).lean(),
       model('Stream').findOne({ seller: oid(sellerId), status: 'ended' }).sort({ endTime: -1, updatedAt: -1 }).lean(),
-      model('Product').find({ seller: oid(sellerId), status: { $ne: 'offline_auction' } }, { name: 1, price: 1, stock: 1, images: 1, status: 1, category: 1, createdAt: 1 })
+      model('Product').find({ seller: oid(sellerId), status: { $ne: 'offline_auction' } }, { name: 1, price: 1, stock: 1, images: 1, status: 1, category: 1, createdAt: 1,colourVariants:1,colourQuantities:1,variants:1 })
         .sort({ createdAt: -1 }).limit(8).lean(),
       productsInShows(sellerId),
       moneySummary(sellerId),
@@ -122,7 +123,7 @@ router.get('/products', async (req, res) => {
   try {
     const sellerId = req.user.id;
     const [all, inShows] = await Promise.all([
-      model('Product').find({ seller: oid(sellerId), status: { $ne: 'offline_auction' } }, { name: 1, price: 1, stock: 1, images: 1, status: 1, category: 1, createdAt: 1 })
+      model('Product').find({ seller: oid(sellerId), status: { $ne: 'offline_auction' } }, { name: 1, price: 1, stock: 1, images: 1, status: 1, category: 1, createdAt: 1,colourVariants:1,colourQuantities:1,variants:1 })
         .sort({ createdAt: -1 }).limit(300).lean(),
       productsInShows(sellerId),
     ]);
@@ -142,7 +143,7 @@ router.get('/products/:id', validId, async (req, res) => {
   try {
     const p = await model('Product').findOne({ _id: req.params.id, seller: oid(req.user.id) }).lean();
     if (!p) return res.status(404).json({ success: false, message: 'Product not found' });
-    const shows = await model('Stream').find({ seller: oid(req.user.id), 'products.product.productId': String(p._id) }, { title: 1, status: 1, scheduledStartTime: 1, type: 1 })
+    const shows = await model('Stream').find({ seller: oid(req.user.id),$or:[{'products.product.productId':String(p._id)},{'products.product.productId':p._id},{'products.product.catalogueProductId':p._id},{'products.product.catalogueProductId':String(p._id)}] }, { title: 1, status: 1, scheduledStartTime: 1, type: 1 })
       .sort({ scheduledStartTime: -1 }).limit(5).lean();
     const inShows = new Set(shows.filter((s) => ['scheduled', 'live'].includes(s.status)).map(() => String(p._id)));
     res.json({
@@ -220,25 +221,28 @@ router.get('/shows/:id', validId, async (req, res) => {
   try {
     const s = await model('Stream').findOne({ _id: req.params.id, seller: oid(req.user.id) }).lean();
     if (!s) return res.status(404).json({ success: false, message: 'Show not found' });
-    const ids = (s.products || []).map(productIdOf).filter((id) => mongoose.Types.ObjectId.isValid(id));
-    const products = await model('Product').find({ _id: { $in: ids.map(oid) } }, { name: 1, images: 1, price: 1, stock: 1, category: 1, colourVariants: 1 }).lean();
+    const ids = (s.products || []).map(p=>String(require('../services/colourLots').catalogueId(p))).filter((id) => mongoose.Types.ObjectId.isValid(id));
+    const products = await model('Product').find({ _id: { $in: ids.map(oid) } }, { name: 1, images: 1, price: 1, stock: 1, category: 1, colourVariants: 1,colourQuantities:1,variants:1 }).lean();
     const byId = new Map(products.map((p) => [String(p._id), p]));
     const bidderIds = (s.products || []).map((p) => p.currentBidder?._id || p.currentBidder || p.bidWinner?.buyer?._id || p.bidWinner?.buyer).filter((id) => id && mongoose.Types.ObjectId.isValid(String(id)));
     const bidders = bidderIds.length ? await model('Buyer').find({ _id: { $in: bidderIds.map((id) => oid(id)) } }, { firstName: 1, username: 1 }).lean() : [];
     const nameOf = (id) => { const b = bidders.find((x) => String(x._id) === String(id?._id || id)); return b ? (b.firstName || `@${b.username}`) : null; };
-    const soldBy = (s.orders || []).reduce((m, o) => { const k = String(o.product); m[k] = m[k] || { count: 0, amount: 0 }; m[k].count += o.orderDetails?.items?.[0]?.quantity || 1; m[k].amount += o.orderDetails?.totalAmount || o.amount || 0; return m; }, {});
+    const soldBy = (s.orders || []).reduce((m, o) => { const colour=o.orderDetails?.items?.[0]?.colour;const k = String(o.product)+(colour?`:${colour}`:''); m[k] = m[k] || { count: 0, amount: 0 }; m[k].count += o.orderDetails?.items?.[0]?.quantity || 1; m[k].amount += o.orderDetails?.totalAmount || o.amount || 0; return m; }, {});
     const items = (s.products || []).map((sp) => {
       const id = productIdOf(sp);
-      const p = byId.get(id) || {};
+      const p = byId.get(String(require('../services/colourLots').catalogueId(sp))) || {};
+      const colour=sp.product?.colour;
+      const stock=colour?require('../services/productColours').colourRows(p).find(c=>c.colour===colour)?.quantity || 0:p.stock ?? 0;
       return {
         productId: id,
-        name: p.name || sp.product?.name || 'Item',
+        name:colour?require('../services/colourLots').label(p.name || 'Item',colour):p.name || sp.product?.name || 'Item',
+        colour,
         image: image(p) || sp.product?.images?.[0]?.url || null,
         price: p.price ?? sp.product?.price ?? 0,
-        stock: p.stock ?? 0,
+        stock,
         minBid: sp.minBid || 0,
         bidStatus: sp.bidStatus || 'pending',
-        canRunAgain: p.stock > 0 && require('../services/auctionRuns').runReadiness(sp).settled,
+        canRunAgain: stock > 0 && require('../services/auctionRuns').runReadiness(sp).settled,
         settlementPending: require('../services/auctionRuns').runReadiness(sp).settling,
         auctionSeconds: sp.auctionSeconds || 30,
         run: sp.run || 1,
@@ -249,8 +253,8 @@ router.get('/shows/:id', validId, async (req, res) => {
         currentBid: sp.currentBid || 0,
         currentBidder: nameOf(sp.currentBidder),
         winner: sp.bidWinner?.bidAmount ? { name: nameOf(sp.bidWinner.buyer), amount: sp.bidWinner.bidAmount } : null,
-        sold: soldBy[id]?.count || 0,
-        soldAmount: soldBy[id]?.amount || 0,
+        sold: soldBy[String(require('../services/colourLots').catalogueId(sp))+(colour?`:${colour}`:'')]?.count || 0,
+        soldAmount: soldBy[String(require('../services/colourLots').catalogueId(sp))+(colour?`:${colour}`:'')]?.amount || 0,
       };
     });
     res.json({
