@@ -34,6 +34,7 @@ function GoLiveOriginal() {
 }
 
 function Check({ showId }) {
+  const area=usePickupArea();
   const navigate = useNavigate();
   const video = useRef(null);
   const streamRef = useRef(null);
@@ -107,20 +108,22 @@ function Check({ showId }) {
   }, [cameraId, micId]);
 
   const first = data?.items?.[0];
-  const go = () => { stop(); navigate(`/studio/live/${showId}`, { state: { cameraId, micId } }); };
+  const go = () => { if(area.allowed!==true)return;stop(); navigate(`/studio/live/${showId}`, { state: { cameraId, micId } }); };
 
   return (
     <div className="studio-app">
-      <TopBar title="Ready to go live?" sub={data?.show?.title} backTo="/studio/golive" right={data?.show?.link && <button type="button" className="btn2" onClick={() => setSharing(true)}>{Icon.share}Share</button>} />
+      <TopBar title={area.allowed===false?'Go live':'Ready to go live?'} sub={area.allowed===false?null:data?.show?.title} backTo="/studio/golive" right={area.allowed!==false && data?.show?.link && <button type="button" className="btn2" onClick={() => setSharing(true)}>{Icon.share}Share</button>} />
       <div className="st-inner" style={{ paddingBottom: 120 }}>
         {error && <Problem text={error} />}
-        <div style={{ position: 'relative', height: 'min(56vh, 420px)', borderRadius: 24, overflow: 'hidden', background: '#2A2F2C' }}>
+        <div style={{ position: 'relative', height:area.allowed===false?300:'min(56vh, 420px)', borderRadius: 24, overflow: 'hidden', background: '#2A2F2C' }}>
           <video ref={video} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
+          {area.allowed===false&&<span className="pickup-preview-label">Camera preview</span>}
           {camError && <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24, color: '#fff', textAlign: 'center' }}><span>{camError}</span><button type="button" className="btn2" onClick={() => open()}>Try again</button></div>}
-          {!camError && <span aria-label="Microphone level" style={{ position: 'absolute', left: 12, bottom: 14, display: 'flex', alignItems: 'flex-end', gap: 3, height: 22, padding: '4px 8px', borderRadius: 999, background: 'rgba(255,255,255,.95)' }}>
+          {!camError && area.allowed!==false && <span aria-label="Microphone level" style={{ position: 'absolute', left: 12, bottom: 14, display: 'flex', alignItems: 'flex-end', gap: 3, height: 22, padding: '4px 8px', borderRadius: 999, background: 'rgba(255,255,255,.95)' }}>
             {[0.15, 0.35, 0.55, 0.75].map((t) => <i key={t} style={{ width: 4, height: 6 + t * 12, background: level > t ? 'var(--primary)' : 'var(--border-strong)', borderRadius: 2 }} />)}
           </span>}
         </div>
+        {area.allowed===false?<span className="cap">{data?.show?.title} · {data?.items?.length || 0} {data?.items?.length===1?'ITEM':'ITEMS'} · {data?.show?.type==='drop'?'DROP':'AUCTION'}</span>:<>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {cameras.length > 1 && (
             <div className="fl" style={{ flex: '1 1 160px' }}><label className="lab" htmlFor="cam">Camera</label>
@@ -140,11 +143,12 @@ function Check({ showId }) {
           </div>
         )}
         {data && <div className="bot"><span className="av" aria-hidden="true" /><div className="bub" style={{ fontSize: 'var(--t-body)' }}>{data.show.type === 'drop' ? 'Once live, tap an item to put it on sale. Buyers tap Buy now.' : 'Once live, tap an item, then Start bidding. Each auction runs 30 seconds.'}</div></div>}
+        </>}
       </div>
       <div data-keyboard-bar style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '12px 16px max(18px, env(safe-area-inset-bottom))', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
-        <button type="button" className="btn" style={{  fontSize: 'var(--t-h2)', background: 'var(--live)', width: '100%', maxWidth: 688, margin: '0 auto' }} disabled={!data || Boolean(camError)} onClick={go}>
+        {area.allowed===false?<div className="pickup-live-block"><p>Update your pickup address to go live.</p><p className="mut">Your pickup address is in {area.address?.state || 'a state outside our service area'}. We deliver within {area.config.states.join(' and ')} for now, so couriers can't collect from there yet.</p><Link className="btn" to="/studio/pickup" state={{from:`/studio/golive/${showId}`}}>Update pickup address</Link></div>:<button type="button" className="btn" style={{  fontSize: 'var(--t-h2)', background: 'var(--live)', width: '100%', maxWidth: 688, margin: '0 auto' }} disabled={!data || Boolean(camError) || area.allowed!==true} onClick={go}>
           <span aria-hidden="true" style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />Go live
-        </button>
+        </button>}
       </div>
       {sharing && <ShareSheet show={data.show} onClose={() => setSharing(false)} />}
     </div>
@@ -156,8 +160,9 @@ function GoLiveCheckOriginal() {
   return <Check showId={showId} />;
 }
 
-// The original show picker is retained inside the service-area gate.
+// The original full-page gate is retained for rollback.
+const LEGACY_FULL_PAGE_AREA_GATE=false;
 
-function ServiceAreaGate({children}) { const area=usePickupArea(); const navigate=useNavigate(); if(area.error) return <div className="studio-app"><div className="st-inner"><Problem text={area.error} onRetry={() => location.reload()} /></div></div>; if(area.allowed === null) return <div className="studio-app"><div className="st-inner" role="status">Checking pickup address…</div></div>; if(!area.allowed) return <div className="studio-app"><TopBar title="Go live" backTo="/studio" /><div className="st-inner"><PickupAreaBanner config={area.config} primary /></div></div>; return children; }
+function ServiceAreaGate({children}) { const area=usePickupArea(); const navigate=useNavigate(); if(area.error) return <div className="studio-app"><div className="st-inner"><Problem text={area.error} onRetry={() => location.reload()} /></div></div>; if(area.allowed === null) return <div className="studio-app"><div className="st-inner" role="status">Checking pickup address…</div></div>; if(LEGACY_FULL_PAGE_AREA_GATE&&!area.allowed) return <div className="studio-app"><TopBar title="Go live" backTo="/studio" /><div className="st-inner"><PickupAreaBanner config={area.config} primary /></div></div>; return children; }
 export default function GoLive() { return <ServiceAreaGate><GoLiveOriginal /></ServiceAreaGate>; }
 export function GoLiveCheck() { return <ServiceAreaGate><GoLiveCheckOriginal /></ServiceAreaGate>; }

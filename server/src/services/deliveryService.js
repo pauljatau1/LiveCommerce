@@ -49,7 +49,7 @@ const attachOrder = async ({ session, streamId, buyerId, sellerId, order, produc
   const item = {
     order: order._id,
     product: product._id,
-    name: product.name,
+    name:order.items?.[0]?.productName || product.name,
     category: product.category,
     quantity,
     unitPrice,
@@ -434,7 +434,7 @@ const payDelivery = async ({ buyerId, deliveryId }) => {
 // Seller books the courier for a paid delivery
 const book = async ({ sellerId, deliveryId }) => {
   const claimed = await ShowDelivery.findOneAndUpdate(
-    { _id: deliveryId, seller: sellerId, status: 'paid', 'shipbubble.orderId': { $exists: false } },
+    { _id: deliveryId, seller: sellerId, status: 'paid', 'shipbubble.orderId': { $exists: false },'shipbubble.status':{$ne:'booking'} },
     { $set: { 'shipbubble.status': 'booking' } },
     { new: true }
   );
@@ -442,6 +442,7 @@ const book = async ({ sellerId, deliveryId }) => {
     const d = await ShowDelivery.findOne({ _id: deliveryId, seller: sellerId }).lean();
     if (!d) throw new DeliveryError(404, 'Delivery not found');
     if (d.shipbubble?.orderId) return d;
+    if(d.shipbubble?.status==='booking')throw new DeliveryError(409,'Your pickup is being booked. Check again in a moment.');
     throw new DeliveryError(409, d.status === 'awaiting_payment' ? 'The buyer hasn’t paid for delivery yet' : `Can't book a delivery that is ${d.status.replace('_', ' ')}`);
   }
   try {

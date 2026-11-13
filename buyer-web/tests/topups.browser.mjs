@@ -203,6 +203,8 @@ try {
   }
   await combined.waitForFunction(() => window.__emitted?.some(e => e.name === 'stream_place_bid' && e.data.bidAmount === 12000 && e.data.expectedRun === 1));
   if(method==='saved'){
+   await combined.evaluate(p=>window.__socket.trigger('bid_placed',{product:{...p,currentBid:13000,currentBidder:{_id:'buyer'}}}),product());
+   assert.equal(await combined.getByRole('dialog',{name:'₦20,000 received',exact:true}).count(),0,'an acknowledgement for another amount is not this funded bid');
    await combined.evaluate(p=>window.__socket.trigger('bid_placed',{product:{...p,currentBid:12000,currentBidder:{_id:'buyer'}}}),product());
    await combined.getByRole('dialog',{name:'₦20,000 received',exact:true}).getByText(/Your bid is in/).waitFor();
    await capture(combined,'W6-received-bid-in');

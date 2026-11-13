@@ -415,4 +415,11 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     expect(body.package_items).toEqual([expect.objectContaining({unit_weight:'0.4'})]);
   });
 
+  it('a buyer retry racing a seller click books only one pickup',async()=>{
+    const ada=await createBuyer('BookingRace',50000);await buy(ada,plush);const [settled]=await deliveries.settleShow(stream._id);
+    shipbubble.createShipment.mockResolvedValue({order_id:'SB-ONCE',status:'pending',tracking_url:'t'});
+    const results=await Promise.allSettled([deliveries.book({sellerId:seller._id,deliveryId:settled._id}),deliveries.book({sellerId:seller._id,deliveryId:settled._id})]);
+    expect(results.some(r=>r.status==='fulfilled')).toBe(true);expect(shipbubble.createShipment).toHaveBeenCalledTimes(1);
+  });
+
 });

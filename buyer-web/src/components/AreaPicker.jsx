@@ -4,7 +4,7 @@ import {areaGroups} from './areaPicker';
 import './AreaPicker.css';
 
 // Independent of native datalist support, including iOS browsers and nested checkout sheets.
-export default function AreaPicker({id, value = '', lga = '', areas = [], onChange, disabled = false}) {
+export default function AreaPicker({id, value = '', lga = '', areas = [], onChange, disabled = false, theme = ''}) {
   const generated = useId(), dialog = useRef(null), trigger = useRef(null), search = useRef(null);
   const [open,setOpen] = useState(false), [query,setQuery] = useState('');
   const fieldId = id || `area-${generated}`;
@@ -31,9 +31,9 @@ export default function AreaPicker({id, value = '', lga = '', areas = [], onChan
   const groups = areaGroups(areas,query);
   return <>
     <button ref={trigger} id={fieldId} type="button" className="ap-field" aria-label={`Area: ${value || 'Choose your area'}`} aria-haspopup="dialog" aria-expanded={open} disabled={disabled} onClick={()=>{setQuery('');setOpen(true);}}>
-      <span className={value?'':'ap-muted'}>{value || 'Choose your area'}</span><span aria-hidden="true">⌄</span>
+      <span className={value?'':'ap-muted'}>{value || 'Choose your area'}</span>{theme&&lga&&<small className="ap-value-lga">{lga}</small>}<span aria-hidden="true">⌄</span>
     </button>
-    {open && createPortal(<div className="ap-layer">
+    {open && createPortal(<div className={`ap-layer ${theme}`}>
       <div className="ap-backdrop" onClick={close} aria-hidden="true" />
       <section ref={dialog} className="ap-dialog" role="dialog" aria-modal="true" aria-labelledby={`${fieldId}-title`}>
         <div className="ap-grab" aria-hidden="true" />

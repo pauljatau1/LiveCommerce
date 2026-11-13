@@ -92,8 +92,6 @@ export default function Home() {
   const name = data?.seller?.firstName || data?.seller?.storeName || '';
   return (
     <main className="st-main">
-      {(data?.courierPhoneInvalid || data?.pickupProblem)&&<div className="banner b-warn" role="alert" style={{flexDirection:'column',alignItems:'stretch'}}><span>{data.courierPhoneInvalid ? "Your courier phone number isn't valid" : data.pickupProblem}</span><Link className="btn2" to="/studio/pickup" state={{from:'/studio'}}>Fix pickup details</Link></div>}
-      {pickupArea.allowed === false && <PickupAreaBanner config={pickupArea.config} />}
       <div className="st-head st-hide-desk">
         <span style={{ flex: 1 }}><Brand size='var(--t-h1)' /></span>
         <Link to="/studio/notifications" className="ib" aria-label="Notifications" style={{ background: 'none' }}>{Icon.bell}</Link>
@@ -102,6 +100,8 @@ export default function Home() {
         </Link>
       </div>
       <h1 className="f" style={{ margin: 0, fontSize: 'var(--t-display)' }}>{greeting()}{name ? `, ${name}.` : '.'}</h1>
+      {(data?.courierPhoneInvalid || data?.pickupProblem)&&<div className="banner pickup-banner pickup-phone-banner" role="alert"><span>{data.courierPhoneInvalid || /phone/i.test(data.pickupProblem || '') ? "Shipbubble couldn't verify your pickup phone number. Couriers need it to collect." : data.pickupProblem}</span><Link className="btn2" to="/studio/pickup" state={{from:'/studio'}}>Fix</Link></div>}
+      {pickupArea.allowed === false && <PickupAreaBanner config={pickupArea.config} />}
       {error && <Problem text={error} onRetry={load} />}
       {!data && !error && <><Skeleton h={220} r={24} /><Skeleton h={60} /><Skeleton h={180} /></>}
       {data && (

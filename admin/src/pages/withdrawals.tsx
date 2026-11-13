@@ -1,3 +1,5 @@
+import WithdrawalReview from './WithdrawalReview';
+import {REVIEWED_WITHDRAWALS} from '@/config/withdrawals';
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -980,4 +982,4 @@ function Withdrawals() {
   );
 }
 
-export default Withdrawals;
+export default REVIEWED_WITHDRAWALS ? WithdrawalReview : Withdrawals;

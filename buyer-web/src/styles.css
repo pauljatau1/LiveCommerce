@@ -487,3 +487,6 @@ a{color:var(--primary)}
 .colour-option small{margin-left:auto;font:var(--w-regular) var(--t-small) var(--font-body);color:var(--text-muted)}
 .colour-swatch{width:28px;height:28px;border:1px solid var(--border);border-radius:50%;background:var(--surface-sunken);overflow:hidden}.colour-swatch img{width:100%;height:100%;object-fit:cover}
 .colour-quantity{display:flex;align-items:center;gap:12px;font-size:var(--t-small)}.colour-quantity>span:first-child{flex:1}.colour-quantity .ib:last-child{background:var(--primary-soft);color:var(--primary)}
+.courier-repair-form{display:grid;gap:14px}.courier-repair-form>p{margin:0}.order-fix-line{display:flex;align-items:center;gap:12px}.order-fix-line>span{flex:1;color:var(--danger);font-size:var(--t-small)}
+/* W1 keeps the PNG's single line when it fits and wraps on narrow/large-text phones. */
+.wallet-sheet .wallet-saved-card{flex-direction:row;flex-wrap:wrap;gap:4px 8px}

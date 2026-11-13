@@ -54,6 +54,7 @@ export const api = {
   orders: () => http.get('/api/v2/buyers/orders').then(data),
   deliveries: () => http.get('/api/v2/deliveries').then((r) => r.data?.deliveries || []),
   payDelivery: (id) => http.post(`/api/v2/deliveries/${id}/pay`, {}, { timeout: 60000 }).then((r) => r.data?.delivery),
+  retryDelivery:id=>http.post(`/api/v2/deliveries/${id}/retry`,{}, {timeout:60000}).then(data),
   refreshDelivery: (id) => http.post(`/api/v2/deliveries/${id}/refresh`).then((r) => r.data?.delivery),
   liveShows: () => http.get('/api/streams/active').then((r) => r.data),
   upcomingShows: () => http.get('/api/streams', { params: { status: 'scheduled' } }).then((r) => r.data?.streams || []),

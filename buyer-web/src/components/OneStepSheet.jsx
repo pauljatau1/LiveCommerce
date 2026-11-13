@@ -227,7 +227,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
         </section>
       )}
 
-      {needsCourierName&&!needAddress&&<><h3 className="step-h">Add your full name for the courier</h3><p className="hint">We only have "{buyer?.firstName || buyer?.username || ''}". The courier needs a first and last name to find you.</p><CourierNameFields value={address.form} onChange={(key,value)=>address.set(key)({target:{value}})} error={error.where==='name'?error.text:''}/></>}
+      {needsCourierName&&!needAddress&&<><h3 className="step-h">Add your full name for the courier</h3><p className="hint">We only have "{buyer?.firstName || buyer?.username || ''}". The courier needs a first and last name to find you.</p><CourierNameFields showTitle={false} hint="Letters only." value={address.form} onChange={(key,value)=>address.set(key)({target:{value}})} error={error.where==='name'?error.text:''}/></>}
       {needsCourierPhone&&<section className="step" aria-label="Courier phone"><h3 className="step-h">Fix your phone for the courier</h3><p className="hint">The number we have is too short, so the courier can’t call you.</p><label className="lab" htmlFor="courier-phone">Phone for the courier</label><input id="courier-phone" className="in" type="tel" autoComplete="tel" value={courierPhone} onChange={e=>setCourierPhone(e.target.value)} placeholder="0803 123 4567"/><span className="hint">{PHONE_HINT}</span>{errFor('phone')}</section>}
       {needAddress && (
         <section className="step" aria-label="Delivery">

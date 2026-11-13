@@ -11,13 +11,13 @@ export function usePickupArea() {
   const [config,setConfig]=useState(null),[error,setError]=useState('');
   useEffect(()=>{serviceAreaConfig().then(setConfig).catch(()=>setError('Couldn’t check delivery areas. Please refresh and try again.'));},[]);
   const a=pickupAddress(seller);
-  return { config, error, allowed:config ? config.states.some(s=>normal(s)===normal(a?.state)) : null };
+  return { config, error,address:a, allowed:config ? config.states.some(s=>normal(s)===normal(a?.state)) : null };
 }
 export function PickupAreaBanner({config, primary = false}) {
   const location=useLocation();
-  return <div className="banner b-warn" role="alert" style={{flexDirection:'column',alignItems:'stretch'}}><span>We deliver within {config.states.join(' and ')} for now. Update your pickup address to go live.</span><Link className={primary ? 'btn' : 'btn2'} to="/studio/pickup" state={{from:location.pathname}}>Update pickup address</Link></div>;
+  return <div className="banner pickup-banner" role="alert" style={{flexDirection:'column',alignItems:'stretch'}}><span>We deliver within {config.states.join(' and ')} for now. Update your pickup address to go live.</span><Link className={primary ? 'btn' : 'btn2'} to="/studio/pickup" state={{from:location.pathname}}>Update pickup address</Link></div>;
 }
 
 export function PickupAreaField({config,state,value,lga,onChange,id='pk-ct'}) {
-  return <AreaPicker id={id} value={value} lga={lga} areas={pickerAreas(config,state)} disabled={!state} onChange={onChange} />;
+  return <AreaPicker theme="studio-app" id={id} value={value} lga={lga} areas={pickerAreas(config,state)} disabled={!state} onChange={onChange} />;
 }
