@@ -21,16 +21,16 @@ export const Icon = {
   sound: <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round"><path d="M4 10h4l5-4v12l-5-4H4z" /><path d="M17 9a4 4 0 0 1 0 6" /></svg>,
 };
 
-export function Header({ back, title }) {
+export function Header({ back, title, accountActions = true }) {
   const keyboardRef=useFormKeyboard();
   const { signedIn, wallet } = useAuth();
   return (
     <header ref={keyboardRef} className="top" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
       {back ? <Link to={back} className="ib" aria-label="Back">{Icon.back}</Link> : <Link to="/" className="brand">{BRAND_NAME}<i /></Link>}
       <span className="f" style={{ flex: 1, fontSize: 'var(--t-h2)' }}>{title || ''}</span>
-      {signedIn ? (
+      {!accountActions ? null : signedIn ? (
         <>
-          {title!=='My profile'&&<Link to="/me" className="ib" aria-label="My profile">{Icon.person}</Link>}
+          {!['My profile','Wallet'].includes(title)&&<Link to="/me" className="ib" aria-label="My profile">{Icon.person}</Link>}
           <Link to="/orders" className="link" style={{ fontSize: 'var(--t-small)', marginRight: 4 }}>Orders</Link>
           <Link to="/wallet" className="wallet-chip">{Icon.wallet}{naira(wallet?.availableBalance)}</Link>
         </>

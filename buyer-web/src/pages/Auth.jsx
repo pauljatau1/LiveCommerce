@@ -45,14 +45,14 @@ export default function Auth() {
   };
 
   return (
-    <div className="app">
-      <Header back={next} />
+    <div className="app auth-page">
+      <Header back={next} accountActions={false} />
       <main className="wrap" style={{ maxWidth: 440, padding: '24px 16px 40px', display: 'flex', flexDirection: 'column', gap: 18 }}>
         {reset?<PasswordReset token={params.get('token') || ''} initialCode={params.get('code') || ''} initialEmail={form.email} onDone={exitReset} onCancel={exitReset}/>:<><div>
-          <h1 className="f" style={{ margin: 0, fontSize: 'var(--t-display)' }}>{mode === 'signup' ? 'Join the show' : 'Welcome back'}</h1>
+          <h1 className="f" style={{ margin: 0, fontSize: 'var(--t-h1)' }}>{mode === 'signup' ? 'Join the show' : 'Welcome back'}</h1>
           <p className="mut" style={{ margin: '6px 0 0' }}>{mode === 'signup' ? 'Takes 20 seconds. Then you can chat, bid and buy.' : 'Sign in to bid and buy.'}</p>
         </div>
-        <form onSubmit={submit} className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <form onSubmit={submit} className={`auth-form${error && mode==='signin' ? ' auth-invalid' : ''}`} style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {mode==='signup'&&<CourierNameFields value={form} onChange={(key,value)=>setForm(f=>({...f,[key]:value}))}/>}
           {mode === 'signup' && (
             <div className="fl">
@@ -70,7 +70,7 @@ export default function Auth() {
             <PasswordInput id="au-p" className="in" type="password" value={form.password} onChange={set('password')} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required />
           </div>
           {mode==='signin'&&<button className="link" type="button" onClick={()=>setReset(true)}>Forgot password?</button>}
-          {error && <span className="err" role="alert">{error}</span>}
+          {error && <span className="err" role="alert">{mode==='signin' && error==='Wrong email or password. Try again or reset it.' ? <>Wrong email or password. Try again or <button type="button" className="link" onClick={()=>setReset(true)}>reset it</button>.</> : error}</span>}
           <button type="submit" className="btn" disabled={busy}>{busy ? 'One moment…' : mode === 'signup' ? 'Create account' : 'Sign in'}</button>
         </form>
         <p style={{ margin: 0, textAlign: 'center' }} className="mut">

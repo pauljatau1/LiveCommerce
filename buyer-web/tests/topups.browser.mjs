@@ -81,9 +81,9 @@ const open = async page => { await page.getByRole('button', { name: 'Wallet', ex
 const alternatives=async page=>{const summary=page.getByText('Other ways to pay',{exact:true});if(await summary.count() && !await page.locator('.wallet-other-ways').getAttribute('open'))await summary.click();};
 try {
  const {page:phoneFix,state:phoneState}=await fixture({invalidSavedPhone:true});phoneState.balance=50000;await phoneFix.reload();await phoneFix.locator('.mock-video').waitFor();
- await phoneFix.getByRole('button',{name:'Bid ₦12,000',exact:false}).click();await phoneFix.getByRole('heading',{name:'Fix your phone number for the courier',exact:true}).waitFor();
- assert.equal(await phoneFix.locator('#os-l1').count(),0);await phoneFix.getByLabel('Phone for the courier',{exact:true}).fill('081085565429');await phoneFix.getByRole('button',{name:'Save phone and continue',exact:true}).click();await phoneFix.getByRole('alert').filter({hasText:'11-digit phone number'}).waitFor();
- assert.equal(phoneState.calls.filter(c=>c.path.endsWith('/profile/courier-phone')).length,0);await phoneFix.getByLabel('Phone for the courier',{exact:true}).fill('08031234567');await capture(phoneFix,'courier-phone-repair');await phoneFix.getByRole('button',{name:'Save phone and continue',exact:true}).click();await phoneFix.waitForFunction(()=>window.__emitted?.some(e=>e.name==='stream_place_bid'));
+ await phoneFix.getByRole('button',{name:'Bid ₦12,000',exact:false}).click();await phoneFix.getByRole('heading',{name:'Fix your phone for the courier',exact:true}).waitFor();
+ assert.equal(await phoneFix.locator('#os-l1').count(),0);await phoneFix.getByLabel('Phone for the courier',{exact:true}).fill('081085565429');await phoneFix.getByRole('button',{name:/^Save phone and bid/}).click();await phoneFix.getByRole('alert').filter({hasText:'11-digit phone number'}).waitFor();
+ assert.equal(phoneState.calls.filter(c=>c.path.endsWith('/profile/courier-phone')).length,0);await phoneFix.getByLabel('Phone for the courier',{exact:true}).fill('08031234567');await capture(phoneFix,'courier-phone-repair');await phoneFix.getByRole('button',{name:/^Save phone and bid/}).click();await phoneFix.waitForFunction(()=>window.__emitted?.some(e=>e.name==='stream_place_bid'));
  assert.equal(new URL(phoneFix.url()).pathname,'/live/demo');assert.equal(phoneState.calls.filter(c=>c.path.endsWith('/profile/courier-phone')).length,1);await phoneFix.close();
  const { page: before } = await fixture({ enabled: false }); await open(before);
  assert.equal(await before.getByRole('button', { name: /Bank transfer/ }).count(), 0);
@@ -91,7 +91,7 @@ try {
  const { page, state } = await fixture();
  await page.getByRole('button', { name: 'Bid ₦12,000', exact: false }).click();
  await page.getByRole('button', { name: /Top up ₦15,000/ }).waitFor(); await capture(page, '02-methods');
- await alternatives(page); await page.getByRole('button', { name: /^Bank transfer/ }).click();
+ await alternatives(page); await page.getByRole('button', { name: /^(Bank transfer|Pay by bank transfer)/ }).click();
  await page.getByRole('heading', { name: 'Get your own account number' }).waitFor();
  assert(await page.getByRole('button', { name: 'Get my account number' }).isDisabled());
  await capture(page, '03-bank-consent');
@@ -99,13 +99,13 @@ try {
  await page.getByRole('status').filter({ hasText: 'Setting up your account number…' }).waitFor(); await capture(page, '04-bank-pending');
  state.dva = account;
  await page.evaluate(account => window.__socket.trigger('wallet_dva_ready', account), account);
- await page.getByText('1234567890', { exact: true }).waitFor(); await capture(page, '05-bank-account');
+ await page.getByLabel('Bank transfer',{exact:true}).getByText('1234567890', { exact: true }).waitFor(); await capture(page, '05-bank-account');
  await page.getByRole('button', { name: 'Sent it but nothing yet?' }).click();
  await page.getByText('We’re checking your transfer. Keep watching.', { exact: true }).waitFor();
  await page.getByRole('button', { name: 'Back to the show', exact: true }).click();
  await page.getByRole('button', { name: /^Waiting for your transfer/ }).waitFor(); await capture(page, '06-waiting-on-show');
  await page.getByRole('button', { name: /^Waiting for your transfer/ }).click();
- await page.getByText('1234567890', { exact: true }).waitFor(); // pill reopens the account step
+ await page.getByLabel('Bank transfer',{exact:true}).getByText('1234567890', { exact: true }).waitFor(); // pill reopens the account step
  // If another bid arrived, never automatically increase the buyer's chosen amount.
  state.show.products[0].currentBid = 15000; state.balance = 22000;
  await page.evaluate(() => window.__socket.trigger('wallet_credited', { reference: 'BANK_NEW', amount: 20000, source: 'transfer' }));
@@ -116,7 +116,7 @@ try {
  await page.waitForFunction(() => window.__emitted?.some(e => e.name === 'stream_place_bid' && e.data.bidAmount === 16000));
  assert.deepEqual(state.errors, []); await page.close();
  const { page: bank, state: bs } = await fixture({ saved: false }); bs.dva = account; await open(bank);
- await alternatives(bank); await bank.getByRole('button', { name: /^Bank transfer/ }).click(); await bank.getByText('1234567890', { exact: true }).waitFor();
+ await alternatives(bank); await bank.getByRole('button', { name: /^(Bank transfer|Pay by bank transfer)/ }).click(); await bank.getByLabel('Bank transfer',{exact:true}).getByText('1234567890', { exact: true }).waitFor();
  bs.balance += 5000;
  await bank.evaluate(() => window.__socket.trigger('wallet_credited', { reference: 'BANK_RECEIPT', amount: 5000, source: 'transfer' }));
  await bank.getByRole('dialog', { name: 'Wallet topped up' }).getByText(/₦5,000 received/).waitFor(); await capture(bank, '08-transfer-received'); await bank.close();
@@ -190,8 +190,8 @@ try {
    assert.equal(qs.calls.find(c => c.path.endsWith('/charge')).body.amount, 20000);
   } else if (method === 'bank') {
    qs.dva = account;
-   await alternatives(combined); await combined.getByRole('button', { name: /^Bank transfer/ }).click();
-   await combined.getByText('Send at least ₦16,650', { exact: true }).waitFor();
+   await alternatives(combined); await combined.getByRole('button', { name: /^(Bank transfer|Pay by bank transfer)/ }).click();
+   await combined.getByText(/Send at least ₦16,650/).waitFor();
    qs.balance += 20000;
    await combined.evaluate(() => window.__socket.trigger('wallet_credited', { reference: 'QUOTED_BANK', amount: 20000, source: 'transfer' }));
   } else {
@@ -202,6 +202,11 @@ try {
    await combined.evaluate(() => window.__popupOptions.onSuccess({ reference: 'QUOTED_POPUP' }));
   }
   await combined.waitForFunction(() => window.__emitted?.some(e => e.name === 'stream_place_bid' && e.data.bidAmount === 12000 && e.data.expectedRun === 1));
+  if(method==='saved'){
+   await combined.evaluate(p=>window.__socket.trigger('bid_placed',{product:{...p,currentBid:12000,currentBidder:{_id:'buyer'}}}),product());
+   await combined.getByRole('dialog',{name:'₦20,000 received',exact:true}).getByText(/Your bid is in/).waitFor();
+   await capture(combined,'W6-received-bid-in');
+  }
   assert.equal(new URLSearchParams(qs.calls.filter(c => c.path.endsWith('/me')).at(-1).search).get('productId'), 'adire');
   const preview = qs.calls.find(c => c.path.endsWith('/delivery-quote'));
   assert.equal(preview.body.productId, 'adire'); assert.equal(preview.body.address.phoneNumber, '08031234567');
@@ -216,7 +221,7 @@ try {
  assert.equal((await noQuote.evaluate(() => window.__emitted || [])).filter(e => e.name === 'stream_place_bid').length, 0);
  await noQuote.close();
  const { page: failed, state: fs } = await fixture({ saved: false }); await open(failed);
- await alternatives(failed); await failed.getByRole('button', { name: /^Bank transfer/ }).click(); fs.dva = { status: 'failed' };
+ await alternatives(failed); await failed.getByRole('button', { name: /^(Bank transfer|Pay by bank transfer)/ }).click(); fs.dva = { status: 'failed' };
  await failed.evaluate(() => window.__socket.trigger('wallet_dva_ready', { status: 'failed' }));
  await failed.getByText('We can’t set up an account number right now. Use a card instead.').waitFor(); await capture(failed, '15-bank-unavailable'); await failed.close();
  console.log('PASS: flags, DVA consent/polling/requery/waiting/receipt, saved-card success/paused/decline/popup, duplicate receipts, original-bid auto-place, price-moved confirmation, removal.');

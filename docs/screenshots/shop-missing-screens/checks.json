@@ -1,0 +1,241 @@
+{
+  "checks": [
+    "S1-sign-in",
+    "S1-wrong-password",
+    "S2-email",
+    "S2-code",
+    "S2-password",
+    "S2-changed",
+    "S2-email-link",
+    "S4-phone-error",
+    "S4-address-error",
+    "S6-waitlisted",
+    "S4-name-error",
+    "S5-picker",
+    "S5-search",
+    "S3-profile",
+    "S8-saved-cards",
+    "S8-no-cards",
+    "S7-name",
+    "S7-phone",
+    "W4-account",
+    "W3-phone",
+    "W1-saved-360",
+    "W1-other-360",
+    "W3-consent-360",
+    "W1-saved-390",
+    "W1-other-390",
+    "W3-consent-390",
+    "W2-no-card"
+  ],
+  "calls": [
+    {
+      "kind": "auth",
+      "path": "/api/v2/buyers/auth/login",
+      "method": "POST",
+      "body": {
+        "email": "ada@example.test",
+        "password": "WrongPassword123"
+      }
+    },
+    {
+      "kind": "auth",
+      "path": "/api/v2/buyers/forgot-password",
+      "method": "POST",
+      "body": {
+        "email": "ada@example.test"
+      }
+    },
+    {
+      "kind": "auth",
+      "path": "/api/v2/buyers/reset-password",
+      "method": "POST",
+      "body": {
+        "email": "ada@example.test",
+        "otp": "720511",
+        "newPassword": "NewPassword123"
+      }
+    },
+    {
+      "kind": "address-error",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "address-error",
+      "path": "/api/v2/watch/show/delivery-quote",
+      "method": "POST",
+      "body": {
+        "productId": "product",
+        "address": {
+          "name": "Ada Okafor",
+          "firstName": "Ada",
+          "lastName": "Okafor",
+          "addressLine1": "Plot 7 Unity Close",
+          "city": "Lekki",
+          "lga": "Eti-Osa",
+          "latitude": null,
+          "longitude": null,
+          "addressLine2": "",
+          "state": "Lagos",
+          "phoneNumber": "08031234567",
+          "email": "ada@example.test"
+        }
+      }
+    },
+    {
+      "kind": "service",
+      "path": "/api/v2/watch/waitlist",
+      "method": "POST",
+      "body": {
+        "state": "Abuja",
+        "streamId": "show"
+      }
+    },
+    {
+      "kind": "address",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "wallet",
+      "path": "/api/v2/wallet/cards",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "wallet",
+      "path": "/api/v2/wallet/cards/card",
+      "method": "DELETE",
+      "body": null
+    },
+    {
+      "kind": "repair-name",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "repair-name",
+      "path": "/api/v2/buyers/profile",
+      "method": "PUT",
+      "body": {
+        "firstName": "Ada",
+        "lastName": "Okafor"
+      }
+    },
+    {
+      "kind": "repair-name",
+      "path": "/api/v2/watch/show/me",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "repair-phone",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "repair-phone",
+      "path": "/api/v2/buyers/profile/courier-phone",
+      "method": "PUT",
+      "body": {
+        "addressId": "address",
+        "phoneNumber": "08031234567"
+      }
+    },
+    {
+      "kind": "repair-phone",
+      "path": "/api/v2/watch/show/me",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "topup-account",
+      "path": "/api/v2/wallet/cards",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "topup-account",
+      "path": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "topup-account",
+      "path": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "topup-phone",
+      "path": "/api/v2/wallet/cards",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "topup-phone",
+      "path": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "topup-phone",
+      "path": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "topup",
+      "path": "/api/v2/wallet/cards",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "topup",
+      "path": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "topup",
+      "path": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "topup",
+      "path": "/api/v2/wallet/cards",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "topup",
+      "path": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "topup",
+      "path": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "topup-none",
+      "path": "/api/v2/wallet/cards",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "topup-none",
+      "path": "/api/v2/wallet/dva",
+      "method": "GET",
+      "body": null
+    }
+  ]
+}

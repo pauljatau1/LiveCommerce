@@ -80,7 +80,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
 
   const title = action.kind === 'follow' ? 'Follow this host' : action.kind === 'account' ? 'Create an account' : chatOnly ? 'Join the chat' : action.kind === 'bid' ? 'One step, then your bid' : "One step, then it's yours";
   const what = action.kind === 'bid' ? `bid ${naira(action.amount)}` : 'buy';
-  const buttonText = needAccount&&mode==='signin'?'Sign in':needsCourierName&&!needAddress?'Save name and continue':needsCourierPhone ? 'Save phone and continue' : chatOnly
+  const buttonText = needAccount&&mode==='signin'?'Sign in':needsCourierName&&!needAddress?`Save name and ${what}`:needsCourierPhone ? `Save phone and ${what}` : chatOnly
     ? (mode === 'signup' ? 'Create account' : 'Sign in')
     : !priced ? (typedQuote.status === 'loading' ? 'Getting the delivery price…' : 'Add your address to continue')
       : pay > 0 ? `Pay ${naira(pay)} and ${what}` : action.kind === 'bid' ? `Bid ${naira(action.amount)}` : `Buy now · ${naira(action.amount)}`;
@@ -191,7 +191,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
 
   if(reset)return <Sheet title="Reset your password" onClose={onClose} top={top}><PasswordReset initialEmail={acct.email} onDone={()=>{setReset(false);setMode('signin');}} onCancel={()=>{setReset(false);setMode('signin');}}/></Sheet>;
   return (
-    <Sheet title={title} top={top} onClose={busy ? () => {} : onClose}>
+    <Sheet title={!needAccount&&!needAddress&&(needsCourierName||needsCourierPhone)&&action.kind==='bid'?`Bid ${naira(action.amount)}`:title} top={top} onClose={busy ? () => {} : onClose}>
       {action.kind === 'chat' && <p className="mut" style={{ margin: 0 }}>Anyone can watch. To chat, create an account. No payment needed.</p>}
       {action.kind === 'follow' && <p className="mut" style={{ margin: 0 }}>Create an account to follow. No payment needed.</p>}
       {action.kind === 'account' && <p className="mut" style={{ margin: 0 }}>Your wallet pays for bids and Buy Now, so checkout is instant. Create an account to top up.</p>}
@@ -227,12 +227,12 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
         </section>
       )}
 
-      {needsCourierName&&!needAddress&&<CourierNameFields value={address.form} onChange={(key,value)=>address.set(key)({target:{value}})} error={error.where==='name'?error.text:''}/>}
-      {needsCourierPhone&&<section className="step" aria-label="Courier phone"><h3 className="step-h">Fix your phone number for the courier</h3><label className="lab" htmlFor="courier-phone">Phone for the courier</label><input id="courier-phone" className="in" type="tel" autoComplete="tel" value={courierPhone} onChange={e=>setCourierPhone(e.target.value)} placeholder="0803 123 4567"/><span className="hint">{PHONE_HINT}</span>{errFor('phone')}</section>}
+      {needsCourierName&&!needAddress&&<><h3 className="step-h">Add your full name for the courier</h3><p className="hint">We only have "{buyer?.firstName || buyer?.username || ''}". The courier needs a first and last name to find you.</p><CourierNameFields value={address.form} onChange={(key,value)=>address.set(key)({target:{value}})} error={error.where==='name'?error.text:''}/></>}
+      {needsCourierPhone&&<section className="step" aria-label="Courier phone"><h3 className="step-h">Fix your phone for the courier</h3><p className="hint">The number we have is too short, so the courier can’t call you.</p><label className="lab" htmlFor="courier-phone">Phone for the courier</label><input id="courier-phone" className="in" type="tel" autoComplete="tel" value={courierPhone} onChange={e=>setCourierPhone(e.target.value)} placeholder="0803 123 4567"/><span className="hint">{PHONE_HINT}</span>{errFor('phone')}</section>}
       {needAddress && (
         <section className="step" aria-label="Delivery">
           <h3 className="step-h">Delivery</h3>
-          <AddressFields address={address} askPhone={!buyer?.phoneNumber} idPrefix="os" contactEmail={acct.email} />
+          <AddressFields address={address} askPhone={!buyer?.phoneNumber} idPrefix="os" contactEmail={acct.email} deliveryError={typedQuote.status==='error'?typedQuote.message:''} />
           {typedQuote.status === 'ok' && <p style={{ margin: 0, fontWeight: 'var(--w-medium)' }}>Delivery to {typedQuote.area}: {naira(typedQuote.amount)}{typedQuote.courierName ? ` · ${typedQuote.courierName}` : ''}</p>}
           {typedQuote.status === 'loading' && <span className="hint">Getting the delivery price from Shipbubble…</span>}
           {typedQuote.status === 'error' && <span className="err" role="alert">{typedQuote.message}</span>}

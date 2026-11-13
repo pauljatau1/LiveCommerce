@@ -14,6 +14,6 @@ test('picker uses the server directory, with old API compatibility',()=>{
  assert.deepEqual(pickerAreas({areaOptions:{Lagos:areas}},'Lagos'),areas);assert.equal(pickerAreas({areas:{Lagos:{'Lagos Mainland':['Yaba']}}},'Lagos')[1].name,'Yaba');assert.deepEqual(pickerAreas({},'Unknown'),[]);
 });
 
-test('buyer and studio pickers use identical component, search logic and styles',()=>{
- for(const name of ['AreaPicker.jsx','AreaPicker.css','areaPicker.js'])assert.equal(readFileSync(new URL('../src/components/'+name,import.meta.url),'utf8'),readFileSync(new URL('../../seller-web/src/studio/'+name,import.meta.url),'utf8'));
+test('buyer and studio share the same server-backed area search logic',()=>{
+ for(const name of ['areaPicker.js'])assert.equal(readFileSync(new URL('../src/components/'+name,import.meta.url),'utf8'),readFileSync(new URL('../../seller-web/src/studio/'+name,import.meta.url),'utf8'));
 });

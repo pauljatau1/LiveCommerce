@@ -1,3 +1,4 @@
+import {courierPhoneError,courierAddressError} from '../courierErrors';
 import CourierNameFields from './CourierNameFields';
 import {hasCourierName,NAME_ERROR} from '../courierName';
 import GoogleAddress from './GoogleAddress';
@@ -78,8 +79,9 @@ export function useAddressForm(initialAddress = null) {
   return {outOfArea:Boolean(config && form.state && !allowsState(config,form.state)),form,set,chooseArea,states,cities,problem,save,config,buyer,chooseGoogleAddress:address=>setForm(form=>({...form,...address})),notify:(state,email)=>api.joinWaitlist({state,email})};
 }
 
-export function AddressFields({ address, askPhone, idPrefix = 'ad', contactEmail = '' }) {
+export function AddressFields({ address, askPhone, idPrefix = 'ad', contactEmail = '', deliveryError = '' }) {
   const { form, set, states, cities } = address;
+  const phoneError=courierPhoneError(form.phoneNumber),streetError=courierAddressError(deliveryError,form.city);
   return (
     <>
       {!hasCourierName(address.buyer) && <CourierNameFields value={form} onChange={(key,value)=>set(key)({target:{value}})} id={`${idPrefix}-name`}/>}
@@ -101,7 +103,8 @@ export function AddressFields({ address, askPhone, idPrefix = 'ad', contactEmail
       </div>
       <div className="fl">
         <label className="lab" htmlFor={`${idPrefix}-l1`}>Street address</label>
-        <input id={`${idPrefix}-l1`} className="in" value={form.addressLine1} onChange={set('addressLine1')} placeholder="e.g. 12 Herbert Macaulay Way" autoComplete="street-address" />
+        <input id={`${idPrefix}-l1`} className="in" aria-invalid={Boolean(streetError)} value={form.addressLine1} onChange={set('addressLine1')} placeholder="e.g. 12 Herbert Macaulay Way" autoComplete="street-address" />
+        {streetError&&<span className="err" role="alert">{streetError}</span>}
       </div>
       </GoogleAddress>
       <div className="fl">
@@ -111,8 +114,8 @@ export function AddressFields({ address, askPhone, idPrefix = 'ad', contactEmail
       {(askPhone || address.config) && (
         <div className="fl">
           <label className="lab" htmlFor={`${idPrefix}-ph`}>Phone for the courier</label>
-          <input id={`${idPrefix}-ph`} className="in" type="tel" inputMode="tel" value={form.phoneNumber} onChange={set('phoneNumber')} placeholder="0803 123 4567" autoComplete="tel" />
-          <span className="hint">{PHONE_HINT}</span>
+          <input id={`${idPrefix}-ph`} className="in" aria-invalid={Boolean(phoneError)} type="tel" inputMode="tel" value={form.phoneNumber} onChange={set('phoneNumber')} placeholder="0803 123 4567" autoComplete="tel" />
+          <span className={phoneError?'err':'hint'}>{phoneError || PHONE_HINT}</span>
         </div>
       )}
     </>

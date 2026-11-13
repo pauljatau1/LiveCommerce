@@ -88,7 +88,7 @@ export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWa
     {dva.status === 'active' ? <>
       <span className="lab">{dva.bankName}</span>
       <div className="wallet-available"><strong>{dva.accountNumber}</strong><button type="button" className="link" onClick={async () => { try { await navigator.clipboard.writeText(dva.accountNumber); setNotice('Account number copied'); } catch { setNotice('Select the account number to copy it.'); } }}>Copy</button></div>
-      <span>{dva.accountName}</span><span className="hint">Send at least {naira(Math.max(100, need || amount))}</span>
+      <span className="hint">Account name</span><span>{dva.accountName}</span><span>Send at least {naira(Math.max(100, need || amount))}<span className="hint"> · any extra stays in your wallet</span></span>
       <span className="hint" role="status"><span className="wallet-progress" aria-hidden="true">● </span>Waiting for your transfer. Keep watching; your bid goes in the moment it lands.</span>
       <button type="button" className="link" onClick={async () => { try { const r = await api.requeryDva(); setNotice(r.message); } catch (e) { setError(errorMessage(e, 'Please try checking again later.')); } }}>Sent it but nothing yet?</button>
     </> : dva.status === 'pending' || busy ? <span role="status"><span className="wallet-spinner" aria-hidden="true">◌ </span>Setting up your account number…</span> : <>
@@ -96,10 +96,10 @@ export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWa
       <h3 className="h2">Get your own account number</h3>
       <p className="hint">Paystack opens a bank account number in your name. Any transfer to it lands in your gbam wallet in seconds. You keep it for every show.</p>
       <span>{[buyer?.firstName, buyer?.lastName].filter(Boolean).join(' ') || 'Add your name in your profile'}</span>
-      <span className="hint">{!needsPhone ? `•••••••${buyer.phoneNumber.slice(-4)}` : 'Add your phone here to get an account number.'}</span>
+      <span className="hint">{!needsPhone ? `•••••••${buyer.phoneNumber.slice(-4)}` : 'Paystack needs it to open the account number. 11 digits starting with 0.'}</span>
       {needsPhone&&<div className="fl"><label className="lab" htmlFor="dva-phone">Phone</label><input id="dva-phone" className="in" type="tel" autoComplete="tel" placeholder="0803 123 4567" value={phone} onChange={e=>setPhone(e.target.value)}/><span className="hint">{PHONE_HINT}</span></div>}
       <label className="hint"><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} /> I agree to Paystack opening an account number in my name for gbam top-ups.</label>
-      <button type="button" className="btn" disabled={!consent} onClick={assign}>Get my account number</button>
+      <button type="button" className="btn" disabled={!consent} onClick={assign}>{needsPhone?'Save phone and get my number':'Get my account number'}</button>
     </>}
     {error && <span className="err" role="alert">{error}</span>}{notice && <span className="hint" role="status">{notice}</span>}
     <button type="button" className="link" onClick={useCard}>Pay with card instead</button>
@@ -113,12 +113,12 @@ export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWa
     {notice && <span className="hint" role="status">{notice}</span>}{error && <span className="err" role="alert">{error}</span>}
   </section>;
   if(LEGACY_TOPUP_LAYOUT)return <>{legacy}{cardForm}</>;
-  const bankButton=methods.dva&&<button type="button" className="btn2 two-line" disabled={Boolean(busy || externalBusy)} onClick={selectBank}><span>Bank transfer</span><small>{dva.status==='active'?`To your account ${dva.accountNumber}`:'Get your own account number'} · arrives in seconds</small></button>;
+  const bankButton=methods.dva&&<button type="button" className="btn2 two-line" disabled={Boolean(busy || externalBusy)} onClick={selectBank}><span>{card?'Bank transfer':'Pay by bank transfer'}</span><small>{dva.status==='active'?`To your account ${dva.accountNumber}`:'Get your own account number'} · arrives in seconds</small></button>;
   return <section className="step wallet-methods" aria-label="Top-up methods">
     {methods.savedCards&&card?<>
       <button type="button" className="btn two-line wallet-saved-card" disabled={Boolean(busy || externalBusy)} onClick={chargeSaved}>{busy?<span role="status">{busy}</span>:<><span>Top up {naira(topUp)}</span><small>{card.bank} •••• {card.last4} · one tap</small></>}</button>
-      <details className="wallet-other-ways"><summary aria-disabled={Boolean(busy || externalBusy)} onClick={e=>{if(busy || externalBusy)e.preventDefault();}}>Other ways to pay</summary><div className="wallet-alternatives">{bankButton}{cardForm}</div></details>
-    </>:<>{bankButton}{cardForm}</>}
+      <details className="wallet-other-ways"><summary aria-disabled={Boolean(busy || externalBusy)} onClick={e=>{if(busy || externalBusy)e.preventDefault();}}>Other ways to pay</summary><div className="wallet-alternatives"><span className="wallet-bank-alternative">{bankButton}</span><span>Another card</span>{cardForm}</div></details>
+    </>:<><span className="wallet-bank-primary">{bankButton}</span><span>Or pay by card</span>{cardForm}</>}
     {notice&&<span className="hint" role="status">{notice}</span>}{error&&<span className="err" role="alert">{error}</span>}
   </section>;
 }
