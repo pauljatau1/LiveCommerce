@@ -168,6 +168,8 @@ async function getWalletBalance(buyerId) {
     await buyerRepository.updateWalletOnHoldItems(buyerId, filteredOnHoldItems, releasedAmount);
     console.log(`Released holds for ended auctions for buyer ${buyerId}`);
   }
+  const deliveries=await require('../../../models/ShowDelivery').find({buyer:buyerId,depositHeld:{$gt:0}}).select('depositHeld').lean();
+  const deliveryHeld=deliveries.reduce((sum,d)=>sum+d.depositHeld,0);
   const onHoldAmount = Math.max(recalculatedOnHoldAmount, (buyer.wallet.onHoldAmount || 0) - releasedAmount);
 
   // Step 5: Format on-hold items for better frontend display
@@ -178,7 +180,7 @@ async function getWalletBalance(buyerId) {
   return {
     ...(Object.values(require('../../../services/wallet/paystackClient').methods()).some(Boolean) ? { topUpMethods: require('../../../services/wallet/paystackClient').methods() } : {}),
     balance: buyer.wallet.balance,
-    onHoldAmount,
+    onHoldAmount,deliveryHeld,bidHeld:Math.max(0,onHoldAmount-deliveryHeld),
     availableBalance: buyer.wallet.balance - onHoldAmount,
     onHoldItems: formattedOnHoldItems,
     currency: buyer.wallet.currency

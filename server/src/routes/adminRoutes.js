@@ -1768,7 +1768,7 @@ router.post('/bank-account/verify',
  *         description: Server error
  */
 router.post('/withdrawals/:withdrawalId/transfer',
-  authMiddleware.verifyToken,
+  authMiddleware.verifyToken,authMiddleware.isAdmin,
   adminController.initiateWithdrawalTransfer
 );
 
@@ -1795,7 +1795,7 @@ router.post('/withdrawals/:withdrawalId/transfer',
  *         description: Server error
  */
 router.get('/transfers/:reference/verify',
-  authMiddleware.verifyToken,
+  authMiddleware.verifyToken,authMiddleware.isAdmin,
   adminController.verifyTransferStatus
 );
 
@@ -1848,7 +1848,7 @@ router.get('/banks', authMiddleware.verifyToken, async (req, res) => {
 });
 
 // Add the new finalize transfer route
-router.post('/transfers/:reference/finalize', authMiddleware.verifyToken, adminController.finalizeTransfer);
+router.post('/transfers/:reference/finalize', authMiddleware.verifyToken, authMiddleware.isAdmin, adminController.finalizeTransfer);
 
 /**
  * @swagger

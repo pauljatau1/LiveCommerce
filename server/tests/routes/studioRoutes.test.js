@@ -35,7 +35,7 @@ describe('studio routes', () => {
   beforeEach(async () => {
     await Promise.all([Seller, Product, Stream, Order, ShowDelivery, Withdrawal].map((m) => m.deleteMany({})));
     mockSellerId = (await Seller.collection.insertOne({
-      firstName: 'Tolu', storeName: 'OtakuHub', email: 't@example.com', agoraUid: 1, walletBalance: 62000,
+      firstName: 'Tolu', storeName: 'OtakuHub', email: 't@example.com', agoraUid: 1, walletBalance: 62000,isBankVerified:true,
       bankDetails: { bankName: 'GTBank', accountNumber: '0123456789', accountName: 'TOLU A', bankIdentifierCode: '058' },
     })).insertedId;
     const other = (await Seller.collection.insertOne({ firstName: 'Other', email: 'o@example.com', agoraUid: 2 })).insertedId;
@@ -113,6 +113,16 @@ describe('studio routes', () => {
     expect((await get()).canRunAgain).toBe(true);
     await Product.updateOne({ _id: figure }, { $set: { stock: 0 } });
     expect((await get()).canRunAgain).toBe(false);
+  });
+
+  it('colour stock edits preserve the total and cannot be bypassed with a scalar stock', async()=>{
+    const p=(await Product.collection.insertOne({seller:mockSellerId,name:'Adire Bubu',price:11000,stock:5,status:'active',images:[],colourVariants:['Blue','Red'],colourQuantities:[{colour:'Blue',quantity:2},{colour:'Red',quantity:3}],variants:[{name:'Colour',value:'Blue',totalStock:2},{name:'Colour',value:'Red',totalStock:3}]})).insertedId;
+    await request(app).patch(`/api/v2/studio/products/${p}`).send({stock:9}).expect(400);
+    const colourQuantities=[{colour:'Blue',quantity:3},{colour:'Red',quantity:1}];
+    await request(app).patch(`/api/v2/studio/products/${p}`).send({stock:99,colourQuantities}).expect(400);
+    const r=await request(app).patch(`/api/v2/studio/products/${p}`).send({colourQuantities}).expect(200);
+    expect(r.body.product).toMatchObject({stock:4,colourQuantities});
+    const saved=await Product.findById(p).lean();expect(saved.stock).toBe(4);expect(saved.variants.map(v=>v.totalStock)).toEqual([3,1]);
   });
 
   it('withdraw: within what is ready, and pending requests count against it', async () => {

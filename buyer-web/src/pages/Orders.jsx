@@ -1,3 +1,4 @@
+import {settlementText} from '../deliverySettlement';
 // Your orders, grouped as deliveries: everything from one show ships together.
 import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
@@ -69,6 +70,7 @@ export default function Orders() {
                 ))}
               </div>
               <p className="mut" style={{ margin: 0, fontSize: 'var(--t-small)' }}>{st.note(d)}</p>
+              {settlementText(d)&&<p className="hint">{settlementText(d)}</p>}
               {d.status==='needs_fix'&&(d.fix?.party==='buyer'?<Link className="btn2" to="/me">Fix delivery details</Link>:<span className="hint">The host has been asked to update their pickup details.</span>)}
               {d.status === 'awaiting_payment' && (
                 <button type="button" className="btn" disabled={busy === d._id} onClick={() => pay(d)}>{busy === d._id ? 'Paying…' : `Pay ${naira(Math.max(0, d.fee - (d.depositHeld || 0)))} for delivery`}</button>

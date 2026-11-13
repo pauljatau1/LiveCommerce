@@ -36,7 +36,7 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
   } catch (error) {
     if (error.code === 'out_of_area') return { success: false, reason: error.code, message: error.message, state: error.state };
     if (error instanceof deliveries.DeliveryError) {
-      return { success: false, reason: /add your delivery address|phone number for the courier/i.test(error.message) ? 'no_address' : 'delivery', message: error.message };
+      return { success: false, reason: ['courier_name','courier_phone'].includes(error.code) || /add your delivery address|phone number for the courier/i.test(error.message) ? 'no_address' : 'delivery', message: error.message };
     }
     throw error;
   }

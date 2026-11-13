@@ -1,3 +1,6 @@
+import PasswordReset from './PasswordReset';
+import CourierNameFields from './CourierNameFields';
+import {hasCourierName,nameForQuote,NAME_ERROR} from '../courierName';
 import {deliveryAddressFor,deliveryPhoneFor,PHONE_HINT,phoneDigits} from '../phone';
 import PasswordInput from './PasswordInput';
 import {loginError} from '../loginError';
@@ -30,6 +33,7 @@ const USERNAME = /^[a-zA-Z0-9_.]{3,20}$/;
 export default function OneStepSheet({ action, deposit = null, quote = null, productId, top = null, streamId, onClose, onReady, onOutOfArea, onTopUpNeeded, topUpMethods = {} }) {
   const { buyer, wallet, signedIn, signIn, refresh } = useAuth();
   const address = useAddressForm();
+  const [reset,setReset]=useState(false);
   const [mode, setMode] = useState('signup'); // signup | signin
   const [acct, setAcct] = useState({ username: '', email: '', password: '' });
   const [busy, setBusy] = useState('');
@@ -41,23 +45,26 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
   // guessed: until the address is complete there is no price.
   const [typedQuote, setTypedQuote] = useState({ status: 'idle' });
   const { state: pickedState, city: pickedCity, lga: pickedLga, landmark: pickedLandmark, latitude: pickedLat, longitude: pickedLng, addressLine1: pickedLine, phoneNumber: pickedPhone } = address.form;
+  const courierNames=hasCourierName(address.form)?address.form:buyer;
+  const courierFullName=nameForQuote(courierNames);
+  const needsCourierName=!chatOnly&&!hasCourierName(buyer);
   const phoneForQuote = pickedPhone || buyer?.phoneNumber || '';
   useEffect(() => {
-    const complete = pickedState && pickedCity && String(pickedLine).trim().length >= 4 && !phoneProblem(phoneForQuote);
+    const complete = courierFullName && pickedState && pickedCity && String(pickedLine).trim().length >= 4 && !phoneProblem(phoneForQuote);
     if (!complete || !streamId) { setTypedQuote({ status: 'idle' }); return undefined; }
     let live = true;
     setTypedQuote({ status: 'loading' });
     const t = window.setTimeout(() => {
       api.deliveryQuote(streamId, {
         productId,
-        address: { addressLine1: String(pickedLine).trim(), city: pickedCity, lga: pickedLga, latitude:pickedLat,longitude:pickedLng, addressLine2: pickedLandmark, state: pickedState, phoneNumber: phoneForQuote, email: acct.email.trim() || buyer?.email },
+        address: {name:courierFullName,firstName:courierNames?.firstName,lastName:courierNames?.lastName, addressLine1: String(pickedLine).trim(), city: pickedCity, lga: pickedLga, latitude:pickedLat,longitude:pickedLng, addressLine2: pickedLandmark, state: pickedState, phoneNumber: phoneForQuote, email: acct.email.trim() || buyer?.email },
       })
         .then((r) => live && setTypedQuote(r?.available ? { status: 'ok', ...r } : { status: 'error', message: r?.message || "Couldn't price delivery to this address." }))
         .catch((e) => live && setTypedQuote({ status: 'error', message: errorMessage(e, "Couldn't price delivery right now. Try again.") }));
     }, 700);
     return () => { live = false; window.clearTimeout(t); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickedState, pickedCity, pickedLga, pickedLat, pickedLng, pickedLandmark, pickedLine, phoneForQuote, streamId, productId]);
+  }, [courierFullName,pickedState, pickedCity, pickedLga, pickedLat, pickedLng, pickedLandmark, pickedLine, phoneForQuote, streamId, productId]);
 
   const needsCourierPhone=!chatOnly&&Boolean(deliveryAddressFor(buyer))&&Boolean(phoneProblem(deliveryPhoneFor(buyer)));
   const needAccount = !signedIn;
@@ -73,7 +80,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
 
   const title = action.kind === 'follow' ? 'Follow this host' : action.kind === 'account' ? 'Create an account' : chatOnly ? 'Join the chat' : action.kind === 'bid' ? 'One step, then your bid' : "One step, then it's yours";
   const what = action.kind === 'bid' ? `bid ${naira(action.amount)}` : 'buy';
-  const buttonText = needsCourierPhone ? 'Save phone and continue' : chatOnly
+  const buttonText = needAccount&&mode==='signin'?'Sign in':needsCourierName&&!needAddress?'Save name and continue':needsCourierPhone ? 'Save phone and continue' : chatOnly
     ? (mode === 'signup' ? 'Create account' : 'Sign in')
     : !priced ? (typedQuote.status === 'loading' ? 'Getting the delivery price…' : 'Add your address to continue')
       : pay > 0 ? `Pay ${naira(pay)} and ${what}` : action.kind === 'bid' ? `Bid ${naira(action.amount)}` : `Buy now · ${naira(action.amount)}`;
@@ -86,6 +93,10 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
     if (chatOnly) { setBusy(''); onReady(); return; }
     let who = me;
     let myW = myWallet;
+    if(!hasCourierName(me)){
+      if(!hasCourierName(address.form))return fail('name',NAME_ERROR);
+      try{await api.updateProfile({firstName:address.form.firstName.trim(),lastName:address.form.lastName.trim()});const fresh=await refresh();who=fresh?.buyer || {...me,firstName:address.form.firstName,lastName:address.form.lastName};myW=fresh?.wallet || myW;}catch(e){return fail('name',errorMessage(e,'Couldn’t save your name. Please try again.'));}
+    }
     if(deliveryAddressFor(me)&&phoneProblem(deliveryPhoneFor(me))){
       if(phoneProblem(courierPhone))return fail('phone',phoneProblem(courierPhone));
       setBusy('Saving your courier phone…');
@@ -93,7 +104,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
     }
     if (!(me?.shippingAddresses || []).length) {
       setBusy('Saving your address…');
-      try { await address.save(me); } catch (e) { if ((e.response?.data?.code === 'out_of_area' || e.response?.data?.reason === 'out_of_area') && onOutOfArea) { setBusy(''); onOutOfArea(e.response.data); return; } fail('address', errorMessage(e, "Couldn't save the address.")); return; }
+      try { await address.save(who); } catch (e) { if ((e.response?.data?.code === 'out_of_area' || e.response?.data?.reason === 'out_of_area') && onOutOfArea) { setBusy(''); onOutOfArea(e.response.data); return; } fail('address', errorMessage(e, "Couldn't save the address.")); return; }
       // Reload the profile so the app knows the address is saved (no asking twice)
       try { const r = await refresh(); if (r?.buyer) { who = r.buyer; myW = r.wallet || myW; } } catch { /* the server has it either way */ }
     }
@@ -137,7 +148,8 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
       if (!/^\S+@\S+\.\S+$/.test(acct.email.trim())) return fail('account', 'Add your email.');
       if (acct.password.length < 8) return fail('account', 'Use at least 8 characters for your password.');
     }
-    if (needAddress) {
+    if(!(needAccount&&mode==='signin')&&!chatOnly && !hasCourierName(courierNames))return fail('name',NAME_ERROR);
+    if (needAddress && !(needAccount&&mode==='signin')) {
       const problem = address.problem(!buyer?.phoneNumber);
       if (problem) return fail('address', problem);
       if (typedQuote.status === 'error') return fail('address', typedQuote.message);
@@ -148,7 +160,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
       let token;
       try {
         const res = mode === 'signup'
-          ? await api.register({ username: acct.username.trim(), email: acct.email.trim(), password: acct.password })
+          ? await api.register({ username: acct.username.trim(), email: acct.email.trim(), password: acct.password,...(!chatOnly?{firstName:address.form.firstName,lastName:address.form.lastName}:{}) })
           : await api.login({ email: acct.email.trim(), password: acct.password });
         token = res?.token || res?.accessToken || res?.data?.token;
         if (!token) throw new Error('No token');
@@ -177,6 +189,7 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
 
   const errFor = (where) => (error.where === where ? <span className="err" role="alert">{error.text}</span> : null);
 
+  if(reset)return <Sheet title="Reset your password" onClose={onClose} top={top}><PasswordReset initialEmail={acct.email} onDone={()=>{setReset(false);setMode('signin');}} onCancel={()=>{setReset(false);setMode('signin');}}/></Sheet>;
   return (
     <Sheet title={title} top={top} onClose={busy ? () => {} : onClose}>
       {action.kind === 'chat' && <p className="mut" style={{ margin: 0 }}>Anyone can watch. To chat, create an account. No payment needed.</p>}
@@ -207,12 +220,14 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
             <PasswordInput id="os-p" className="in" type="password" value={acct.password} onChange={setA('password')} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
           </div>
           {errFor('account')}
+          {mode==='signin'&&<button className="link" type="button" onClick={()=>setReset(true)}>Forgot password?</button>}
           <button type="button" className="link" onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setError({ where: '', text: '' }); }}>
             {mode === 'signup' ? 'I have an account' : 'New here? Create an account'}
           </button>
         </section>
       )}
 
+      {needsCourierName&&!needAddress&&<CourierNameFields value={address.form} onChange={(key,value)=>address.set(key)({target:{value}})} error={error.where==='name'?error.text:''}/>}
       {needsCourierPhone&&<section className="step" aria-label="Courier phone"><h3 className="step-h">Fix your phone number for the courier</h3><label className="lab" htmlFor="courier-phone">Phone for the courier</label><input id="courier-phone" className="in" type="tel" autoComplete="tel" value={courierPhone} onChange={e=>setCourierPhone(e.target.value)} placeholder="0803 123 4567"/><span className="hint">{PHONE_HINT}</span>{errFor('phone')}</section>}
       {needAddress && (
         <section className="step" aria-label="Delivery">
@@ -230,16 +245,17 @@ export default function OneStepSheet({ action, deposit = null, quote = null, pro
           <h3 className="step-h">Wallet</h3>
           <p style={{ margin: 0 }}>
             {action.kind === 'bid' ? `${naira(action.amount)} is held for your bid. It comes back if someone outbids you.` : `${naira(action.amount)} pays for the item.`}
-            {dep > 0 ? ` ${naira(dep)} for delivery${depInfo?.area ? ` to ${depInfo.area}` : ''}, priced by Shipbubble, is held with your first item. The final fee for everything you get in this show is confirmed after it ends.` : ''}
+            {dep > 0 ? ` First-item delivery estimate ${naira(dep)} is held. One parcel per show, priced when it ends.` : ''}
             {pay > cost - available ? ' Anything left stays in your wallet.' : ''}
           </p>
           <span className="hint">Card, bank transfer or USSD, through Paystack.{available > 0 ? ` You have ${naira(available)} already.` : ''}</span>
-          {errFor('pay')}
+          {errFor('name')}{errFor('pay')}
         </section>
       )}
 
+      {!needAddress&&errFor('address')}
       {error.where === '' && error.text && <span className="err" role="alert">{error.text}</span>}
-      <button type="button" className="btn" disabled={Boolean(busy) || !priced || (needAddress && address.outOfArea)} onClick={go}>{busy || buttonText}</button>
+      <button type="button" className="btn" disabled={Boolean(busy) || (!(needAccount&&mode==='signin')&&(!priced || (needAddress && address.outOfArea)))} onClick={go}>{busy || buttonText}</button>
       {!chatOnly && <span className="hint" style={{ textAlign: 'center' }}>The show keeps playing while you do this.</span>}
     </Sheet>
   );

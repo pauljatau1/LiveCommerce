@@ -101,14 +101,14 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     await Buyer.updateOne({_id:ada._id},{$set:{'shippingAddresses.0.latitude':6.46}});
     await deliveries.depositQuote({streamId:stream._id,buyerId:ada._id,productId:plush._id});
     expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({latitude:6.46,longitude:3.47}));
-    await deliveries.previewQuote({streamId:stream._id,productId:plush._id,address:{addressLine1:'5 Admiralty Way',city:'Lekki',state:'Lagos',phoneNumber:'08031234567',latitude:6.48,longitude:3.49}});
+    await deliveries.previewQuote({streamId:stream._id,productId:plush._id,address:{name:'Ada Test',addressLine1:'5 Admiralty Way',city:'Lekki',state:'Lagos',phoneNumber:'08031234567',latitude:6.48,longitude:3.49}});
     expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({latitude:6.48,longitude:3.49}));
   });
 
   it('quotes using the warehouse contact when the account phone is null',async()=>{
     await Seller.updateOne({_id:seller._id},{$set:{phoneNumber:null,'warehouseDetails.contactNumber':'08031234567','warehouseDetails.address':{state:'Lagos',city:'Yaba',lga:'Lagos Mainland',addressLine1:'14 Herbert Macaulay Way',addressLine2:'By the gate'}}});
     const ada=await createBuyer('Warehouse',50000);
-    const q=await deliveries.previewQuote({streamId:stream._id,productId:plush._id,address:{state:'Lagos',city:'Lekki',addressLine1:'5 Admiralty Way',phoneNumber:'08031234567'}});
+    const q=await deliveries.previewQuote({streamId:stream._id,productId:plush._id,address:{name:'Ada Test',state:'Lagos',city:'Lekki',addressLine1:'5 Admiralty Way',phoneNumber:'08031234567'}});
     expect(q.amount).toBe(DEP);expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({phone:'08031234567',address:'14 Herbert Macaulay Way, By the gate, Yaba, Lagos Mainland, Lagos, Nigeria'}));
     expect((await deliveries.depositQuote({streamId:stream._id,buyerId:ada._id,productId:plush._id})).amount).toBe(DEP);
   });
@@ -116,7 +116,7 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     const host=await Seller.findById(seller._id).lean();
     shipbubble.validateAddress.mockRejectedValueOnce(Object.assign(new Error('Invalid phone number'),{status:422}));
     await expect(deliveries.sellerAddressCode(host)).rejects.toMatchObject({fixable:true,party:'seller',kind:'phone'});
-    const failed=await Seller.findById(seller._id).lean();expect(deliveries.pickupProblem(failed)).toMatch(/pickup phone number/);
+    const failed=await Seller.findById(seller._id).lean();expect(deliveries.pickupProblem(failed)).toMatch(/Check the phone number/);
     await deliveries.sellerAddressCode(failed);expect((await Seller.findById(seller._id).lean()).pickupValidation).toBeUndefined();
   });
   it.each(['seller','buyer'])('pauses %s address failures, notifies once and resumes only after an edit',async party=>{
@@ -185,7 +185,7 @@ describe('deliveryService (one delivery per buyer per show)', () => {
 
   it('prices a typed address for the one-step sheet without saving anything', async () => {
     const before = await Buyer.countDocuments();
-    const q = await deliveries.previewQuote({ streamId: stream._id, productId: plush._id, address: { addressLine1: '5 Admiralty Way', city: 'Lekki', state: 'Lagos', phoneNumber: '08031234567' } });
+    const q = await deliveries.previewQuote({ streamId: stream._id, productId: plush._id, address: { name:'Ada Test',addressLine1: '5 Admiralty Way', city: 'Lekki', state: 'Lagos', phoneNumber: '08031234567' } });
     expect(q).toMatchObject({ amount: DEP, area: 'Lekki, Lagos' });
     expect(shipbubble.validateAddress).toHaveBeenCalledWith(expect.objectContaining({ address: '5 Admiralty Way, Lekki, Eti-Osa, Lagos, Nigeria', phone: '08031234567' }));
     expect(await Buyer.countDocuments()).toBe(before);
@@ -206,7 +206,7 @@ describe('deliveryService (one delivery per buyer per show)', () => {
 
     const [settled] = await deliveries.settleShow(stream._id);
 
-    expect(settled).toMatchObject({ status: 'paid', fee: 2800, depositHeld: 0, quote: { courierName: 'Kwik', requestToken: 'tok_1' } });
+    expect(settled).toMatchObject({ status: 'paid', fee: 2800, depositApplied:DEP,adjustment:2800-DEP,depositHeld: 0, quote: { courierName: 'Kwik', requestToken: 'tok_1' } });
     expect(await wallet(ada)).toMatchObject({ balance: 15000 - 2800, onHoldAmount: 0 });
     const body = shipbubble.fetchRates.mock.calls.at(-1)[0]; // the after-show quote (the first call priced the deposit)
     expect(body).toMatchObject({ sender_address_code: 111, reciever_address_code: 222, category_id: 90097994 });
@@ -270,12 +270,12 @@ describe('deliveryService (one delivery per buyer per show)', () => {
 
     await Stream.updateOne({ _id: stream._id }, { status: 'ended' });
     const [settled] = await deliveries.retryStuck();
-    expect(settled).toMatchObject({ status: 'paid', fee: 2000 });
+    expect(settled).toMatchObject({ status: 'paid', fee: 2000,depositApplied:DEP,adjustment:2000-DEP });
   });
 
   it('asks for a courier phone number before the first buy, not after the show', async () => {
     const ada = await createBuyer('Ada', 50000, { phoneNumber: undefined });
-    expect(await buy(ada, plush)).toMatchObject({ success: false, reason: 'no_address', message: 'Fix your phone number for the courier' });
+    expect(await buy(ada, plush)).toMatchObject({ success: false, reason: 'no_address', message: 'Check the phone number' });
     expect(await ShowDelivery.countDocuments()).toBe(0);
   });
 

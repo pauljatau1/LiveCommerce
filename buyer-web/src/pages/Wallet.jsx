@@ -19,7 +19,8 @@ export default function Wallet() {
         <section className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span className="cap">READY TO SPEND</span>
           <span className="f" style={{ fontSize: 'var(--t-hero)' }}>{naira(wallet?.availableBalance)}</span>
-          {wallet?.onHoldAmount > 0 && <span className="mut" style={{ fontSize: 'var(--t-small)' }}>{naira(wallet.onHoldAmount)} is held for your leading bids. It's released if you're outbid.</span>}
+          {wallet?.deliveryHeld>0&&<span className="mut">{naira(wallet.deliveryHeld)} held for delivery.</span>}
+          {wallet?.bidHeld>0&&<span className="mut">{naira(wallet.bidHeld)} held for your leading bids. Released if you’re outbid.</span>}
           <button type="button" className="btn" style={{ marginTop: 10 }} onClick={() => setTopUp(true)}>Top up</button>
         </section>
         <p className="mut" style={{ margin: 0, fontSize: 'var(--t-small)' }}>Your wallet pays for bids and Buy Now, so checkout during a show takes one tap.</p>

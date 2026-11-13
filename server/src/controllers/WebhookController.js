@@ -334,6 +334,7 @@ exports.handlePaystackWebhook = async (req, res) => {
 };
 
 async function handleTransferSuccess(data) {
+  if(await require('../services/reviewedWithdrawals').webhook('transfer.success',data))return;
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -418,6 +419,7 @@ async function handleTransferSuccess(data) {
 }
 
 async function handleTransferFailed(data) {
+  if(await require('../services/reviewedWithdrawals').webhook('transfer.failed',data))return;
   const withdrawal = await Withdrawal.findOne({
     'paymentInfo.transferReference': data.reference
   }).populate('seller');
@@ -455,6 +457,7 @@ async function handleTransferFailed(data) {
 }
 
 async function handleTransferReversed(data) {
+  if(await require('../services/reviewedWithdrawals').webhook('transfer.reversed',data))return;
   const withdrawal = await Withdrawal.findOne({
     'paymentInfo.transferReference': data.reference
   });

@@ -1,3 +1,5 @@
+import CourierNameFields from './CourierNameFields';
+import {hasCourierName,NAME_ERROR} from '../courierName';
 import GoogleAddress from './GoogleAddress';
 import AreaPicker from './AreaPicker';
 import {pickerAreas} from './areaPicker';
@@ -18,7 +20,8 @@ export function useAddressForm(initialAddress = null) {
   const { config, error: areaError } = useServiceArea();
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
-  const [form, setForm] = useState(() => ({state:'',city:'',lga:'',addressLine1:'',landmark:'',phoneNumber:buyer?.phoneNumber || '',...initialAddress,landmark:initialAddress?.addressLine2 || initialAddress?.landmark || ''}));
+  const [form, setForm] = useState(() => ({state:'',city:'',lga:'',addressLine1:'',landmark:'',phoneNumber:buyer?.phoneNumber || '',firstName:buyer?.firstName || '',lastName:buyer?.lastName || '',...initialAddress,landmark:initialAddress?.addressLine2 || initialAddress?.landmark || ''}));
+  useEffect(()=>{setForm(f=>({...f,firstName:f.firstName || buyer?.firstName || '',lastName:f.lastName || buyer?.lastName || '',phoneNumber:f.phoneNumber || buyer?.phoneNumber || ''}));},[buyer?._id,buyer?.firstName,buyer?.lastName,buyer?.phoneNumber]);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value, ...(['state','city','addressLine1'].includes(k)?{latitude:null,longitude:null,addressSource:'manual',formattedAddress:''}:{}), ...(k === 'state' ? { city: '', lga: '' } : {}) }));
 
   useEffect(() => {
@@ -39,6 +42,7 @@ export function useAddressForm(initialAddress = null) {
 
   // Plain-language problem with the form, or '' when it's complete
   const problem = (needPhone) => {
+    if(!hasCourierName(form) && !hasCourierName(buyer))return NAME_ERROR;
     if (!config) return areaError || 'Loading delivery areas. Please wait.';
     if (!allowsState(config,form.state)) return `Delivery is ${config.states.join(' and ')}-only for now. You can keep watching and chatting.`;
     if (form.addressSource !== 'google' && !cities.some(area=>area.name === form.city && area.lga === form.lga)) return 'Choose your area from the list.';
@@ -51,10 +55,14 @@ export function useAddressForm(initialAddress = null) {
   };
 
   // `who` fills the name and email for a buyer who just signed up
-  const save = (who = buyer) => ((initialAddress?._id || (!initialAddress && who?.shippingAddresses?.[0]?._id)) ? async body => { const id=initialAddress?._id || who.shippingAddresses[0]._id;const result = await api.updateAddress(id, body); if(!initialAddress) await api.activateAddress(id); return result; } : api.addAddress)({
+  const save = async (who = buyer) => {
+    const names=hasCourierName(form)?form:who;
+    if(!hasCourierName(names))throw {response:{data:{message:NAME_ERROR}}};
+    if(!hasCourierName(who))await api.updateProfile({firstName:names.firstName.trim(),lastName:names.lastName.trim()});
+    return ((initialAddress?._id || (!initialAddress && who?.shippingAddresses?.[0]?._id)) ? async body => { const id=initialAddress?._id || who.shippingAddresses[0]._id;const result = await api.updateAddress(id, body); if(!initialAddress) await api.activateAddress(id); return result; } : api.addAddress)({
     addressType: initialAddress?.addressType || who?.shippingAddresses?.[0]?.addressType || 'home',
-    firstName: who?.firstName,
-    lastName: who?.lastName,
+    firstName: names.firstName.trim(),
+    lastName: names.lastName.trim(),
     email: who?.email,
     phoneNumber: form.phoneNumber || who?.phoneNumber,
     country: 'NG',
@@ -64,7 +72,7 @@ export function useAddressForm(initialAddress = null) {
     latitude: form.latitude ?? null,longitude: form.longitude ?? null,addressSource:form.addressSource || 'manual',formattedAddress:form.formattedAddress || '',
     addressLine1: form.addressLine1.trim(),
     addressLine2: form.landmark.trim(),
-  });
+  });};
 
   const chooseArea = area => setForm(form=>({...form,city:area.name,lga:area.lga,latitude:null,longitude:null,addressSource:'manual',formattedAddress:''}));
   return {outOfArea:Boolean(config && form.state && !allowsState(config,form.state)),form,set,chooseArea,states,cities,problem,save,config,buyer,chooseGoogleAddress:address=>setForm(form=>({...form,...address})),notify:(state,email)=>api.joinWaitlist({state,email})};
@@ -74,6 +82,7 @@ export function AddressFields({ address, askPhone, idPrefix = 'ad', contactEmail
   const { form, set, states, cities } = address;
   return (
     <>
+      {!hasCourierName(address.buyer) && <CourierNameFields value={form} onChange={(key,value)=>set(key)({target:{value}})} id={`${idPrefix}-name`}/>}
       <GoogleAddress config={address.config} value={form} onChange={address.chooseGoogleAddress} onNotify={address.notify} needContact={!address.buyer} initialNotifyEmail={contactEmail}>
       <div className="fl">
         <label className="lab" htmlFor={`${idPrefix}-st`}>State</label>

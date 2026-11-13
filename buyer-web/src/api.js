@@ -27,6 +27,8 @@ export const errorMessage = (e, fallback = 'Something went wrong. Try again.') =
 const data = (res) => res.data?.data ?? res.data;
 
 export const api = {
+  forgotPassword:email=>http.post('/api/v2/buyers/forgot-password',{email}).then(data),
+  resetPassword:body=>http.post('/api/v2/buyers/reset-password',body).then(data),
   register: (body) => http.post('/api/v2/buyers/auth/register', body).then(data),
   login: (body) => http.post('/api/v2/buyers/auth/login', body).then(data),
   updateProfile:body=>http.put('/api/v2/buyers/profile',body).then(data),

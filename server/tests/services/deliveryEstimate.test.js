@@ -27,9 +27,9 @@ beforeEach(async () => {
   jest.clearAllMocks();
   await Promise.all([Seller.deleteMany({}), DeliveryEstimate.deleteMany({})]);
   sellerId = (await Seller.collection.insertOne({
-    storeName: 'Tolu Thrift', email: 't@example.com', phoneNumber: '08031234567', agoraUid: 9,
+    firstName:'Tolu',lastName:'Seller',storeName: 'Tolu Thrift', email: 't@example.com', phoneNumber: '08031234567', agoraUid: 9,
     businessAddress: { addressLine1: '14 Herbert Macaulay Way', city: 'Yaba', state: 'Lagos' },
-    shipbubbleAddress: { code: 999, key: '14 Herbert Macaulay Way, Yaba, Lagos Mainland, Lagos, Nigeria|08031234567' },
+    shipbubbleAddress: { code: 999, key: 'Tolu Seller|14 Herbert Macaulay Way, Yaba, Lagos Mainland, Lagos, Nigeria|08031234567' },
   })).insertedId;
 });
 

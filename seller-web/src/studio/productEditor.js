@@ -79,7 +79,7 @@ const nextKey = () => `c${++rowKey}`;
 export const colourRow = (v = null) => ({
   key: nextKey(),
   value: v?.value || '',
-  stock: Number(v?.totalStock ?? v?.stock ?? 0) || 0,
+  stock: v ? Number(v.totalStock ?? v.stock ?? 0) || 0 : 1,
   images: v?.images || [],
   ref: v,
 });
@@ -195,9 +195,16 @@ export function missingFields(form) {
   if (!form.category) out.push({ key: 'category', text: 'Pick a category so buyers can find it.' });
   if ((form.colours || []).length > 12) out.push({ key: 'colours', text: 'Use up to 12 colours.' });
   if ((form.colours || []).some((c) => !c.value.trim())) out.push({ key: 'colours', text: 'Name each colour, or remove it.' });
-  if ((form.colours || []).some(c => !Number.isInteger(Number(c.stock)) || Number(c.stock) < 0 || Number(c.stock) > 999)) out.push({ key: 'colours', text: 'Use a whole stock count from 0 to 999 for each colour.' });
+  if ((form.colours || []).some(c => !Number.isInteger(Number(c.stock)) || Number(c.stock) < 1 || Number(c.stock) > 999)) out.push({ key: 'colours', text: 'Add stock for each colour' });
   if (new Set((form.colours || []).map(c => c.value.trim().toLowerCase())).size !== (form.colours || []).length) out.push({ key: 'colours', text: 'Use each colour name only once.' });
   const w = weightError(form.weight);
   if (w) out.push({ key: 'weight', text: w });
   return out;
+}
+
+export function saveFieldProblems(message='') {
+ const labels={name:'Add a product name.',description:'Add a short description.',price:'Check the price.',category:'Choose a category.',stock:'Add how many you have.',colours:'Add stock for each colour',photos:'Add a product photo.'};
+ const required=String(message).match(/missing required fields:\s*(.*)/i)?.[1];
+ const keys=required?required.split(',').map(s=>s.trim()):/colou?r|variant/i.test(message)?['colours']:/stock|quantity/i.test(message)?['stock']:/price/i.test(message)?['price']:[];
+ return [...new Set(keys)].filter(k=>labels[k]).map(key=>({key,text:labels[key]}));
 }

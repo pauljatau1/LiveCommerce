@@ -147,6 +147,7 @@ async function createSafeAutomaticWithdrawal(sellerId, bankDetails, reason) {
 
     // Create the withdrawal with the safe amount
     const automaticWithdrawal = new Withdrawal({
+      payoutFlow:process.env.LEGACY_WITHDRAWAL_REQUESTS==='true'?'legacy':'review',
       seller: sellerId,
       amount: withdrawalCalculation.safeWithdrawalAmount,
       status: 'pending',
@@ -164,6 +165,7 @@ async function createSafeAutomaticWithdrawal(sellerId, bankDetails, reason) {
 
     await automaticWithdrawal.save({ session });
     await session.commitTransaction();
+    if(automaticWithdrawal.payoutFlow==='review')await require('../services/reviewedWithdrawals').notifyRequest(automaticWithdrawal);
 
     return {
       success: true,

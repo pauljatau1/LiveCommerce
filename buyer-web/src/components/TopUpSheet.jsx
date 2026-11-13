@@ -91,7 +91,8 @@ export default function TopUpSheet({ onClose, need = 0, onDone, top = null, meth
         <span>Available to spend</span>
         <strong>{typeof wallet?.availableBalance === 'number' ? naira(wallet.availableBalance) : '—'}</strong>
         {balanceError && <small>Couldn’t refresh. {wallet ? 'Showing your last balance.' : 'Try opening your wallet again.'}</small>}
-        {wallet?.onHoldAmount > 0 && <small>{naira(wallet.onHoldAmount)} held in bids</small>}
+        {wallet?.deliveryHeld>0&&<small>{naira(wallet.deliveryHeld)} held for delivery</small>}
+        {wallet?.bidHeld>0&&<small>{naira(wallet.bidHeld)} held in bids</small>}
       </div>
       <p className="mut wallet-copy">{need > 0 ? `Add ${naira(need)} more to continue.` : 'Add money for your next bid.'}</p>
       {enhanced && <StayOnStreamTopUps methods={methods} amount={value} need={need} onDone={finish} onWaiting={onWaiting} onPending={onPending} onMethod={setMethod} onUseAnotherCard={pay} onBusyChange={setBusy} initialBank={initialBank} cardForm={cardForm} externalBusy={busy} />}

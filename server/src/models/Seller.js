@@ -49,6 +49,7 @@ const reviewSchema = new mongoose.Schema({
 });
 
 const sellerSchema = new mongoose.Schema({
+  withdrawalRevision:{type:Number,default:0},
   authVersion: {type:Number,default:0},
   firstName: { type: String, required: true },
   lastName: { type: String },

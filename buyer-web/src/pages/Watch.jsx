@@ -1,3 +1,7 @@
+import PurchaseSheet from '../components/PurchaseSheet';
+const LEGACY_PURCHASE_SHEET=false; // Original markup retained below; the shared sheet also works after show end.
+import {hasCourierName} from '../courierName';
+import {settlementText,deliveryEstimateText} from '../deliverySettlement';
 import {deliveryPhoneFor} from '../phone';
 import {phoneProblem} from '../components/AddressSheet';
 import ServiceAreaSheet from '../components/ServiceAreaSheet';
@@ -72,6 +76,7 @@ export default function Watch() {
   const clientRef = useRef(null);
   const hostUserRef = useRef(null);
   const socketRef = useRef(null);
+  const [purchaseDelivery,setPurchaseDelivery]=useState(null);
   const announced = useRef(new Set()); // "Bidding is open" once per item
   const remoteAudio = useRef(null);
   const soundUnlocked = useRef(false);
@@ -138,7 +143,7 @@ export default function Watch() {
     const c = items.find((p) => p.bidStatus === 'active') || items.find((p) => p.isVisible) || items[0];
     return c ? idOf(c) : '';
   }, [items]);
-  const addressKey = (buyer?.shippingAddresses || []).map((a) => `${a.addressLine1}|${a.addressLine2 || ''}|${a.city}|${a.lga || ''}|${a.latitude ?? ''}|${a.longitude ?? ''}|${a.state}|${a.phoneNumber}`).join(',');
+  const addressKey = (buyer?.shippingAddresses || []).map((a) => `${buyer?.firstName || ''}|${buyer?.lastName || ''}|${a.firstName || ''}|${a.lastName || ''}|${a.addressLine1}|${a.addressLine2 || ''}|${a.city}|${a.lga || ''}|${a.latitude ?? ''}|${a.longitude ?? ''}|${a.state}|${a.phoneNumber}`).join(',');
   const applyMe = useCallback((r) => {
     if (!r) return;
     setDepositDue(r.depositDue === null || r.depositDue === undefined ? null : Number(r.depositDue));
@@ -177,7 +182,7 @@ export default function Watch() {
     recoveryRef.current?.invalidate();
     setShow((s) => s ? { ...s, status: 'ended' } : s);
     setPhase('ended');
-    setSheet(null);
+    setSheet(current=>['won','yours'].includes(current?.type)?current:null);
     setTyping(false);
     setBusy(false);
   }, []);
@@ -463,7 +468,7 @@ export default function Watch() {
         return;
       }
       // Delivery couldn't be priced for this buyer: fix the address in the one sheet
-      if ((r?.code === 'no_address' || r?.code === 'courier_phone') && lastBidRef.current) { setSheet({ type: 'onestep', action: { kind: 'bid', ...lastBidRef.current } }); return; }
+      if ((r?.code === 'no_address' || r?.code === 'courier_phone' || r?.code === 'courier_name') && lastBidRef.current) { setSheet({ type: 'onestep', action: { kind: 'bid', ...lastBidRef.current } }); return; }
       say('err', r?.message || 'Your bid did not go through. Nothing was held.');
     });
     socket.on('wallet_credited', (receipt) => receiveCreditRef.current(receipt));
@@ -544,6 +549,7 @@ export default function Watch() {
   const isAuction = current && (current.bidStatus === 'active' || current.minBid > 0);
   const available = wallet?.availableBalance || 0;
   walletRef.current = available;
+  useEffect(()=>{if(!['won','yours'].includes(sheet?.type)){setPurchaseDelivery(null);return;}let active=true;const load=()=>api.deliveries().then(rows=>{if(active)setPurchaseDelivery(rows.find(d=>String(d.show?._id)===String(streamId)) || null);}).catch(()=>{});load();const timer=show?.status==='ended'?setInterval(load,4000):null;return()=>{active=false;if(timer)clearInterval(timer);};},[sheet?.type,streamId,show?.status]);
   const hasAddress = (buyer?.shippingAddresses || []).length > 0;
   const curId = current ? idOf(current) : '';
   const iLead = Boolean(current && buyer && String(current.currentBidder?._id || current.currentBidder) === String(buyer._id));
@@ -593,7 +599,7 @@ export default function Watch() {
   const ready = (cost, action) => {
     if (!serviceArea) { say('err', serviceAreaError || 'Checking delivery areas. Please try again in a moment.'); return false; }
     if (signedIn && buyer?.shippingAddresses?.length && ( !allowsState(serviceArea,buyer.shippingAddresses[0].state))) { setSheet({ type: 'serviceArea', state: buyer.shippingAddresses[0].state }); return false; }
-    if(signedIn&&hasAddress&&phoneProblem(deliveryPhoneFor(buyer))){setSheet({type:'onestep',action:{...action,run:action.run || action.item?.run || current?.run || 1}});return false;}
+    if(signedIn&&(!hasCourierName(buyer)||(hasAddress&&phoneProblem(deliveryPhoneFor(buyer))))){setSheet({type:'onestep',action:{...action,run:action.run || action.item?.run || current?.run || 1}});return false;}
     if (signedIn && hasAddress && deposit !== null && cost + deposit <= available) return true;
     // Address saved but delivery can't be priced (e.g. the host's pickup address
     // is unfinished): say why instead of reopening the address form
@@ -802,6 +808,7 @@ export default function Watch() {
         <Link to="/" className="btn2">Discover live shows</Link>
         {!following && host._id && <button type="button" className="link" onClick={() => follow()}>Follow {hostName}</button>}
       </main>
+      {['won','yours'].includes(sheet?.type)&&<PurchaseSheet purchase={sheet} delivery={purchaseDelivery} estimate={estimate} ended following={following} hasHost={Boolean(host._id)} onFollow={follow} onClose={()=>setSheet(null)}/>}
     </div>
   );
   if (show && show.status !== 'live') {
@@ -1074,7 +1081,8 @@ export default function Watch() {
           <ItemsList items={items} current={current} buyerId={buyer?._id} busy={busy} onBuy={buyNow} />
         </Sheet>
       )}
-      {(sheet?.type === 'won' || sheet?.type === 'yours') && (
+      {!LEGACY_PURCHASE_SHEET&&['won','yours'].includes(sheet?.type)&&<PurchaseSheet purchase={sheet} delivery={purchaseDelivery} estimate={estimate} following={following} hasHost={Boolean(show?.seller?._id)} onFollow={follow} onClose={()=>setSheet(null)}/>}
+      {LEGACY_PURCHASE_SHEET&&(sheet?.type === 'won' || sheet?.type === 'yours') && (
         <Sheet className={`purchase-sheet${sheet.type === 'won' ? ' won-sheet' : ''}`} title={sheet.type === 'won' ? 'You won!' : "It’s yours!"} onClose={() => setSheet(null)}>
           <div className="win-burst" aria-hidden="true">
             <span className="win-trophy">★</span>
@@ -1085,10 +1093,11 @@ export default function Watch() {
             <strong>{naira(sheet.amount)}</strong>
             <small>Paid from your wallet ✓</small>
           </div>
-          <p className="purchase-delivery">{sheet.type === 'yours' && !sheet.firstItem
+          {purchaseDelivery?.fee!=null&&purchaseDelivery?.status!=='collecting'&&<p className="purchase-delivery">Final delivery: {naira(purchaseDelivery.fee)}. {settlementText(purchaseDelivery) || (purchaseDelivery.status==='awaiting_payment'?'Open Orders to pay the remaining delivery amount.':'')}</p>}
+          {purchaseDelivery?.fee==null&&<p className="purchase-delivery">{sheet.type === 'yours' && !sheet.firstItem
             ? 'Ships with your other items. No extra delivery fee.'
-            : estimate?.available ? `Delivery to ${estimate.area}: ${naira(estimate.amount)} (Shipbubble) · one fee per show`
-              : 'Your items ship together · one delivery fee'}{sheet.deposit ? ` · ${naira(sheet.deposit)} held` : ''}</p>
+            : estimate?.available ? deliveryEstimateText(estimate.amount)
+              : 'Your items ship together · one delivery fee'}{sheet.deposit ? ` · ${naira(sheet.deposit)} held` : ''}</p>}
           <button type="button" className="btn" onClick={() => setSheet(null)}>Keep watching</button>
           <div className="purchase-links">
             <Link to="/orders" className="link">View order</Link>

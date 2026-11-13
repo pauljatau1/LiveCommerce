@@ -2803,6 +2803,8 @@ exports.updateWithdrawalStatus = async (req, res) => {
   session.startTransaction();
 
   try {
+  if(process.env.LEGACY_WITHDRAWAL_REQUESTS!=='true'||await Withdrawal.exists({_id:req.params.withdrawalId,payoutFlow:'review'}))return res.status(409).json({message:'Use the reviewed withdrawal approve or reject endpoint.'});
+
     const { withdrawalId } = req.params;
     const { status, note } = req.body;
 
@@ -3481,6 +3483,8 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
   let withdrawal = null;
 
   try {
+  if(process.env.LEGACY_WITHDRAWAL_REQUESTS!=='true'||await Withdrawal.exists({_id:req.params.withdrawalId,payoutFlow:'review'}))return res.status(409).json({message:'Use the reviewed withdrawal approve or reject endpoint.'});
+
     console.log('Environment Check:', {
       nodeEnv: process.env.NODE_ENV,
       paystackKeyExists: !!process.env.PAYSTACK_SECRET_KEY
@@ -3627,6 +3631,7 @@ exports.initiateWithdrawalTransfer = async (req, res) => {
 // Verify transfer status
 exports.verifyTransferStatus = async (req, res) => {
   try {
+    if(await Withdrawal.exists({payoutFlow:'review',$or:[{'paymentInfo.transferReference':req.params.reference},{reference:req.params.reference}]}))return res.status(409).json({message:'Use the reviewed withdrawal verification endpoint.'});
     const { reference } = req.params;
     console.log('Verifying transfer status for reference:', reference);
 
@@ -3756,6 +3761,7 @@ exports.verifyTransferStatus = async (req, res) => {
 // Manually complete withdrawal
 exports.manualCompleteWithdrawal = async (req, res) => {
   try {
+    if(process.env.LEGACY_WITHDRAWAL_REQUESTS!=='true'||await Withdrawal.exists({_id:req.params.withdrawalId,payoutFlow:'review'}))return res.status(409).json({message:'Use the reviewed withdrawal approve or reject endpoint.'});
     const { withdrawalId } = req.params;
 
     const withdrawal = await Withdrawal.findById(withdrawalId).populate('seller');
@@ -3940,6 +3946,7 @@ exports.handlePaystackWebhook = async (req, res) => {
 // Add new endpoint to finalize transfer
 exports.finalizeTransfer = async (req, res) => {
   try {
+    if(await Withdrawal.exists({payoutFlow:'review',$or:[{'paymentInfo.transferReference':req.params.reference},{reference:req.params.reference}]}))return res.status(409).json({message:'Use the reviewed withdrawal verification endpoint.'});
     const { reference } = req.params;
     const { otp } = req.body; // Get OTP from request body
     console.log('Starting transfer finalization for reference:', reference);

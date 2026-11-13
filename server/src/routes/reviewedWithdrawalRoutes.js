@@ -1,0 +1,11 @@
+const express=require('express'),mongoose=require('mongoose');
+const {adminAuth}=require('../middlewares/authMiddleware');
+const Withdrawal=require('../models/Withdrawal'),service=require('../services/reviewedWithdrawals');
+const router=express.Router();router.use(adminAuth);
+const error=(res,e)=>res.status(e.status || 500).json({success:false,message:e.status?e.message:'Couldn’t update this withdrawal. Please try again.'});
+router.get('/',async(req,res)=>{try{const allowed=['pending','processing','completed','failed','rejected','reversed'];const status=req.query.status || 'pending';if(!allowed.includes(status))return res.status(400).json({message:'Choose a withdrawal status.'});const withdrawals=await Withdrawal.find({status}).populate('seller','storeName firstName lastName email').sort({requestDate:-1}).limit(100).lean();res.json({withdrawals});}catch(e){error(res,e);}});
+router.param('id',(req,res,next,id)=>mongoose.isValidObjectId(id)?next():res.status(404).json({message:'Withdrawal not found.'}));
+router.post('/:id/approve',async(req,res)=>{try{res.json({withdrawal:await service.approve(req.params.id,req.user?.id || req.admin?._id)});}catch(e){error(res,e);}});
+router.post('/:id/reject',async(req,res)=>{try{res.json({withdrawal:await service.reject(req.params.id,req.user?.id || req.admin?._id,req.body?.reason)});}catch(e){error(res,e);}});
+router.post('/:id/verify',async(req,res)=>{try{res.json({withdrawal:await service.verify(req.params.id)});}catch(e){error(res,e);}});
+module.exports=router;

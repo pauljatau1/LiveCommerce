@@ -1,3 +1,4 @@
+const {courierName,courierProblem,courierMessage}=require('../utils/courierName');
 // Show deliveries: one package per buyer per show.
 //
 //  1. First win/buy in a show: create the delivery and hold a deposit: a real
@@ -84,7 +85,7 @@ const attachOrder = async ({ session, streamId, buyerId, sellerId, order, produc
 const sellerPickup = (seller) => {
   const a = require('./serviceArea').pickupAddress(seller);
   return {
-    name: seller.storeName || [seller.firstName, seller.lastName].filter(Boolean).join(' ') || 'Seller',
+    name: courierName(a,seller),
     email: seller.businessEmail || seller.email,
     phone: require('../utils/phone').normalisePhone(seller.warehouseDetails?.contactNumber || seller.phoneNumber),
     address: require('./areaDirectory').deliveryAddress(a),
@@ -99,7 +100,7 @@ const buyerDropoff = (buyer) => {
     addressId: a._id,
     cached: a.shipbubbleCode,
     cachedKey: a.shipbubbleKey,
-    name: [a.firstName || buyer.firstName, a.lastName || buyer.lastName].filter(Boolean).join(' ') || buyer.username || 'Buyer',
+    name: courierName(a,buyer),
     email: a.email || buyer.email,
     phone: require('../utils/phone').normalisePhone(a.phoneNumber || buyer.phoneNumber),
     address: require('./areaDirectory').deliveryAddress(a),
@@ -108,9 +109,9 @@ const buyerDropoff = (buyer) => {
 };
 
 // Address failures need an edit; service outages keep the existing timed retry.
-const addressKey = a => `${a.address}|${a.phone}${Number.isFinite(a.latitude)&&Number.isFinite(a.longitude)?`|${a.latitude},${a.longitude}`:''}`;
-const fixableAddressError = error => error.status>=400 && error.status<500 && error.status!==429 && !/api access|kyc|unauthori|forbidden|api key/i.test(error.message) && /phone|address|location|coordinates/i.test(String(error.message).replace(/^Address check failed:\s*/i,''));
-const addressFailure = (party,key,kind) => Object.assign(new DeliveryError(422,party==='buyer'&&kind==='phone'?'Fix your phone number for the courier':`Shipbubble couldn't verify your ${party==='seller'?'pickup':'delivery'} ${kind==='phone'?'phone number':'address'}. Update it and try again.`),{code:kind==='phone'&&party==='buyer'?'courier_phone':'address_needs_fix',fixable:true,party,key,kind});
+const addressKey = a => `${a.name || ''}|${a.address}|${a.phone}${Number.isFinite(a.latitude)&&Number.isFinite(a.longitude)?`|${a.latitude},${a.longitude}`:''}`;
+const fixableAddressError = error => error.status>=400 && error.status<500 && error.status!==429 && !/api access|kyc|unauthori|forbidden|api key/i.test(error.message) && /name|phone|address|location|coordinates/i.test(String(error.message).replace(/^Address check failed:\s*/i,''));
+const addressFailure = (party,key,kind) => Object.assign(new DeliveryError(422,party==='seller'?`Pickup details: ${courierMessage(kind)}`:courierMessage(kind)),{code:kind==='name'?'courier_name':kind==='phone'&&party==='buyer'?'courier_phone':'address_needs_fix',fixable:true,party,key,kind});
 const pickupProblem = seller => seller?.pickupValidation && seller.pickupValidation.key===addressKey(sellerPickup(seller)) ? seller.pickupValidation.message : null;
 const recordPickupFailure = async (seller,error) => {
   if(!error.fixable)return;
@@ -118,12 +119,14 @@ const recordPickupFailure = async (seller,error) => {
 };
 const validateCourierAddress = async (party,details) => {
   const key=addressKey(details);
+  if(!details.name)throw addressFailure(party,key,'name');
   if(require('../utils/phone').phoneProblem(details.phone))throw addressFailure(party,key,'phone');
-  try{return await shipbubble.validateAddress(details);}catch(error){if(fixableAddressError(error))throw addressFailure(party,key,/phone/i.test(error.message)?'phone':'address');throw error;}
+  try{return await shipbubble.validateAddress(details);}catch(error){if(fixableAddressError(error))throw addressFailure(party,key,courierProblem(error) || 'address');throw error;}
 };
 const sellerAddressCode = async seller => {
   const pickup=sellerPickup(seller),key=addressKey(pickup);
   try {
+    if(!pickup.name)throw addressFailure('seller',key,'name');
     if(require('../utils/phone').phoneProblem(pickup.phone))throw addressFailure('seller',key,'phone');
     if(seller.shipbubbleAddress?.code&&seller.shipbubbleAddress.key===key)return seller.shipbubbleAddress.code;
     const verified=await validateCourierAddress('seller',pickup);
@@ -136,6 +139,7 @@ const buyerAddressCode = async buyer => {
   const dropoff=buyerDropoff(buyer);
   if(!dropoff)throw new DeliveryError(422,'Add your delivery address first.');
   const key=addressKey(dropoff);
+  if(!dropoff.name)throw addressFailure('buyer',key,'name');
   if(require('../utils/phone').phoneProblem(dropoff.phone))throw addressFailure('buyer',key,'phone');
   if(dropoff.cached&&dropoff.cachedKey===key)return dropoff.cached;
   const verified=await validateCourierAddress('buyer',dropoff);
@@ -217,7 +221,7 @@ const itemFor = (product) => ({
 });
 
 // Plain words for each reason a delivery price can't be worked out
-const hostAddressProblem = () => new DeliveryError(422, "This host hasn't finished their pickup address, so delivery can't be priced yet. Bidding opens once they do.");
+const hostAddressProblem = (error) => new DeliveryError(422,error?.kind==='name'?'The host needs to add a full name for the courier.':error?.kind==='phone'?'The host needs to check their pickup phone number.':error?.kind==='address'?"Shipbubble couldn't find the host's pickup address.":"This host hasn't finished their pickup address, so delivery can't be priced yet. Bidding opens once they do.");
 
 const cachedRate = async (senderCode, receiverCode, item) => {
   const DeliveryEstimate = model('DeliveryEstimate');
@@ -260,7 +264,7 @@ const depositQuote = async ({ streamId, buyerId, productId }) => {
   if (!dropoff) throw new DeliveryError(422, 'Add your delivery address first.');
   if (require('../utils/phone').phoneProblem(dropoff.phone)) throw addressFailure('buyer',addressKey(dropoff),'phone');
   let senderCode;
-  try { senderCode = await sellerAddressCode(seller); } catch(error) {if(error.fixable)throw Object.assign(hostAddressProblem(),{fixable:true,party:'seller',key:error.key,kind:error.kind});throw hostAddressProblem(); }
+  try { senderCode = await sellerAddressCode(seller); } catch(error) {if(error.fixable)throw Object.assign(hostAddressProblem(error),{fixable:true,party:'seller',key:error.key,kind:error.kind});throw hostAddressProblem(); }
   let receiverCode;
   try { receiverCode = await buyerAddressCode(buyer); } catch (e) {
     throw e instanceof DeliveryError ? e : new DeliveryError(422, "Shipbubble couldn't find your delivery address. Check the street and area, then try again.");
@@ -274,27 +278,29 @@ const depositQuote = async ({ streamId, buyerId, productId }) => {
  * The same quote for an address the buyer has typed but not saved yet (the
  * one-step sheet), so they see the real price before paying. Nothing is saved.
  */
-const previewQuote = async ({ streamId, productId, address }) => {
+const previewQuote = async ({ streamId, productId, address, buyer = {} }) => {
   require('./serviceArea').requireState(address?.state);
   if (!shipbubble.isConfigured()) throw new DeliveryError(503, "Delivery pricing isn't switched on yet.");
   const { addressLine1, city, state, phoneNumber, name, email } = address || {};
   if (!addressLine1 || !city || !state) throw new DeliveryError(422, 'Add your street, area and state to see the delivery price.');
+  if(!courierName(address,buyer))throw addressFailure('buyer','','name');
   if (require('../utils/phone').phoneProblem(phoneNumber)) throw addressFailure('buyer','','phone');
   const { seller, product } = await hostFor(streamId, productId);
   require('./serviceArea').requireState(require('./serviceArea').pickupAddress(seller).state, true);
   let senderCode;
-  try { senderCode = await sellerAddressCode(seller); } catch(error) {if(error.fixable)throw Object.assign(hostAddressProblem(),{fixable:true,party:'seller',key:error.key,kind:error.kind});throw hostAddressProblem(); }
+  try { senderCode = await sellerAddressCode(seller); } catch(error) {if(error.fixable)throw Object.assign(hostAddressProblem(error),{fixable:true,party:'seller',key:error.key,kind:error.kind});throw hostAddressProblem(); }
   let verified;
   try {
-    verified = await shipbubble.validateAddress({
-      name: String(name || 'Buyer').slice(0, 60),
+    verified = await validateCourierAddress('buyer',{
+      name: courierName(address,buyer),
       email: /^\S+@\S+\.\S+$/.test(String(email || '')) ? email : sellerPickup(seller).email,
       phone: phoneNumber,
       address: require('./areaDirectory').deliveryAddress(address),
       latitude:address.latitude, longitude:address.longitude,
     });
-  } catch {
-    throw new DeliveryError(422, "Shipbubble couldn't find that address. Check the street and area.");
+  } catch(error) {
+    if(error instanceof DeliveryError)throw error;
+    throw new DeliveryError(error.status || 502,courierMessage(courierProblem(error)));
   }
   const r = await cachedRate(senderCode, verified.address_code, itemFor(product));
   return { ...r, area: [city, state].join(', ') };
@@ -315,11 +321,11 @@ const charge = async (delivery) => {
     },
     {
       $inc: { 'wallet.balance': -fee, 'wallet.onHoldAmount': -held },
-      $push: { 'wallet.transactions': { type: 'debit', amount: fee, paymentReference: reference, description: `Delivery: ${stream?.title || 'live show'}`, status: 'completed' } },
+      $push: { 'wallet.transactions': { type: 'debit', amount: fee, paymentReference: reference, description: `Final delivery: ${stream?.title || 'live show'}. ${held>fee?`₦${held-fee} released back to your available wallet`:fee>held?`₦${fee-held} more paid from your wallet`:'Your delivery hold covered the final price'}.`, status: 'completed' } },
     }
   );
   if (paid.modifiedCount !== 1) return false;
-  await ShowDelivery.updateOne({ _id: delivery._id }, { status: 'paid', fee, depositHeld: 0, paidAt: new Date(), lastError: null });
+  await ShowDelivery.updateOne({ _id: delivery._id }, { status: 'paid', fee, depositApplied:held,adjustment:fee-held,depositHeld: 0, paidAt: new Date(), lastError: null });
   return true;
 };
 
@@ -559,7 +565,7 @@ const releaseDeposit = async (delivery) => {
   }
 };
 
-module.exports = {
+module.exports = { sellerPickup,buyerDropoff,validateCourierAddress,addressKey,
   depositAmount,
   depositFor,
   depositQuote,
