@@ -888,6 +888,7 @@ router.post('/:streamId/buy-now',
         quantity: req.body.quantity || 1,
         expectedAmount: req.body.expectedAmount,
         expectedRun: req.body.expectedRun,
+        colour:req.body.colour,
       });
       if (!result.success) {
         const status = { insufficient_funds: 402, sold_out: 409, closed: 410, no_address: 422, bad_quantity: 400, changed: 409 }[result.reason] || 400;
@@ -900,7 +901,7 @@ router.post('/:streamId/buy-now',
           type: 'buy_now',
           user: result.buyer.username || result.buyer.firstName || 'Someone',
           content: `bought ${result.order.quantity > 1 ? `${result.order.quantity} × ` : ''}${result.productName}`,
-          data: { streamId: req.params.streamId, productId: String(req.body.productId), quantity: result.order.quantity, stockLeft: result.stockLeft },
+          data: { streamId: req.params.streamId, productId: String(req.body.productId), quantity: result.order.quantity, stockLeft: result.stockLeft,colour:result.colour,colourQuantities:result.colourQuantities },
           timestamp: new Date(),
         });
       }

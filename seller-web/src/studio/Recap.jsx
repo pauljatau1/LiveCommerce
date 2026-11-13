@@ -1,3 +1,4 @@
+import {soldCountLabel} from './colourLots';
 import {buyerCountLabel} from './liveFeed';
 // Show recap (design: S-Recap): opens right after a show ends.
 // What sold, to whom, what didn't, and the one next step: ship.
@@ -38,7 +39,7 @@ export default function Recap() {
               <span className="cap">{data.show.title.toUpperCase()}{data.minutes ? ` · ${data.minutes} MIN` : ''}</span>
               <h1 className="f" style={{ margin: 0, fontSize: 'var(--t-display)', lineHeight: 1.1 }}>{data.itemsSold ? `Nice one. You made ${naira(data.earned)}.` : 'Show ended. Nothing sold this time.'}</h1>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 8 }}>
-                {[[data.itemsSold, 'ITEMS SOLD'], [data.buyers, buyerCountLabel(data.buyers)], [data.viewers, 'WATCHED']].map(([n, l]) => (
+                {[[data.itemsSold, soldCountLabel(data.itemsSold)], [data.buyers, buyerCountLabel(data.buyers)], [data.viewers, 'WATCHED']].map(([n, l]) => (
                   <div key={l} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 12, borderRadius: 18, background: 'var(--surface)' }}><span className="f" style={{ fontSize: 'var(--t-h1)' }}>{n}</span><span className="cap">{l}</span></div>
                 ))}
               </div>

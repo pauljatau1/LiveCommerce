@@ -160,6 +160,7 @@ const streamSchema = new mongoose.Schema({
     }
   }],
   bids: [{
+    lotId:{type:mongoose.Schema.Types.ObjectId},
     buyer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Buyer'
@@ -248,6 +249,7 @@ const streamSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
   }],
   orders: [{
+    lotId:{type:mongoose.Schema.Types.ObjectId},
     orderId: {
       type: String,
       required: true

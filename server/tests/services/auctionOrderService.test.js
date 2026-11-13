@@ -239,4 +239,16 @@ describe('auctionOrderService', () => {
     expect(await Order.countDocuments()).toBe(0);
   });
 
+  it('settles a distinct colour lot against the shared catalogue stock, keeping its sibling untouched',async()=>{
+    await Product.updateOne({_id:product._id},{$set:{stock:3,colourVariants:['Indigo','Rust'],colourQuantities:[{colour:'Indigo',quantity:2},{colour:'Rust',quantity:1}]}});
+    const a=new mongoose.Types.ObjectId(),b=new mongoose.Types.ObjectId();
+    await Stream.updateOne({_id:stream._id},{$set:{products:[{product:{productId:a,catalogueProductId:product._id,colour:'Indigo',name:'Gojo figure · Indigo'},minBid:5000,maxBid:100000,bidStatus:'active'},{product:{productId:b,catalogueProductId:product._id,colour:'Rust',name:'Gojo figure · Rust'},minBid:5000,maxBid:100000,bidStatus:'pending'}]}});
+    const buyer=await createBuyer('LotBuyer',50000);
+    expect(await bids.placeBid({streamId:stream._id,productId:String(a),buyer,bidAmount:20000,maxBid:100000})).toMatchObject({ok:true});
+    expect(await createAuctionOrder({streamId:stream._id,productId:String(a),buyerId:buyer._id,bidAmount:20000})).toMatchObject({success:true});
+    const saved=await Product.findById(product._id).lean();expect(saved.stock).toBe(2);expect(saved.colourQuantities.map(c=>c.quantity)).toEqual([1,1]);
+    const show=await Stream.findById(stream._id).lean();expect(show.products[1].bidStatus).toBe('pending');expect(show.products[1].orderCreated).toBe(false);
+    expect((await Order.findOne().lean()).items[0]).toMatchObject({colour:'Indigo'});
+  });
+
 });

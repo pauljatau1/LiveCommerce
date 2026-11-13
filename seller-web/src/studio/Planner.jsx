@@ -1,3 +1,5 @@
+const LEGACY_COMBINED_RUNNING_ORDER=false;
+import {colourLots} from './colourLots';
 import {serviceAreaConfig} from './api';
 import useStudioBack from './useStudioBack';
 // Show Planner (design: S-Planner-Pick / S-Planner-Setup / S-Planner-Scheduled).
@@ -28,6 +30,9 @@ export default function Planner() {
   const [products, setProducts] = useState(null);
   const [error, setError] = useState('');
   const [picked, setPicked] = useState([]);
+  const [lots,setLots]=useState(null);
+  const [review,setReview]=useState(false);
+  const [dragged,setDragged]=useState(null);
   const [type, setType] = useState('auction');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -55,9 +60,10 @@ export default function Planner() {
   }, [params]);
 
   const byId = useMemo(() => new Map((products || []).map((p) => [p._id, p])), [products]);
-  const items = picked.map((id) => byId.get(id)).filter(Boolean);
+  const items = step===2 && lots?lots:picked.map((id) => byId.get(id)).filter(Boolean);
   const toggle = (id) => setPicked((l) => (l.includes(id) ? l.filter((x) => x !== id) : l.length >= 20 ? l : [...l, id]));
-  const move = (i, dir) => setPicked((l) => { const n = [...l]; const j = i + dir; if (j < 0 || j >= n.length) return l; [n[i], n[j]] = [n[j], n[i]]; return n; });
+  const move = (i,dir) => {if(lots){setLots(l=>{const n=[...l],j=i+dir;if(j<0||j>=n.length)return l;[n[i],n[j]]=[n[j],n[i]];return n;});return;}moveLegacy(i,dir);};
+  const moveLegacy = (i, dir) => setPicked((l) => { const n = [...l]; const j = i + dir; if (j < 0 || j >= n.length) return l; [n[i], n[j]] = [n[j], n[i]]; return n; });
   const [lengths, setLengths] = useState({}); // productId -> 30 | 60 | 120 seconds
   // Show notes: pinned for buyers; drafted by the assistant, or the seller's saved ones
   const [notes, setNotes] = useState(null);
@@ -83,12 +89,13 @@ export default function Planner() {
   const startBid = (p) => bids[p._id] ?? String(Math.max(500, Math.round((p.price * 0.6) / 500) * 500));
 
   const goSetup = () => {
+    setLots(colourLots(picked.map(id=>byId.get(id)).filter(Boolean)));
     if (!title) {
       const names = items.slice(0, 2).map((p) => p.name.split(/[,(]|\s[–-]\s/)[0].trim().slice(0, 28));
       setTitle(`${type === 'auction' ? 'Live auction' : 'Live drop'}: ${names.join(' & ')}${items.length > 2 ? ` + ${items.length - 2} more` : ''}`.slice(0, 80));
     }
     if (!description) setDescription(`${items.map((p) => p.name).join(', ')}. ${type === 'auction' ? 'Bid live, highest bid wins.' : 'Fixed prices, limited stock: first to buy gets it.'} ${deliveryStates.length ? `Delivery within ${deliveryStates.join(' and ')}.` : 'Delivery within our service area.'}`.slice(0, 500));
-    setStep(2);
+    setReview(false);setStep(2);
     window.scrollTo(0, 0);
   };
 
@@ -115,8 +122,8 @@ export default function Planner() {
       scheduledStartTime: at.toISOString(),
       ...(cover ? { coverImage: { data: cover.base64, contentType: cover.contentType } } : {}),
       products: items.map((p) => (type === 'auction'
-        ? { product: { productId: p._id }, minBid: Number(startBid(p)), maxBid: Math.max(Number(startBid(p)) * 100, 1000000), auctionSeconds: lengthOf(p) }
-        : { product: { productId: p._id } })),
+        ? { product: { productId: p.catalogueProductId || p._id },...(p.colour?{colour:p.colour}:{}), minBid: Number(startBid(p)), maxBid: Math.max(Number(startBid(p)) * 100, 1000000), auctionSeconds: lengthOf(p) }
+        : { product: { productId: p.catalogueProductId || p._id },...(p.colour?{colour:p.colour}:{}) })),
     };
     try {
       const res = type === 'auction' ? await studio.createAuction(body) : await studio.createDrop(body);
@@ -170,7 +177,7 @@ export default function Planner() {
 
   return (
     <div className="studio-app">
-      <TopBar title="Plan a show" sub={step === 1 ? 'Step 1 of 2 · pick items' : `Step 2 of 2 · ${type === 'auction' ? 'auction' : 'drop'} · ${items.length} item${items.length === 1 ? '' : 's'}`} onBack={() => (step === 2 ? setStep(1) : back())} close={step === 1} />
+      <TopBar title="Plan a show" sub={step === 1 ? 'Step 1 of 2 · pick items' : `Step 2 of 2 · ${type === 'auction' ? 'auction' : 'drop'} · ${items.length} item${items.length === 1 ? '' : 's'}`} onBack={() => (step === 2 ? review?setReview(false):setStep(1) : back())} close={step === 1} />
       {step === 1 && (
         <div className="st-inner" style={{ paddingBottom: 120 }}>
           {error && <Problem text={error} />}
@@ -210,21 +217,24 @@ export default function Planner() {
         </div>
       )}
 
-      {step === 2 && (
+      {step === 2 && !review && <><div className="st-inner colour-running-order"><p className="hint">Drag to change the order. Each colour runs as its own item.</p>{items.map((p,i)=><div className="colour-lot-row" key={p._id} draggable onDragStart={()=>setDragged(i)} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(dragged===null)return;setLots(rows=>{const next=[...rows];const [row]=next.splice(dragged,1);next.splice(i,0,row);return next;});setDragged(null);}}><button className="link" type="button" aria-label={`Move ${p.name}; use arrow keys`} onKeyDown={e=>{if(['ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();move(i,e.key==='ArrowUp'?-1:1);}}}>⠿</button><span>{i+1}</span>{p.image?<img src={p.image} alt=""/>:<span className="sk"/>}<span className="grow">{p.name}<small>{p.stock} in stock · {type==='auction'?'auction from ':''}{naira(type==='auction'?Number(startBid(p)):p.price)}</small></span><button type="button" className="ib" aria-label={`Remove ${p.name}`} onClick={()=>setLots(rows=>rows.filter(row=>row._id!==p._id))}>×</button></div>)}</div>{items.length>20&&<p className="err" role="alert">Choose up to 20 colour lots for one show.</p>}<div className="colour-order-next" data-keyboard-bar><span>{items.length} items</span><button type="button" className="btn" disabled={!items.length || items.length>20} onClick={()=>setReview(true)}>Next</button></div></>}
+      {step === 2 && review && (
         <div className="st-inner" style={{ paddingBottom: 32 }}>
           <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }} aria-label="Title and description">
             <div className="fl"><label className="lab" htmlFor="ptitle">Show title</label><input id="ptitle" className="in" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} style={{ fontFamily: 'var(--font-display)' }} /></div>
             <div className="fl"><label className="lab" htmlFor="pdesc">Description</label><textarea id="pdesc" className="in ta" value={description} maxLength={500} onChange={(e) => setDescription(e.target.value)} /></div>
           </section>
 
+          {LEGACY_COMBINED_RUNNING_ORDER&&<>
           <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }} aria-label="Running order">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}><h2 className="h2">Running order</h2><span className="hint">You choose when each item starts</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}><h2 className="h2">Running order</h2><span className="hint">{items.length} items</span></div>
+            <p className="hint">Drag to change the order. Each colour runs as its own item.</p>
             {items.length > 2 && <div className="soft s-primary" style={{ fontSize: 'var(--t-small)', lineHeight: 1.45 }}>Tip: start with a cheaper item to warm up the room and save the best for last, when the most people are watching.</div>}
             {items.map((p, i) => (
-              <div key={p._id} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 12, borderRadius: 18, background: 'var(--surface-page)', border: '1px solid var(--border)' }}>
+              <div key={p._id} draggable onDragStart={()=>setDragged(i)} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(dragged===null)return;setLots(rows=>{const next=[...rows];const [row]=next.splice(dragged,1);next.splice(i,0,row);return next;});setDragged(null);}} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 12, borderRadius: 18, background: 'var(--surface-page)', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {p.image ? <img src={p.image} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover' }} /> : <span className="sk" style={{ width: 44, height: 44 }} />}
-                  <span style={{ flex: 1, fontWeight: 'var(--w-medium)', minWidth: 0 }}>{i + 1} · {p.name}</span>
+                  <span style={{ flex: 1, fontWeight: 'var(--w-medium)', minWidth: 0 }}>{i + 1} · {p.name}<small className="hint" style={{display:'block'}}>{p.stock} in stock · {type==='auction'?'auction from ':''}{naira(Number(startBid(p)))}</small></span>
                   <button type="button" className="ib" style={{ width: 40, height: 40 }} aria-label={`Move ${p.name} up`} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
                   <button type="button" className="ib" style={{ width: 40, height: 40 }} aria-label={`Move ${p.name} down`} disabled={i === items.length - 1} onClick={() => move(i, 1)}>↓</button>
                 </div>
@@ -247,6 +257,7 @@ export default function Planner() {
             {type === 'auction' && <span className="hint">Each auction runs for the time you pick once you start it. A bid in the last 5 seconds adds 5 seconds. Bids hold money in the buyer's wallet, so winners are charged straight away.</span>}
           </section>
 
+          </>}
           <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }} aria-label="When">
             <h2 className="h2">When?</h2>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

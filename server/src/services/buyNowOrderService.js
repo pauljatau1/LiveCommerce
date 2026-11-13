@@ -21,7 +21,7 @@ class BuyNowError extends Error {
   }
 }
 
-const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, shippingFee = 0, expectedAmount, expectedRun }) => {
+const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, shippingFee = 0, expectedAmount, expectedRun, colour }) => {
   try { await require('./serviceArea').checkPurchase(streamId, buyerId); }
   catch (e) { if (e.code === 'out_of_area') return { success: false, reason: e.code, message: e.message, state: e.state }; throw e; }
 
@@ -51,7 +51,9 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
       ).lean();
       if (!stream) throw new BuyNowError('closed', 'This item is not on sale in this show right now');
 
-      const product = await model('Product').findOne({ _id: productId, status: 'active' }, null, { session }).populate('seller');
+      const lot=stream.products[0];
+      const selectedColour=colour || lot.product?.colour;
+      const product = await model('Product').findOne({ _id: require('./colourLots').catalogueId(lot), status: 'active' }, null, { session }).populate('seller');
       if (!product) throw new BuyNowError('closed', 'This item is no longer for sale');
       const unitPrice = product.salePrice > 0 && product.salePrice < product.price ? product.salePrice : product.price;
       const subtotal = unitPrice * qty;
@@ -67,12 +69,10 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
       }
 
       // Take the stock first: the conditional write means the last item can only sell once
-      const stocked = await model('Product').findOneAndUpdate(
-        { _id: productId, stock: { $gte: qty } },
-        { $inc: { stock: -qty } },
-        { new: true, session }
-      );
+      let write;try{write=require('./colourLots').stockWrite(product,selectedColour,qty);}catch(e){throw new BuyNowError(e.reason || 'choose_colour',e.message);}
+      const stocked = await model('Product').findOneAndUpdate(write.filter,write.update,{new:true,session,...write.options});
       if (!stocked) throw new BuyNowError('sold_out', qty > 1 ? 'Not enough left. Try a smaller quantity.' : 'Sold out');
+      await model('Stream').updateOne({_id:streamId,'products.product.productId':productIdMatch(productId)},{$set:{'products.$.product.quantity':lot.product?.colour?require('./productColours').colourRows(stocked).find(c=>c.colour===lot.product.colour)?.quantity || 0:stocked.stock,'products.$.product.colourQuantities':require('./productColours').colourRows(stocked)}},{session});
 
       const reference = `buynow_${streamId}_${productId}_${buyerId}_${Date.now()}`;
       const charged = await model('Buyer').findOneAndUpdate(
@@ -107,7 +107,8 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
           status: 'processing',
           items: [{
             product: product._id,
-            productName: product.name,
+            productName: require('./colourLots').label(product.name,selectedColour),
+            colour:selectedColour,
             seller: seller._id || stream.seller,
             productImages: (product.images || []).slice(0, 1).map((i) => ({ url: i.url })),
             quantity: qty,
@@ -125,6 +126,7 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
       );
 
       const liveShowOrder = {
+        ...(lot.product?.catalogueProductId?{lotId:productId}:{}),
         orderId: order.order_id,
         buyer: charged._id, // the schema stores the buyer's id; details live in orderDetails
         product: product._id,
@@ -137,8 +139,10 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
       result = {
         success: true,
         order: { orderId: order.order_id, _id: order._id, quantity: qty, unitPrice, total },
-        stockLeft: stocked.stock,
-        productName: product.name,
+        stockLeft:selectedColour?require('./productColours').colourRows(stocked).find(c=>c.colour===selectedColour)?.quantity || 0:stocked.stock,
+        colourQuantities:require('./productColours').colourRows(stocked),
+        productName: require('./colourLots').label(product.name,selectedColour),
+        colour:selectedColour,
         buyer: { username: charged.username, firstName: charged.firstName },
         walletBalance: charged.wallet.balance,
         delivery: { _id: delivery._id, depositHeld: delivery.depositHeld, firstItem: delivery.items.length === 1 },

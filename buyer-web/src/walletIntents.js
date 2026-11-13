@@ -6,7 +6,7 @@ export const oneTapAmount = (shortfall) => Math.max(5000, Math.ceil(Math.max(0, 
 // Pure policy: the chosen bid/price is a ceiling, never permission to spend more.
 export function resolveWalletIntent(intent, scene, balance, depositDue, buyerId) {
   if (!intent || scene?.status !== 'live' || !Number.isFinite(balance) || !Number.isFinite(depositDue) || depositDue < 0 || String(intent.buyerId) !== String(buyerId)) return { type: 'none' };
-  const items = scene.products || [], item = items.find((p) => idOf(p) === intent.productId);
+  const items = scene.products || [];let item = items.find((p) => idOf(p) === intent.productId);
   if (intent.kind === 'bid') {
     const open = item?.bidStatus === 'active' && (!item.auctionEndsAt || Date.parse(item.auctionEndsAt) > Date.now());
     const sameRun = Number(item?.run || 1) === Number(intent.run || 1);
@@ -16,6 +16,9 @@ export function resolveWalletIntent(intent, scene, balance, depositDue, buyerId)
     return current ? { type: 'ask', action: { ...intent, productId: idOf(current), run: current.run || 1, amount: nextBid(current) } } : { type: 'none' };
   }
   if (intent.kind === 'buy') {
+    const colour=intent.item?.product?.chosenColour;
+    if(colour&&item){const row=item.product?.colourQuantities?.find(c=>c.colour===colour);if(!row||row.quantity<1)return {type:'none'};const p=item.product;const name=p.colour?p.name.slice(0,-(p.colour.length+3)):p.name;item={...item,product:{...p,chosenColour:colour,name:`${name} · ${colour}`,quantity:row.quantity}};}
+
     const amount = item ? priceOf(item) * intent.quantity : 0;
     if (item && Number(item.run || 1) === Number(intent.run || 1) && item.isVisible && !item.minBid && item.bidStatus !== 'ended' && item.product?.quantity >= intent.quantity &&
         amount === intent.amount && balance >= amount + depositDue) return { type: 'auto', action: { ...intent, item } };

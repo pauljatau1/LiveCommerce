@@ -1617,7 +1617,8 @@ function initializeSocket(server) {
         // Fetch the full product details to get the weight
         console.log('[BID] 18. Fetching full product details from database');
         const Product = mongoose.model('Product');
-        const fullProductDetails = await Product.findById(productDetails.productId);
+        const fullProductDetails = await Product.findById(productDetails.catalogueProductId || productDetails.productId);
+        if(productDetails.colour && !(require('../services/productColours').colourRows(fullProductDetails || {}).find(c=>c.colour===productDetails.colour)?.quantity>0)){socket.emit('bid_error',{code:'sold_out',message:'This colour is sold out.'});return;}
 
         if (!fullProductDetails) {
           console.warn('[BID] 19. WARNING: Could not retrieve full product details, using default weight');
@@ -1735,6 +1736,7 @@ function initializeSocket(server) {
           bidAmount,
           shippingFee,
           maxBid: product.maxBid,
+          catalogueProductId:productDetails.catalogueProductId,
           expectedRun: data.expectedRun,
         });
 
@@ -1802,7 +1804,7 @@ function initializeSocket(server) {
             // Fetch full product details
             console.log('[BID] 42. Fetching full product details for order creation');
             // Get productId from the stream product
-            const productIdToFetch = product.product.productId;
+            const productIdToFetch = product.product.catalogueProductId || product.product.productId;
             const fullProductDetails = await Product.findById(productIdToFetch).populate('seller');
 
             if (!fullProductDetails) {
@@ -1920,7 +1922,7 @@ function initializeSocket(server) {
                 streamId: stream._id,
                 buyerId: buyer._id,
                 productId: fullProductDetails._id,
-                productName: fullProductDetails.name,
+                productName: require('../services/colourLots').label(fullProductDetails.name,product.product?.colour),
                 buyerName: buyer.firstName + " " + buyer.lastName,
                 buyerUsername: buyer.username,
                 orderId: orderResult.orders[0].orderId,
@@ -1945,7 +1947,7 @@ function initializeSocket(server) {
                 orderId: orderResult.orders[0].orderId,
                 streamId: stream._id,
                 orderDetails: orderResult.orders[0],
-                productName: fullProductDetails.name,
+                productName: require('../services/colourLots').label(fullProductDetails.name,product.product?.colour),
                 amount: stream.products[productIndex].currentBid,
                 shippingFee: 0, // delivery is settled once per show
                 total: stream.products[productIndex].currentBid
@@ -1962,7 +1964,7 @@ function initializeSocket(server) {
                 success: false,
                 message: 'Failed to create order for auction win',
                 error: orderResult?.message || 'Unknown error occurred during order creation',
-                productName: fullProductDetails.name,
+                productName: require('../services/colourLots').label(fullProductDetails.name,product.product?.colour),
               });
             }
           } catch (orderError) {

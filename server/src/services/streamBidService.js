@@ -81,7 +81,7 @@ const bidderSnapshot = (buyer) => ({
  * @returns {Promise<{ok: true, isWinner: boolean, product: object, bid: object}
  *                 | {ok: false, reason: 'insufficient_funds'|'outbid'|'closed'}>}
  */
-const placeBid = async ({ streamId, productId, buyer, bidAmount, shippingFee = 0, notification, maxBid, expectedRun }) => {
+const placeBid = async ({ streamId, productId, buyer, bidAmount, shippingFee = 0, notification, maxBid, expectedRun,catalogueProductId }) => {
   const holdAmount = bidAmount + (shippingFee || 0);
 
   if (!(await holdFunds(buyer._id, holdAmount))) {
@@ -89,7 +89,7 @@ const placeBid = async ({ streamId, productId, buyer, bidAmount, shippingFee = 0
   }
 
   const now = new Date();
-  const bid = { buyer: buyer._id, product: productId, amount: bidAmount, timestamp: now };
+  const bid = { buyer: buyer._id, product:catalogueProductId || productId,...(catalogueProductId?{lotId:productId}:{}), amount: bidAmount, timestamp: now };
   const isWinner = Boolean(maxBid) && bidAmount >= maxBid;
 
   const set = {

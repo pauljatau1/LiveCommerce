@@ -129,11 +129,10 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
       if (!charged) throw new AuctionOrderError('insufficient_funds', 'Wallet balance no longer covers the winning bid');
 
       // 3. Take one unit of stock.
-      const product = await model('Product').findOneAndUpdate(
-        { _id: productId, stock: { $gte: 1 } },
-        { $inc: { stock: -1 } },
-        { new: true, session }
-      ).populate('seller');
+      const catalogueProduct=await model('Product').findById(require('./colourLots').catalogueId(streamProduct)).session(session);
+      if(!catalogueProduct)throw new AuctionOrderError('sold_out','This item is out of stock');
+      let write;try{write=streamProduct.product?.colour?require('./colourLots').stockWrite(catalogueProduct,streamProduct.product.colour,1):{filter:{_id:catalogueProduct._id,stock:{$gte:1}},update:{$inc:{stock:-1}},options:{}};}catch(e){throw new AuctionOrderError(e.reason || 'choose_colour',e.message);}
+      const product = await model('Product').findOneAndUpdate(write.filter,write.update,{new:true,session,...write.options}).populate('seller');
       if (!product) throw new AuctionOrderError('sold_out', 'This item is out of stock');
 
       // 4. Create the paid order.
@@ -157,7 +156,8 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
             items: [
               {
                 product: product._id,
-                productName: product.name,
+                productName: require('./colourLots').label(product.name,streamProduct.product?.colour),
+                colour:streamProduct.product?.colour,
                 seller: seller._id || before.seller,
                 productImages: (product.images || []).slice(0, 1).map((i) => ({ url: i.url })),
                 quantity: 1,
@@ -185,6 +185,7 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
       );
 
       const liveShowOrder = {
+        ...(streamProduct.product?.colour?{lotId:productId}:{}),
         orderId: order.order_id,
         buyer: charged._id, // the schema stores the buyer's id; details live in orderDetails
         product: product._id,
@@ -205,7 +206,7 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
       await model('Stream').updateOne(
         { _id: streamId, 'products.product.productId': productIdMatch(productId) },
         // The show's copy of the stock follows the product, for "2 of 4 left"
-        { $set: { 'products.$.orderId': order.order_id, 'products.$.product.quantity': product.stock }, $push: { orders: liveShowOrder } },
+        { $set: { 'products.$.orderId': order.order_id, 'products.$.product.quantity': streamProduct.product?.colour ? require('./productColours').colourRows(product).find(c=>c.colour===streamProduct.product.colour)?.quantity || 0 : product.stock }, $push: { orders: liveShowOrder } },
         { session }
       );
 
