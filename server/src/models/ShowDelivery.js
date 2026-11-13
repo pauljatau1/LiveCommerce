@@ -35,6 +35,8 @@ const showDeliverySchema = new mongoose.Schema({
     default: 'collecting',
   },
   depositHeld: { type: Number, default: 0 }, // currently held in the buyer's wallet
+  depositApplied: {type:Number,default:0},
+  adjustment: {type:Number,default:0},
   fee: { type: Number, default: 0 }, // delivery price charged to the buyer
   paidAt: Date,
   quote: {

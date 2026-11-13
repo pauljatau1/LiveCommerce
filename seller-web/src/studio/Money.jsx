@@ -29,7 +29,7 @@ export default function Money() {
     try {
       await studio.withdraw(Number(amount));
       setSheet(false);
-      setToast(`Withdrawal of ${naira(amount)} requested. We'll tell you when it's sent.`);
+      setToast(`Withdrawal of ${naira(amount)} requested. We'll send it within 1 working day.`);
       load();
     } catch (err) {
       setSheetError(errorText(err));
@@ -60,7 +60,7 @@ export default function Money() {
               {data.requested > 0 && <span className="hint">{naira(data.requested)} withdrawal being processed.</span>}
             </section>
 
-            <p className="mut" style={{ margin: 0, fontSize: 'var(--t-small)', lineHeight: 1.5 }}>Money from a sale is ready a day after the buyer gets their package, less the platform and payment fees. Withdrawals usually reach your bank within a few hours.</p>
+            <p className="mut" style={{ margin: 0, fontSize: 'var(--t-small)', lineHeight: 1.5 }}>Money from a sale is ready a day after the buyer gets their package, less the platform and payment fees. We'll send it within 1 working day.</p>
 
             <section className="card" style={{ padding: '4px 16px 8px' }} aria-label="Activity">
               <h2 className="h2" style={{ padding: '12px 0 8px' }}>Activity</h2>

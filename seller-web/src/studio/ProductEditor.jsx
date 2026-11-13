@@ -1,3 +1,4 @@
+import {saveFieldProblems} from './productEditor';
 import {pickupAddress} from './pickup';
 import useStudioBack from './useStudioBack';
 // Add and edit a product. Phone: one column with Save fixed at the bottom.
@@ -363,7 +364,11 @@ export default function ProductEditor() {
       navigate(`/studio/products/${target}`, { replace: true, state: { savedProduct: detail, studioNotice: 'Saved. It’s in your products.' } });
     } catch (err) {
       setPhase('');
-      setError(errorText(err, 'Couldn’t save this product. Check your connection and try again. Nothing you typed is lost.'));
+      const message=errorText(err,'Couldn’t save this product. Check your connection and try again.');
+      const fields=saveFieldProblems(message);
+      const key=fields.length>0;
+      if(key)setMissing(fields);
+      setError(/missing required fields/i.test(message)?'Check the product details before saving.':key?'Check the highlighted field.':message);
     }
   };
 
@@ -469,13 +474,14 @@ export default function ProductEditor() {
                   </div>
                 </div>
 
-                <div className="fl">
+                <div className="fl" id="pe-description">
                   <span className="lab" id="pe-desc">Description</span>
                   <SunEditor
                     setContents={original.description || ''}
                     onChange={(value) => set('description', value)}
                     setOptions={{ height: '112px', resizingBar: false, buttonList: [['bold', 'italic', 'list', 'removeFormat']], defaultStyle: 'font-family: Nunito,sans-serif;font-size:16px' }}
                   />
+                  <FieldError text={errFor('description')}/>
                 </div>
               </div>
 

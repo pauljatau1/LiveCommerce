@@ -26,3 +26,7 @@ export const feedEntryFor = (n) => {
     default: return null;
   }
 };
+
+// An old opening announcement must not survive its item/run ending.
+export const clearOpenAnnouncements=(feed,product)=>{const id=productIdOf(product),run=product?.run;return feed.filter(line=>!line.key?.startsWith('open:') || (id&&!line.key.startsWith(`open:${id}:`)) || (run&&line.key!==`open:${id}:${run}`));};
+export const buyerCountLabel=count=>count===1?'BUYER':'BUYERS';

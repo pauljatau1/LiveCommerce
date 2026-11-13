@@ -23,7 +23,7 @@ const view = (d) => ({
   items: d.items,
   itemCount: (d.items || []).reduce((n, i) => n + (i.quantity || 1), 0),
   itemsTotal: (d.items || []).reduce((n, i) => n + (i.unitPrice || 0) * (i.quantity || 1), 0),
-  depositHeld: d.depositHeld,
+  depositHeld: d.depositHeld,depositApplied:d.depositApplied,adjustment:d.adjustment,
   fee: d.status === 'paid' || ['booked', 'in_transit', 'delivered'].includes(d.status) ? d.fee : d.quote?.amount || null,
   courier: d.shipbubble?.courierName || d.quote?.courierName,
   deliveryEta: d.quote?.deliveryEta,

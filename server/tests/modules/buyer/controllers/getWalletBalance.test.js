@@ -52,6 +52,7 @@ describe('GET /api/v2/buyers/wallet/balance', () => {
       wallet: {
         balance: 5000,
         onHoldAmount: 1500,
+        deliveryHeld:0,bidHeld:1500,
         currency: 'NGN',
         onHoldItems: []
       }
@@ -116,6 +117,7 @@ describe('GET /api/v2/buyers/wallet/balance', () => {
           // 1,500 is held with no offline-auction items: a live-show bid hold. It must
           // still count, or a buyer could spend money reserved for a bid.
           onHoldAmount: 1500,
+          deliveryHeld:0,bidHeld:1500,
           availableBalance: 3500,
           onHoldItems: [],
           currency: 'NGN'
@@ -164,6 +166,7 @@ describe('GET /api/v2/buyers/wallet/balance', () => {
         data: {
           balance: 5000,
           onHoldAmount: 1500,
+          deliveryHeld:0,bidHeld:1500,
           availableBalance: 3500,
           onHoldItems: [{
             productId: product._id.toString(),
@@ -247,6 +250,7 @@ describe('GET /api/v2/buyers/wallet/balance', () => {
         data: {
           balance: 5000,
           onHoldAmount: 1500, // Should be updated to only active items
+          deliveryHeld:0,bidHeld:1500,
           availableBalance: 3500,
           onHoldItems: [{
             productId: activeProduct._id.toString(),
@@ -285,6 +289,7 @@ describe('GET /api/v2/buyers/wallet/balance', () => {
         data: {
           balance: 5000,
           onHoldAmount: 0, // Service filters out non-existent products
+          deliveryHeld:0,bidHeld:0,
           availableBalance: 5000, // Full balance available when no valid on-hold items
           onHoldItems: [], // No items returned since product doesn't exist
           currency: 'NGN'
@@ -333,6 +338,7 @@ describe('GET /api/v2/buyers/wallet/balance', () => {
         data: {
           balance: 5000,
           onHoldAmount: 1500,
+          deliveryHeld:0,bidHeld:1500,
           availableBalance: 3500,
           onHoldItems: [{
             productId: product._id.toString(),

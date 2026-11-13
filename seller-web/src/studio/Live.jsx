@@ -1,3 +1,4 @@
+import {clearOpenAnnouncements} from './liveFeed';
 // Live Studio (design: S-Live-Auction / S-Live-Drop / S-Live-Desktop).
 // Phone: full-screen camera with the current item card at the bottom.
 // Desktop: item + queue | camera | chat.
@@ -237,10 +238,13 @@ export default function Live() {
         case 'auction_start':
         case 'product_display': refresh().catch(() => {}); break;
         case 'auction_winner':
+          setFeed(feed=>clearOpenAnnouncements(feed,d.product));
           say(`${winnerName(d)} won it for ${naira(d.bidWinner?.bidAmount)}`);
           refresh().catch(() => {});
           break;
         case 'auction_end':
+          setFeed(feed=>clearOpenAnnouncements(feed,d.product));
+          setToast(previous=>/^Bidding is open/i.test(previous)?'':previous);
           if (d.product) setItems((l) => l.map((p) => (p.productId === pid(d.product) ? { ...p, bidStatus: 'ended' } : p)));
           refresh().catch(() => {});
           break;
@@ -284,6 +288,7 @@ export default function Live() {
   const secs = current ? timer[current.productId] : undefined;
   // Ring length: the auction time, or longer if time was added
   const total = Math.max(current?.auctionSeconds || 30, secs || 0);
+  useEffect(()=>{if(current?.bidStatus==='ended'||current?.winner)setFeed(feed=>clearOpenAnnouncements(feed,{productId:current.productId,run:current.run}));},[current?.productId,current?.bidStatus,current?.winner]);
   const { running, settling, canRunAgain } = runState(current, secs);
   const reconnecting = !online || !socketUp || recoveryStatus !== 'ready' || phase === 'reconnecting';
   const canAct = phase === 'live' && !reconnecting;

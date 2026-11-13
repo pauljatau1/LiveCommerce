@@ -160,9 +160,10 @@ router.get('/:streamId/estimate', validId, optionalBuyer, async (req, res) => {
 // price to an address the buyer has typed in the one-step sheet but not saved yet.
 // Nothing is stored. Limited per IP: each call checks the address with Shipbubble.
 const quoteLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false, message: { success: false, message: 'Too many delivery checks. Wait a few minutes.' } });
-router.post('/:streamId/delivery-quote', validId, quoteLimiter, async (req, res) => {
+router.post('/:streamId/delivery-quote', validId, quoteLimiter, optionalBuyer, async (req, res) => {
   try {
-    const q = await deliveries.previewQuote({ streamId: req.params.streamId, productId: req.body?.productId, address: req.body?.address });
+    const buyer=req.user?.role==='Buyer'?await mongoose.model('Buyer').findById(req.user.id,{firstName:1,lastName:1}).lean():{};
+    const q = await deliveries.previewQuote({ streamId: req.params.streamId, productId: req.body?.productId, address: req.body?.address,buyer });
     res.json({ success: true, available: true, ...q });
   } catch (error) {
     if (error.code === 'out_of_area') return res.status(422).json({ code: error.code, reason: error.code, message: error.message, state: error.state });

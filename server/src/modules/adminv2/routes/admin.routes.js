@@ -3,6 +3,7 @@ const adminController = require('../controllers/admin.controller');
 const { adminAuth } = require('../../../middlewares/authMiddleware');
 
 const router = express.Router();
+router.use('/withdrawals',require('../../../routes/reviewedWithdrawalRoutes'));
 
 router.post('/test-email', adminAuth, require('../../../controllers/testEmailController').testEmail);
 

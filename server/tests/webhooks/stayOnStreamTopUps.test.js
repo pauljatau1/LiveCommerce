@@ -190,7 +190,7 @@ it('funds a bid and its real Shipbubble quote with a verified saved-card top-up'
   ];
   try {
     const Seller = require('@models/Seller'), Product = require('@models/Product'), Stream = require('@models/Stream');
-    const seller = await Seller.collection.insertOne({ firstName: 'Host', email: 'host@test.example', phoneNumber: '08031234567', sellerAddress: { addressLine1: '1 Allen Avenue', city: 'Ikeja', state: 'Lagos' } });
+    const seller = await Seller.collection.insertOne({ firstName: 'Host',lastName:'Seller', email: 'host@test.example', phoneNumber: '08031234567', sellerAddress: { addressLine1: '1 Allen Avenue', city: 'Ikeja', state: 'Lagos' } });
     const product = await Product.collection.insertOne({ name: 'Adire Bubu', price: 11000, status: 'active', stock: 3, seller: seller.insertedId, shippingInfo: { weight: { value: 0.4 } } });
     const show = await Stream.create({ seller: seller.insertedId, title: 'Adire live', category: 'Fashion', channelName: 'quoted', status: 'live', type: 'auction', products: [{ product: { productId: String(product.insertedId), name: 'Adire Bubu' }, minBid: 11000, maxBid: 100000, currentBid: 11000, bidStatus: 'active', run: 1, auctionEndsAt: new Date(Date.now() + 60000) }] });
     await Buyer.updateOne({ _id: buyer._id }, { $set: { 'wallet.balance': 2000, shippingAddresses: [{ country: 'NG', state: 'Lagos', city: 'Lekki', addressLine1: '5 Admiralty Way' }] } });

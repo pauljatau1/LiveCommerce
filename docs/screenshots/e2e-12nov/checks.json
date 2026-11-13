@@ -1,0 +1,143 @@
+{
+  "checks": [
+    "shop-sign-in",
+    "shop-six-digit-reset",
+    "join-six-digit-reset",
+    "courier-name-and-estimate",
+    "first-item-delivery-estimate",
+    "stock-by-colour",
+    "win-final-delivery"
+  ],
+  "calls": [
+    {
+      "kind": "auth",
+      "path": "/api/v2/buyers/forgot-password",
+      "method": "POST",
+      "body": {
+        "email": "ada@example.test"
+      }
+    },
+    {
+      "kind": "auth",
+      "path": "/api/v2/buyers/reset-password",
+      "method": "POST",
+      "body": {
+        "email": "ada@example.test",
+        "otp": "123456",
+        "newPassword": "NewPassword123"
+      }
+    },
+    {
+      "kind": "join",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "join",
+      "path": "/api/v2/buyers/forgot-password",
+      "method": "POST",
+      "body": {
+        "email": "ada@example.test"
+      }
+    },
+    {
+      "kind": "join",
+      "path": "/api/v2/buyers/reset-password",
+      "method": "POST",
+      "body": {
+        "email": "ada@example.test",
+        "otp": "123456",
+        "newPassword": "NewPassword123"
+      }
+    },
+    {
+      "kind": "address",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "address",
+      "path": "/api/v2/watch/show/delivery-quote",
+      "method": "POST",
+      "body": {
+        "productId": "product",
+        "address": {
+          "name": "Ada Okafor",
+          "firstName": "Ada",
+          "lastName": "Okafor",
+          "addressLine1": "12 Admiralty Way",
+          "city": "Lekki",
+          "lga": "Eti-Osa",
+          "latitude": null,
+          "longitude": null,
+          "addressLine2": "",
+          "state": "Lagos",
+          "phoneNumber": "08031234567",
+          "email": "ada@example.test"
+        }
+      }
+    },
+    {
+      "kind": "address",
+      "path": "/api/v2/buyers/profile",
+      "method": "PUT",
+      "body": {
+        "firstName": "Ada",
+        "lastName": "Okafor"
+      }
+    },
+    {
+      "kind": "address",
+      "path": "/api/v2/buyers/addresses",
+      "method": "POST",
+      "body": {
+        "addressType": "home",
+        "firstName": "Ada",
+        "lastName": "Okafor",
+        "email": "ada@example.test",
+        "phoneNumber": "08031234567",
+        "country": "NG",
+        "state": "Lagos",
+        "city": "Lekki",
+        "lga": "Eti-Osa",
+        "latitude": null,
+        "longitude": null,
+        "addressSource": "manual",
+        "formattedAddress": "",
+        "addressLine1": "12 Admiralty Way",
+        "addressLine2": ""
+      }
+    },
+    {
+      "kind": "address",
+      "path": "/api/v2/watch/show/me",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "colours",
+      "path": "/api/v2/studio/products/p",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "colours",
+      "path": "/api/v2/studio/products/p",
+      "method": "PATCH",
+      "body": {
+        "colourQuantities": [
+          {
+            "colour": "Blue",
+            "quantity": 3
+          },
+          {
+            "colour": "Red",
+            "quantity": 1
+          }
+        ]
+      }
+    }
+  ]
+}

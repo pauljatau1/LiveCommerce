@@ -22,6 +22,7 @@ createRoot(document.getElementById('root')).render(
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/live/:streamId" element={<Watch />} />
+            <Route path="/forgot-password" element={<Auth />} />
             <Route path="/signin" element={<Auth />} />
             <Route path="/me" element={<Me />} />
             <Route path="/wallet" element={<Wallet />} />

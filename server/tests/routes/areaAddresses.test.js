@@ -8,7 +8,7 @@ let mongo,buyer,seller,buyerToken,sellerToken;
 const payload={addressType:'home',country:'NG',state:'Lagos',city:'Lekki',lga:'Eti-Osa',addressLine1:'12 Test Street',phoneNumber:'08031234567'};
 beforeAll(async()=>{mongo=await MongoMemoryServer.create({binary:{version:'7.0.3'}});if(mongoose.connection.readyState)await mongoose.disconnect();await mongoose.connect(mongo.getUri());});
 afterAll(async()=>{await mongoose.disconnect();await mongo.stop();});
-beforeEach(async()=>{await Promise.all([Buyer.deleteMany({}),Seller.deleteMany({})]);buyer=(await Buyer.collection.insertOne({email:'buyer@example.test',firstName:'Ada',phoneNumber:'08031234567',shippingAddresses:[]})).insertedId;seller=(await Seller.collection.insertOne({email:'seller@example.test',firstName:'Sade'})).insertedId;buyerToken=jwt.sign({id:buyer,role:'Buyer'},process.env.JWT_SECRET);sellerToken=jwt.sign({id:seller,role:'Seller'},process.env.JWT_SECRET);});
+beforeEach(async()=>{await Promise.all([Buyer.deleteMany({}),Seller.deleteMany({})]);buyer=(await Buyer.collection.insertOne({email:'buyer@example.test',firstName:'Ada',phoneNumber:'08031234567',shippingAddresses:[]})).insertedId;seller=(await Seller.collection.insertOne({email:'seller@example.test',firstName:'Sade',lastName:'Test'})).insertedId;buyerToken=jwt.sign({id:buyer,role:'Buyer'},process.env.JWT_SECRET);sellerToken=jwt.sign({id:seller,role:'Seller'},process.env.JWT_SECRET);});
 test('buyer add/update accepts listed areas, saves canonical LGA and refuses arbitrary text or forged LGA',async()=>{
  const post=body=>request(app).post('/api/v2/buyers/addresses').set('Authorization',`Bearer ${buyerToken}`).send(body);
  for(const body of [{...payload,city:'Made-up Place'},{...payload,lga:'Ikeja'}]){const result=await post(body);expect(result.status).toBe(400);expect(result.body.message).toBe('Choose your area from the list.');}
@@ -89,7 +89,7 @@ test('the real delivery-quote route returns a price for a Lagos warehouse-only c
  try{
   await Seller.updateOne({_id:seller},{$set:{phoneNumber:null,'warehouseDetails.contactNumber':'08031234567','warehouseDetails.address':{...payload}}});
   const Stream=require('@models/Stream'),Product=require('@models/Product');const product=(await Product.collection.insertOne({name:'Adire Bubu',price:11000,weight:.5,seller})).insertedId;const stream=(await Stream.collection.insertOne({seller,status:'live',products:[]})).insertedId;
-  const result=await request(app).post(`/api/v2/watch/${stream}/delivery-quote`).send({productId:String(product),address:{...payload,addressLine2:'By the gate'}});
+  const result=await request(app).post(`/api/v2/watch/${stream}/delivery-quote`).send({productId:String(product),address:{...payload,name:'Ada Test',addressLine2:'By the gate'}});
   expect(result.status).toBe(200);expect(result.body).toMatchObject({available:true,amount:2450});expect(sb.validateAddress).toHaveBeenCalledWith(expect.objectContaining({phone:'08031234567'}));
  }finally{for(const spy of spies)spy.mockRestore();}
 });

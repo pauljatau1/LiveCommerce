@@ -1,3 +1,4 @@
+import {deliveryEstimateText} from '../deliverySettlement';
 import SafeDescription from './SafeDescription';
 // Presentational pieces of the Watch screen. Watch.jsx owns the state.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -180,6 +181,6 @@ export const RailButton = ({ label, onClick, children }) => (
 
 // "Delivery to Lekki about ₦2,500 · one fee this show"
 // Shipbubble's price to the buyer's address (never a guess): "Delivery to Maryland, Lagos ₦2,450 · one fee this show"
-export const deliveryLine = (est) => (est?.available ? `Delivery to ${est.area} ${naira(est.amount)} · one fee this show` : null);
+export const deliveryLine = (est) => (est?.available ? deliveryEstimateText(est.amount) : null);
 
 export { Icon };

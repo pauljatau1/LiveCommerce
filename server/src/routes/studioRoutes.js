@@ -87,7 +87,7 @@ router.get('/home', async (req, res) => {
   try {
     const sellerId = req.user.id;
     const [seller, upcoming, lastEnded, recent, inShows, money, toShip, productCount] = await Promise.all([
-      model('Seller').findById(sellerId, { firstName:1,storeName:1,storeAvatar:1,warehouseDetails:1,businessAddress:1,sellerAddress:1,phoneNumber:1,pickupValidation:1 }).lean(),
+      model('Seller').findById(sellerId, { firstName:1,lastName:1,storeName:1,storeAvatar:1,warehouseDetails:1,businessAddress:1,sellerAddress:1,phoneNumber:1,pickupValidation:1 }).lean(),
       model('Stream').find({ seller: oid(sellerId), $or: [{ status: 'live' }, { status: 'scheduled', scheduledStartTime: { $gt: new Date(Date.now() - 6 * 3600 * 1000) } }] })
         .sort({ status: 1, scheduledStartTime: 1 }).limit(3).lean(),
       model('Stream').findOne({ seller: oid(sellerId), status: 'ended' }).sort({ endTime: -1, updatedAt: -1 }).lean(),
@@ -150,6 +150,7 @@ router.get('/products/:id', validId, async (req, res) => {
       product: {
         ...productCard(p, inShows),
         description: p.description,
+        colourVariants:p.colourVariants,colourQuantities:require('../services/productColours').colourRows(p),variants:p.variants,
         condition: p.condition,
         brand: p.brand,
         subCategory: p.subCategory,
@@ -169,7 +170,12 @@ router.get('/products/:id', validId, async (req, res) => {
 router.patch('/products/:id', validId, async (req, res) => {
   try {
     const set = {};
-    const { price, stock, hidden } = req.body || {};
+    const { price, stock, hidden, colourQuantities } = req.body || {};
+    const existing=await model('Product').findOne({_id:oid(req.params.id),seller:oid(req.user.id)}).lean();
+    if(!existing)return res.status(404).json({success:false,message:'Product not found'});
+    const colours=require('../services/productColours');
+    if(stock!==undefined && colours.colourRows(existing).length && colourQuantities===undefined)return res.status(400).json({success:false,message:'Update the stock for each colour.'});
+    if(colourQuantities!==undefined)Object.assign(set,colours.colourStockUpdate(existing,colourQuantities));
     if (price !== undefined) {
       const n = Math.round(Number(price));
       if (!Number.isFinite(n) || n < 100) return res.status(400).json({ success: false, message: 'Price must be at least ₦100' });
@@ -178,6 +184,7 @@ router.patch('/products/:id', validId, async (req, res) => {
     if (stock !== undefined) {
       const n = Math.round(Number(stock));
       if (!Number.isFinite(n) || n < 0 || n > 9999) return res.status(400).json({ success: false, message: 'Stock must be between 0 and 9,999' });
+      if(colourQuantities!==undefined&&n!==set.stock)return res.status(400).json({success:false,message:'Total stock must match the colour stocks.'});
       set.stock = n;
     }
     if (hidden !== undefined) set.status = hidden ? 'draft' : 'active';
@@ -191,7 +198,7 @@ router.patch('/products/:id', validId, async (req, res) => {
     const p = done?.value || done;
     if (!p || !p._id) return res.status(404).json({ success: false, message: 'Product not found' });
     const inShows = await productsInShows(req.user.id);
-    res.json({ success: true, product: productCard(p, inShows) });
+    res.json({ success: true, product: {...productCard(p,inShows),colourVariants:p.colourVariants,colourQuantities:require('../services/productColours').colourRows(p),variants:p.variants} });
   } catch (e) { fail(res, e); }
 });
 
@@ -556,6 +563,7 @@ router.get('/money', async (req, res) => {
 
 router.post('/withdraw', async (req, res) => {
   try {
+    if(process.env.LEGACY_WITHDRAWAL_REQUESTS!=='true'){const w=await require('../services/reviewedWithdrawals').request(req.user.id,Number(req.body?.amount));return res.json({success:true,withdrawal:{_id:w._id,amount:w.amount,status:w.status,reference:w.reference}});}
     const amount = Math.floor(Number(req.body?.amount));
     const seller = await model('Seller').findById(req.user.id, { bankDetails: 1, isBankVerified: 1 }).lean();
     const b = seller?.bankDetails || {};

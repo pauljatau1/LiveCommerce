@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const withdrawalSchema = new mongoose.Schema({
+  payoutFlow:{type:String,enum:['review','legacy'],default:'legacy'},
   seller: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Seller',

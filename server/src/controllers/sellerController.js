@@ -1162,6 +1162,7 @@ exports.getTopSoldProducts = async (req, res) => {
 // Create withdrawal request
 exports.createWithdrawalRequest = async (req, res) => {
   try {
+    if(process.env.LEGACY_WITHDRAWAL_REQUESTS!=='true'){try{const withdrawal=await require('../services/reviewedWithdrawals').request(req.user.id,Number(req.body?.amount));return res.json({success:true,withdrawal});}catch(error){return res.status(error.status || 500).json({message:error.status?error.message:'Couldn’t request your withdrawal. Please try again.'});}}
     const { amount, bankDetails } = req.body;
     const seller = await Seller.findById(req.user.id);
 

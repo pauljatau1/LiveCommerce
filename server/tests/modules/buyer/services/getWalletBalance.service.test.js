@@ -30,6 +30,14 @@ describe('getWalletBalance Service', () => {
     jest.clearAllMocks();
   });
 
+  it('distinguishes a delivery hold from money held for a leading bid',async()=>{
+    const buyerId=new mongoose.Types.ObjectId(),Delivery=require('@models/ShowDelivery');
+    await Delivery.create({stream:new mongoose.Types.ObjectId(),seller:new mongoose.Types.ObjectId(),buyer:buyerId,depositHeld:591});
+    buyerRepository.findByIdWithWalletOnHoldItems.mockResolvedValue({_id:buyerId,wallet:{balance:5000,onHoldAmount:1500,onHoldItems:[],currency:'NGN'}});
+    const wallet=await getWalletBalanceService.getWalletBalance(String(buyerId));
+    expect(wallet).toMatchObject({deliveryHeld:591,bidHeld:909,onHoldAmount:1500,availableBalance:3500});
+  });
+
   describe('getWalletBalance', () => {
     it('should return wallet balance with formatted on-hold items', async () => {
       // Arrange
@@ -80,6 +88,7 @@ describe('getWalletBalance Service', () => {
         wallet: {
           balance: 5000,
           onHoldAmount: 1500,
+          deliveryHeld:0,bidHeld:1500,
           currency: 'NGN',
           onHoldItems: [{
             productId: productId,
@@ -119,7 +128,8 @@ describe('getWalletBalance Service', () => {
         wallet: {
           ...buyer.wallet,
           onHoldItems: [populatedBuyer.wallet.onHoldItems[0]], // Only active item
-          onHoldAmount: 1500
+          onHoldAmount: 1500,
+          deliveryHeld:0,bidHeld:1500,
         }
       });
 
@@ -130,6 +140,7 @@ describe('getWalletBalance Service', () => {
       expect(result).toEqual({
         balance: 5000,
         onHoldAmount: 1500,
+        deliveryHeld:0,bidHeld:1500,
         availableBalance: 3500,
         onHoldItems: [{
           productId: productId,
@@ -227,6 +238,7 @@ describe('getWalletBalance Service', () => {
         wallet: {
           balance: 5000,
           onHoldAmount: 2500, // 1500 + 1000
+          deliveryHeld:0,bidHeld:2500,
           currency: 'NGN',
           onHoldItems: [
             {
@@ -286,7 +298,8 @@ describe('getWalletBalance Service', () => {
         wallet: {
           ...buyer.wallet,
           onHoldItems: [populatedBuyer.wallet.onHoldItems[0]], // Only active item
-          onHoldAmount: 1500
+          onHoldAmount: 1500,
+          deliveryHeld:0,bidHeld:1500,
         }
       });
 
@@ -297,6 +310,7 @@ describe('getWalletBalance Service', () => {
       expect(result).toEqual({
         balance: 5000,
         onHoldAmount: 1500,
+        deliveryHeld:0,bidHeld:1500,
         availableBalance: 3500,
         onHoldItems: [{
           productId: activeProductId,
@@ -332,6 +346,7 @@ describe('getWalletBalance Service', () => {
         wallet: {
           balance: 5000,
           onHoldAmount: 0,
+          deliveryHeld:0,bidHeld:0,
           currency: 'NGN',
           onHoldItems: []
         }
@@ -349,6 +364,7 @@ describe('getWalletBalance Service', () => {
       expect(result).toEqual({
         balance: 5000,
         onHoldAmount: 0,
+        deliveryHeld:0,bidHeld:0,
         availableBalance: 5000,
         onHoldItems: [],
         currency: 'NGN'
@@ -373,6 +389,7 @@ describe('getWalletBalance Service', () => {
         wallet: {
           balance: 5000,
           onHoldAmount: 1500,
+          deliveryHeld:0,bidHeld:1500,
           currency: 'NGN',
           onHoldItems: [{
             productId: productId,
@@ -406,6 +423,7 @@ describe('getWalletBalance Service', () => {
       expect(result).toEqual({
         balance: 5000,
         onHoldAmount: 0, // Filtered out non-existent product
+        deliveryHeld:0,bidHeld:0,
         availableBalance: 5000, // Full balance available
         onHoldItems: [], // No items returned
         currency: 'NGN'
@@ -459,6 +477,7 @@ describe('getWalletBalance Service', () => {
         wallet: {
           balance: 5000,
           onHoldAmount: 1500,
+          deliveryHeld:0,bidHeld:1500,
           currency: 'NGN',
           onHoldItems: [{
             productId: productId,
@@ -500,6 +519,7 @@ describe('getWalletBalance Service', () => {
       expect(result).toEqual({
         balance: 5000,
         onHoldAmount: 1500,
+        deliveryHeld:0,bidHeld:1500,
         availableBalance: 3500,
         onHoldItems: [{
           productId: productId,
@@ -591,6 +611,7 @@ describe('getWalletBalance Service', () => {
         wallet: {
           balance: 5000,
           onHoldAmount: 1500,
+          deliveryHeld:0,bidHeld:1500,
           currency: 'NGN',
           onHoldItems: [{
             productId: productId,
@@ -647,6 +668,7 @@ describe('getWalletBalance Service', () => {
           currency: 'NGN',
           // 20,000 held by a live-show bid + 1,500 by an ended offline auction
           onHoldAmount: 21500,
+          deliveryHeld:0,bidHeld:21500,
           onHoldItems: [{ productId: { _id: new mongoose.Types.ObjectId(), auction: { status: 'ended' } }, amount: 1500 }],
         },
       });
