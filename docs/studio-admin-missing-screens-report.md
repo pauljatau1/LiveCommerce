@@ -32,8 +32,8 @@ Branch: `feat/studio-admin-missing-screens`, stacked on `feat/colour-lots-ui` (`
 
 ## Validation
 
-- Full server suite: **268 suites / 3,934 tests passed** before the final snapshot-name assertion; final rerun recorded before push.
-- Focused server rerun: **3 suites / 46 tests passed** after the booking-in-progress message. Added tests cover the v1 admin aliases and seller-visible rejection reason, buyer-owned retry, and a buyer/seller booking race. The existing colour race test now also checks the delivery's colour-bearing name.
+- Full server suite: final verified rerun **268 suites / 3,934 tests passed** (all final server changes and the colour-bearing delivery snapshot assertion). An earlier full run also passed the same counts. An intermediate run exposed an unscoped fixture assertion that read an older show’s delivery; scoping it to the current show resolved that test failure.
+- Focused server reruns: **3 suites / 46 tests passed**, followed by **5 suites / 69 tests passed** after adding the delivery snapshot assertion. Added tests cover the v1 admin aliases and seller-visible rejection reason, buyer-owned retry, and a buyer/seller booking race. The existing colour race test now also checks the delivery's colour-bearing name.
 - Shop: **31 tests passed**. Studio: **52 tests passed**.
 - Shop and studio production builds: **passed**. Studio uses `NODE_OPTIONS=--max-old-space-size=6144`. Existing bundle-size/Browserslist/Jest open-handle warnings remain.
 - Admin Vite production bundle: **passed**. Focused strict TypeScript check of the new review page/config: **passed**.
