@@ -930,6 +930,13 @@ function initializeSocket(server) {
       }
     });
 
+    socket.on('host_presence',async(data,ack)=>{
+      if(socket.user?.role!=='Seller')return;
+      if(!mongoose.isValidObjectId(data?.streamId)){if(typeof ack==='function')ack({message:"We couldn't find that show."});return;}
+      socket.data ||= {};
+      try {socket.data.hostStreamId=data?.streamId;socket.data.hostSellerId=String(socket.user.id);const presence=require('../services/hostPresence');const state=await presence.mark(data?.streamId,socket.user.id,data?.away===true);if(!socket.connected&&!state.ended)await presence.disconnectedHost(socket,io);if(typeof ack==='function')ack(state);}
+      catch{if(typeof ack==='function')ack({message:"Couldn't update your connection. Try again."});}
+    });
     socket.on('disconnect', async () => {
       console.log('Socket disconnected:', {
         socketId: socket.id,
@@ -939,7 +946,8 @@ function initializeSocket(server) {
       
       // If this is a seller, schedule timeouts for any active streams
       if (socket.user && socket.user.role === 'Seller') {
-        await scheduleStreamEndTimeout(socket.user.id);
+        if(require('../services/hostPresence').enabled()){try{await require('../services/hostPresence').disconnectedHost(socket,io);}catch{console.warn('[host-presence] Could not schedule disconnect grace');}}
+        else await scheduleStreamEndTimeout(socket.user.id);
       }
 
       // Remove user from active users

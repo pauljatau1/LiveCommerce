@@ -1036,6 +1036,7 @@ exports.updateProduct = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to update this product' });
     }
 
+    if(product.images?.length && Object.prototype.hasOwnProperty.call(updates,'images') && (!Array.isArray(updates.images) || !updates.images.length))return res.status(400).json({message:'Keep at least one photo.'});
     const cdnPrefix = 'https://' + process.env.CDN_URL;
     // this array will contain product images to be deleted
     let deletedProductImageUrls = [];

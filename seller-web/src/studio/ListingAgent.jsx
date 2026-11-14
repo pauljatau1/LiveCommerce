@@ -150,7 +150,7 @@ export default function ListingAgent() {
       setPhase('draft');
     } catch (e) {
       setError(e.message);
-      setDraft((cur) => cur || { title: '', category: null, subCategory: null, condition: /new|tag/i.test(note) ? 'New with tags' : null, description: note.trim(), tags: [], questions: [] });
+      setDraft((cur) => cur || { title: '', category: null, subCategory: null, condition: /new|tag/i.test(note) ? 'New with tags' : null, description: note.trim(), tags: [], questions: [],weightKg:/shoe|sneaker/i.test(note)?1:0.5 });
       setPhase('fallback');
     }
   };
@@ -202,6 +202,7 @@ export default function ListingAgent() {
   if (!draft?.description?.trim()) missing.push('a description');
   if (!stock || (perColour && colourVariants.some((c) => colourCounts[c] === undefined || colourCounts[c] === ''))) missing.push(perColour ? 'how many of each colour' : 'how many you have');
   if (!digits(price)) missing.push('a price');
+  if(!(Number(draft?.weightKg)>0 && Number(draft?.weightKg)<=30))missing.push('the weight in kg');
   if (allowAuction && !digits(startingBid)) missing.push('a starting bid');
   if (allowAuction && digits(instant) && digits(instant) <= digits(startingBid)) missing.push('a “sell instantly” price above the starting bid');
 
@@ -291,8 +292,8 @@ export default function ListingAgent() {
       {photos.map((p, i) => (
         <span key={p.id} className="thumb-x">
           <img src={p.dataUrl} alt={`Photo ${i + 1}`} />
-          {phase === 'start' && (
-            <button type="button" aria-label={`Remove photo ${i + 1}`} onClick={() => setPhotos((ps) => ps.filter((x) => x.id !== p.id))}>{Icon.x}</button>
+          {phase !== 'thinking' && phase !== 'published' && (
+            <button type="button" aria-label={`Remove photo ${i + 1}`} disabled={photos.length<=1} onClick={() => {if(photos.length>1&&window.confirm('Remove this photo?'))setPhotos(ps=>ps.filter(x=>x.id!==p.id));}}>{Icon.x}</button>
           )}
         </span>
       ))}
@@ -485,6 +486,7 @@ export default function ListingAgent() {
           <span>{draft?.[field] || <span className="mut">Tap to add</span>}</span>
         </Field>
       ))}
+      <Field label="WEIGHT" editing={editing==='weightKg'} onEdit={()=>setEditing('weightKg')} editor={<div className="fl"><label className="lab" htmlFor="la-weight">Weight in kg</label><input id="la-weight" className="in" inputMode="decimal" type="number" min="0.1" max="30" step="0.1" value={draft?.weightKg || ''} onChange={e=>update({weightKg:e.target.value})}/><span className="hint">AI estimate. Change it if needed: a dress is about 0.5 kg; sneakers about 1 kg.</span><button type="button" className="btn2" onClick={()=>setEditing(null)}>Done</button></div>}><span>{draft?.weightKg || 'Add weight'} kg · estimated, tap to change</span></Field>
       <Field label="CONDITION" editing={editing === 'condition'} onEdit={() => setEditing('condition')} highlight={changed === 'condition'} editor={conditionEditor}>
         <span>{draft?.condition ? <span className="pill p-active">{draft.condition}</span> : <span className="mut">Choose the condition</span>}</span>
       </Field>

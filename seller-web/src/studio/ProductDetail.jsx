@@ -1,3 +1,5 @@
+import ImageGallery from './ImageGallery';
+const LEGACY_STATIC_PHOTOS=false;
 import {COLOURS} from './features';
 import SafeDescription from './SafeDescription';
 import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
@@ -51,14 +53,14 @@ export default function ProductDetail() {
       {!p && !error && <div className="st-inner"><Skeleton h={300} /><Skeleton h={120} /></div>}
       {p && (
         <div style={{ width: '100%', maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 32 }}>
-          <div style={{ position: 'relative' }}>
+          {LEGACY_STATIC_PHOTOS ? (<div style={{ position: 'relative' }}>
             {p.images[photo] ? <img src={p.images[photo]} alt={p.name} style={{ display: 'block', width: '100%', height: 320, objectFit: 'cover' }} /> : <span className="sk" style={{ display: 'block', height: 320, borderRadius: 0 }} />}
             {p.images.length > 1 && (
               <button type="button" className="pill" style={{ position: 'absolute', left: 12, bottom: 12, background: '#fff', color: 'var(--text)', border: 0, cursor: 'pointer' }} onClick={() => setPhoto((n) => (n + 1) % p.images.length)} aria-label="Next photo">
                 {photo + 1} / {p.images.length} ›
               </button>
             )}
-          </div>
+          </div>) : <ImageGallery images={p.images} alt={p.name} />}
 
           <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

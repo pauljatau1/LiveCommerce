@@ -490,3 +490,23 @@ a{color:var(--primary)}
 .courier-repair-form{display:grid;gap:14px}.courier-repair-form>p{margin:0}.order-fix-line{display:flex;align-items:center;gap:12px}.order-fix-line>span{flex:1;color:var(--danger);font-size:var(--t-small)}
 /* W1 keeps the PNG's single line when it fits and wraps on narrow/large-text phones. */
 .wallet-sheet .wallet-saved-card{flex-direction:row;flex-wrap:wrap;gap:4px 8px}
+/* Live tidy-up uses the existing scale and pill shape; positions are unchanged. */
+.watch .price,.watch .clock{font-size:var(--t-h1);font-weight:var(--w-medium)}
+.watch .now-nm{font-size:var(--t-small);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.watch .now-meta{font-size:var(--t-micro)}
+.watch .now-tx{flex:1;min-width:0}
+.watch .live-delivery{display:block;min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip.chip-amt{height:38px;min-height:38px;border-radius:999px;border-width:1px;flex-direction:row;align-items:center;justify-content:center;gap:8px;padding:0 12px;white-space:nowrap}
+.chip.chip-amt .f{font:var(--w-medium) var(--t-small) var(--font-body)}
+.chip.chip-amt small{font:var(--w-regular) var(--t-micro) var(--font-body)}
+.chip.chip-amt.on{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+.watch .transfer-waiting{height:22px;padding:0 8px;border-radius:999px;gap:6px;font:var(--w-medium) var(--t-micro) var(--font-body);max-width:calc(100% - 84px);white-space:nowrap;overflow:hidden}
+.watch .transfer-waiting>span:nth-child(2){min-width:0;overflow:hidden;text-overflow:ellipsis}
+.watch .transfer-waiting small{display:inline}
+.photo-gallery{position:relative;width:100%;overflow:hidden;touch-action:pan-y}
+.photo-open{display:block;border:0;padding:0;width:100%;height:100%;background:var(--surface-sunken);cursor:zoom-in}
+.photo-open img{display:block;width:100%;height:100%;object-fit:cover}
+.photo-thumb{border-radius:14px}.photo-counter{position:absolute;left:12px;bottom:12px;background:var(--surface);color:var(--text)}
+.photo-full{position:fixed;inset:0;z-index:2000;background:var(--surface-page);color:var(--text);display:flex;align-items:center;justify-content:center;touch-action:none}
+.photo-full>img{width:100%;height:100%;object-fit:contain}.photo-close{position:absolute;right:16px;top:max(16px,env(safe-area-inset-top));z-index:1}
+.photo-controls{position:absolute;left:16px;right:16px;bottom:max(16px,env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:center;gap:16px}

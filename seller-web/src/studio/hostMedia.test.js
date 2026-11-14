@@ -1,0 +1,19 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {createTrackScope} from './localMedia.js';import {muteTrack,publishTracks,repairTracks,encoderFor,mediaMessage} from './hostMedia.js';
+const track=()=>{const raw={readyState:'live',stop(){this.readyState='ended'},getCapabilities:()=>({width:{max:960},height:{max:540},frameRate:{max:24}})};return {enabled:true,muted:false,getMediaStreamTrack:()=>raw,async setMuted(v){this.muted=v},stop(){},close(){raw.stop()}};};
+test('a muted mic remains publishable on restart; disabled and dead tracks never publish',async()=>{const audio=track(),video=track(),calls=[];await muteTrack(audio,true);await publishTracks({publish:async t=>{assert(t.every(x=>x.enabled!==false));calls.push(t)}},[audio,video]);assert.equal(audio.muted,true);assert.equal(calls[0].length,2);audio.enabled=false;video.getMediaStreamTrack().readyState='ended';await publishTracks({publish:async()=>assert.fail()},[audio,video]);});
+test('resume repairs only an OS-ended track, preserves a muted mic and connected session',async()=>{const audio=track(),video=track(),scope=createTrackScope(),tracks={audio,video};scope.own(audio);scope.own(video);video.getMediaStreamTrack().readyState='ended';const calls=[];await repairTracks({client:{connectionState:'CONNECTED',unpublish:async t=>calls.push(['unpublish',t]),publish:async t=>calls.push(['publish',t])},tracks,scope,micOn:false,hidden:false,createAudio:async()=>assert.fail('healthy audio recreated'),createVideo:async()=>track(),rejoin:async()=>assert.fail('connected session rejoined')});assert.equal(tracks.audio,audio);assert.notEqual(tracks.video,video);assert.equal(audio.muted,true);assert.deepEqual(calls[1][1],[tracks.video]);scope.close();});
+test('disconnected session rejoins once and republishes healthy tracks; reconnecting waits for SDK',async()=>{const tracks={audio:track(),video:track()},scope=createTrackScope();let joins=0,publishes=0;const options={client:{connectionState:'DISCONNECTED',publish:async t=>{assert.equal(t.length,2);publishes++;}},tracks,scope,micOn:true,hidden:false,createAudio:async()=>assert.fail(),createVideo:async()=>assert.fail(),rejoin:async()=>{joins++}};await repairTracks(options);assert.equal(joins,1);assert.equal(publishes,1);options.client.connectionState='RECONNECTING';assert.equal(await repairTracks(options),false);assert.equal(joins,1);});
+test('720p is clamped to capabilities and poor connections reduce quality; errors stay plain',()=>{assert.deepEqual(encoderFor(track()),{width:960,height:540,frameRate:24,bitrateMax:1500});assert.equal(encoderFor(track(),true).width,640);assert(!mediaMessage({message:'AgoraRTCError TRACK_IS_DISABLED'}).includes('Agora'));});
+
+test('replacement tracks retain the reduced profile while the uplink is poor',async()=>{
+ const audio=track(),old=track(),scope=createTrackScope();old.getMediaStreamTrack().readyState='ended';let config;
+ const video=track();video.setEncoderConfiguration=async c=>{config=c};
+ await repairTracks({client:{connectionState:'CONNECTED',unpublish:async()=>{},publish:async()=>{}},tracks:{audio,video:old},scope,createAudio:async()=>assert.fail(),createVideo:async()=>video,micOn:true,hidden:false,rejoin:async()=>assert.fail(),poor:true});assert.equal(config.width,640);assert.equal(config.bitrateMax,650);scope.close();
+});
+
+test('ending the show during an awaited rejoin never reacquires devices or leaves a joined client behind',async()=>{
+ const scope=createTrackScope();let finish,leaves=0;const joined=new Promise(r=>{finish=r});
+ const repair=repairTracks({client:{connectionState:'DISCONNECTED',leave:async()=>{leaves++}},tracks:{audio:null,video:null},scope,createAudio:async()=>assert.fail('capture after end'),createVideo:async()=>assert.fail('capture after end'),rejoin:()=>joined,micOn:true,hidden:false});
+ scope.close();finish();assert.equal(await repair,false);assert.equal(leaves,1);
+});

@@ -38,6 +38,11 @@ const streamLikeSchema = new mongoose.Schema({
 });
 
 const streamSchema = new mongoose.Schema({
+  hostAwayAt:{type:Date,default:null},
+  hostGraceUntil:{type:Date,default:null},
+  hostPresenceVersion:{type:String,default:null},
+  hostGraceEnding:{type:Boolean,default:false},
+  hostGraceClaimUntil:{type:Date,default:null},
   seller: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Seller',

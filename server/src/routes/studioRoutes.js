@@ -438,6 +438,10 @@ router.get('/shows/:id/next-plan', validId, async (req, res) => {
   } catch (error) { fail(res, error); }
 });
 
+router.post('/shows/:id/presence',validId,async(req,res)=>{
+  try{res.json({success:true,...await require('../services/hostPresence').mark(req.params.id,req.user.id,req.body?.away===true)});}catch(e){res.status(e.status || 503).json({message:e.status===404?e.message:"Couldn't update the show connection. Try again."});}
+});
+
 // ---------- Show notes (services/showNotes.js) ----------
 const showNotes = require('../services/showNotes');
 const roomOf = (id) => `stream_notifications_${id}`;

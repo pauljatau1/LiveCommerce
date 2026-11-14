@@ -136,7 +136,7 @@ function Photos({ images, onChange, error }) {
             onDragEnd={() => setDrag(null)}
           >
             <img src={srcOf(img)} alt={`Photo ${i + 1}${i === 0 ? ', cover' : ''}`} />
-            <button type="button" className="x" aria-label={`Remove photo ${i + 1}`} onClick={() => onChange(images.filter((_, n) => n !== i))}>{SmallX}</button>
+            <button type="button" className="x" aria-label={`Remove photo ${i + 1}`} disabled={images.length<=1} onClick={() => {if(images.length>1&&window.confirm('Remove this photo?'))onChange(images.filter((_,n)=>n!==i));}}>{SmallX}</button>
             {i === 0 ? <span className="pill">Cover</span> : <button type="button" className="sr" onClick={() => move(i, 0)}>Make photo {i + 1} the cover</button>}
           </div>
         ))}

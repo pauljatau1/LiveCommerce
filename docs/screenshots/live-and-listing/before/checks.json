@@ -1,0 +1,53 @@
+{
+  "checks": [
+    "planner-top-375",
+    "planner-last-375",
+    "planner-top-390",
+    "planner-last-390",
+    "studio-product-images"
+  ],
+  "calls": [
+    {
+      "kind": "planner",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "planner",
+      "path": "/api/v2/studio/products",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "planner",
+      "path": "/api/v2/studio/show-notes/default",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "planner",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "planner",
+      "path": "/api/v2/studio/products",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "planner",
+      "path": "/api/v2/studio/show-notes/default",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "colours",
+      "path": "/api/v2/studio/products/p",
+      "method": "GET",
+      "body": null
+    }
+  ]
+}

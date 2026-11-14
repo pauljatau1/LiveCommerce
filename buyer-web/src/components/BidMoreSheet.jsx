@@ -30,8 +30,8 @@ export default function BidMoreSheet({ current, top, onClose, onPlace }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }} role="group" aria-label="How much more">
         {chips.map((c) => (
           <button key={c} type="button" className={`chip chip-amt${pick === c ? ' on' : ''}`} aria-pressed={pick === c} onClick={() => { setPick(c); setConfirming(false); }}>
-            <span>+{naira(c)}</span>
             <span className="f">{naira(base + c)}</span>
+            <small>+{naira(c)}</small>
           </button>
         ))}
       </div>

@@ -2862,6 +2862,7 @@ agenda.define('stream_reminder_push', async (job) => {
 
 // Define the job for stream auto end
 agenda.define('stream_auto_end', async (job) => {
+  if(require('../services/hostPresence').enabled())return;
   let streamId;
   try {
     const { streamId: jobStreamId, sellerId, jobId, reason } = job.attrs.data;
@@ -3096,4 +3097,9 @@ module.exports = {
   startAgenda,
   isAgendaInitialized,
   scheduleReferralReminders
-}; 
+};
+// Persisted host-away grace: unaffected by sleeping browser timers.
+agenda.define('host-away-grace', async job => {
+  try { await require('../services/hostPresence').expire(job.attrs.data); }
+  catch(error) { job.schedule(new Date(Date.now()+10000)); await job.save(); throw error; }
+});
