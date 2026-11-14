@@ -1,3 +1,4 @@
+import {deviceChoice,rememberDevice} from './hostMedia';
 import { usePickupArea, PickupAreaBanner } from './ServiceArea';
 // Go Live (design: S-GoLive-Check). Pick a show, check camera and mic, go live.
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -44,8 +45,8 @@ function Check({ showId }) {
   const [camError, setCamError] = useState('');
   const [cameras, setCameras] = useState([]);
   const [mics, setMics] = useState([]);
-  const [cameraId, setCameraId] = useState('');
-  const [micId, setMicId] = useState('');
+  const [cameraId, setCameraId] = useState(()=>deviceChoice('camera'));
+  const [micId, setMicId] = useState(()=>deviceChoice('mic'));
   const [level, setLevel] = useState(0);
   const [sharing, setSharing] = useState(false);
 
@@ -66,12 +67,19 @@ function Check({ showId }) {
 
   const open = useCallback(async (camId, mId) => {
     stop();
+    if(camId)rememberDevice('camera',camId);if(mId)rememberDevice('mic',mId);
     const request = requestRef.current;
     setCamError('');
     try {
       const s = await navigator.mediaDevices.getUserMedia({
         video: camId ? { deviceId: { exact: camId } } : { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: mId ? { deviceId: { exact: mId } } : true,
+      }).catch(error=>{
+        if((camId || mId) && ['NotFoundError','OverconstrainedError'].includes(error.name)){
+          rememberDevice('camera','');rememberDevice('mic','');
+          return navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},audio:true});
+        }
+        throw error;
       });
       if (request !== requestRef.current) { releaseStream(s); return; }
       streamRef.current = s;
@@ -90,7 +98,7 @@ function Check({ showId }) {
     }
   }, [stop]);
 
-  useEffect(() => { open(); return stop; }, [open, stop]);
+  useEffect(() => { open(deviceChoice('camera'),deviceChoice('mic')); return stop; }, [open, stop]);
 
   // Simple mic level meter
   useEffect(() => {

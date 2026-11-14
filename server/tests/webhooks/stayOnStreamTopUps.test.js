@@ -90,6 +90,8 @@ it('verifies dedicated_nuban and credits once even when purpose also matches', a
   expect(responses.map((r) => r.status)).toEqual([200, 200]); expect(await balance()).toBe(5000);
   expect(await Transaction.countDocuments({ type: 'wallet_topup', source: 'bank_transfer' })).toBe(1);
   expect(mockEmit.mock.calls.filter(([name]) => name === 'wallet_credited')).toHaveLength(1);
+  const polled=await call('get',`/dva?since=${encodeURIComponent(new Date(Date.now()-60000).toISOString())}`);
+  expect(polled.body.latestCredit).toMatchObject({amount:5000,source:'transfer'});
 });
 it('refuses a transfer whose verified customer, currency or amount does not match', async () => {
   await Buyer.updateOne({ _id: buyer._id }, { $set: { paystackCustomerCode: 'CUS_ada', dvaConsentAt: new Date() } });

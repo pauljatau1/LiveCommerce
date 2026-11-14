@@ -15,7 +15,7 @@ export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWa
   const [error, setError] = useState(''), [busy, setBusy] = useState(''), [notice, setNotice] = useState('');
   const [charge, setCharge] = useState(null);
   const attempt = useRef(null), mounted = useRef(true);
-  const waitingSince = useRef(initialBank?.since || null);
+  const waitingSince = useRef(initialBank?.since || (initialBank ? new Date().toISOString() : null));
   const callbacks = useRef({ onDone, onWaiting, onPending }); callbacks.current = { onDone, onWaiting, onPending };
   useEffect(() => { onBusyChange?.(Boolean(busy)); }, [busy, onBusyChange]);
   const card = cards.find((c) => c.usable), topUp = oneTapAmount(need > 0 ? need : amount);
@@ -32,7 +32,7 @@ export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWa
         const account = await api.dva(waitingSince.current);
         if (!mounted.current) return;
         setDva(account);
-        callbacks.current.onWaiting?.({ ...account, since: waitingSince.current });
+        callbacks.current.onWaiting?.({ ...account, since: waitingSince.current, expectedAmount: amount });
         if (account.latestCredit) callbacks.current.onDone?.(account.latestCredit.reference, account.latestCredit.amount, 'transfer');
       } catch { /* keep waiting; never suggest transferring again */ }
     };
@@ -57,11 +57,11 @@ export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWa
   const selectBank = () => {
     setBank(true); setError(''); onMethod('bank');
     waitingSince.current = waitingSince.current || new Date().toISOString();
-    if (['active', 'pending'].includes(dva.status)) callbacks.current.onWaiting?.({ ...dva, since: waitingSince.current });
+    if (['active', 'pending'].includes(dva.status)) callbacks.current.onWaiting?.({ ...dva, since: waitingSince.current, expectedAmount: amount });
   };
   const assign = async () => {
     setBusy('Setting up your account number…'); setError('');
-    try { if(needsPhone){const problem=phoneProblem(phone);if(problem)throw {response:{data:{message:problem}}};await api.savePhone(phone);await refresh();} const account = await api.assignDva(); setDva(account); callbacks.current.onWaiting?.({ ...account, since: waitingSince.current }); }
+    try { if(needsPhone){const problem=phoneProblem(phone);if(problem)throw {response:{data:{message:problem}}};await api.savePhone(phone);await refresh();} const account = await api.assignDva(); setDva(account); callbacks.current.onWaiting?.({ ...account, since: waitingSince.current, expectedAmount: amount }); }
     catch (e) { setError(errorMessage(e, 'We can’t set up an account number right now. Use a card instead.')); }
     finally { if (mounted.current) setBusy(''); }
   };

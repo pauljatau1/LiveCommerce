@@ -1,3 +1,4 @@
+import {muteTrack,publishTracks,repairTracks,encoderFor,mediaMessage,deviceChoice,rememberDevice,LEGACY_FULL_SESSION_RECOVERY} from './hostMedia';
 import {COLOURS} from './features';
 import {clearOpenAnnouncements} from './liveFeed';
 // Live Studio (design: S-Live-Auction / S-Live-Drop / S-Live-Desktop).
@@ -74,6 +75,11 @@ export default function Live() {
   const [suggestions, setSuggestions] = useState([]); // assistant: "4 people asked about … Add it?"
   const [queueOpen, setQueueOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [devicesOpen,setDevicesOpen]=useState(false),[devices,setDevices]=useState({cameras:[],microphones:[]});
+  const deviceRef=useRef({camera:deviceChoice('camera',nav?.cameraId),mic:deviceChoice('mic',nav?.micId)});
+  const repairRef=useRef(null);
+  const poorQualityRef=useRef(false);
+  const awayRef=useRef(false);
 
   const shownKeys = useRef(new Set()); // lines shown once ("Bidding is open" per item)
   const push = useCallback((entry) => {
@@ -108,7 +114,15 @@ export default function Live() {
     });
     recoveryRef.current = recovery;
     const resume = () => {
-      if (document.visibilityState === 'hidden' || endedRef.current) return;
+      if (endedRef.current) return;
+      if (document.visibilityState === 'hidden') {
+        awayRef.current=true;
+        muteTrack(tracksRef.current.video,true).catch(()=>{});
+        socketRef.current?.emit('host_presence',{streamId:id,away:true});
+        studio.hostPresence(id,true).catch(()=>{});
+        return;
+      }
+      awayRef.current=false;
       setOnline(navigator.onLine);
       const socket = socketRef.current;
       if (socket?.connected) socket.emit('stream_notification_subscribe', { streamId: id });
@@ -133,13 +147,28 @@ export default function Live() {
   // Preserve the host's device choices and muted microphone on an RTC restart.
   const micRef = useRef(micOn); micRef.current = micOn;
   const facingRef = useRef(facing); facingRef.current = facing;
-  restoreRef.current = () => {
-    if (endedRef.current) return;
-    const client = clientRef.current, tracks = tracksRef.current;
-    const dead = [tracks.audio, tracks.video].some((t) => t?.getMediaStreamTrack?.()?.readyState === 'ended');
-    if (client?.connectionState === 'DISCONNECTED' || dead) setRtcSession((n) => n + 1);
-    else if (tracks.video && videoRef.current) { try { tracks.video.play(videoRef.current, { fit: 'cover', mirror: facingRef.current === 'user' }); } catch { /* SDK can recover on its next connection event */ } }
+  restoreRef.current = async () => {
+    if (endedRef.current || document.visibilityState === 'hidden') return;
+    if (repairRef.current) return repairRef.current;
+    repairRef.current=(async()=>{
+      const client=clientRef.current,scope=mediaScopeRef.current,tracks=tracksRef.current;
+      if (!client || !scope || scope.closed) return;
+      if (LEGACY_FULL_SESSION_RECOVERY && (client.connectionState==='DISCONNECTED' || [tracks.audio,tracks.video].some(t=>t?.getMediaStreamTrack?.()?.readyState==='ended'))) {setRtcSession(n=>n+1);return;}
+      try {
+        const state=await studio.hostPresence(id,false);
+        if(endedRef.current || scope.closed)return;
+        if(state.ending){setError('Finishing your show. Your last sale is being saved.');setPhase('reconnecting');return;}
+        if(state.ended){endedRef.current=true;scope.close();await client.leave().catch(()=>{});navigate(`/studio/recap/${id}`,{replace:true});return;}
+        const restored=await repairTracks({client,tracks,scope,createAudio:()=>AgoraRTC.createMicrophoneAudioTrack({...(deviceRef.current.mic?{microphoneId:deviceRef.current.mic}:{}),AEC:true,ANS:true,AGC:true}),createVideo:()=>AgoraRTC.createCameraVideoTrack({...(deviceRef.current.camera?{cameraId:deviceRef.current.camera}:{facingMode:facingRef.current}),encoderConfig:'720p_1',optimizationMode:'motion'}),micOn:micRef.current,hidden:false,poor:poorQualityRef.current,rejoin:async()=>{const c=await studio.hostToken(id);await client.join(c.agoraAppId || import.meta.env.VITE_AGORA_API_KEY,c.channelName,c.token,c.uid);}});
+        if(restored&&!endedRef.current){tracks.video?.play(videoRef.current,{fit:'cover',mirror:facingRef.current==='user'});socketRef.current?.emit('host_presence',{streamId:id,away:false});setError('');setPhase('live');}
+      }catch(e){if(!endedRef.current){setError(mediaMessage(e));setPhase('reconnecting');}}
+    })().finally(()=>{repairRef.current=null;});
+    return repairRef.current;
   };
+
+  // iOS can release the camera a moment after foregrounding. Retry track repair
+  // without rebuilding the client or asking the host to refresh the page.
+  useEffect(()=>{if(phase!=='reconnecting')return;const retry=setInterval(()=>{if(document.visibilityState!=='hidden'&&!endedRef.current)restoreRef.current();},2000);return()=>clearInterval(retry);},[phase]);
 
   // 1. Start (or rejoin) the show, join Agora as host, publish camera + mic
   useEffect(() => {
@@ -156,13 +185,18 @@ export default function Live() {
         if (cancelled || scope.closed || !r) return;
         if (r.show.status === 'ended') { scope.close(); endedRef.current = true; navigate(`/studio/recap/${id}`, { replace: true }); return; }
         if (r.show.status !== 'live') await studio.startShow(id);
+        const presence=await studio.hostPresence(id,document.visibilityState==='hidden').catch(()=>({retry:true}));
+        if(cancelled||scope.closed)return;
+        if(presence.ended){endedRef.current=true;scope.close();navigate(`/studio/recap/${id}`,{replace:true});return;}
+        if(presence.ending||presence.retry){setError(presence.ending?'Finishing your show. Your last sale is being saved.':"Couldn't check your show connection. Trying again…");setPhase('reconnecting');return;}
         const creds = await studio.hostToken(id);
         if (cancelled || scope.closed) return;
         await client.setClientRole('host');
         client.on('connection-state-change', (cur) => {
           if (cur === 'RECONNECTING' || cur === 'DISCONNECTED') setPhase((p) => (p === 'ending' ? p : 'reconnecting'));
-          if (cur === 'CONNECTED') { setPhase((p) => (p === 'reconnecting' ? 'live' : p)); refresh().catch(() => {}); }
+          if (cur === 'CONNECTED') { setPhase((p) => (p === 'reconnecting' ? 'live' : p)); refresh().catch(() => {}); if(tracksRef.current.video)restoreRef.current(); }
         });
+        client.on('network-quality',q=>{const poor=q.uplinkNetworkQuality>=4?true:q.uplinkNetworkQuality<=2?false:poorQualityRef.current;if(poor===poorQualityRef.current)return;poorQualityRef.current=poor;const video=tracksRef.current.video;if(video)video.setEncoderConfiguration(encoderFor(video,poor)).catch(()=>{});});
         const renew = async () => {
           try { const t = await studio.hostToken(id); if (!cancelled && !scope.closed) await client.renewToken(t.token); }
           catch { refresh().catch(() => {}); }
@@ -176,14 +210,16 @@ export default function Live() {
         ]);
         if (cancelled || scope.closed) return;
         const [audio, video] = await acquireTracks(scope, [
-          () => AgoraRTC.createMicrophoneAudioTrack({ ...(nav?.micId ? { microphoneId: nav.micId } : {}), AEC: true, ANS: true, AGC: true }),
-          () => AgoraRTC.createCameraVideoTrack({ ...(nav?.cameraId ? { cameraId: nav.cameraId } : { facingMode: facingRef.current }), encoderConfig: '480p_1', optimizationMode: 'motion' }),
+          () => AgoraRTC.createMicrophoneAudioTrack({ ...(deviceRef.current.mic ? { microphoneId: deviceRef.current.mic } : {}), AEC: true, ANS: true, AGC: true }),
+          () => AgoraRTC.createCameraVideoTrack({ ...(deviceRef.current.camera ? { cameraId: deviceRef.current.camera } : { facingMode: facingRef.current }), encoderConfig: '720p_1', optimizationMode: 'motion' }),
         ]);
         if (cancelled || scope.closed) { scope.close(); return; }
         tracksRef.current = { audio, video };
-        if (!micRef.current) await audio.setEnabled(false);
+        await video.setEncoderConfiguration(encoderFor(video,poorQualityRef.current));
+        await muteTrack(audio,!micRef.current);
+        await muteTrack(video,document.visibilityState==='hidden');
         if (videoRef.current) video.play(videoRef.current, { fit: 'cover', mirror: facingRef.current === 'user' });
-        await client.publish([audio, video]);
+        await publishTracks(client,[audio,video]);
         if (cancelled || scope.closed) return;
         setStartedAt((s) => s || Date.now());
         setPhase('live');
@@ -191,7 +227,7 @@ export default function Live() {
         scope.close();
         if (cancelled || endedRef.current) return;
         const blocked = e?.code === 'PERMISSION_DENIED' || /permission|NotAllowed/i.test(e?.message || '');
-        setError(blocked ? 'Camera or microphone is blocked. Allow them for this site, then reload.' : errorText(e, e?.message || "Couldn't start the show."));
+        setError(blocked ? 'Camera or microphone is blocked. Allow them for this site, then reload.' : mediaMessage(e));
         setPhase('error');
       }
     };
@@ -210,7 +246,7 @@ export default function Live() {
     const origin = new URL(BASE_URL).origin;
     const socket = io(origin, { auth: { token: tokenUtils.getBearerToken() }, transports: ['websocket', 'polling'], reconnectionDelayMax: 5000 });
     socketRef.current = socket;
-    socket.on('connect', () => { setSocketUp(true); socket.emit('stream_notification_subscribe', { streamId: id }); refresh().catch(() => {}); });
+    socket.on('connect', () => { setSocketUp(true); socket.emit('stream_notification_subscribe', { streamId: id }); socket.emit('host_presence',{streamId:id,away:document.visibilityState==='hidden'}); refresh().catch(() => {}); });
     socket.on('disconnect', () => setSocketUp(false));
     socket.on('connect_error', () => setSocketUp(false));
     // Chat safety: messages with phone numbers, account numbers or links are hidden from buyers
@@ -338,7 +374,7 @@ export default function Live() {
   const endDrop = () => act('hide', () => studio.hideProduct(id, current.productId), 'Item taken off sale');
   const pick = (item) => { setCurrentId(item.productId); setQueueOpen(false); if (!isAuction || item.bidStatus !== 'ended') putUp(item); };
 
-  const flip = async () => {
+  const legacyFlip = async () => {
     const old = tracksRef.current.video;
     if (!old) return;
     const next = facing === 'user' ? 'environment' : 'user';
@@ -357,7 +393,12 @@ export default function Live() {
       setFacing(next);
     } catch { if (track) scope.release(track); say("Couldn't switch camera"); }
   };
-  const toggleMic = async () => { const a = tracksRef.current.audio; if (a) { await a.setEnabled(!micOn); setMicOn(!micOn); } };
+  const LEGACY_RECREATE_CAMERA=false;
+  const flip=async()=>{if(LEGACY_RECREATE_CAMERA)return legacyFlip();try{const cameras=await AgoraRTC.getCameras();const current=tracksRef.current.video?.getMediaStreamTrack?.()?.getSettings?.()?.deviceId || deviceRef.current.camera;const index=cameras.findIndex(c=>c.deviceId===current);const next=cameras[(index+1)%cameras.length];if(next){await chooseDevice('camera',next.deviceId);const mode=facing==='user'?'environment':'user';setFacing(mode);tracksRef.current.video?.play(videoRef.current,{fit:'cover',mirror:mode==='user'});}else say('No other camera was found.');}catch{say('Couldn’t switch camera. Try again.');}};
+
+  const toggleMic = async () => { try {const a=tracksRef.current.audio;if(a){await muteTrack(a,micOn);setMicOn(!micOn);}}catch{say('Couldn’t change the microphone. Try again.');} };
+  const chooseDevice=async(kind,deviceId)=>{try{const track=tracksRef.current[kind==='camera'?'video':'audio'];if(track){await track.setDevice(deviceId);if(kind==='mic')await muteTrack(track,!micRef.current);deviceRef.current[kind]=deviceId;rememberDevice(kind,deviceId);if(kind==='camera'){await track.setEncoderConfiguration(encoderFor(track,poorQualityRef.current));const mode=track.getMediaStreamTrack?.()?.getSettings?.()?.facingMode;if(mode){setFacing(mode);track.play(videoRef.current,{fit:'cover',mirror:mode==='user'});}}}}catch{say('Couldn’t switch that device. Try another.');}};
+  const openDevices=async()=>{try{const [cameras,microphones]=await Promise.all([AgoraRTC.getCameras(),AgoraRTC.getMicrophones()]);setDevices({cameras,microphones});setDevicesOpen(true);}catch{say('Couldn’t find your cameras and microphones. Check browser permissions.');}};
 
   const send = (e) => {
     e.preventDefault();
@@ -512,6 +553,7 @@ export default function Live() {
           {phase === 'error' && (
             <div className="lv-overlay"><span>{error}</span><button type="button" className="btn2" onClick={() => window.location.reload()}>Try again</button><button type="button" className="link" style={{ color: '#fff' }} onClick={() => navigate('/studio')}>Back to studio</button></div>
           )}
+          {phase==='reconnecting'&&error&&<div className="lv-overlay"><span>{error}</span><button type="button" className="btn2" onClick={()=>restoreRef.current()}>Try again</button></div>}
           {phase === 'connecting' && <div className="lv-overlay"><span>Starting your show…</span></div>}
           <div className="lv-bottom">
             {/* Chat on the left, controls on the right, like the buyer's Watch */}
@@ -541,6 +583,7 @@ export default function Live() {
                 {show?.link && <button type="button" className="lv-rb" onClick={() => setSharing(true)} aria-label="Share your show">{Icon.share}</button>}
                 <button type="button" className={`lv-rb${micOn ? '' : ' off'}`} aria-label={micOn ? 'Mute microphone' : 'Unmute microphone'} aria-pressed={!micOn} onClick={toggleMic}>{micOn ? Icon.mic : Icon.micOff}</button>
                 <button type="button" className="lv-rb" aria-label="Flip camera" onClick={flip}>{Icon.flip}</button>
+                <button type="button" className="lv-rb" aria-label="Camera and microphone" onClick={openDevices}>{Icon.more}</button>
               </nav>
             </div>
             {ItemCard}
@@ -569,6 +612,7 @@ export default function Live() {
           <div style={{ display: 'flex', gap: 8 }}><button type="button" className="btn3" style={{ flex: 1 }} onClick={() => setConfirmEnd(false)}>Keep going</button><button type="button" className="btn btn-d" style={{ flex: 1.3 }} onClick={end}>End show</button></div>
         </Sheet>
       )}
+      {devicesOpen&&<Sheet label="Camera and microphone" onClose={()=>setDevicesOpen(false)}><h2 className="h2">Camera and microphone</h2>{[['camera','Camera',devices.cameras],['mic','Microphone',devices.microphones]].map(([kind,label,list])=><div className="fl" key={kind}><label className="lab" htmlFor={`live-${kind}`}>{label}</label><select id={`live-${kind}`} className="sel" defaultValue={deviceRef.current[kind]} onChange={e=>chooseDevice(kind,e.target.value)}>{list.map((d,i)=><option key={d.deviceId} value={d.deviceId}>{d.label || `${label} ${i+1}`}</option>)}</select></div>)}</Sheet>}
       {sharing && show && <ShareSheet show={{ ...show, status: 'live' }} onClose={() => setSharing(false)} />}
       {queueOpen && (
         <Sheet label="All items" onClose={() => setQueueOpen(false)}>

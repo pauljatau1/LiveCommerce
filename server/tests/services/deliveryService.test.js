@@ -17,7 +17,7 @@ jest.mock('@/services/shipbubble', () => ({
   ShipbubbleError: class extends Error {},
 }));
 
-const mockAgenda = { jobs: jest.fn(async () => []), schedule: jest.fn(async () => ({})) };
+const mockAgenda = { define:jest.fn(), jobs: jest.fn(async () => []), schedule: jest.fn(async () => ({})) };
 jest.mock('@/config/agenda', () => ({ agenda: mockAgenda }));
 
 const shipbubble = require('@/services/shipbubble');
@@ -436,6 +436,16 @@ describe('deliveryService (one delivery per buyer per show)', () => {
     let r=await request(app).get(`/watch/${stream._id}/me?productId=${plush._id}`).expect(200);expect(r.body.depositDue).toBeNull();expect(r.body.deliveryProblem).toBe("Couldn't get a delivery price right now. Please try again.");
     // Missing ID must be safe even while the show contains products.
     r=await request(app).get(`/watch/${stream._id}/me`).expect(200);expect(r.body.deliveryProblem).toBe('Choose an item to see its delivery price.');
+  });
+
+  it('a listing helper weight saved through product creation reaches the Shipbubble quote',async()=>{
+    await require('@models/Category').create({name:'Women',subCategories:[]});
+    const req={user:{id:String(seller._id)},body:{name:'Adire Weight Test',description:'A dress',category:'Women',price:10000,stock:2,images:[],weight:0.7,shippingInfo:{weight:{value:0.7,unit:'kg'}}}};
+    const res={code:200,status(n){this.code=n;return this;},json(body){this.body=body;return this;}};
+    await require('@/controllers/productController').createProduct(req,res);expect(res.code).toBe(201);
+    const id=res.body._id;await Stream.updateOne({_id:stream._id},{$push:{products:{product:{productId:id,name:'Adire Weight Test'},isVisible:true}}});
+    const ada=await createBuyer('WeightListing',50000);await deliveries.depositQuote({streamId:stream._id,buyerId:ada._id,productId:id});
+    expect(shipbubble.fetchRates.mock.calls[0][0].package_items[0]).toMatchObject({name:'Adire Weight Test',unit_weight:'0.7'});
   });
 
 });

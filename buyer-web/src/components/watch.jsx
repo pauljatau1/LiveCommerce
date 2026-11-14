@@ -1,3 +1,5 @@
+import ImageGallery from './ImageGallery';
+const LEGACY_STATIC_PHOTOS=false;
 import {deliveryEstimateText} from '../deliverySettlement';
 import SafeDescription from './SafeDescription';
 // Presentational pieces of the Watch screen. Watch.jsx owns the state.
@@ -135,6 +137,7 @@ export function MiniBidBar({ current, secs, state, action }) {
 }
 
 export function ItemThumb({ item, size = 56 }) {
+  if(!LEGACY_STATIC_PHOTOS && imageOf(item))return <ImageGallery images={item.product?.images?.length?item.product.images:[imageOf(item)]} alt={item.product?.name || 'Product'} size={size}/>;
   return imageOf(item)
     ? <img src={imageOf(item)} alt="" width={size} height={size} style={{ width: size, height: size, borderRadius: 14, objectFit: 'cover', flex: 'none' }} />
     : <span className="sk" style={{ width: size, height: size, flex: 'none', borderRadius: 14 }} />;

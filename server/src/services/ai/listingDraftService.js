@@ -98,6 +98,7 @@ ${coloursEnabled()?'- If photos show the same design in several colours, return 
 - Return fabricConfidence and styleConfidence separately. Never ask about entertainment catalogue fields.
 - If condition is Unknown, always ask "Is it new with tags, thrift or fairly used?".
 - Quantity and original/replica are always asked. If both condition and fabric/style need confirmation, combine them in one clarification with separate choices, so the total stays at most 3 questions.
+- Estimate packed weight in kilograms from the item type (a dress about 0.5 kg, sneakers about 1 kg). The seller can change it before saving.
 - Ask at most 3 questions, only about things the photos cannot answer (quantity is always one of them).
 ${note ? `\nSeller's note: """${String(note).slice(0, 500)}"""` : ''}`;
 
@@ -174,7 +175,7 @@ const normaliseDraft = (raw, categories) => {
     character: clean(raw.character, 60) || null,
     brand: clean(raw.brand, 60) || null,
     suggestedPrice: low || high ? { low: low || high, high: high || low, currency: 'NGN', isEstimate: true } : null,
-    weightKg: Number.isFinite(weight) && weight > 0 && weight < 50 ? Math.round(weight * 10) / 10 : 1,
+    weightKg: Number.isFinite(weight) && weight > 0 && weight < 50 ? Math.round(weight * 10) / 10 : /dress|gown|bubu/i.test(raw.title || '') ? 0.5 : 1,
     confidence: ['high', 'medium', 'low'].includes(raw.confidence) ? raw.confidence : 'low',
     questions,
   };

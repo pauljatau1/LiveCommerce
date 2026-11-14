@@ -149,7 +149,7 @@ export default function Planner() {
   if (created) {
     const link = created.streamLink;
     return (
-      <div className="studio-app">
+      <div className={`studio-app${step===2&&!review?' planner-app':''}`}>
         <TopBar title="Your show" backTo="/studio" right={<span className="pill p-active">Scheduled</span>} />
         <div className="st-inner">
           <section className="card" style={{ overflow: 'hidden' }} aria-label="Scheduled show">
@@ -180,7 +180,7 @@ export default function Planner() {
   }
 
   return (
-    <div className="studio-app">
+    <div className={`studio-app${step===2&&!review?' planner-app':''}`}>
       <TopBar title="Plan a show" sub={step === 1 ? 'Step 1 of 2 · pick items' : `Step 2 of 2 · ${type === 'auction' ? 'auction' : 'drop'} · ${items.length} item${items.length === 1 ? '' : 's'}`} onBack={() => (step === 2 ? review?setReview(false):setStep(1) : back())} close={step === 1} />
       {step === 1 && (
         <div className="st-inner" style={{ paddingBottom: 120 }}>
@@ -221,7 +221,7 @@ export default function Planner() {
         </div>
       )}
 
-      {step === 2 && !review && <><div className="st-inner colour-running-order"><p className="hint">{COLOURS?'Drag to change the order. Each colour runs as its own item.':'Drag to change the order.'}</p>{items.map((p,i)=><div className="colour-lot-row" key={p._id} draggable onDragStart={e=>{e.dataTransfer.setData('text/plain',String(i));e.dataTransfer.effectAllowed='move';setDragged(i);}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(dragged===null)return;setLots(rows=>{const next=[...rows];const [row]=next.splice(dragged,1);next.splice(i,0,row);return next;});setDragged(null);}}><button className="link" type="button" aria-label={`Move ${p.name}; use arrow keys`} onKeyDown={e=>{if(['ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();move(i,e.key==='ArrowUp'?-1:1);}}}>⠿</button><span>{i+1}</span>{p.image?<img src={p.image} alt=""/>:<span className="sk"/>}<span className="grow">{p.name}<small>{p.stock} in stock · {type==='auction'?'auction from ':''}{naira(type==='auction'?Number(startBid(p)):p.price)}</small></span><button type="button" className="ib" aria-label={`Remove ${p.name}`} onClick={()=>setLots(rows=>rows.filter(row=>row._id!==p._id))}>×</button></div>)}</div>{items.length>20&&<p className="err" role="alert">Choose up to 20 items for one show.</p>}<div className="colour-order-next" data-keyboard-bar><span>{items.length} items</span><button type="button" className="btn" disabled={!items.length || items.length>20} onClick={()=>setReview(true)}>Next</button></div></>}
+      {step === 2 && !review && <><div className="st-inner colour-running-order"><p className="hint">{COLOURS?'Drag to change the order. Each colour runs as its own item.':'Drag to change the order.'}</p>{items.map((p,i)=><div className="colour-lot-row" key={p._id} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(dragged===null)return;setLots(rows=>{const next=[...rows];const [row]=next.splice(dragged,1);next.splice(i,0,row);return next;});setDragged(null);}}><button className="link" type="button" draggable onDragStart={e=>{e.dataTransfer.setData('text/plain',String(i));e.dataTransfer.effectAllowed='move';setDragged(i);}} onDragEnd={()=>setDragged(null)} aria-label={`Move ${p.name}; use arrow keys`} onKeyDown={e=>{if(['ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();move(i,e.key==='ArrowUp'?-1:1);}}}>⠿</button><span>{i+1}</span>{p.image?<img src={p.image} alt=""/>:<span className="sk"/>}<span className="grow">{p.name}<small>{p.stock} in stock · {type==='auction'?'auction from ':''}{naira(type==='auction'?Number(startBid(p)):p.price)}</small></span><button type="button" className="ib" aria-label={`Remove ${p.name}`} onClick={()=>setLots(rows=>rows.filter(row=>row._id!==p._id))}>×</button></div>)}</div>{items.length>20&&<p className="err" role="alert">Choose up to 20 items for one show.</p>}<div className="colour-order-next" data-keyboard-bar><span>{items.length} items</span><button type="button" className="btn" disabled={!items.length || items.length>20} onClick={()=>setReview(true)}>Next</button></div></>}
       {step === 2 && review && (
         <div className="st-inner" style={{ paddingBottom: 32 }}>
           <section className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }} aria-label="Title and description">
@@ -235,7 +235,7 @@ export default function Planner() {
             <p className="hint">{COLOURS?'Drag to change the order. Each colour runs as its own item.':'Drag to change the order.'}</p>
             {items.length > 2 && <div className="soft s-primary" style={{ fontSize: 'var(--t-small)', lineHeight: 1.45 }}>Tip: start with a cheaper item to warm up the room and save the best for last, when the most people are watching.</div>}
             {items.map((p, i) => (
-              <div key={p._id} draggable onDragStart={e=>{e.dataTransfer.setData('text/plain',String(i));e.dataTransfer.effectAllowed='move';setDragged(i);}} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(dragged===null)return;setLots(rows=>{const next=[...rows];const [row]=next.splice(dragged,1);next.splice(i,0,row);return next;});setDragged(null);}} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 12, borderRadius: 18, background: 'var(--surface-page)', border: '1px solid var(--border)' }}>
+              <div key={p._id} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(dragged===null)return;setLots(rows=>{const next=[...rows];const [row]=next.splice(dragged,1);next.splice(i,0,row);return next;});setDragged(null);}} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 12, borderRadius: 18, background: 'var(--surface-page)', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {p.image ? <img src={p.image} alt="" style={{ width: 44, height: 44, borderRadius: 12, objectFit: 'cover' }} /> : <span className="sk" style={{ width: 44, height: 44 }} />}
                   <span style={{ flex: 1, fontWeight: 'var(--w-medium)', minWidth: 0 }}>{i + 1} · {p.name}<small className="hint" style={{display:'block'}}>{p.stock} in stock · {type==='auction'?'auction from ':''}{naira(Number(startBid(p)))}</small></span>

@@ -24,6 +24,7 @@ export const studio = {
   deliveries: () => get(`${BASE_URL_V2}/deliveries/seller`),
   deliveryAction: (id, action, body = {}) => post(`${BASE_URL_V2}/deliveries/${id}/${action}`, body),
   // shows (existing endpoints)
+  hostPresence:(id,away)=>post(`${BASE_URL_V2}/studio/shows/${id}/presence`,{away}),
   createAuction: (body) => post(`${BASE_URL}/streams/create`, body),
   createDrop: (body) => post(`${BASE_URL}/streams/open-live-show`, body),
   stream: (id) => get(`${BASE_URL}/streams/${id}`),

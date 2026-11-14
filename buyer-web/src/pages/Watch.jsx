@@ -1,3 +1,5 @@
+const LEGACY_TRANSFER_HINT=false;
+import {waitingSession,balanceCredit} from '../transferRecovery';
 import {COLOURS} from '../features';
 import ColourSheet from '../components/ColourSheet';
 import PurchaseSheet from '../components/PurchaseSheet';
@@ -38,8 +40,12 @@ export default function Watch() {
   const navigate = useNavigate();
   const { buyer, wallet, signedIn, loading, refresh, refreshWallet } = useAuth();
   const [show, setShow] = useState(null);
+  const [hostAway,setHostAway]=useState(false);
+  useEffect(()=>setHostAway(Boolean(show?.hostAwayAt)),[show?.hostAwayAt]);
   const [paymentMethods, setPaymentMethods] = useState({});
   const [transfer, setTransfer] = useState(null);
+  const transferRef=useRef(null),completedTransfers=useRef(new Set());
+  transferRef.current=transfer;
   const fundedBid=useRef(null);
   const [fundsOffer, setFundsOffer] = useState(null);
   const pendingIntent = useRef(null), fundingPending = useRef(false);
@@ -76,6 +82,8 @@ export default function Watch() {
   const [text, setText] = useState('');
   const [reportState, setReportState] = useState({ reason: '', sending: false, done: '' });
   const stageRef = useRef(null);
+  const [frozenFrame,setFrozenFrame]=useState(null);
+  const freezeFrame=useCallback(()=>{try{const video=stageRef.current?.querySelector('video');if(!video?.videoWidth)return;const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;canvas.getContext('2d').drawImage(video,0,0);setFrozenFrame(canvas.toDataURL('image/jpeg'));}catch{/* A cover photo remains the fallback. */}},[]);
   const clientRef = useRef(null);
   const hostUserRef = useRef(null);
   const socketRef = useRef(null);
@@ -314,7 +322,7 @@ export default function Watch() {
             setAudioDebug('audio track received');
           }
         });
-        client.on('user-unpublished', (user, mediaType) => { if (mediaType === 'video') setHasVideo(false); });
+        client.on('user-unpublished',(user,mediaType)=>{if(mediaType==='video'){freezeFrame();setHasVideo(false);}});
         await client.join(joined.agoraAppId, joined.channelName, joined.token, joined.uid);
         if (cancelled) { await client.leave(); return; }
         const renew = async () => {
@@ -477,6 +485,7 @@ export default function Watch() {
       if ((r?.code === 'no_address' || r?.code === 'courier_phone' || r?.code === 'courier_name') && lastBidRef.current) { setSheet({ type: 'onestep', action: { kind: 'bid', ...lastBidRef.current } }); return; }
       say('err', r?.message || 'Your bid did not go through. Nothing was held.');
     });
+    socket.on('host_presence_changed',p=>{if(String(p.streamId)===String(streamId)){recoveryRef.current?.invalidate();recoveryRef.current?.refresh();if(p.away)freezeFrame();else setFrozenFrame(null);setHostAway(Boolean(p.away));setShow(s=>s?{...s,hostAwayAt:p.away?new Date().toISOString():null}:s);}});
     socket.on('wallet_credited', (receipt) => receiveCreditRef.current(receipt));
     socket.on('wallet_dva_ready', (account) => {
       setTransfer((waiting) => waiting ? { ...waiting, ...account } : null);
@@ -687,6 +696,8 @@ export default function Watch() {
   receiveCreditRef.current = async (receipt) => {
     if (!receipt?.reference || creditedRefs.current.has(receipt.reference)) return;
     creditedRefs.current.add(receipt.reference);
+    if(transferRef.current?.since)completedTransfers.current.add(transferRef.current.since);
+    transferRef.current=null;
     window.dispatchEvent(new CustomEvent('gbam:wallet_credited', { detail: receipt }));
     const intent = fundingPending.current ? pendingIntent.current : null;
     if (intent) pendingIntent.current = null;
@@ -700,15 +711,17 @@ export default function Watch() {
     let active = true;
     const poll = async () => {
       try {
-        const account = await api.dva(transfer.since);
+        const [account]=await Promise.all([api.dva(transfer.since),refreshWallet()]);
         if (!active) return;
         setTransfer((waiting) => waiting ? { ...waiting, ...account } : waiting);
         if (account.latestCredit) receiveCreditRef.current(account.latestCredit);
       } catch { /* funds remain safe on the server; retry next poll */ }
     };
-    const timer = setInterval(poll, 3000);
+    poll(); const timer = setInterval(poll, 3000);
     return () => { active = false; clearInterval(timer); };
   }, [transfer?.since]);
+
+  useEffect(()=>{const receipt=balanceCredit(transfer,wallet);if(receipt)receiveCreditRef.current(receipt);},[transfer,wallet?.balance,wallet?.availableBalance]);
 
   const buyNow = (item, quantity = 1) => {
     if(COLOURS&&item.product?.colourQuantities?.length&&!item.product?.chosenColour){setSheet({type:'colour',item});return;}
@@ -926,7 +939,7 @@ export default function Watch() {
 
       <section className="w-center">
         <div ref={stageRef} className="stage" aria-label="Live video" />
-        {(!hasVideo || videoMode !== 'on') && (
+        {!hostAway && !show?.hostAwayAt && (!hasVideo || videoMode !== 'on') && (
           <div className="stage-msg" style={show?.coverImage?.url ? { backgroundImage: `linear-gradient(rgba(15,21,18,.55),rgba(15,21,18,.75)),url(${show.coverImage.url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
             {videoMode === 'on' && <span className="dt" aria-hidden="true" style={{ background: '#fff' }} />}
             <span className="f" style={{ fontSize: 16 }}>
@@ -962,7 +975,7 @@ export default function Watch() {
           </button>
         )}
 
-        {transfer && !reconnecting && <button type="button" className="transfer-waiting" aria-label={`Waiting for your transfer · ${transfer.accountNumber || 'setting up'}`} onClick={()=>setSheet({type:'topup',need:0,bank:transfer})}><span aria-hidden="true">●</span><span>Waiting for your transfer · {transfer.bankName || 'setting up'}{transfer.accountNumber&&<small>{transfer.accountNumber}</small>}</span><span>Open</span></button>}
+        {transfer && !reconnecting && <button type="button" className="transfer-waiting" aria-label={`Waiting for your transfer · ${transfer.accountNumber || 'setting up'}`} onClick={()=>setSheet({type:'topup',need:0,bank:transfer})}><span aria-hidden="true">●</span><span>Waiting for your transfer · {transfer.bankName || 'setting up'}{transfer.accountNumber&&<small> · {transfer.accountNumber}</small>}</span><span>Open</span></button>}
         {reconnecting && (
           <div className="reconnect" role="status">
             <span className="connection-dot" aria-hidden="true" />
@@ -970,6 +983,7 @@ export default function Watch() {
             <button type="button" onClick={() => { recoveryRef.current?.refresh(); socketRef.current?.connect(); restoreMedia(true); }}>Retry</button>
           </div>
         )}
+        {(hostAway || show?.hostAwayAt)&&phase!=='ended'&&<div className="stage-msg" style={(frozenFrame || show?.coverImage?.url)?{backgroundImage:`url(${frozenFrame || show.coverImage.url})`,backgroundSize:'cover',backgroundPosition:'center'}:undefined} role="status"><span className="f" style={{fontSize:'var(--t-h2)'}}>Host will be right back</span><span className="stage-hint">Bids and chat keep working.</span></div>}
         {debug && <div className="dbg">{audioDebug}</div>}
         {needsTap && !reconnecting && (
           <button type="button" className="btn tap-sound" onClick={() => { soundUnlocked.current = true; remoteAudio.current?.play(); setNeedsTap(false); }}>
@@ -996,7 +1010,7 @@ export default function Watch() {
           </div>
 
           <div className="panel">
-          {transfer && <span className="transfer-bid-hint">Top up to bid · we're watching for your transfer</span>}
+          {LEGACY_TRANSFER_HINT && transfer && <span className="transfer-bid-hint">Top up to bid · we're watching for your transfer</span>}
           {fundsOffer && <button type="button" className="btn btn-sm" onClick={async () => {
             try {
               const [w, me] = await Promise.all([refreshWallet(), api.watchMe(streamId, fundsOffer.productId || quoteItemRef.current)]);
@@ -1032,7 +1046,7 @@ export default function Watch() {
                 {auctionLive && <Timer secs={secs} plus={plusSecs} />}
               </div>
 
-              {(auctionLive || (!isAuction && stock !== 0)) && deliveryLine(estimate) && <span className="now-meta">{deliveryLine(estimate)}</span>}
+              {(auctionLive || (!isAuction && stock !== 0)) && deliveryLine(estimate) && <span className="now-meta live-delivery" title={deliveryLine(estimate)}>{`Delivery from ${naira(estimate.amount)} · one parcel per show`}</span>}
               {auctionLive && (
                 <div className="bidrow">
                   <button type="button" className="btn2 on-dark" disabled={busy || reconnecting} onClick={() => setSheet({ type: 'bid' })}>Bid more</button>
@@ -1076,7 +1090,7 @@ export default function Watch() {
       {sheet?.type==='receipt'&&<Sheet className="wallet-sheet" title={`${naira(sheet.received)} received`} onClose={()=>setSheet(null)}><div className="wallet-available"><span>Available to spend</span><strong>{naira(wallet?.availableBalance)}</strong><small>{naira(sheet.bid)} held for your bid</small></div><p>Your bid is in. {naira(sheet.bid)} on {sheet.name}. You're winning.</p><button type="button" className="btn" onClick={()=>setSheet(null)}>Back to the show</button></Sheet>}
       {sheet?.type === 'topup' && <TopUpSheet need={sheet.need} methods={methods} initialBank={sheet.bank} onClose={closeTopUp}
         onPending={() => { fundingPending.current = true; }} onCancelled={() => { fundingPending.current = false; }}
-        onWaiting={(account) => { if (['active', 'pending'].includes(account.status)) { fundingPending.current = true; setTransfer(account); } else if (account.status === 'failed') { fundingPending.current = false; setTransfer(null); } }}
+        onWaiting={(account) => { if (['active','pending'].includes(account.status)) {const waiting=waitingSession(account,transferRef.current,wallet,sheet.need);if(completedTransfers.current.has(waiting.since)||creditedRefs.current.has(account.latestCredit?.reference))return;fundingPending.current=true;transferRef.current=waiting;setTransfer(waiting);}else if(account.status==='failed'){fundingPending.current=false;transferRef.current=null;setTransfer(null);} }}
         onDone={(reference, amount, source) => receiveCreditRef.current({ reference, amount, source })} />}
       {sheet?.type === 'onestep' && (
         <OneStepSheet onOutOfArea={r => setSheet({ type: 'serviceArea', state: r.state })} action={sheet.action} deposit={deposit} quote={estimate} productId={sheet.action.productId || (sheet.action.item ? idOf(sheet.action.item) : quoteItemId)} top={sheet.action.kind === 'chat' ? null : miniBare} streamId={streamId} topUpMethods={methods} onTopUpNeeded={beginTopUp} onClose={() => {if(sheet.action.kind==='chat')pendingChat.current=null;setSheet(null);}} onReady={() => afterOneStep(sheet.action)} />

@@ -19,7 +19,7 @@ const agora=`const create=async(kind)=>{
  if(kind==='audio' && location.search.includes('failmic')) throw Object.assign(Error('Microphone denied'),{code:'PERMISSION_DENIED'});
  const stream=await navigator.mediaDevices.getUserMedia({[kind==='audio'?'audio':'video']:true});
  const raw=stream.getTracks()[0];
- return {getMediaStreamTrack:()=>raw,stop(){},close(){raw.stop()},setEnabled:async()=>{},play(el){const v=document.createElement('video');v.srcObject=stream;v.muted=true;v.autoplay=true;el.replaceChildren(v)}};
+ return {getMediaStreamTrack:()=>raw,stop(){},close(){raw.stop()},setEnabled:async()=>{},setMuted:async()=>{},setEncoderConfiguration:async()=>{},setDevice:async()=>{},play(el){const v=document.createElement('video');v.srcObject=stream;v.muted=true;v.autoplay=true;el.replaceChildren(v)}};
 }; export default {setLogLevel(){},createMicrophoneAudioTrack:()=>create('audio'),createCameraVideoTrack:()=>create('video'),createClient(){
  return {setClientRole:async()=>{},on(){},join:async()=>{},publish:async()=>{},unpublish:async()=>{},renewToken:async()=>{},removeAllListeners(){},leave:()=>new Promise(()=>{})};
 }};`;
