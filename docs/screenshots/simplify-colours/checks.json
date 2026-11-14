@@ -1,0 +1,168 @@
+{
+  "checks": [
+    "sign-in-error-360",
+    "profile-phone-360",
+    "sign-in-error-390",
+    "profile-phone-390",
+    "product-plain-stock",
+    "planner-plain-products",
+    "planner-pinned-notes",
+    "recap-1-sold",
+    "recap-2-sold"
+  ],
+  "calls": [
+    {
+      "kind": "auth",
+      "path": "/api/v2/buyers/auth/login",
+      "method": "POST",
+      "body": {
+        "email": "ada@example.test",
+        "password": "incorrect"
+      }
+    },
+    {
+      "kind": "profile",
+      "path": "/api/v2/buyers/profile",
+      "method": "PUT",
+      "body": {
+        "firstName": "Ada",
+        "lastName": "Okafor",
+        "username": "ada"
+      }
+    },
+    {
+      "kind": "profile",
+      "path": "/api/v2/buyers/profile/phone",
+      "method": "PUT",
+      "body": {
+        "phoneNumber": "08031234567"
+      }
+    },
+    {
+      "kind": "auth",
+      "path": "/api/v2/buyers/auth/login",
+      "method": "POST",
+      "body": {
+        "email": "ada@example.test",
+        "password": "incorrect"
+      }
+    },
+    {
+      "kind": "profile",
+      "path": "/api/v2/buyers/profile",
+      "method": "PUT",
+      "body": {
+        "firstName": "Ada",
+        "lastName": "Okafor",
+        "username": "ada"
+      }
+    },
+    {
+      "kind": "profile",
+      "path": "/api/v2/buyers/profile/phone",
+      "method": "PUT",
+      "body": {
+        "phoneNumber": "08031234567"
+      }
+    },
+    {
+      "kind": "colours",
+      "path": "/api/v2/studio/products/p",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "colours",
+      "path": "/api/v2/studio/products/p",
+      "method": "PATCH",
+      "body": {
+        "stock": 6
+      }
+    },
+    {
+      "kind": "planner",
+      "path": "/api/v2/watch/config",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "planner",
+      "path": "/api/v2/studio/products",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "planner",
+      "path": "/api/v2/studio/show-notes/default",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "planner",
+      "path": "/api/v2/studio/show-notes/draft",
+      "method": "POST",
+      "body": {
+        "title": "Live auction: Adire Bubu Gown & Vintage denim jacket",
+        "type": "auction",
+        "items": [
+          {
+            "name": "Adire Bubu Gown",
+            "price": 11000
+          },
+          {
+            "name": "Vintage denim jacket",
+            "price": 5000
+          }
+        ],
+        "auctionSeconds": 30
+      }
+    },
+    {
+      "kind": "planner",
+      "path": "/api/streams/create",
+      "method": "POST",
+      "body": {
+        "title": "Live auction: Adire Bubu Gown & Vintage denim jacket",
+        "description": "Adire Bubu Gown, Vintage denim jacket. Bid live, highest bid wins. Delivery within Lagos.",
+        "showNotes": {
+          "howToBuy": "Tap Bid to join.",
+          "delivery": "Delivery within Lagos.",
+          "payment": "Never pay outside the app."
+        },
+        "saveNotesAsDefault": true,
+        "category": "Clothing",
+        "scheduledStartTime": "2026-11-13T19:03:48.699Z",
+        "products": [
+          {
+            "product": {
+              "productId": "p"
+            },
+            "minBid": 6500,
+            "maxBid": 1000000,
+            "auctionSeconds": 30
+          },
+          {
+            "product": {
+              "productId": "jeans"
+            },
+            "minBid": 3000,
+            "maxBid": 1000000,
+            "auctionSeconds": 30
+          }
+        ]
+      }
+    },
+    {
+      "kind": "recap",
+      "path": "/api/v2/studio/shows/p/recap",
+      "method": "GET",
+      "body": null
+    },
+    {
+      "kind": "recap",
+      "path": "/api/v2/studio/shows/p/recap",
+      "method": "GET",
+      "body": null
+    }
+  ]
+}

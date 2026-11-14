@@ -240,6 +240,7 @@ describe('auctionOrderService', () => {
   });
 
   it('settles a distinct colour lot against the shared catalogue stock, keeping its sibling untouched',async()=>{
+    process.env.COLOURS='true';
     await Product.updateOne({_id:product._id},{$set:{stock:3,colourVariants:['Indigo','Rust'],colourQuantities:[{colour:'Indigo',quantity:2},{colour:'Rust',quantity:1}]}});
     const a=new mongoose.Types.ObjectId(),b=new mongoose.Types.ObjectId();
     await Stream.updateOne({_id:stream._id},{$set:{products:[{product:{productId:a,catalogueProductId:product._id,colour:'Indigo',name:'Gojo figure · Indigo'},minBid:5000,maxBid:100000,bidStatus:'active'},{product:{productId:b,catalogueProductId:product._id,colour:'Rust',name:'Gojo figure · Rust'},minBid:5000,maxBid:100000,bidStatus:'pending'}]}});
@@ -251,4 +252,27 @@ describe('auctionOrderService', () => {
     expect((await Order.findOne().lean()).items[0]).toMatchObject({colour:'Indigo'});
   });
 
+  it('off settles a legacy colour product from total stock and keeps the exact title',async()=>{
+    delete process.env.COLOURS;
+    await Product.updateOne({_id:product._id},{$set:{stock:3,colourVariants:['Indigo'],colourQuantities:[{colour:'Indigo',quantity:0}]}});
+    const buyer=await createBuyer('PlainWinner',50000);expect(await win(buyer)).toMatchObject({ok:true});expect(await order(buyer)).toMatchObject({success:true});
+    const saved=await Product.findById(product._id).lean();expect(saved.stock).toBe(2);expect(saved.colourQuantities[0].quantity).toBe(0);
+    const orders=await Order.find().lean();expect(orders).toHaveLength(1);expect(orders[0].items[0].colour).toBeUndefined();expect(orders[0].items[0].productName).toBe(saved.name);
+    const show=await Stream.findById(stream._id).lean();expect(show.orders).toHaveLength(1);expect(show.products[0].product.quantity).toBe(2);
+  });
+
+  it('off preserves legacy lot identities while charging and settling plain total stock',async()=>{
+    delete process.env.COLOURS;const lot=new mongoose.Types.ObjectId();
+    await Product.updateOne({_id:product._id},{$set:{stock:3,name:'Adire Two-Piece – Indigo',colourQuantities:[{colour:'Blue',quantity:0}]}});
+    await Stream.updateOne({_id:stream._id},{$set:{products:[{product:{productId:lot,catalogueProductId:product._id,name:'Old title · Blue',colour:'Blue',quantity:0},minBid:5000,maxBid:100000,bidStatus:'active'}]}});
+    const buyer=await createBuyer('LegacyLot',50000);expect(await bids.placeBid({streamId:stream._id,productId:String(lot),buyer,bidAmount:20000,maxBid:100000})).toMatchObject({ok:true});
+    expect(await createAuctionOrder({streamId:stream._id,productId:String(lot),buyerId:buyer._id,bidAmount:20000})).toMatchObject({success:true});
+    const saved=await Product.findById(product._id).lean();expect(saved.stock).toBe(2);expect(saved.colourQuantities[0].quantity).toBe(0);
+    const order=await Order.findOne().lean();expect(order.items[0].productName).toBe(saved.name);expect(order.items[0].colour).toBeUndefined();
+    const show=await Stream.findById(stream._id).lean(),view=await require('@/services/plainProducts').productsForDisplay(show.products);
+    expect(String(view[0].product.productId)).toBe(String(lot));expect(view[0].product.name).toBe(saved.name);expect(view[0].product.quantity).toBe(2);expect(view[0].product.colour).toBeUndefined();expect(show.products[0].product.colour).toBe('Blue');
+  });
+
 });
+
+afterEach(()=>{delete process.env.COLOURS;});

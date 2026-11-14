@@ -1,3 +1,5 @@
+beforeEach(()=>{process.env.COLOURS='true';});
+afterEach(()=>{delete process.env.COLOURS;});
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
@@ -19,6 +21,7 @@ const listing = () => ({ name: 'Adire Bubu Gown', description: 'A loose gown.', 
 beforeAll(async () => {
   db = await MongoMemoryServer.create({ binary: { version: '7.0.3' } });
   await mongoose.connect(db.getUri());
+  await require('@models/Seller').collection.insertOne({_id:sellerId,firstName:'Test',storeName:'Test shop',email:'seller@example.test'});
   await Category.create({ name: 'Women', subCategories: [{ name: 'Dresses' }] });
 });
 afterAll(async () => { await mongoose.disconnect(); await db.stop(); });
@@ -124,4 +127,32 @@ it('allows only a real admin to list corrections, newest first', async () => {
   const res = await request(app).get(url).set('Authorization', auth('Admin', adminId));
   expect(res.status).toBe(200);
   expect(res.body.corrections.map((r) => r._id)).toEqual([String(newer._id), String(older._id)]);
+});
+
+it('off ignores colour input on create and edit, retaining stored metadata on edit',async()=>{
+ delete process.env.COLOURS;
+ const payload={...listing(),stock:7,colourQuantities:[{colour:'Invalid',quantity:-9}],colourVariants:['Ignored'],variants:[{name:'Colour',value:'Ignored'}]};
+ const created=await request(app).post('/api/products').set('Authorization',auth('Seller')).send(payload).expect(201);
+ let p=await Product.findById(created.body._id).lean();expect(p.stock).toBe(7);expect(p.colourVariants || []).toEqual([]);expect(p.colourQuantities || []).toEqual([]);expect(p.variants || []).toEqual([]);
+ await Product.updateOne({_id:p._id},{$set:{colourVariants:['Old'],colourQuantities:[{colour:'Old',quantity:2}]}});
+ await request(app).put(`/api/products/${p._id}`).set('Authorization',auth('Seller')).send({stock:9,colourVariants:['New'],colourQuantities:[{colour:'New',quantity:0}]}).expect(200);
+ p=await Product.findById(p._id).lean();expect(p.stock).toBe(9);expect(p.colourVariants).toEqual(['Old']);expect(p.colourQuantities[0]).toMatchObject({colour:'Old',quantity:2});
+});
+
+it('buyer wrong password and unknown email return 401 with the same message',async()=>{
+ const Buyer=require('@models/Buyer');await Buyer.create({firstName:'Test',lastName:'Buyer',username:'password-test',email:'password@example.test',password:'Correct-password-123',authProvider:'local'});
+ for(const email of ['password@example.test','absent@example.test']){const response=await request(app).post('/api/v2/buyers/auth/login').send({email,password:'Wrong-password-123'}).expect(401);expect(response.body.message).toBe('Invalid credentials');}
+});
+
+it('v2 create also ignores colour inputs when the feature is off',async()=>{
+ delete process.env.COLOURS;
+ const r=await request(app).post('/api/v2/products').set('Authorization',auth('Seller')).send({...listing(),stock:8,variants:[{name:'Colour',value:'Blue'}]}).expect(201);
+ const p=await Product.findOne({stock:8}).lean();expect(p).toBeTruthy();expect(p.colourVariants || []).toEqual([]);expect(p.colourQuantities || []).toEqual([]);expect(p.variants || []).toEqual([]);
+});
+
+it('saving the profile address-phone fallback persists it through the normal phone endpoint',async()=>{
+ const Buyer=require('@models/Buyer');const buyer=await Buyer.create({firstName:'Ada',lastName:'Test',username:'address-phone-test',email:'address-phone@example.test',authProvider:'google',shippingAddresses:[{isActive:true,addressLine1:'12 Admiralty Way',city:'Lekki',state:'Lagos',country:'NG',phoneNumber:'08031234567'}]});
+ expect(buyer.phoneNumber || '').toBe('');const phone=buyer.shippingAddresses[0].phoneNumber;
+ await request(app).put('/api/v2/buyers/profile/phone').set('Authorization',auth('Buyer',buyer._id)).send({phoneNumber:phone}).expect(200);
+ expect((await Buyer.findById(buyer._id).lean()).phoneNumber).toBe(phone);
 });

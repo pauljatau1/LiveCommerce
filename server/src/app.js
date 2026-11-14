@@ -49,6 +49,7 @@ const adminRoutesV2 = require('./modules/adminv2/routes/admin.routes');
 const blipsRoutesV2 = require('./modules/blipsv2/routes/blips.routes');
 const productRoutesV2 = require('./modules/productv2/routes/product.routes');
 const NotFoundException = require('./utils/errors/NotFoundException');
+const UnauthorizedException = require('./utils/errors/UnauthorizedException');
 const ForbiddenException = require('./utils/errors/ForbiddenException');
 
 const app = express();
@@ -402,6 +403,10 @@ app.use((err, req, res, next) => {
       success: false,
       message: err.message,
     });
+  }
+
+  if (err instanceof UnauthorizedException) {
+    return res.status(err.statusCode).json({success:false,message:err.message});
   }
 
   if (err.status === 403 || err.status === 401) {

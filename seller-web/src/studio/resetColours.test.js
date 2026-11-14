@@ -1,5 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {editorForm,productPayload,coloursTotal} from './productEditor.js';
+import {editorForm as raweditorForm,productPayload as rawproductPayload,coloursTotal} from './productEditor.js';
+const editorForm=(p,t)=>raweditorForm(p,t,true);
+const productPayload=(f,p)=>rawproductPayload(f,p,true);
+
 for(const fromDraft of [true,false])test(`editable listing colours: ${fromDraft?'AI draft':'saved product'}`,()=>{
  const p={fromDraft,name:'Adire bubu',price:10000,stock:5,images:[],colourVariants:['Blue and white','Purple'],colourQuantities:[{colour:'Blue and white',quantity:3},{colour:'Purple',quantity:2}]};
  const f=editorForm(p);assert.equal(f.colours.length,2);assert.equal(coloursTotal(f.colours),5);

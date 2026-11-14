@@ -1,3 +1,4 @@
+import {COLOURS} from '../features';
 import ColourSheet from '../components/ColourSheet';
 import PurchaseSheet from '../components/PurchaseSheet';
 const LEGACY_PURCHASE_SHEET=false; // Original markup retained below; the shared sheet also works after show end.
@@ -159,8 +160,9 @@ export default function Watch() {
   // host's pickup address to their saved address (refetched when either changes)
   useEffect(() => {
     if (!signedIn) { setDepositDue(null); setDeliveryProblem(''); setEstimate(null); return; }
+    if(!show)return;
     api.watchMe(streamId, quoteItemId).then(applyMe).catch(() => setDepositDue(null));
-  }, [signedIn, streamId, quoteItemId, addressKey, applyMe]);
+  }, [signedIn, streamId, quoteItemId, addressKey, applyMe,Boolean(show)]);
 
   // A scheduled show page notices when the host goes live
   useEffect(() => {
@@ -642,7 +644,7 @@ export default function Watch() {
     const price = priceOf(item);
     setBusy(true);
     try {
-      const r = await api.buyNow(streamId, idOf(item), quantity, {...expected,colour:item.product?.chosenColour || item.product?.colour});
+      const r = await api.buyNow(streamId, idOf(item), quantity, {...expected,...(COLOURS?{colour:item.product?.chosenColour || item.product?.colour}:{})});
       const left = typeof item.product?.quantity === 'number' ? item.product.quantity : null;
       setSheet({ type: 'yours', name: r.productName || item.product?.name, amount: price * quantity, quantity, orderId: r.order?.orderId, deposit: r.delivery?.firstItem ? r.delivery?.depositHeld || 0 : 0, firstItem: Boolean(r.delivery?.firstItem), lastOf: left });
       refreshWallet();
@@ -660,7 +662,7 @@ export default function Watch() {
   const fulfillIntent = async (intent, receipt) => {
     if (intent.streamId !== streamId) return;
     const intentItem = intent.productId || (intent.item ? idOf(intent.item) : quoteItemRef.current);
-    const [scene, freshWallet, me] = await Promise.all([api.show(streamId), refreshWallet(), api.watchMe(streamId, intentItem)]);
+    const [scene, freshWallet, me] = await Promise.all([api.show(streamId), refreshWallet(), api.watchMe(streamId, intentItem || quoteItemRef.current)]);
     if (scene.status === 'ended') { endShow(); return; }
     setShow(scene); setItems(scene.products || []);
     const clocks = timersFor(scene.products || []);
@@ -709,7 +711,7 @@ export default function Watch() {
   }, [transfer?.since]);
 
   const buyNow = (item, quantity = 1) => {
-    if(item.product?.colourQuantities?.length&&!item.product?.chosenColour){setSheet({type:'colour',item});return;}
+    if(COLOURS&&item.product?.colourQuantities?.length&&!item.product?.chosenColour){setSheet({type:'colour',item});return;}
     if (busy || reconnecting) return;
     if (!ready(priceOf(item) * quantity, { kind: 'buy', amount: priceOf(item) * quantity, item, quantity })) return;
     doBuy(item, quantity);
@@ -997,7 +999,7 @@ export default function Watch() {
           {transfer && <span className="transfer-bid-hint">Top up to bid · we're watching for your transfer</span>}
           {fundsOffer && <button type="button" className="btn btn-sm" onClick={async () => {
             try {
-              const [w, me] = await Promise.all([refreshWallet(), api.watchMe(streamId, fundsOffer.productId)]);
+              const [w, me] = await Promise.all([refreshWallet(), api.watchMe(streamId, fundsOffer.productId || quoteItemRef.current)]);
               applyMe(me);
               if (!Number.isFinite(me.depositDue) || me.depositDue < 0) { say('err', me.deliveryProblem || 'Check delivery before choosing your bid.'); return; }
               if ((w?.availableBalance || 0) < fundsOffer.amount + me.depositDue) { beginTopUp(fundsOffer.amount + me.depositDue - (w?.availableBalance || 0), fundsOffer); return; }
@@ -1070,7 +1072,7 @@ export default function Watch() {
         {deskComposer}
       </aside>
 
-      {sheet?.type==='colour'&&<ColourSheet item={sheet.item} busy={busy} error={sheet.error} onClose={()=>setSheet(null)} onBuy={(colour,quantity)=>{const p=sheet.item.product;const name=p.colour?p.name.slice(0,-(p.colour.length+3)):p.name;buyNow({...sheet.item,product:{...p,name:`${name} · ${colour}`,chosenColour:colour}},quantity);}}/>}
+      {COLOURS&&sheet?.type==='colour'&&<ColourSheet item={sheet.item} busy={busy} error={sheet.error} onClose={()=>setSheet(null)} onBuy={(colour,quantity)=>{const p=sheet.item.product;const name=p.colour?p.name.slice(0,-(p.colour.length+3)):p.name;buyNow({...sheet.item,product:{...p,name:`${name} · ${colour}`,chosenColour:colour}},quantity);}}/>}
       {sheet?.type==='receipt'&&<Sheet className="wallet-sheet" title={`${naira(sheet.received)} received`} onClose={()=>setSheet(null)}><div className="wallet-available"><span>Available to spend</span><strong>{naira(wallet?.availableBalance)}</strong><small>{naira(sheet.bid)} held for your bid</small></div><p>Your bid is in. {naira(sheet.bid)} on {sheet.name}. You're winning.</p><button type="button" className="btn" onClick={()=>setSheet(null)}>Back to the show</button></Sheet>}
       {sheet?.type === 'topup' && <TopUpSheet need={sheet.need} methods={methods} initialBank={sheet.bank} onClose={closeTopUp}
         onPending={() => { fundingPending.current = true; }} onCancelled={() => { fundingPending.current = false; }}

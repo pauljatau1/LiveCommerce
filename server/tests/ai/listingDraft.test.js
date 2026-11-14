@@ -1,3 +1,6 @@
+// Explicitly exercise the retained legacy feature. Default-off cases have their own suite.
+beforeEach(()=>{process.env.COLOURS='true';});
+afterEach(()=>{delete process.env.COLOURS;});
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
@@ -204,4 +207,17 @@ describe('Nigerian fashion drafting', () => {
     expect(res.body.draft).toMatchObject({ title: 'Straight Leg Jeans', fabric: null, localStyle: null, confirmations: [],
       questions: ['How many do you have?', 'Is it original or a replica?'] });
   });
+});
+
+test('off strips model colour fields and only asks for total quantity',()=>{
+ delete process.env.COLOURS;
+ const ai=require('../../src/services/ai/listingDraftService');const draft=ai.normaliseDraft({title:'Adire Two-Piece – Indigo',colourVariants:['Blue','Red'],questions:['How many of each colour?'],condition:'New with tags'}, []);
+ expect(draft).not.toHaveProperty('colourVariants');expect(draft.questions[0]).toBe('How many do you have?');expect(ai.buildInstructions([])).toContain('Never return colour fields');
+});
+
+it('off sends Gemini a plain-stock schema and drops colour fields returned by an older model',async()=>{
+ delete process.env.COLOURS;mockPost.mockResolvedValue(geminiReply({title:'Adire Two-Piece – Indigo',category:'Women',condition:'New with tags',colourVariants:['Blue','Rust'],questions:['How many of each colour?']}));
+ const res=await draft({images:[{data:PNG,contentType:'image/png'}]}).expect(200);
+ expect(res.body.draft).not.toHaveProperty('colourVariants');expect(res.body.draft.questions[0]).toBe('How many do you have?');
+ const body=mockPost.mock.calls[0][1];expect(body.generationConfig.responseSchema.properties).not.toHaveProperty('colourVariants');expect(body.contents[0].parts[0].text).toContain('Never return colour fields');
 });

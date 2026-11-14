@@ -158,3 +158,6 @@ const createSuggester = ({ now = () => Date.now() } = {}) => {
 const suggester = createSuggester();
 
 module.exports = { SECTIONS, KEYS, MAX_CHARS, ALWAYS, NotesError, normalise, firstLine, isEmpty, templateDraft, draft, createSuggester, suggester };
+
+// Stored with the show so navigation cannot race a second pin request.
+module.exports.forCreation = (notes) => isEmpty(notes) ? {} : {showNotes: {...normalise(notes), updatedAt: new Date()}};

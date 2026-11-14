@@ -1,3 +1,4 @@
+import {COLOURS} from './features';
 import useFormKeyboard from './useFormKeyboard';
 import useStudioBack from './useStudioBack';
 import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
@@ -184,7 +185,7 @@ export default function ListingAgent() {
 
   const update = (patch) => { setDraft((d) => ({ ...d, ...patch })); setChanged(null); };
 
-  const colourVariants = draft?.colourVariants || [];
+  const colourVariants = COLOURS?(draft?.colourVariants || []):[];
   const perColour = colourVariants.length > 1;
   const stock = perColour ? colourVariants.reduce((sum, colour) => sum + (Number(colourCounts[colour]) || 0), 0) : quantity;
   const confirmations = draft?.confirmations || [];
@@ -214,7 +215,7 @@ export default function ListingAgent() {
         photos,
         quantity: stock,
         draftProof,
-        colourQuantities: perColour ? colourVariants.map((colour) => ({ colour, quantity: Number(colourCounts[colour]) })) : [],
+        ...(COLOURS?{colourQuantities:perColour?colourVariants.map(colour=>({colour,quantity:Number(colourCounts[colour])})):[]}:{}),
         price: digits(price),
         authenticity: authenticity || 'unknown',
         auction: allowAuction ? { startingBid: digits(startingBid), instant: digits(instant) || null } : null,
@@ -243,8 +244,8 @@ export default function ListingAgent() {
           draftProof,
           fabric: draft?.fabric || '',
           localStyle: draft?.localStyle || '',
-          colourVariants,
-          colourQuantities: perColour ? colourVariants.map((colour) => ({ colour, quantity: Number(colourCounts[colour]) || 0 })) : [],
+          ...(COLOURS?{colourVariants}:{}),
+          ...(COLOURS?{colourQuantities:perColour?colourVariants.map(colour=>({colour,quantity:Number(colourCounts[colour]) || 0})):[]}:{}),
           name: draft?.title || '',
           description: draft?.description || note,
           category: draft?.category || '',

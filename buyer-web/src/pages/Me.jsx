@@ -3,7 +3,7 @@ import {useEffect,useState} from 'react';
 import {Link,Navigate} from 'react-router-dom';
 import {api,errorMessage,naira} from '../api';
 import {useAuth} from '../auth';
-import {PHONE_HINT} from '../phone';
+import {PHONE_HINT,deliveryPhoneFor} from '../phone';
 import {Header,Icon} from '../components/ui';
 import AddressSheet,{phoneProblem} from '../components/AddressSheet';
 function PasswordField({label,id,value,onChange,newPassword=false}){
@@ -13,7 +13,7 @@ function PasswordField({label,id,value,onChange,newPassword=false}){
 export default function Me(){
  const {buyer,wallet,loading,signedIn,refresh,signIn,signOut}=useAuth();
  const [profile,setProfile]=useState({}),[editing,setEditing]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[password,setPassword]=useState({currentPassword:'',newPassword:''});
- useEffect(()=>{if(buyer)setProfile({firstName:buyer.firstName || '',lastName:buyer.lastName || '',username:buyer.username || '',phoneNumber:buyer.phoneNumber || ''});},[buyer]);
+ useEffect(()=>{if(buyer)setProfile({firstName:buyer.firstName || '',lastName:buyer.lastName || '',username:buyer.username || '',phoneNumber:buyer.phoneNumber || deliveryPhoneFor(buyer)});},[buyer]);
  const action=async task=>{setBusy(true);setError('');setNotice('');try{await task();}catch(e){setError(errorMessage(e,'Couldn’t save your changes. Please try again.'));}finally{setBusy(false);}};
  if(loading)return <div className="center">Loading your profile…</div>;
  if(!signedIn)return <Navigate to="/signin?next=/me" replace/>;

@@ -119,6 +119,7 @@ describe('buyNowOrderService', () => {
   });
 
   it('takes only the chosen colour atomically when buyers race, and rejects a missing choice',async()=>{
+    process.env.COLOURS='true';
     await Product.updateOne({_id:product._id},{$set:{stock:2,colourVariants:['Indigo','Rust'],colourQuantities:[{colour:'Indigo',quantity:1},{colour:'Rust',quantity:1}]}});
     const a=await createBuyer('ColourA',50000),b=await createBuyer('ColourB',50000);
     expect(await buy(a)).toMatchObject({success:false,reason:'choose_colour'});
@@ -129,4 +130,17 @@ describe('buyNowOrderService', () => {
     expect((await wallet(a)).balance+(await wallet(b)).balance).toBe(85000);
   });
 
+  it('default-off sells legacy colour data as plain total stock, atomically',async()=>{
+    delete process.env.COLOURS;
+    await Product.updateOne({_id:product._id},{$set:{stock:2,colourVariants:['Indigo','Rust'],colourQuantities:[{colour:'Indigo',quantity:1},{colour:'Rust',quantity:1}]}});
+    const a=await createBuyer('PlainA',50000), b=await createBuyer('PlainB',50000), c=await createBuyer('PlainC',50000);
+    const results=await Promise.all([a,b,c].map(buyer=>createBuyNowOrder({streamId:stream._id,productId:String(product._id),buyerId:buyer._id,colour:'Unknown'})));
+    expect(results.filter(r=>r.success)).toHaveLength(2);
+    const p=await Product.findById(product._id).lean();expect(p.stock).toBe(0);expect(p.colourQuantities.map(c=>c.quantity)).toEqual([1,1]);
+    const orders=await Order.find().lean();expect(orders).toHaveLength(2);for(const o of orders){expect(o.items[0].colour).toBeUndefined();expect(o.items[0].productName).toBe(p.name);}
+    const show=await Stream.findById(stream._id).lean();expect(show.orders).toHaveLength(2);expect(show.products[0].product.quantity).toBe(0);
+  });
+
 });
+
+afterEach(()=>{delete process.env.COLOURS;});

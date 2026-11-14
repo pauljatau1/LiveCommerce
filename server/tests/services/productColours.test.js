@@ -1,3 +1,6 @@
+// Explicitly exercise the retained legacy feature. Default-off cases have their own suite.
+beforeEach(()=>{process.env.COLOURS='true';});
+afterEach(()=>{delete process.env.COLOURS;});
 const {colourRows,colourStockUpdate}=require('@/services/productColours');
 test('colour quantities and legacy variants resolve the same stock breakdown',()=>{expect(colourRows({variants:[{name:'Colour',value:'Blue',totalStock:2}]})).toEqual([{colour:'Blue',quantity:2}]);});
 test('editing colours keeps total and variants in sync, including sold-out colours',()=>{

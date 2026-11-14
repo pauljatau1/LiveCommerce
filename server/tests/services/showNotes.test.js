@@ -63,3 +63,9 @@ describe('suggestions from chat', () => {
     expect(s.observe('s2', 'x', 'nice dress')).toBeNull();
   });
 });
+
+test('planner notes persist on creation and remain the buyer pinned announcement',()=>{
+ const service=require('../../src/services/showNotes');const notes=service.templateDraft({type:'auction',hostName:'Sade'});const stored=service.forCreation(notes);
+ expect(stored.showNotes).toMatchObject(notes);expect(stored.showNotes.updatedAt).toBeInstanceOf(Date);expect(service.isEmpty(stored.showNotes)).toBe(false);expect(service.firstLine(stored.showNotes)).toBe(service.firstLine(notes));expect(service.forCreation(null)).toEqual({});
+ expect(()=>service.forCreation({fromSeller:'Call 08031234567'})).toThrow();
+});

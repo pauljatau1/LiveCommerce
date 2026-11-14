@@ -5771,7 +5771,7 @@ exports.bulkUploadProducts = async (req, res) => {
           inventory: {
             quantity: totalStock
           },
-          variants: variants
+          variants: require('../config/colours').coloursEnabled() ? variants : []
         });
 
         await product.save();

@@ -131,7 +131,7 @@ router.get('/:streamId/me', verifyToken, isBuyer, validId, async (req, res) => {
     } catch (e) {
       if (!(e instanceof deliveries.DeliveryError)) throw e;
       // Can't price it yet (no address, host address unfinished, Shipbubble off): say why
-      res.json({ success: true, depositDue: null, deliveryProblem: e.message, following });
+      res.json({ success: true, depositDue: null, deliveryProblem: e.message, ...(e.code ? {code:e.code,state:e.state}:{}), following });
     }
   } catch (error) {
     if (error.code === 'out_of_area') return res.status(422).json({ code: error.code, reason: error.code, message: error.message, state: error.state });
@@ -187,6 +187,7 @@ router.post('/:streamId/guest-join', validId, async (req, res) => {
     // Guest UIDs sit above the range used for buyers (1,000–1,000,000), so they never clash
     const uid = 2000000 + Math.floor(Math.random() * 1000000);
     const token = agoraService.generateToken(stream.channelName, uid, RtcRole.SUBSCRIBER);
+    stream.products=await require('../services/plainProducts').productsForDisplay(stream.products);
     const { viewers, ...rest } = stream;
     res.json({
       success: true,

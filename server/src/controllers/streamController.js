@@ -47,6 +47,7 @@ const isBuyerSubscribedToStream = (streamDoc, user) => {
 
 exports.createStream = async (req, res) => {
   try {
+    try { require('../services/showNotes').forCreation(req.body.showNotes); } catch(e) { return res.status(400).json({message:e.message}); }
     const {
       title,
       description,
@@ -84,7 +85,8 @@ exports.createStream = async (req, res) => {
     const parsedTags = tags || [];
 
     // Parse products array
-    const products = req.body.products || [];
+    let products = req.body.products || [];
+    if(Array.isArray(products)&&!require('../config/colours').coloursEnabled())products=[...new Map(products.map(p=>[String(p.product?.productId),p])).values()];
     if (!Array.isArray(products)) {
       return res.status(400).json({
         message: 'Invalid products format. Expected array'
@@ -111,7 +113,7 @@ exports.createStream = async (req, res) => {
           return p; // If product not found, return as is
         }
 
-        if(p.colour)return {...p,product:require('../services/colourLots').snapshot(completeProduct,p.colour)};
+        if(require('../config/colours').coloursEnabled()&&p.colour)return {...p,product:require('../services/colourLots').snapshot(completeProduct,p.colour)};
         // Return the product with complete details from database
         return {
           ...p,
@@ -125,7 +127,7 @@ exports.createStream = async (req, res) => {
             price: completeProduct.price,
             description: completeProduct.description,
             variants: completeProduct.variants,
-            colourVariants:completeProduct.colourVariants,colourQuantities:require('../services/productColours').colourRows(completeProduct)
+            ...(require('../config/colours').coloursEnabled()?{colourVariants:completeProduct.colourVariants,colourQuantities:require('../services/productColours').colourRows(completeProduct)}:{})
           }
         };
       })
@@ -219,6 +221,7 @@ exports.createStream = async (req, res) => {
       category,
       subCategory,
       tags: parsedTags,
+      ...require('../services/showNotes').forCreation(req.body.showNotes),
       products: productsWithFullDetails.map(p => ({
         product: p.product,
         minBid: p.minBid,
@@ -237,6 +240,9 @@ exports.createStream = async (req, res) => {
     stream.streamLink = generateStreamLink(stream._id, stream.type)
 
     await stream.save();
+    if (req.body?.saveNotesAsDefault && stream.showNotes) {
+      try { await Seller.updateOne({_id:req.user.id}, {$set:{defaultShowNotes:stream.showNotes}}); } catch(e) { console.warn('Could not save default show notes'); }
+    }
 
     // Get seller details for push notifications
     const sellerDetails = await Seller.findById(req.user.id).select('storeName businessName storeAvatar');
@@ -1354,7 +1360,7 @@ exports.getActiveStreams = async (req, res) => {
       .populate('products.product', 'name description images price')
       .sort({ actualStartTime: -1 });
 
-    res.json(activeStreams);
+    res.json(await Promise.all(activeStreams.map(s=>require('../services/plainProducts').streamForDisplay(s))));
   } catch (error) {
     res.status(500).json({
       message: 'Failed to fetch active streams',
@@ -1377,7 +1383,7 @@ exports.getStreamDetails = async (req, res) => {
       return res.status(404).json({ message: 'Stream not found' });
     }
 
-    res.json(stream);
+    res.json(await require('../services/plainProducts').streamForDisplay(stream));
   } catch (error) {
     console.error(`[DEBUG] Error in getStreamDetails:`, error);
     res.status(500).json({
@@ -1409,6 +1415,7 @@ exports.getBuyerStreamDetails = async (req, res) => {
     // Fetch buyer's agoraToken and agoraUid
     const buyer = await Buyer.findById(req.user.id).select('agoraToken agoraUid').lean();
 
+    stream.products=await require('../services/plainProducts').productsForDisplay(stream.products);
     // Remove sensitive fields
     const { __v, agoraToken, ...streamData } = stream;
 
@@ -1600,6 +1607,7 @@ exports.joinStream = async (req, res) => {
       // Continue even if saving the chat interaction fails
     }
 
+    stream.products=await require('../services/plainProducts').productsForDisplay(stream.products);
     // Remove sensitive fields
     const { __v, ...streamData } = stream;
 
@@ -1715,6 +1723,7 @@ exports.joinStreamSeller = async (req, res) => {
 
     console.log('agoraUid (seller)', seller.agoraUid);
 
+    stream.products=await require('../services/plainProducts').productsForDisplay(stream.products);
     // Remove sensitive fields
     const { __v, ...streamData } = stream;
 
@@ -2115,6 +2124,7 @@ const processOpenLiveShowBackgroundTasks = async (stream, req, coverImage, video
 
 exports.createOpenLiveShow = async (req, res) => {
   try {
+    try { require('../services/showNotes').forCreation(req.body.showNotes); } catch(e) { return res.status(400).json({message:e.message}); }
     const {
       title,
       description,
@@ -2185,7 +2195,8 @@ exports.createOpenLiveShow = async (req, res) => {
         };
       });
     } else {
-      const productsList = products || [];
+      let productsList = products || [];
+      if(Array.isArray(productsList)&&!require('../config/colours').coloursEnabled())productsList=[...new Map(productsList.map(p=>[String(p.product?.productId),p])).values()];
       if (!Array.isArray(productsList)) {
         return res.status(400).json({
           message: 'Invalid products format. Expected array'
@@ -2225,7 +2236,7 @@ exports.createOpenLiveShow = async (req, res) => {
           return { product: p.product || {} };
         }
 
-        if(p.colour)return {product:require('../services/colourLots').snapshot(completeProduct,p.colour)};
+        if(require('../config/colours').coloursEnabled()&&p.colour)return {product:require('../services/colourLots').snapshot(completeProduct,p.colour)};
         const discountedPrice = completeProduct.discount?.discountedPrice || completeProduct.price;
         return {
           product: {
@@ -2238,7 +2249,7 @@ exports.createOpenLiveShow = async (req, res) => {
             price: completeProduct.price,
             description: completeProduct.description,
             variants: completeProduct.variants,
-            colourVariants:completeProduct.colourVariants,colourQuantities:require('../services/productColours').colourRows(completeProduct),
+            ...(require('../config/colours').coloursEnabled()?{colourVariants:completeProduct.colourVariants,colourQuantities:require('../services/productColours').colourRows(completeProduct)}:{}),
             discountedPrice: discountedPrice
           }
         };
@@ -2259,6 +2270,7 @@ exports.createOpenLiveShow = async (req, res) => {
       category,
       subCategory,
       tags: parsedTags,
+      ...require('../services/showNotes').forCreation(req.body.showNotes),
       products: productsForStream,
       channelName,
       agoraToken: token,
@@ -2270,6 +2282,9 @@ exports.createOpenLiveShow = async (req, res) => {
 
     stream.streamLink = generateStreamLink(stream._id, stream.type);
     await stream.save();
+    if (req.body?.saveNotesAsDefault && stream.showNotes) {
+      try { await Seller.updateOne({_id:req.user.id}, {$set:{defaultShowNotes:stream.showNotes}}); } catch(e) { console.warn('Could not save default show notes'); }
+    }
 
     // Return response immediately with minimal stream data
     res.status(201).json({
@@ -2530,6 +2545,7 @@ exports.getStreamWithRefreshedToken = async (req, res) => {
       return res.status(404).json({ message: 'Active stream not found' });
     }
 
+    stream.products=await require('../services/plainProducts').productsForDisplay(stream.products);
     // Remove sensitive fields
     const { __v, ...streamData } = stream;
 
@@ -3319,7 +3335,8 @@ exports.activateProductBidding = async (req, res) => {
     };
 
     // Format the product name
-    const formattedProductName = formatProductName(stream.products[productIndex].product.name);
+    const [displayProduct] = await require('../services/plainProducts').productsForDisplay([stream.products[productIndex]]);
+    const formattedProductName = formatProductName(displayProduct.product.name);
 
     // Create notification object for WebSocket
     const notificationObj = {
@@ -3333,7 +3350,7 @@ exports.activateProductBidding = async (req, res) => {
         streamId: stream._id.toString(),
         sellerId: stream.seller._id.toString(),
         storeName: stream.seller.storeName || 'Unknown Store',
-        product: stream.products[productIndex]
+        product: displayProduct
       },
       timestamp: new Date()
     };
@@ -3364,13 +3381,13 @@ exports.activateProductBidding = async (req, res) => {
       stream._id.toString(),
       productId,
       req.body.seconds || stream.products[productIndex].auctionSeconds,
-      stream.products[productIndex].product.name || 'Product'
+      displayProduct.product.name || 'Product'
     );
 
     // Return the updated product information with timer details
     return res.status(200).json({
       message: 'Product bidding activated successfully',
-      product: stream.products[productIndex],
+      product: displayProduct,
       timerDetails: {
         duration: seconds,
         jobId
@@ -3493,7 +3510,8 @@ exports.displayStreamProduct = async (req, res) => {
     };
 
     // Format the product name
-    const formattedProductName = formatProductName(stream.products[productIndex].product.name);
+    const [displayProduct] = await require('../services/plainProducts').productsForDisplay([stream.products[productIndex]]);
+    const formattedProductName = formatProductName(displayProduct.product.name);
 
     // Create notification object for WebSocket
     const notificationObj = {
@@ -3507,7 +3525,7 @@ exports.displayStreamProduct = async (req, res) => {
         streamId: stream._id.toString(),
         sellerId: stream.seller._id.toString(),
         storeName: stream.seller.storeName || 'Unknown Store',
-        product: stream.products[productIndex]
+        product: displayProduct
       },
       timestamp: new Date()
     };
@@ -3533,7 +3551,7 @@ exports.displayStreamProduct = async (req, res) => {
     // Return the updated product information
     return res.status(200).json({
       message: 'Product displayed successfully',
-      product: stream.products[productIndex]
+      product: displayProduct
     });
   } catch (error) {
     console.error('[DISPLAY_PRODUCT] ERROR: Failed to display stream product:', error);
@@ -3640,7 +3658,8 @@ exports.hideStreamProduct = async (req, res) => {
     };
 
     // Format the product name
-    const formattedProductName = formatProductName(stream.products[productIndex].product.name);
+    const [displayProduct] = await require('../services/plainProducts').productsForDisplay([stream.products[productIndex]]);
+    const formattedProductName = formatProductName(displayProduct.product.name);
 
     // Create notification object for WebSocket
     const notificationObj = {
@@ -3654,7 +3673,7 @@ exports.hideStreamProduct = async (req, res) => {
         streamId: stream._id.toString(),
         sellerId: stream.seller._id.toString(),
         storeName: stream.seller.storeName || 'Unknown Store',
-        product: stream.products[productIndex]
+        product: displayProduct
       },
       timestamp: new Date()
     };
@@ -3680,7 +3699,7 @@ exports.hideStreamProduct = async (req, res) => {
     // Return the updated product information
     return res.status(200).json({
       message: 'Product hidden successfully',
-      product: stream.products[productIndex]
+      product: displayProduct
     });
   } catch (error) {
     console.error('[HIDE_PRODUCT] ERROR: Failed to hide stream product:', error);
@@ -4151,7 +4170,8 @@ exports.endProductBidding = async (req, res) => {
     };
 
     // Format the product name
-    const formattedProductName = formatProductName(stream.products[productIndex].product.name);
+    const [displayProduct] = await require('../services/plainProducts').productsForDisplay([stream.products[productIndex]]);
+    const formattedProductName = formatProductName(displayProduct.product.name);
 
     // Create notification object for WebSocket
     const notificationObj = {
@@ -4165,7 +4185,7 @@ exports.endProductBidding = async (req, res) => {
         streamId: stream._id.toString(),
         sellerId: stream.seller._id.toString(),
         storeName: stream.seller.storeName || 'Unknown Store',
-        product: stream.products[productIndex],
+        product: displayProduct,
         orders: stream.orders
       },
       timestamp: new Date()
@@ -4188,7 +4208,7 @@ exports.endProductBidding = async (req, res) => {
     // Return the updated product information
     return res.status(200).json({
       message: 'Product bidding ended successfully',
-      product: stream.products[productIndex]
+      product: displayProduct
     });
   } catch (error) {
     console.error('[END_BID] ERROR: Failed to end product bidding:', error);

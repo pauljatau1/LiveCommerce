@@ -5,6 +5,7 @@
 // checked here: categories must be ours, numbers must be sane, text is
 // trimmed. The draft is a suggestion the seller confirms; nothing is saved.
 
+const {coloursEnabled}=require('../../config/colours');
 const axios = require('axios');
 const mongoose = require('mongoose');
 const { CONDITIONS, LAUNCH_CATEGORY_NAMES } = require('../../config/catalogue');
@@ -67,7 +68,8 @@ const DRAFT_SCHEMA = {
 
 // Legacy fields remain documented above for old drafts; generation is switched off.
 const { franchise: _franchise, character: _character, ...activeProperties } = DRAFT_SCHEMA.properties;
-const ACTIVE_DRAFT_SCHEMA = { ...DRAFT_SCHEMA, properties: activeProperties };
+const activeDraftSchema=()=>{const properties={...activeProperties};if(!coloursEnabled())delete properties.colourVariants;return {...DRAFT_SCHEMA,properties};};
+const ACTIVE_DRAFT_SCHEMA=activeDraftSchema();
 
 const loadCategories = async () => {
   const Category = mongoose.model('Category');
@@ -92,7 +94,7 @@ Rules:
 ${categories.map((c) => `  - ${c.name}: ${c.subCategories.join(', ')}`).join('\n')}
 - Prices are rough Nigerian resale estimates in naira (NGN). Give a realistic range, not a single number.
 - Write for shoppers: friendly and clear, no hype words like "amazing" or "best".
-- If photos show the same design in several colours, return colourVariants (one label per colourway). Never list any colours in the description in that case. Ask "How many of each colour?" instead of total quantity.
+${coloursEnabled()?'- If photos show the same design in several colours, return colourVariants (one label per colourway). Never list any colours in the description in that case. Ask "How many of each colour?" instead of total quantity.':'- Every product has one total stock number. Colour is not a field: it can be part of the title. Never return colour fields or ask about colours or stock per colour. Ask "How many do you have?" for total stock.'}
 - Return fabricConfidence and styleConfidence separately. Never ask about entertainment catalogue fields.
 - If condition is Unknown, always ask "Is it new with tags, thrift or fairly used?".
 - Quantity and original/replica are always asked. If both condition and fabric/style need confirmation, combine them in one clarification with separate choices, so the total stays at most 3 questions.
@@ -123,8 +125,8 @@ const normaliseDraft = (raw, categories) => {
   let low = roundPrice(Number(raw.priceLowNGN));
   let high = roundPrice(Number(raw.priceHighNGN));
   if (low && high && low > high) [low, high] = [high, low];
-  const colourVariants = [...new Set((Array.isArray(raw.colourVariants) ? raw.colourVariants : [])
-    .map((v) => clean(v, 60)).filter(Boolean))].slice(0, 12);
+  const colourVariants = coloursEnabled()?[...new Set((Array.isArray(raw.colourVariants) ? raw.colourVariants : [])
+    .map((v) => clean(v, 60)).filter(Boolean))].slice(0, 12):[];
   const condition = CONDITIONS.includes(raw.condition) ? raw.condition : null;
   const fabric = clean(raw.fabric, 60) || null;
   const localStyle = clean(raw.localStyle, 60) || null;
@@ -164,7 +166,7 @@ const normaliseDraft = (raw, categories) => {
     localStyle,
     fabricConfidence: raw.fabricConfidence || 'low',
     styleConfidence: raw.styleConfidence || 'low',
-    colourVariants,
+    ...(coloursEnabled()?{colourVariants}:{}),
     confirmations,
     description,
     tags: [...new Set((Array.isArray(raw.tags) ? raw.tags : []).map((t) => clean(t, 30).toLowerCase()).filter(Boolean))].slice(0, 8),
@@ -180,7 +182,7 @@ const normaliseDraft = (raw, categories) => {
 
 const busyOrSlow = (error) => [429, 500, 503].includes(error.response?.status) || error.code === 'ECONNABORTED';
 
-const callModel = async (model, parts, timeout, schema = ACTIVE_DRAFT_SCHEMA) => {
+const callModel = async (model, parts, timeout, schema = activeDraftSchema()) => {
   // Listing drafts don't need deep reasoning; low thinking keeps them fast.
   const thinkingLevel = (process.env.GEMINI_THINKING_LEVEL || 'LOW').toUpperCase();
   const request = (withThinking) =>
@@ -210,7 +212,7 @@ const logFailure = (model, error) =>
   console.error('[ai] Gemini request failed:', { model, status: error.response?.status, reason: error.response?.data?.error?.message || error.code || error.message });
 
 // `schema`: the JSON shape to answer in (listing drafts by default; show notes use their own)
-const callGemini = async (parts, schema = ACTIVE_DRAFT_SCHEMA) => {
+const callGemini = async (parts, schema = activeDraftSchema()) => {
   const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
   const backupSetting = process.env.GEMINI_BACKUP_MODEL || DEFAULT_BACKUP_MODEL;
   const backup = backupSetting.toLowerCase() === 'none' || backupSetting === model ? null : backupSetting;

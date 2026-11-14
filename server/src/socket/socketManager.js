@@ -1618,7 +1618,7 @@ function initializeSocket(server) {
         console.log('[BID] 18. Fetching full product details from database');
         const Product = mongoose.model('Product');
         const fullProductDetails = await Product.findById(productDetails.catalogueProductId || productDetails.productId);
-        if(productDetails.colour && !(require('../services/productColours').colourRows(fullProductDetails || {}).find(c=>c.colour===productDetails.colour)?.quantity>0)){socket.emit('bid_error',{code:'sold_out',message:'This colour is sold out.'});return;}
+        if(require('../config/colours').coloursEnabled()&&productDetails.colour && !(require('../services/productColours').colourRows(fullProductDetails || {}).find(c=>c.colour===productDetails.colour)?.quantity>0)){socket.emit('bid_error',{code:'sold_out',message:'This colour is sold out.'});return;}
 
         if (!fullProductDetails) {
           console.warn('[BID] 19. WARNING: Could not retrieve full product details, using default weight');
@@ -1725,7 +1725,7 @@ function initializeSocket(server) {
         };
 
         // Format the product name
-        const formattedProductName = formatProductName(product.product.name);
+        const formattedProductName = formatProductName(!require('../config/colours').coloursEnabled() && fullProductDetails ? fullProductDetails.name : product.product.name);
 
         // Write the bid only if it is still the highest, and move the wallet hold
         // (bid + delivery fee) to this bidder; the previous leader's hold is released.
@@ -1756,6 +1756,7 @@ function initializeSocket(server) {
           return;
         }
 
+        if(!require('../config/colours').coloursEnabled()&&fullProductDetails)bidResult.product.product={...bidResult.product.product,name:fullProductDetails.name};
         const newBid = bidResult.bid;
         stream.products.set(productIndex, bidResult.product);
 

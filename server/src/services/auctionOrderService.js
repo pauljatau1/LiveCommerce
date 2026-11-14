@@ -131,7 +131,7 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
       // 3. Take one unit of stock.
       const catalogueProduct=await model('Product').findById(require('./colourLots').catalogueId(streamProduct)).session(session);
       if(!catalogueProduct)throw new AuctionOrderError('sold_out','This item is out of stock');
-      let write;try{write=streamProduct.product?.colour?require('./colourLots').stockWrite(catalogueProduct,streamProduct.product.colour,1):{filter:{_id:catalogueProduct._id,stock:{$gte:1}},update:{$inc:{stock:-1}},options:{}};}catch(e){throw new AuctionOrderError(e.reason || 'choose_colour',e.message);}
+      let write;try{write=require('../config/colours').coloursEnabled()&&streamProduct.product?.colour?require('./colourLots').stockWrite(catalogueProduct,streamProduct.product.colour,1):{filter:{_id:catalogueProduct._id,stock:{$gte:1}},update:{$inc:{stock:-1}},options:{}};}catch(e){throw new AuctionOrderError(e.reason || 'choose_colour',e.message);}
       const product = await model('Product').findOneAndUpdate(write.filter,write.update,{new:true,session,...write.options}).populate('seller');
       if (!product) throw new AuctionOrderError('sold_out', 'This item is out of stock');
 
@@ -157,7 +157,7 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
               {
                 product: product._id,
                 productName: require('./colourLots').label(product.name,streamProduct.product?.colour),
-                colour:streamProduct.product?.colour,
+                colour:require('../config/colours').coloursEnabled()?streamProduct.product?.colour:undefined,
                 seller: seller._id || before.seller,
                 productImages: (product.images || []).slice(0, 1).map((i) => ({ url: i.url })),
                 quantity: 1,
@@ -206,7 +206,7 @@ const createAuctionOrder = async ({ streamId, productId, buyerId, bidAmount, shi
       await model('Stream').updateOne(
         { _id: streamId, 'products.product.productId': productIdMatch(productId) },
         // The show's copy of the stock follows the product, for "2 of 4 left"
-        { $set: { 'products.$.orderId': order.order_id, 'products.$.product.quantity': streamProduct.product?.colour ? require('./productColours').colourRows(product).find(c=>c.colour===streamProduct.product.colour)?.quantity || 0 : product.stock }, $push: { orders: liveShowOrder } },
+        { $set: { 'products.$.orderId': order.order_id, 'products.$.product.quantity': require('../config/colours').coloursEnabled()&&streamProduct.product?.colour ? require('./productColours').colourRows(product).find(c=>c.colour===streamProduct.product.colour)?.quantity || 0 : product.stock }, $push: { orders: liveShowOrder } },
         { session }
       );
 

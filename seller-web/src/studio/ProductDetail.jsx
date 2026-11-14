@@ -1,3 +1,4 @@
+import {COLOURS} from './features';
 import SafeDescription from './SafeDescription';
 import { CLASSIC_DASHBOARD } from '@/config/featureFlags';
 // Product detail (design: S-Product-Detail): photos, price, stock counter, details, actions.
@@ -73,13 +74,13 @@ export default function ProductDetail() {
           </div>
 
           <section className="card" aria-label="Stock" style={{ margin: '0 16px', padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 'var(--w-medium)' }}>In stock</span><span className="hint">{p.colourQuantities?.length?'Total of your colours. ':''}Buyers see "{p.stock} left"</span></div>
-            <button type="button" className={`ib${p.colourQuantities?.length?' colour-total-stepper':''}`} aria-label="One fewer" disabled={Boolean(saving) || (!p.colourQuantities?.length&&p.stock <= 0)} style={{ font: 'var(--w-medium) var(--t-h1) var(--font-body)' }} onClick={() => p.colourQuantities?.length?setToast('Change stock per colour. The total updates by itself.'):save({ stock: p.stock - 1 }, 'stock', 'Stock updated')}>−</button>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 'var(--w-medium)' }}>In stock</span><span className="hint">{(COLOURS && p.colourQuantities?.length)?'Total of your colours. ':''}Buyers see "{p.stock} left"</span></div>
+            <button type="button" className={`ib${(COLOURS && p.colourQuantities?.length)?' colour-total-stepper':''}`} aria-label="One fewer" disabled={Boolean(saving) || (!(COLOURS && p.colourQuantities?.length)&&p.stock <= 0)} style={{ font: 'var(--w-medium) var(--t-h1) var(--font-body)' }} onClick={() => (COLOURS && p.colourQuantities?.length)?setToast('Change stock per colour. The total updates by itself.'):save({ stock: p.stock - 1 }, 'stock', 'Stock updated')}>−</button>
             <span className="f" style={{ width: 40, textAlign: 'center', fontSize: 'var(--t-h1)' }} aria-live="polite">{p.stock}</span>
-            <button type="button" className={`ib${p.colourQuantities?.length?' colour-total-stepper':''}`} aria-label="One more" disabled={Boolean(saving)} style={{ background: 'var(--primary-soft)', color: 'var(--primary)', font: 'var(--w-medium) var(--t-h1) var(--font-body)' }} onClick={() => p.colourQuantities?.length?setToast('Change stock per colour. The total updates by itself.'):save({ stock: p.stock + 1 }, 'stock', 'Stock updated')}>+</button>
+            <button type="button" className={`ib${(COLOURS && p.colourQuantities?.length)?' colour-total-stepper':''}`} aria-label="One more" disabled={Boolean(saving)} style={{ background: 'var(--primary-soft)', color: 'var(--primary)', font: 'var(--w-medium) var(--t-h1) var(--font-body)' }} onClick={() => (COLOURS && p.colourQuantities?.length)?setToast('Change stock per colour. The total updates by itself.'):save({ stock: p.stock + 1 }, 'stock', 'Stock updated')}>+</button>
           </section>
 
-          {!!p.colourQuantities?.length&&<section className="card" aria-label="Stock by colour" style={{margin:'0 16px',padding:16}}><h2 className="h2">Colours</h2>{p.colourQuantities.map(c=><div key={c.colour} className="list-row"><img src={c.image || p.images?.[0]?.url || p.image} alt="" style={{width:44,height:44,borderRadius:12,objectFit:'cover',background:'var(--surface-sunken)'}}/><span style={{flex:1}}>{c.colour}</span>{c.quantity?<span>{c.quantity} left</span>:<span className="pill p-sold">Sold out</span>}</div>)}<button type="button" className="btn2" onClick={()=>setColourEdit(p.colourQuantities.map(c=>({...c})))}>Edit colour stock</button></section>}
+          {!!(COLOURS && p.colourQuantities?.length)&&<section className="card" aria-label="Stock by colour" style={{margin:'0 16px',padding:16}}><h2 className="h2">Colours</h2>{p.colourQuantities.map(c=><div key={c.colour} className="list-row"><img src={c.image || p.images?.[0]?.url || p.image} alt="" style={{width:44,height:44,borderRadius:12,objectFit:'cover',background:'var(--surface-sunken)'}}/><span style={{flex:1}}>{c.colour}</span>{c.quantity?<span>{c.quantity} left</span>:<span className="pill p-sold">Sold out</span>}</div>)}<button type="button" className="btn2" onClick={()=>setColourEdit(p.colourQuantities.map(c=>({...c})))}>Edit colour stock</button></section>}
           <section className="card" aria-label="Details" style={{ margin: '0 16px', overflow: 'hidden' }}>
             {[
               ['CATEGORY', [p.category, p.subCategory].filter(Boolean).join(' › ')],
@@ -116,7 +117,7 @@ export default function ProductDetail() {
         </div>
       )}
 
-      {colourEdit&&<Sheet label="Stock by colour" onClose={()=>setColourEdit(null)}><h2 className="h2">Stock by colour</h2>{colourEdit.map((c,i)=><label className="lab" key={c.colour}>{c.colour}<input className="in" inputMode="numeric" value={c.quantity} onChange={e=>setColourEdit(rows=>rows.map((row,j)=>j===i?{...row,quantity:e.target.value.replace(/\D/g,'')}:row))}/></label>)}<p className="hint">Total: {colourEdit.reduce((s,c)=>s+(Number(c.quantity)||0),0)}</p><button className="btn" disabled={Boolean(saving)} onClick={async()=>{if(await save({colourQuantities:colourEdit.map(c=>({...c,quantity:Number(c.quantity)}))},'colours','Colour stock updated'))setColourEdit(null);}}>Save stock</button></Sheet>}
+      {COLOURS&&colourEdit&&<Sheet label="Stock by colour" onClose={()=>setColourEdit(null)}><h2 className="h2">Stock by colour</h2>{colourEdit.map((c,i)=><label className="lab" key={c.colour}>{c.colour}<input className="in" inputMode="numeric" value={c.quantity} onChange={e=>setColourEdit(rows=>rows.map((row,j)=>j===i?{...row,quantity:e.target.value.replace(/\D/g,'')}:row))}/></label>)}<p className="hint">Total: {colourEdit.reduce((s,c)=>s+(Number(c.quantity)||0),0)}</p><button className="btn" disabled={Boolean(saving)} onClick={async()=>{if(await save({colourQuantities:colourEdit.map(c=>({...c,quantity:Number(c.quantity)}))},'colours','Colour stock updated'))setColourEdit(null);}}>Save stock</button></Sheet>}
       {editPrice !== null && (
         <Sheet label="Change price" onClose={() => setEditPrice(null)}>
           <h2 className="f" style={{ margin: 0, fontSize: 'var(--t-h1)' }}>Change price</h2>

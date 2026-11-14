@@ -52,7 +52,7 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
       if (!stream) throw new BuyNowError('closed', 'This item is not on sale in this show right now');
 
       const lot=stream.products[0];
-      const selectedColour=colour || lot.product?.colour;
+      const selectedColour=require('../config/colours').coloursEnabled()?(colour || lot.product?.colour):undefined;
       const product = await model('Product').findOne({ _id: require('./colourLots').catalogueId(lot), status: 'active' }, null, { session }).populate('seller');
       if (!product) throw new BuyNowError('closed', 'This item is no longer for sale');
       const unitPrice = product.salePrice > 0 && product.salePrice < product.price ? product.salePrice : product.price;
@@ -72,7 +72,7 @@ const createBuyNowOrder = async ({ streamId, productId, buyerId, quantity = 1, s
       let write;try{write=require('./colourLots').stockWrite(product,selectedColour,qty);}catch(e){throw new BuyNowError(e.reason || 'choose_colour',e.message);}
       const stocked = await model('Product').findOneAndUpdate(write.filter,write.update,{new:true,session,...write.options});
       if (!stocked) throw new BuyNowError('sold_out', qty > 1 ? 'Not enough left. Try a smaller quantity.' : 'Sold out');
-      await model('Stream').updateOne({_id:streamId,'products.product.productId':productIdMatch(productId)},{$set:{'products.$.product.quantity':lot.product?.colour?require('./productColours').colourRows(stocked).find(c=>c.colour===lot.product.colour)?.quantity || 0:stocked.stock,'products.$.product.colourQuantities':require('./productColours').colourRows(stocked)}},{session});
+      await model('Stream').updateOne({_id:streamId,'products.product.productId':productIdMatch(productId)},{$set:{'products.$.product.quantity':require('../config/colours').coloursEnabled()&&lot.product?.colour?require('./productColours').colourRows(stocked).find(c=>c.colour===lot.product.colour)?.quantity || 0:stocked.stock,...(require('../config/colours').coloursEnabled()?{'products.$.product.colourQuantities':require('./productColours').colourRows(stocked)}:{})}},{session});
 
       const reference = `buynow_${streamId}_${productId}_${buyerId}_${Date.now()}`;
       const charged = await model('Buyer').findOneAndUpdate(
