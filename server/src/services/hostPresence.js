@@ -52,8 +52,17 @@ async function expire({streamId,version},{now=new Date(),agenda=agendaOf(),end}=
 async function disconnectedHost(socket,io) {
   const streamId=socket.data?.hostStreamId,sellerId=socket.data?.hostSellerId;
   if(!streamId||!sellerId)return false;
-  const peers=await io.in(`stream_notifications_${streamId}`).fetchSockets();
-  if(peers.some(peer=>peer.id!==socket.id&&peer.data?.hostStreamId===streamId&&peer.data?.hostSellerId===sellerId))return false;
-  await mark(streamId,sellerId,true);return true;
+  if(require('./hostSessions').enabled()){
+    const current=await Stream.findById(streamId).select('+hostSessionId').lean();
+    if(!socket.data.hostSessionId || current?.hostSessionId!==require('./hostSessions').sessionHash(socket.data.hostSessionId))return false;
+  }
+  let release;
+  try {
+    release=await require('./hostSessions').acquire(streamId,sellerId,socket.data.hostSessionId);
+    const peers=await io.in(`stream_notifications_${streamId}`).fetchSockets();
+    if(peers.some(peer=>peer.id!==socket.id&&peer.data?.hostStreamId===streamId&&peer.data?.hostSellerId===sellerId&&peer.data?.hostSessionId===socket.data.hostSessionId))return false;
+    await mark(streamId,sellerId,true);return true;
+  } catch(e){if(e.code==='host_conflict')return false;throw e;}
+  finally{await release?.();}
 }
 module.exports={mark,expire,disconnectedHost,GRACE_MS,JOB,enabled};

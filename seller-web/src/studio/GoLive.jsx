@@ -1,3 +1,4 @@
+import HostGate from './HostGate';
 import {deviceChoice,rememberDevice} from './hostMedia';
 import { usePickupArea, PickupAreaBanner } from './ServiceArea';
 // Go Live (design: S-GoLive-Check). Pick a show, check camera and mic, go live.
@@ -144,6 +145,7 @@ function Check({ showId }) {
             </div>
           )}
         </div>
+        <p className="hint">Sharper video: face a window or light, keep the phone steady, and use strong Wi-Fi or 4G.</p>
         {first && (
           <div className="card" style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
             {first.image ? <img src={first.image} alt="" style={{ width: 52, height: 52, borderRadius: 14, objectFit: 'cover' }} /> : <span className="sk" style={{ width: 52, height: 52 }} />}
@@ -165,7 +167,7 @@ function Check({ showId }) {
 
 function GoLiveCheckOriginal() {
   const { showId } = useParams();
-  return <Check showId={showId} />;
+  return <HostGate id={showId} preview><Check showId={showId} /></HostGate>;
 }
 
 // The original full-page gate is retained for rollback.

@@ -934,8 +934,8 @@ function initializeSocket(server) {
       if(socket.user?.role!=='Seller')return;
       if(!mongoose.isValidObjectId(data?.streamId)){if(typeof ack==='function')ack({message:"We couldn't find that show."});return;}
       socket.data ||= {};
-      try {socket.data.hostStreamId=data?.streamId;socket.data.hostSellerId=String(socket.user.id);const presence=require('../services/hostPresence');const state=await presence.mark(data?.streamId,socket.user.id,data?.away===true);if(!socket.connected&&!state.ended)await presence.disconnectedHost(socket,io);if(typeof ack==='function')ack(state);}
-      catch{if(typeof ack==='function')ack({message:"Couldn't update your connection. Try again."});}
+      try {const sessions=require('../services/hostSessions');const release=await sessions.acquire(data.streamId,socket.user.id,data.sessionId);try{socket.data.hostStreamId=data.streamId;socket.data.hostSellerId=String(socket.user.id);socket.data.hostSessionId=data.sessionId;await socket.join(sessions.room(data.sessionId));const presence=require('../services/hostPresence');const state=await presence.mark(data.streamId,socket.user.id,data.away===true);if(!socket.connected&&!state.ended){await release();await presence.disconnectedHost(socket,io);}if(typeof ack==='function')ack(state);}finally{await release();}}
+      catch(e){if(typeof ack==='function')ack({code:e.code,message:e.status===409?e.message:"Couldn't update your connection. Try again."});}
     });
     socket.on('disconnect', async () => {
       console.log('Socket disconnected:', {

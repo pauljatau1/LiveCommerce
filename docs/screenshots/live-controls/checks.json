@@ -1,0 +1,14 @@
+{
+  "width": 390,
+  "checks": "passed",
+  "backend": "mocked; real Mongo CAS tests run separately",
+  "screenshots": [
+    "rail-settings",
+    "go-live-tip",
+    "other-device",
+    "moved-device",
+    "remove-photo"
+  ],
+  "designs": "T8, PR #63",
+  "errors": []
+}

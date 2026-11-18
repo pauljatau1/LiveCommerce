@@ -1,3 +1,4 @@
+import ConfirmSheet,{LEGACY_BROWSER_CONFIRM} from './ConfirmSheet';
 import {COLOURS} from './features';
 import useFormKeyboard from './useFormKeyboard';
 import useStudioBack from './useStudioBack';
@@ -79,6 +80,7 @@ export default function ListingAgent() {
   const navigate = useNavigate();
   const sellerName = sellerUtils.getSeller()?.firstName;
   const [photos, setPhotos] = useState([]);
+  const [removePhoto,setRemovePhoto]=useState(null);
   const [note, setNote] = useState('');
   const [phase, setPhase] = useState('start'); // start | thinking | draft | published | fallback
   const [draft, setDraft] = useState(null);
@@ -289,11 +291,12 @@ export default function ListingAgent() {
 
   const photoBubble = photos.length > 0 && (
     <div className="thumbs">
+      {removePhoto!==null&&<ConfirmSheet onKeep={()=>setRemovePhoto(null)} onRemove={()=>{setPhotos(ps=>ps.length>1?ps.filter(p=>p.id!==removePhoto):ps);setRemovePhoto(null);}}/>}
       {photos.map((p, i) => (
         <span key={p.id} className="thumb-x">
           <img src={p.dataUrl} alt={`Photo ${i + 1}`} />
           {phase !== 'thinking' && phase !== 'published' && (
-            <button type="button" aria-label={`Remove photo ${i + 1}`} disabled={photos.length<=1} onClick={() => {if(photos.length>1&&window.confirm('Remove this photo?'))setPhotos(ps=>ps.filter(x=>x.id!==p.id));}}>{Icon.x}</button>
+            <button type="button" aria-label={`Remove photo ${i + 1}`} disabled={photos.length<=1} onClick={() => {if(photos.length>1){if(LEGACY_BROWSER_CONFIRM){if(window.confirm('Remove this photo?'))setPhotos(ps=>ps.filter(x=>x.id!==p.id));}else setRemovePhoto(p.id);}}}>{Icon.close}</button>
           )}
         </span>
       ))}
@@ -332,7 +335,7 @@ export default function ListingAgent() {
             </>
           )}
           <div style={{ display: 'flex', gap: 10 }}>
-            <button type="button" className="btn" style={{ flex: 1 }} onClick={() => cameraInput.current?.click()} disabled={photos.length >= MAX_PHOTOS}>{Icon.camera('#fff')}Camera</button>
+            <button type="button" className="btn" style={{ flex: 1 }} onClick={() => cameraInput.current?.click()} disabled={photos.length >= MAX_PHOTOS}>{Icon.camera}Camera</button>
             <button type="button" className="btn2" style={{ flex: 1 }} onClick={() => fileInput.current?.click()} disabled={photos.length >= MAX_PHOTOS}>{Icon.gallery}Gallery</button>
           </div>
           {error && <span className="err-text" role="alert">{error}</span>}
@@ -445,7 +448,7 @@ export default function ListingAgent() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {(draft?.tags || []).map((t) => (
-          <button key={t} type="button" className="tg" aria-label={`Remove tag ${t}`} onClick={() => update({ tags: draft.tags.filter((x) => x !== t) })}>{t} {Icon.x}</button>
+          <button key={t} type="button" className="tg" aria-label={`Remove tag ${t}`} onClick={() => update({ tags: draft.tags.filter((x) => x !== t) })}>{t} {Icon.close}</button>
         ))}
       </span>
       <label htmlFor="la-tag" className="sr">Add a tag</label>
@@ -634,7 +637,7 @@ function ChatComposer({ disabled, onSend, onPhotos, publishLabel, onPublish, mis
         {busy ? 'Working…' : publishLabel}
       </button>
       <form style={{ display: 'flex', gap: 8, alignItems: 'center' }} onSubmit={(e) => { e.preventDefault(); if (text.trim()) { onSend(text); setText(''); } }}>
-        <button type="button" className="ib" aria-label="Add photos" onClick={onPhotos}>{Icon.camera()}</button>
+        <button type="button" className="ib" aria-label="Add photos" onClick={onPhotos}>{Icon.camera}</button>
         <label htmlFor="la-msg" className="sr">Message</label>
         <input id="la-msg" className="in" value={text} maxLength={400} disabled={disabled} onChange={(e) => setText(e.target.value)} placeholder={placeholder} style={{ background: 'var(--surface-sunken)', borderRadius: 999 }} />
         <button type="submit" className="ib" aria-label="Send" disabled={disabled || !text.trim()} style={{ background: 'var(--primary-soft)' }}>{Icon.send}</button>

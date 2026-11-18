@@ -1,3 +1,5 @@
+import HostGate from './HostGate';
+import {hostSession,movedHost} from './hostSession';
 import {muteTrack,publishTracks,repairTracks,encoderFor,mediaMessage,deviceChoice,rememberDevice,LEGACY_FULL_SESSION_RECOVERY} from './hostMedia';
 import {COLOURS} from './features';
 import {clearOpenAnnouncements} from './liveFeed';
@@ -29,8 +31,10 @@ AgoraRTC.setLogLevel(3);
 const clock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const pid = (p) => String(p?.product?.productId || p?.productId || p?.product?._id || p?._id || '');
 
-export default function Live() {
+function LiveOriginal() {
   useIntercomVisibility(true);
+  const [updateReady,setUpdateReady]=useState(Boolean(window.__appUpdateReady));
+  useEffect(()=>{const ready=()=>setUpdateReady(true);window.addEventListener('app:update-ready',ready);return()=>window.removeEventListener('app:update-ready',ready);},[]);
   const { id } = useParams();
   const navigate = useNavigate();
   const { state: nav } = useLocation();
@@ -118,7 +122,7 @@ export default function Live() {
       if (document.visibilityState === 'hidden') {
         awayRef.current=true;
         muteTrack(tracksRef.current.video,true).catch(()=>{});
-        socketRef.current?.emit('host_presence',{streamId:id,away:true});
+        socketRef.current?.emit('host_presence',{streamId:id,sessionId:hostSession(id),away:true});
         studio.hostPresence(id,true).catch(()=>{});
         return;
       }
@@ -160,7 +164,7 @@ export default function Live() {
         if(state.ending){setError('Finishing your show. Your last sale is being saved.');setPhase('reconnecting');return;}
         if(state.ended){endedRef.current=true;scope.close();await client.leave().catch(()=>{});navigate(`/studio/recap/${id}`,{replace:true});return;}
         const restored=await repairTracks({client,tracks,scope,createAudio:()=>AgoraRTC.createMicrophoneAudioTrack({...(deviceRef.current.mic?{microphoneId:deviceRef.current.mic}:{}),AEC:true,ANS:true,AGC:true}),createVideo:()=>AgoraRTC.createCameraVideoTrack({...(deviceRef.current.camera?{cameraId:deviceRef.current.camera}:{facingMode:facingRef.current}),encoderConfig:'720p_1',optimizationMode:'motion'}),micOn:micRef.current,hidden:false,poor:poorQualityRef.current,rejoin:async()=>{const c=await studio.hostToken(id);await client.join(c.agoraAppId || import.meta.env.VITE_AGORA_API_KEY,c.channelName,c.token,c.uid);}});
-        if(restored&&!endedRef.current){tracks.video?.play(videoRef.current,{fit:'cover',mirror:facingRef.current==='user'});socketRef.current?.emit('host_presence',{streamId:id,away:false});setError('');setPhase('live');}
+        if(restored&&!endedRef.current){tracks.video?.play(videoRef.current,{fit:'cover',mirror:facingRef.current==='user'});socketRef.current?.emit('host_presence',{streamId:id,sessionId:hostSession(id),away:false});setError('');setPhase('live');}
       }catch(e){if(!endedRef.current){setError(mediaMessage(e));setPhase('reconnecting');}}
     })().finally(()=>{repairRef.current=null;});
     return repairRef.current;
@@ -227,7 +231,7 @@ export default function Live() {
         scope.close();
         if (cancelled || endedRef.current) return;
         const blocked = e?.code === 'PERMISSION_DENIED' || /permission|NotAllowed/i.test(e?.message || '');
-        setError(blocked ? 'Camera or microphone is blocked. Allow them for this site, then reload.' : mediaMessage(e));
+        setError(e?.response?.data?.message || (blocked ? 'Camera or microphone is blocked. Allow them for this site, then reload.' : mediaMessage(e)));
         setPhase('error');
       }
     };
@@ -246,7 +250,8 @@ export default function Live() {
     const origin = new URL(BASE_URL).origin;
     const socket = io(origin, { auth: { token: tokenUtils.getBearerToken() }, transports: ['websocket', 'polling'], reconnectionDelayMax: 5000 });
     socketRef.current = socket;
-    socket.on('connect', () => { setSocketUp(true); socket.emit('stream_notification_subscribe', { streamId: id }); socket.emit('host_presence',{streamId:id,away:document.visibilityState==='hidden'}); refresh().catch(() => {}); });
+    socket.on('connect', () => { setSocketUp(true); socket.emit('stream_notification_subscribe', { streamId: id }); socket.emit('host_presence',{streamId:id,sessionId:hostSession(id),away:document.visibilityState==='hidden'}); refresh().catch(() => {}); });
+    socket.on('host_moved',details=>movedHost(id,details));
     socket.on('disconnect', () => setSocketUp(false));
     socket.on('connect_error', () => setSocketUp(false));
     // Chat safety: messages with phone numbers, account numbers or links are hidden from buyers
@@ -444,7 +449,7 @@ export default function Live() {
         <div className="lv-price-row">
           <span className="f lv-price">{naira(isAuction ? current.winner?.amount || current.currentBid || current.minBid : current.price)}</span>
           <span className="lv-grow" />
-          {isAuction && running && <span className={`f lv-clock${(secs ?? total) <= 10 ? ' hot' : ''}`} role="timer" aria-label={`${secs ?? total} seconds left`}>{clock(secs ?? total)}</span>}
+          {Boolean(isAuction && running && secs > 0) && <span className={`f lv-clock${(secs ?? total) <= 10 ? ' hot' : ''}`} role="timer" aria-label={`${secs ?? total} seconds left`}>{clock(secs ?? total)}</span>}
         </div>
         <span className="lv-meta" role="status">
           {isAuction
@@ -515,6 +520,7 @@ export default function Live() {
   // Assistant lines: plain text, one action each
   const Prompts = (
     <div className="lv-prompts">
+      {updateReady&&<div className="lv-prompt" role="status">Update ready · Refresh after the show</div>}
       <div className="lv-prompt">
         {hasNotes(show?.notes)
           ? <><span>Show notes pinned · </span><button type="button" className="lv-undo" onClick={() => setNotesOpen(true)}>Edit</button></>
@@ -583,7 +589,7 @@ export default function Live() {
                 {show?.link && <button type="button" className="lv-rb" onClick={() => setSharing(true)} aria-label="Share your show">{Icon.share}</button>}
                 <button type="button" className={`lv-rb${micOn ? '' : ' off'}`} aria-label={micOn ? 'Mute microphone' : 'Unmute microphone'} aria-pressed={!micOn} onClick={toggleMic}>{micOn ? Icon.mic : Icon.micOff}</button>
                 <button type="button" className="lv-rb" aria-label="Flip camera" onClick={flip}>{Icon.flip}</button>
-                <button type="button" className="lv-rb" aria-label="Camera and microphone" onClick={openDevices}>{Icon.more}</button>
+                <button type="button" className="lv-rb" aria-label="Camera and microphone" onClick={openDevices}>{Icon.settings}</button>
               </nav>
             </div>
             {ItemCard}
@@ -632,3 +638,5 @@ export default function Live() {
     </div>
   );
 }
+
+export default function Live(){const {id}=useParams();return <HostGate id={id}><LiveOriginal/></HostGate>;}

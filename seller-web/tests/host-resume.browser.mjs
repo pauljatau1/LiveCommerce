@@ -27,7 +27,8 @@ try{
    if(u.pathname.startsWith('/src/Hooks/useIntercomVisibility'))return route.fulfill({contentType:'application/javascript',body:'export const useIntercomVisibility=()=>{}'});
    if(u.origin==='http://localhost:8000'){
     let json={};const path=u.pathname;
-    if(path.endsWith('/shows/demo'))json=scene;
+    if(path.endsWith('/host-session'))json=route.request().method()==='GET'?{currentSessionId:null,canHost:false}:{sessionId:'host-test'};
+    else if(path.endsWith('/shows/demo'))json=scene;
     else if(path.endsWith('/presence')){await page.evaluate(data=>{(window.__presence ||= []).push(data)},route.request().postDataJSON());json=scene.ending?{ending:true}:{away:route.request().postDataJSON().away};}
     else if(path.endsWith('/renew-token'))json={agoraAppId:'test',channelName:'test',token:'test',uid:1};
     else if(path.endsWith('/chat'))json=Array.from({length:40},(_,i)=>({id:String(i),type:'comment',user:'viewer',content:i%2?'bid ₦3,000':'Love this dress!'}));

@@ -1,3 +1,4 @@
+import ConfirmSheet,{LEGACY_BROWSER_CONFIRM} from './ConfirmSheet';
 import {COLOURS} from './features';
 import {saveFieldProblems} from './productEditor';
 import {pickupAddress} from './pickup';
@@ -51,6 +52,7 @@ const FieldError = ({ id, text }) => (text ? <p className="field-err" id={id}>{A
 // Mouse: drag and drop. Touch: hold for a moment, then drag. Screen readers: "Make cover".
 function Photos({ images, onChange, error }) {
   const inputId = useId();
+  const [removePhoto,setRemovePhoto]=useState(null);
   const strip = useRef(null);
   const [drag, setDrag] = useState(null); // index being moved
   const [readError, setReadError] = useState('');
@@ -119,6 +121,7 @@ function Photos({ images, onChange, error }) {
 
   return (
     <div id="pe-photos">
+      {removePhoto!==null&&<ConfirmSheet onKeep={()=>setRemovePhoto(null)} onRemove={()=>{if(images.length>1)onChange(images.filter((_,i)=>i!==removePhoto));setRemovePhoto(null);}}/>}
       <div className="lab ed-pad">
         <span>Photos</span>
         <span className="opt">{images.length} of {MAX_PHOTOS}<span className="st-hide-phone"> · the first is the cover · drag to reorder</span></span>
@@ -136,7 +139,7 @@ function Photos({ images, onChange, error }) {
             onDragEnd={() => setDrag(null)}
           >
             <img src={srcOf(img)} alt={`Photo ${i + 1}${i === 0 ? ', cover' : ''}`} />
-            <button type="button" className="x" aria-label={`Remove photo ${i + 1}`} disabled={images.length<=1} onClick={() => {if(images.length>1&&window.confirm('Remove this photo?'))onChange(images.filter((_,n)=>n!==i));}}>{SmallX}</button>
+            <button type="button" className="x" aria-label={`Remove photo ${i + 1}`} disabled={images.length<=1} onClick={() => {if(images.length>1){if(LEGACY_BROWSER_CONFIRM){if(window.confirm('Remove this photo?'))onChange(images.filter((_,n)=>n!==i));}else setRemovePhoto(i);}}}>{SmallX}</button>
             {i === 0 ? <span className="pill">Cover</span> : <button type="button" className="sr" onClick={() => move(i, 0)}>Make photo {i + 1} the cover</button>}
           </div>
         ))}

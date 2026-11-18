@@ -1,3 +1,4 @@
+import {holdUpdates} from '../buildUpdates.mjs';
 const LEGACY_TRANSFER_HINT=false;
 import {waitingSession,balanceCredit} from '../transferRecovery';
 import {COLOURS} from '../features';
@@ -35,6 +36,7 @@ import {
 const REPORT_REASONS = ['Selling fakes as original', 'Asking to pay outside the app', 'Rude or abusive', 'Something else'];
 
 export default function Watch() {
+  const bidUpdateRelease=useRef(null);
   const { streamId } = useParams();
   const { config: serviceArea, error: serviceAreaError } = useServiceArea();
   const navigate = useNavigate();
@@ -194,6 +196,7 @@ export default function Watch() {
     recoveryRef.current?.invalidate();
     setShow((s) => s ? { ...s, status: 'ended' } : s);
     setPhase('ended');
+    bidUpdateRelease.current?.();bidUpdateRelease.current=null;
     setSheet(current=>['won','yours'].includes(current?.type)?current:null);
     setTyping(false);
     setBusy(false);
@@ -459,6 +462,7 @@ export default function Watch() {
     });
     socket.on('bid_timer_complete', (t) => t?.productId && setTimer((m) => ({ ...m, [String(t.productId)]: 0 })));
     socket.on('bid_placed', (r) => {
+      bidUpdateRelease.current?.();bidUpdateRelease.current=null;
       if(fundedBid.current && r?.product && idOf(r.product)===fundedBid.current.productId && Number(r.product.currentBid)===fundedBid.current.bid){setSheet({type:'receipt',...fundedBid.current});fundedBid.current=null;}
       recoveryRef.current?.invalidate();
       setBusy(false);
@@ -472,6 +476,7 @@ export default function Watch() {
       refreshWallet();
     });
     socket.on('bid_error', (r) => {
+      bidUpdateRelease.current?.();bidUpdateRelease.current=null;
       fundedBid.current=null;
       setBusy(false);
       refreshWallet();
@@ -630,13 +635,14 @@ export default function Watch() {
   };
 
   const sendBid = async (productId, bid, expectedRun) => {
+    const release=holdUpdates();bidUpdateRelease.current=release;
     setBusy(true);
     const sock = await authedSocket();
-    if (!sock) { setBusy(false); say('err', "Couldn't reach the show. Your bid wasn't placed. Try again."); return; }
+    if (!sock) { release();setBusy(false); say('err', "Couldn't reach the show. Your bid wasn't placed. Try again."); return; }
     lastBidRef.current = { amount: bid, productId };
     lastBidIntent.current = { kind: 'bid', productId, amount: bid, run: expectedRun || current?.run || 1 };
     sock.emit('stream_place_bid', { streamId, productId, bidAmount: bid, ...(expectedRun === undefined ? {} : { expectedRun }) });
-    window.setTimeout(() => setBusy(false), 8000);
+    window.setTimeout(() => {release();if(bidUpdateRelease.current===release)bidUpdateRelease.current=null;setBusy(false);}, 8000);
   };
 
   const placeBid = (amount) => {
@@ -888,7 +894,7 @@ export default function Watch() {
   }
 
   // ---------- watching ----------
-  const auctionLive = current && isAuction && current.bidStatus === 'active';
+  const auctionLive = Boolean(current && isAuction && current.bidStatus === 'active');
   const stock = current?.product?.quantity;
   const sold = soldCounts[curId] || 0;
   const miniAction = auctionLive
@@ -929,7 +935,7 @@ export default function Watch() {
 
   return (
     <div
-      className={`watch${typing ? ' typing' : ''}`}
+      className={`watch${typing ? ' typing' : ''}`} data-update-blocked={Boolean(sheet || busy || transfer || fundingPending.current || pendingIntent.current)}
       style={{ '--kb-bottom': `${typing ? keyboard.bottom : 0}px`, '--vv-top': `${typing ? keyboard.top : 0}px` }}
     >
       <aside className="w-side w-items" aria-label="Items in this show">
@@ -1065,7 +1071,7 @@ export default function Watch() {
               )}
               {current.bidStatus === 'ended' && nextUp && (
                 <div className="upnext">
-                  {!iWon && myBids[curId] && <span className="un-lead">Not this one. Up next in a moment:</span>}
+                  {Boolean(!iWon && myBids[curId]) && <span className="un-lead">Not this one. Up next in a moment:</span>}
                   <UpNextRow item={nextUp} onClick={() => setSheet({ type: 'items' })} />
                 </div>
               )}

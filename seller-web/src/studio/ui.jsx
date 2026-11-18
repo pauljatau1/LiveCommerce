@@ -8,6 +8,11 @@ import './studio.css';
 const s = { 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', strokeLinecap: 'round', strokeLinejoin: 'round' };
 
 export const Icon = {
+  phoneDevice: <svg {...s} width="36" height="40" viewBox="0 0 24 28" strokeWidth="2"><rect x="6" y="2" width="12" height="24" rx="3"/><path d="M11 22h2"/></svg>,
+  moveDevice: <svg {...s} width="40" height="40" viewBox="0 0 32 32" strokeWidth="2.5"><rect x="3" y="7" width="11" height="21" rx="2"/><rect x="20" y="4" width="9" height="24" rx="2"/><path d="M11 17h12m-5-5 5 5-5 5"/></svg>,
+  settings: <svg {...s} width="20" height="20" viewBox="0 0 24 24" strokeWidth="2"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></svg>,
+  gallery: <svg {...s} width="20" height="20" viewBox="0 0 24 24" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="2"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg>,
+  wifi: <svg {...s} width="20" height="20" viewBox="0 0 24 24" strokeWidth="2"><path d="M3 8a15 15 0 0 1 18 0M6 12a10 10 0 0 1 12 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="20" r="1"/></svg>,
   bell: <svg {...s} width="22" height="22" viewBox="0 0 24 24" strokeWidth="2"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z" /><path d="M10 21h4" /></svg>,
   home: <svg {...s} width="22" height="22" viewBox="0 0 24 24" strokeWidth="2"><path d="M3 11l9-8 9 8v10h-6v-6H9v6H3z" /></svg>,
   products: <svg {...s} width="22" height="22" viewBox="0 0 24 24" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></svg>,

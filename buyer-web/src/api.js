@@ -1,3 +1,4 @@
+import {trackUpdates} from './buildUpdates.mjs';
 // Server calls for the buyer app.
 import axios from 'axios';
 
@@ -16,6 +17,7 @@ export const getToken = () => memoryToken;
 export const setToken = (t) => { memoryToken = t; store.set(TOKEN_KEY, t); };
 
 const http = axios.create({ baseURL: API, timeout: 30000 });
+trackUpdates(http);
 http.interceptors.request.use((cfg) => {
   if (memoryToken) cfg.headers.Authorization = `Bearer ${memoryToken}`;
   return cfg;
