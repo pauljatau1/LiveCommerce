@@ -49,6 +49,8 @@ const reviewSchema = new mongoose.Schema({
 });
 
 const sellerSchema = new mongoose.Schema({
+  hostStartToken:{type:String,select:false},
+  hostStartUntil:{type:Date,select:false},
   withdrawalRevision:{type:Number,default:0},
   authVersion: {type:Number,default:0},
   firstName: { type: String, required: true },

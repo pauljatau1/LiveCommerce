@@ -1,3 +1,5 @@
+import {installBuildUpdates} from './buildUpdates.mjs';
+if(import.meta.env.PROD&&import.meta.env.VITE_LEGACY_BUILD_CACHE!=='true')installBuildUpdates({version:__APP_BUILD_VERSION__,seller:false});
 import { StrictMode, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';

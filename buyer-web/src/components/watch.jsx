@@ -113,7 +113,7 @@ export function useKeyboardInset() {
 export const shipsLine = (days) => (!days ? '' : days <= 1 ? 'ships in 1 day' : `ships in ${days - 1}–${days} days`);
 
 export function Timer({ secs, plus }) {
-  if (typeof secs !== 'number') return null;
+  if (typeof secs !== 'number' || secs <= 0) return null;
   const m = Math.floor(secs / 60);
   const s = String(secs % 60).padStart(2, '0');
   return (

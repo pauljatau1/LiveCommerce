@@ -472,7 +472,7 @@ const processStreamStartBackgroundTasks = async (stream, seller, existingStreams
     const cancelledStreams = existingStreams.map(s => s.title);
 
     // Cancel reminder jobs (SMS and push) for cancelled streams
-    if (existingStreams.length > 0) {
+    if (existingStreams.length > 0 && !require('../services/hostSessions').enabled()) {
       try {
         const { agenda } = require('../config/agenda');
         for (const cancelledStream of existingStreams) {
@@ -804,9 +804,11 @@ exports.startStream = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
+    if(require('../services/hostSessions').enabled() && existingStreams.length) return res.status(409).json({code:'already_live',message:`You're already live with ${existingStreams[0].title}. End it first.`});
+    // Legacy cancellation remains available only with LEGACY_MULTI_HOST=true.
     // Cancel existing live streams in background (non-blocking)
     const cancelledStreams = existingStreams.map(s => s.title);
-    if (existingStreams.length > 0) {
+    if (existingStreams.length > 0 && !require('../services/hostSessions').enabled()) {
       Stream.updateMany(
         { _id: { $in: existingStreams.map(s => s._id) } },
         {
@@ -820,11 +822,11 @@ exports.startStream = async (req, res) => {
     }
 
     // Generate token and update stream
-    const freshToken = agoraService.generateToken(stream.channelName, seller.agoraUid, RtcRole.PUBLISHER);
+    const freshToken = agoraService.generateToken(stream.channelName, stream.agoraUid || seller.agoraUid, RtcRole.PUBLISHER);
 
     stream.status = 'live';
     stream.actualStartTime = new Date();
-    stream.agoraUid = seller.agoraUid;
+    stream.agoraUid = stream.agoraUid || seller.agoraUid;
     stream.agoraToken = freshToken;
 
     // Save stream - this is the critical operation that must complete
@@ -1681,7 +1683,7 @@ exports.joinStreamSeller = async (req, res) => {
 
     // For sellers, use their agoraUid
     const seller = await Seller.findById(req.user.id).select('agoraUid');
-    if (!seller || !seller.agoraUid) {
+    if (!seller || !(stream.agoraUid || seller.agoraUid)) {
       return res.status(400).json({ message: 'Seller Agora UID not found' });
     }
 
@@ -1689,7 +1691,7 @@ exports.joinStreamSeller = async (req, res) => {
 
     const token = agoraService.generateToken(
       stream.channelName,
-      seller.agoraUid,
+      stream.agoraUid || seller.agoraUid,
       RtcRole.PUBLISHER
     );
 
@@ -1749,7 +1751,7 @@ exports.joinStreamSeller = async (req, res) => {
       channelName: stream.channelName,
       token,
       agoraAppId: process.env.AGORA_APP_ID,
-      uid: seller.agoraUid,
+      uid: stream.agoraUid || seller.agoraUid,
       role: RtcRole.PUBLISHER,
       tokenExpiration: Date.now() + (3600) * 1000,
       stream: {
@@ -4954,7 +4956,7 @@ exports.renewAgoraToken = async (req, res) => {
       // For sellers, use their agoraUid and Publisher role
       const seller = await Seller.findById(userId).select('agoraUid');
 
-      if (!seller || !seller.agoraUid) {
+      if (!seller || !(stream.agoraUid || seller.agoraUid)) {
         return res.status(400).json({
           success: false,
           message: 'Seller Agora UID not found'
@@ -4962,7 +4964,7 @@ exports.renewAgoraToken = async (req, res) => {
       }
 
       tokenRole = RtcRole.PUBLISHER;
-      tokenUid = seller.agoraUid;
+      tokenUid = stream.agoraUid || seller.agoraUid;
     } else if (userRole === 'Buyer') {
       // For buyers, create a deterministic but unique uid based on user ID and stream ID
       const userIdNum = parseInt(userId.substring(0, 8), 16);

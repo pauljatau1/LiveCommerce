@@ -1,9 +1,15 @@
+import {trackUpdates} from '../buildUpdates.mjs';
+import {hostHeaders,movedHost} from './hostSession';
 // Studio API: one small client for the new seller studio screens.
 import axios from 'axios';
 import { BASE_URL, BASE_URL_V2 } from '@/Constants/Server';
 import { tokenUtils } from '@/util/auth';
 
+trackUpdates(axios);
 const auth = () => ({ headers: { Authorization: `Bearer ${tokenUtils.getBearerToken()}` } });
+const showId=url=>String(url).match(/\/(?:streams|shows)\/([^/?]+)\//)?.[1];
+axios.interceptors.request.use(config=>{const id=showId(config.url);if(id)Object.assign(config.headers,hostHeaders(id));return config;});
+axios.interceptors.response.use(r=>r,e=>{const id=showId(e.config?.url);if(id&&e.response?.status===409&&e.response?.data?.code==='host_conflict'&&!e.config?.url?.endsWith('/host-session'))movedHost(id);return Promise.reject(e);});
 export const errorText = (e, fallback = 'Something went wrong. Try again.') => e?.response?.data?.message || fallback;
 
 const get = (url, opts = {}) => axios.get(url, { ...auth(), timeout: 45000, ...opts }).then((r) => r.data);
@@ -11,6 +17,8 @@ const post = (url, body = {}, opts = {}) => axios.post(url, body, { ...auth(), t
 const patch = (url, body = {}) => axios.patch(url, body, { ...auth(), timeout: 45000 }).then((r) => r.data);
 
 export const studio = {
+  hostStatus:id=>get(`${BASE_URL_V2}/studio/shows/${id}/host-session`),
+  claimHost:(id,expectedSessionId)=>post(`${BASE_URL_V2}/studio/shows/${id}/host-session`,{expectedSessionId}),
   home: () => get(`${BASE_URL_V2}/studio/home`),
   products: () => get(`${BASE_URL_V2}/studio/products`),
   product: (id) => get(`${BASE_URL_V2}/studio/products/${id}`),

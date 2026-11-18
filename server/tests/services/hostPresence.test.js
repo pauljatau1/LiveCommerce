@@ -24,7 +24,8 @@ test('expiry waits for an in-flight settlement without releasing money, then ret
 
 test('closing an unrelated studio tab or an old host socket cannot pause the active host',async()=>{
  expect(await service.disconnectedHost({id:'me',data:{}},{in:()=>{throw Error('unrelated tab queried')}})).toBe(false);
- const socket={id:'old',data:{hostStreamId:String(show._id),hostSellerId:String(mockSeller)}};
+ await Stream.updateOne({_id:show._id},{$set:{hostSessionId:require('@/services/hostSessions').sessionHash('test-host')}});
+ const socket={id:'old',data:{hostStreamId:String(show._id),hostSellerId:String(mockSeller),hostSessionId:'test-host'}};
  expect(await service.disconnectedHost(socket,{in:()=>({fetchSockets:async()=>[{id:'current',data:socket.data}]})})).toBe(false);expect(mockAgenda.schedule).not.toHaveBeenCalled();
  expect(await service.disconnectedHost(socket,{in:()=>({fetchSockets:async()=>[]})})).toBe(true);expect(mockAgenda.schedule).toHaveBeenCalled();
 });

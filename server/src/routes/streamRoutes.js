@@ -1,3 +1,4 @@
+const hostSessions=require('../services/hostSessions');
 const express = require('express');
 const router = express.Router();
 const streamController = require('../controllers/streamController');
@@ -203,7 +204,7 @@ router.post('/create',
 router.post('/:streamId/start',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
-  streamController.startStream
+  hostSessions.guard({starting:true}), streamController.startStream
 );
 
 /**
@@ -254,7 +255,7 @@ router.post('/:streamId/start',
 router.post('/:streamId/activate-product-bidding',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
-  streamController.activateProductBidding
+  hostSessions.guard(), streamController.activateProductBidding
 );
 
 /**
@@ -305,7 +306,7 @@ router.post('/:streamId/activate-product-bidding',
 router.post('/:streamId/end-product-bidding',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
-  streamController.endProductBidding
+  hostSessions.guard(), streamController.endProductBidding
 );
 
 /**
@@ -372,7 +373,7 @@ router.post('/:streamId/end-product-bidding',
 router.post('/:streamId/display-product',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
-  streamController.displayStreamProduct
+  hostSessions.guard(), streamController.displayStreamProduct
 );
 
 /**
@@ -439,7 +440,7 @@ router.post('/:streamId/display-product',
 router.post('/:streamId/hide-product',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
-  streamController.hideStreamProduct
+  hostSessions.guard(), streamController.hideStreamProduct
 );
 
 /**
@@ -528,7 +529,7 @@ router.post('/:streamId/place-bid',
 router.post('/:streamId/end',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
-  streamController.endStream
+  hostSessions.guard(), streamController.endStream
 );
 
 /**
@@ -916,7 +917,7 @@ router.post('/:streamId/buy-now',
 router.post('/:streamId/join-seller',
   authMiddleware.verifyToken,
   authMiddleware.isSeller,
-  streamController.joinStreamSeller
+  hostSessions.guard(), streamController.joinStreamSeller
 );
 
 /**
@@ -2349,7 +2350,7 @@ router.get('/:streamId/orders', streamController.getStreamOrders);
  */
 router.get('/:streamId/renew-token',
   authMiddleware.verifyToken,
-  streamController.renewAgoraToken
+  hostSessions.guard(), streamController.renewAgoraToken
 );
 
 /**

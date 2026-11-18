@@ -1,3 +1,5 @@
+import buildVersion from './buildVersion.mjs';
+import {fileURLToPath} from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { BRAND_NAME } from './src/config.js';
@@ -9,7 +11,7 @@ const brandName = () => ({
 });
 
 export default defineConfig({
-  plugins: [react(), brandName()],
-  server: { port: 5175 },
+  plugins: [buildVersion(),react(), brandName()],
+  server: { port: 5175, fs:{allow:[fileURLToPath(new URL('..',import.meta.url))]} },
   build: { chunkSizeWarningLimit: 1500 },
 });

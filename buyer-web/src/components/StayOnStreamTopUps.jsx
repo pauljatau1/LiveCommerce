@@ -84,7 +84,7 @@ export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWa
   };
   const useCard = () => { setBank(false); onMethod('card'); setError(''); };
   const anotherCard = () => { useCard(); onUseAnotherCard?.(); };
-  if (bank) return <section className="step" aria-label="Bank transfer">
+  if (bank) return <section data-update-blocked="true" className="step" aria-label="Bank transfer">
     {dva.status === 'active' ? <>
       <span className="lab">{dva.bankName}</span>
       <div className="wallet-available"><strong>{dva.accountNumber}</strong><button type="button" className="link" onClick={async () => { try { await navigator.clipboard.writeText(dva.accountNumber); setNotice('Account number copied'); } catch { setNotice('Select the account number to copy it.'); } }}>Copy</button></div>
@@ -104,7 +104,7 @@ export default function StayOnStreamTopUps({ methods, amount, need, onDone, onWa
     {error && <span className="err" role="alert">{error}</span>}{notice && <span className="hint" role="status">{notice}</span>}
     <button type="button" className="link" onClick={useCard}>Pay with card instead</button>
   </section>;
-  const legacy = <section className="step" aria-label="Top-up methods">
+  const legacy = <section data-update-blocked="true" className="step" aria-label="Top-up methods">
     {methods.savedCards && card && <>
       <button type="button" className="btn two-line" disabled={Boolean(busy || externalBusy)} onClick={chargeSaved}>{busy ? <span><span className="wallet-spinner" aria-hidden="true">◌ </span><span>{busy}</span></span> : <><span>Top up {naira(topUp)}</span><small>{card.bank} •••• {card.last4} · one tap</small></>}</button>
       <button type="button" className="link" disabled={Boolean(busy || externalBusy)} onClick={anotherCard}>Use another card</button>

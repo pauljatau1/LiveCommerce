@@ -38,6 +38,12 @@ const streamLikeSchema = new mongoose.Schema({
 });
 
 const streamSchema = new mongoose.Schema({
+  hostSessionId:{type:String,default:null,select:false},
+  hostDeviceName:{type:String,default:null},
+  hostSessionStartedAt:{type:Date,default:null},
+  hostSessionRevision:{type:String,default:null,select:false},
+  hostActionToken:{type:String,select:false},
+  hostActionUntil:{type:Date,select:false},
   hostAwayAt:{type:Date,default:null},
   hostGraceUntil:{type:Date,default:null},
   hostPresenceVersion:{type:String,default:null},

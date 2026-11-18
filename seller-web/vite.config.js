@@ -1,3 +1,4 @@
+import buildVersion from './buildVersion.mjs';
 import { appNameFor } from './src/config/brand.js';
 import path from "path"
 import { defineConfig, loadEnv } from 'vite'
@@ -24,6 +25,7 @@ const studioHtml = () => {
 // https://vite.dev/config/
 export default defineConfig({
   server: {
+    fs:{allow:[path.resolve(__dirname,'..')]},
     host: "0.0.0.0",
     port: 5174, // Start from 5174 to avoid conflicts
     strictPort: false, // Automatically try next available port if 5174 is in use
@@ -32,7 +34,7 @@ export default defineConfig({
       usePolling: true,
     },
   },
-  plugins: [
+  plugins: [buildVersion(),
     react(),
     studioHtml(),
     // Upload source maps only when a Sentry account is configured

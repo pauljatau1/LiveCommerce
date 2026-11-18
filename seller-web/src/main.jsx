@@ -1,3 +1,5 @@
+import {installBuildUpdates} from './buildUpdates.mjs';
+if(import.meta.env.PROD&&import.meta.env.VITE_LEGACY_BUILD_CACHE!=='true')installBuildUpdates({version:__APP_BUILD_VERSION__,seller:true});
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Provider } from 'react-redux';

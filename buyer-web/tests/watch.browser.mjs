@@ -62,7 +62,9 @@ try {
    await page.getByRole('dialog').waitFor();
    await page.screenshot({path:`${screenshots}/wallet-${viewport.width}.png`});
    await page.getByRole('button',{name:'Close',exact:true}).click();
-   await page.evaluate(()=>window.__socket.trigger('auction_order_created',{productName:'Adire Bubu Gown',amount:15000,orderId:'win'}));
+   await page.evaluate(()=>window.__socket.trigger('bid_timer_complete',{productId:'third'}));
+  await page.waitForFunction(()=>document.querySelector('[role=timer]')===null);
+  await page.evaluate(()=>window.__socket.trigger('auction_order_created',{productName:'Adire Bubu Gown',amount:15000,orderId:'win'}));
    await page.getByRole('dialog').waitFor();
    await page.screenshot({path:`${screenshots}/win-${viewport.width}.png`});
    await page.getByRole('button',{name:'Keep watching',exact:true}).click();
@@ -128,6 +130,13 @@ try {
   assert((await page.locator('.purchase-sheet').innerText()).length<300);
   if(screenshots) { await page.waitForTimeout(700); await page.screenshot({path:`${screenshots}/win-${viewport.width}.png`}); }
   await page.getByRole('button',{name:'Keep watching',exact:true}).click();
+  await page.evaluate(p=>window.__socket.trigger('stream_notification',{type:'auction_start',data:{product:p}}),scene.products[0]);
+  scene={...scene,products:[{...product('Unsold dress','third',15000),bidStatus:'ended',currentBid:0,bidWinner:null},{...product('Next dress','next',12000),bidStatus:'pending',isVisible:false}]};
+  await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
+  await page.getByText('Not sold',{exact:true}).first().waitFor({state:'attached'});
+  assert(await page.getByText('Not sold',{exact:true}).evaluateAll(nodes=>nodes.some(node=>node.getClientRects().length>0)));
+  assert.equal(await page.getByRole('timer').count(),0);
+  assert.deepEqual(await page.locator('.panel').evaluateAll(nodes=>nodes.flatMap(node=>{const walker=document.createTreeWalker(node,NodeFilter.SHOW_TEXT),zero=[];while(walker.nextNode())if(walker.currentNode.textContent.trim()==='0')zero.push('0');return zero;})),[]);
   // Returning from the iOS back/forward cache after the host has ended.
   scene={...scene,status:'ended'};
   await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));

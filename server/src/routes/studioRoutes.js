@@ -17,6 +17,9 @@ const fail = (res, error) => {
 };
 
 router.use(verifyToken, isSeller);
+const hostSessions=require('../services/hostSessions');
+router.get('/shows/:id/host-session',validId,async(req,res)=>{try{res.json(await hostSessions.status(req.params.id,req.user.id,req.get('X-Host-Session-Id')));}catch(e){fail(res,e);}});
+router.post('/shows/:id/host-session',validId,async(req,res)=>{try{res.json(await hostSessions.claim(req.params.id,req.user.id,req.body?.expectedSessionId,{io:req.app.get('io'),userAgent:req.get('User-Agent')}));}catch(e){res.status(e.status || 503).json({code:e.code,message:e.status?e.message:"Couldn't move your show. Try again."});}});
 
 const productIdOf = (p) => String(p?.product?.productId || p?.product?._id || p?.product || '');
 const image = (p) => p?.images?.find((i) => i.isDefault)?.url || p?.images?.[0]?.url || null;
@@ -438,7 +441,7 @@ router.get('/shows/:id/next-plan', validId, async (req, res) => {
   } catch (error) { fail(res, error); }
 });
 
-router.post('/shows/:id/presence',validId,async(req,res)=>{
+router.post('/shows/:id/presence',validId,hostSessions.guard(),async(req,res)=>{
   try{res.json({success:true,...await require('../services/hostPresence').mark(req.params.id,req.user.id,req.body?.away===true)});}catch(e){res.status(e.status || 503).json({message:e.status===404?e.message:"Couldn't update the show connection. Try again."});}
 });
 
@@ -517,7 +520,7 @@ router.delete('/shows/:id/notes', validId, async (req, res) => {
 // PUT /api/v2/studio/shows/:id/items/:productId/run { note, minBid, seconds }
 // Before a run: the note ("Red, size M"), starting bid and time. After a run ends,
 // this sets up "Run again" (needs stock); then the studio starts bidding as usual.
-router.put('/shows/:id/items/:productId/run', validId, async (req, res) => {
+router.put('/shows/:id/items/:productId/run', validId,hostSessions.guard(), async (req, res) => {
   try {
     const { prepareRun } = require('../services/auctionRuns');
     const item = await prepareRun({ streamId: oid(req.params.id), sellerId: oid(req.user.id), productId: String(req.params.productId), note: req.body?.note, minBid: req.body?.minBid, seconds: req.body?.seconds });
@@ -526,7 +529,7 @@ router.put('/shows/:id/items/:productId/run', validId, async (req, res) => {
 });
 
 // POST /api/v2/studio/shows/:id/auction/time { productId, seconds = 30 } → "+30s" on the running auction
-router.post('/shows/:id/auction/time', validId, async (req, res) => {
+router.post('/shows/:id/auction/time', validId,hostSessions.guard(), async (req, res) => {
   try {
     const productId = String(req.body?.productId || '');
     if (!productId) return res.status(400).json({ success: false, message: 'Which item? Pick the one being auctioned.' });
