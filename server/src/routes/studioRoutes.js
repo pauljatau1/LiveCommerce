@@ -18,6 +18,14 @@ const fail = (res, error) => {
 
 router.use(verifyToken, isSeller);
 const hostSessions=require('../services/hostSessions');
+router.get('/shows/:id/live-conflict',validId,async(req,res)=>{
+ try{
+  const owns=await model('Stream').exists({_id:req.params.id,seller:req.user.id});
+  if(!owns)return res.status(404).json({message:'Show not found'});
+  const other=await model('Stream').findOne({seller:req.user.id,status:'live',_id:{$ne:req.params.id}}).select('_id title').lean();
+  res.json({liveShow:other?{_id:String(other._id),title:other.title}:null});
+ }catch{res.status(503).json({message:"Couldn't check your live show. Try again."});}
+});
 router.get('/shows/:id/host-session',validId,async(req,res)=>{try{res.json(await hostSessions.status(req.params.id,req.user.id,req.get('X-Host-Session-Id')));}catch(e){fail(res,e);}});
 router.post('/shows/:id/host-session',validId,async(req,res)=>{try{res.json(await hostSessions.claim(req.params.id,req.user.id,req.body?.expectedSessionId,{io:req.app.get('io'),userAgent:req.get('User-Agent')}));}catch(e){res.status(e.status || 503).json({code:e.code,message:e.status?e.message:"Couldn't move your show. Try again."});}});
 

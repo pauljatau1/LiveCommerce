@@ -52,7 +52,7 @@ test('takeover cannot race an in-flight money/control action',async()=>{
 test('another live show is refused with its title',async()=>{
  const second=await Stream.create({seller,title:'Saturday shoes',category:'Shoes',channelName:'second',status:'scheduled',type:'auction'});
  const host=await sessions.claim(second.id,seller,null,{agenda:mockAgenda,io});
- const response=await request(app).post(`/${second.id}/start`).set('X-Host-Session-Id',host.sessionId).expect(409);expect(response.body.message).toBe("You're already live with Friday dresses. End it first.");expect((await Stream.findById(second.id)).status).toBe('scheduled');expect(response.body.code).toBe('already_live');expect((await sessions.status(second.id,seller)).currentSessionId).toBeNull();
+ const response=await request(app).post(`/${second.id}/start`).set('X-Host-Session-Id',host.sessionId).expect(409);expect(response.body.message).toBe("You're already live with Friday dresses. End it first.");expect((await Stream.findById(second.id)).status).toBe('scheduled');expect(response.body.code).toBe('already_live');expect(response.body.liveShow).toEqual({_id:show.id,title:'Friday dresses'});expect(await Stream.countDocuments({seller})).toBe(2);expect((await sessions.status(second.id,seller)).currentSessionId).toBeNull();
 });
 test('two concurrent starts cannot leave two live shows',async()=>{
  await Stream.updateOne({_id:show.id},{$set:{status:'scheduled'}});

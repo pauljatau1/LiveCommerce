@@ -1,11 +1,13 @@
+import {startCheckedShow} from './goLiveStart';
+import {rememberHost} from './hostSession';
 import HostGate from './HostGate';
 import {deviceChoice,rememberDevice} from './hostMedia';
 import { usePickupArea, PickupAreaBanner } from './ServiceArea';
 // Go Live (design: S-GoLive-Check). Pick a show, check camera and mic, go live.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { studio, errorText, naira, when } from './api';
-import { Icon, Empty, Problem, Skeleton, TopBar } from './ui';
+import { Icon, Empty, Problem, Skeleton, TopBar, Sheet } from './ui';
 import { releaseStream } from './localMedia';
 import ShareSheet from './ShareSheet';
 
@@ -35,8 +37,12 @@ function GoLiveOriginal() {
   );
 }
 
+const LEGACY_NAVIGATE_FIRST=import.meta.env.VITE_LEGACY_NAVIGATE_FIRST==='true';
 function Check({ showId }) {
+  const location=useLocation();
+  const [existingShow,setExistingShow]=useState(location.state?.alreadyLive || null),[showBlocked,setShowBlocked]=useState(Boolean(location.state?.alreadyLive)),[starting,setStarting]=useState(false);
   const area=usePickupArea();
+  const conflictRead=useRef(0);
   const navigate = useNavigate();
   const video = useRef(null);
   const streamRef = useRef(null);
@@ -50,6 +56,8 @@ function Check({ showId }) {
   const [micId, setMicId] = useState(()=>deviceChoice('mic'));
   const [level, setLevel] = useState(0);
   const [sharing, setSharing] = useState(false);
+
+  useEffect(()=>{let active=true;const version=++conflictRead.current;studio.liveConflict(showId).then(r=>{if(active&&version===conflictRead.current){setExistingShow(r.liveShow);if(location.state?.alreadyLiveRefused && r.liveShow)setShowBlocked(true);}}).catch(e=>{if(active&&version===conflictRead.current)setError(errorText(e,"Couldn't check your live show. Try again."));});return()=>{active=false;};},[showId]);
 
   useEffect(() => {
     studio.show(showId).then((r) => {
@@ -117,7 +125,19 @@ function Check({ showId }) {
   }, [cameraId, micId]);
 
   const first = data?.items?.[0];
-  const go = () => { if(area.allowed!==true)return;stop(); navigate(`/studio/live/${showId}`, { state: { cameraId, micId } }); };
+  const go = async () => {
+    if(area.allowed!==true || starting)return;
+    if(LEGACY_NAVIGATE_FIRST){stop();navigate(`/studio/live/${showId}`,{state:{cameraId,micId}});return;}
+    conflictRead.current+=1;setStarting(true);setError('');
+    try{
+      const result=await startCheckedShow({id:showId,api:studio,remember:rememberHost});
+      if(result.conflict){setExistingShow(result.conflict);setShowBlocked(true);return;}
+      stop();
+      navigate(result.ended?`/studio/recap/${showId}`:`/studio/live/${showId}`,{state:{cameraId,micId}});
+    }catch(e){setError(errorText(e,"Couldn't start this show. Try again from this check."));}
+    finally{setStarting(false);}
+  };
+  const dismissBlock=()=>{setShowBlocked(false);if(location.state?.alreadyLive || location.state?.alreadyLiveRefused)navigate(location.pathname,{replace:true,state:{...location.state,alreadyLive:null,alreadyLiveRefused:false}});};
 
   return (
     <div className="studio-app">
@@ -156,10 +176,11 @@ function Check({ showId }) {
         </>}
       </div>
       <div data-keyboard-bar style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '12px 16px max(18px, env(safe-area-inset-bottom))', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
-        {area.allowed===false?<div className="pickup-live-block"><p>Update your pickup address to go live.</p><p className="mut">Your pickup address is in {area.address?.state || 'a state outside our service area'}. We deliver within {area.config.states.join(' and ')} for now, so couriers can't collect from there yet.</p><Link className="btn" to="/studio/pickup" state={{from:`/studio/golive/${showId}`}}>Update pickup address</Link></div>:<button type="button" className="btn" style={{  fontSize: 'var(--t-h2)', background: 'var(--live)', width: '100%', maxWidth: 688, margin: '0 auto' }} disabled={!data || Boolean(camError) || area.allowed!==true} onClick={go}>
-          <span aria-hidden="true" style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />Go live
+        {area.allowed===false?<div className="pickup-live-block"><p>Update your pickup address to go live.</p><p className="mut">Your pickup address is in {area.address?.state || 'a state outside our service area'}. We deliver within {area.config.states.join(' and ')} for now, so couriers can't collect from there yet.</p><Link className="btn" to="/studio/pickup" state={{from:`/studio/golive/${showId}`}}>Update pickup address</Link></div>:<button type="button" className="btn" style={{  fontSize: 'var(--t-h2)', background: 'var(--live)', width: '100%', maxWidth: 688, margin: '0 auto' }} disabled={starting || !data || Boolean(camError) || area.allowed!==true} onClick={go}>
+          <span aria-hidden="true" style={{ width: 12, height: 12, borderRadius: '50%', background: '#fff' }} />{starting?'Checking your show…':'Go live'}
         </button>}
       </div>
+      {showBlocked&&existingShow&&<Sheet label="You're already live" onClose={dismissBlock}><h2 className="h2">You're already live</h2><p>{existingShow.title} is live now. End it before starting this one.</p><button type="button" className="btn" onClick={()=>{stop();navigate(`/studio/live/${existingShow._id}`);}}>Go to my live show</button><button type="button" className="btn3" onClick={dismissBlock}>Not now</button></Sheet>}
       {sharing && <ShareSheet show={data.show} onClose={() => setSharing(false)} />}
     </div>
   );

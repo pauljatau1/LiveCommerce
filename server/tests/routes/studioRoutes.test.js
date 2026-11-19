@@ -218,6 +218,18 @@ describe('studio routes', () => {
     const dbShow=await Stream.findById(id).lean();expect(dbShow.products).toHaveLength(1);expect(dbShow.products[0].product.name).toBe('Gojo figure');
   });
 
+  it('live conflict is scoped to this seller and excludes the show being checked',async()=>{
+    const planned=await Stream.findOne({seller:mockSellerId,status:'scheduled'});
+    const live=await Stream.create({seller:mockSellerId,title:'Friday dresses',category:'Women',channelName:'conflict-live',status:'live',type:'auction'});
+    await Stream.create({seller:new mongoose.Types.ObjectId(),title:'Someone else live',category:'Women',channelName:'other-live',status:'live',type:'auction'});
+    const result=await request(app).get(`/api/v2/studio/shows/${planned.id}/live-conflict`).expect(200);
+    expect(result.body.liveShow).toEqual({_id:live.id,title:'Friday dresses'});
+    expect((await Stream.findById(planned.id)).status).toBe('scheduled');
+    expect((await request(app).get(`/api/v2/studio/shows/${live.id}/live-conflict`).expect(200)).body.liveShow).toBeNull();
+    const foreign=await Stream.findOne({title:'Someone else live'});
+    await request(app).get(`/api/v2/studio/shows/${foreign.id}/live-conflict`).expect(404);
+  });
+
 });
 
 afterEach(()=>{delete process.env.COLOURS;});

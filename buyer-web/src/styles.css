@@ -510,3 +510,10 @@ a{color:var(--primary)}
 .photo-full{position:fixed;inset:0;z-index:2000;background:var(--surface-page);color:var(--text);display:flex;align-items:center;justify-content:center;touch-action:none}
 .photo-full>img{width:100%;height:100%;object-fit:contain}.photo-close{position:absolute;right:16px;top:max(16px,env(safe-area-inset-top));z-index:1}
 .photo-controls{position:absolute;left:16px;right:16px;bottom:max(16px,env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:center;gap:16px}
+
+/* Long user/AI labels must shrink inside phone-width rows; zoom stays enabled. */
+:is(.pill,.chip,.qr,.tg,.badge){max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+span.pill{display:inline-block;vertical-align:middle;line-height:22px}
+.app :is(.card,.wrap){min-width:0}
+.app :is(h1,h2,p,.bub,.hint){overflow-wrap:anywhere}
+.app{overflow-wrap:anywhere}

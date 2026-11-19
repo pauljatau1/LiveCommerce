@@ -1,3 +1,4 @@
+import {generatedShowTitle} from './showTitle';
 const LEGACY_SEPARATE_PLANNER_NOTES = false; // Notes now persist in the show creation write.
 import {COLOURS} from './features';
 const LEGACY_COMBINED_RUNNING_ORDER=false;
@@ -93,8 +94,10 @@ export default function Planner() {
   const goSetup = () => {
     setLots(COLOURS?colourLots(picked.map(id=>byId.get(id)).filter(Boolean)):picked.map(id=>byId.get(id)).filter(Boolean));
     if (!title) {
+      if(import.meta.env.VITE_LEGACY_SHOW_TITLES==='true'){
       const names = items.slice(0, 2).map((p) => p.name.split(/[,(]|\s[–-]\s/)[0].trim().slice(0, 28));
       setTitle(`${type === 'auction' ? 'Live auction' : 'Live drop'}: ${names.join(' & ')}${items.length > 2 ? ` + ${items.length - 2} more` : ''}`.slice(0, 80));
+      }else setTitle(generatedShowTitle(items,type));
     }
     if (!description) setDescription(`${items.map((p) => p.name).join(', ')}. ${type === 'auction' ? 'Bid live, highest bid wins.' : 'Fixed prices, limited stock: first to buy gets it.'} ${deliveryStates.length ? `Delivery within ${deliveryStates.join(' and ')}.` : 'Delivery within our service area.'}`.slice(0, 500));
     setReview(false);setStep(2);

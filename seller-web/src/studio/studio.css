@@ -616,3 +616,11 @@
 .studio-app.host-device-moved .btn2{background:transparent;border-color:var(--surface);color:var(--surface)}
 @media(min-width:900px){.host-device-moved .host-device-footer{width:100%;max-width:536px;margin-left:auto;margin-right:auto}.host-device-message{max-width:720px;width:100%;margin:auto}}
 @media(max-height:650px){.host-device-moved>.host-device-message{position:relative;min-height:180px;flex:1}}
+
+/* User and AI labels can be longer than the phone. Keep the original single
+   line treatment while allowing flex/grid children to shrink. */
+.studio-app :is(.pill,.chip,.qr,.tg){max-width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.studio-app span.pill{display:inline-block;vertical-align:middle;line-height:22px}
+.studio-app :is(.st-main,.st-inner,.card,.st-row){min-width:0}
+.studio-app :is(h1,h2,p,.bub,.mut,.hint){overflow-wrap:anywhere}
+.studio-app{overflow-wrap:anywhere}

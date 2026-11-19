@@ -1,0 +1,153 @@
+{
+  "checks": [
+    {
+      "page": "detail",
+      "width": 360,
+      "viewport": 360,
+      "document": 360,
+      "body": 360
+    },
+    {
+      "page": "products",
+      "width": 360,
+      "viewport": 360,
+      "document": 360,
+      "body": 360
+    },
+    {
+      "page": "planner-pick",
+      "width": 360,
+      "viewport": 360,
+      "document": 360,
+      "body": 360
+    },
+    {
+      "page": "planner-running-order",
+      "width": 360,
+      "viewport": 360,
+      "document": 360,
+      "body": 360
+    },
+    {
+      "page": "planner",
+      "width": 360,
+      "viewport": 360,
+      "document": 360,
+      "body": 360
+    },
+    {
+      "page": "studio-orders",
+      "width": 360,
+      "viewport": 360,
+      "document": 360,
+      "body": 360
+    },
+    {
+      "page": "recap",
+      "width": 360,
+      "viewport": 360,
+      "document": 360,
+      "body": 360
+    },
+    {
+      "page": "shop-live",
+      "width": 360,
+      "viewport": 360,
+      "document": 360,
+      "body": 360
+    },
+    {
+      "page": "shop-orders",
+      "width": 360,
+      "viewport": 360,
+      "document": 360,
+      "body": 360
+    },
+    {
+      "page": "shop-profile",
+      "width": 360,
+      "viewport": 360,
+      "document": 360,
+      "body": 360
+    },
+    {
+      "page": "detail",
+      "width": 390,
+      "viewport": 390,
+      "document": 390,
+      "body": 390
+    },
+    {
+      "page": "products",
+      "width": 390,
+      "viewport": 390,
+      "document": 390,
+      "body": 390
+    },
+    {
+      "page": "planner-pick",
+      "width": 390,
+      "viewport": 390,
+      "document": 390,
+      "body": 390
+    },
+    {
+      "page": "planner-running-order",
+      "width": 390,
+      "viewport": 390,
+      "document": 390,
+      "body": 390
+    },
+    {
+      "page": "planner",
+      "width": 390,
+      "viewport": 390,
+      "document": 390,
+      "body": 390
+    },
+    {
+      "page": "studio-orders",
+      "width": 390,
+      "viewport": 390,
+      "document": 390,
+      "body": 390
+    },
+    {
+      "page": "recap",
+      "width": 390,
+      "viewport": 390,
+      "document": 390,
+      "body": 390
+    },
+    {
+      "page": "shop-live",
+      "width": 390,
+      "viewport": 390,
+      "document": 390,
+      "body": 390
+    },
+    {
+      "page": "shop-orders",
+      "width": 390,
+      "viewport": 390,
+      "document": 390,
+      "body": 390
+    },
+    {
+      "page": "shop-profile",
+      "width": 390,
+      "viewport": 390,
+      "document": 390,
+      "body": 390
+    }
+  ],
+  "flows": [
+    "preflight sheet",
+    "409 sheet",
+    "successful checked start",
+    "legacy direct refusal",
+    "plain error without controls",
+    "non-retryable missing show"
+  ],
+  "mocks": true
+}

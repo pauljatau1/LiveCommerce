@@ -60,7 +60,7 @@ async function startLease(sellerId,id){
   const seller=await Seller.findOneAndUpdate({_id:sellerId,...free('hostStartUntil')},{$set:{hostStartToken:token,hostStartUntil:new Date(Date.now()+120000)}},{new:true}).select('_id').lean();
   if(seller){
    const release=()=>Seller.updateOne({_id:sellerId,hostStartToken:token},{$unset:{hostStartToken:1,hostStartUntil:1}});
-   try{const other=await Stream.findOne({seller:sellerId,status:'live',_id:{$ne:id}}).select('title').lean();if(other)throw Object.assign(error(`You're already live with ${other.title}. End it first.`,409),{code:'already_live'});}catch(e){await release();throw e;}
+   try{const other=await Stream.findOne({seller:sellerId,status:'live',_id:{$ne:id}}).select('title').lean();if(other)throw Object.assign(error(`You're already live with ${other.title}. End it first.`,409),{code:'already_live',liveShow:{_id:String(other._id),title:other.title}});}catch(e){await release();throw e;}
    return release;
   }
   await delay();
@@ -85,7 +85,7 @@ function guard({starting=false}={}){
    // A disconnected HTTP client does not mean its DB action has finished.
    // Keep the lease until the response finishes (or its bounded crash lease expires).
    res.once('finish',cleanup);next();
-  }catch(e){try{if(starting&&release)await dropReservation(req.params.streamId || req.params.id,req.user.id,req.get('X-Host-Session-Id'));}catch{console.warn('[host-session] Could not clear start reservation');}finally{try{await Promise.all([release?.(),releaseStart?.()]);}catch{console.warn('[host-session] Could not release action lease');}}res.status(e.status || 503).json({code:e.code || 'host_busy',message:e.status?e.message:"Couldn't check your host device. Try again."});}
+  }catch(e){try{if(starting&&release)await dropReservation(req.params.streamId || req.params.id,req.user.id,req.get('X-Host-Session-Id'));}catch{console.warn('[host-session] Could not clear start reservation');}finally{try{await Promise.all([release?.(),releaseStart?.()]);}catch{console.warn('[host-session] Could not release action lease');}}res.status(e.status || 503).json({code:e.code || 'host_busy',...(e.liveShow?{liveShow:e.liveShow}:{}),message:e.status?e.message:"Couldn't check your host device. Try again."});}
  };
 }
 module.exports={deviceName,sessionHash,enabled,CONFLICT,status,claim,acquire,startLease,guard,room};

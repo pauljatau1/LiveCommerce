@@ -65,7 +65,7 @@ export default function ProductDetail() {
           <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               <Pill map={PRODUCT_PILL} status={p.status} />
-              {upcoming && <span className="pill p-show">In "{upcoming.title}"</span>}
+              {upcoming && <span className="pill p-show" title={`In "${upcoming.title}"`}>In "{upcoming.title}"</span>}
             </div>
             <h1 className="f" style={{ margin: 0, fontSize: 'var(--t-h1)', lineHeight: 1.2 }}>{p.name}</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -104,7 +104,7 @@ export default function ProductDetail() {
               <h2 className="h2">Shows</h2>
               {data.shows.map((s) => (
                 <Link key={s._id} to={s.status === 'ended' ? `/studio/recap/${s._id}` : `/studio/golive/${s._id}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: 'var(--text)', textDecoration: 'none', minHeight: 44, alignItems: 'center' }}>
-                  <span style={{ fontWeight: 'var(--w-medium)' }}>{s.title}</span><span className="mut" style={{ fontSize: 'var(--t-small)' }}>{s.status === 'ended' ? 'Ended' : when(s.scheduledStartTime)}</span>
+                  <span title={s.title} style={{ flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight: 'var(--w-medium)' }}>{s.title}</span><span className="mut" style={{ flex:'none',fontSize: 'var(--t-small)' }}>{s.status === 'ended' ? 'Ended' : when(s.scheduledStartTime)}</span>
                 </Link>
               ))}
             </section>

@@ -14,7 +14,7 @@ import { io } from 'socket.io-client';
 import { BASE_URL } from '@/Constants/Server';
 import { tokenUtils } from '@/util/auth';
 import { studio, errorText, naira } from './api';
-import { Icon, Sheet } from './ui';
+import { Icon, Sheet, TopBar, Problem, Skeleton } from './ui';
 import ShareSheet from './ShareSheet';
 import { feedEntryFor, winnerName } from './liveFeed';
 import LiveChat from './LiveChat';
@@ -54,6 +54,7 @@ function LiveOriginal() {
 
   const [phase, setPhase] = useState('connecting'); // connecting | live | reconnecting | error | ending
   const [error, setError] = useState('');
+  const [failureStatus,setFailureStatus]=useState(null);
   const [show, setShow] = useState(null);
   const [items, setItems] = useState([]);
   const [sales, setSales] = useState({ count: 0, amount: 0 });
@@ -230,6 +231,8 @@ function LiveOriginal() {
       } catch (e) {
         scope.close();
         if (cancelled || endedRef.current) return;
+        if(e?.response?.status===409 && e.response.data?.code==='already_live'){navigate(`/studio/golive/${id}`,{replace:true,state:{alreadyLive:e.response.data.liveShow || null,alreadyLiveRefused:true,studioRedirect:true,from:'/studio/golive'}});return;}
+        setFailureStatus(e?.response?.status || null);
         const blocked = e?.code === 'PERMISSION_DENIED' || /permission|NotAllowed/i.test(e?.message || '');
         setError(e?.response?.data?.message || (blocked ? 'Camera or microphone is blocked. Allow them for this site, then reload.' : mediaMessage(e)));
         setPhase('error');
@@ -244,6 +247,8 @@ function LiveOriginal() {
       client.leave().catch(() => {});
     };
   }, [id, refresh, navigate, nav, rtcSession]);
+
+  useEffect(()=>{if(phase==='live' && videoRef.current && tracksRef.current.video)tracksRef.current.video.play(videoRef.current,{fit:'cover',mirror:facingRef.current==='user'});},[phase]);
 
   // 2. Live events
   useEffect(() => {
@@ -536,6 +541,9 @@ function LiveOriginal() {
     </div>
   );
 
+  const terminalFailure=phase==='error' && [401,403,404,410].includes(failureStatus);
+  const legacyErrorOverlay=import.meta.env.VITE_LEGACY_LIVE_ERROR_OVERLAY==='true';
+  if(!legacyErrorOverlay && (phase==='connecting' || phase==='error' || (phase==='reconnecting'&&error)))return <div className="studio-app"><TopBar title="Go live" onBack={()=>navigate(terminalFailure?'/studio':`/studio/golive/${id}`,{replace:true,state:{studioRedirect:true,from:'/studio/golive'}})}/><main className="st-inner">{phase==='connecting'?<><Skeleton h={80}/><p className="hint" role="status">Starting your show…</p></>:<><Problem text={error}/>{phase==='reconnecting'&&<button type="button" className="btn" onClick={()=>restoreRef.current()}>Reconnect</button>}{!terminalFailure&&<button type="button" className="btn2" onClick={()=>navigate(`/studio/golive/${id}`,{replace:true,state:{studioRedirect:true,from:'/studio/golive'}})}>Back to Go live check</button>}<button type="button" className="link" onClick={()=>navigate('/studio')}>Back to studio</button></>}</main></div>;
   return (
     <div className={`studio-app lv${typing ? ' typing' : ''}`} style={{ '--kb-bottom': `${typing ? keyboard.bottom : 0}px` }}>
       {/* One slim row: the LIVE chip with the viewer count, the show time, End show */}

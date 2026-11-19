@@ -5,7 +5,7 @@ import {readFile,mkdir,writeFile} from 'node:fs/promises';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base=process.env.SELLER_TEST_URL || 'http://127.0.0.1:5201';
 const shop=process.env.BUYER_TEST_URL || 'http://127.0.0.1:5202';
-const output='docs/screenshots/live-controls';await mkdir(output,{recursive:true});
+const output=process.env.SCREENSHOT_DIR || 'docs/screenshots/live-controls';await mkdir(output,{recursive:true});
 const source=await(await fetch(base+'/src/studio/Live.jsx')).text();
 const react=source.match(/"([^"]*\/react\.js\?v=[a-z0-9]+)"/)[1],router=source.match(/"([^"]*\/react-router-dom\.js\?v=[a-z0-9]+)"/)[1];
 const prior=await readFile('seller-web/tests/host-resume.browser.mjs','utf8');
@@ -33,7 +33,8 @@ async function fixture(path){
   if(path.startsWith('/api/')){
    calls.push({path,method,body,actor:pages.indexOf(page),headers:request.headers()});let json={success:true};
    const id=path.match(/\/(?:shows|streams)\/([^/]+)/)?.[1],owner=owners.get(id),sid=request.headers()['x-host-session-id'];
-   if(path.endsWith('/host-session')){
+   if(path.endsWith('/live-conflict'))json={liveShow:id==='planned'?{_id:'demo',title:'Friday fashion'}:null};
+   else if(path.endsWith('/host-session')){
     if(method==='GET')json={currentSessionId:owner?.revision || null,canHost:Boolean(owner&&sid===owner.sid),live:id==='demo',host:{deviceName:'iPhone',startedAt:owner?.startedAt || '2026-11-18T18:02:00Z'}};
     else{
      if((body.expectedSessionId || null)!==(owner?.revision || null))return route.fulfill({status:409,json:{code:'host_conflict',message:'This show is live on another device.'}});
@@ -43,7 +44,7 @@ async function fixture(path){
     }
    }else if(/\/(presence|renew-token|start|activate-product-bidding|end)$/.test(path)){
     if(!owner||owner.sid!==sid)return route.fulfill({status:409,json:{code:'host_conflict',message:'This show is live on another device.'}});
-    if(path.endsWith('/start')&&id==='planned')return route.fulfill({status:409,json:{code:'already_live',message:"You're already live with Friday fashion. End it first."}});
+    if(path.endsWith('/start')&&id==='planned')return route.fulfill({status:409,json:{code:'already_live',liveShow:{_id:'demo',title:'Friday fashion'},message:"You're already live with Friday fashion. End it first."}});
     if(path.endsWith('/renew-token'))json={agoraAppId:'test',channelName:'test',token:'test',uid:1234};
    }else if(path.endsWith('/shows/demo'))json=scene;
    else if(path.endsWith('/shows/planned'))json={...scene,show:{...scene.show,_id:'planned',status:'scheduled',title:'Saturday dresses'}};
@@ -82,7 +83,7 @@ try{
  await first.getByRole('button',{name:'Move it back here',exact:true}).click();await first.getByRole('button',{name:'Camera and microphone',exact:true}).waitFor();await second.getByRole('heading',{name:'You moved your show to another device',exact:true}).waitFor();
  // Version update shows a note and never interferes with the live controls.
  await first.evaluate(()=>window.dispatchEvent(new CustomEvent('app:update-ready')));await first.getByText('Update ready · Refresh after the show',{exact:true}).first().waitFor();
- const refused=await fixture('/studio/live/planned');await refused.getByText("You're already live with Friday fashion. End it first.",{exact:true}).waitFor();assert.equal(await refused.getByRole('heading',{name:'You moved your show to another device',exact:true}).count(),0);assert.equal(await refused.evaluate(()=>window.__created?.video || 0),0);await refused.close();
+ const refused=await fixture('/studio/live/planned');await refused.getByRole('dialog',{name:"You're already live",exact:true}).waitFor();assert(new URL(refused.url()).pathname.endsWith('/golive/planned'));assert.equal(await refused.getByRole('heading',{name:'You moved your show to another device',exact:true}).count(),0);assert.equal(await refused.evaluate(()=>window.__created?.video || 0),0);await refused.close();
  const check=await fixture('/studio/golive/planned');const tip=check.getByText('Sharper video: face a window or light, keep the phone steady, and use strong Wi-Fi or 4G.',{exact:true});await tip.waitFor();await shot(check,'go-live-tip');
  const editor=await fixture('/studio/products/product/edit');await editor.getByRole('button',{name:'Remove photo 2',exact:true}).click();await editor.getByRole('dialog',{name:'Remove this photo?',exact:true}).waitFor();await shot(editor,'remove-photo');
  await editor.getByRole('button',{name:'Keep',exact:true}).click();assert.equal(await editor.getByRole('button',{name:/Remove photo/}).count(),2);await editor.getByRole('button',{name:'Remove photo 2',exact:true}).click();await editor.getByRole('button',{name:'Remove',exact:true}).click();assert.equal(await editor.getByRole('button',{name:/Remove photo/}).count(),1);assert.equal(await editor.getByRole('button',{name:'Remove photo 1',exact:true}).isDisabled(),true);

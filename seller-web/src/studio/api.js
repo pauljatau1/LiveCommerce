@@ -17,6 +17,7 @@ const post = (url, body = {}, opts = {}) => axios.post(url, body, { ...auth(), t
 const patch = (url, body = {}) => axios.patch(url, body, { ...auth(), timeout: 45000 }).then((r) => r.data);
 
 export const studio = {
+  liveConflict:id=>get(`${BASE_URL_V2}/studio/shows/${id}/live-conflict`),
   hostStatus:id=>get(`${BASE_URL_V2}/studio/shows/${id}/host-session`),
   claimHost:(id,expectedSessionId)=>post(`${BASE_URL_V2}/studio/shows/${id}/host-session`,{expectedSessionId}),
   home: () => get(`${BASE_URL_V2}/studio/home`),

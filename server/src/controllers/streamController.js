@@ -804,7 +804,7 @@ exports.startStream = async (req, res) => {
       return res.status(404).json({ message: 'Seller not found' });
     }
 
-    if(require('../services/hostSessions').enabled() && existingStreams.length) return res.status(409).json({code:'already_live',message:`You're already live with ${existingStreams[0].title}. End it first.`});
+    if(require('../services/hostSessions').enabled() && existingStreams.length) return res.status(409).json({code:'already_live',liveShow:{_id:String(existingStreams[0]._id),title:existingStreams[0].title},message:`You're already live with ${existingStreams[0].title}. End it first.`});
     // Legacy cancellation remains available only with LEGACY_MULTI_HOST=true.
     // Cancel existing live streams in background (non-blocking)
     const cancelledStreams = existingStreams.map(s => s.title);
