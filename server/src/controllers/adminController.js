@@ -216,7 +216,7 @@ exports.login = async (req, res) => {
 
     // Generate JWT token with shorter expiration for security
     const token = jwt.sign(
-      { id: admin._id, role: 'admin' },
+      { id: admin._id, role: 'admin', av: Number(admin.authVersion || 0) },
       process.env.JWT_SECRET,
       { expiresIn: '12h' }
     );
