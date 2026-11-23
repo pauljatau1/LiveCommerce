@@ -29,7 +29,7 @@ describe('admin allowlist, legacy accounts and live authorization', () => {
     }
   });
 
-  const request = () => ({ user: { id: 'admin-id', av: 0 } });
+  const request = () => ({ user: { id: 'admin-id', role: 'Admin', av: 0 } });
   const response = () => ({
     status: jest.fn().mockReturnThis(),
     json: jest.fn().mockReturnThis(),
