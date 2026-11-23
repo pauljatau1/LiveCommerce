@@ -18,6 +18,7 @@ const adminSchema = new mongoose.Schema({
   },
   password: { type: String, required: true },
   lastLogin: { type: Date },
+  authVersion: { type: Number, default: 0 },
 }, {
   timestamps: true
 });
