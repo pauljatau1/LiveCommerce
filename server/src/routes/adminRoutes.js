@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-router.use('/withdrawals',require('./reviewedWithdrawalAliases'));
 const adminController = require('../controllers/adminController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const multer = require('multer');
@@ -70,6 +69,20 @@ router.post('/register', adminController.register);
  *         description: Internal server error
  */
 router.post('/login', adminLoginLimiter, adminController.login);
+
+// All subsequent admin routes are gated, including legacy endpoints which
+// formerly checked only that the request had a valid token.
+router.use(authMiddleware.adminAuth);
+router.post('/logout', async (req, res) => {
+  try {
+    await req.admin.constructor.updateOne({ _id: req.admin._id }, { $inc: { authVersion: 1 } });
+    res.json({ success: true, message: 'Signed out.' });
+  } catch (_error) {
+    res.status(500).json({ success: false, message: 'Could not sign out. Please try again.' });
+  }
+});
+router.use('/withdrawals', require('./reviewedWithdrawalAliases'));
+
 
 /**
  * @swagger
