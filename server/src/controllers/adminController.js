@@ -92,7 +92,7 @@ exports.register = async (req, res) => {
     if (!isAllowedAdminEmail(email)) {
       return res.status(403).json({
         success: false,
-        message: 'This email is not authorized to register as an admin.'
+        message: "This account doesn't have admin access."
       });
     }
 
@@ -203,6 +203,10 @@ exports.login = async (req, res) => {
       });
     }
 
+    if (!isAllowedAdminEmail(admin.email)) {
+      return res.status(403).json({ success: false, message: "This account doesn't have admin access." });
+    }
+
     // Reset login attempts on successful login
     loginAttempts.delete(ipKey);
 
@@ -214,7 +218,7 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: admin._id, role: 'admin' },
       process.env.JWT_SECRET,
-      { expiresIn: '8h' }
+      { expiresIn: '12h' }
     );
 
     // Prepare login notification metadata
