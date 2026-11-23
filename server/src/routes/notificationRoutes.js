@@ -1,3 +1,4 @@
+const stagingSimulationOnly = (req, res, next) => process.env.APP_ENV === 'production' ? res.status(404).json({ message: 'This feature is not available in production.' }) : next();
 const express = require('express');
 const router = express.Router();
 const notificationController = require('../controllers/notificationController');
@@ -130,7 +131,7 @@ router.put('/mark-all-read', authMiddleware.verifyToken, notificationController.
  *       500:
  *         description: Server error
  */
-router.post('/simulate-fez-webhook', notificationController.simulateFezWebhook);
+router.post('/simulate-fez-webhook', stagingSimulationOnly, authMiddleware.adminAuth, notificationController.simulateFezWebhook);
 
 /**
  * @swagger
@@ -180,7 +181,7 @@ router.post('/simulate-fez-webhook', notificationController.simulateFezWebhook);
  *       500:
  *         description: Server error
  */
-router.post('/simulate-terminal-webhook', notificationController.simulateTerminalWebhook2);
+router.post('/simulate-terminal-webhook', stagingSimulationOnly, authMiddleware.adminAuth, notificationController.simulateTerminalWebhook2);
 
 // Test webhook logging endpoint
 router.post('/test-webhook-logging', notificationController.testWebhookLogging);
