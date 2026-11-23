@@ -15,14 +15,14 @@ describe('admin allowlist, legacy accounts and live authorization', () => {
     delete process.env.ADMIN_EMAILS;
     expect(isAllowedAdminEmail('paul@auqli.com')).toBe(false);
     for (const Model of [AdminV1, AdminV2]) {
-      expect(Model.schema.path('email').validators[0].validator('paul@auqli.com')).toBe(false);
+      expect(Model.schema.path('email').validators.find((entry) => entry.type === 'user defined').validator('paul@auqli.com')).toBe(false);
     }
   });
 
   test('one allowlist controls registration validators across versions', () => {
     process.env.ADMIN_EMAILS = ' chosen@example.com, SECOND@example.com ';
     for (const Model of [AdminV1, AdminV2]) {
-      const validate = Model.schema.path('email').validators[0].validator;
+      const validate = Model.schema.path('email').validators.find((entry) => entry.type === 'user defined').validator;
       expect(validate('CHOSEN@example.com')).toBe(true);
       expect(validate('second@example.com')).toBe(true);
       expect(validate('paul@auqli.com')).toBe(false);
