@@ -742,6 +742,7 @@ function OrderDetail() {
               </div>
             </CardHeader>
             <CardContent className="p-4 space-y-2">
+              {import.meta.env.VITE_APP_ENV !== 'production' && <>
               <Dialog open={webhookDialogOpen} onOpenChange={setWebhookDialogOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="w-full justify-between bg-slate-900 border-slate-800 text-white hover:bg-slate-800 group h-10">
@@ -814,6 +815,7 @@ function OrderDetail() {
                 </DialogContent>
               </Dialog>
 
+              </>}
               {order?.channel === 'fez' && (
                 <Dialog open={fezDialogOpen} onOpenChange={setFezDialogOpen}>
                   <DialogTrigger asChild>
