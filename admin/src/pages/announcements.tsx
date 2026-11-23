@@ -48,7 +48,7 @@ function Announcements() {
       const response = await api.get("/api/admin/announcements");
       setAnnouncements(response.data);
     } catch (error) {
-      toast.error("Failed to fetch announcements ", error);
+      toast.error("Couldn't load announcements. Try again.");
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +117,7 @@ function Announcements() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap gap-3 justify-between items-center">
         <h1 className="text-3xl text-white font-bold">Announcements</h1>
         <Button onClick={() => {
           resetForm();

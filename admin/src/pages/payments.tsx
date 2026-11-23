@@ -1,37 +1,35 @@
-import React, { useState, useEffect } from 'react'
+import { useState,useEffect } from 'react'
 import { Card } from "@/components/ui/card"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table"
 import {
-  DollarSign,
-  ArrowUp,
-  ArrowDown,
-  ArrowUpRight,
-  CreditCard,
-  Wallet,
-  Calendar,
-  Filter,
-  Download,
-  Banknote,
-  PiggyBank,
-  Loader2,
-  Search
+DollarSign,ArrowDown,
+ArrowUpRight,
+CreditCard,
+Wallet,
+Calendar,
+Filter,
+Download,
+Banknote,
+PiggyBank,
+Loader2,
+Search
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { api } from "@/api/axios"
 import { useToast } from "@/hooks/use-toast"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
@@ -101,7 +99,7 @@ function Payments() {
       const url = `/api/admin/financial/summary${queryParams ? `?${queryParams}` : ''}`;
       const response = await api.get(url);
       
-      setSummary(response.data);
+      setSummary({ ...response.data, ...(response.data?.data || {}) });
     } catch (error) {
       console.error("Error fetching financial summary:", error);
       toast({
@@ -142,10 +140,11 @@ function Payments() {
       const response = await api.get(`/api/admin/financial/transactions?${queryParams}`);
       
       // Ensure transactions is set to an empty array if response.data.transactions is undefined
-      setTransactions(response.data.transactions || []);
+      const body = response.data?.data || response.data;
+      setTransactions(body.transactions || []);
       setPagination({
         ...pagination,
-        total: response.data.total || 0
+        total: body.pagination?.total ?? body.total ?? 0
       });
     } catch (error) {
       console.error("Error fetching transactions:", error);
@@ -293,7 +292,7 @@ function Payments() {
           <h2 className="text-3xl font-bold text-white">Financial Transactions</h2>
           <p className="text-muted-foreground">Monitor all financial activities on the platform</p>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => {
             // Reset all filters
             setTypeFilter('all');

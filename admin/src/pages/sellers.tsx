@@ -1,45 +1,44 @@
-import { useEffect, useState } from "react";
+import { APP_NAME } from '@/config/withdrawals';
+import { useEffect,useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card,CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
 import {
-  Building2,
-  Mail,
-  Eye,
-  Store,
-  ShieldCheck,
-  Package,
-  Users,
-  Zap,
-  Search,
-  MoreVertical,
-  FileDown,
-  Loader2,
-  CheckCircle2,
-  Star,
-  XCircle,
-  ShieldIcon,
-  ChevronLeft,
-  ChevronRight
+Building2,
+Mail,
+Eye,
+Store,
+ShieldCheck,
+Package,
+Users,
+Zap,
+Search,
+MoreVertical,
+FileDown,
+Loader2,
+CheckCircle2,
+Star,
+XCircle,
+ShieldIcon
 } from "lucide-react";
 import { api } from "@/api/axios";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar,AvatarFallback,AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs,TabsList,TabsTrigger } from "@/components/ui/tabs";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
+DropdownMenu,
+DropdownMenuContent,
+DropdownMenuItem,
+DropdownMenuTrigger,
+DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
@@ -181,7 +180,7 @@ function Sellers() {
       const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
 
       doc.setFontSize(16);
-      doc.text("Auqli Sellers Report", 40, 40);
+      doc.text(`${APP_NAME} sellers report`, 40, 40);
       doc.setFontSize(10);
       doc.text(`Generated: ${new Date().toLocaleString()}`, 40, 60);
 
@@ -559,7 +558,7 @@ function Sellers() {
       {/* Network Integrity Signal */}
       <div className="flex items-center justify-center gap-2 text-[10px] font-black text-slate-700 uppercase tracking-[0.4em] py-8 border-t border-slate-900">
         <ShieldIcon className="h-3 w-3 opacity-30" />
-        <span>Auqli Admin v2.0</span>
+        <span>{APP_NAME} admin</span>
       </div>
     </div>
   );

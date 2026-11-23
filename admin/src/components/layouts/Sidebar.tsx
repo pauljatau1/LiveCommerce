@@ -29,59 +29,44 @@ interface BankRequestStats {
 
 // Navigation Groups
 const navGroups = [
-  {
-    title: "Intelligence",
-    items: [
-      { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-    ]
-  },
-  {
-    title: "Marketplace OS",
-    items: [
-      { icon: Package, label: 'Inventory', path: '/dashboard/products' },
-      { icon: Package, label: 'Listing AI corrections', path: '/dashboard/listing-corrections' },
-      { icon: Zap, label: 'Blips', path: '/dashboard/blips' },
-      { icon: FolderTree, label: 'Major Cat', path: '/dashboard/major-categories' },
-      { icon: Folder, label: 'Categories', path: '/dashboard/categories' },
-      { icon: Video, label: 'Direct Streams', path: '/dashboard/streams' },
-      { icon: Image, label: 'Display Banners', path: '/dashboard/banners' },
-      { icon: Megaphone, label: 'Global Alerts', path: '/dashboard/announcements' },
-    ]
-  },
-  {
-    title: "User Management",
-    items: [
-      { icon: Users, label: 'Sellers', path: '/dashboard/sellers', showPendingCount: true },
-      { icon: Users, label: 'Buyers', path: '/dashboard/buyers' },
-      { icon: Bell, label: 'Buyer Comms', path: '/dashboard/buyer-notifications' },
-    ]
-  },
-  {
-    title: "Fulfillment & Supply",
-    items: [
-      { icon: ShoppingBag, label: 'Active Orders', path: '/dashboard/orders' },
-      { icon: PackageOpen, label: 'Reverse Logistics', path: '/dashboard/returns' },
-      { icon: FileText, label: 'Dispute Cases', path: '/dashboard/return-requests' },
-      { icon: Truck, label: 'Carrier Pickup', path: '/dashboard/pickup-requests' },
-      { icon: Terminal, label: 'Shipment Hub', path: '/dashboard/terminal-shipments' },
-    ]
-  },
-  {
-    title: "Financial Engine",
-    items: [
-      { icon: DollarSign, label: 'Payouts', path: '/dashboard/withdrawals', showPendingCount: true },
-      { icon: DollarSign, label: 'Payment Ledger', path: '/dashboard/payments' },
-      { icon: RotateCcw, label: 'Refund Processing', path: '/dashboard/refund-requests', showPendingCount: true },
-      { icon: Building2, label: 'Vault Access', path: '/dashboard/bankrequests', showPendingCount: true },
-    ]
-  },
-  {
-    title: "Core Infrastructure",
-    items: [
-      { icon: FileText, label: 'Documentation', path: '/dashboard/resources' },
-      { icon: AlertTriangle, label: 'Security Logs', path: '/dashboard/error-logs' },
-    ]
-  }
+  { title: "Overview", items: [
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  ] },
+  { title: "People", items: [
+    { icon: Users, label: 'Sellers', path: '/dashboard/sellers', showPendingCount: true },
+    { icon: Users, label: 'Buyers', path: '/dashboard/buyers' },
+  ] },
+  { title: "Selling", items: [
+    { icon: ShoppingBag, label: 'Orders', path: '/dashboard/orders' },
+    { icon: Package, label: 'Products', path: '/dashboard/products' },
+    { icon: Video, label: 'Live Shows', path: '/dashboard/streams' },
+    { icon: Folder, label: 'Categories', path: '/dashboard/categories' },
+    { icon: FolderTree, label: 'Major Categories', path: '/dashboard/major-categories' },
+    { icon: Package, label: 'Listing Corrections', path: '/dashboard/listing-corrections' },
+    { icon: Zap, label: 'Blips', path: '/dashboard/blips' },
+  ] },
+  { title: "Money", items: [
+    { icon: DollarSign, label: 'Withdrawals', path: '/dashboard/withdrawals', showPendingCount: true },
+    { icon: DollarSign, label: 'Payments', path: '/dashboard/payments' },
+    { icon: RotateCcw, label: 'Refund Requests', path: '/dashboard/refund-requests', showPendingCount: true },
+    { icon: Building2, label: 'Bank Requests', path: '/dashboard/bankrequests', showPendingCount: true },
+  ] },
+  { title: "Delivery", items: [
+    { icon: PackageOpen, label: 'Returns', path: '/dashboard/returns' },
+    { icon: FileText, label: 'Return Requests', path: '/dashboard/return-requests' },
+    { icon: Truck, label: 'Pickup Requests', path: '/dashboard/pickup-requests' },
+    { icon: Terminal, label: 'Terminal Shipments', path: '/dashboard/terminal-shipments' },
+  ] },
+  { title: "Content", items: [
+    { icon: Megaphone, label: 'Announcements', path: '/dashboard/announcements' },
+    { icon: FileText, label: 'Resources', path: '/dashboard/resources' },
+    { icon: Image, label: 'Banners', path: '/dashboard/banners' },
+    { icon: Bell, label: 'Buyer Notifications', path: '/dashboard/buyer-notifications' },
+  ] },
+  { title: "System", items: [
+    { icon: FileText, label: 'System Logs', path: '/dashboard/system-logs' },
+    { icon: AlertTriangle, label: 'Error Logs', path: '/dashboard/error-logs' },
+  ] },
 ];
 
 function Sidebar() {
@@ -98,12 +83,13 @@ function Sidebar() {
 
   // Expanded groups state
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    "Intelligence": true,
-    "Marketplace OS": true,
-    "User Management": true,
-    "Fulfillment & Supply": true,
-    "Financial Engine": true,
-    "Core Infrastructure": true
+    "Overview": true,
+    "People": true,
+    "Selling": true,
+    "Money": true,
+    "Delivery": true,
+    "Content": true,
+    "System": true
   });
 
   const toggleGroup = (title: string) => {

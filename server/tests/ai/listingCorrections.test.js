@@ -1,6 +1,9 @@
 beforeEach(()=>{process.env.COLOURS='true';});
 afterEach(()=>{delete process.env.COLOURS;});
 const request = require('supertest');
+const originalAdminEmails = process.env.ADMIN_EMAILS;
+beforeAll(() => { process.env.ADMIN_EMAILS = 'reviewer@example.test'; });
+afterAll(() => { if (originalAdminEmails === undefined) delete process.env.ADMIN_EMAILS; else process.env.ADMIN_EMAILS = originalAdminEmails; });
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
@@ -120,7 +123,7 @@ it('allows only a real admin to list corrections, newest first', async () => {
   expect((await request(app).get(url)).status).toBe(401);
   for (const role of ['Seller', 'Buyer', 'Admin']) expect((await request(app).get(url).set('Authorization', auth(role))).status).toBe(403);
   const adminId = new mongoose.Types.ObjectId();
-  await Admin.collection.insertOne({ _id: adminId, username: 'reviewer' });
+  await Admin.collection.insertOne({ _id: adminId, username: 'reviewer', email: 'reviewer@example.test' });
   const older = await ListingCorrection.create({ seller: sellerId, product: new mongoose.Types.ObjectId(), changes: [] });
   await ListingCorrection.collection.updateOne({ _id: older._id }, { $set: { createdAt: new Date('2020-01-01') } });
   const newer = await ListingCorrection.create({ seller: sellerId, product: new mongoose.Types.ObjectId(), changes: [] });

@@ -1,11 +1,13 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginAdmin, registerAdmin, getProfile } from '@/api/axios';
+import { api, loginAdmin, registerAdmin, getProfile } from '@/api/axios';
 
 interface User {
   username: string;
   email?: string;
-  // Add other user properties you need
+  firstName?: string;
+  lastName?: string;
+  profileImage?: string;
 }
 
 interface AuthContextType {
@@ -14,6 +16,7 @@ interface AuthContextType {
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
+  unreachable: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -25,6 +28,7 @@ type AuthProviderProps = {
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [unreachable, setUnreachable] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -74,8 +78,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
     } catch (error) {
       console.log('Error checking auth:', error);
-      localStorage.removeItem('token');
-      navigate('/login');
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      if (status === 401 || status === 403) {
+        localStorage.removeItem('token');
+        navigate('/login');
+      } else {
+        // The server is down or unreachable: keep the session, say so, and let them retry
+        setUnreachable(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -113,7 +123,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Invalidate the server-side admin session before clearing browser storage.
+    try {
+      await api.post('/api/admin/logout');
+    } catch (error) {
+      console.error('Server logout was not confirmed:', error);
+    }
     // Clear all authentication related data from localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -132,7 +148,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading, unreachable }}>
       {children}
     </AuthContext.Provider>
   );

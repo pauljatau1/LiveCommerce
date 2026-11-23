@@ -1,22 +1,17 @@
-# Use Node.js v18
-FROM node:20
-
-# Create app directory
-WORKDIR /usr/src/app
-
-# Install app dependencies
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
+FROM node:20-alpine AS build
+WORKDIR /app
 COPY package*.json ./
-
-RUN npm install
-
-# Bundle app source
+RUN npm ci
 COPY . .
+ARG VITE_API_BASE_URL
+ARG VITE_APP_NAME=gbam
+ARG VITE_APP_ENV=staging
+ARG VITE_CLASSIC_WITHDRAWALS=false
+ENV VITE_APP_ENV=$VITE_APP_ENV VITE_API_BASE_URL=$VITE_API_BASE_URL VITE_APP_NAME=$VITE_APP_NAME VITE_CLASSIC_WITHDRAWALS=$VITE_CLASSIC_WITHDRAWALS
+RUN npm run build
 
-# Add these environment variables
-ENV PORT=5173
-
-# Expose the port
-EXPOSE 5173
-
-CMD [ "npm", "run", "dev" ]
+FROM nginx:stable-alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

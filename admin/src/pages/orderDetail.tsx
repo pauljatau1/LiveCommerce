@@ -1,67 +1,64 @@
-import { useEffect, useState, useMemo } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import OrderShowDelivery from '@/components/dashboard/OrderShowDelivery';
+import { useEffect,useState,useMemo } from 'react'
+import { useParams,useNavigate,Link } from 'react-router-dom'
 import { api } from "@/api/axios"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card,CardContent,CardHeader,CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle,
+DialogTrigger,
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table"
 import {
-  Package,
-  Truck,
-  MapPin,
-  Clock,
-  Store,
-  XCircle,
-  Trash2,
-  Bell,
-  ShoppingCart,
-  RefreshCw,
-  Shield,
-  ChevronRight,
-  Phone,
-  Printer,
-  History,
-  Copy,
-  ExternalLink,
-  FileText,
-  Mail,
-  Calendar,
-  CreditCard,
-  Banknote,
-  Receipt,
-  Zap,
-  CheckCircle2,
-  AlertTriangle,
-  User,
-  Loader2
+Package,
+Truck,
+MapPin,
+Clock,
+Store,
+XCircle,
+Trash2,ShoppingCart,Shield,
+ChevronRight,
+Phone,
+Printer,
+History,
+Copy,
+ExternalLink,
+FileText,
+Mail,
+Calendar,
+CreditCard,
+Banknote,
+Receipt,
+Zap,
+CheckCircle2,
+AlertTriangle,
+User,
+Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar,AvatarFallback,AvatarImage } from "@/components/ui/avatar"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 
@@ -733,6 +730,8 @@ function OrderDetail() {
 
         {/* Right Column - 4/12 */}
         <div className="lg:col-span-4 space-y-6">
+          <OrderShowDelivery orderId={id} />
+
           {/* Admin Tools - Quick Actions */}
           <Card className="bg-blue-600/5 border border-blue-500/10 shadow-lg">
             <CardHeader className="pb-3 pt-5 px-5">
@@ -742,6 +741,7 @@ function OrderDetail() {
               </div>
             </CardHeader>
             <CardContent className="p-4 space-y-2">
+              {import.meta.env.VITE_APP_ENV !== 'production' && <>
               <Dialog open={webhookDialogOpen} onOpenChange={setWebhookDialogOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="w-full justify-between bg-slate-900 border-slate-800 text-white hover:bg-slate-800 group h-10">
@@ -814,6 +814,7 @@ function OrderDetail() {
                 </DialogContent>
               </Dialog>
 
+              </>}
               {order?.channel === 'fez' && (
                 <Dialog open={fezDialogOpen} onOpenChange={setFezDialogOpen}>
                   <DialogTrigger asChild>

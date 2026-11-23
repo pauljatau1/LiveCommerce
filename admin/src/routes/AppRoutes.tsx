@@ -1,8 +1,10 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter as Router,Routes,Route,Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/context/authContext';
 import Login from '@/auth/login';
 import Register from '@/auth/register';
+import LegacyNotice from '@/components/common/LegacyNotice';
+import ErrorLogs from '@/pages/errorLogs';
 import Dashboard from '@/pages/dashboard';
 import Sellers from '@/pages/sellers';
 import SellerDetail from '@/pages/sellerDetail';
@@ -66,30 +68,30 @@ function App() {
             <Route path="/dashboard/sellers" element={<Sellers />} />
             <Route path="/dashboard/seller-detail/:id" element={<SellerDetail />} />
             <Route path="/dashboard/categories" element={<Categories />} />
-            <Route path="/dashboard/major-categories" element={<MajorCategories />} />
+            <Route path="/dashboard/major-categories" element={<><LegacyNotice feature="Major categories" /><MajorCategories /></>} />
             <Route path="/dashboard/buyers" element={<Buyers />} />
             <Route path="/dashboard/buyer-detail/:id" element={<BuyerDetail />} />
             <Route path="/dashboard/orders" element={<Orders />} />
             <Route path="/dashboard/listing-corrections" element={<ListingCorrections />} />
             <Route path="/dashboard/products" element={<Products />} />
-            <Route path="/dashboard/blips" element={<Blips />} />
+            <Route path="/dashboard/blips" element={<><LegacyNotice feature="Blips" /><Blips /></>} />
             <Route path="/dashboard/streams" element={<Streams />} />
             <Route path="/dashboard/withdrawals" element={<Withdrawals />} />
-            <Route path="/dashboard/announcements" element={<Announcements />} />
-            <Route path="/dashboard/resources" element={<Resources />} />
+            <Route path="/dashboard/announcements" element={<><LegacyNotice feature="Announcements" /><Announcements /></>} />
+            <Route path="/dashboard/resources" element={<><LegacyNotice feature="Resources" /><Resources /></>} />
             <Route path="/dashboard/banners" element={<Banners />} />
             <Route path="/dashboard/order-detail/:id" element={<OrderDetail />} />
-            <Route path="/dashboard/returns" element={<Returns />} />
-            <Route path="/dashboard/return-detail/:id" element={<ReturnDetail />} />
-            <Route path="/dashboard/bankrequests" element={<BankRequests />} />
+            <Route path="/dashboard/returns" element={<><LegacyNotice feature="Returns" /><Returns /></>} />
+            <Route path="/dashboard/return-detail/:id" element={<><LegacyNotice feature="Returns" /><ReturnDetail /></>} />
+            <Route path="/dashboard/bankrequests" element={<><LegacyNotice feature="Bank change requests" /><BankRequests /></>} />
             <Route path="/dashboard/payments" element={<Payments />} />
-            <Route path="/dashboard/refund-requests" element={<RefundRequests />} />
-            <Route path="/dashboard/return-requests" element={<ReturnRequests />} />
-            <Route path="/dashboard/pickup-requests" element={<PickupRequests />} />
-            <Route path="/dashboard/buyer-notifications" element={<BuyerNotifications />} />
-            <Route path="/dashboard/terminal-shipments" element={<TerminalShipments />} />
+            <Route path="/dashboard/refund-requests" element={<><LegacyNotice feature="Refund requests" /><RefundRequests /></>} />
+            <Route path="/dashboard/return-requests" element={<><LegacyNotice feature="Return requests" /><ReturnRequests /></>} />
+            <Route path="/dashboard/pickup-requests" element={<><LegacyNotice feature="Pickup requests" /><PickupRequests /></>} />
+            <Route path="/dashboard/buyer-notifications" element={<><LegacyNotice feature="Buyer notifications" /><BuyerNotifications /></>} />
+            <Route path="/dashboard/terminal-shipments" element={<><LegacyNotice feature="Terminal shipments" /><TerminalShipments /></>} />
             <Route path="/dashboard/system-logs" element={<SystemLogs />} />
-            <Route path="/dashboard/error-logs" element={<SystemLogs />} />
+            <Route path="/dashboard/error-logs" element={<ErrorLogs />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>

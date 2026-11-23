@@ -18,6 +18,7 @@ const adminSchema = new mongoose.Schema({
   },
   password: { type: String, required: true },
   lastLogin: { type: Date },
+  authVersion: { type: Number, default: 0 },
 }, {
   timestamps: true
 });
@@ -33,6 +34,6 @@ adminSchema.methods.comparePassword = function(password) {
   return bcrypt.compare(password, this.password);
 };
 
-module.exports = mongoose.model('Admin', adminSchema);
+module.exports = mongoose.models.Admin || mongoose.model('Admin', adminSchema);
 
 // just placing

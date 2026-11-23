@@ -1,38 +1,39 @@
-import { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { APP_NAME } from '@/config/withdrawals';
+import { useEffect,useState } from "react";
+import { Card,CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
 import {
-  Loader2,
-  Eye,
-  Search,
-  Filter,
-  FileDown,
-  User,
-  Mail,
-  Phone,
-  Calendar,
-  ShieldCheck,
-  ShieldAlert,
-  Globe,
-  ChevronLeft,
-  ChevronRight,
-  Info
+Loader2,
+Eye,
+Search,
+Filter,
+FileDown,
+User,
+Mail,
+Phone,
+Calendar,
+ShieldCheck,
+ShieldAlert,
+Globe,
+ChevronLeft,
+ChevronRight,
+Info
 } from "lucide-react";
 import { api } from "@/api/axios";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar,AvatarFallback,AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 interface Buyer {
@@ -85,7 +86,7 @@ function Buyers() {
   const [buyers, setBuyers] = useState<Buyer[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
+  const [exporting] = useState(false);
 
   useEffect(() => {
     fetchBuyers();
@@ -497,7 +498,7 @@ function Buyers() {
       {/* Infrastructure Note */}
       <div className="flex items-center justify-center gap-2 text-[10px] font-black text-slate-700 uppercase tracking-[0.3em] py-4">
         <Info className="h-3 w-3 opacity-50" />
-        <span>Auqli Admin v1.0</span>
+        <span>{APP_NAME} admin</span>
       </div>
     </div>
   );

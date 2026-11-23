@@ -1,16 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
-// List of allowed admin emails
-const ALLOWED_ADMIN_EMAILS = [
-  'bolu@auqli.com',
-  'support@auqli.com',
-  'joseph@auqli.com',
-  'paul@auqli.com',
-  ' melissa@auqli.com',
-  'alex@commercejet.com',
-  'matt@auqli.com',
-];
+const { isAllowedAdminEmail } = require('../../../config/admins');
 
 const adminSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
@@ -20,13 +11,14 @@ const adminSchema = new mongoose.Schema({
     unique: true,
     validate: {
       validator: function(email) {
-        return ALLOWED_ADMIN_EMAILS.includes(email.toLowerCase());
+        return isAllowedAdminEmail(email);
       },
-      message: props => `${props.value} is not allowed to register as an admin. Only authorized email addresses are permitted.`
+      message: props => "This account doesn't have admin access."
     }
   },
   password: { type: String, required: true },
   lastLogin: { type: Date },
+  authVersion: { type: Number, default: 0 },
 }, {
   timestamps: true
 });
@@ -42,6 +34,8 @@ adminSchema.methods.comparePassword = function(password) {
   return bcrypt.compare(password, this.password);
 };
 
-module.exports = mongoose.model('Admin', adminSchema);
+// v1 and v2 target the same admin collection and must share the model registry.
+// Requiring both modules in a single process must not overwrite Mongoose's Admin model.
+module.exports = mongoose.models.Admin || mongoose.model('Admin', adminSchema);
 
 // just placing

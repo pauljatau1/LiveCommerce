@@ -1,3 +1,11 @@
+// Staging may use the simulator without switching off staging email redirects.
+// Production is always denied, even if the flag is accidentally enabled.
+const simulationEnabled = () => process.env.APP_ENV !== 'production' &&
+  (process.env.ENABLE_WEBHOOK_SIMULATION === 'true' ||
+   (process.env.APP_ENV === 'staging' && process.env.ENABLE_WEBHOOK_SIMULATION !== 'false'));
+const stagingSimulationOnly = (req, res, next) => simulationEnabled()
+  ? next()
+  : res.status(404).json({ message: 'Webhook simulation is not available in this environment.' });
 const express = require('express');
 const router = express.Router();
 const notificationController = require('../controllers/notificationController');
@@ -130,7 +138,7 @@ router.put('/mark-all-read', authMiddleware.verifyToken, notificationController.
  *       500:
  *         description: Server error
  */
-router.post('/simulate-fez-webhook', notificationController.simulateFezWebhook);
+router.post('/simulate-fez-webhook', stagingSimulationOnly, authMiddleware.adminAuth, notificationController.simulateFezWebhook);
 
 /**
  * @swagger
@@ -180,7 +188,7 @@ router.post('/simulate-fez-webhook', notificationController.simulateFezWebhook);
  *       500:
  *         description: Server error
  */
-router.post('/simulate-terminal-webhook', notificationController.simulateTerminalWebhook2);
+router.post('/simulate-terminal-webhook', stagingSimulationOnly, authMiddleware.adminAuth, notificationController.simulateTerminalWebhook2);
 
 // Test webhook logging endpoint
 router.post('/test-webhook-logging', notificationController.testWebhookLogging);

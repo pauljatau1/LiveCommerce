@@ -1,50 +1,35 @@
+import LiveOverview from '@/components/dashboard/LiveOverview';
 import {
-  Users,
-  ShoppingCart,
-  DollarSign,
-  ArrowUp,
-  ArrowDown,
-  ArrowRight,
-  Store,
-  Package,
-  Clock,
-  TrendingUp,
-  RotateCcw,
-  Wallet,
-  Video,
-  CircleDollarSign,
-  Banknote,
-  AlertCircle,
-  Activity,
-  Zap,
-  ChevronRight,
-  Trophy,
-  ShieldCheck,
-  Calendar,
-  MessageSquare
+Users,
+ShoppingCart,
+DollarSign,ArrowDown,
+ArrowRight,
+Store,TrendingUp,
+RotateCcw,
+Wallet,
+Video,Banknote,Activity,
+Zap,
+ChevronRight,
+Trophy,
+ShieldCheck,
+Calendar
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card,CardContent,CardHeader,CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  Legend
+AreaChart,
+Area,
+XAxis,
+YAxis,
+CartesianGrid,
+Tooltip,
+ResponsiveContainer
 } from 'recharts';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Table,TableBody,TableCell,TableHead,TableHeader,TableRow } from "@/components/ui/table";
+import { Avatar,AvatarFallback,AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect,useState } from "react";
 import { api } from "@/api/axios";
 import { useAuth } from "@/context/authContext";
 import { cn } from "@/lib/utils";
@@ -125,7 +110,6 @@ interface PlatformMetrics {
   };
 }
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 function Dashboard() {
   const { user } = useAuth();
@@ -252,6 +236,8 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
+      <LiveOverview />
 
       {/* Primary Analytics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">

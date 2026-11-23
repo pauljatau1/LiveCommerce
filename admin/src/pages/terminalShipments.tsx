@@ -1,41 +1,40 @@
-import React, { useEffect, useState } from 'react';
+import React,{ useEffect,useState } from 'react';
 import { api } from '@/api/axios';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card,CardContent,CardHeader,CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from '@/components/layouts/LoadingSpinner';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
+Dialog,
+DialogContent,
+DialogHeader,
+DialogTitle,
+DialogDescription,
+DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+AlertDialog,
+AlertDialogAction,
+AlertDialogCancel,
+AlertDialogContent,
+AlertDialogDescription,
+AlertDialogFooter,
+AlertDialogHeader,
+AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, X, Loader2, Trash2, XCircle, Eye, Truck, Package2, Webhook, Plus, Settings, Power, PowerOff } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
+import { Search,X,Loader2,Trash2,XCircle,Eye,Truck,Package2,Webhook,Plus,Power,PowerOff } from "lucide-react";
+import { Tabs,TabsContent,TabsList,TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 
 // --- INTERFACES ---
@@ -150,12 +149,6 @@ interface Webhook {
   updated_at: string;
 }
 
-interface WebhookApiResponse {
-  status: boolean;
-  message: string;
-  data: Webhook;
-}
-
 interface WebhookListResponse {
   status: boolean;
   message: string;
@@ -209,7 +202,7 @@ const TerminalShipments: React.FC = () => {
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
   const [webhookLoading, setWebhookLoading] = useState(false);
   const [webhookDialog, setWebhookDialog] = useState(false);
-  const [selectedWebhook, setSelectedWebhook] = useState<Webhook | null>(null);
+  
   const [webhookToDelete, setWebhookToDelete] = useState<Webhook | null>(null);
   const [isWebhookSubmitting, setIsWebhookSubmitting] = useState(false);
   const [webhookForm, setWebhookForm] = useState<CreateWebhookData>({
@@ -219,7 +212,7 @@ const TerminalShipments: React.FC = () => {
     live: false,
     url: "",
   });
-  const [webhookEvents, setWebhookEvents] = useState<string[]>([
+  const [webhookEvents] = useState<string[]>([
     "shipment.created",
     "shipment.updated",
     "shipment.cancelled",
@@ -520,8 +513,8 @@ const TerminalShipments: React.FC = () => {
           <Table>
             <TableHeader><TableRow><TableHead>Reference</TableHead><TableHead>Carrier</TableHead><TableHead>Tracking Number</TableHead><TableHead>Status</TableHead><TableHead>Created At</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
             <TableBody>
-              {shipmentsData?.shipments?.length > 0 ? (
-                shipmentsData.shipments.map((shipment) => (
+              {(shipmentsData?.shipments?.length ?? 0) > 0 ? (
+                (shipmentsData?.shipments ?? []).map((shipment) => (
                   <TableRow key={shipment._id}>
                     <TableCell className="font-medium">{shipment.reference}</TableCell>
                     <TableCell>{shipment.carrier_slug || 'N/A'}</TableCell>

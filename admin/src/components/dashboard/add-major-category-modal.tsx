@@ -1,26 +1,26 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { X, Loader2, Plus, Trash2, Check, Search } from "lucide-react"
+import { useState,useEffect,useCallback } from "react"
+import { X,Loader2,Check,Search } from "lucide-react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+Dialog,
+DialogContent,
+DialogHeader,
+DialogTitle,
+DialogDescription,
 } from "@/components/ui/dialog"
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormDescription,
+Form,
+FormControl,
+FormField,
+FormItem,
+FormLabel,
+FormMessage,
+FormDescription,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
@@ -28,7 +28,6 @@ import { api } from "@/api/axios"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Checkbox } from "@/components/ui/checkbox"
 
 // Define the form schema with zod
 const formSchema = z.object({

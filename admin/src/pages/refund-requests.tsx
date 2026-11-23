@@ -1,37 +1,37 @@
-import { 
-    RefreshCcw,
-    DollarSign,
-    Clock,
-    Eye,
-    Download,
-    CheckCircle,
-    XCircle,
-    X,
-    Loader2
-  } from "lucide-react"
-  import { Card } from "@/components/ui/card"
-  import { Button } from "@/components/ui/button"
-  import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-  } from "@/components/ui/table"
-  import { useEffect, useState, useMemo } from "react"
-  import { api } from "@/api/axios"
-  import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-  } from "@/components/ui/dialog"
-  import { toast } from "sonner"
-  import { Textarea } from "@/components/ui/textarea"
-  import { Pagination } from "@/components/ui/pagination"
+import {
+RefreshCcw,
+DollarSign,
+Clock,
+Eye,
+Download,
+CheckCircle,
+XCircle,
+X,
+Loader2
+} from "lucide-react"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import {
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
+} from "@/components/ui/table"
+import { useEffect,useState } from "react"
+import { api } from "@/api/axios"
+import {
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+DialogFooter,
+} from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { Textarea } from "@/components/ui/textarea"
+import { Pagination } from "@/components/ui/pagination"
   
   /**
    * @typedef {Object} RefundRequest
@@ -350,7 +350,7 @@ import {
             <h2 className="text-3xl font-bold text-white">Refund Requests</h2>
             <p className="text-muted-foreground">Manage buyer refund requests</p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <select 
               className="p-2 rounded-md bg-background"
               value={statusFilter}

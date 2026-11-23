@@ -1,51 +1,39 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect,useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '@/api/axios'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+Select,
+SelectContent,
+SelectItem,
+SelectTrigger,
+SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import {
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  Download,
-  Package,
-  Truck,
-  XCircle,
-  FileText,
-  MapPin,
-  User,
-  Store,
-  Image as ImageIcon,
-  ShoppingCart,
-  Calendar,
-  DollarSign,
-  Printer,
-  ExternalLink,
-  Gavel
+Download,
+Package,
+Truck,FileText,User,
+Store,Calendar,
+DollarSign,
+Printer,Gavel
 } from 'lucide-react'
 import { format } from 'date-fns'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+Dialog,
+DialogContent,
+DialogHeader,
+DialogTitle,
+DialogTrigger,
 } from "@/components/ui/dialog"
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+Form,
+FormControl,
+FormField,
+FormItem,
+FormLabel,
+FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -269,37 +257,6 @@ const getStatusStyle = (status: string) => {
   }
 }
 
-const getStatusDot = (status: string) => {
-  switch (status) {
-    case 'PENDING_SELLER_REVIEW':
-      return 'bg-yellow-500'
-    case 'NEED_MORE_INFO':
-      return 'bg-blue-500'
-    case 'APPROVED':
-      return 'bg-green-500'
-    case 'REJECTED':
-      return 'bg-red-500'
-    case 'IN_TRANSIT':
-      return 'bg-purple-500'
-    case 'RECEIVED':
-      return 'bg-indigo-500'
-    case 'REFUNDED':
-      return 'bg-emerald-500'
-    case 'CLOSED':
-      return 'bg-gray-500'
-    case 'DISPUTED':
-      return 'bg-orange-500'
-    case 'RESOLVED':
-      return 'bg-teal-500'
-    case 'RETURN_LABEL_CREATED':
-      return 'bg-cyan-500'
-    case 'RETURN_SHIPPING_ARRANGED':
-      return 'bg-violet-500'
-    default:
-      return 'bg-gray-500'
-  }
-}
-
 // Add dispute resolution schema
 const disputeResolutionSchema = z.object({
   resolution: z.enum(['BUYER_FAVORED', 'SELLER_FAVORED', 'COMPROMISE']),
@@ -449,19 +406,20 @@ function ReturnDetail() {
   const [adminNote, setAdminNote] = useState('')
   const [newStatus, setNewStatus] = useState('')
 
-  useEffect(() => {
-    const fetchReturnDetail = async () => {
-      try {
-        const response = await api.get(`/api/returns/${id}`)
-        setReturnData(response.data)
-      } catch (error) {
-        console.error('Error fetching return details:', error)
-      } finally {
-        setLoading(false)
-      }
+  const fetchReturnData = async () => {
+    try {
+      const response = await api.get(`/api/returns/${id}`)
+      setReturnData(response.data)
+    } catch (error) {
+      console.error('Error fetching return details:', error)
+    } finally {
+      setLoading(false)
     }
+  }
 
-    fetchReturnDetail()
+  useEffect(() => {
+    fetchReturnData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   const handleAddNote = async () => {
@@ -487,20 +445,6 @@ function ReturnDetail() {
       setReturnData(response.data)
     } catch (error) {
       console.error('Error updating status:', error)
-    }
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'APPROVED':
-      case 'REFUNDED':
-        return <CheckCircle2 className="h-5 w-5 text-green-500" />
-      case 'REJECTED':
-        return <XCircle className="h-5 w-5 text-red-500" />
-      case 'PENDING_SELLER_REVIEW':
-        return <Clock className="h-5 w-5 text-yellow-500" />
-      default:
-        return <AlertCircle className="h-5 w-5 text-blue-500" />
     }
   }
 
