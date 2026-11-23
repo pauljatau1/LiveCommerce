@@ -29,6 +29,10 @@ api.interceptors.response.use(
       }
       
       // Handle authentication errors
+      if (status === 403 && data?.message === "This account doesn't have admin access.") {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
       if (status === 401) {
         // Token might be expired - clear it
         if (data.message === 'Invalid or expired token') {
