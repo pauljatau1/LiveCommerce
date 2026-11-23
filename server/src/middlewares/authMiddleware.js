@@ -28,6 +28,9 @@ exports.verifyToken = async (req, res, next) => {
 
 exports.isAdmin = async (req, res, next) => {
   try {
+    if (!['Admin', 'admin'].includes(req.user?.role)) {
+      return res.status(403).json({ success: false, message: "This account doesn't have admin access." });
+    }
     const admin = await Admin.findById(req.user.id);
     
     if (!admin || !isAllowedAdminEmail(admin.email)) {
