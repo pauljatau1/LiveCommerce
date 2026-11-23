@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginAdmin, registerAdmin, getProfile } from '@/api/axios';
+import { api, loginAdmin, registerAdmin, getProfile } from '@/api/axios';
 
 interface User {
   username: string;
@@ -113,7 +113,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Invalidate the server-side admin session before clearing browser storage.
+    try {
+      await api.post('/api/admin/logout');
+    } catch (error) {
+      console.error('Server logout was not confirmed:', error);
+    }
     // Clear all authentication related data from localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
