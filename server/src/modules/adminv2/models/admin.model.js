@@ -34,6 +34,8 @@ adminSchema.methods.comparePassword = function(password) {
   return bcrypt.compare(password, this.password);
 };
 
-module.exports = mongoose.model('Admin', adminSchema);
+// v1 and v2 target the same admin collection and must share the model registry.
+// Requiring both modules in a single process must not overwrite Mongoose's Admin model.
+module.exports = mongoose.models.Admin || mongoose.model('Admin', adminSchema);
 
 // just placing
