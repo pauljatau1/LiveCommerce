@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const Admin = require('../models/Admin');
+const { isAllowedAdminEmail } = require('../config/admins');
 
 exports.verifyToken = async (req, res, next) => {
   try {
@@ -29,8 +30,8 @@ exports.isAdmin = async (req, res, next) => {
   try {
     const admin = await Admin.findById(req.user.id);
     
-    if (!admin) {
-      return res.status(403).json({success: false, message: 'Access denied. Admin privileges required.' });
+    if (!admin || !isAllowedAdminEmail(admin.email)) {
+      return res.status(403).json({ success: false, message: "This account doesn't have admin access." });
     }
 
     // Add admin object to request for potential future use
