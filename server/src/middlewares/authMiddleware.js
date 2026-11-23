@@ -34,6 +34,10 @@ exports.isAdmin = async (req, res, next) => {
       return res.status(403).json({ success: false, message: "This account doesn't have admin access." });
     }
 
+    if (Number(req.user.av || 0) !== Number(admin.authVersion || 0)) {
+      return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+    }
+
     // Add admin object to request for potential future use
     req.admin = admin;
     next();
