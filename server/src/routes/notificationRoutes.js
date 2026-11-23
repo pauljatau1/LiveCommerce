@@ -1,4 +1,11 @@
-const stagingSimulationOnly = (req, res, next) => process.env.APP_ENV === 'production' ? res.status(404).json({ message: 'This feature is not available in production.' }) : next();
+// Staging may use the simulator without switching off staging email redirects.
+// Production is always denied, even if the flag is accidentally enabled.
+const simulationEnabled = () => process.env.APP_ENV !== 'production' &&
+  (process.env.ENABLE_WEBHOOK_SIMULATION === 'true' ||
+   (process.env.APP_ENV === 'staging' && process.env.ENABLE_WEBHOOK_SIMULATION !== 'false'));
+const stagingSimulationOnly = (req, res, next) => simulationEnabled()
+  ? next()
+  : res.status(404).json({ message: 'Webhook simulation is not available in this environment.' });
 const express = require('express');
 const router = express.Router();
 const notificationController = require('../controllers/notificationController');
