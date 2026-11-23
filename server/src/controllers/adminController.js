@@ -4727,10 +4727,10 @@ exports.getFinancialTransactions = async (req, res) => {
         sender: type === 'inflow' ?
           (transaction.buyerInfo ? `${transaction.buyerInfo.name}` :
             (transaction.seller ? `${transaction.seller.firstName} ${transaction.seller.lastName}` : 'Unknown')) :
-          'Auqli Platform',
+          'Platform',
         recipient: type === 'outflow' ?
           (transaction.seller ? `${transaction.seller.firstName} ${transaction.seller.lastName}` : 'Unknown') :
-          'Auqli Platform',
+          'Platform',
         description: transaction.description,
         date: transaction.createdAt
       };

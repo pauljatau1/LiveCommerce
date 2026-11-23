@@ -1,3 +1,4 @@
+import OrderShowDelivery from '@/components/dashboard/OrderShowDelivery';
 import { useEffect,useState,useMemo } from 'react'
 import { useParams,useNavigate,Link } from 'react-router-dom'
 import { api } from "@/api/axios"
@@ -729,6 +730,8 @@ function OrderDetail() {
 
         {/* Right Column - 4/12 */}
         <div className="lg:col-span-4 space-y-6">
+          <OrderShowDelivery orderId={id} />
+
           {/* Admin Tools - Quick Actions */}
           <Card className="bg-blue-600/5 border border-blue-500/10 shadow-lg">
             <CardHeader className="pb-3 pt-5 px-5">

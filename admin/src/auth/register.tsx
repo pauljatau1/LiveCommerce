@@ -1,3 +1,4 @@
+import { APP_NAME } from '@/config/withdrawals';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/authContext';
 import { Button } from "@/components/ui/button";
@@ -318,7 +319,7 @@ function Register() {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-card px-2 text-muted-foreground">
-                Auqli Admin Dashboard
+                {APP_NAME} admin
               </span>
             </div>
           </div>

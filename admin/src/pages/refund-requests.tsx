@@ -350,7 +350,7 @@ import { Pagination } from "@/components/ui/pagination"
             <h2 className="text-3xl font-bold text-white">Refund Requests</h2>
             <p className="text-muted-foreground">Manage buyer refund requests</p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <select 
               className="p-2 rounded-md bg-background"
               value={statusFilter}

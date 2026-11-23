@@ -1,3 +1,4 @@
+import { APP_NAME } from '@/config/withdrawals';
 import { useEffect,useState } from "react";
 import { Card,CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -497,7 +498,7 @@ function Buyers() {
       {/* Infrastructure Note */}
       <div className="flex items-center justify-center gap-2 text-[10px] font-black text-slate-700 uppercase tracking-[0.3em] py-4">
         <Info className="h-3 w-3 opacity-50" />
-        <span>Auqli Admin v1.0</span>
+        <span>{APP_NAME} admin</span>
       </div>
     </div>
   );

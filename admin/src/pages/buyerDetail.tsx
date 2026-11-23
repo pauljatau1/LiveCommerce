@@ -1,3 +1,4 @@
+import WalletAdjustments, { walletProblem, confirmWalletChange } from '@/components/common/WalletAdjustments';
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/api/axios";
@@ -137,6 +138,7 @@ function BuyerDetail() {
   const [showWalletDialog, setShowWalletDialog] = useState(false);
   const [walletOperation, setWalletOperation] = useState<'add' | 'deduct'>('add');
   const [walletAmount, setWalletAmount] = useState("");
+  const [walletLogKey, setWalletLogKey] = useState(0);
   const [walletReason, setWalletReason] = useState("");
   const [processingWallet, setProcessingWallet] = useState(false);
 
@@ -224,13 +226,15 @@ function BuyerDetail() {
   };
 
   const executeWalletOperation = async () => {
-    if (!id || !walletAmount || isNaN(parseFloat(walletAmount)) || parseFloat(walletAmount) <= 0) {
+    const problem = walletProblem(walletAmount, walletReason);
+    if (!id || problem) {
       toast({
         variant: "destructive",
-        description: "Please enter a valid amount",
+        description: problem || "Please enter a valid amount",
       });
       return;
     }
+    if (!confirmWalletChange(walletOperation, walletAmount, buyerDetails?.buyer?.firstName || 'this buyer')) return;
 
     setProcessingWallet(true);
     try {
@@ -239,8 +243,8 @@ function BuyerDetail() {
         : `/api/admin/buyers/${id}/wallet/deduct`;
 
       await api.post(endpoint, {
-        amount: parseFloat(walletAmount),
-        reason: walletReason || `Admin ${walletOperation === 'add' ? 'added' : 'deducted'} funds`,
+        amount: Number(String(walletAmount).replace(/[,\s₦]/g, '')),
+        reason: walletReason.trim(),
       });
 
       toast({
@@ -249,6 +253,7 @@ function BuyerDetail() {
 
       // Refresh buyer details
       await fetchBuyerDetails();
+      setWalletLogKey((k) => k + 1);
       setShowWalletDialog(false);
     } catch (err: any) {
       console.error(`Error ${walletOperation}ing wallet funds:`, err);
@@ -543,6 +548,8 @@ function BuyerDetail() {
                 </Button>
               </div>
 
+              <WalletAdjustments party="buyer" id={id} refreshKey={walletLogKey} />
+
               <h3 className="text-sm font-medium mb-3">Transaction Summary</h3>
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="border rounded-md p-3 space-y-2">
@@ -645,7 +652,7 @@ function BuyerDetail() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="reason">Reason (Optional)</Label>
+              <Label htmlFor="reason">Reason (required, goes in the audit log)</Label>
               <Textarea
                 id="reason"
                 placeholder={`Reason for ${walletOperation === 'add' ? 'adding' : 'deducting'} funds...`}

@@ -1,3 +1,4 @@
+import WalletAdjustments, { walletProblem, confirmWalletChange } from '@/components/common/WalletAdjustments';
 import { useState,useEffect } from "react";
 import { useParams,Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
@@ -304,6 +305,7 @@ function SellerDetail() {
   const [showDeductFundsModal, setShowDeductFundsModal] = useState(false);
   const [walletAmount, setWalletAmount] = useState<string>('');
   const [walletReason, setWalletReason] = useState<string>('');
+  const [walletLogKey, setWalletLogKey] = useState(0);
   const [walletLoading, setWalletLoading] = useState<boolean>(false);
 
   // Products state
@@ -886,17 +888,19 @@ function SellerDetail() {
 
   // Handle adding funds to wallet
   const handleAddFunds = async () => {
-    if (!id || !walletAmount || parseFloat(walletAmount) <= 0) {
-      toast.error("Please enter a valid amount");
+    const problem = walletProblem(walletAmount, walletReason);
+    if (!id || problem) {
+      toast.error(problem || "Please enter a valid amount");
       return;
     }
+    if (!confirmWalletChange('add', walletAmount, seller?.storeName || seller?.firstName || 'this seller')) return;
 
     try {
       setWalletLoading(true);
 
       const response = await SellerService.addToSellerWallet(id, {
-        amount: parseFloat(walletAmount),
-        reason: walletReason || "Manual fund addition by admin"
+        amount: Number(String(walletAmount).replace(/[,\s₦]/g, '')),
+        reason: walletReason.trim()
       });
 
       // Update the seller object with the new wallet balance
@@ -904,7 +908,7 @@ function SellerDetail() {
         if (!prevSeller) return null;
         return {
           ...prevSeller,
-          walletBalance: response.data.newBalance || (prevSeller.walletBalance + parseFloat(walletAmount))
+          walletBalance: response.data.balance ?? prevSeller.walletBalance
         };
       });
 
@@ -914,6 +918,7 @@ function SellerDetail() {
       setWalletAmount('');
       setWalletReason('');
       setShowAddFundsModal(false);
+      setWalletLogKey((k) => k + 1);
     } catch (error: any) {
       console.error("Error adding funds:", error);
       toast.error(error.response?.data?.message || "Failed to add funds to wallet");
@@ -924,17 +929,19 @@ function SellerDetail() {
 
   // Handle deducting funds from wallet
   const handleDeductFunds = async () => {
-    if (!id || !walletAmount || parseFloat(walletAmount) <= 0) {
-      toast.error("Please enter a valid amount");
+    const problem = walletProblem(walletAmount, walletReason);
+    if (!id || problem) {
+      toast.error(problem || "Please enter a valid amount");
       return;
     }
+    if (!confirmWalletChange('deduct', walletAmount, seller?.storeName || seller?.firstName || 'this seller')) return;
 
     try {
       setWalletLoading(true);
 
       const response = await SellerService.deductFromSellerWallet(id, {
-        amount: parseFloat(walletAmount),
-        reason: walletReason || "Manual fund deduction by admin"
+        amount: Number(String(walletAmount).replace(/[,\s₦]/g, '')),
+        reason: walletReason.trim()
       });
 
       // Update the seller object with the new wallet balance
@@ -942,7 +949,7 @@ function SellerDetail() {
         if (!prevSeller) return null;
         return {
           ...prevSeller,
-          walletBalance: response.data.newBalance || (prevSeller.walletBalance - parseFloat(walletAmount))
+          walletBalance: response.data.balance ?? prevSeller.walletBalance
         };
       });
 
@@ -952,6 +959,7 @@ function SellerDetail() {
       setWalletAmount('');
       setWalletReason('');
       setShowDeductFundsModal(false);
+      setWalletLogKey((k) => k + 1);
     } catch (error: any) {
       console.error("Error deducting funds:", error);
       toast.error(error.response?.data?.message || "Failed to deduct funds from wallet");
@@ -2282,6 +2290,7 @@ function SellerDetail() {
                   </div>
                 </div>
               </div>
+            <WalletAdjustments party="seller" id={id} refreshKey={walletLogKey} />
             </Card>
 
             {/* Recent Transactions */}
@@ -2927,7 +2936,7 @@ function SellerDetail() {
               <Input
                 type="number"
                 min="0"
-                step="0.01"
+                step="1"
                 placeholder="Enter amount to add"
                 value={walletAmount}
                 onChange={(e) => setWalletAmount(e.target.value)}
@@ -2940,7 +2949,7 @@ function SellerDetail() {
                 Reason
               </label>
               <Textarea
-                placeholder="Enter reason for adding funds (optional)"
+                placeholder="Why are you adding funds? (required, goes in the audit log)"
                 value={walletReason}
                 onChange={(e) => setWalletReason(e.target.value)}
                 className="bg-zinc-800 border-zinc-700 text-white"
@@ -3003,7 +3012,7 @@ function SellerDetail() {
               <Input
                 type="number"
                 min="0"
-                step="0.01"
+                step="1"
                 placeholder="Enter amount to deduct"
                 value={walletAmount}
                 onChange={(e) => setWalletAmount(e.target.value)}

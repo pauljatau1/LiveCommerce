@@ -279,7 +279,7 @@ function Resources() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="auqli_university">Auqli University</SelectItem>
+              <SelectItem value="auqli_university">Seller guides</SelectItem>
               <SelectItem value="other">Other</SelectItem>
             </SelectContent>
           </Select>
@@ -303,7 +303,7 @@ function Resources() {
                       {resource.resourceType === 'youtube' ? 'YouTube' : 'File'}
                     </span>
                     <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
-                      {resource.category === 'auqli_university' ? 'Auqli University' : 'Other'}
+                      {resource.category === 'auqli_university' ? 'Seller guides' : 'Other'}
                     </span>
                   </div>
                 </div>
@@ -407,7 +407,7 @@ function Resources() {
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="auqli_university">Auqli University</SelectItem>
+                    <SelectItem value="auqli_university">Seller guides</SelectItem>
                     <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>

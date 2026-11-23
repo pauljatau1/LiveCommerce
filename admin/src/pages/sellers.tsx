@@ -1,3 +1,4 @@
+import { APP_NAME } from '@/config/withdrawals';
 import { useEffect,useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card,CardContent } from "@/components/ui/card";
@@ -179,7 +180,7 @@ function Sellers() {
       const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
 
       doc.setFontSize(16);
-      doc.text("Auqli Sellers Report", 40, 40);
+      doc.text(`${APP_NAME} sellers report`, 40, 40);
       doc.setFontSize(10);
       doc.text(`Generated: ${new Date().toLocaleString()}`, 40, 60);
 
@@ -557,7 +558,7 @@ function Sellers() {
       {/* Network Integrity Signal */}
       <div className="flex items-center justify-center gap-2 text-[10px] font-black text-slate-700 uppercase tracking-[0.4em] py-8 border-t border-slate-900">
         <ShieldIcon className="h-3 w-3 opacity-30" />
-        <span>Auqli Admin v2.0</span>
+        <span>{APP_NAME} admin</span>
       </div>
     </div>
   );

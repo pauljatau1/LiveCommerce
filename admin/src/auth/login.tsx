@@ -1,3 +1,4 @@
+import { APP_NAME } from '@/config/withdrawals';
 import { useState } from 'react';
 import { useAuth } from '@/context/authContext';
 import { Button } from "@/components/ui/button";
@@ -102,7 +103,7 @@ function Login() {
               <Lock className="h-6 w-6 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl text-center font-bold">Auqli Admin</CardTitle>
+          <CardTitle className="text-2xl text-center font-bold">{APP_NAME} admin</CardTitle>
           <CardDescription className="text-center">
             Enter your credentials to access your account
           </CardDescription>
@@ -216,7 +217,7 @@ function Login() {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-card px-2 text-muted-foreground">
-                Auqli Admin Dashboard
+                {APP_NAME} admin
               </span>
             </div>
           </div>

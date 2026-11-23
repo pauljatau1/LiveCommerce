@@ -99,7 +99,7 @@ function Payments() {
       const url = `/api/admin/financial/summary${queryParams ? `?${queryParams}` : ''}`;
       const response = await api.get(url);
       
-      setSummary(response.data);
+      setSummary({ ...response.data, ...(response.data?.data || {}) });
     } catch (error) {
       console.error("Error fetching financial summary:", error);
       toast({
@@ -140,10 +140,11 @@ function Payments() {
       const response = await api.get(`/api/admin/financial/transactions?${queryParams}`);
       
       // Ensure transactions is set to an empty array if response.data.transactions is undefined
-      setTransactions(response.data.transactions || []);
+      const body = response.data?.data || response.data;
+      setTransactions(body.transactions || []);
       setPagination({
         ...pagination,
-        total: response.data.total || 0
+        total: body.pagination?.total ?? body.total ?? 0
       });
     } catch (error) {
       console.error("Error fetching transactions:", error);
@@ -291,7 +292,7 @@ function Payments() {
           <h2 className="text-3xl font-bold text-white">Financial Transactions</h2>
           <p className="text-muted-foreground">Monitor all financial activities on the platform</p>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => {
             // Reset all filters
             setTypeFilter('all');

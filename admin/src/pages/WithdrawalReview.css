@@ -46,3 +46,5 @@
 @media(min-width:760px){.wr-meta{display:contents}.wr-meta time:before{content:none}}
 
 .wr-desktop-title{display:none}@media(min-width:760px){.wr-desktop-title{display:inline;margin-right:10px;font-size:var(--t-h2);font-weight:var(--w-medium);color:var(--text)}.wr-count{font-size:var(--t-small)}}
+
+.wr-back{margin-left:auto;font-size:var(--t-small);white-space:nowrap}

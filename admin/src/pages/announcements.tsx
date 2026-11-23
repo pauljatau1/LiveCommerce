@@ -117,7 +117,7 @@ function Announcements() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap gap-3 justify-between items-center">
         <h1 className="text-3xl text-white font-bold">Announcements</h1>
         <Button onClick={() => {
           resetForm();

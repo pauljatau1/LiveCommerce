@@ -1,3 +1,4 @@
+import { APP_NAME } from '@/config/withdrawals';
 import { Bell,Menu,LogOut,User as UserIcon,Settings,Search,ShieldCheck,Zap,HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/context/sidebarContext";
@@ -33,15 +34,11 @@ function Navbar() {
 
         {/* Logo Section */}
         <div className="flex items-center gap-3 group px-1">
-          <div className="relative h-9 w-9 overflow-hidden rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 group-hover:scale-105 transition-transform duration-300">
-            <img
-              src="https://res.cloudinary.com/dljgzevaj/image/upload/v1733928675/Group_178_iqez5h.png"
-              alt="Auqli Logo"
-              className="h-7 w-auto object-contain"
-            />
+          <div className="relative h-9 w-9 overflow-hidden rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 group-hover:scale-105 transition-transform duration-300">
+            <span className="text-sm font-black text-emerald-400 leading-none">{APP_NAME.slice(0, 1)}</span>
           </div>
           <div className="hidden lg:flex flex-col">
-            <span className="text-sm font-black text-white tracking-tighter leading-none">AUQLI</span>
+            <span className="text-sm font-black text-white tracking-tighter leading-none">{APP_NAME}</span>
             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mt-0.5">Admin OS</span>
           </div>
         </div>

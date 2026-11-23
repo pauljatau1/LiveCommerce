@@ -130,7 +130,94 @@ router.get('/users', authMiddleware.verifyToken, adminController.getAllUsers);
  *       500:
  *         description: Internal server error
  */
+
+// Manual wallet changes: atomic, reason required, written to the admin audit log.
+// The old controller functions stay in adminController for reference.
+const walletAdjust = require('../services/adminWalletAdjust');
+const walletAdjustHandler = (party, direction) => async (req, res) => {
+  try {
+    const admin = req.admin || await require('../models/Admin').findById(req.user.id).lean();
+    const result = await walletAdjust.adjust({ party, partyId: req.params[`${party}Id`], direction, amount: req.body.amount, reason: req.body.reason, admin });
+    res.json({ success: true, message: direction === 'add' ? 'Wallet credited.' : 'Wallet debited.', ...result });
+  } catch (error) {
+    if (error instanceof walletAdjust.AdjustError) return res.status(error.status).json({ success: false, message: error.message });
+    console.error('[admin] wallet adjust', error.message);
+    res.status(500).json({ success: false, message: "Couldn't change the wallet. Nothing was changed. Try again." });
+  }
+};
+const walletHistoryHandler = (party) => async (req, res) => {
+  try { res.json({ success: true, adjustments: await walletAdjust.history(party, req.params[`${party}Id`]) }); }
+  catch (error) { res.status(500).json({ success: false, message: "Couldn't load the wallet history. Try again." }); }
+};
+router.get('/sellers/:sellerId/wallet/adjustments', authMiddleware.verifyToken, authMiddleware.isAdmin, walletHistoryHandler('seller'));
+router.get('/buyers/:buyerId/wallet/adjustments', authMiddleware.verifyToken, authMiddleware.isAdmin, walletHistoryHandler('buyer'));
+
+// Live-commerce numbers for the dashboard header: today, 7 days or 30 days
+router.get('/overview', authMiddleware.verifyToken, async (req, res) => {
+  try {
+    const days = { today: 0, '7d': 7, '30d': 30 }[req.query.range] ?? 7;
+    const since = new Date(); since.setHours(0, 0, 0, 0); since.setDate(since.getDate() - days);
+    const m = (n) => require('mongoose').model(n);
+    ['Order', 'Stream', 'Seller', 'Buyer', 'Transaction', 'Withdrawal'].forEach((n) => require(`../models/${n}`));
+    const [sales] = await m('Order').aggregate([{ $match: { paid: true, isStale: { $ne: true }, createdAt: { $gte: since } } }, { $group: { _id: null, total: { $sum: '$totalAmount' }, count: { $sum: 1 } } }]);
+    const [topUps] = await m('Transaction').aggregate([{ $match: { type: 'wallet_topup', status: 'completed', createdAt: { $gte: since } } }, { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }]);
+    const [pending] = await m('Withdrawal').aggregate([{ $match: { status: 'pending' } }, { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }]);
+    const [liveNow, shows, newSellers, newBuyers] = await Promise.all([
+      m('Stream').countDocuments({ status: 'live' }),
+      m('Stream').countDocuments({ actualStartTime: { $gte: since } }),
+      m('Seller').countDocuments({ createdAt: { $gte: since } }),
+      m('Buyer').countDocuments({ createdAt: { $gte: since } }),
+    ]);
+    res.json({ success: true, range: req.query.range || '7d', since,
+      sales: sales?.total || 0, orders: sales?.count || 0, liveNow, shows, newSellers, newBuyers,
+      topUps: topUps?.total || 0, topUpCount: topUps?.count || 0,
+      withdrawalsPending: pending?.count || 0, withdrawalsPendingAmount: pending?.total || 0 });
+  } catch (error) {
+    console.error('[admin] overview', error.message);
+    res.status(500).json({ success: false, message: "Couldn't load the numbers. Try again." });
+  }
+});
+
+// The live show an order came from and its show delivery (Shipbubble), for order detail
+router.get('/orders/:orderId/show-delivery', authMiddleware.verifyToken, async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    const Order = require('../models/Order'); const ShowDelivery = require('../models/ShowDelivery'); const Stream = require('../models/Stream');
+    const key = req.params.orderId;
+    const order = await Order.findOne(mongoose.isValidObjectId(key) ? { _id: key } : { order_id: key }).select('_id order_id').lean();
+    if (!order) return res.status(404).json({ success: false, message: "We couldn't find this order." });
+    const delivery = await ShowDelivery.findOne({ $or: [{ orders: order._id }, { 'items.order': order._id }] }).lean();
+    const streamId = delivery?.stream || (await Stream.findOne({ 'orders.orderId': order.order_id }).select('_id').lean())?._id;
+    const show = streamId ? await Stream.findById(streamId).select('title status streamType actualStartTime endTime').lean() : null;
+    res.json({ success: true,
+      show: show && { _id: show._id, title: show.title, status: show.status, type: show.streamType, startedAt: show.actualStartTime, endedAt: show.endTime },
+      delivery: delivery && { _id: delivery._id, status: delivery.status, fee: delivery.fee, depositHeld: delivery.depositHeld,
+        courier: delivery.quote?.courierName || null, deliveryEta: delivery.quote?.deliveryEta || null,
+        trackingUrl: delivery.shipbubble?.trackingUrl || null, trackingCode: delivery.shipbubble?.trackingCode || null, shipbubbleStatus: delivery.shipbubble?.status || null,
+        items: (delivery.items || []).length, fix: delivery.fix?.message ? { party: delivery.fix.party, message: delivery.fix.message } : null, lastError: delivery.lastError || null } });
+  } catch (error) {
+    console.error('[admin] order show-delivery', error.message);
+    res.status(500).json({ success: false, message: "Couldn't load the delivery. Try again." });
+  }
+});
 router.get('/sellers', authMiddleware.verifyToken, adminController.getAllSellers);
+// Seller counts for the admin Sellers page header
+router.get('/sellers/statistics', authMiddleware.verifyToken, async (req, res) => {
+  try {
+    const Seller = require('../models/Seller');
+    const Product = require('../models/Product');
+    const [totalSellers, totalVerifiedSellers, totalBusinessAccounts, totalProducts] = await Promise.all([
+      Seller.countDocuments({}),
+      Seller.countDocuments({ isVerified: true }),
+      Seller.countDocuments({ accountType: 'business' }),
+      Product.countDocuments({}),
+    ]);
+    res.json({ success: true, totalSellers, totalVerifiedSellers, totalBusinessAccounts, totalProducts });
+  } catch (error) {
+    console.error('[admin] seller statistics', error.message);
+    res.status(500).json({ success: false, message: "Couldn't load seller numbers. Try again." });
+  }
+});
 
 /**
  * @swagger
@@ -3308,7 +3395,7 @@ router.post(
   '/sellers/:sellerId/wallet/deduct',
   authMiddleware.verifyToken,
   authMiddleware.isAdmin,
-  adminController.deductFromSellerWallet
+  walletAdjustHandler('seller', 'deduct')
 );
 
 /**
@@ -3354,7 +3441,7 @@ router.post(
   '/sellers/:sellerId/wallet/add',
   authMiddleware.verifyToken,
   authMiddleware.isAdmin,
-  adminController.addToSellerWallet
+  walletAdjustHandler('seller', 'add')
 );
 
 /**
@@ -3645,7 +3732,7 @@ router.post(
   '/buyers/:buyerId/wallet/deduct',
   authMiddleware.verifyToken,
   authMiddleware.isAdmin,
-  adminController.deductFromBuyerWallet
+  walletAdjustHandler('buyer', 'deduct')
 );
 
 /**
@@ -3691,7 +3778,7 @@ router.post(
   '/buyers/:buyerId/wallet/add',
   authMiddleware.verifyToken,
   authMiddleware.isAdmin,
-  adminController.addToBuyerWallet
+  walletAdjustHandler('buyer', 'add')
 );
 
 /**

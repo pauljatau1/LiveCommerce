@@ -19,6 +19,20 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // A page's data didn't load: let the layout show one plain message with Retry
+    const method = (error.config?.method || 'get').toLowerCase();
+    if (method === 'get' && !error.config?.quiet) {
+      const status = error.response?.status;
+      const message = !error.response
+        ? "Can't reach the server. Check your connection, then retry."
+        : status && status >= 500
+          ? (error.response.data?.message && typeof error.response.data.message === 'string' && error.response.data.message.length < 140
+              ? error.response.data.message
+              : "Some data on this page didn't load. Try again.")
+          : '';
+      if (message) window.dispatchEvent(new CustomEvent('admin:load-failed', { detail: message }));
+    }
+
     // Handle specific error responses
     if (error.response) {
       const { status, data } = error.response;

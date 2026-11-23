@@ -216,7 +216,7 @@ export default function CategoriesPage() {
               <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6">
                 <div className="w-full md:w-32 h-40 md:h-32 flex-shrink-0">
                   <img
-                    src={category.image.url}
+                    src={category.image?.url}
                     alt={category.name}
                     className="object-cover rounded-md w-full h-full"
                   />

@@ -854,7 +854,7 @@ function Products() {
           <h2 className="text-3xl font-bold text-white">Products</h2>
           <p className="text-muted-foreground">Manage your product inventory ({pagination.totalProducts} products)</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-3">
           <Dialog open={showNoProductsConfirmation} onOpenChange={setShowNoProductsConfirmation}>
             <DialogTrigger asChild>
               <Button 
