@@ -1,26 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import { useState,useEffect } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card,CardContent,CardHeader,CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog,DialogContent,DialogHeader,DialogTitle,DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Loader2,CheckCircle,XCircle } from "lucide-react";
 import { api } from "@/api/axios";
 import { toast } from "sonner";
 
+interface RefundRequest {
+  _id: string;
+  status: string;
+  order?: { order_id?: string };
+  buyer?: { firstName?: string; lastName?: string };
+  seller?: { businessName?: string; storeName?: string; firstName?: string; lastName?: string };
+  sellerResponse?: { partialRefundAmount?: number; message?: string; date?: string };
+}
+
+const errorMessage = (error: unknown, fallback: string) =>
+  (error as { response?: { data?: { message?: string } } })?.response?.data?.message || fallback;
+
 const ReturnRequests = () => {
-  const [refundRequests, setRefundRequests] = useState([]);
+  const [refundRequests, setRefundRequests] = useState<RefundRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [selectedRequest, setSelectedRequest] = useState<RefundRequest | null>(null);
   const [adminNote, setAdminNote] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -40,7 +52,7 @@ const ReturnRequests = () => {
     }
   };
 
-  const handleApproveClick = (request) => {
+  const handleApproveClick = (request: RefundRequest) => {
     setSelectedRequest(request);
     setShowApproveDialog(true);
   };
@@ -48,7 +60,7 @@ const ReturnRequests = () => {
   const handleApproveRefund = async () => {
     try {
       setIsProcessing(true);
-      const response = await api.post(`/api/returns/${selectedRequest._id}/admin/process-refund`, {
+      const response = await api.post(`/api/returns/${selectedRequest?._id}/admin/process-refund`, {
         action: 'approve',
         note: adminNote
       });
@@ -60,13 +72,13 @@ const ReturnRequests = () => {
       }
     } catch (error) {
       console.error("Error processing refund:", error);
-      toast.error(error.response?.data?.message || "Failed to process refund");
+      toast.error(errorMessage(error, "Failed to process refund"));
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleRejectRefund = async (requestId) => {
+  const handleRejectRefund = async (requestId: string) => {
     try {
       const response = await api.post(`/api/returns/${requestId}/admin/process-refund`, {
         action: 'reject',
@@ -163,7 +175,7 @@ const ReturnRequests = () => {
                     <Badge
                       variant={
                         request.status === "REFUNDED"
-                          ? "success"
+                          ? "secondary"
                           : request.status === "REJECTED"
                           ? "destructive"
                           : "default"
@@ -172,7 +184,7 @@ const ReturnRequests = () => {
                       {request.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{new Date(request.sellerResponse?.date).toLocaleDateString()}</TableCell>
+                  <TableCell>{request.sellerResponse?.date ? new Date(request.sellerResponse.date).toLocaleDateString() : '—'}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       {request.status === "PENDING_ADMIN_REVIEW" && (

@@ -48,7 +48,7 @@ function Announcements() {
       const response = await api.get("/api/admin/announcements");
       setAnnouncements(response.data);
     } catch (error) {
-      toast.error("Failed to fetch announcements ", error);
+      toast.error("Couldn't load announcements. Try again.");
     } finally {
       setIsLoading(false);
     }

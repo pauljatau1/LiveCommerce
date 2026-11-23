@@ -1,38 +1,38 @@
-import { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useEffect,useState } from "react";
+import { Card,CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
 import {
-  Loader2,
-  Eye,
-  Search,
-  Filter,
-  FileDown,
-  User,
-  Mail,
-  Phone,
-  Calendar,
-  ShieldCheck,
-  ShieldAlert,
-  Globe,
-  ChevronLeft,
-  ChevronRight,
-  Info
+Loader2,
+Eye,
+Search,
+Filter,
+FileDown,
+User,
+Mail,
+Phone,
+Calendar,
+ShieldCheck,
+ShieldAlert,
+Globe,
+ChevronLeft,
+ChevronRight,
+Info
 } from "lucide-react";
 import { api } from "@/api/axios";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar,AvatarFallback,AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 interface Buyer {
@@ -85,7 +85,7 @@ function Buyers() {
   const [buyers, setBuyers] = useState<Buyer[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [exporting, setExporting] = useState(false);
+  const [exporting] = useState(false);
 
   useEffect(() => {
     fetchBuyers();

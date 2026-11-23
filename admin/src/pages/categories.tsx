@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, Loader2, ChevronDown, ChevronRight, Percent, Package2, ShoppingCart, Eye, BarChart2, Calendar, Check, Search, Filter } from "lucide-react"
+import { useState,useEffect } from "react"
+import { Plus,Pencil,Trash2,Loader2,Percent,Package2,ShoppingCart,BarChart2,Calendar,Search,Filter } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import AddCategoryModal from "@/components/dashboard/add-category-modal"
@@ -7,8 +7,8 @@ import { toast } from "sonner"
 import { api } from "@/api/axios"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select"
+import { Pagination,PaginationContent,PaginationItem,PaginationLink,PaginationNext,PaginationPrevious } from "@/components/ui/pagination"
 
 interface SubSubCategory {
   name: string
@@ -58,7 +58,6 @@ export default function CategoriesPage() {
   const [selectedCategory, setSelectedCategory] = useState<Category | undefined>()
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add')
   const [loading, setLoading] = useState(true)
-  const [expandedSubCategories, setExpandedSubCategories] = useState<Record<string, boolean>>({})
   const [editingFee, setEditingFee] = useState<{id: string, fee: number} | null>(null)
   
   // New state for search, pagination and filter
@@ -135,13 +134,6 @@ export default function CategoriesPage() {
     setSelectedCategory(undefined)
     setModalMode('add')
     setIsModalOpen(true)
-  }
-
-  const toggleSubCategory = (categoryId: string) => {
-    setExpandedSubCategories(prev => ({
-      ...prev,
-      [categoryId]: !prev[categoryId]
-    }))
   }
 
   const handleUpdatePlatformFee = async (categoryId: string) => {

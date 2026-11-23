@@ -1,18 +1,17 @@
-import { Bell, Menu, LogOut, User as UserIcon, Settings, Search, ShieldCheck, Zap, HelpCircle } from "lucide-react";
+import { Bell,Menu,LogOut,User as UserIcon,Settings,Search,ShieldCheck,Zap,HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/context/sidebarContext";
 import { useAuth } from "@/context/authContext";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+DropdownMenu,
+DropdownMenuContent,
+DropdownMenuItem,
+DropdownMenuLabel,
+DropdownMenuSeparator,
+DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar,AvatarFallback,AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
 function Navbar() {
   const { toggle } = useSidebar();

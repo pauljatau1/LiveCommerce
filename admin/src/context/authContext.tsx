@@ -5,7 +5,9 @@ import { api, loginAdmin, registerAdmin, getProfile } from '@/api/axios';
 interface User {
   username: string;
   email?: string;
-  // Add other user properties you need
+  firstName?: string;
+  lastName?: string;
+  profileImage?: string;
 }
 
 interface AuthContextType {

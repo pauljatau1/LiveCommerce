@@ -1,28 +1,28 @@
-import { useEffect, useState } from 'react'
-import { Pencil, Trash2, Plus, Loader2, Upload, X, Eye, Tag, Star, BarChart2, Package2, Store, Info, AlertTriangle, MinusCircle, Edit2 } from "lucide-react"
+import { useEffect,useState } from 'react'
+import { Trash2,Loader2,Upload,X,Eye,Star,BarChart2,Package2,Store,Info,AlertTriangle,MinusCircle,Edit2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table"
 import { api } from "@/api/axios"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Tooltip,TooltipContent,TooltipProvider,TooltipTrigger } from "@/components/ui/tooltip"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose,
-  DialogFooter,
+Dialog,
+DialogContent,
+DialogDescription,
+DialogHeader,
+DialogTitle,
+DialogTrigger,
+DialogClose,
+DialogFooter,
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { Link } from 'react-router-dom'
@@ -518,10 +518,6 @@ function Products() {
     }
   }
 
-  const handleSellerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSellerId(e.target.value)
-  }
-
   const downloadTemplate = async () => {
     try {
       const response = await api.get('/api/admin/products/csv-template', {
@@ -672,19 +668,6 @@ function Products() {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(price);
-  }
-
-  // Format date to readable format
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
   }
 
   // Get relative time (e.g., "2 days ago")

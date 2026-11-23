@@ -1,47 +1,47 @@
 import WithdrawalReview from './WithdrawalReview';
-import {REVIEWED_WITHDRAWALS} from '@/config/withdrawals';
-import { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { REVIEWED_WITHDRAWALS } from '@/config/withdrawals';
+import { useState,useEffect,useMemo } from "react";
+import { Card,CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
 import {
-  Eye,
-  Loader2,
-  AlertCircle,
-  Building2,
-  Search,
-  DollarSign,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  ArrowDownToLine,
-  Copy,
-  Banknote,
-  TrendingDown,
-  ExternalLink,
+Eye,
+Loader2,
+AlertCircle,
+Building2,
+Search,
+DollarSign,
+Clock,
+CheckCircle2,
+XCircle,
+ArrowDownToLine,
+Copy,
+Banknote,
+TrendingDown,
+ExternalLink,
 } from "lucide-react";
 import { api } from "@/api/axios";
 import { toast } from "sonner";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
+Dialog,
+DialogContent,
+DialogHeader,
+DialogTitle,
+DialogFooter,
+DialogDescription,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
+Alert,
+AlertDescription,
+AlertTitle,
 } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -115,7 +115,7 @@ function Withdrawals() {
   const [transferStatus, setTransferStatus] = useState<{ loading: boolean; error: string | null }>({ loading: false, error: null });
   const [transferPolling, setTransferPolling] = useState<NodeJS.Timeout | null>(null);
   const [requiresOTP, setRequiresOTP] = useState(false);
-  const [transferCode, setTransferCode] = useState<string | null>(null);
+  const [, setTransferCode] = useState<string | null>(null);
   const [otpValue, setOtpValue] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');

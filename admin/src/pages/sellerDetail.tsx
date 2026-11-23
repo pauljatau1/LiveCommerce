@@ -1,89 +1,77 @@
-import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useState,useEffect } from "react";
+import { useParams,Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar,AvatarFallback,AvatarImage } from "@/components/ui/avatar";
+import { Tabs,TabsContent,TabsList,TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/api/axios";
 import { SellerService } from "@/services/sellerService";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
+Dialog,
+DialogContent,
+DialogDescription,
+DialogFooter,
+DialogHeader,
+DialogTitle
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+DropdownMenu,
+DropdownMenuContent,
+DropdownMenuItem,
+DropdownMenuLabel,
+DropdownMenuSeparator,
+DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import {
-  AlertCircle,
-  ArrowLeft,
-  Ban,
-  Briefcase,
-  Building,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  DollarSign,
-  Download,
-  ExternalLink,
-  Eye,
-  File,
-  FileText,
-  LineChart,
-  Loader2,
-  Mail,
-  MapPin,
-  Megaphone,
-  MessageCircle,
-  Package,
-  Phone,
-  Settings,
-  ShieldCheck,
-  Star,
-  Store,
-  Tags,
-  UserCheck,
-  Users,
-  Video,
-  Wallet,
-  XCircle,
-  Pencil,
-  Search,
-  Filter,
-  X,
-  Trash2,
-  Tag,
-  Package2,
-  BarChart2,
-  PlusCircle,
-  MinusCircle,
-  ArrowUpRight,
-  ArrowDownRight,
-  CreditCard,
-  Globe,
-  Image
+AlertCircle,
+ArrowLeft,
+Ban,Building,CheckCircle2,
+Clock,
+DollarSign,ExternalLink,
+Eye,
+File,
+FileText,
+LineChart,
+Loader2,
+Mail,
+MapPin,MessageCircle,
+Package,Settings,
+ShieldCheck,
+Star,
+Store,
+Tags,
+UserCheck,
+Users,
+Video,
+Wallet,
+XCircle,
+Pencil,
+Search,
+Filter,
+X,
+Trash2,
+Tag,
+Package2,PlusCircle,
+MinusCircle,
+ArrowUpRight,
+ArrowDownRight,
+CreditCard,
+Globe,
+Image
 } from "lucide-react";
 import EditSellerForm from "@/components/sellers/EditSellerForm";
 import { toast } from "sonner";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
 
 // Interface declarations (same as in sellers.tsx)
@@ -303,7 +291,7 @@ function SellerDetail() {
   const [loading, setLoading] = useState(true);
   const [seller, setSeller] = useState<Seller | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
-  const [recentActivity, setRecentActivity] = useState<any>(null);
+  const [, setRecentActivity] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);

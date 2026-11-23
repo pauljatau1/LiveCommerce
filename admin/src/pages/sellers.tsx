@@ -1,45 +1,43 @@
-import { useEffect, useState } from "react";
+import { useEffect,useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card,CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+Table,
+TableBody,
+TableCell,
+TableHead,
+TableHeader,
+TableRow,
 } from "@/components/ui/table";
 import {
-  Building2,
-  Mail,
-  Eye,
-  Store,
-  ShieldCheck,
-  Package,
-  Users,
-  Zap,
-  Search,
-  MoreVertical,
-  FileDown,
-  Loader2,
-  CheckCircle2,
-  Star,
-  XCircle,
-  ShieldIcon,
-  ChevronLeft,
-  ChevronRight
+Building2,
+Mail,
+Eye,
+Store,
+ShieldCheck,
+Package,
+Users,
+Zap,
+Search,
+MoreVertical,
+FileDown,
+Loader2,
+CheckCircle2,
+Star,
+XCircle,
+ShieldIcon
 } from "lucide-react";
 import { api } from "@/api/axios";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar,AvatarFallback,AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs,TabsList,TabsTrigger } from "@/components/ui/tabs";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
+DropdownMenu,
+DropdownMenuContent,
+DropdownMenuItem,
+DropdownMenuTrigger,
+DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
