@@ -1,5 +1,6 @@
 import { Component, ReactNode, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { AREA_LABELS, areaForPath, useAccess } from '@/config/access';
 
 // A page that crashes shows a plain message with Retry instead of a blank screen.
 class Boundary extends Component<{ children: ReactNode; resetKey: string }, { failed: boolean }> {
@@ -41,7 +42,20 @@ function LoadProblem() {
   );
 }
 
+// A page outside this admin's access says so, instead of loading and failing.
+function NoAccess({ area }: { area: string }) {
+  return (
+    <div role="alert" className="mx-auto mt-16 max-w-md rounded-xl border border-zinc-800 bg-zinc-900 p-6 text-center">
+      <h2 className="text-lg font-semibold text-white">You don't have access to {AREA_LABELS[area] || 'this page'}</h2>
+      <p className="mt-2 text-sm text-zinc-400">Ask a super admin to add it to your access.</p>
+    </div>
+  );
+}
+
 export default function PageGuard({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const { can, access } = useAccess();
+  const area = areaForPath(location.pathname);
+  if (access && !can(area)) return <NoAccess area={area} />;
   return <><LoadProblem /><Boundary resetKey={location.pathname}>{children}</Boundary></>;
 }

@@ -72,7 +72,12 @@ router.post('/login', adminLoginLimiter, adminController.login);
 
 // All subsequent admin routes are gated, including legacy endpoints which
 // formerly checked only that the request had a valid token.
+// Invites: open to anyone holding a valid invite link (no admin login yet)
+router.use('/invites', require('./adminInviteRoutes').publicRouter);
 router.use(authMiddleware.adminAuth);
+// Each admin only reaches the areas they were given (config/adminAccess.js)
+router.use(require('../config/adminAccess').enforce('v1'));
+router.use('/team', require('./adminInviteRoutes').teamRouter);
 router.post('/logout', async (req, res) => {
   try {
     await req.admin.constructor.updateOne({ _id: req.admin._id }, { $inc: { authVersion: 1 } });

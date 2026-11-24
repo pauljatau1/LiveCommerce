@@ -3,6 +3,8 @@ import { BrowserRouter as Router,Routes,Route,Navigate } from 'react-router-dom'
 import { AuthProvider } from '@/context/authContext';
 import Login from '@/auth/login';
 import Register from '@/auth/register';
+import AcceptInvite from '@/auth/acceptInvite';
+import Team from '@/pages/team';
 import LegacyNotice from '@/components/common/LegacyNotice';
 import ErrorLogs from '@/pages/errorLogs';
 import Dashboard from '@/pages/dashboard';
@@ -55,6 +57,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/create-admin" element={<Register />} />
+          <Route path="/invite/:token" element={<AcceptInvite />} />
           <Route path="/logout" element={<Logout />} />
           <Route
             path="/dashboard"
@@ -90,6 +93,7 @@ function App() {
             <Route path="/dashboard/pickup-requests" element={<><LegacyNotice feature="Pickup requests" /><PickupRequests /></>} />
             <Route path="/dashboard/buyer-notifications" element={<><LegacyNotice feature="Buyer notifications" /><BuyerNotifications /></>} />
             <Route path="/dashboard/terminal-shipments" element={<><LegacyNotice feature="Terminal shipments" /><TerminalShipments /></>} />
+            <Route path="/dashboard/team" element={<Team />} />
             <Route path="/dashboard/system-logs" element={<SystemLogs />} />
             <Route path="/dashboard/error-logs" element={<ErrorLogs />} />
           </Route>

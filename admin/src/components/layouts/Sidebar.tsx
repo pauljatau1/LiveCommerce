@@ -4,6 +4,8 @@ import { useSidebar } from '@/context/sidebarContext';
 import { useAuth } from '@/context/authContext';
 import { X, ChevronDown, ChevronRight, LayoutDashboard, Users, ShoppingBag, Package, Folder, LogOut, Megaphone, Image, DollarSign, Video, FileText, PackageOpen, Building2, RotateCcw, Truck, Bell, AlertTriangle, Terminal, FolderTree, Zap, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { UserCog } from 'lucide-react';
+import { areaForPath, useAccess } from '@/config/access';
 import { useEffect, useState } from 'react';
 import { api } from '@/api/axios';
 
@@ -63,6 +65,9 @@ const navGroups = [
     { icon: Image, label: 'Banners', path: '/dashboard/banners' },
     { icon: Bell, label: 'Buyer Notifications', path: '/dashboard/buyer-notifications' },
   ] },
+  { title: "Team", items: [
+    { icon: UserCog, label: 'Team and access', path: '/dashboard/team' },
+  ] },
   { title: "System", items: [
     { icon: FileText, label: 'System Logs', path: '/dashboard/system-logs' },
     { icon: AlertTriangle, label: 'Error Logs', path: '/dashboard/error-logs' },
@@ -73,6 +78,7 @@ function Sidebar() {
   const location = useLocation();
   const { isOpen, close } = useSidebar();
   const { logout } = useAuth();
+  const { can } = useAccess();
 
   // Pending counts state
   const [pendingSellersCount, setPendingSellersCount] = useState(0);
@@ -87,6 +93,7 @@ function Sidebar() {
     "People": true,
     "Selling": true,
     "Money": true,
+    "Team": true,
     "Delivery": true,
     "Content": true,
     "System": true
@@ -106,6 +113,7 @@ function Sidebar() {
   const fetchPendingCounts = async () => {
     try {
       // Fetch pending sellers
+      if (can('sellers')) {
       const sellersResponse = await api.get("/api/admin/sellers");
       let sellers: SimpleSeller[] = [];
       if (Array.isArray(sellersResponse.data.sellers)) {
@@ -115,14 +123,18 @@ function Sidebar() {
       }
       const pendingSellers = sellers.filter(seller => !seller.isVerified).length;
       setPendingSellersCount(pendingSellers);
+      }
 
       // Fetch pending refund requests
+      if (can('delivery')) {
       const refundsResponse = await api.get("/api/order/refund-requests");
       const refundRequests = (refundsResponse.data.refundRequests || []) as SimpleRefundRequest[];
       const pendingRefunds = refundRequests.filter(req => req.refundRequest.status === "pending").length;
       setPendingRefundsCount(pendingRefunds);
+      }
 
       // Fetch pending withdrawals
+      if (can('withdrawals')) {
       const withdrawalsResponse = await api.get("/api/admin/withdrawals");
       const withdrawals = (withdrawalsResponse.data || []) as SimpleWithdrawal[];
       const pendingWithdrawals = withdrawals.filter(withdrawal => withdrawal.status === "pending").length;
@@ -132,12 +144,15 @@ function Sidebar() {
       const bankRequestsResponse = await api.get("/api/admin/bank-requests/stats");
       const bankRequestStats = bankRequestsResponse.data.data as BankRequestStats;
       setPendingBankRequestsCount(bankRequestStats.pending);
+      }
 
       // Fetch pending pickup requests
+      if (can('delivery')) {
       const pickupRequestsResponse = await api.get("/api/pickup");
       const pickupRequests = pickupRequestsResponse.data.data?.pickupRequests || [];
       const pendingPickup = pickupRequests.filter((req: any) => req.status === "pending").length;
       setPendingPickupRequestsCount(pendingPickup);
+      }
 
     } catch (err) {
       console.error("Error fetching pending counts:", err);
@@ -185,7 +200,7 @@ function Sidebar() {
         {/* Navigation Info */}
         <div className="p-4 pt-6 flex-grow overflow-y-auto overflow-x-hidden scrollbar-none hover:scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
           <div className="space-y-8">
-            {navGroups.map((group) => (
+            {navGroups.map((g) => ({ ...g, items: g.items.filter((i) => can(areaForPath(i.path))) })).filter((g) => g.items.length > 0).map((group) => (
               <div key={group.title} className="space-y-2">
                 <div
                   className="flex items-center justify-between px-3 py-1 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] cursor-pointer hover:text-slate-300 transition-all group/header"

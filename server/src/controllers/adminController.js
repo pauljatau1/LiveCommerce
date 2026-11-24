@@ -203,7 +203,7 @@ exports.login = async (req, res) => {
       });
     }
 
-    if (!isAllowedAdminEmail(admin.email)) {
+    if (!require('../config/adminAccess').hasAdminAccess(admin)) {
       return res.status(403).json({ success: false, message: "This account doesn't have admin access." });
     }
 
@@ -273,8 +273,10 @@ exports.login = async (req, res) => {
 
 exports.getProfile = async (req, res) => {
   try {
-    const admin = await Admin.findById(req.user.id);
-    res.json(admin);
+    const admin = await Admin.findById(req.user.id).select('-password').lean();
+    if (!admin) return res.status(404).json({ success: false, message: "We couldn't find your admin account." });
+    // What this admin can see and change, for the menu and pages
+    res.json({ ...admin, permissions: undefined, access: require('../config/adminAccess').accessSummary(admin) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
