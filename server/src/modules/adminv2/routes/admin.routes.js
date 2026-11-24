@@ -4,6 +4,7 @@ const { adminAuth } = require('../../../middlewares/authMiddleware');
 
 const router = express.Router();
 router.use(adminAuth);
+router.use(require('../../../config/adminAccess').enforce('v2'));
 router.use('/withdrawals',require('../../../routes/reviewedWithdrawalRoutes'));
 
 router.post('/test-email', adminAuth, require('../../../controllers/testEmailController').testEmail);

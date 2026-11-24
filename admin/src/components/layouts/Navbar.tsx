@@ -85,7 +85,7 @@ function Navbar() {
               <div className="hidden sm:flex flex-col items-start gap-0.5 text-left">
                 <span className="text-xs font-bold text-white leading-none whitespace-nowrap">{user?.username || 'Admin'}</span>
                 <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-none px-1.5 py-0 h-4 text-[8px] font-black uppercase tracking-tighter">
-                  System Super
+                  {user?.access?.super ? 'Super admin' : 'Team'}
                 </Badge>
               </div>
             </Button>

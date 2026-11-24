@@ -33,7 +33,7 @@ exports.isAdmin = async (req, res, next) => {
     }
     const admin = await Admin.findById(req.user.id);
     
-    if (!admin || !isAllowedAdminEmail(admin.email)) {
+    if (!admin || !require('../config/adminAccess').hasAdminAccess(admin)) {
       return res.status(403).json({ success: false, message: "This account doesn't have admin access." });
     }
 

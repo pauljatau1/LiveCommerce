@@ -5,6 +5,7 @@ import { api, loginAdmin, registerAdmin, getProfile } from '@/api/axios';
 interface User {
   username: string;
   email?: string;
+  access?: { super: boolean; permissions: Record<string, 'none' | 'view' | 'manage'> };
   firstName?: string;
   lastName?: string;
   profileImage?: string;
@@ -96,8 +97,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const { token, username: userName, email } = await loginAdmin({ username, password });
       localStorage.setItem('token', token);
 
-      // Set user info from login response
-      const userData = { username: userName, email };
+      // Load what this admin can see and change (menu and pages follow it)
+      let userData: User = { username: userName, email };
+      try { userData = { ...userData, ...(await getProfile()) }; } catch { /* the dashboard reloads the profile */ }
       setUser(userData);
 
       navigate('/dashboard');
